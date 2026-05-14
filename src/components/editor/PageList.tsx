@@ -62,102 +62,115 @@ export function PageList({
         </span>
       </div>
 
-      <ul
-        className="flex-1 overflow-y-auto py-1"
-        role="list"
-        aria-label="Chapter pages"
-      >
-        {pages.map((page) => {
-          const isSelected = selectedPageId === page.id;
-          const isEditing = editingId === page.id;
+      <div className="flex min-h-0 flex-1 flex-col">
+        <ul
+          className="flex flex-1 flex-col overflow-y-auto py-1"
+          role="list"
+          aria-label="Chapter pages"
+        >
+          {pages.map((page) => {
+            const isSelected = selectedPageId === page.id;
+            const isEditing = editingId === page.id;
 
-          return (
-            <li key={page.id}>
-              <div
-                className={cn(
-                  "group relative flex items-center gap-2 px-3 py-2 cursor-pointer select-none transition-colors duration-100",
-                  isSelected
-                    ? "border-l-2 border-rune-gold bg-rune-gold/10"
-                    : "border-l-2 border-transparent hover:bg-rune-gold/5 hover:border-rune-gold/30"
-                )}
-                onClick={() => {
-                  if (!isEditing) onSelectPage(page.id);
-                }}
-                role="button"
-                aria-current={isSelected ? "page" : undefined}
-                tabIndex={0}
-                onKeyDown={(e) => {
-                  if ((e.key === "Enter" || e.key === " ") && !isEditing) {
-                    e.preventDefault();
-                    onSelectPage(page.id);
-                  }
-                }}
-              >
-                <FileText
-                  size={12}
-                  className="shrink-0"
-                  style={{
-                    color: isSelected ? "var(--color-gold)" : "var(--color-mist)",
+            return (
+              <li key={page.id} className="shrink-0">
+                <div
+                  className={cn(
+                    "group relative flex cursor-pointer select-none items-center gap-2 px-3 py-2 transition-colors duration-100",
+                    isSelected
+                      ? "border-l-2 border-rune-gold bg-rune-gold/10"
+                      : "border-l-2 border-transparent hover:border-rune-gold/30 hover:bg-rune-gold/5"
+                  )}
+                  onClick={() => {
+                    if (!isEditing) onSelectPage(page.id);
                   }}
-                  aria-hidden
-                />
-
-                {isEditing ? (
-                  <input
-                    ref={inputRef}
-                    value={editingTitle}
-                    onChange={(e) => setEditingTitle(e.target.value)}
-                    onBlur={() => commitEdit(page.id)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        commitEdit(page.id);
-                      }
-                      if (e.key === "Escape") setEditingId(null);
+                  role="button"
+                  aria-current={isSelected ? "page" : undefined}
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if ((e.key === "Enter" || e.key === " ") && !isEditing) {
+                      e.preventDefault();
+                      onSelectPage(page.id);
+                    }
+                  }}
+                >
+                  <FileText
+                    size={14}
+                    className="shrink-0"
+                    style={{
+                      color: isSelected
+                        ? "var(--color-gold)"
+                        : "var(--color-mist)",
                     }}
-                    onClick={(e) => e.stopPropagation()}
-                    className="min-w-0 flex-1 bg-transparent text-xs outline-none"
-                    style={{ color: "var(--color-parchment)" }}
-                    aria-label="Rename page"
+                    aria-hidden
                   />
-                ) : (
-                  <span
-                    className={cn(
-                      "min-w-0 flex-1 truncate text-xs",
-                      isSelected
-                        ? "text-rune-parchment"
-                        : "text-rune-parchment/60 group-hover:text-rune-parchment/80"
-                    )}
-                    onDoubleClick={(e) => startEditing(page, e)}
-                    title={page.title}
-                  >
-                    {page.title}
-                  </span>
-                )}
 
-                {!isEditing && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (pages.length > 1) onDeletePage(page.id);
-                    }}
-                    disabled={pages.length <= 1}
-                    aria-label={`Delete ${page.title}`}
-                    className="shrink-0 rounded p-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-100 disabled:pointer-events-none hover:bg-rune-crimson/20"
-                    style={{ color: "var(--color-crimson)" }}
-                  >
-                    <Trash2 size={11} />
-                  </button>
-                )}
-              </div>
-            </li>
-          );
-        })}
-      </ul>
+                  {isEditing ? (
+                    <input
+                      ref={inputRef}
+                      value={editingTitle}
+                      onChange={(e) => setEditingTitle(e.target.value)}
+                      onBlur={() => commitEdit(page.id)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          commitEdit(page.id);
+                        }
+                        if (e.key === "Escape") setEditingId(null);
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      className="min-w-0 flex-1 bg-transparent text-sm outline-none"
+                      style={{ color: "var(--color-parchment)" }}
+                      aria-label="Rename page"
+                    />
+                  ) : (
+                    <span
+                      className={cn(
+                        "min-w-0 flex-1 truncate text-sm",
+                        isSelected
+                          ? "text-rune-parchment"
+                          : "text-rune-parchment/60 group-hover:text-rune-parchment/80"
+                      )}
+                      onDoubleClick={(e) => startEditing(page, e)}
+                      title={page.title}
+                    >
+                      {page.title}
+                    </span>
+                  )}
+
+                  {!isEditing && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (pages.length > 1) onDeletePage(page.id);
+                      }}
+                      disabled={pages.length <= 1}
+                      aria-label={`Delete ${page.title}`}
+                      className="shrink-0 rounded p-0.5 opacity-0 transition-opacity duration-100 hover:bg-rune-crimson/20 group-hover:opacity-100 disabled:pointer-events-none"
+                      style={{ color: "var(--color-crimson)" }}
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  )}
+                </div>
+              </li>
+            );
+          })}
+          <li
+            className="min-h-[3rem] flex-1 list-none"
+            aria-hidden="true"
+            title="Double-click to add page"
+            onDoubleClick={(e) => {
+              e.preventDefault();
+              onAddPage();
+            }}
+          />
+        </ul>
+      </div>
 
       <div
-        className="p-2"
+        className="shrink-0 p-2"
         style={{ borderTop: "1px solid var(--color-border)" }}
       >
         <button

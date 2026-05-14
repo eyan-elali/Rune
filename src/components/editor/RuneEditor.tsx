@@ -5,10 +5,10 @@ import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import CharacterCount from "@tiptap/extension-character-count";
 import { useEffect, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { cn } from "@/lib/utils";
-import { updatePage } from "@/lib/actions/pages";
+import { updatePage, renamePage } from "@/lib/actions/pages";
 import { useEditorStore } from "@/store/editorStore";
-import { useModeStore } from "@/store/modeStore";
 import type { Page } from "@/lib/types";
 
 interface RuneEditorProps {
@@ -16,6 +16,7 @@ interface RuneEditorProps {
   chapterId: string;
   currentPage: Page | null;
   onPageUpdated: (pageId: string, updates: Partial<Page>) => void;
+  onRenamePage: (pageId: string, title: string) => void;
 }
 
 interface ToolbarPos {
@@ -28,11 +29,12 @@ export default function RuneEditor({
   chapterId,
   currentPage,
   onPageUpdated,
+  onRenamePage,
 }: RuneEditorProps) {
   const { setIsSaving, setLastSaved } = useEditorStore();
-  const mode = useModeStore((s) => s.mode);
   const [showSaved, setShowSaved] = useState(false);
   const [toolbarPos, setToolbarPos] = useState<ToolbarPos | null>(null);
+  const [titleDraft, setTitleDraft] = useState(currentPage?.title ?? "");
 
   const currentPageRef = useRef<Page | null>(currentPage);
   const onPageUpdatedRef = useRef(onPageUpdated);
@@ -46,8 +48,8 @@ export default function RuneEditor({
   }, [onPageUpdated]);
 
   useEffect(() => {
-    console.log("[RuneEditor] mode:", mode);
-  }, [mode]);
+    setTitleDraft(currentPage?.title ?? "");
+  }, [currentPage?.id, currentPage?.title]);
 
   const editor = useEditor({
     extensions: [
@@ -56,6 +58,10 @@ export default function RuneEditor({
       }),
       Placeholder.configure({
         placeholder: "Begin your story...",
+        emptyEditorClass: "is-editor-empty",
+        emptyNodeClass: "is-empty",
+        showOnlyWhenEditable: true,
+        showOnlyCurrent: true,
       }),
       CharacterCount,
     ],
@@ -135,6 +141,19 @@ export default function RuneEditor({
   const wordCount =
     (editor?.storage.characterCount?.words?.() as number | undefined) ?? 0;
 
+  async function commitTitle() {
+    const page = currentPageRef.current;
+    if (!page) return;
+    const trimmed = titleDraft.trim() || "Untitled";
+    if (trimmed === page.title) {
+      setTitleDraft(page.title);
+      return;
+    }
+    setTitleDraft(trimmed);
+    onRenamePage(page.id, trimmed);
+    await renamePage(page.id, trimmed);
+  }
+
   if (!currentPage) {
     return (
       <div className="flex h-full flex-1 items-center justify-center">
@@ -148,7 +167,7 @@ export default function RuneEditor({
   return (
     <div
       className="relative flex h-full flex-1 flex-col overflow-hidden"
-      style={{ background: "var(--color-ink)" }}
+      style={{ background: "var(--color-sepia)" }}
     >
       {/* Floating format toolbar — appears on text selection */}
       {editor && toolbarPos && (
@@ -217,19 +236,43 @@ export default function RuneEditor({
       )}
 
       {/* Scrollable writing area */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="px-6 py-10">
-          <div
-            className="mx-auto max-w-[680px] rounded-lg px-10 py-12"
-            style={{
-              background: "var(--color-sepia)",
-              border: "1px solid var(--color-border)",
-              boxShadow: "0 2px 40px rgba(0,0,0,0.35)",
-              minHeight: "calc(100vh - 160px)",
+      <div
+        className="flex-1 overflow-y-auto"
+        style={{ background: "var(--color-sepia)" }}
+      >
+        <div className="mx-auto w-full max-w-[800px] px-6 py-10 pb-16 min-h-[calc(100vh-9rem)]">
+          <input
+            id={`page-title-${currentPage.id}`}
+            type="text"
+            value={titleDraft}
+            onChange={(e) => setTitleDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                (e.target as HTMLInputElement).blur();
+              }
+              if (e.key === "Escape") {
+                e.preventDefault();
+                flushSync(() => setTitleDraft(currentPage.title));
+                (e.target as HTMLInputElement).blur();
+              }
             }}
-          >
-            <EditorContent editor={editor} />
-          </div>
+            className="mb-8 w-full bg-transparent font-rune-serif text-3xl font-normal leading-snug tracking-tight outline-none ring-0 focus:outline-none"
+            style={{
+              color: "var(--color-parchment)",
+              borderBottom: "1px solid transparent",
+            }}
+            onFocus={(e) => {
+              e.currentTarget.style.borderBottomColor =
+                "var(--color-border-strong)";
+            }}
+            onBlur={(e) => {
+              e.currentTarget.style.borderBottomColor = "transparent";
+              void commitTitle();
+            }}
+            aria-label="Page title"
+          />
+          {editor ? <EditorContent editor={editor} /> : null}
         </div>
       </div>
 
@@ -238,7 +281,7 @@ export default function RuneEditor({
         className="flex shrink-0 items-center justify-end gap-4 px-8 py-2"
         style={{
           borderTop: "1px solid var(--color-border)",
-          background: "var(--color-ink)",
+          background: "var(--color-sepia)",
         }}
       >
         <span

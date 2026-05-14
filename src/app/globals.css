@@ -184,18 +184,8 @@ body {
   color: var(--color-parchment);
 }
 
-/* Placeholder — Tiptap v3 */
-.ProseMirror .is-empty::before {
-  content: attr(data-placeholder);
-  float: left;
-  color: var(--color-mist);
-  opacity: 0.45;
-  pointer-events: none;
-  height: 0;
-}
-
-/* Placeholder — Tiptap v2 fallback */
-.ProseMirror p.is-editor-empty:first-child::before {
+/* Placeholder — only when the whole document is empty (node has .is-editor-empty) */
+.ProseMirror .is-empty.is-editor-empty::before {
   content: attr(data-placeholder);
   float: left;
   color: var(--color-mist);

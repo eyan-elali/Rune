@@ -108,6 +108,7 @@ export function EditorShell({
           chapterId={chapterId}
           currentPage={currentPage}
           onPageUpdated={handlePageUpdated}
+          onRenamePage={handleRenamePage}
         />
       </div>
     </div>
