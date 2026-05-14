@@ -167,7 +167,7 @@ export default function RuneEditor({
   return (
     <div
       className="relative flex h-full flex-1 flex-col overflow-hidden"
-      style={{ background: "var(--color-sepia)" }}
+      style={{ background: "var(--color-vellum)" }}
     >
       {/* Floating format toolbar — appears on text selection */}
       {editor && toolbarPos && (
@@ -238,9 +238,10 @@ export default function RuneEditor({
       {/* Scrollable writing area */}
       <div
         className="flex-1 overflow-y-auto"
-        style={{ background: "var(--color-sepia)" }}
+        style={{ background: "var(--color-vellum)" }}
       >
         <div className="mx-auto w-full max-w-[800px] px-6 py-10 pb-16 min-h-[calc(100vh-9rem)]">
+        {/* No extra background or shadow needed here now, since the parent is vellum */}
           <input
             id={`page-title-${currentPage.id}`}
             type="text"
@@ -259,7 +260,7 @@ export default function RuneEditor({
             }}
             className="mb-8 w-full bg-transparent font-rune-serif text-3xl font-normal leading-snug tracking-tight outline-none ring-0 focus:outline-none"
             style={{
-              color: "var(--color-parchment)",
+              color: "var(--color-ink)",
               borderBottom: "1px solid transparent",
             }}
             onFocus={(e) => {

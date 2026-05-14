@@ -113,7 +113,7 @@ body {
   font-family: Georgia, "Times New Roman", Times, serif;
   font-size: 18px;
   line-height: 1.9;
-  color: var(--color-parchment);
+  color: var(--color-ink);
   outline: none;
   min-height: 400px;
 }
@@ -131,7 +131,7 @@ body {
   line-height: 1.25;
   margin-top: 1.4em;
   margin-bottom: 0.4em;
-  color: var(--color-parchment);
+  color: var(--color-ink);
 }
 
 .ProseMirror h2 {
@@ -139,7 +139,7 @@ body {
   line-height: 1.3;
   margin-top: 1.2em;
   margin-bottom: 0.35em;
-  color: var(--color-parchment);
+  color: var(--color-ink);
 }
 
 .ProseMirror h3 {
@@ -147,13 +147,13 @@ body {
   line-height: 1.4;
   margin-top: 1em;
   margin-bottom: 0.3em;
-  color: var(--color-parchment);
+  color: var(--color-ink);
 }
 
 .ProseMirror blockquote {
   border-left: 3px solid var(--color-gold);
   padding-left: 1.25em;
-  color: var(--color-mist);
+  color: #4a4540;
   font-style: italic;
   margin: 1em 0;
 }
@@ -176,12 +176,12 @@ body {
 
 .ProseMirror strong {
   font-weight: 700;
-  color: var(--color-parchment);
+  color: var(--color-ink);
 }
 
 .ProseMirror em {
   font-style: italic;
-  color: var(--color-parchment);
+  color: var(--color-ink);
 }
 
 /* Placeholder — only when the whole document is empty (node has .is-editor-empty) */
