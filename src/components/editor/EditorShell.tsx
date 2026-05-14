@@ -93,7 +93,7 @@ export function EditorShell({
   );
 
   return (
-    <div className="flex h-full overflow-hidden">
+    <div className="flex min-h-0 h-full overflow-hidden">
       <PageList
         pages={pages}
         selectedPageId={selectedPageId}

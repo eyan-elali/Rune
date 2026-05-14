@@ -240,7 +240,7 @@ export default function RuneEditor({
         className="flex-1 overflow-y-auto"
         style={{ background: "var(--color-vellum)" }}
       >
-        <div className="mx-auto w-full max-w-[800px] px-6 py-10 pb-16 min-h-[calc(100vh-9rem)]">
+        <div className="mx-auto w-[90%] md:w-[80%] lg:w-[70%] xl:w-3/5 2xl:w-2/5 max-w-[1000px] px-6 pt-24 pb-16 min-h-[calc(100vh-9rem)]">
         {/* No extra background or shadow needed here now, since the parent is vellum */}
           <input
             id={`page-title-${currentPage.id}`}
@@ -277,34 +277,27 @@ export default function RuneEditor({
         </div>
       </div>
 
-      {/* Status bar */}
-      <div
-        className="flex shrink-0 items-center justify-end gap-4 px-8 py-2"
-        style={{
-          borderTop: "1px solid var(--color-border)",
-          background: "var(--color-sepia)",
-        }}
-      >
-        <span
-          className={cn(
-            "text-xs transition-opacity duration-500",
-            showSaved ? "opacity-100" : "opacity-0"
-          )}
-          style={{ color: "var(--color-sage)" }}
-          aria-live="polite"
-        >
-          Saved
-        </span>
-        <span
-          className="text-xs tabular-nums"
-          style={{ color: "var(--color-mist)" }}
-        >
-          {wordCount} {wordCount === 1 ? "word" : "words"}
-        </span>
-      </div>
-    </div>
-  );
-}
+
+{/* Floating Word Count Pill */}
+<div className="fixed bottom-6 right-6 md:bottom-8 md:right-8 z-50">
+  <div 
+    className={cn(
+      "flex items-center rounded-full shadow-xl transition-all duration-300",
+      "px-3 py-1.5 text-[10px] tracking-tight", // Laptop/Mobile defaults
+      "2xl:px-4 2xl:py-1.5 2xl:text-[11px] 2xl:tracking-widest" // Big monitor upgrades
+    )}
+    style={{ 
+      background: "var(--color-sepia)", 
+      color: "var(--color-vellum)",
+      border: "1px solid rgba(201, 168, 76, 0.4)" 
+    }}
+  >
+    {wordCount} <span className="ml-1 opacity-80">{wordCount === 1 ? "word" : "words"}</span>
+  </div>
+</div>
+</div>
+  ); // This closes the return (
+} // This closes the RuneEditor function
 
 function FormatButton({
   active,

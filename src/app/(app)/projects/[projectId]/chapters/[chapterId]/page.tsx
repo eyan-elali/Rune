@@ -25,7 +25,7 @@ export default async function ChapterEditorPage({
   const initialPages = pages ?? [];
 
   return (
-    <div className="h-full">
+    <div className="min-h-0 h-full">
       <EditorShell
         projectId={projectId}
         chapterId={chapterId}

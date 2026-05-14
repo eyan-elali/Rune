@@ -116,6 +116,7 @@ body {
   color: var(--color-ink);
   outline: none;
   min-height: 400px;
+  caret-color: var(--color-gold);
 }
 
 .ProseMirror > * + * {
@@ -124,6 +125,7 @@ body {
 
 .ProseMirror p {
   margin: 0;
+  text-indent: 2em;
 }
 
 .ProseMirror h1 {

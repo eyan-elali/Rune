@@ -43,23 +43,27 @@ export function PageList({
 
   return (
     <aside
-      className="flex h-full w-[200px] shrink-0 flex-col overflow-hidden"
+      className="flex h-full min-h-0 w-[15%] min-w-[160px] max-w-[240px] shrink-0 flex-col overflow-hidden"
       style={{
-        background: "var(--color-sepia)",
+        background: "#1B1717",
         borderRight: "1px solid var(--color-border)",
       }}
       aria-label="Page list"
     >
-      <div
-        className="flex items-center px-4 py-3"
-        style={{ borderBottom: "1px solid var(--color-border)" }}
-      >
-        <span
-          className="text-xs font-semibold uppercase tracking-widest"
-          style={{ color: "var(--color-mist)" }}
-        >
-          Pages
-        </span>
+      <div className="flex shrink-0 flex-col">
+        <div className="flex items-center px-4 py-3">
+          <span
+            className="text-xs font-semibold uppercase tracking-widest"
+            style={{ color: "var(--color-mist)" }}
+          >
+            Pages
+          </span>
+        </div>
+        <div
+          className="mx-auto h-px w-[92%] shrink-0"
+          style={{ background: "var(--color-border)" }}
+          aria-hidden
+        />
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col">
@@ -76,10 +80,10 @@ export function PageList({
               <li key={page.id} className="shrink-0">
                 <div
                   className={cn(
-                    "group relative flex cursor-pointer select-none items-center gap-2 px-3 py-2 transition-colors duration-100",
+                    "group relative mx-2 flex w-[calc(100%-1rem)] cursor-pointer select-none items-center gap-2 px-3 py-1.5 transition-all duration-200 rounded-md",
                     isSelected
-                      ? "border-l-2 border-rune-gold bg-rune-gold/10"
-                      : "border-l-2 border-transparent hover:border-rune-gold/30 hover:bg-rune-gold/5"
+                      ? "bg-rune-gold/15 shadow-sm"
+                      : "hover:bg-rune-gold/5"
                   )}
                   onClick={() => {
                     if (!isEditing) onSelectPage(page.id);
@@ -169,19 +173,23 @@ export function PageList({
         </ul>
       </div>
 
-      <div
-        className="shrink-0 p-2"
-        style={{ borderTop: "1px solid var(--color-border)" }}
-      >
-        <button
-          type="button"
-          onClick={onAddPage}
-          className="flex w-full items-center gap-2 rounded px-3 py-2 text-xs transition-colors duration-100 hover:bg-rune-gold/10"
-          style={{ color: "var(--color-mist)" }}
-        >
-          <Plus size={13} aria-hidden />
-          Add Page
-        </button>
+      <div className="flex shrink-0 flex-col">
+        <div
+          className="mx-auto h-px w-[92%] shrink-0"
+          style={{ background: "var(--color-border)" }}
+          aria-hidden
+        />
+        <div className="p-2">
+          <button
+            type="button"
+            onClick={onAddPage}
+            className="flex w-full items-center gap-2 rounded px-3 py-2 text-xs transition-colors duration-100 hover:bg-rune-gold/10"
+            style={{ color: "var(--color-mist)" }}
+          >
+            <Plus size={13} aria-hidden />
+            Add Page
+          </button>
+        </div>
       </div>
     </aside>
   );
