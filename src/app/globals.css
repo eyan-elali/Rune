@@ -1,26 +1,109 @@
 @import "tailwindcss";
+@config "../../tailwind.config.ts";
 
+/* Class-based dark mode for next-themes */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ── Design tokens ─────────────────────────────────────────────── */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --color-ink: #1a1614;
+  --color-parchment: #f5f0e8;
+  --color-vellum: #ede8db;
+  --color-sepia: #2c2420;
+  --color-gold: #c9a84c;
+  --color-gold-dim: #8a6f2e;
+  --color-crimson: #8b2e2e;
+  --color-sage: #4a6741;
+  --color-mist: #6b6560;
+  --color-border: rgba(201, 168, 76, 0.2);
+  --color-border-strong: rgba(201, 168, 76, 0.4);
+
+  /* Light mode: parchment backgrounds, ink text */
+  --bg-primary: var(--color-parchment);
+  --bg-secondary: var(--color-vellum);
+  --bg-sidebar: var(--color-vellum);
+  --text-primary: var(--color-ink);
+  --text-muted: var(--color-mist);
 }
 
+.dark {
+  /* Dark mode: ink/sepia backgrounds, parchment text */
+  --bg-primary: var(--color-ink);
+  --bg-secondary: var(--color-sepia);
+  --bg-sidebar: var(--color-sepia);
+  --text-primary: var(--color-parchment);
+  --text-muted: var(--color-mist);
+}
+
+/* ── Tailwind theme tokens (inline = no duplicate CSS vars) ─────── */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-rune-ink: var(--color-ink);
+  --color-rune-parchment: var(--color-parchment);
+  --color-rune-vellum: var(--color-vellum);
+  --color-rune-sepia: var(--color-sepia);
+  --color-rune-gold: var(--color-gold);
+  --color-rune-gold-dim: var(--color-gold-dim);
+  --color-rune-crimson: var(--color-crimson);
+  --color-rune-sage: var(--color-sage);
+  --color-rune-mist: var(--color-mist);
+
+  --font-rune-serif: Georgia, "Times New Roman", Times, serif;
+  --font-rune-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    sans-serif;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* ── Base reset ─────────────────────────────────────────────────── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  margin: 0;
+}
+
+/* ── Base styles ────────────────────────────────────────────────── */
+html {
+  color-scheme: dark;
+}
+
+html:not(.dark) {
+  color-scheme: light;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: Georgia, "Times New Roman", Times, serif;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+/* ── Scrollbar ──────────────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(201, 168, 76, 0.3);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(201, 168, 76, 0.5);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(201, 168, 76, 0.3) transparent;
 }
