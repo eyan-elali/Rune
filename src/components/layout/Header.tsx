@@ -1,13 +1,13 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import { useModeStore } from "@/store/modeStore";
 import { cn } from "@/lib/utils";
 
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const SEGMENT_LABELS: Record<string, string> = {
   dashboard: "Dashboard",
@@ -39,6 +39,18 @@ function useBreadcrumbs() {
 
 function ModeToggle() {
   const { mode, setMode } = useModeStore();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // If the component hasn't "mounted" yet, we render a hidden placeholder
+  // so the layout doesn't jump when the toggle finally appears.
+  if (!mounted) {
+    return <div className="h-8 w-32" />; 
+  }
+
   const isFocus = mode === "focus";
 
   return (
@@ -48,7 +60,6 @@ function ModeToggle() {
       role="group"
       aria-label="Writing mode"
     >
-      {/* Sliding gold pill */}
       <span
         aria-hidden="true"
         className="pointer-events-none absolute inset-y-[3px] rounded-full bg-rune-gold transition-all duration-200"
@@ -93,18 +104,11 @@ export function Header() {
         borderBottom: "1px solid var(--color-border)",
       }}
     >
-      {/* Breadcrumb */}
       <nav aria-label="Breadcrumb">
         <ol className="flex items-center gap-1.5 text-sm">
           {crumbs.map((crumb, i) => (
             <li key={crumb.href} className="flex items-center gap-1.5">
-              {i > 0 && (
-                <ChevronRight
-                  size={12}
-                  className="text-rune-mist/50"
-                  aria-hidden="true"
-                />
-              )}
+              {i > 0 && <ChevronRight size={12} className="text-rune-mist/50" />}
               {crumb.isLast ? (
                 <span className="text-rune-parchment/80">{crumb.label}</span>
               ) : (

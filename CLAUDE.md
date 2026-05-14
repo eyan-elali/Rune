@@ -221,6 +221,9 @@ A **Postgres trigger** auto-creates a `profiles` row when `auth.users` receives 
 - Middleware runs on every request to refresh the session token.
 - Supabase SSR: browser client in client components, server client in server components and actions.
 
+Route prefix: All routes inside src/app/(app)/ resolve without the /app prefix in the URL. The (app) folder is a Next.js route group  -- it is invisble in the broswer. 
+Always use /dashboard , /projects , /games , /progile , /settings , -- never /app/dashboard , /app/projects , etc.
+
 ---
 
 ## XP & Progression System
