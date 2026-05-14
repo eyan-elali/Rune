@@ -18,25 +18,28 @@ function formatDate(iso: string) {
 }
 
 function KebabMenu({
+  open,
+  onOpenChange,
   onEdit,
   onDelete,
 }: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
   onEdit: () => void;
   onDelete: () => void;
 }) {
-  const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!open) return;
     function handleClick(e: MouseEvent) {
       if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false);
+        onOpenChange(false);
       }
     }
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
-  }, [open]);
+  }, [open, onOpenChange]);
 
   return (
     <div ref={ref} className="relative">
@@ -47,7 +50,7 @@ function KebabMenu({
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
-          setOpen((o) => !o);
+          onOpenChange(!open);
         }}
         className="rounded p-1 text-rune-mist/40 transition-colors hover:bg-rune-gold/10 hover:text-rune-gold"
       >
@@ -56,7 +59,7 @@ function KebabMenu({
 
       {open && (
         <div
-          className="absolute right-0 top-full z-20 mt-1 w-36 overflow-hidden rounded border shadow-xl"
+          className="absolute right-0 top-full z-50 mt-1 w-36 overflow-hidden rounded border shadow-xl"
           style={{
             background: "var(--color-sepia)",
             borderColor: "var(--color-border-strong)",
@@ -66,7 +69,7 @@ function KebabMenu({
             type="button"
             onClick={(e) => {
               e.stopPropagation();
-              setOpen(false);
+              onOpenChange(false);
               onEdit();
             }}
             className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-sm text-rune-parchment/70 transition-colors hover:bg-rune-gold/10 hover:text-rune-gold"
@@ -78,7 +81,7 @@ function KebabMenu({
             type="button"
             onClick={(e) => {
               e.stopPropagation();
-              setOpen(false);
+              onOpenChange(false);
               onDelete();
             }}
             className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-sm text-rune-parchment/70 transition-colors hover:bg-rune-crimson/10 hover:text-rune-crimson"
@@ -100,6 +103,7 @@ interface ProjectCardProps {
 export function ProjectCard({ project, onEdit }: ProjectCardProps) {
   const router = useRouter();
   const [deleting, setDeleting] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   async function handleDelete() {
     if (!confirm(`Delete "${project.title}"? This cannot be undone.`)) return;
@@ -112,9 +116,10 @@ export function ProjectCard({ project, onEdit }: ProjectCardProps) {
     <article
       onClick={() => router.push(`/projects/${project.id}`)}
       className={cn(
-        "group relative flex cursor-pointer flex-col overflow-hidden rounded-lg",
+        "group relative flex cursor-pointer flex-col rounded-lg",
         "border transition-all duration-200",
         "hover:-translate-y-0.5 hover:shadow-lg",
+        menuOpen && "z-50",
         deleting && "pointer-events-none opacity-40"
       )}
       style={{
@@ -142,6 +147,8 @@ export function ProjectCard({ project, onEdit }: ProjectCardProps) {
           </h3>
           <div onClick={(e) => e.stopPropagation()}>
             <KebabMenu
+              open={menuOpen}
+              onOpenChange={setMenuOpen}
               onEdit={() => onEdit(project)}
               onDelete={handleDelete}
             />

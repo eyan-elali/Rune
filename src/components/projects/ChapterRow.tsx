@@ -104,7 +104,11 @@ export function ChapterRow({ chapter, projectId }: ChapterRowProps) {
           />
         ) : (
           <span
-            onDoubleClick={startEditing}
+            onClick={(e) => e.stopPropagation()}
+            onDoubleClick={(e) => {
+              e.stopPropagation();
+              startEditing(e);
+            }}
             title="Double-click to rename"
             className="block truncate text-sm text-rune-parchment/80 group-hover:text-rune-parchment transition-colors"
           >

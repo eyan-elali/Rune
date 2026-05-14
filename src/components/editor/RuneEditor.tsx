@@ -1,0 +1,292 @@
+"use client";
+
+import { useEditor, EditorContent } from "@tiptap/react";
+import StarterKit from "@tiptap/starter-kit";
+import Placeholder from "@tiptap/extension-placeholder";
+import CharacterCount from "@tiptap/extension-character-count";
+import { useEffect, useRef, useState } from "react";
+import { cn } from "@/lib/utils";
+import { updatePage } from "@/lib/actions/pages";
+import { useEditorStore } from "@/store/editorStore";
+import { useModeStore } from "@/store/modeStore";
+import type { Page } from "@/lib/types";
+
+interface RuneEditorProps {
+  projectId: string;
+  chapterId: string;
+  currentPage: Page | null;
+  onPageUpdated: (pageId: string, updates: Partial<Page>) => void;
+}
+
+interface ToolbarPos {
+  top: number;
+  left: number;
+}
+
+export default function RuneEditor({
+  projectId,
+  chapterId,
+  currentPage,
+  onPageUpdated,
+}: RuneEditorProps) {
+  const { setIsSaving, setLastSaved } = useEditorStore();
+  const mode = useModeStore((s) => s.mode);
+  const [showSaved, setShowSaved] = useState(false);
+  const [toolbarPos, setToolbarPos] = useState<ToolbarPos | null>(null);
+
+  const currentPageRef = useRef<Page | null>(currentPage);
+  const onPageUpdatedRef = useRef(onPageUpdated);
+  const prevPageIdRef = useRef<string | null>(null);
+  const isLoadingRef = useRef(false);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const showSavedTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  useEffect(() => {
+    onPageUpdatedRef.current = onPageUpdated;
+  }, [onPageUpdated]);
+
+  useEffect(() => {
+    console.log("[RuneEditor] mode:", mode);
+  }, [mode]);
+
+  const editor = useEditor({
+    extensions: [
+      StarterKit.configure({
+        heading: { levels: [1, 2, 3] },
+      }),
+      Placeholder.configure({
+        placeholder: "Begin your story...",
+      }),
+      CharacterCount,
+    ],
+    content: currentPage?.content ?? null,
+    onUpdate({ editor }) {
+      if (isLoadingRef.current) return;
+
+      clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = setTimeout(async () => {
+        const page = currentPageRef.current;
+        if (!page) return;
+
+        setIsSaving(true);
+        const content = editor.getJSON() as Record<string, unknown>;
+        const wordCount =
+          (editor.storage.characterCount?.words?.() as number | undefined) ?? 0;
+
+        await updatePage(page.id, content, wordCount);
+        onPageUpdatedRef.current(page.id, { word_count: wordCount });
+        setIsSaving(false);
+        setLastSaved(new Date());
+
+        setShowSaved(true);
+        clearTimeout(showSavedTimerRef.current);
+        showSavedTimerRef.current = setTimeout(() => setShowSaved(false), 2000);
+      }, 1500);
+    },
+    onSelectionUpdate({ editor }) {
+      const { from, to, empty } = editor.state.selection;
+      if (empty) {
+        setToolbarPos(null);
+        return;
+      }
+      try {
+        const startCoords = editor.view.coordsAtPos(from);
+        const endCoords = editor.view.coordsAtPos(to);
+        setToolbarPos({
+          top: startCoords.top - 44,
+          left: (startCoords.left + endCoords.left) / 2,
+        });
+      } catch {
+        setToolbarPos(null);
+      }
+    },
+    onBlur() {
+      // Small delay so toolbar button clicks register before hiding
+      setTimeout(() => setToolbarPos(null), 150);
+    },
+  });
+
+  // Handle page switching and initial load
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!editor) return;
+
+    const prevPageId = prevPageIdRef.current;
+    const newPageId = currentPage?.id ?? null;
+
+    if (prevPageId && prevPageId !== newPageId) {
+      clearTimeout(saveTimerRef.current);
+      const content = editor.getJSON() as Record<string, unknown>;
+      const wordCount =
+        (editor.storage.characterCount?.words?.() as number | undefined) ?? 0;
+      updatePage(prevPageId, content, wordCount);
+    }
+
+    prevPageIdRef.current = newPageId;
+    currentPageRef.current = currentPage ?? null;
+
+    isLoadingRef.current = true;
+    editor.commands.setContent(currentPage?.content ?? null);
+    setTimeout(() => {
+      isLoadingRef.current = false;
+    }, 0);
+  }, [editor, currentPage?.id]); // intentionally omitting currentPage to avoid re-running on word_count updates
+
+  const wordCount =
+    (editor?.storage.characterCount?.words?.() as number | undefined) ?? 0;
+
+  if (!currentPage) {
+    return (
+      <div className="flex h-full flex-1 items-center justify-center">
+        <p className="text-sm" style={{ color: "var(--color-mist)" }}>
+          No page selected
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="relative flex h-full flex-1 flex-col overflow-hidden"
+      style={{ background: "var(--color-ink)" }}
+    >
+      {/* Floating format toolbar — appears on text selection */}
+      {editor && toolbarPos && (
+        <div
+          className="pointer-events-auto fixed z-50 flex items-center gap-0.5 rounded-lg px-1.5 py-1"
+          style={{
+            top: toolbarPos.top,
+            left: toolbarPos.left,
+            transform: "translateX(-50%)",
+            background: "var(--color-sepia)",
+            border: "1px solid var(--color-border-strong)",
+            boxShadow: "0 4px 16px rgba(0,0,0,0.55)",
+          }}
+          onMouseDown={(e) => e.preventDefault()} // prevent editor blur
+        >
+          <FormatButton
+            active={editor.isActive("bold")}
+            onClick={() => editor.chain().focus().toggleBold().run()}
+            label="Bold"
+          >
+            <span className="font-bold">B</span>
+          </FormatButton>
+          <FormatButton
+            active={editor.isActive("italic")}
+            onClick={() => editor.chain().focus().toggleItalic().run()}
+            label="Italic"
+          >
+            <span className="italic">I</span>
+          </FormatButton>
+          <div
+            className="mx-1 h-3.5 w-px"
+            style={{ background: "var(--color-border)" }}
+            aria-hidden
+          />
+          <FormatButton
+            active={editor.isActive("heading", { level: 1 })}
+            onClick={() =>
+              editor.chain().focus().toggleHeading({ level: 1 }).run()
+            }
+            label="Heading 1"
+          >
+            <span className="text-[10px] font-semibold tracking-tight">H1</span>
+          </FormatButton>
+          <FormatButton
+            active={editor.isActive("heading", { level: 2 })}
+            onClick={() =>
+              editor.chain().focus().toggleHeading({ level: 2 }).run()
+            }
+            label="Heading 2"
+          >
+            <span className="text-[10px] font-semibold tracking-tight">H2</span>
+          </FormatButton>
+          <div
+            className="mx-1 h-3.5 w-px"
+            style={{ background: "var(--color-border)" }}
+            aria-hidden
+          />
+          <FormatButton
+            active={editor.isActive("blockquote")}
+            onClick={() => editor.chain().focus().toggleBlockquote().run()}
+            label="Blockquote"
+          >
+            <span className="font-serif text-base leading-none">"</span>
+          </FormatButton>
+        </div>
+      )}
+
+      {/* Scrollable writing area */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="px-6 py-10">
+          <div
+            className="mx-auto max-w-[680px] rounded-lg px-10 py-12"
+            style={{
+              background: "var(--color-sepia)",
+              border: "1px solid var(--color-border)",
+              boxShadow: "0 2px 40px rgba(0,0,0,0.35)",
+              minHeight: "calc(100vh - 160px)",
+            }}
+          >
+            <EditorContent editor={editor} />
+          </div>
+        </div>
+      </div>
+
+      {/* Status bar */}
+      <div
+        className="flex shrink-0 items-center justify-end gap-4 px-8 py-2"
+        style={{
+          borderTop: "1px solid var(--color-border)",
+          background: "var(--color-ink)",
+        }}
+      >
+        <span
+          className={cn(
+            "text-xs transition-opacity duration-500",
+            showSaved ? "opacity-100" : "opacity-0"
+          )}
+          style={{ color: "var(--color-sage)" }}
+          aria-live="polite"
+        >
+          Saved
+        </span>
+        <span
+          className="text-xs tabular-nums"
+          style={{ color: "var(--color-mist)" }}
+        >
+          {wordCount} {wordCount === 1 ? "word" : "words"}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function FormatButton({
+  active,
+  onClick,
+  label,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      aria-pressed={active}
+      className={cn(
+        "flex h-6 w-6 items-center justify-center rounded transition-colors duration-100",
+        active
+          ? "bg-rune-gold/25 text-rune-gold"
+          : "text-rune-parchment/60 hover:bg-rune-gold/10 hover:text-rune-parchment"
+      )}
+    >
+      {children}
+    </button>
+  );
+}
