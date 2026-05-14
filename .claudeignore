@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+
+# Next.js build output
+.next/
+out/
+
+# Environment variables — never read these
+.env*
+!.env.example
+
+# Package manager locks (too noisy, rarely useful)
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# OS & editor noise
+.DS_Store
+.vscode/
+.idea/
+*.swp
+
+# Supabase local dev (if you ever run it locally)
+supabase/.branches/
+supabase/.temp/
+
+# Type generation output (auto-generated, not hand-written)
+src/lib/supabase/types.gen.ts

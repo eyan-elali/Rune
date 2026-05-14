@@ -1,0 +1,70 @@
+import { notFound } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
+import { ChapterList } from "@/components/projects/ChapterList";
+import type { Chapter } from "@/lib/types";
+
+type ChapterWithStats = Chapter & {
+  pages: { id: string; word_count: number }[];
+};
+
+interface ProjectPageProps {
+  params: Promise<{ projectId: string }>;
+}
+
+export default async function ProjectPage({ params }: ProjectPageProps) {
+  const { projectId } = await params;
+  const supabase = await createClient();
+
+  // Fetch project
+  const { data: project } = await supabase
+    .from("projects")
+    .select("*")
+    .eq("id", projectId)
+    .single();
+
+  if (!project) notFound();
+
+  // Fetch chapters with page stats
+  const { data: chapters } = await supabase
+    .from("chapters")
+    .select("*, pages(id, word_count)")
+    .eq("project_id", projectId)
+    .order("position", { ascending: true });
+
+  const typedChapters = (chapters ?? []) as ChapterWithStats[];
+
+  return (
+    <div className="px-10 py-10">
+      {/* Project header */}
+      <div className="mb-8">
+        {project.cover_color && (
+          <div
+            className="mb-5 h-1 w-12 rounded-full"
+            style={{ background: project.cover_color }}
+          />
+        )}
+        <h1 className="font-rune-serif text-3xl text-rune-parchment">
+          {project.title}
+        </h1>
+        {project.description && (
+          <p className="mt-2 max-w-prose text-sm text-rune-mist">
+            {project.description}
+          </p>
+        )}
+        <p className="mt-4 text-xs text-rune-mist/40">
+          {project.word_count.toLocaleString()} words total ·{" "}
+          {typedChapters.length}{" "}
+          {typedChapters.length === 1 ? "chapter" : "chapters"}
+        </p>
+      </div>
+
+      {/* Chapter list */}
+      <section aria-label="Chapters">
+        <h2 className="mb-3 text-xs font-medium uppercase tracking-widest text-rune-mist/60">
+          Chapters
+        </h2>
+        <ChapterList chapters={typedChapters} projectId={projectId} />
+      </section>
+    </div>
+  );
+}
