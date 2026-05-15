@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useModeStore, type Mode } from "@/store/modeStore";
+import { useGameStore } from "@/store/gameStore";
 import { useToastStore } from "@/store/toastStore";
 import { useProfileStore } from "@/store/profileStore";
 import { ModeToggle } from "@/components/ui/ModeToggle";
@@ -41,7 +42,12 @@ export function AppShell({ profile, children }: AppShellProps) {
     profile?.display_name ?? profile?.username ?? "Writer";
   const avatarUrl = profile?.avatar_url ?? null;
 
-  const shouldHideUI = mode === "focus" && pathname.includes("/chapters/");
+  const gameState = useGameStore((s) => s.gameState);
+  const isRaceActive =
+    pathname.includes("/games/race") && gameState === "active";
+  const shouldHideFocusUI =
+    mode === "focus" && pathname.includes("/chapters/");
+  const shouldHideUI = shouldHideFocusUI || isRaceActive;
 
   useEffect(() => {
     modeRef.current = mode;
@@ -89,14 +95,17 @@ export function AppShell({ profile, children }: AppShellProps) {
         <main
           className="relative min-h-0 flex-1 overflow-auto"
           style={{
-            background: shouldHideUI ? "var(--color-vellum)" : "var(--color-ink)",
+            background:
+              shouldHideFocusUI || isRaceActive
+                ? "var(--color-vellum)"
+                : "var(--color-ink)",
           }}
         >
           {children}
         </main>
       </div>
 
-      {shouldHideUI && (
+      {shouldHideFocusUI && (
         <>
           <div
             className="pointer-events-none fixed inset-0 z-10"

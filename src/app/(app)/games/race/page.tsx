@@ -2,14 +2,22 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
 import { useGameStore } from "@/store/gameStore";
 import { useProfileStore } from "@/store/profileStore";
 import { awardXp } from "@/lib/actions/xp";
-import { createGameSession, getPersonalBests } from "@/lib/actions/games";
+import {
+  appendSprintToProject,
+  createGameSession,
+  getPersonalBests,
+} from "@/lib/actions/games";
+import { getProjects } from "@/lib/actions/projects";
+import { getChapters } from "@/lib/actions/chapters";
 import { xpRewardForWords } from "@/lib/xp";
+import type { Project, Chapter } from "@/lib/types";
 
 const GameEditor = dynamic(() => import("@/components/editor/GameEditor"), {
   ssr: false,
@@ -59,7 +67,6 @@ function SetupState({
   return (
     <div className="flex min-h-full flex-col items-center justify-center px-8 py-16">
       <div className="w-full max-w-md">
-        {/* Ornament */}
         <p
           className="mb-4 text-center text-xs uppercase tracking-[0.3em]"
           style={{ color: "var(--color-mist)", opacity: 0.6 }}
@@ -82,7 +89,6 @@ function SetupState({
           Only additions count &mdash; deletions don&rsquo;t subtract.
         </p>
 
-        {/* Duration selector */}
         <div className="mb-8">
           <p
             className="mb-3 text-center text-[10px] uppercase tracking-widest"
@@ -119,7 +125,6 @@ function SetupState({
           </div>
         </div>
 
-        {/* Personal best */}
         <div className="mb-10 text-center" style={{ minHeight: "2.5rem" }}>
           {best > 0 ? (
             <p className="text-sm" style={{ color: "var(--color-mist)" }}>
@@ -141,7 +146,6 @@ function SetupState({
           )}
         </div>
 
-        {/* Begin */}
         <div className="flex justify-center">
           <Button
             variant="primary"
@@ -156,15 +160,272 @@ function SetupState({
   );
 }
 
+// ── Save-to-Project flow ──────────────────────────────────────────────────────
+
+type SaveStep =
+  | "idle"
+  | "loading"
+  | "pick-project"
+  | "pick-chapter"
+  | "saving"
+  | "saved"
+  | "error";
+
+function SaveToProject({
+  words,
+  textWritten,
+}: {
+  words: number;
+  textWritten: string;
+}) {
+  const [step, setStep] = useState<SaveStep>("idle");
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [chapters, setChapters] = useState<Chapter[]>([]);
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [savedChapterName, setSavedChapterName] = useState("");
+  const [errorMsg, setErrorMsg] = useState("");
+
+  if (words === 0) return null;
+
+  async function handleOpenProjects() {
+    setStep("loading");
+    const result = await getProjects();
+    if (result.error || !result.data) {
+      setErrorMsg(result.error ?? "Failed to load projects");
+      setStep("error");
+      return;
+    }
+    setProjects(result.data);
+    setStep("pick-project");
+  }
+
+  async function handleSelectProject(project: Project) {
+    setSelectedProject(project);
+    setStep("loading");
+    const result = await getChapters(project.id);
+    if (result.error || !result.data) {
+      setErrorMsg(result.error ?? "Failed to load chapters");
+      setStep("error");
+      return;
+    }
+    setChapters(result.data);
+    setStep("pick-chapter");
+  }
+
+  async function handleSelectChapter(chapter: Chapter) {
+    if (!selectedProject) return;
+    setStep("saving");
+    const result = await appendSprintToProject(
+      selectedProject.id,
+      chapter.id,
+      words,
+      textWritten
+    );
+    if (result.error) {
+      setErrorMsg(result.error);
+      setStep("error");
+      return;
+    }
+    setSavedChapterName(chapter.title);
+    setStep("saved");
+  }
+
+  // Saved confirmation
+  if (step === "saved") {
+    return (
+      <div
+        className="mt-4 rounded-lg px-5 py-3 text-center text-sm"
+        style={{
+          background: "rgba(74, 103, 65, 0.15)",
+          border: "1px solid rgba(74, 103, 65, 0.3)",
+          color: "var(--color-sage)",
+        }}
+      >
+        ✓ &nbsp;Saved to &ldquo;{savedChapterName}&rdquo;
+      </div>
+    );
+  }
+
+  // Saving spinner
+  if (step === "saving") {
+    return (
+      <Button variant="ghost" loading disabled className="mt-4">
+        Saving…
+      </Button>
+    );
+  }
+
+  // Error state
+  if (step === "error") {
+    return (
+      <div className="mt-4 text-center">
+        <p className="mb-2 text-xs" style={{ color: "var(--color-crimson)" }}>
+          {errorMsg}
+        </p>
+        <button
+          type="button"
+          className="text-xs underline"
+          style={{ color: "var(--color-mist)" }}
+          onClick={() => { setStep("idle"); setErrorMsg(""); }}
+        >
+          Try again
+        </button>
+      </div>
+    );
+  }
+
+  // Loading
+  if (step === "loading") {
+    return (
+      <Button variant="ghost" loading disabled className="mt-4">
+        Loading…
+      </Button>
+    );
+  }
+
+  // Project picker
+  if (step === "pick-project") {
+    return (
+      <div className="mt-4 w-full max-w-xs">
+        <p
+          className="mb-2 text-center text-[10px] uppercase tracking-widest"
+          style={{ color: "var(--color-mist)" }}
+        >
+          Pick a project
+        </p>
+        <div
+          className="max-h-48 overflow-y-auto rounded-lg"
+          style={{
+            background: "var(--color-sepia)",
+            border: "1px solid var(--color-border-strong)",
+          }}
+        >
+          {projects.length === 0 ? (
+            <p
+              className="px-4 py-3 text-center text-sm"
+              style={{ color: "var(--color-mist)" }}
+            >
+              No projects yet
+            </p>
+          ) : (
+            <ul role="list">
+              {projects.map((project, i) => (
+                <li key={project.id}>
+                  <button
+                    type="button"
+                    onClick={() => handleSelectProject(project)}
+                    className="w-full px-4 py-3 text-left text-sm transition-colors duration-100 hover:bg-rune-gold/10"
+                    style={{
+                      color: "var(--color-parchment)",
+                      borderTop: i > 0 ? "1px solid var(--color-border)" : undefined,
+                    }}
+                  >
+                    <span className="font-rune-serif">{project.title}</span>
+                    <span
+                      className="ml-2 text-xs"
+                      style={{ color: "var(--color-mist)" }}
+                    >
+                      {project.word_count.toLocaleString()} words
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+        <button
+          type="button"
+          className="mt-2 w-full text-center text-xs"
+          style={{ color: "var(--color-mist)", opacity: 0.6 }}
+          onClick={() => setStep("idle")}
+        >
+          Cancel
+        </button>
+      </div>
+    );
+  }
+
+  // Chapter picker
+  if (step === "pick-chapter") {
+    return (
+      <div className="mt-4 w-full max-w-xs">
+        <p
+          className="mb-1 text-center text-[10px] uppercase tracking-widest"
+          style={{ color: "var(--color-mist)" }}
+        >
+          Pick a chapter
+        </p>
+        <p
+          className="mb-2 text-center text-xs font-rune-serif"
+          style={{ color: "var(--color-gold)" }}
+        >
+          {selectedProject?.title}
+        </p>
+        <div
+          className="max-h-48 overflow-y-auto rounded-lg"
+          style={{
+            background: "var(--color-sepia)",
+            border: "1px solid var(--color-border-strong)",
+          }}
+        >
+          {chapters.length === 0 ? (
+            <p
+              className="px-4 py-3 text-center text-sm"
+              style={{ color: "var(--color-mist)" }}
+            >
+              No chapters in this project
+            </p>
+          ) : (
+            <ul role="list">
+              {chapters.map((chapter, i) => (
+                <li key={chapter.id}>
+                  <button
+                    type="button"
+                    onClick={() => handleSelectChapter(chapter)}
+                    className="w-full px-4 py-3 text-left text-sm transition-colors duration-100 hover:bg-rune-gold/10"
+                    style={{
+                      color: "var(--color-parchment)",
+                      borderTop: i > 0 ? "1px solid var(--color-border)" : undefined,
+                    }}
+                  >
+                    <span className="font-rune-serif">{chapter.title}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+        <button
+          type="button"
+          className="mt-2 w-full text-center text-xs"
+          style={{ color: "var(--color-mist)", opacity: 0.6 }}
+          onClick={() => { setStep("pick-project"); setChapters([]); }}
+        >
+          ← Back to projects
+        </button>
+      </div>
+    );
+  }
+
+  // Idle — show button
+  return (
+    <Button variant="ghost" className="mt-4" onClick={handleOpenProjects}>
+      Save to Project
+    </Button>
+  );
+}
+
 // ── Results ───────────────────────────────────────────────────────────────────
 
 function ResultsState({
   result,
   isSaving,
+  textWritten,
   onRaceAgain,
 }: {
   result: ResultData;
   isSaving: boolean;
+  textWritten: string;
   onRaceAgain: () => void;
 }) {
   const wpm =
@@ -192,8 +453,7 @@ function ResultsState({
         }
       `}</style>
 
-      <div className="w-full max-w-lg text-center">
-        {/* New record badge */}
+      <div className="flex w-full max-w-lg flex-col items-center text-center">
         {result.isNewBest && result.words > 0 && (
           <div className="mb-6">
             <span
@@ -205,7 +465,6 @@ function ResultsState({
           </div>
         )}
 
-        {/* Divider */}
         <div
           className="mx-auto mb-8 h-px w-24"
           style={{
@@ -214,7 +473,6 @@ function ResultsState({
           }}
         />
 
-        {/* Word count (hero) */}
         <p
           className="font-rune-serif leading-none"
           style={{ fontSize: "5.5rem", color: "var(--color-parchment)" }}
@@ -228,7 +486,6 @@ function ResultsState({
           words written
         </p>
 
-        {/* Stats row */}
         <div className="mx-auto mt-10 mb-10 flex max-w-xs items-center justify-center gap-6">
           <div>
             <p
@@ -245,10 +502,7 @@ function ResultsState({
             </p>
           </div>
 
-          <div
-            className="h-8 w-px"
-            style={{ background: "var(--color-border)" }}
-          />
+          <div className="h-8 w-px" style={{ background: "var(--color-border)" }} />
 
           <div>
             <p
@@ -265,10 +519,7 @@ function ResultsState({
             </p>
           </div>
 
-          <div
-            className="h-8 w-px"
-            style={{ background: "var(--color-border)" }}
-          />
+          <div className="h-8 w-px" style={{ background: "var(--color-border)" }} />
 
           <div>
             <p
@@ -286,7 +537,7 @@ function ResultsState({
           </div>
         </div>
 
-        {/* Buttons */}
+        {/* Primary actions */}
         <div className="flex justify-center gap-4">
           <Button variant="primary" onClick={onRaceAgain}>
             Race Again
@@ -295,6 +546,9 @@ function ResultsState({
             <Button variant="ghost">Return to Hub</Button>
           </Link>
         </div>
+
+        {/* Save to Project */}
+        <SaveToProject words={result.words} textWritten={textWritten} />
       </div>
     </div>
   );
@@ -307,18 +561,21 @@ function HUD({
   selectedDuration,
   wordsWritten,
   personalBest,
+  onExit,
 }: {
   timeLeft: number;
   selectedDuration: number;
   wordsWritten: number;
   personalBest: number;
+  onExit: () => void;
 }) {
+  const [isVisible, setIsVisible] = useState(true);
   const isLowTime = timeLeft <= 60;
   const pct = Math.max(0, (timeLeft / selectedDuration) * 100);
 
   return (
     <div
-      className="hud-tick sticky top-0 z-10 shrink-0"
+      className="relative sticky top-0 z-10 shrink-0"
       style={{
         background: "var(--color-sepia)",
         borderBottom: "1px solid var(--color-border-strong)",
@@ -332,61 +589,77 @@ function HUD({
           95%       { opacity: 0.82; }
           100%      { opacity: 1; }
         }
-        .hud-tick { animation: hud-tick 10s ease-in-out infinite; }
+        .hud-stats-tick { animation: hud-tick 10s ease-in-out infinite; }
       `}</style>
 
-      <div className="flex items-center justify-between px-8 py-3">
-        {/* Words written */}
-        <div className="min-w-[7rem]">
-          <p
-            className="font-rune-serif text-2xl tabular-nums"
-            style={{ color: "var(--color-parchment)" }}
-          >
-            {wordsWritten.toLocaleString()}
-          </p>
-          <p
-            className="text-[10px] uppercase tracking-widest"
-            style={{ color: "var(--color-mist)" }}
-          >
-            words
-          </p>
-        </div>
+      {/* Stats row */}
+      {isVisible && (
+        <div className="hud-stats-tick flex items-center justify-between px-8 py-3">
+          {/* Words written */}
+          <div className="min-w-[7rem]">
+            <p
+              className="font-rune-serif text-2xl tabular-nums"
+              style={{ color: "var(--color-parchment)" }}
+            >
+              {wordsWritten.toLocaleString()}
+            </p>
+            <p
+              className="text-[10px] uppercase tracking-widest"
+              style={{ color: "var(--color-mist)" }}
+            >
+              words
+            </p>
+          </div>
 
-        {/* Timer (centre) */}
-        <div className="text-center">
-          <p
-            className="font-rune-serif tabular-nums transition-colors duration-500"
-            style={{
-              fontSize: "2.5rem",
-              lineHeight: 1,
-              color: isLowTime ? "var(--color-crimson)" : "var(--color-gold)",
-              fontVariantNumeric: "tabular-nums",
-            }}
-            aria-live="off"
-          >
-            {formatTime(timeLeft)}
-          </p>
-        </div>
+          {/* Timer */}
+          <div className="text-center">
+            <p
+              className="font-rune-serif tabular-nums transition-colors duration-500"
+              style={{
+                fontSize: "2.5rem",
+                lineHeight: 1,
+                color: isLowTime ? "var(--color-crimson)" : "var(--color-gold)",
+                fontVariantNumeric: "tabular-nums",
+              }}
+              aria-live="off"
+            >
+              {formatTime(timeLeft)}
+            </p>
+          </div>
 
-        {/* Personal best */}
-        <div className="min-w-[7rem] text-right">
-          <p
-            className="font-rune-serif text-2xl tabular-nums"
-            style={{ color: "var(--color-mist)" }}
-          >
-            {personalBest > 0 ? personalBest.toLocaleString() : "—"}
-          </p>
-          <p
-            className="text-[10px] uppercase tracking-widest"
-            style={{ color: "var(--color-mist)", opacity: 0.5 }}
-          >
-            your best
-          </p>
+          {/* Personal best + Exit */}
+          <div className="flex min-w-[7rem] items-start justify-end gap-4">
+            <div className="text-right">
+              <p
+                className="font-rune-serif text-2xl tabular-nums"
+                style={{ color: "var(--color-mist)" }}
+              >
+                {personalBest > 0 ? personalBest.toLocaleString() : "—"}
+              </p>
+              <p
+                className="text-[10px] uppercase tracking-widest"
+                style={{ color: "var(--color-mist)", opacity: 0.5 }}
+              >
+                your best
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={onExit}
+              className="rounded px-2.5 py-1 font-rune-sans text-[10px] uppercase tracking-wider transition-colors duration-150 hover:bg-rune-crimson/15"
+              style={{
+                color: "var(--color-crimson)",
+                border: "1px solid rgba(139, 46, 46, 0.35)",
+              }}
+            >
+              Exit
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* Time-remaining progress bar */}
-      <div className="h-[3px]" style={{ background: "rgba(201,168,76,0.08)" }}>
+      {/* Progress bar */}
+      <div className="h-[3px]" style={{ background: "rgba(201, 168, 76, 0.08)" }} aria-hidden>
         <div
           className="h-full transition-all duration-1000 ease-linear"
           style={{
@@ -397,6 +670,21 @@ function HUD({
           }}
         />
       </div>
+
+      {/* Toggle — floats below the HUD, always visible at low opacity */}
+      <button
+        type="button"
+        onClick={() => setIsVisible((v) => !v)}
+        className="absolute right-4 top-full mt-2 rounded-full px-2.5 py-0.5 font-rune-sans text-[10px] uppercase tracking-wider opacity-25 transition-opacity duration-200 hover:opacity-100"
+        style={{
+          background: "rgba(44, 36, 32, 0.9)",
+          color: "var(--color-gold)",
+          border: "1px solid var(--color-border-strong)",
+        }}
+        aria-label={isVisible ? "Hide stats" : "Show stats"}
+      >
+        {isVisible ? "Hide Stats" : "Show Stats"}
+      </button>
     </div>
   );
 }
@@ -404,19 +692,20 @@ function HUD({
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function RaceYourselfPage() {
-  // 1. At the very top of your RacePage component (not inside ResultsState)
+  const router = useRouter();
   const hasSaved = useRef(false);
   const profile = useProfileStore((s) => s.profile);
-  const updateXp = useProfileStore((s) => s.updateXp);
 
   const {
     gameState,
     selectedDuration,
     wordsWritten,
+    textWritten,
     personalBests,
     startGame,
     endGame,
     updateWordCount,
+    setTextWritten,
     setPersonalBest,
     resetToSetup,
   } = useGameStore();
@@ -427,7 +716,7 @@ export default function RaceYourselfPage() {
   const [resultData, setResultData] = useState<ResultData | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Load personal bests from DB on mount
+  // Load personal bests on mount
   useEffect(() => {
     if (!profile?.id) return;
     getPersonalBests(profile.id).then((bests) => {
@@ -438,7 +727,7 @@ export default function RaceYourselfPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile?.id]);
 
-  // Reset component state when returning to hub / unmounting mid-game
+  // Reset store if unmounted mid-game
   useEffect(() => {
     return () => {
       if (useGameStore.getState().gameState === "active") {
@@ -447,7 +736,7 @@ export default function RaceYourselfPage() {
     };
   }, []);
 
-  // Timer: reset and start countdown when game becomes active
+  // Timer: start/reset when game becomes active
   useEffect(() => {
     if (gameState !== "active") return;
 
@@ -460,17 +749,18 @@ export default function RaceYourselfPage() {
     return () => clearInterval(id);
   }, [gameState, selectedDuration]);
 
-  // Detect timer expiry during active game
+  // Detect timer expiry
   useEffect(() => {
     if (gameState === "active" && timeLeft === 0) {
       endGame();
     }
   }, [gameState, timeLeft, endGame]);
 
-  // Process results when game transitions to 'results'
+  // Process results once when game transitions to 'results'
   useEffect(() => {
     if (gameState !== "results" || hasSaved.current) return;
     hasSaved.current = true;
+
     const store = useGameStore.getState();
     const finalWords = store.wordsWritten;
     const dur = store.selectedDuration;
@@ -511,7 +801,13 @@ export default function RaceYourselfPage() {
     setResultData(null);
   }, [resetToSetup]);
 
-  // ── Render ──────────────────────────────────────────────────────────────
+  const handleExit = useCallback(() => {
+    if (!confirm("Exit the race? Your current progress will not be saved.")) return;
+    resetToSetup();
+    router.push("/games");
+  }, [resetToSetup, router]);
+
+  // ── Render ──────────────────────────────────────────────────────────────────
 
   if (gameState === "idle") {
     return (
@@ -529,6 +825,7 @@ export default function RaceYourselfPage() {
       <ResultsState
         result={resultData}
         isSaving={isSaving}
+        textWritten={textWritten}
         onRaceAgain={handleRaceAgain}
       />
     );
@@ -536,17 +833,17 @@ export default function RaceYourselfPage() {
 
   // Active game
   return (
-    <div className="flex flex-col" style={{ minHeight: "100%" }}>
+    <div className="flex min-h-0 h-full flex-col">
       <HUD
         timeLeft={timeLeft}
         selectedDuration={selectedDuration}
         wordsWritten={wordsWritten}
         personalBest={personalBests[selectedDuration] ?? 0}
+        onExit={handleExit}
       />
 
-      {/* Writing area */}
       <div
-        className="flex-1 overflow-y-auto"
+        className="min-h-0 flex-1 overflow-y-auto"
         style={{ background: "var(--color-vellum)" }}
       >
         <div
@@ -555,11 +852,14 @@ export default function RaceYourselfPage() {
             border: "1px solid var(--color-border-strong)",
             borderRadius: "4px",
             background: "var(--color-vellum)",
-            boxShadow:
-              "0 0 0 4px rgba(201,168,76,0.03), 0 4px 32px rgba(0,0,0,0.18)",
+            boxShadow: "0 0 0 4px rgba(201,168,76,0.03), 0 4px 32px rgba(0,0,0,0.18)",
           }}
         >
-          <GameEditor key={gameKey} onWordCountChange={updateWordCount} />
+          <GameEditor
+            key={gameKey}
+            onWordCountChange={updateWordCount}
+            onTextChange={setTextWritten}
+          />
         </div>
       </div>
     </div>

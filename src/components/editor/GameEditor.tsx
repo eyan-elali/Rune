@@ -8,9 +8,10 @@ import { useEffect, useRef } from "react";
 
 interface GameEditorProps {
   onWordCountChange: (count: number) => void;
+  onTextChange?: (html: string) => void;
 }
 
-export default function GameEditor({ onWordCountChange }: GameEditorProps) {
+export default function GameEditor({ onWordCountChange, onTextChange }: GameEditorProps) {
   const trackedWords = useRef(0);
 
   const editor = useEditor({
@@ -37,6 +38,7 @@ export default function GameEditor({ onWordCountChange }: GameEditorProps) {
         trackedWords.current = current;
         onWordCountChange(current);
       }
+      onTextChange?.(editor.getHTML());
     },
   });
 
