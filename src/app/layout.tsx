@@ -1,6 +1,19 @@
 import type { Metadata } from "next";
+import { Inter, Newsreader } from "next/font/google"; // 1. IMPORT
 import { ThemeProvider } from "@/components/ui/ThemeProvider";
 import "./globals.css";
+
+// 2. CONFIGURE FONTS
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+});
+
+const newsreader = Newsreader({
+  subsets: ["latin"],
+  style: ["normal", "italic"],
+  variable: "--font-newsreader",
+});
 
 export const metadata: Metadata = {
   title: "Rune — Write with Intention",
@@ -13,8 +26,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning className="h-full antialiased">
-      <body className="min-h-full flex flex-col font-rune-serif">
+    <html lang="en" suppressHydrationWarning className="h-full">
+      {/* 3. APPLY VARIABLES TO BODY */}
+      <body 
+        className={`${inter.variable} ${newsreader.variable} min-h-full flex flex-col font-sans antialiased`}
+      >
         <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>

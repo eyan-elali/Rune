@@ -25,14 +25,14 @@ const config: Config = {
         },
       },
       fontFamily: {
-        "rune-serif": ["Georgia", "Times New Roman", "Times", "serif"],
-        "rune-sans": [
-          "ui-sans-serif",
-          "system-ui",
-          "-apple-system",
-          "BlinkMacSystemFont",
-          "sans-serif",
-        ],
+        // 1. Map 'sans' to Inter (for the UI/Sidebars)
+        sans: ["var(--font-inter)", "ui-sans-serif", "system-ui", "sans-serif"],
+        // 2. Map 'serif' to Newsreader (for the Prose/Editor)
+        serif: ["var(--font-newsreader)", "ui-serif", "Georgia", "serif"],
+        
+        // KEEP these as aliases if you've already used them in your components
+        "rune-serif": ["var(--font-newsreader)", "serif"],
+        "rune-sans": ["var(--font-inter)", "sans-serif"],
       },
     },
   },

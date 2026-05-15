@@ -6,7 +6,8 @@
 
 /* ── Design tokens ─────────────────────────────────────────────── */
 :root {
-  --color-ink: #1a1614;
+  --color-ink: #2D2926;
+  --color-ink-muted: rgba(45, 41, 38, 0.6);
   --color-parchment: #f5f0e8;
   --color-vellum: #ede8db;
   --color-sepia: #2c2420;
@@ -110,10 +111,14 @@ body {
 
 /* ── Tiptap / ProseMirror ───────────────────────────────────────────── */
 .ProseMirror {
-  font-family: Georgia, "Times New Roman", Times, serif;
-  font-size: 18px;
-  line-height: 1.9;
+  font-family: var(--font-newsreader), serif;
+  font-variation-settings: "wght" 480;
+  font-size: 1.25rem;
+  line-height: 1.8;
   color: var(--color-ink);
+  -webkit-font-smoothing: antialiased;
+  letter-spacing: -0.015em;
+  font-weight: 400;
   outline: none;
   min-height: 400px;
   caret-color: var(--color-gold);

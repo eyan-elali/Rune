@@ -258,7 +258,13 @@ export default function RuneEditor({
                 (e.target as HTMLInputElement).blur();
               }
             }}
-            className="mb-8 w-full bg-transparent font-rune-serif text-3xl font-normal leading-snug tracking-tight outline-none ring-0 focus:outline-none"
+            className={cn(
+              "mb-10 w-full bg-transparent font-serif outline-none ring-0 focus:outline-none",
+              // 1. Size: 4xl is the 'tiny bit bigger' step up from 3xl
+              "text-3xl",
+              // 2. Weight: font-medium (500) gives it that 'thick' feel you wanted
+              "font-bold tracking-tight"
+            )}          
             style={{
               color: "var(--color-ink)",
               borderBottom: "1px solid transparent",
