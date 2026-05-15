@@ -84,7 +84,7 @@ export function AppShell({ displayName, avatarUrl, children }: AppShellProps) {
             className="pointer-events-none fixed inset-0 z-10"
             style={{
               background:
-                "radial-gradient(ellipse at center, transparent 52%, rgba(20,16,14,0.65) 100%)",
+                "radial-gradient(ellipse at center, transparent 52%, rgba(20,16,14,0.15) 100%)",
             }}
             aria-hidden
           />

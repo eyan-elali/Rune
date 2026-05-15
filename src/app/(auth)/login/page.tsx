@@ -91,7 +91,7 @@ export default function LoginPage() {
           borderColor: "var(--color-border)",
         }}
       >
-        <h1 className="mb-6 font-rune-serif text-xl text-rune-parchment">
+        <h1 className="!mb-4 font-rune-serif text-xl text-rune-parchment">
           {mode === "password" ? "Sign in" : "Sign in with magic link"}
         </h1>
 
