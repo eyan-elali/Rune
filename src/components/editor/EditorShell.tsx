@@ -2,10 +2,12 @@
 
 import dynamic from "next/dynamic";
 import { useState, useCallback, useEffect } from "react";
+import { usePathname } from "next/navigation";
 import { PageList } from "./PageList";
 import type { Page } from "@/lib/types";
 import { createPage, deletePage } from "@/lib/actions/pages";
 import { useEditorStore } from "@/store/editorStore";
+import { useModeStore } from "@/store/modeStore";
 
 const RuneEditor = dynamic(() => import("./RuneEditor"), {
   ssr: false,
@@ -34,6 +36,9 @@ export function EditorShell({
     initialPages[0]?.id ?? null
   );
   const setCurrentPage = useEditorStore((s) => s.setCurrentPage);
+  const pathname = usePathname();
+  const mode = useModeStore((s) => s.mode);
+  const shouldHideUI = mode === "focus" && pathname.includes("/chapters/");
 
   useEffect(() => {
     if (selectedPageId) {
@@ -94,15 +99,17 @@ export function EditorShell({
 
   return (
     <div className="flex min-h-0 h-full overflow-hidden">
-      <PageList
-        pages={pages}
-        selectedPageId={selectedPageId}
-        onSelectPage={handleSelectPage}
-        onAddPage={handleAddPage}
-        onDeletePage={handleDeletePage}
-        onRenamePage={handleRenamePage}
-      />
-      <div className="flex flex-1 overflow-hidden">
+      {!shouldHideUI && (
+        <PageList
+          pages={pages}
+          selectedPageId={selectedPageId}
+          onSelectPage={handleSelectPage}
+          onAddPage={handleAddPage}
+          onDeletePage={handleDeletePage}
+          onRenamePage={handleRenamePage}
+        />
+      )}
+      <div className="flex min-w-0 flex-1 overflow-hidden">
         <RuneEditor
           projectId={projectId}
           chapterId={chapterId}

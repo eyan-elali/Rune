@@ -1,11 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
-import { useModeStore } from "@/store/modeStore";
-import { cn } from "@/lib/utils";
+import { ModeToggle } from "@/components/ui/ModeToggle";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -35,62 +33,6 @@ function useBreadcrumbs() {
       };
     })
     .filter(Boolean) as { label: string; href: string; isLast: boolean }[];
-}
-
-function ModeToggle() {
-  const { mode, setMode } = useModeStore();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  // If the component hasn't "mounted" yet, we render a hidden placeholder
-  // so the layout doesn't jump when the toggle finally appears.
-  if (!mounted) {
-    return <div className="h-8 w-32" />; 
-  }
-
-  const isFocus = mode === "focus";
-
-  return (
-    <div
-      className="relative flex items-center rounded-full p-[3px] text-xs"
-      style={{ border: "1px solid var(--color-border-strong)" }}
-      role="group"
-      aria-label="Writing mode"
-    >
-      <span
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-y-[3px] rounded-full bg-rune-gold transition-all duration-200"
-        style={{
-          left: isFocus ? "3px" : "50%",
-          right: isFocus ? "50%" : "3px",
-        }}
-      />
-
-      <button
-        onClick={() => setMode("focus")}
-        aria-pressed={isFocus}
-        className={cn(
-          "relative z-10 rounded-full px-3.5 py-1 font-rune-sans transition-colors duration-150",
-          isFocus ? "text-rune-ink" : "text-rune-mist hover:text-rune-gold"
-        )}
-      >
-        Focus
-      </button>
-      <button
-        onClick={() => setMode("game")}
-        aria-pressed={!isFocus}
-        className={cn(
-          "relative z-10 rounded-full px-3.5 py-1 font-rune-sans transition-colors duration-150",
-          !isFocus ? "text-rune-ink" : "text-rune-mist hover:text-rune-gold"
-        )}
-      >
-        Game
-      </button>
-    </div>
-  );
 }
 
 export function Header() {

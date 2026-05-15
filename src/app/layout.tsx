@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Newsreader } from "next/font/google"; // 1. IMPORT
 import { ThemeProvider } from "@/components/ui/ThemeProvider";
+import { ToastContainer } from "@/components/ui/Toast";
 import "./globals.css";
 
 // 2. CONFIGURE FONTS
@@ -31,7 +32,10 @@ export default function RootLayout({
       <body 
         className={`${inter.variable} ${newsreader.variable} min-h-full flex flex-col font-sans antialiased`}
       >
-        <ThemeProvider>{children}</ThemeProvider>
+        <ThemeProvider>
+          {children}
+          <ToastContainer />
+        </ThemeProvider>
       </body>
     </html>
   );

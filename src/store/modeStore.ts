@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-type Mode = "focus" | "game";
+export type Mode = "normal" | "focus" | "game";
 
 interface ModeState {
   mode: Mode;
@@ -11,7 +11,7 @@ interface ModeState {
 export const useModeStore = create<ModeState>()(
   persist(
     (set) => ({
-      mode: "focus",
+      mode: "normal",
       setMode: (mode) => set({ mode }),
     }),
     {

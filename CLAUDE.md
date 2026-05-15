@@ -10,7 +10,15 @@ Rune is a **web-based, gamified text editor for writers**. It is a Mac-first, lo
 
 Rune solves a specific problem: writers struggle to sit down and produce a first draft. Rune gamifies that act. Once a draft exists, Rune's distraction-free tools help them shape it.
 
-### Two Modes
+### Modes
+- `normal` — default. Full UI. No special behavior.
+- `focus` — Sidebar, Header, and PageList unmounted entirely. Editor is fullscreen.
+  Exit: Escape key, or hover top-right corner to reveal the ModeToggle.
+- `game` — game HUD active (built in Prompts 10–11).
+
+modeStore default: 'normal'
+Toggle: two-button pill (Focus | Game). Clicking the active button returns to 'normal'.
+ModeToggle is a shared component at src/components/ui/ModeToggle.tsx — used in Header (normal/game) and the Focus hotzone.
 
 | Mode           | Purpose                              | Philosophy                        |
 | -------------- | ------------------------------------ | --------------------------------- |
