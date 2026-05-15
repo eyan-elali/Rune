@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
 import {
   LayoutDashboard,
   BookOpen,
@@ -10,6 +11,8 @@ import {
   LogOut,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { useProfileStore } from "@/store/profileStore";
+import { xpProgressInCurrentLevel } from "@/lib/xp";
 import { cn } from "@/lib/utils";
 
 interface SidebarProps {
@@ -47,6 +50,43 @@ function NavLink({
       <Icon size={16} aria-hidden="true" />
       {label}
     </Link>
+  );
+}
+
+function MiniXpBar() {
+  const profile = useProfileStore((s) => s.profile);
+  const [mounted, setMounted] = useState(false);
+  const [displayPercent, setDisplayPercent] = useState(0);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!mounted || !profile) return;
+    const { percent } = xpProgressInCurrentLevel(profile.xp);
+    const t = setTimeout(() => setDisplayPercent(percent), 60);
+    return () => clearTimeout(t);
+  }, [mounted, profile]);
+
+  if (!mounted || !profile) return <div className="h-1" />;
+
+  return (
+    <div
+      className="h-1 w-full overflow-hidden"
+      style={{ background: "rgba(201, 168, 76, 0.12)" }}
+      role="presentation"
+      aria-hidden
+    >
+      <div
+        className="h-full"
+        style={{
+          width: `${displayPercent}%`,
+          background: "linear-gradient(90deg, var(--color-gold-dim), var(--color-gold))",
+          transition: "width 0.8s ease-out",
+        }}
+      />
+    </div>
   );
 }
 
@@ -107,11 +147,7 @@ export function Sidebar({ displayName, avatarUrl }: SidebarProps) {
             {displayName}
           </span>
         </div>
-        <div
-          className="mx-auto h-px w-[92%] shrink-0"
-          style={{ background: "var(--color-border)" }}
-          aria-hidden
-        />
+        <MiniXpBar />
       </div>
 
       {/* Primary navigation */}

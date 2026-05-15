@@ -10,6 +10,7 @@ create table if not exists public.profiles (
   avatar_url    text,
   xp            integer     not null default 0,
   level         integer     not null default 1,
+  preferences   jsonb,
   created_at    timestamptz not null default now()
 );
 
@@ -59,6 +60,15 @@ create table if not exists public.game_sessions (
   created_at       timestamptz not null default now()
 );
 
+-- ── xp_events ────────────────────────────────────────────────────────
+create table if not exists public.xp_events (
+  id         uuid        primary key default gen_random_uuid(),
+  user_id    uuid        not null references public.profiles (id) on delete cascade,
+  amount     integer     not null,
+  reason     text        not null,
+  created_at timestamptz not null default now()
+);
+
 -- ═══════════════════════════════════════════════════════════════════
 --  Row Level Security
 -- ═══════════════════════════════════════════════════════════════════
@@ -68,6 +78,7 @@ alter table public.projects      enable row level security;
 alter table public.chapters      enable row level security;
 alter table public.pages         enable row level security;
 alter table public.game_sessions enable row level security;
+alter table public.xp_events     enable row level security;
 
 -- profiles: users manage only their own row
 create policy "profiles: select own"
@@ -197,6 +208,15 @@ create policy "game_sessions: update own"
 create policy "game_sessions: delete own"
   on public.game_sessions for delete
   using (auth.uid() = user_id);
+
+-- xp_events: users can read and insert their own events
+create policy "xp_events: select own"
+  on public.xp_events for select
+  using (auth.uid() = user_id);
+
+create policy "xp_events: insert own"
+  on public.xp_events for insert
+  with check (auth.uid() = user_id);
 
 -- ═══════════════════════════════════════════════════════════════════
 --  Auto-create profile on signup

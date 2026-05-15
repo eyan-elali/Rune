@@ -4,10 +4,12 @@ import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useModeStore, type Mode } from "@/store/modeStore";
 import { useToastStore } from "@/store/toastStore";
+import { useProfileStore } from "@/store/profileStore";
 import { ModeToggle } from "@/components/ui/ModeToggle";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import type { ReactNode } from "react";
+import type { Profile } from "@/lib/types";
 
 const MODE_TOAST: Record<Mode, string> = {
   focus: "Focus Mode",
@@ -16,23 +18,39 @@ const MODE_TOAST: Record<Mode, string> = {
 };
 
 interface AppShellProps {
-  displayName: string;
-  avatarUrl: string | null;
+  profile: Profile | null;
   children: ReactNode;
 }
 
-export function AppShell({ displayName, avatarUrl, children }: AppShellProps) {
+export function AppShell({ profile, children }: AppShellProps) {
   const pathname = usePathname();
   const { mode, setMode } = useModeStore();
   const showToast = useToastStore((s) => s.showToast);
+  const setProfile = useProfileStore((s) => s.setProfile);
   const [hotzoneActive, setHotzoneActive] = useState(false);
   const modeRef = useRef<Mode>(mode);
+
+  // Hydrate profileStore on mount (and whenever server-fetched profile changes)
+  useState(() => {
+    if (profile) {
+      useProfileStore.getState().setProfile(profile);
+    }
+  });
+
+  const displayName =
+    profile?.display_name ?? profile?.username ?? "Writer";
+  const avatarUrl = profile?.avatar_url ?? null;
 
   const shouldHideUI = mode === "focus" && pathname.includes("/chapters/");
 
   useEffect(() => {
     modeRef.current = mode;
   }, [mode]);
+
+  useEffect(() => {
+    if (profile) setProfile(profile);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.xp, profile?.level]);
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {

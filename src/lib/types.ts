@@ -5,6 +5,15 @@ export interface Profile {
   avatar_url: string | null;
   xp: number;
   level: number;
+  preferences: Record<string, unknown> | null;
+  created_at: string;
+}
+
+export interface XpEvent {
+  id: string;
+  user_id: string;
+  amount: number;
+  reason: string;
   created_at: string;
 }
 
