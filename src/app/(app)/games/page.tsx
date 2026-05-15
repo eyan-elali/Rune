@@ -152,30 +152,26 @@ export default async function GamesPage() {
           </div>
         </Link>
 
-        {/* Battle Mode — coming soon */}
-        <div
-          className="relative flex flex-col rounded-lg overflow-hidden"
+        {/* Battle Mode — active */}
+        <Link
+          href="/games/battle"
+          className="group relative flex flex-col rounded-lg overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl"
           style={{
             background: "var(--color-sepia)",
-            border: "1px solid var(--color-border)",
-            opacity: 0.55,
+            border: "1px solid var(--color-border-strong)",
+            boxShadow: "0 4px 24px rgba(0,0,0,0.4)",
           }}
-          aria-label="Battle Mode — Coming Soon"
+          aria-label="Play Battle Mode"
         >
-          {/* Coming soon ribbon */}
+          {/* Top accent bar */}
           <div
-            className="absolute top-4 right-4 rounded px-2 py-0.5 text-[10px] uppercase tracking-widest font-semibold"
+            className="h-0.5 w-full transition-all duration-300 group-hover:opacity-100"
             style={{
-              background: "rgba(201, 168, 76, 0.12)",
-              border: "1px solid var(--color-border)",
-              color: "var(--color-mist)",
+              background:
+                "linear-gradient(90deg, transparent, var(--color-crimson), transparent)",
+              opacity: 0.4,
             }}
-          >
-            Coming Soon
-          </div>
-
-          {/* Top bar */}
-          <div className="h-0.5 w-full" style={{ background: "var(--color-border)" }} />
+          />
 
           <div className="p-8 flex flex-col flex-1">
             {/* Icon */}
@@ -183,7 +179,7 @@ export default async function GamesPage() {
               className="mb-5 flex h-12 w-12 items-center justify-center rounded-full text-2xl"
               style={{
                 background: "rgba(139, 46, 46, 0.1)",
-                border: "1px solid rgba(139, 46, 46, 0.2)",
+                border: "1px solid rgba(139, 46, 46, 0.25)",
               }}
               aria-hidden
             >
@@ -192,7 +188,7 @@ export default async function GamesPage() {
 
             {/* Name + description */}
             <h2
-              className="font-rune-serif text-2xl mb-2"
+              className="font-rune-serif text-2xl mb-2 transition-colors duration-150"
               style={{ color: "var(--color-parchment)" }}
             >
               Battle Mode
@@ -202,14 +198,40 @@ export default async function GamesPage() {
               of the blank page before your HP runs out.
             </p>
 
-            {/* Lock indicator */}
+            {/* Enemy preview */}
             <div className="mt-auto">
-              <p className="text-xs italic" style={{ color: "var(--color-mist)", opacity: 0.5 }}>
-                Locked — arriving soon
-              </p>
+              <div
+                className="flex items-center gap-2 rounded px-3 py-2"
+                style={{
+                  background: "rgba(139, 46, 46, 0.07)",
+                  border: "1px solid rgba(139, 46, 46, 0.2)",
+                }}
+              >
+                <span className="text-xs" style={{ color: "var(--color-crimson)", opacity: 0.8 }}>
+                  3 enemies await
+                </span>
+                <span style={{ color: "var(--color-mist)", opacity: 0.3 }}>·</span>
+                <span className="text-xs italic" style={{ color: "var(--color-mist)", opacity: 0.5 }}>
+                  1.5× XP on victory
+                </span>
+              </div>
+            </div>
+
+            {/* CTA */}
+            <div
+              className="mt-5 flex items-center gap-1.5 text-sm font-medium transition-colors duration-150"
+              style={{ color: "var(--color-crimson)" }}
+            >
+              Enter the battle
+              <span
+                className="transition-transform duration-200 group-hover:translate-x-1"
+                aria-hidden
+              >
+                →
+              </span>
             </div>
           </div>
-        </div>
+        </Link>
       </div>
 
       <OrnamentDivider />

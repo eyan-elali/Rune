@@ -9,7 +9,8 @@ export async function createGameSession(
   mode: string,
   wordsWritten: number,
   durationSeconds: number,
-  xpEarned: number
+  xpEarned: number,
+  enemyType?: string
 ): Promise<ActionResult<{ id: string }>> {
   const supabase = await createClient();
   const {
@@ -27,6 +28,7 @@ export async function createGameSession(
       duration_seconds: durationSeconds,
       xp_earned: xpEarned,
       completed: true,
+      ...(enemyType ? { enemy_type: enemyType } : {}),
     })
     .select("id")
     .single();
