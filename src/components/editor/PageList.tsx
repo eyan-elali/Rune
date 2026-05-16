@@ -6,6 +6,45 @@ import { cn } from "@/lib/utils";
 import type { Page } from "@/lib/types";
 import { renamePage } from "@/lib/actions/pages";
 
+export function PageListSkeleton() {
+  return (
+    <aside
+      className="flex h-full min-h-0 w-[15%] min-w-[160px] max-w-[240px] shrink-0 flex-col overflow-hidden"
+      style={{
+        background: "var(--bg-sidebar)",
+        borderRight: "1px solid var(--color-border)",
+      }}
+      aria-label="Pages loading"
+      aria-busy="true"
+    >
+      <div className="flex shrink-0 flex-col">
+        <div className="flex items-center px-4 py-3">
+          <span
+            className="text-xs font-semibold uppercase tracking-widest"
+            style={{ color: "var(--color-mist)" }}
+          >
+            Pages
+          </span>
+        </div>
+        <div
+          className="mx-auto h-px w-[92%] shrink-0"
+          style={{ background: "var(--color-border)" }}
+          aria-hidden
+        />
+      </div>
+      <div className="flex flex-col gap-1.5 p-2 pt-2">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div
+            key={i}
+            className="mx-1 h-7 animate-pulse rounded"
+            style={{ background: "rgba(107, 101, 96, 0.12)" }}
+          />
+        ))}
+      </div>
+    </aside>
+  );
+}
+
 interface PageListProps {
   pages: Page[];
   selectedPageId: string | null;

@@ -1,4 +1,10 @@
+import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
+
+export const metadata: Metadata = {
+  title: "Dashboard — Rune",
+  description: "Your writing dashboard. Projects, recent work, and game stats.",
+};
 import { getPersonalBests, getCombatRecords } from "@/lib/actions/games";
 import { DashboardContent } from "./DashboardContent";
 import type { Project } from "@/lib/types";

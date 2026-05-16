@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
-import { Inter, Newsreader } from "next/font/google"; // 1. IMPORT
+import { Inter, Newsreader } from "next/font/google";
 import { ThemeProvider } from "@/components/ui/ThemeProvider";
 import { ToastContainer } from "@/components/ui/Toast";
+import "@/lib/env";
 import "./globals.css";
 
 // 2. CONFIGURE FONTS
@@ -17,8 +18,19 @@ const newsreader = Newsreader({
 });
 
 export const metadata: Metadata = {
-  title: "Rune — Write with Intention",
-  description: "A distraction-free writing environment for thoughtful prose.",
+  title: {
+    default: "Rune — Write more. Fear less.",
+    template: "%s",
+  },
+  description:
+    "A gamified, distraction-free writing environment for writers who struggle to start.",
+  metadataBase: new URL("https://rune.vercel.app"),
+  openGraph: {
+    title: "Rune — Write more. Fear less.",
+    description:
+      "A gamified, distraction-free writing environment. Focus Mode. Battle Mode. Race Mode.",
+    type: "website",
+  },
 };
 
 export default function RootLayout({

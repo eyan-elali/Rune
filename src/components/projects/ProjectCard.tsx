@@ -95,6 +95,47 @@ function KebabMenu({
   );
 }
 
+export function ProjectCardSkeleton() {
+  return (
+    <div
+      className="flex flex-col rounded-lg border"
+      style={{
+        background: "var(--surface-card)",
+        borderColor: "var(--color-border)",
+      }}
+    >
+      <div
+        className="h-1.5 w-full animate-pulse rounded-t-lg"
+        style={{ background: "rgba(107, 101, 96, 0.2)" }}
+      />
+      <div className="flex flex-col gap-3 p-5">
+        <div
+          className="h-4 w-3/4 animate-pulse rounded"
+          style={{ background: "rgba(107, 101, 96, 0.15)" }}
+        />
+        <div
+          className="h-3 w-full animate-pulse rounded"
+          style={{ background: "rgba(107, 101, 96, 0.1)" }}
+        />
+        <div
+          className="h-3 w-1/2 animate-pulse rounded"
+          style={{ background: "rgba(107, 101, 96, 0.1)" }}
+        />
+        <div className="mt-1 flex items-center justify-between">
+          <div
+            className="h-3 w-20 animate-pulse rounded"
+            style={{ background: "rgba(107, 101, 96, 0.12)" }}
+          />
+          <div
+            className="h-3 w-16 animate-pulse rounded"
+            style={{ background: "rgba(107, 101, 96, 0.12)" }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 interface ProjectCardProps {
   project: Project;
   onEdit: (project: Project) => void;
