@@ -32,7 +32,7 @@ export default function RuneEditor({
   onPageUpdated,
   onRenamePage,
 }: RuneEditorProps) {
-  const { setIsSaving, setLastSaved } = useEditorStore();
+  const { setIsSaving, setLastSaved, isSaving } = useEditorStore();
   const rawPrefs = useProfileStore((s) => s.profile?.preferences);
   const prefs = (rawPrefs ?? {}) as Partial<UserPreferences>;
   const fontSize = prefs.fontSize ?? 18;
@@ -108,15 +108,16 @@ export default function RuneEditor({
     onSelectionUpdate({ editor }) {
       const { from, to, empty } = editor.state.selection;
 
-      // Typewriter mode: keep cursor vertically centered
+      // Typewriter mode: keep cursor vertically centered relative to scroll frame
       if (typewriterModeRef.current) {
         try {
           const coords = editor.view.coordsAtPos(from);
           const el = scrollContainerRef.current;
           if (el) {
             const elRect = el.getBoundingClientRect();
+            const lineMid = (coords.top + coords.bottom) / 2;
             const scrollTarget =
-              el.scrollTop + (coords.top - elRect.top) - el.clientHeight / 2;
+              el.scrollTop + (lineMid - elRect.top) - el.clientHeight / 2;
             el.scrollTo({ top: Math.max(0, scrollTarget), behavior: "smooth" });
           }
         } catch {
@@ -200,7 +201,7 @@ export default function RuneEditor({
   return (
     <div
       className="relative flex h-full flex-1 flex-col overflow-hidden"
-      style={{ background: "var(--color-vellum)" }}
+      style={{ background: "var(--surface-editor)" }}
     >
       {/* Floating format toolbar — appears on text selection */}
       {editor && toolbarPos && (
@@ -210,7 +211,7 @@ export default function RuneEditor({
             top: toolbarPos.top,
             left: toolbarPos.left,
             transform: "translateX(-50%)",
-            background: "var(--color-sepia)",
+            background: "var(--surface-card)",
             border: "1px solid var(--color-border-strong)",
             boxShadow: "0 4px 16px rgba(0,0,0,0.55)",
           }}
@@ -273,7 +274,7 @@ export default function RuneEditor({
         ref={scrollContainerRef}
         className="flex-1 overflow-y-auto"
         style={{
-          background: "var(--color-vellum)",
+          background: "var(--surface-editor)",
           "--editor-font-size": `${fontSize}px`,
           "--editor-line-height": String(lineHeight),
         } as React.CSSProperties}
@@ -304,7 +305,7 @@ export default function RuneEditor({
               "font-bold tracking-tight"
             )}          
             style={{
-              color: "var(--color-ink)",
+              color: "var(--editor-text)",
               borderBottom: "1px solid transparent",
             }}
             onFocus={(e) => {
@@ -322,6 +323,21 @@ export default function RuneEditor({
       </div>
 
 
+{/* Ghost autosave star — no container, raw symbol, max 35% opacity */}
+<div
+  className="pointer-events-none fixed bottom-[4.5rem] right-7 z-40 md:bottom-[5rem] md:right-9"
+  style={{
+    color: "var(--color-gold)",
+    fontSize: "11px",
+    opacity: isSaving ? 0.35 : 0,
+    transition: "opacity 0.4s ease",
+    animation: isSaving ? "autosave-pulse 1s ease-in-out infinite" : "none",
+  }}
+  aria-hidden
+>
+  ✦
+</div>
+
 {/* Floating Word Count Pill */}
 <div className="fixed bottom-6 right-6 md:bottom-8 md:right-8 z-50">
   <div 
@@ -331,8 +347,8 @@ export default function RuneEditor({
       "2xl:px-4 2xl:py-1.5 2xl:text-[11px] 2xl:tracking-widest" // Big monitor upgrades
     )}
     style={{ 
-      background: "var(--color-sepia)", 
-      color: "var(--color-vellum)",
+      background: "var(--surface-card)", 
+      color: "var(--text-primary)",
       border: "1px solid rgba(201, 168, 76, 0.4)" 
     }}
   >

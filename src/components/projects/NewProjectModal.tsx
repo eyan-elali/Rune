@@ -112,7 +112,7 @@ export function NewProjectModal({
           visible ? "scale-100" : "scale-95"
         )}
         style={{
-          background: "var(--color-sepia)",
+          background: "var(--surface-card)",
           border: "1px solid var(--color-border-strong)",
         }}
       >
@@ -120,7 +120,8 @@ export function NewProjectModal({
         <div className="mb-6 flex items-center justify-between">
           <h2
             id="modal-title"
-            className="font-rune-serif text-xl text-rune-parchment"
+            className="font-rune-serif text-xl"
+            style={{ color: "var(--text-primary)" }}
           >
             {editing ? "Edit Project" : "New Project"}
           </h2>
@@ -163,10 +164,14 @@ export function NewProjectModal({
               className={cn(
                 "w-full resize-none rounded border px-3 py-2.5 text-sm outline-none",
                 "transition-colors duration-150",
-                "bg-rune-ink/80 text-rune-parchment placeholder:text-rune-mist/50",
+                "bg-transparent placeholder:text-rune-mist/50",
                 "border-[var(--color-border)]",
                 "focus:border-rune-gold focus:ring-2 focus:ring-rune-gold/20"
               )}
+              style={{
+                background: "color-mix(in srgb, var(--bg-primary) 80%, transparent)",
+                color: "var(--text-primary)",
+              }}
             />
           </div>
 

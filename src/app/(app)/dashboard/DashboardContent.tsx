@@ -8,7 +8,7 @@ import type { Project } from "@/lib/types";
 // ── Shared sub-components ────────────────────────────────────────────────────
 
 const cardStyle = {
-  background: "var(--color-sepia)",
+  background: "var(--surface-card)",
   border: "1px solid var(--color-border)",
 } as const;
 
@@ -54,7 +54,10 @@ function FocusCard({
       >
         {label}
       </p>
-      <h3 className="font-rune-serif text-lg leading-snug text-rune-parchment group-hover:text-rune-gold transition-colors duration-150 line-clamp-2">
+      <h3
+        className="font-rune-serif text-lg leading-snug transition-colors duration-150 group-hover:text-rune-gold line-clamp-2"
+        style={{ color: "var(--text-primary)" }}
+      >
         {title}
       </h3>
       <p className="mt-auto pt-3 text-xs" style={{ color: "var(--color-mist)" }}>
@@ -76,7 +79,12 @@ function EmptyFocusCard({ label }: { label: string }) {
       >
         {label}
       </p>
-      <p className="font-rune-serif text-sm text-rune-parchment/40">Nothing here yet</p>
+      <p
+        className="font-rune-serif text-sm"
+        style={{ color: "var(--text-primary)", opacity: 0.4 }}
+      >
+        Nothing here yet
+      </p>
     </div>
   );
 }
@@ -112,7 +120,7 @@ function EnemyCard({ name, hp, description, gimmick }: (typeof ENEMIES)[number])
     <div
       className="flex flex-col rounded-lg p-5"
       style={{
-        background: "var(--color-sepia)",
+        background: "var(--surface-card)",
         border: "1px solid var(--color-border)",
         borderTopColor: "var(--color-crimson)",
         borderTopWidth: "2px",
@@ -127,7 +135,12 @@ function EnemyCard({ name, hp, description, gimmick }: (typeof ENEMIES)[number])
           <span style={{ color: "var(--color-mist)" }}> · {gimmick}</span>
         )}
       </p>
-      <h3 className="font-rune-serif text-lg text-rune-parchment mb-2">{name}</h3>
+      <h3
+        className="mb-2 font-rune-serif text-lg"
+        style={{ color: "var(--text-primary)" }}
+      >
+        {name}
+      </h3>
       <p className="text-sm mb-4" style={{ color: "var(--color-mist)" }}>
         {description}
       </p>
@@ -192,7 +205,10 @@ function StatRowsCard({
             <span className="text-sm" style={{ color: "var(--color-mist)" }}>
               {label}
             </span>
-            <span className="shrink-0 font-rune-serif text-sm text-rune-parchment">
+            <span
+              className="shrink-0 font-rune-serif text-sm"
+              style={{ color: "var(--text-primary)" }}
+            >
               {value}
             </span>
           </li>
@@ -231,7 +247,10 @@ export function DashboardContent({
     return (
       <div className="mx-auto max-w-5xl px-10 py-12">
         <div className="mb-8">
-          <h1 className="font-rune-serif text-4xl text-rune-parchment">
+          <h1
+            className="font-rune-serif text-4xl"
+            style={{ color: "var(--text-primary)" }}
+          >
             The Arena
           </h1>
           <p className="mt-2 font-rune-serif text-lg text-rune-mist">
@@ -331,7 +350,10 @@ export function DashboardContent({
   return (
     <div className="mx-auto max-w-5xl px-10 py-12">
       <div className="mb-10">
-        <h1 className="font-rune-serif text-4xl text-rune-parchment">
+        <h1
+          className="font-rune-serif text-4xl"
+          style={{ color: "var(--text-primary)" }}
+        >
           Welcome back, {displayName}.
         </h1>
         <p className="mt-2 font-rune-serif text-lg text-rune-mist">
@@ -354,7 +376,7 @@ export function DashboardContent({
           <div
             className="flex items-center gap-6 rounded-lg p-6"
             style={{
-              background: "var(--color-sepia)",
+              background: "var(--surface-card)",
               border: "1px solid var(--color-border)",
               borderLeftColor: recentWork.coverColor ?? "var(--color-gold)",
               borderLeftWidth: "4px",
@@ -367,14 +389,17 @@ export function DashboardContent({
               >
                 {recentWork.projectTitle}
               </p>
-              <h3 className="truncate font-rune-serif text-xl text-rune-parchment">
+              <h3
+                className="truncate font-rune-serif text-xl"
+                style={{ color: "var(--text-primary)" }}
+              >
                 {recentWork.chapterTitle}
               </h3>
             </div>
             <Link
               href={`/projects/${recentWork.projectId}/chapters/${recentWork.chapterId}`}
               className="inline-flex shrink-0 items-center gap-2 rounded-md px-5 py-2.5 text-sm font-medium transition-colors duration-150"
-              style={{ background: "var(--color-gold)", color: "var(--color-ink)" }}
+              style={{ background: "var(--color-gold)", color: "var(--text-on-accent)" }}
             >
               Continue Writing
               <span aria-hidden>→</span>
@@ -387,7 +412,10 @@ export function DashboardContent({
         <div className="flex items-center gap-4 rounded-lg p-5" style={cardStyle}>
           <span className="text-2xl" aria-hidden>🏆</span>
           <div>
-            <p className="font-rune-serif text-xl text-rune-parchment">
+            <p
+              className="font-rune-serif text-xl"
+              style={{ color: "var(--text-primary)" }}
+            >
               {totalWords.toLocaleString()}
             </p>
             <p className="text-xs" style={{ color: "var(--color-mist)" }}>
@@ -399,7 +427,10 @@ export function DashboardContent({
         <div className="flex items-center gap-4 rounded-lg p-5" style={cardStyle}>
           <span className="text-2xl" aria-hidden>📖</span>
           <div>
-            <p className="font-rune-serif text-xl text-rune-parchment">
+            <p
+              className="font-rune-serif text-xl"
+              style={{ color: "var(--text-primary)" }}
+            >
               {projects.length}
             </p>
             <p className="text-xs" style={{ color: "var(--color-mist)" }}>
@@ -412,7 +443,10 @@ export function DashboardContent({
           <div className="flex items-center gap-4 rounded-lg p-5" style={cardStyle}>
             <span className="text-2xl" aria-hidden>✦</span>
             <div>
-              <p className="font-rune-serif text-xl text-rune-parchment">
+              <p
+                className="font-rune-serif text-xl"
+                style={{ color: "var(--text-primary)" }}
+              >
                 Level {profile.level}
               </p>
               <p className="text-xs" style={{ color: "var(--color-mist)" }}>

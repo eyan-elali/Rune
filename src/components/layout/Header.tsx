@@ -42,7 +42,7 @@ export function Header() {
     <header
       className="flex h-12 shrink-0 items-center justify-between px-6"
       style={{
-        background: "var(--color-ink)",
+        background: "var(--bg-primary)",
         borderBottom: "1px solid var(--color-border)",
       }}
     >
@@ -52,7 +52,7 @@ export function Header() {
             <li key={crumb.href} className="flex items-center gap-1.5">
               {i > 0 && <ChevronRight size={12} className="text-rune-mist/50" />}
               {crumb.isLast ? (
-                <span className="text-rune-parchment/80">{crumb.label}</span>
+                <span style={{ color: "var(--text-primary)" }}>{crumb.label}</span>
               ) : (
                 <Link
                   href={crumb.href}

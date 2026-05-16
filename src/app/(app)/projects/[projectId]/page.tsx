@@ -43,7 +43,10 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
             style={{ background: project.cover_color }}
           />
         )}
-        <h1 className="font-rune-serif text-3xl text-rune-parchment">
+        <h1
+          className="font-rune-serif text-3xl"
+          style={{ color: "var(--text-primary)" }}
+        >
           {project.title}
         </h1>
         {project.description && (

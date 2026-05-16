@@ -40,7 +40,10 @@ export function ProjectsGrid({ projects }: ProjectsGridProps) {
     <>
       {/* Toolbar */}
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="font-rune-serif text-2xl text-rune-parchment">
+        <h1
+          className="font-rune-serif text-2xl"
+          style={{ color: "var(--text-primary)" }}
+        >
           Projects
         </h1>
         <Button variant="primary" onClick={openNew} className="gap-1.5">
@@ -53,7 +56,10 @@ export function ProjectsGrid({ projects }: ProjectsGridProps) {
       {projects.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-20 text-center"
           style={{ borderColor: "var(--color-border)" }}>
-          <p className="font-rune-serif text-lg text-rune-parchment/50">
+          <p
+            className="font-rune-serif text-lg"
+            style={{ color: "var(--text-primary)", opacity: 0.5 }}
+          >
             No projects yet.
           </p>
           <p className="mt-1 text-sm text-rune-mist/50">

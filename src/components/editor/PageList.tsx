@@ -45,7 +45,7 @@ export function PageList({
     <aside
       className="flex h-full min-h-0 w-[15%] min-w-[160px] max-w-[240px] shrink-0 flex-col overflow-hidden"
       style={{
-        background: "#1B1717",
+        background: "var(--bg-sidebar)",
         borderRight: "1px solid var(--color-border)",
       }}
       aria-label="Page list"
@@ -124,17 +124,16 @@ export function PageList({
                       }}
                       onClick={(e) => e.stopPropagation()}
                       className="min-w-0 flex-1 bg-transparent text-sm outline-none"
-                      style={{ color: "var(--color-parchment)" }}
+                      style={{ color: "var(--text-primary)" }}
                       aria-label="Rename page"
                     />
                   ) : (
                     <span
-                      className={cn(
-                        "min-w-0 flex-1 truncate text-sm",
-                        isSelected
-                          ? "text-rune-parchment"
-                          : "text-rune-parchment/60 group-hover:text-rune-parchment/80"
-                      )}
+                      className="min-w-0 flex-1 truncate text-sm"
+                      style={{
+                        color: "var(--text-primary)",
+                        opacity: isSelected ? 1 : 0.65,
+                      }}
                       onDoubleClick={(e) => startEditing(page, e)}
                       title={page.title}
                     >

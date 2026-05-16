@@ -14,8 +14,17 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { useProfileStore } from "@/store/profileStore";
 import { useModeStore } from "@/store/modeStore";
+import type { UserPreferences } from "@/lib/types";
 import { xpProgressInCurrentLevel } from "@/lib/xp";
 import { cn } from "@/lib/utils";
+
+const AVATAR_SIGIL: Record<string, string> = {
+  quill: "✒",
+  "skull-roses": "☠",
+  "crescent-moon": "☽",
+  ouroboros: "∞",
+  hourglass: "⌛",
+};
 
 interface SidebarProps {
   displayName: string;
@@ -46,8 +55,9 @@ function NavLink({
         "flex items-center gap-3 rounded-r-md border-l-2 px-3 py-2.5 text-sm transition-colors duration-150",
         active
           ? "border-rune-gold bg-rune-gold/10 text-rune-gold"
-          : "border-transparent text-rune-parchment/60 hover:bg-rune-gold/5 hover:text-rune-parchment"
+          : "border-transparent hover:bg-rune-gold/5"
       )}
+      style={active ? undefined : { color: "var(--text-primary)", opacity: 0.65 }}
     >
       <Icon size={16} aria-hidden="true" />
       {label}
@@ -96,6 +106,11 @@ export function Sidebar({ displayName, avatarUrl }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const mode = useModeStore((s) => s.mode);
+  const profile = useProfileStore((s) => s.profile);
+
+  const prefs = (profile?.preferences ?? {}) as Partial<UserPreferences>;
+  const activeAvatar = prefs.activeAvatar ?? "quill";
+  const sigil = AVATAR_SIGIL[activeAvatar] ?? "✒";
 
   const initial = displayName.trim().charAt(0).toUpperCase() || "W";
 
@@ -110,7 +125,7 @@ export function Sidebar({ displayName, avatarUrl }: SidebarProps) {
     <aside
       className="flex h-full w-full min-h-0 flex-col"
       style={{
-        background: "var(--color-sepia)",
+        background: "var(--bg-sidebar)",
         borderRight: "1px solid var(--color-border)",
       }}
     >
@@ -142,11 +157,22 @@ export function Sidebar({ displayName, avatarUrl }: SidebarProps) {
               className="h-8 w-8 rounded-full object-cover"
             />
           ) : (
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-rune-gold/20 text-xs font-semibold text-rune-gold">
-              {initial}
+            <div
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-base"
+              style={{
+                background: "rgba(201, 168, 76, 0.12)",
+                border: "1px solid rgba(201, 168, 76, 0.25)",
+                color: "var(--color-gold)",
+              }}
+              aria-label={`Avatar: ${activeAvatar}`}
+            >
+              {sigil}
             </div>
           )}
-          <span className="truncate text-sm text-rune-parchment/80">
+          <span
+            className="truncate text-sm"
+            style={{ color: "var(--text-primary)", opacity: 0.8 }}
+          >
             {displayName}
           </span>
         </div>
@@ -198,7 +224,8 @@ export function Sidebar({ displayName, avatarUrl }: SidebarProps) {
           <button
             type="button"
             onClick={handleSignOut}
-            className="mt-0.5 flex w-full items-center gap-3 rounded-r-md border-l-2 border-transparent px-3 py-2.5 text-sm text-rune-parchment/40 transition-colors hover:border-rune-crimson/50 hover:bg-rune-crimson/10 hover:text-rune-crimson"
+            className="mt-0.5 flex w-full items-center gap-3 rounded-r-md border-l-2 border-transparent px-3 py-2.5 text-sm transition-colors hover:border-rune-crimson/50 hover:bg-rune-crimson/10 hover:text-rune-crimson"
+            style={{ color: "var(--text-primary)", opacity: 0.45 }}
           >
             <LogOut size={16} aria-hidden="true" />
             Sign out

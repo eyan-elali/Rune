@@ -99,7 +99,10 @@ export function AppShell({ profile, children }: AppShellProps) {
   }, [setMode, showToast]);
 
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-rune-ink">
+    <div
+      className="flex h-screen w-full overflow-hidden"
+      style={{ background: "var(--bg-sidebar)" }}
+    >
       {!shouldHideUI && (
         <div className="flex h-screen w-[18%] min-w-[200px] max-w-[280px] shrink-0 flex-col overflow-hidden md:w-[15%] md:min-w-[180px] lg:w-[18%] lg:min-w-[200px]">
           <Sidebar displayName={displayName} avatarUrl={avatarUrl} />
@@ -112,8 +115,8 @@ export function AppShell({ profile, children }: AppShellProps) {
           className="relative min-h-0 flex-1 overflow-auto"
           style={{
             background: shouldHideUI
-              ? "var(--color-vellum)"
-              : "var(--color-ink)",
+              ? "var(--surface-editor)"
+              : "var(--bg-primary)",
           }}
         >
           {children}

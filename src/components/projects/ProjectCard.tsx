@@ -61,7 +61,7 @@ function KebabMenu({
         <div
           className="absolute right-0 top-full z-50 mt-1 w-36 overflow-hidden rounded border shadow-xl"
           style={{
-            background: "var(--color-sepia)",
+            background: "var(--surface-card)",
             borderColor: "var(--color-border-strong)",
           }}
         >
@@ -123,7 +123,7 @@ export function ProjectCard({ project, onEdit }: ProjectCardProps) {
         deleting && "pointer-events-none opacity-40"
       )}
       style={{
-        background: "var(--color-sepia)",
+        background: "var(--surface-card)",
         borderColor: "var(--color-border)",
       }}
       onMouseEnter={(e) =>
@@ -142,7 +142,10 @@ export function ProjectCard({ project, onEdit }: ProjectCardProps) {
       {/* Card body */}
       <div className="flex flex-1 flex-col gap-2 p-5">
         <div className="flex items-start justify-between gap-2">
-          <h3 className="font-rune-serif text-base leading-snug text-rune-parchment group-hover:text-rune-gold transition-colors duration-150 line-clamp-2">
+          <h3
+            className="font-rune-serif text-base leading-snug transition-colors duration-150 group-hover:text-rune-gold line-clamp-2"
+            style={{ color: "var(--text-primary)" }}
+          >
             {project.title}
           </h3>
           <div onClick={(e) => e.stopPropagation()}>

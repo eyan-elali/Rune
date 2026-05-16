@@ -97,9 +97,13 @@ export function ChapterRow({ chapter, projectId }: ChapterRowProps) {
             onKeyDown={handleKeyDown}
             onClick={(e) => e.stopPropagation()}
             className={cn(
-              "w-full rounded border bg-rune-ink/60 px-2 py-0.5 text-sm text-rune-parchment outline-none",
+              "w-full rounded border px-2 py-0.5 text-sm outline-none",
               "border-rune-gold focus:ring-1 focus:ring-rune-gold/30"
             )}
+            style={{
+              background: "var(--bg-primary)",
+              color: "var(--text-primary)",
+            }}
             aria-label="Edit chapter title"
           />
         ) : (
@@ -110,7 +114,8 @@ export function ChapterRow({ chapter, projectId }: ChapterRowProps) {
               startEditing(e);
             }}
             title="Double-click to rename"
-            className="block truncate text-sm text-rune-parchment/80 group-hover:text-rune-parchment transition-colors"
+            className="block truncate text-sm transition-colors"
+            style={{ color: "var(--text-primary)", opacity: 0.8 }}
           >
             {chapter.title}
           </span>

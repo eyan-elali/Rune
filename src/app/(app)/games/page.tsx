@@ -87,7 +87,7 @@ export default async function GamesPage() {
           <div className="p-8 flex flex-col flex-1">
             {/* Icon */}
             <div
-              className="mb-5 flex h-12 w-12 items-center justify-center rounded-full text-2xl"
+              className="arena-game-icon mb-5 flex h-12 w-12 items-center justify-center rounded-full text-2xl"
               style={{
                 background: "rgba(201, 168, 76, 0.1)",
                 border: "1px solid var(--color-border-strong)",
@@ -176,7 +176,7 @@ export default async function GamesPage() {
           <div className="p-8 flex flex-col flex-1">
             {/* Icon */}
             <div
-              className="mb-5 flex h-12 w-12 items-center justify-center rounded-full text-2xl"
+              className="arena-game-icon mb-5 flex h-12 w-12 items-center justify-center rounded-full text-2xl"
               style={{
                 background: "rgba(139, 46, 46, 0.1)",
                 border: "1px solid rgba(139, 46, 46, 0.25)",

@@ -135,7 +135,7 @@ function SegmentGroup<T extends string | number>({
             background:
               value === opt.value ? "var(--color-gold)" : "transparent",
             color:
-              value === opt.value ? "var(--color-ink)" : "var(--color-mist)",
+              value === opt.value ? "var(--text-on-accent)" : "var(--color-mist)",
             borderLeft:
               i > 0 ? "1px solid var(--color-border-strong)" : undefined,
           }}
@@ -164,7 +164,7 @@ function Card({ children, danger }: { children: React.ReactNode; danger?: boolea
     <div
       className="rounded-lg p-6"
       style={{
-        background: danger ? "rgba(139, 46, 46, 0.08)" : "var(--color-sepia)",
+        background: danger ? "rgba(139, 46, 46, 0.08)" : "var(--surface-card)",
         border: `1px solid ${danger ? "rgba(139, 46, 46, 0.3)" : "var(--color-border)"}`,
       }}
     >
@@ -715,7 +715,7 @@ function AppearanceTab({ unlockedIds }: { unlockedIds: Set<string> }) {
         href="/profile/unlockables"
         className="flex items-center justify-between rounded-lg p-4 transition-colors duration-150 hover:opacity-80"
         style={{
-          background: "var(--color-sepia)",
+          background: "var(--surface-card)",
           border: "1px solid var(--color-border)",
         }}
       >
@@ -883,8 +883,8 @@ export function SettingsClient({
   return (
     <div className="mx-auto max-w-2xl px-8 py-12">
       <h1
-        className="mb-8 font-rune-serif text-4xl"
-        style={{ color: "var(--color-parchment)" }}
+        className="!mb-8 font-rune-serif text-4xl"
+        style={{ color: "var(--text-primary)" }}
       >
         Settings
       </h1>
@@ -895,7 +895,7 @@ export function SettingsClient({
         role="tablist"
         aria-label="Settings sections"
         style={{
-          background: "var(--color-sepia)",
+          background: "var(--surface-card)",
           border: "1px solid var(--color-border)",
         }}
       >
@@ -913,14 +913,14 @@ export function SettingsClient({
             )}
             style={{
               background:
-                activeTab === tab.id ? "var(--color-ink)" : "transparent",
+                activeTab === tab.id ? "var(--color-gold)" : "transparent",
               color:
                 tab.id === "danger"
                   ? activeTab === tab.id
                     ? "var(--color-crimson)"
                     : "rgba(139, 46, 46, 0.5)"
                   : activeTab === tab.id
-                  ? "var(--color-parchment)"
+                  ? "var(--text-on-accent)"
                   : "var(--color-mist)",
               fontWeight: activeTab === tab.id ? 500 : 400,
             }}

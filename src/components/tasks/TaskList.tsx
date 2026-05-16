@@ -83,7 +83,7 @@ export function TaskList() {
     <div
       className="rounded-lg p-5"
       style={{
-        background: "var(--color-sepia)",
+        background: "var(--surface-card)",
         border: "1px solid var(--color-border)",
       }}
     >
@@ -111,7 +111,7 @@ export function TaskList() {
               background:
                 activeTab === "today" ? "var(--color-gold)" : "transparent",
               color:
-                activeTab === "today" ? "var(--color-ink)" : "var(--color-mist)",
+                activeTab === "today" ? "var(--text-on-accent)" : "var(--color-mist)",
             }}
           >
             Today
@@ -127,7 +127,7 @@ export function TaskList() {
                 activeTab === "all-pending" ? "var(--color-gold)" : "transparent",
               color:
                 activeTab === "all-pending"
-                  ? "var(--color-ink)"
+                  ? "var(--text-on-accent)"
                   : "var(--color-mist)",
             }}
           >
@@ -196,10 +196,10 @@ export function TaskList() {
                     )}
                     style={{
                       color: overdue
-                        ? "rgba(245,240,232,0.45)"
+                        ? "var(--color-mist)"
                         : completedVis
                           ? "var(--color-mist)"
-                          : "var(--color-parchment)",
+                          : "var(--text-primary)",
                       textDecorationColor: "var(--color-mist)",
                     }}
                   >
@@ -249,7 +249,7 @@ export function TaskList() {
           value={newText}
           onChange={(e) => setNewText(e.target.value)}
           className="min-w-0 flex-1 bg-transparent font-rune-serif text-sm outline-none"
-          style={{ color: "var(--color-parchment)" }}
+          style={{ color: "var(--text-primary)" }}
           aria-label="New task text"
         />
         <input
@@ -265,7 +265,7 @@ export function TaskList() {
           disabled={!newText.trim() || isPending}
           aria-label="Add task"
           className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full transition-opacity duration-150 disabled:opacity-40"
-          style={{ background: "var(--color-gold)", color: "var(--color-ink)" }}
+          style={{ background: "var(--color-gold)", color: "var(--text-on-accent)" }}
         >
           <Plus size={14} aria-hidden />
         </button>
