@@ -1,3 +1,12 @@
+export interface UserPreferences {
+  fontSize: number;
+  lineHeight: number;
+  autoSaveDelay: number;
+  typewriterMode: boolean;
+  activeTheme: string;
+  activeAvatar: string;
+}
+
 export interface Profile {
   id: string;
   username: string | null;

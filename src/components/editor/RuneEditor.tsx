@@ -9,7 +9,8 @@ import { flushSync } from "react-dom";
 import { cn } from "@/lib/utils";
 import { updatePage, renamePage } from "@/lib/actions/pages";
 import { useEditorStore } from "@/store/editorStore";
-import type { Page } from "@/lib/types";
+import { useProfileStore } from "@/store/profileStore";
+import type { Page, UserPreferences } from "@/lib/types";
 
 interface RuneEditorProps {
   projectId: string;
@@ -32,9 +33,17 @@ export default function RuneEditor({
   onRenamePage,
 }: RuneEditorProps) {
   const { setIsSaving, setLastSaved } = useEditorStore();
+  const rawPrefs = useProfileStore((s) => s.profile?.preferences);
+  const prefs = (rawPrefs ?? {}) as Partial<UserPreferences>;
+  const fontSize = prefs.fontSize ?? 18;
+  const lineHeight = prefs.lineHeight ?? 1.9;
+  const typewriterModeRef = useRef(prefs.typewriterMode ?? false);
+  const autoSaveDelayRef = useRef(prefs.autoSaveDelay ?? 1500);
+
   const [showSaved, setShowSaved] = useState(false);
   const [toolbarPos, setToolbarPos] = useState<ToolbarPos | null>(null);
   const [titleDraft, setTitleDraft] = useState(currentPage?.title ?? "");
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const currentPageRef = useRef<Page | null>(currentPage);
   const onPageUpdatedRef = useRef(onPageUpdated);
@@ -42,6 +51,13 @@ export default function RuneEditor({
   const isLoadingRef = useRef(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const showSavedTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  // Keep preference refs in sync without recreating the editor
+  useEffect(() => {
+    typewriterModeRef.current = prefs.typewriterMode ?? false;
+    const delay = prefs.autoSaveDelay ?? 1500;
+    autoSaveDelayRef.current = delay === 0 ? 100 : delay;
+  }, [prefs.typewriterMode, prefs.autoSaveDelay]);
 
   useEffect(() => {
     onPageUpdatedRef.current = onPageUpdated;
@@ -87,10 +103,27 @@ export default function RuneEditor({
         setShowSaved(true);
         clearTimeout(showSavedTimerRef.current);
         showSavedTimerRef.current = setTimeout(() => setShowSaved(false), 2000);
-      }, 1500);
+      }, autoSaveDelayRef.current);
     },
     onSelectionUpdate({ editor }) {
       const { from, to, empty } = editor.state.selection;
+
+      // Typewriter mode: keep cursor vertically centered
+      if (typewriterModeRef.current) {
+        try {
+          const coords = editor.view.coordsAtPos(from);
+          const el = scrollContainerRef.current;
+          if (el) {
+            const elRect = el.getBoundingClientRect();
+            const scrollTarget =
+              el.scrollTop + (coords.top - elRect.top) - el.clientHeight / 2;
+            el.scrollTo({ top: Math.max(0, scrollTarget), behavior: "smooth" });
+          }
+        } catch {
+          // coords out of range — ignore
+        }
+      }
+
       if (empty) {
         setToolbarPos(null);
         return;
@@ -237,6 +270,7 @@ export default function RuneEditor({
 
       {/* Scrollable writing area */}
       <div
+        ref={scrollContainerRef}
         className="flex-1 overflow-y-auto"
         style={{ background: "var(--color-vellum)" }}
       >
@@ -279,7 +313,11 @@ export default function RuneEditor({
             }}
             aria-label="Page title"
           />
-          {editor ? <EditorContent editor={editor} /> : null}
+          {editor ? (
+            <div style={{ fontSize: `${fontSize}px`, lineHeight }}>
+              <EditorContent editor={editor} />
+            </div>
+          ) : null}
         </div>
       </div>
 

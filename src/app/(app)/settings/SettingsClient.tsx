@@ -1,0 +1,968 @@
+"use client";
+
+import { useState, useEffect, useRef } from "react";
+import Link from "next/link";
+import { Lock } from "lucide-react";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { cn } from "@/lib/utils";
+import {
+  updateProfile,
+  updatePreferences,
+  exportUserData,
+  deleteAccount,
+} from "@/lib/actions/settings";
+import { useProfileStore } from "@/store/profileStore";
+import { UNLOCKABLES, requirementLabel } from "@/lib/unlockables";
+import { createClient } from "@/lib/supabase/client";
+import type { Profile, UserPreferences } from "@/lib/types";
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+type Tab = "account" | "editor" | "appearance" | "danger";
+
+export interface SettingsClientProps {
+  profile: Profile | null;
+  email: string;
+  unlockedIds: Set<string>;
+}
+
+// ─── Shared primitives ────────────────────────────────────────────────────────
+
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return (
+    <h2
+      className="text-xs font-semibold uppercase tracking-widest"
+      style={{ color: "var(--color-mist)" }}
+    >
+      {children}
+    </h2>
+  );
+}
+
+function SettingRow({
+  label,
+  description,
+  last,
+  children,
+}: {
+  label: string;
+  description?: string;
+  last?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      className="flex items-center justify-between gap-8 py-4"
+      style={{ borderBottom: last ? "none" : "1px solid var(--color-border)" }}
+    >
+      <div className="min-w-0">
+        <p className="text-sm" style={{ color: "var(--color-parchment)" }}>
+          {label}
+        </p>
+        {description && (
+          <p className="mt-0.5 text-xs" style={{ color: "var(--color-mist)" }}>
+            {description}
+          </p>
+        )}
+      </div>
+      <div className="shrink-0">{children}</div>
+    </div>
+  );
+}
+
+function Toggle({
+  checked,
+  onChange,
+  label,
+}: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      onClick={() => onChange(!checked)}
+      className="relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rune-gold"
+      style={{
+        background: checked
+          ? "var(--color-gold)"
+          : "rgba(201, 168, 76, 0.12)",
+        border: `1px solid ${checked ? "var(--color-gold)" : "var(--color-border-strong)"}`,
+      }}
+    >
+      <span
+        className="inline-block h-4 w-4 rounded-full transition-transform duration-200"
+        style={{
+          background: checked ? "var(--color-ink)" : "var(--color-mist)",
+          transform: checked ? "translateX(24px)" : "translateX(2px)",
+        }}
+      />
+    </button>
+  );
+}
+
+function SegmentGroup<T extends string | number>({
+  options,
+  value,
+  onChange,
+  label,
+}: {
+  options: { label: string; value: T }[];
+  value: T;
+  onChange: (v: T) => void;
+  label: string;
+}) {
+  return (
+    <div
+      className="flex overflow-hidden rounded"
+      role="group"
+      aria-label={label}
+      style={{ border: "1px solid var(--color-border-strong)" }}
+    >
+      {options.map((opt, i) => (
+        <button
+          key={String(opt.value)}
+          type="button"
+          aria-pressed={value === opt.value}
+          onClick={() => onChange(opt.value)}
+          className="px-3 py-1.5 text-xs transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-rune-gold"
+          style={{
+            background:
+              value === opt.value ? "var(--color-gold)" : "transparent",
+            color:
+              value === opt.value ? "var(--color-ink)" : "var(--color-mist)",
+            borderLeft:
+              i > 0 ? "1px solid var(--color-border-strong)" : undefined,
+          }}
+        >
+          {opt.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function SavedBadge({ show }: { show: boolean }) {
+  return (
+    <span
+      className="text-xs transition-opacity duration-300"
+      style={{ color: "var(--color-sage)", opacity: show ? 1 : 0 }}
+      aria-live="polite"
+    >
+      Saved
+    </span>
+  );
+}
+
+function Card({ children, danger }: { children: React.ReactNode; danger?: boolean }) {
+  return (
+    <div
+      className="rounded-lg p-6"
+      style={{
+        background: danger ? "rgba(139, 46, 46, 0.08)" : "var(--color-sepia)",
+        border: `1px solid ${danger ? "rgba(139, 46, 46, 0.3)" : "var(--color-border)"}`,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+// ─── Account Tab ──────────────────────────────────────────────────────────────
+
+function AccountTab({
+  profile,
+  email,
+}: {
+  profile: Profile | null;
+  email: string;
+}) {
+  const setProfile = useProfileStore((s) => s.setProfile);
+  const storeProfile = useProfileStore((s) => s.profile);
+
+  const [displayName, setDisplayName] = useState(profile?.display_name ?? "");
+  const [username, setUsername] = useState(profile?.username ?? "");
+  const [usernameError, setUsernameError] = useState<string | null>(null);
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileSaved, setProfileSaved] = useState(false);
+
+  const [showEmailForm, setShowEmailForm] = useState(false);
+  const [newEmail, setNewEmail] = useState("");
+  const [emailStatus, setEmailStatus] = useState<
+    "idle" | "saving" | "sent" | "error"
+  >("idle");
+  const [emailError, setEmailError] = useState<string | null>(null);
+
+  const [showPasswordForm, setShowPasswordForm] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordStatus, setPasswordStatus] = useState<
+    "idle" | "saving" | "saved" | "error"
+  >("idle");
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+
+  async function handleSaveProfile() {
+    setUsernameError(null);
+    setProfileSaving(true);
+    const { error } = await updateProfile({
+      display_name: displayName.trim() || undefined,
+      username: username.trim() || undefined,
+    });
+    setProfileSaving(false);
+    if (error) {
+      setUsernameError(error);
+      return;
+    }
+    if (storeProfile) {
+      setProfile({
+        ...storeProfile,
+        display_name: displayName.trim() || storeProfile.display_name,
+        username: username.trim() || storeProfile.username,
+      });
+    }
+    setProfileSaved(true);
+    setTimeout(() => setProfileSaved(false), 2000);
+  }
+
+  async function handleEmailChange() {
+    if (!newEmail.trim()) return;
+    setEmailStatus("saving");
+    setEmailError(null);
+    const supabase = createClient();
+    const { error } = await supabase.auth.updateUser({ email: newEmail.trim() });
+    if (error) {
+      setEmailError(error.message);
+      setEmailStatus("error");
+    } else {
+      setEmailStatus("sent");
+    }
+  }
+
+  async function handlePasswordChange() {
+    setPasswordError(null);
+    if (newPassword !== confirmPassword) {
+      setPasswordError("Passwords do not match");
+      return;
+    }
+    if (newPassword.length < 6) {
+      setPasswordError("Password must be at least 6 characters");
+      return;
+    }
+    setPasswordStatus("saving");
+
+    const supabase = createClient();
+    const { error: authError } = await supabase.auth.signInWithPassword({
+      email,
+      password: currentPassword,
+    });
+    if (authError) {
+      setPasswordError("Current password is incorrect");
+      setPasswordStatus("error");
+      return;
+    }
+    const { error: updateError } = await supabase.auth.updateUser({
+      password: newPassword,
+    });
+    if (updateError) {
+      setPasswordError(updateError.message);
+      setPasswordStatus("error");
+      return;
+    }
+    setPasswordStatus("saved");
+    setCurrentPassword("");
+    setNewPassword("");
+    setConfirmPassword("");
+    setTimeout(() => {
+      setPasswordStatus("idle");
+      setShowPasswordForm(false);
+    }, 2000);
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <Card>
+        <SectionTitle>Identity</SectionTitle>
+        <div className="mt-5 flex flex-col gap-4">
+          <Input
+            label="Display Name"
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
+            placeholder="How others see you"
+          />
+          <Input
+            label="Username"
+            value={username}
+            onChange={(e) => {
+              setUsername(e.target.value);
+              setUsernameError(null);
+            }}
+            placeholder="@username"
+            error={usernameError ?? undefined}
+          />
+          <div className="flex items-center gap-3">
+            <Button onClick={handleSaveProfile} loading={profileSaving}>
+              Save changes
+            </Button>
+            <SavedBadge show={profileSaved} />
+          </div>
+        </div>
+      </Card>
+
+      <Card>
+        <SectionTitle>Email</SectionTitle>
+        <SettingRow label="Email address" description={email} last>
+          {!showEmailForm && emailStatus !== "sent" ? (
+            <button
+              type="button"
+              className="text-xs hover:underline"
+              style={{ color: "var(--color-gold)" }}
+              onClick={() => setShowEmailForm(true)}
+            >
+              Change
+            </button>
+          ) : null}
+        </SettingRow>
+
+        {showEmailForm && emailStatus !== "sent" && (
+          <div className="mt-3 flex flex-col gap-3">
+            <Input
+              label="New email address"
+              type="email"
+              value={newEmail}
+              onChange={(e) => setNewEmail(e.target.value)}
+              placeholder="new@example.com"
+              error={emailError ?? undefined}
+            />
+            <div className="flex gap-2">
+              <Button
+                onClick={handleEmailChange}
+                loading={emailStatus === "saving"}
+              >
+                Send confirmation
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setShowEmailForm(false);
+                  setNewEmail("");
+                  setEmailError(null);
+                  setEmailStatus("idle");
+                }}
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        )}
+        {emailStatus === "sent" && (
+          <p className="mt-3 text-xs" style={{ color: "var(--color-sage)" }}>
+            Confirmation sent — check your inbox to complete the change.
+          </p>
+        )}
+      </Card>
+
+      <Card>
+        <SectionTitle>Password</SectionTitle>
+        {!showPasswordForm ? (
+          <div className="mt-3">
+            <button
+              type="button"
+              className="text-sm hover:underline"
+              style={{ color: "var(--color-gold)" }}
+              onClick={() => setShowPasswordForm(true)}
+            >
+              Change password
+            </button>
+          </div>
+        ) : passwordStatus === "saved" ? (
+          <p className="mt-3 text-sm" style={{ color: "var(--color-sage)" }}>
+            Password updated successfully.
+          </p>
+        ) : (
+          <div className="mt-5 flex flex-col gap-4">
+            <Input
+              label="Current password"
+              type="password"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              autoComplete="current-password"
+            />
+            <Input
+              label="New password"
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              autoComplete="new-password"
+            />
+            <Input
+              label="Confirm new password"
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              autoComplete="new-password"
+              error={passwordError ?? undefined}
+            />
+            <div className="flex gap-2">
+              <Button
+                onClick={handlePasswordChange}
+                loading={passwordStatus === "saving"}
+              >
+                Update password
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setShowPasswordForm(false);
+                  setCurrentPassword("");
+                  setNewPassword("");
+                  setConfirmPassword("");
+                  setPasswordError(null);
+                  setPasswordStatus("idle");
+                }}
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        )}
+      </Card>
+    </div>
+  );
+}
+
+// ─── Editor Tab ───────────────────────────────────────────────────────────────
+
+function EditorTab() {
+  const storeProfile = useProfileStore((s) => s.profile);
+  const setPreferences = useProfileStore((s) => s.setPreferences);
+  const prefs = (storeProfile?.preferences ?? {}) as Partial<UserPreferences>;
+
+  const fontSize = prefs.fontSize ?? 18;
+  const lineHeight = prefs.lineHeight ?? 1.9;
+  const autoSaveDelay = prefs.autoSaveDelay ?? 1000;
+  const typewriterMode = prefs.typewriterMode ?? false;
+
+  const [localFontSize, setLocalFontSize] = useState(fontSize);
+  const fontSaveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined
+  );
+
+  useEffect(() => {
+    setLocalFontSize(prefs.fontSize ?? 18);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefs.fontSize]);
+
+  async function savePref(updates: Partial<UserPreferences>) {
+    setPreferences(updates);
+    await updatePreferences(updates);
+  }
+
+  function handleFontSizeChange(val: number) {
+    setLocalFontSize(val);
+    clearTimeout(fontSaveTimer.current);
+    fontSaveTimer.current = setTimeout(() => savePref({ fontSize: val }), 500);
+  }
+
+  return (
+    <Card>
+      <SectionTitle>Editor preferences</SectionTitle>
+      <div className="mt-1">
+        <SettingRow label="Font size" description={`${localFontSize}px`}>
+          <div className="flex items-center gap-3">
+            <span
+              className="text-xs tabular-nums"
+              style={{ color: "var(--color-mist)" }}
+            >
+              16
+            </span>
+            <input
+              type="range"
+              min={16}
+              max={22}
+              step={1}
+              value={localFontSize}
+              onChange={(e) => handleFontSizeChange(Number(e.target.value))}
+              className="w-28"
+              style={{ accentColor: "var(--color-gold)" }}
+              aria-label="Font size"
+            />
+            <span
+              className="text-xs tabular-nums"
+              style={{ color: "var(--color-mist)" }}
+            >
+              22
+            </span>
+          </div>
+        </SettingRow>
+
+        <SettingRow label="Line height">
+          <SegmentGroup
+            label="Line height"
+            value={lineHeight}
+            onChange={(v) => savePref({ lineHeight: v })}
+            options={[
+              { label: "Compact", value: 1.7 },
+              { label: "Relaxed", value: 1.9 },
+              { label: "Spacious", value: 2.2 },
+            ]}
+          />
+        </SettingRow>
+
+        <SettingRow
+          label="Auto-save"
+          description="How quickly changes are persisted"
+        >
+          <SegmentGroup
+            label="Auto-save delay"
+            value={autoSaveDelay}
+            onChange={(v) => savePref({ autoSaveDelay: v })}
+            options={[
+              { label: "Instant", value: 0 },
+              { label: "1s", value: 1000 },
+              { label: "3s", value: 3000 },
+            ]}
+          />
+        </SettingRow>
+
+        <SettingRow
+          label="Typewriter mode"
+          description="Cursor stays vertically centered as you write"
+          last
+        >
+          <Toggle
+            checked={typewriterMode}
+            onChange={(v) => savePref({ typewriterMode: v })}
+            label="Typewriter mode"
+          />
+        </SettingRow>
+      </div>
+    </Card>
+  );
+}
+
+// ─── Appearance Tab ───────────────────────────────────────────────────────────
+
+const AVATAR_SYMBOL: Record<string, string> = {
+  quill: "✒",
+  "skull-roses": "☽",
+  "crescent-moon": "☽",
+  ouroboros: "∞",
+  hourglass: "⌛",
+};
+
+function AppearanceTab({ unlockedIds }: { unlockedIds: Set<string> }) {
+  const storeProfile = useProfileStore((s) => s.profile);
+  const setPreferences = useProfileStore((s) => s.setPreferences);
+  const prefs = (storeProfile?.preferences ?? {}) as Partial<UserPreferences>;
+
+  const activeTheme = prefs.activeTheme ?? "candlelight";
+  const activeAvatar = prefs.activeAvatar ?? "quill";
+
+  const themes = UNLOCKABLES.filter((u) => u.type === "theme");
+  const avatars = UNLOCKABLES.filter((u) => u.type === "avatar");
+
+  function isItemUnlocked(id: string) {
+    const item = UNLOCKABLES.find((u) => u.id === id);
+    return item?.requirement === null || unlockedIds.has(id);
+  }
+
+  async function selectTheme(id: string) {
+    if (!isItemUnlocked(id)) return;
+    setPreferences({ activeTheme: id });
+    await updatePreferences({ activeTheme: id });
+  }
+
+  async function selectAvatar(id: string) {
+    if (!isItemUnlocked(id)) return;
+    setPreferences({ activeAvatar: id });
+    await updatePreferences({ activeAvatar: id });
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <Card>
+        <SectionTitle>Theme</SectionTitle>
+        <div className="mt-4 grid grid-cols-2 gap-3">
+          {themes.map((theme) => {
+            const unlocked = isItemUnlocked(theme.id);
+            const active = activeTheme === theme.id;
+            return (
+              <button
+                key={theme.id}
+                type="button"
+                disabled={!unlocked}
+                onClick={() => selectTheme(theme.id)}
+                className="relative flex flex-col items-start rounded-lg p-4 text-left transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rune-gold"
+                style={{
+                  background: active
+                    ? "rgba(201, 168, 76, 0.1)"
+                    : "var(--color-ink)",
+                  border: `1px solid ${active ? "var(--color-gold)" : "var(--color-border)"}`,
+                  opacity: unlocked ? 1 : 0.45,
+                  cursor: unlocked ? "pointer" : "not-allowed",
+                }}
+                aria-pressed={active}
+                aria-label={`${theme.name}${!unlocked ? " — locked" : ""}`}
+              >
+                {!unlocked && (
+                  <Lock
+                    size={12}
+                    className="absolute right-3 top-3"
+                    style={{ color: "var(--color-mist)" }}
+                    aria-hidden
+                  />
+                )}
+                {active && (
+                  <span
+                    className="absolute right-3 top-3 text-xs"
+                    style={{ color: "var(--color-gold)" }}
+                    aria-hidden
+                  >
+                    ✓
+                  </span>
+                )}
+                <p
+                  className="font-rune-serif text-sm font-semibold"
+                  style={{ color: "var(--color-parchment)" }}
+                >
+                  {theme.name}
+                </p>
+                <p
+                  className="mt-1 text-xs leading-relaxed"
+                  style={{ color: "var(--color-mist)" }}
+                >
+                  {unlocked
+                    ? theme.description
+                    : requirementLabel(theme.requirement)}
+                </p>
+              </button>
+            );
+          })}
+        </div>
+      </Card>
+
+      <Card>
+        <SectionTitle>Avatar</SectionTitle>
+        <div className="mt-4 grid grid-cols-3 gap-3 sm:grid-cols-5">
+          {avatars.map((avatar) => {
+            const unlocked = isItemUnlocked(avatar.id);
+            const active = activeAvatar === avatar.id;
+            return (
+              <button
+                key={avatar.id}
+                type="button"
+                disabled={!unlocked}
+                onClick={() => selectAvatar(avatar.id)}
+                className="relative flex flex-col items-center gap-2 rounded-lg p-3 transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rune-gold"
+                style={{
+                  background: active
+                    ? "rgba(201, 168, 76, 0.1)"
+                    : "var(--color-ink)",
+                  border: `1px solid ${active ? "var(--color-gold)" : "var(--color-border)"}`,
+                  opacity: unlocked ? 1 : 0.4,
+                  cursor: unlocked ? "pointer" : "not-allowed",
+                  filter: unlocked ? "none" : "grayscale(1)",
+                }}
+                aria-pressed={active}
+                aria-label={`${avatar.name}${!unlocked ? " — locked" : ""}`}
+              >
+                {!unlocked && (
+                  <Lock
+                    size={10}
+                    className="absolute right-2 top-2"
+                    style={{ color: "var(--color-mist)" }}
+                    aria-hidden
+                  />
+                )}
+                <div
+                  className="flex h-10 w-10 items-center justify-center rounded-full font-rune-serif text-lg"
+                  style={{
+                    background: unlocked
+                      ? "rgba(201, 168, 76, 0.12)"
+                      : "rgba(107, 101, 96, 0.12)",
+                    border: `1px solid ${unlocked ? "rgba(201, 168, 76, 0.25)" : "rgba(107, 101, 96, 0.25)"}`,
+                    color: unlocked
+                      ? "var(--color-gold)"
+                      : "var(--color-mist)",
+                  }}
+                  aria-hidden
+                >
+                  {AVATAR_SYMBOL[avatar.id] ?? "✦"}
+                </div>
+                <p
+                  className="text-center text-[10px] leading-tight"
+                  style={{
+                    color: unlocked
+                      ? "var(--color-parchment)"
+                      : "var(--color-mist)",
+                  }}
+                >
+                  {avatar.name}
+                </p>
+              </button>
+            );
+          })}
+        </div>
+      </Card>
+
+      <Link
+        href="/profile/unlockables"
+        className="flex items-center justify-between rounded-lg p-4 transition-colors duration-150 hover:opacity-80"
+        style={{
+          background: "var(--color-sepia)",
+          border: "1px solid var(--color-border)",
+        }}
+      >
+        <div>
+          <p
+            className="text-sm font-semibold"
+            style={{ color: "var(--color-parchment)" }}
+          >
+            Unlockables gallery
+          </p>
+          <p className="mt-0.5 text-xs" style={{ color: "var(--color-mist)" }}>
+            View all themes and avatars you can earn
+          </p>
+        </div>
+        <span style={{ color: "var(--color-gold)" }} aria-hidden>
+          →
+        </span>
+      </Link>
+    </div>
+  );
+}
+
+// ─── Danger Zone Tab ──────────────────────────────────────────────────────────
+
+function DangerTab() {
+  const [deleteConfirm, setDeleteConfirm] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
+
+  const canDelete = deleteConfirm === "DELETE";
+
+  async function handleExport() {
+    setIsExporting(true);
+    try {
+      const { data, error } = await exportUserData();
+      if (error || !data) return;
+      const json = JSON.stringify(data, null, 2);
+      const blob = new Blob([json], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `rune-export-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      URL.revokeObjectURL(url);
+    } finally {
+      setIsExporting(false);
+    }
+  }
+
+  async function handleDeleteAccount() {
+    if (!canDelete) return;
+    setIsDeleting(true);
+    setDeleteError(null);
+    const { error } = await deleteAccount();
+    if (error) {
+      setDeleteError(error);
+      setIsDeleting(false);
+      return;
+    }
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    window.location.href = "/";
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <Card>
+        <p
+          className="text-sm font-semibold"
+          style={{ color: "var(--color-parchment)" }}
+        >
+          Export all my data
+        </p>
+        <p
+          className="mb-4 mt-1 text-xs"
+          style={{ color: "var(--color-mist)" }}
+        >
+          Download a JSON file of all your projects, chapters, and pages.
+        </p>
+        <Button variant="ghost" onClick={handleExport} loading={isExporting}>
+          Export data
+        </Button>
+      </Card>
+
+      <Card danger>
+        <p
+          className="text-sm font-semibold"
+          style={{ color: "var(--color-crimson)" }}
+        >
+          Delete account
+        </p>
+        <p
+          className="mb-5 mt-1 text-xs"
+          style={{ color: "var(--color-mist)" }}
+        >
+          Permanently deletes your account and all associated data. This cannot
+          be undone.
+        </p>
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-1.5">
+            <label
+              htmlFor="delete-confirm"
+              className="text-xs font-medium uppercase tracking-widest"
+              style={{ color: "var(--color-mist)" }}
+            >
+              Type DELETE to confirm
+            </label>
+            <input
+              id="delete-confirm"
+              type="text"
+              value={deleteConfirm}
+              onChange={(e) => setDeleteConfirm(e.target.value)}
+              placeholder="DELETE"
+              autoComplete="off"
+              className="w-40 rounded border px-3 py-2 text-sm outline-none transition-colors duration-150"
+              style={{
+                background: "rgba(26, 22, 20, 0.8)",
+                color: "var(--color-parchment)",
+                borderColor: canDelete
+                  ? "var(--color-crimson)"
+                  : "var(--color-border)",
+              }}
+            />
+          </div>
+          {deleteError && (
+            <p className="text-xs" style={{ color: "var(--color-crimson)" }}>
+              {deleteError}
+            </p>
+          )}
+          <div>
+            <Button
+              variant="danger"
+              disabled={!canDelete}
+              loading={isDeleting}
+              onClick={handleDeleteAccount}
+            >
+              Delete account permanently
+            </Button>
+          </div>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+// ─── Settings page shell ──────────────────────────────────────────────────────
+
+const TABS: { id: Tab; label: string }[] = [
+  { id: "account", label: "Account" },
+  { id: "editor", label: "Editor" },
+  { id: "appearance", label: "Appearance" },
+  { id: "danger", label: "Danger Zone" },
+];
+
+export function SettingsClient({
+  profile,
+  email,
+  unlockedIds,
+}: SettingsClientProps) {
+  const [activeTab, setActiveTab] = useState<Tab>("account");
+
+  return (
+    <div className="mx-auto max-w-2xl px-8 py-12">
+      <h1
+        className="mb-8 font-rune-serif text-4xl"
+        style={{ color: "var(--color-parchment)" }}
+      >
+        Settings
+      </h1>
+
+      {/* Tab bar */}
+      <div
+        className="mb-8 flex gap-1 rounded-lg p-1"
+        role="tablist"
+        aria-label="Settings sections"
+        style={{
+          background: "var(--color-sepia)",
+          border: "1px solid var(--color-border)",
+        }}
+      >
+        {TABS.map((tab) => (
+          <button
+            key={tab.id}
+            id={`tab-${tab.id}`}
+            role="tab"
+            aria-selected={activeTab === tab.id}
+            aria-controls={`panel-${tab.id}`}
+            onClick={() => setActiveTab(tab.id)}
+            className={cn(
+              "flex-1 rounded px-3 py-2 text-sm transition-colors duration-150",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rune-gold"
+            )}
+            style={{
+              background:
+                activeTab === tab.id ? "var(--color-ink)" : "transparent",
+              color:
+                tab.id === "danger"
+                  ? activeTab === tab.id
+                    ? "var(--color-crimson)"
+                    : "rgba(139, 46, 46, 0.5)"
+                  : activeTab === tab.id
+                  ? "var(--color-parchment)"
+                  : "var(--color-mist)",
+              fontWeight: activeTab === tab.id ? 500 : 400,
+            }}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Panels */}
+      <div
+        id="panel-account"
+        role="tabpanel"
+        aria-labelledby="tab-account"
+        hidden={activeTab !== "account"}
+      >
+        <AccountTab profile={profile} email={email} />
+      </div>
+      <div
+        id="panel-editor"
+        role="tabpanel"
+        aria-labelledby="tab-editor"
+        hidden={activeTab !== "editor"}
+      >
+        <EditorTab />
+      </div>
+      <div
+        id="panel-appearance"
+        role="tabpanel"
+        aria-labelledby="tab-appearance"
+        hidden={activeTab !== "appearance"}
+      >
+        <AppearanceTab unlockedIds={unlockedIds} />
+      </div>
+      <div
+        id="panel-danger"
+        role="tabpanel"
+        aria-labelledby="tab-danger"
+        hidden={activeTab !== "danger"}
+      >
+        <DangerTab />
+      </div>
+    </div>
+  );
+}

@@ -39,16 +39,18 @@ export function AppShell({ profile, children }: AppShellProps) {
     }
   });
 
-  // Apply unlockable theme to <html data-theme="...">
+  const storeProfile = useProfileStore((s) => s.profile);
+
+  // Apply unlockable theme to <html data-theme="..."> — reads from store so live changes apply
   useEffect(() => {
-    const prefs = profile?.preferences as Record<string, unknown> | null | undefined;
+    const prefs = storeProfile?.preferences as Record<string, unknown> | null | undefined;
     const activeTheme = (prefs?.activeTheme as string | undefined) ?? "candlelight";
     if (activeTheme && activeTheme !== "candlelight") {
       document.documentElement.setAttribute("data-theme", activeTheme);
     } else {
       document.documentElement.removeAttribute("data-theme");
     }
-  }, [profile?.preferences]);
+  }, [storeProfile?.preferences]);
 
   const displayName =
     profile?.display_name ?? profile?.username ?? "Writer";
