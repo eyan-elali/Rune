@@ -143,6 +143,44 @@ export async function appendSprintToProject(
   return { data: page as { id: string }, error: null };
 }
 
+export type CombatRecord = { wins: number; losses: number };
+
+const COMBAT_ENEMY_IDS = ["blank-page", "writers-block", "deadline"] as const;
+
+function emptyCombatRecords(): Record<string, CombatRecord> {
+  return Object.fromEntries(
+    COMBAT_ENEMY_IDS.map((id) => [id, { wins: 0, losses: 0 }])
+  );
+}
+
+export async function getCombatRecords(
+  userId: string
+): Promise<Record<string, CombatRecord>> {
+  const supabase = await createClient();
+  const records = emptyCombatRecords();
+
+  const { data, error } = await supabase
+    .from("game_sessions")
+    .select("enemy_type, meta")
+    .eq("user_id", userId)
+    .eq("mode", "battle")
+    .eq("completed", true);
+
+  if (error || !data) return records;
+
+  for (const session of data) {
+    const enemyId = session.enemy_type;
+    if (!enemyId || !(enemyId in records)) continue;
+
+    const meta = session.meta as { outcome?: string } | null;
+    const outcome = meta?.outcome;
+    if (outcome === "victory") records[enemyId].wins += 1;
+    else if (outcome === "defeat") records[enemyId].losses += 1;
+  }
+
+  return records;
+}
+
 export async function getPersonalBests(
   userId: string
 ): Promise<Record<number, number>> {

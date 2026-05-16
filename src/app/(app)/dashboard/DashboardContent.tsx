@@ -152,6 +152,7 @@ interface DashboardContentProps {
   recentPageCards: RecentPageCard[];
   profile: { display_name: string | null; xp: number; level: number } | null;
   personalBests: Record<string, number>;
+  combatRecords?: Record<string, CombatRecord>;
 }
 
 const RACE_DURATIONS: { seconds: number; label: string }[] = [
@@ -160,6 +161,46 @@ const RACE_DURATIONS: { seconds: number; label: string }[] = [
   { seconds: 900, label: "15 min" },
   { seconds: 1800, label: "30 min" },
 ];
+
+type CombatRecord = { wins: number; losses: number };
+
+const COMBAT_ADVERSARIES: { id: string; name: string }[] = [
+  { id: "blank-page", name: "The Blank Page" },
+  { id: "writers-block", name: "Writer's Block" },
+  { id: "deadline", name: "The Deadline" },
+];
+
+function formatCombatRecord(record: CombatRecord | undefined): string {
+  if (!record) return "—";
+  const { wins, losses } = record;
+  if (wins === 0 && losses === 0) return "—";
+  const winLabel = wins === 1 ? "Win" : "Wins";
+  const lossLabel = losses === 1 ? "Defeat" : "Defeats";
+  return `${wins} ${winLabel} · ${losses} ${lossLabel}`;
+}
+
+function StatRowsCard({
+  rows,
+}: {
+  rows: { label: string; value: string }[];
+}) {
+  return (
+    <div className="rounded-lg p-5" style={cardStyle}>
+      <ul className="flex flex-col gap-3">
+        {rows.map(({ label, value }) => (
+          <li key={label} className="flex items-center justify-between gap-4">
+            <span className="text-sm" style={{ color: "var(--color-mist)" }}>
+              {label}
+            </span>
+            <span className="shrink-0 font-rune-serif text-sm text-rune-parchment">
+              {value}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
 
 // ── Main component ────────────────────────────────────────────────────────────
 
@@ -171,6 +212,7 @@ export function DashboardContent({
   recentPageCards,
   profile,
   personalBests,
+  combatRecords = {},
 }: DashboardContentProps) {
   const mode = useModeStore((s) => s.mode);
   const recentProject = projects[0] ?? null;
@@ -215,7 +257,7 @@ export function DashboardContent({
             ))}
           </div>
 
-          {/* Column 2 — Personal Bests */}
+          {/* Column 2 — Personal Bests & Combat Records */}
           <div className="flex flex-col gap-4">
             <h2
               className="text-xs font-semibold uppercase tracking-widest"
@@ -223,28 +265,28 @@ export function DashboardContent({
             >
               Personal Bests
             </h2>
-            <div
-              className="rounded-lg p-5"
-              style={cardStyle}
+            <StatRowsCard
+              rows={RACE_DURATIONS.map(({ seconds, label }) => ({
+                label,
+                value:
+                  personalBests[String(seconds)] != null
+                    ? `${personalBests[String(seconds)].toLocaleString()} words`
+                    : "—",
+              }))}
+            />
+
+            <h2
+              className="text-xs font-semibold uppercase tracking-widest"
+              style={{ color: "var(--color-mist)" }}
             >
-              <ul className="flex flex-col gap-3">
-                {RACE_DURATIONS.map(({ seconds, label }) => (
-                  <li key={seconds} className="flex items-center justify-between">
-                    <span
-                      className="text-sm"
-                      style={{ color: "var(--color-mist)" }}
-                    >
-                      {label}
-                    </span>
-                    <span className="font-rune-serif text-sm text-rune-parchment">
-                      {personalBests[seconds] != null
-                        ? `${personalBests[seconds].toLocaleString()} words`
-                        : "—"}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </div>
+              Combat Records
+            </h2>
+            <StatRowsCard
+              rows={COMBAT_ADVERSARIES.map(({ id, name }) => ({
+                label: name,
+                value: formatCombatRecord(combatRecords[id]),
+              }))}
+            />
           </div>
 
           {/* Column 3 — Quick Start */}

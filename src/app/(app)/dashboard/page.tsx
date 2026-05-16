@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { getPersonalBests } from "@/lib/actions/games";
+import { getPersonalBests, getCombatRecords } from "@/lib/actions/games";
 import { DashboardContent } from "./DashboardContent";
 import type { Project } from "@/lib/types";
 
@@ -111,7 +111,10 @@ export default async function DashboardPage() {
     }
   }
 
-  const personalBests = await getPersonalBests(user!.id);
+  const [personalBests, combatRecords] = await Promise.all([
+    getPersonalBests(user!.id),
+    getCombatRecords(user!.id),
+  ]);
   const serializedBests: Record<string, number> = {};
   for (const [k, v] of Object.entries(personalBests)) {
     serializedBests[k] = v;
@@ -126,6 +129,7 @@ export default async function DashboardPage() {
       recentPageCards={recentPageCards}
       profile={profile ?? null}
       personalBests={serializedBests}
+      combatRecords={combatRecords}
     />
   );
 }
