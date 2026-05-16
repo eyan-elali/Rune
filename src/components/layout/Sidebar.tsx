@@ -9,9 +9,11 @@ import {
   User,
   Settings,
   LogOut,
+  Swords,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useProfileStore } from "@/store/profileStore";
+import { useModeStore } from "@/store/modeStore";
 import { xpProgressInCurrentLevel } from "@/lib/xp";
 import { cn } from "@/lib/utils";
 
@@ -93,6 +95,7 @@ function MiniXpBar() {
 export function Sidebar({ displayName, avatarUrl }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const mode = useModeStore((s) => s.mode);
 
   const initial = displayName.trim().charAt(0).toUpperCase() || "W";
 
@@ -165,6 +168,16 @@ export function Sidebar({ displayName, avatarUrl }: SidebarProps) {
               />
             </li>
           ))}
+          {mode === "game" && (
+            <li>
+              <NavLink
+                href="/games"
+                label="Arena"
+                icon={Swords}
+                active={pathname === "/games" || pathname.startsWith("/games/")}
+              />
+            </li>
+          )}
         </ul>
       </nav>
 

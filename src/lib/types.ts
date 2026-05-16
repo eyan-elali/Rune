@@ -48,6 +48,15 @@ export interface Page {
   updated_at: string;
 }
 
+export interface Task {
+  id: string;
+  user_id: string;
+  text: string;
+  completed: boolean;
+  due_date: string | null; // YYYY-MM-DD plain string
+  created_at: string;
+}
+
 export interface GameSession {
   id: string;
   user_id: string;

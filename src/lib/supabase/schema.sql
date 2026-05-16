@@ -222,6 +222,34 @@ create policy "xp_events: insert own"
   on public.xp_events for insert
   with check (auth.uid() = user_id);
 
+-- ── tasks ────────────────────────────────────────────────────────────
+create table if not exists public.tasks (
+  id          uuid        primary key default gen_random_uuid(),
+  user_id     uuid        not null references public.profiles (id) on delete cascade,
+  text        text        not null,
+  completed   boolean     not null default false,
+  due_date    date,
+  created_at  timestamptz not null default now()
+);
+
+alter table public.tasks enable row level security;
+
+create policy "tasks: select own"
+  on public.tasks for select
+  using (auth.uid() = user_id);
+
+create policy "tasks: insert own"
+  on public.tasks for insert
+  with check (auth.uid() = user_id);
+
+create policy "tasks: update own"
+  on public.tasks for update
+  using (auth.uid() = user_id);
+
+create policy "tasks: delete own"
+  on public.tasks for delete
+  using (auth.uid() = user_id);
+
 -- ═══════════════════════════════════════════════════════════════════
 --  Auto-create profile on signup
 -- ═══════════════════════════════════════════════════════════════════
