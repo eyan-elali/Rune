@@ -1004,6 +1004,12 @@ export default function BattlePage() {
             useProfileStore
               .getState()
               .updateXp(xpResult.data.xp, xpResult.data.level);
+            if (xpResult.data.leveledUp) {
+              useProfileStore.getState().setPendingLevelUp({
+                newLevel: xpResult.data.newLevel,
+                newUnlockables: xpResult.data.newUnlockables,
+              });
+            }
           }
         });
       }

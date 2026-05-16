@@ -884,6 +884,12 @@ export default function RaceYourselfPage() {
         setIsSaving(false);
         if (xpResult.data) {
           useProfileStore.getState().updateXp(xpResult.data.xp, xpResult.data.level);
+          if (xpResult.data.leveledUp) {
+            useProfileStore.getState().setPendingLevelUp({
+              newLevel: xpResult.data.newLevel,
+              newUnlockables: xpResult.data.newUnlockables,
+            });
+          }
         }
       });
     }

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { XpBar } from "@/components/profile/XpBar";
 import type { GameSession } from "@/lib/types";
@@ -267,6 +268,33 @@ export default async function ProfilePage() {
           />
         </div>
       </section>
+
+      {/* ── Unlockables link ────────────────────────────────────────── */}
+      <div className="mb-8">
+        <Link
+          href="/profile/unlockables"
+          className="flex items-center justify-between rounded-lg p-5 transition-colors duration-150"
+          style={{
+            background: "var(--color-sepia)",
+            border: "1px solid var(--color-border)",
+          }}
+        >
+          <div>
+            <p
+              className="text-sm font-semibold"
+              style={{ color: "var(--color-parchment)" }}
+            >
+              Unlockables Gallery
+            </p>
+            <p className="mt-0.5 text-xs" style={{ color: "var(--color-mist)" }}>
+              Themes, avatars, and rewards earned through writing
+            </p>
+          </div>
+          <span style={{ color: "var(--color-gold)" }} aria-hidden>
+            →
+          </span>
+        </Link>
+      </div>
 
       {/* ── Recent activity ──────────────────────────────────────────── */}
       <section aria-label="Recent activity">

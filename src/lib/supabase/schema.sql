@@ -222,6 +222,24 @@ create policy "xp_events: insert own"
   on public.xp_events for insert
   with check (auth.uid() = user_id);
 
+-- ── user_unlockables ─────────────────────────────────────────────────
+create table if not exists public.user_unlockables (
+  user_id       uuid        not null references public.profiles (id) on delete cascade,
+  unlockable_id text        not null,
+  unlocked_at   timestamptz not null default now(),
+  primary key (user_id, unlockable_id)
+);
+
+alter table public.user_unlockables enable row level security;
+
+create policy "user_unlockables: select own"
+  on public.user_unlockables for select
+  using (auth.uid() = user_id);
+
+create policy "user_unlockables: insert own"
+  on public.user_unlockables for insert
+  with check (auth.uid() = user_id);
+
 -- ── tasks ────────────────────────────────────────────────────────────
 create table if not exists public.tasks (
   id          uuid        primary key default gen_random_uuid(),

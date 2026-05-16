@@ -205,3 +205,64 @@ body {
 .ProseMirror ::selection {
   background: rgba(201, 168, 76, 0.25);
 }
+
+/* ── Level-up animation ─────────────────────────────────────────── */
+@keyframes rune-level-up {
+  0%   { transform: scale(0.4); opacity: 0; }
+  60%  { transform: scale(1.08); opacity: 1; }
+  80%  { transform: scale(0.97); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.rune-level-up-animate {
+  animation: rune-level-up 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* ── Unlockable theme: Midnight Library ─────────────────────────── */
+[data-theme="theme-midnight-library"] {
+  --color-ink:          #0d0c12;
+  --color-parchment:    #d8d6e8;
+  --color-vellum:       #ccc9dc;
+  --color-sepia:        #12101a;
+  --color-gold:         #7b9ece;
+  --color-gold-dim:     #5a7aaa;
+  --color-mist:         #6a6880;
+  --color-border:       rgba(123, 158, 206, 0.2);
+  --color-border-strong: rgba(123, 158, 206, 0.4);
+}
+
+/* ── Unlockable theme: Crimson Ink ──────────────────────────────── */
+[data-theme="theme-crimson-ink"] {
+  --color-ink:          #160908;
+  --color-parchment:    #f0dedd;
+  --color-vellum:       #e8d2d0;
+  --color-sepia:        #1e0b0a;
+  --color-gold:         #c04848;
+  --color-gold-dim:     #8b2e2e;
+  --color-mist:         #6e5858;
+  --color-border:       rgba(192, 72, 72, 0.22);
+  --color-border-strong: rgba(192, 72, 72, 0.45);
+}
+
+/* ── Unlockable theme: The Ivory Tower ──────────────────────────── */
+/*    Redefines the palette so dark-mode tokens produce a light UI  */
+[data-theme="theme-ivory-tower"] {
+  --color-ink:          #f5f3ee;
+  --color-parchment:    #2d3244;
+  --color-vellum:       #eceae4;
+  --color-sepia:        #e8e4db;
+  --color-gold:         #5a6a8a;
+  --color-gold-dim:     #3d4f6b;
+  --color-crimson:      #7b3b3b;
+  --color-sage:         #3d5c38;
+  --color-mist:         #7a8296;
+  --color-border:       rgba(90, 106, 138, 0.2);
+  --color-border-strong: rgba(90, 106, 138, 0.35);
+}
+
+.dark[data-theme="theme-ivory-tower"] {
+  --bg-primary:  var(--color-ink);
+  --bg-secondary: var(--color-vellum);
+  --bg-sidebar:  var(--color-sepia);
+  --text-primary: var(--color-parchment);
+}

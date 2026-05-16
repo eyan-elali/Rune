@@ -9,6 +9,7 @@ import { useProfileStore } from "@/store/profileStore";
 import { ModeToggle } from "@/components/ui/ModeToggle";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
+import { LevelUpModal } from "@/components/ui/LevelUpModal";
 import type { ReactNode } from "react";
 import type { Profile } from "@/lib/types";
 
@@ -37,6 +38,17 @@ export function AppShell({ profile, children }: AppShellProps) {
       useProfileStore.getState().setProfile(profile);
     }
   });
+
+  // Apply unlockable theme to <html data-theme="...">
+  useEffect(() => {
+    const prefs = profile?.preferences as Record<string, unknown> | null | undefined;
+    const activeTheme = (prefs?.activeTheme as string | undefined) ?? "candlelight";
+    if (activeTheme && activeTheme !== "candlelight") {
+      document.documentElement.setAttribute("data-theme", activeTheme);
+    } else {
+      document.documentElement.removeAttribute("data-theme");
+    }
+  }, [profile?.preferences]);
 
   const displayName =
     profile?.display_name ?? profile?.username ?? "Writer";
@@ -105,6 +117,8 @@ export function AppShell({ profile, children }: AppShellProps) {
           {children}
         </main>
       </div>
+
+      <LevelUpModal />
 
       {shouldHideFocusUI && (
         <>
