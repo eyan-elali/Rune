@@ -98,6 +98,8 @@ interface ResultData {
   outcome: BattleOutcome;
   enemyName: string;
   enemyId: string;
+  sprintWords: number;
+  lapWords: number;
 }
 
 // ── Enemy Select ──────────────────────────────────────────────────────────────
@@ -254,16 +256,20 @@ function BattleHUD({
   playerHp,
   wordsWritten,
   idleWarning,
+  victoryAchieved,
   battleLog,
   onExit,
+  onEndSession,
 }: {
   enemy: EnemyDef;
   enemyHp: number;
   playerHp: number;
   wordsWritten: number;
   idleWarning: boolean;
+  victoryAchieved: boolean;
   battleLog: BattleLogEntry[];
   onExit: () => void;
+  onEndSession: () => void;
 }) {
   return (
     <>
@@ -318,43 +324,65 @@ function BattleHUD({
             label="Your HP"
           />
 
-          {/* Idle indicator */}
-          <div
-            className="mt-3 flex items-center gap-2 rounded px-3 py-2 text-xs transition-all duration-300"
-            style={{
-              background: idleWarning
-                ? "rgba(139, 46, 46, 0.15)"
-                : "rgba(26, 22, 20, 0.4)",
-              border: `1px solid ${
-                idleWarning
-                  ? "rgba(139, 46, 46, 0.4)"
-                  : "var(--color-border)"
-              }`,
-            }}
-            aria-live="assertive"
-            aria-label={idleWarning ? "Idle — taking damage" : "Writing"}
-          >
+          {/* Victory lap badge or idle indicator */}
+          {victoryAchieved ? (
             <div
-              className={`h-2 w-2 flex-shrink-0 rounded-full ${idleWarning ? "idle-dot" : ""}`}
+              className="mt-3 flex items-center gap-2 rounded px-3 py-2"
+              style={{
+                background: "rgba(201, 168, 76, 0.12)",
+                border: "1px solid rgba(201, 168, 76, 0.4)",
+              }}
+              aria-live="polite"
+            >
+              <div
+                className="h-2 w-2 flex-shrink-0 rounded-full"
+                style={{ background: "var(--color-gold)" }}
+              />
+              <span
+                className="text-[10px] uppercase tracking-wider font-semibold"
+                style={{ color: "var(--color-gold)" }}
+              >
+                ✦ Arena Secure — Flow State Active
+              </span>
+            </div>
+          ) : (
+            <div
+              className="mt-3 flex items-center gap-2 rounded px-3 py-2 text-xs transition-all duration-300"
               style={{
                 background: idleWarning
-                  ? "var(--color-crimson)"
-                  : "var(--color-mist)",
-                opacity: idleWarning ? 1 : 0.35,
+                  ? "rgba(139, 46, 46, 0.15)"
+                  : "rgba(26, 22, 20, 0.4)",
+                border: `1px solid ${
+                  idleWarning
+                    ? "rgba(139, 46, 46, 0.4)"
+                    : "var(--color-border)"
+                }`,
               }}
-            />
-            <span
-              className="text-[10px] uppercase tracking-wider"
-              style={{
-                color: idleWarning
-                  ? "var(--color-crimson)"
-                  : "var(--color-mist)",
-                opacity: idleWarning ? 1 : 0.4,
-              }}
+              aria-live="assertive"
+              aria-label={idleWarning ? "Idle — taking damage" : "Writing"}
             >
-              {idleWarning ? "Idle — taking damage!" : "Keep writing…"}
-            </span>
-          </div>
+              <div
+                className={`h-2 w-2 flex-shrink-0 rounded-full ${idleWarning ? "idle-dot" : ""}`}
+                style={{
+                  background: idleWarning
+                    ? "var(--color-crimson)"
+                    : "var(--color-mist)",
+                  opacity: idleWarning ? 1 : 0.35,
+                }}
+              />
+              <span
+                className="text-[10px] uppercase tracking-wider"
+                style={{
+                  color: idleWarning
+                    ? "var(--color-crimson)"
+                    : "var(--color-mist)",
+                  opacity: idleWarning ? 1 : 0.4,
+                }}
+              >
+                {idleWarning ? "Idle — taking damage!" : "Keep writing…"}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Word count */}
@@ -390,18 +418,33 @@ function BattleHUD({
           <BattleLog entries={battleLog} />
         </div>
 
-        {/* Surrender */}
-        <button
-          type="button"
-          onClick={onExit}
-          className="w-full rounded py-2 text-[10px] uppercase tracking-wider transition-colors duration-150 hover:bg-[rgba(139,46,46,0.12)]"
-          style={{
-            color: "var(--color-crimson)",
-            border: "1px solid rgba(139, 46, 46, 0.28)",
-          }}
-        >
-          Surrender
-        </button>
+        {/* Surrender / End Session */}
+        {victoryAchieved ? (
+          <button
+            type="button"
+            onClick={onEndSession}
+            className="w-full rounded py-2 text-[10px] uppercase tracking-wider transition-colors duration-150"
+            style={{
+              color: "var(--color-ink)",
+              background: "var(--color-gold)",
+              border: "1px solid var(--color-gold)",
+            }}
+          >
+            End Session
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={onExit}
+            className="w-full rounded py-2 text-[10px] uppercase tracking-wider transition-colors duration-150 hover:bg-[rgba(139,46,46,0.12)]"
+            style={{
+              color: "var(--color-crimson)",
+              border: "1px solid rgba(139, 46, 46, 0.28)",
+            }}
+          >
+            Surrender
+          </button>
+        )}
       </div>
     </>
   );
@@ -726,7 +769,7 @@ function ResultsState({
           }}
         />
 
-        {/* Word count */}
+        {/* Total word count */}
         <p
           className="font-rune-serif leading-none"
           style={{ fontSize: "5.5rem", color: "var(--color-parchment)" }}
@@ -739,6 +782,30 @@ function ResultsState({
         >
           words written
         </p>
+
+        {/* Split breakdown — only shown on victory when lap words exist */}
+        {isVictory && result.lapWords > 0 && (
+          <div
+            className="mt-4 rounded px-5 py-2.5 text-xs"
+            style={{
+              background: "rgba(201, 168, 76, 0.06)",
+              border: "1px solid var(--color-border)",
+            }}
+            aria-label="Split word count breakdown"
+          >
+            <span style={{ color: "var(--color-mist)" }}>
+              Battle Words:{" "}
+              <span style={{ color: "var(--color-parchment)" }}>
+                {result.sprintWords.toLocaleString()}
+              </span>
+              {" · "}
+              Victory Lap Words:{" "}
+              <span style={{ color: "var(--color-gold)" }}>
+                {result.lapWords.toLocaleString()}
+              </span>
+            </span>
+          </div>
+        )}
 
         {/* Stats row */}
         <div className="mx-auto mt-10 mb-8 flex max-w-xs items-center justify-center gap-6">
@@ -842,6 +909,7 @@ export default function BattlePage() {
   const [idleWarning, setIdleWarning] = useState(false);
   const [battleLog, setBattleLog] = useState<BattleLogEntry[]>([]);
   const [gameKey, setGameKey] = useState(0);
+  const [victoryAchieved, setVictoryAchieved] = useState(false);
 
   // Results
   const [resultData, setResultData] = useState<ResultData | null>(null);
@@ -856,6 +924,9 @@ export default function BattlePage() {
   const phaseRef = useRef<BattlePhase>("enemy-select");
   const wordsWrittenRef = useRef(0);
   const hasSavedRef = useRef(false);
+  const victoryAchievedRef = useRef(false);
+  const wordsAtVictoryRef = useRef(0);
+  const gameTickRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Keep phaseRef in sync
   useEffect(() => {
@@ -874,14 +945,34 @@ export default function BattlePage() {
       setPhase("results");
       useGameStore.getState().setGameState("results");
 
-      const words = wordsWrittenRef.current;
-      const baseXp = xpRewardForWords(words);
-      const xp =
-        outcome === "victory"
-          ? Math.round(baseXp * 1.5)
-          : Math.max(5, Math.round(baseXp * 0.5));
+      const totalWords = wordsWrittenRef.current;
+      const isVictory = outcome === "victory";
 
-      setResultData({ words, xp, outcome, enemyName: enemy.name, enemyId: enemy.id });
+      let xp: number;
+      let sprintWords: number;
+      let lapWords: number;
+
+      if (isVictory) {
+        sprintWords = wordsAtVictoryRef.current;
+        lapWords = Math.max(0, totalWords - sprintWords);
+        const sprintXp = Math.round(xpRewardForWords(sprintWords) * 1.5);
+        const lapXp = lapWords > 0 ? xpRewardForWords(lapWords) : 0;
+        xp = sprintXp + lapXp;
+      } else {
+        sprintWords = totalWords;
+        lapWords = 0;
+        xp = Math.max(5, Math.round(xpRewardForWords(totalWords) * 0.5));
+      }
+
+      setResultData({
+        words: totalWords,
+        xp,
+        outcome,
+        enemyName: enemy.name,
+        enemyId: enemy.id,
+        sprintWords,
+        lapWords,
+      });
 
       if (!hasSavedRef.current) {
         hasSavedRef.current = true;
@@ -890,10 +981,16 @@ export default function BattlePage() {
         Promise.all([
           createGameSession(
             "battle",
-            words,
+            totalWords,
             elapsedSecondsRef.current,
             xp,
-            enemy.id
+            enemy.id,
+            {
+              outcome,
+              enemy_name: enemy.name,
+              sprint_words: sprintWords,
+              lap_words: lapWords,
+            }
           ),
           userId
             ? awardXp(userId, xp, "battle_mode")
@@ -901,7 +998,7 @@ export default function BattlePage() {
                 data: null,
                 error: null,
               }),
-        ]).then(([_, xpResult]) => {
+        ]).then(([, xpResult]) => {
           setIsSaving(false);
           if (xpResult.data) {
             useProfileStore
@@ -911,7 +1008,7 @@ export default function BattlePage() {
         });
       }
     },
-    [addLog]
+    []
   );
 
   // Game loop — runs every second while battle is active
@@ -921,6 +1018,8 @@ export default function BattlePage() {
 
     const tick = setInterval(() => {
       if (phaseRef.current !== "active") return;
+      // Suspended during victory lap
+      if (victoryAchievedRef.current) return;
 
       elapsedSecondsRef.current += 1;
       const elapsed = elapsedSecondsRef.current;
@@ -936,7 +1035,6 @@ export default function BattlePage() {
         playerHpRef.current = newHp;
         setPlayerHp(newHp);
 
-        // Log: when idle starts and every 15s after
         const idleSeconds = Math.round(idleMs / 1000);
         if (idleSeconds === 5 || idleSeconds % 15 === 0) {
           addLog(`${enemy.name} strikes! -${dmg} HP`);
@@ -971,7 +1069,12 @@ export default function BattlePage() {
       }
     }, 1000);
 
-    return () => clearInterval(tick);
+    gameTickRef.current = tick;
+
+    return () => {
+      clearInterval(tick);
+      gameTickRef.current = null;
+    };
   }, [phase, selectedEnemy, addLog, endBattle]);
 
   const handleWordCount = useCallback(
@@ -984,6 +1087,10 @@ export default function BattlePage() {
       wordsWrittenRef.current = count;
       setWordsWritten(count);
       lastTypedAtRef.current = Date.now();
+
+      // During victory lap: track words but skip all combat logic
+      if (victoryAchievedRef.current) return;
+
       setIdleWarning(false);
 
       // Deal damage in 5-word batches
@@ -995,14 +1102,27 @@ export default function BattlePage() {
         setEnemyHp(newEnemyHp);
         addLog(`You dealt ${dmg} damage! (${count} words)`);
 
-        if (newEnemyHp <= 0 && phaseRef.current === "active") {
+        if (newEnemyHp <= 0) {
           addLog(`${selectedEnemy.name} is defeated!`);
-          endBattle("victory", selectedEnemy);
+          addLog("✦ Flow State Active — keep writing!");
+          // Freeze the game loop; stay in 'active' phase until End Session
+          victoryAchievedRef.current = true;
+          wordsAtVictoryRef.current = count;
+          setVictoryAchieved(true);
+          if (gameTickRef.current) {
+            clearInterval(gameTickRef.current);
+            gameTickRef.current = null;
+          }
         }
       }
     },
-    [selectedEnemy, addLog, endBattle]
+    [selectedEnemy, addLog]
   );
+
+  const handleEndSession = useCallback(() => {
+    if (!selectedEnemy) return;
+    endBattle("victory", selectedEnemy);
+  }, [selectedEnemy, endBattle]);
 
   const handleSelectEnemy = useCallback(
     (enemy: EnemyDef) => {
@@ -1014,6 +1134,8 @@ export default function BattlePage() {
       wordsWrittenRef.current = 0;
       hasSavedRef.current = false;
       logIdRef.current = 3;
+      victoryAchievedRef.current = false;
+      wordsAtVictoryRef.current = 0;
 
       // Set state
       setSelectedEnemy(enemy);
@@ -1022,6 +1144,7 @@ export default function BattlePage() {
       setWordsWritten(0);
       setBattleTextWritten("");
       setIdleWarning(false);
+      setVictoryAchieved(false);
       setBattleLog([
         { id: 0, message: `You face ${enemy.name}.` },
         { id: 1, message: enemy.flavorLines[0] },
@@ -1043,6 +1166,9 @@ export default function BattlePage() {
 
   const handleBattleAgain = useCallback(() => {
     hasSavedRef.current = false;
+    victoryAchievedRef.current = false;
+    wordsAtVictoryRef.current = 0;
+    setVictoryAchieved(false);
     setResultData(null);
     setBattleTextWritten("");
     setPhase("enemy-select");
@@ -1079,8 +1205,10 @@ export default function BattlePage() {
             playerHp={playerHp}
             wordsWritten={wordsWritten}
             idleWarning={idleWarning}
+            victoryAchieved={victoryAchieved}
             battleLog={battleLog}
             onExit={handleExit}
+            onEndSession={handleEndSession}
           />
         )}
       </div>

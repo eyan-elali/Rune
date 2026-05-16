@@ -29,6 +29,20 @@ function favoriteTime(sessions: Pick<GameSession, "created_at">[]): string {
   return "Evening";
 }
 
+type SessionMeta = {
+  outcome?: string;
+  enemy_name?: string;
+  is_pb?: boolean;
+  sprint_words?: number;
+  lap_words?: number;
+};
+
+const ENEMY_DISPLAY: Record<string, string> = {
+  "blank-page": "The Blank Page",
+  "writers-block": "Writer's Block",
+  "deadline": "The Deadline",
+};
+
 const MODE_LABELS: Record<string, string> = {
   race_yourself: "Race Yourself",
   battle: "Battle Mode",
@@ -96,7 +110,7 @@ export default async function ProfilePage() {
         .eq("user_id", user!.id),
       supabase
         .from("game_sessions")
-        .select("id, mode, words_written, xp_earned, duration_seconds, completed, created_at")
+        .select("id, mode, words_written, xp_earned, duration_seconds, completed, created_at, enemy_type, meta")
         .eq("user_id", user!.id)
         .order("created_at", { ascending: false })
         .limit(5),
@@ -272,74 +286,101 @@ export default async function ProfilePage() {
             }}
           >
             <ul role="list">
-              {(recentSessions as GameSession[]).map((session, i) => (
-                <li
-                  key={session.id}
-                  className="flex items-center justify-between gap-4 px-5 py-3.5"
-                  style={{
-                    borderTop: i > 0 ? "1px solid var(--color-border)" : undefined,
-                  }}
-                >
-                  <div className="min-w-0">
-                    <p
-                      className="truncate text-sm font-rune-serif"
-                      style={{ color: "var(--color-parchment)" }}
-                    >
-                      {getModeDisplay(session.mode)}
-                    </p>
-                    <p
-                      className="text-xs"
-                      style={{ color: "var(--color-mist)" }}
-                    >
-                      {formatDate(session.created_at)}
-                    </p>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-5 text-right">
-                    <div>
-                      <p
-                        className="text-sm font-rune-serif"
-                        style={{ color: "var(--color-parchment)" }}
-                      >
-                        {session.words_written.toLocaleString()}
-                      </p>
-                      <p
-                        className="text-xs"
-                        style={{ color: "var(--color-mist)" }}
-                      >
-                        words
-                      </p>
-                    </div>
-                    <div>
-                      <p
-                        className="text-sm font-rune-serif"
-                        style={{ color: "var(--color-gold)" }}
-                      >
-                        +{session.xp_earned}
-                      </p>
-                      <p
-                        className="text-xs"
-                        style={{ color: "var(--color-mist)" }}
-                      >
-                        XP
-                      </p>
-                    </div>
-                    <div>
-                      <p
-                        className="text-sm"
-                        style={{ color: "var(--color-mist)" }}
-                      >
-                        {formatDuration(session.duration_seconds)}
-                      </p>
-                      <p
-                        className="text-xs"
-                        style={{ color: "var(--color-mist)" }}
-                      >
-                        duration
+              {(recentSessions as GameSession[]).map((session, i) => {
+                const meta = session.meta as SessionMeta | null;
+                const isBattle = session.mode === "battle";
+                const isRace = session.mode === "race" || session.mode === "race_yourself";
+                const outcome = meta?.outcome;
+                const enemyName =
+                  meta?.enemy_name ??
+                  (session.enemy_type
+                    ? (ENEMY_DISPLAY[session.enemy_type] ?? session.enemy_type)
+                    : null);
+                const isPb = meta?.is_pb;
+
+                return (
+                  <li
+                    key={session.id}
+                    className="flex items-center justify-between gap-4 px-5 py-3.5"
+                    style={{
+                      borderTop: i > 0 ? "1px solid var(--color-border)" : undefined,
+                    }}
+                  >
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-baseline gap-x-2">
+                        <p
+                          className="truncate text-sm font-rune-serif"
+                          style={{ color: "var(--color-parchment)" }}
+                        >
+                          {getModeDisplay(session.mode)}
+                        </p>
+                        {isBattle && enemyName && (
+                          <span className="text-xs" style={{ color: "var(--color-mist)" }}>
+                            vs {enemyName}
+                            {outcome && (
+                              <span
+                                className="ml-1"
+                                style={{
+                                  color:
+                                    outcome === "victory"
+                                      ? "var(--color-sage)"
+                                      : "var(--color-crimson)",
+                                }}
+                              >
+                                •{" "}
+                                {outcome === "victory" ? "Won" : "Defeated"}
+                              </span>
+                            )}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs" style={{ color: "var(--color-mist)" }}>
+                        {formatDate(session.created_at)}
+                        {isRace && isPb && (
+                          <span
+                            className="ml-2 font-rune-serif"
+                            style={{ color: "var(--color-gold)" }}
+                          >
+                            ✦ Personal Best
+                          </span>
+                        )}
                       </p>
                     </div>
-                  </div>
-                </li>
-              ))}
+                    <div className="flex shrink-0 items-center gap-5 text-right">
+                      <div>
+                        <p
+                          className="text-sm font-rune-serif"
+                          style={{ color: "var(--color-parchment)" }}
+                        >
+                          {session.words_written.toLocaleString()}
+                        </p>
+                        <p className="text-xs" style={{ color: "var(--color-mist)" }}>
+                          words
+                        </p>
+                      </div>
+                      <div>
+                        <p
+                          className="text-sm font-rune-serif"
+                          style={{ color: "var(--color-gold)" }}
+                        >
+                          +{session.xp_earned}
+                        </p>
+                        <p className="text-xs" style={{ color: "var(--color-mist)" }}>
+                          XP
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm" style={{ color: "var(--color-mist)" }}>
+                          {formatDuration(session.duration_seconds)}
+                        </p>
+                        <p className="text-xs" style={{ color: "var(--color-mist)" }}>
+                          duration
+                        </p>
+                      </div>
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
           </div>
         ) : (

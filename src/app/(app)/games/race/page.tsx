@@ -46,6 +46,8 @@ interface ResultData {
   duration: number;
   xp: number;
   isNewBest: boolean;
+  sprintWords: number;
+  lapWords: number;
 }
 
 // ── Setup ─────────────────────────────────────────────────────────────────────
@@ -486,6 +488,30 @@ function ResultsState({
           words written
         </p>
 
+        {/* Split breakdown — only shown when lap words exist */}
+        {result.lapWords > 0 && (
+          <div
+            className="mt-4 rounded px-5 py-2.5 text-xs"
+            style={{
+              background: "rgba(201, 168, 76, 0.06)",
+              border: "1px solid var(--color-border)",
+            }}
+            aria-label="Split word count breakdown"
+          >
+            <span style={{ color: "var(--color-mist)" }}>
+              Sprint Words:{" "}
+              <span style={{ color: "var(--color-parchment)" }}>
+                {result.sprintWords.toLocaleString()}
+              </span>
+              {" · "}
+              Victory Lap Words:{" "}
+              <span style={{ color: "var(--color-gold)" }}>
+                {result.lapWords.toLocaleString()}
+              </span>
+            </span>
+          </div>
+        )}
+
         <div className="mx-auto mt-10 mb-10 flex max-w-xs items-center justify-center gap-6">
           <div>
             <p
@@ -561,16 +587,20 @@ function HUD({
   selectedDuration,
   wordsWritten,
   personalBest,
+  raceFinished,
   onExit,
+  onEndSession,
 }: {
   timeLeft: number;
   selectedDuration: number;
   wordsWritten: number;
   personalBest: number;
+  raceFinished: boolean;
   onExit: () => void;
+  onEndSession: () => void;
 }) {
   const [isVisible, setIsVisible] = useState(true);
-  const isLowTime = timeLeft <= 60;
+  const isLowTime = timeLeft <= 60 && !raceFinished;
   const pct = Math.max(0, (timeLeft / selectedDuration) * 100);
 
   return (
@@ -627,7 +657,7 @@ function HUD({
             </p>
           </div>
 
-          {/* Personal best + Exit */}
+          {/* Personal best + Exit / End Session */}
           <div className="flex min-w-[7rem] items-start justify-end gap-4">
             <div className="text-right">
               <p
@@ -643,18 +673,48 @@ function HUD({
                 your best
               </p>
             </div>
-            <button
-              type="button"
-              onClick={onExit}
-              className="rounded px-2.5 py-1 font-rune-sans text-[10px] uppercase tracking-wider transition-colors duration-150 hover:bg-rune-crimson/15"
-              style={{
-                color: "var(--color-crimson)",
-                border: "1px solid rgba(139, 46, 46, 0.35)",
-              }}
-            >
-              Exit
-            </button>
+            {raceFinished ? (
+              <button
+                type="button"
+                onClick={onEndSession}
+                className="rounded px-2.5 py-1 font-rune-sans text-[10px] uppercase tracking-wider transition-colors duration-150"
+                style={{
+                  color: "var(--color-ink)",
+                  background: "var(--color-gold)",
+                  border: "1px solid var(--color-gold)",
+                }}
+              >
+                End Session
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={onExit}
+                className="rounded px-2.5 py-1 font-rune-sans text-[10px] uppercase tracking-wider transition-colors duration-150 hover:bg-rune-crimson/15"
+                style={{
+                  color: "var(--color-crimson)",
+                  border: "1px solid rgba(139, 46, 46, 0.35)",
+                }}
+              >
+                Exit
+              </button>
+            )}
           </div>
+        </div>
+      )}
+
+      {/* Flow state banner — always visible when race is finished */}
+      {raceFinished && (
+        <div
+          className="px-8 py-2 text-center text-[10px] uppercase tracking-widest"
+          style={{
+            background: "rgba(201, 168, 76, 0.08)",
+            borderTop: "1px solid rgba(201, 168, 76, 0.15)",
+            color: "var(--color-gold)",
+          }}
+          aria-live="polite"
+        >
+          ✦ Sprint Target Achieved — Flow State Extension Active
         </div>
       )}
 
@@ -671,7 +731,7 @@ function HUD({
         />
       </div>
 
-      {/* Toggle — floats below the HUD, always visible at low opacity */}
+      {/* Toggle — floats below the HUD */}
       <button
         type="button"
         onClick={() => setIsVisible((v) => !v)}
@@ -715,6 +775,12 @@ export default function RaceYourselfPage() {
   const [gameKey, setGameKey] = useState(0);
   const [resultData, setResultData] = useState<ResultData | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [raceFinished, setRaceFinished] = useState(false);
+
+  // Refs for split-XP tracking across effect boundaries
+  const wordsAtFinishRef = useRef(0);
+  const raceFinishedRef = useRef(false);
+  const raceTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Load personal bests on mount
   useEffect(() => {
@@ -741,20 +807,35 @@ export default function RaceYourselfPage() {
     if (gameState !== "active") return;
 
     setTimeLeft(selectedDuration);
+    setRaceFinished(false);
+    raceFinishedRef.current = false;
+    wordsAtFinishRef.current = 0;
 
     const id = setInterval(() => {
       setTimeLeft((prev) => Math.max(0, prev - 1));
     }, 1000);
+    raceTimerRef.current = id;
 
-    return () => clearInterval(id);
+    return () => {
+      clearInterval(id);
+      raceTimerRef.current = null;
+    };
   }, [gameState, selectedDuration]);
 
-  // Detect timer expiry
+  // Detect timer expiry — enter flow state instead of auto-advancing
   useEffect(() => {
-    if (gameState === "active" && timeLeft === 0) {
-      endGame();
+    if (gameState === "active" && timeLeft === 0 && !raceFinished) {
+      // Freeze the interval
+      if (raceTimerRef.current) {
+        clearInterval(raceTimerRef.current);
+        raceTimerRef.current = null;
+      }
+      // Snapshot sprint word count and enter flow state
+      wordsAtFinishRef.current = useGameStore.getState().wordsWritten;
+      raceFinishedRef.current = true;
+      setRaceFinished(true);
     }
-  }, [gameState, timeLeft, endGame]);
+  }, [gameState, timeLeft, raceFinished]);
 
   // Process results once when game transitions to 'results'
   useEffect(() => {
@@ -764,7 +845,15 @@ export default function RaceYourselfPage() {
     const store = useGameStore.getState();
     const finalWords = store.wordsWritten;
     const dur = store.selectedDuration;
-    const xp = xpRewardForWords(finalWords);
+
+    const sprintWords = raceFinishedRef.current ? wordsAtFinishRef.current : finalWords;
+    const lapWords = Math.max(0, finalWords - sprintWords);
+
+    // Race Yourself is 1× base for all words; split is for display only
+    const sprintXp = xpRewardForWords(sprintWords);
+    const lapXp = lapWords > 0 ? xpRewardForWords(lapWords) : 0;
+    const xp = sprintXp + lapXp;
+
     const prevBest = store.personalBests[dur] ?? 0;
     const isNewBest = finalWords > prevBest;
 
@@ -772,14 +861,25 @@ export default function RaceYourselfPage() {
       useGameStore.getState().setPersonalBest(dur, finalWords);
     }
 
-    setResultData({ words: finalWords, duration: dur, xp, isNewBest });
+    setResultData({ words: finalWords, duration: dur, xp, isNewBest, sprintWords, lapWords });
 
     const userId = useProfileStore.getState().profile?.id;
     if (userId && finalWords > 0) {
       setIsSaving(true);
       Promise.all([
         awardXp(userId, xp, "race_yourself"),
-        createGameSession("race", finalWords, dur, xp),
+        createGameSession(
+          "race",
+          finalWords,
+          dur,
+          xp,
+          undefined,
+          {
+            is_pb: isNewBest,
+            sprint_words: sprintWords,
+            lap_words: lapWords,
+          }
+        ),
       ]).then(([xpResult]) => {
         setIsSaving(false);
         if (xpResult.data) {
@@ -797,6 +897,9 @@ export default function RaceYourselfPage() {
 
   const handleRaceAgain = useCallback(() => {
     hasSaved.current = false;
+    raceFinishedRef.current = false;
+    wordsAtFinishRef.current = 0;
+    setRaceFinished(false);
     resetToSetup();
     setResultData(null);
   }, [resetToSetup]);
@@ -806,6 +909,10 @@ export default function RaceYourselfPage() {
     resetToSetup();
     router.push("/games");
   }, [resetToSetup, router]);
+
+  const handleEndSession = useCallback(() => {
+    endGame();
+  }, [endGame]);
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
@@ -839,7 +946,9 @@ export default function RaceYourselfPage() {
         selectedDuration={selectedDuration}
         wordsWritten={wordsWritten}
         personalBest={personalBests[selectedDuration] ?? 0}
+        raceFinished={raceFinished}
         onExit={handleExit}
+        onEndSession={handleEndSession}
       />
 
       <div

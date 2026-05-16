@@ -58,4 +58,5 @@ export interface GameSession {
   completed: boolean;
   enemy_type: string | null;
   created_at: string;
+  meta: Record<string, unknown> | null;
 }
