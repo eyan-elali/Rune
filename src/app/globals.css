@@ -83,6 +83,7 @@ h6 {
 /* ── Base styles ────────────────────────────────────────────────── */
 html {
   color-scheme: dark;
+  scroll-behavior: smooth;
 }
 
 html:not(.dark) {

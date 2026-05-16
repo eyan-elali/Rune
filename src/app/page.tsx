@@ -334,144 +334,185 @@ export default function LandingPage() {
         style={{ background: "var(--color-sepia)" }}
       >
         <div className="mx-auto w-full max-w-7xl px-8">
-          <p
-            className="mb-4 text-center text-[10px] uppercase tracking-[0.4em]"
-            style={{ color: "var(--color-mist)", opacity: 0.45 }}
-          >
-            Choose your path
-          </p>
-          <h2
-            className="mb-16 text-center font-rune-serif text-3xl"
-            style={{ color: "var(--color-parchment)" }}
-          >
-            Simple, honest pricing
-          </h2>
+          <div className="relative z-10 mb-16 text-center">
+            <p
+              className="mb-4 text-[10px] uppercase tracking-[0.4em]"
+              style={{ color: "var(--color-mist)", opacity: 0.45 }}
+            >
+              Choose your path
+            </p>
+            <h2
+              className="font-rune-serif text-3xl"
+              style={{ color: "var(--color-parchment)" }}
+            >
+              Simple, honest pricing
+            </h2>
+          </div>
 
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-            {TIERS.map((tier) => (
-              <div
-                key={tier.name}
-                className="flex flex-col rounded-lg"
-                style={{
-                  background: tier.highlighted
-                    ? "var(--color-gold)"
-                    : "var(--color-ink)",
-                  border: `1px solid ${
-                    tier.highlighted
-                      ? "var(--color-gold)"
-                      : "var(--color-border)"
-                  }`,
-                  transform: tier.highlighted ? "scale(1.04)" : undefined,
-                  boxShadow: tier.highlighted
-                    ? "0 8px 40px rgba(201, 168, 76, 0.18)"
-                    : undefined,
-                }}
-              >
-                <div className="flex-1 p-7">
-                  <h3
-                    className="mb-0.5 font-rune-serif text-lg"
-                    style={{
-                      color: tier.highlighted
-                        ? "var(--color-ink)"
-                        : "var(--color-parchment)",
-                    }}
-                  >
-                    {tier.name}
-                  </h3>
-                  <p
-                    className="mb-5 text-xs"
-                    style={{
-                      color: tier.highlighted
-                        ? "rgba(26,22,20,0.6)"
-                        : "var(--color-mist)",
-                    }}
-                  >
-                    {tier.description}
-                  </p>
-
-                  <div className="mb-6 flex items-baseline gap-0.5">
-                    <span
-                      className="font-rune-serif text-4xl"
+          <div className="grid grid-cols-1 gap-10 md:grid-cols-3">
+            {TIERS.map((tier) => {
+              const isArcane = tier.name === "Arcane";
+              return (
+                <div
+                  key={tier.name}
+                  className={isArcane ? "relative" : undefined}
+                  style={isArcane ? { isolation: "isolate" } : undefined}
+                >
+                  {isArcane && (
+                    <div
+                      className="pointer-events-none absolute inset-0 rounded-lg blur-xl"
                       style={{
-                        color: tier.highlighted
-                          ? "var(--color-ink)"
-                          : "var(--color-parchment)",
+                        background: "var(--color-gold)",
+                        opacity: 0.14,
+                        zIndex: -1,
                       }}
-                    >
-                      {tier.price}
-                    </span>
-                    {tier.period && (
-                      <span
-                        className="text-sm"
+                      aria-hidden
+                    />
+                  )}
+                  <div
+                    className="flex flex-col rounded-lg"
+                    style={{
+                      background: tier.highlighted
+                        ? "var(--color-gold)"
+                        : "var(--color-ink)",
+                      border: isArcane
+                        ? "1px solid rgba(201,168,76,0.48)"
+                        : `1px solid ${
+                            tier.highlighted
+                              ? "var(--color-gold)"
+                              : "var(--color-border)"
+                          }`,
+                      transform: tier.highlighted
+                        ? "scale(1.04)"
+                        : isArcane
+                        ? "scale(1.05)"
+                        : undefined,
+                      boxShadow: tier.highlighted
+                        ? "0 8px 40px rgba(201, 168, 76, 0.18)"
+                        : isArcane
+                        ? "0 4px 32px rgba(201,168,76,0.07), inset 0 1px 0 rgba(201,168,76,0.12)"
+                        : undefined,
+                    }}
+                  >
+                    <div className="flex-1 p-7">
+                      <h3
+                        className="mb-0.5 font-rune-serif text-lg"
                         style={{
                           color: tier.highlighted
-                            ? "rgba(26,22,20,0.55)"
+                            ? "var(--color-ink)"
+                            : "var(--color-parchment)",
+                        }}
+                      >
+                        {tier.name}
+                      </h3>
+                      <p
+                        className="mb-5 text-xs"
+                        style={{
+                          color: tier.highlighted
+                            ? "rgba(26,22,20,0.6)"
                             : "var(--color-mist)",
                         }}
                       >
-                        {tier.period}
-                      </span>
-                    )}
-                  </div>
+                        {tier.description}
+                      </p>
 
-                  <ul className="flex flex-col gap-2.5">
-                    {tier.features.map((feature) => (
-                      <li
-                        key={feature.label}
-                        className="flex items-start gap-2.5 text-sm"
-                        style={{ opacity: feature.included ? 1 : 0.35 }}
-                      >
+                      <div className="mb-6 flex items-baseline gap-0.5">
                         <span
-                          className="mt-px shrink-0"
-                          style={{
-                            color: feature.included
-                              ? tier.highlighted
-                                ? "var(--color-ink)"
-                                : "var(--color-gold)"
-                              : tier.highlighted
-                              ? "var(--color-ink)"
-                              : "var(--color-crimson)",
-                            opacity: feature.included ? 0.85 : 1,
-                          }}
-                          aria-hidden
-                        >
-                          {feature.included ? "✓" : "✕"}
-                        </span>
-                        <span
+                          className="font-rune-serif text-4xl"
                           style={{
                             color: tier.highlighted
-                              ? "rgba(26,22,20,0.8)"
-                              : "var(--color-mist)",
+                              ? "var(--color-ink)"
+                              : "var(--color-parchment)",
                           }}
                         >
-                          {feature.label}
+                          {tier.price}
                         </span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+                        {tier.period && (
+                          <span
+                            className="text-sm"
+                            style={{
+                              color: tier.highlighted
+                                ? "rgba(26,22,20,0.55)"
+                                : "var(--color-mist)",
+                            }}
+                          >
+                            {tier.period}
+                          </span>
+                        )}
+                      </div>
 
-                <div className="p-7 pt-0">
-                  <Link
-                    href={tier.href}
-                    className="block rounded px-5 py-2.5 text-center text-sm font-medium transition-all duration-150 hover:opacity-90"
-                    style={
-                      tier.highlighted
-                        ? {
-                            background: "var(--color-ink)",
-                            color: "var(--color-gold)",
-                          }
-                        : {
-                            background: "var(--color-gold)",
-                            color: "var(--color-ink)",
-                          }
-                    }
-                  >
-                    {tier.cta}
-                  </Link>
+                      <ul className="flex flex-col gap-2.5">
+                        {tier.features.map((feature) => {
+                          const isGameModeRow =
+                            isArcane &&
+                            feature.included &&
+                            feature.label === "Game Mode (Battles & Races)";
+                          return (
+                            <li
+                              key={feature.label}
+                              className="flex items-start gap-2.5 text-sm"
+                              style={{ opacity: feature.included ? 1 : 0.35 }}
+                            >
+                              <span
+                                className="mt-px shrink-0"
+                                style={{
+                                  color: feature.included
+                                    ? tier.highlighted
+                                      ? "var(--color-ink)"
+                                      : "var(--color-gold)"
+                                    : tier.highlighted
+                                    ? "var(--color-ink)"
+                                    : "var(--color-crimson)",
+                                  opacity: feature.included ? 0.85 : 1,
+                                }}
+                                aria-hidden
+                              >
+                                {feature.included ? "✓" : "✕"}
+                              </span>
+                              <span
+                                style={{
+                                  color: isGameModeRow
+                                    ? "var(--color-gold)"
+                                    : tier.highlighted
+                                    ? "rgba(26,22,20,0.8)"
+                                    : "var(--color-mist)",
+                                  fontWeight: isGameModeRow ? 500 : undefined,
+                                  letterSpacing: isGameModeRow
+                                    ? "0.01em"
+                                    : undefined,
+                                }}
+                              >
+                                {feature.label}
+                              </span>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+
+                    <div className="p-7 pt-0">
+                      <Link
+                        href={tier.href}
+                        className="block rounded px-5 py-2.5 text-center text-sm font-medium transition-all duration-150 hover:opacity-90"
+                        style={
+                          tier.highlighted
+                            ? {
+                                background: "var(--color-ink)",
+                                color: "var(--color-gold)",
+                              }
+                            : {
+                                background: "var(--color-gold)",
+                                color: "var(--color-ink)",
+                              }
+                        }
+                      >
+                        {tier.cta}
+                      </Link>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </section>
