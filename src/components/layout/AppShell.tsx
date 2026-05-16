@@ -45,9 +45,11 @@ export function AppShell({ profile, children }: AppShellProps) {
   const gameState = useGameStore((s) => s.gameState);
   const isRaceActive =
     pathname.includes("/games/race") && gameState === "active";
+  const isBattleActive =
+    pathname === "/games/battle" && gameState === "active";
   const shouldHideFocusUI =
     mode === "focus" && pathname.includes("/chapters/");
-  const shouldHideUI = shouldHideFocusUI || isRaceActive;
+  const shouldHideUI = shouldHideFocusUI || isRaceActive || isBattleActive;
 
   useEffect(() => {
     modeRef.current = mode;
@@ -95,10 +97,9 @@ export function AppShell({ profile, children }: AppShellProps) {
         <main
           className="relative min-h-0 flex-1 overflow-auto"
           style={{
-            background:
-              shouldHideFocusUI || isRaceActive
-                ? "var(--color-vellum)"
-                : "var(--color-ink)",
+            background: shouldHideUI
+              ? "var(--color-vellum)"
+              : "var(--color-ink)",
           }}
         >
           {children}

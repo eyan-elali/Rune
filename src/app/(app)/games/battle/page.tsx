@@ -2,14 +2,19 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { HpBar } from "@/components/games/HpBar";
 import { BattleLog, type BattleLogEntry } from "@/components/games/BattleLog";
 import { awardXp } from "@/lib/actions/xp";
-import { createGameSession } from "@/lib/actions/games";
+import { appendSprintToProject, createGameSession } from "@/lib/actions/games";
+import { getProjects } from "@/lib/actions/projects";
+import { getChapters } from "@/lib/actions/chapters";
 import { xpRewardForWords } from "@/lib/xp";
+import { useGameStore } from "@/store/gameStore";
 import { useProfileStore } from "@/store/profileStore";
+import type { Project, Chapter } from "@/lib/types";
 
 const GameEditor = dynamic(() => import("@/components/editor/GameEditor"), {
   ssr: false,
@@ -402,15 +407,269 @@ function BattleHUD({
   );
 }
 
+// ── Save-to-Project flow ──────────────────────────────────────────────────────
+
+type SaveStep =
+  | "idle"
+  | "loading"
+  | "pick-project"
+  | "pick-chapter"
+  | "saving"
+  | "saved"
+  | "error";
+
+function SaveToProject({
+  words,
+  textWritten,
+}: {
+  words: number;
+  textWritten: string;
+}) {
+  const [step, setStep] = useState<SaveStep>("idle");
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [chapters, setChapters] = useState<Chapter[]>([]);
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [savedChapterName, setSavedChapterName] = useState("");
+  const [errorMsg, setErrorMsg] = useState("");
+
+  if (words === 0) return null;
+
+  async function handleOpenProjects() {
+    setStep("loading");
+    const result = await getProjects();
+    if (result.error || !result.data) {
+      setErrorMsg(result.error ?? "Failed to load projects");
+      setStep("error");
+      return;
+    }
+    setProjects(result.data);
+    setStep("pick-project");
+  }
+
+  async function handleSelectProject(project: Project) {
+    setSelectedProject(project);
+    setStep("loading");
+    const result = await getChapters(project.id);
+    if (result.error || !result.data) {
+      setErrorMsg(result.error ?? "Failed to load chapters");
+      setStep("error");
+      return;
+    }
+    setChapters(result.data);
+    setStep("pick-chapter");
+  }
+
+  async function handleSelectChapter(chapter: Chapter) {
+    if (!selectedProject) return;
+    setStep("saving");
+    const result = await appendSprintToProject(
+      selectedProject.id,
+      chapter.id,
+      words,
+      textWritten
+    );
+    if (result.error) {
+      setErrorMsg(result.error);
+      setStep("error");
+      return;
+    }
+    setSavedChapterName(chapter.title);
+    setStep("saved");
+  }
+
+  if (step === "saved") {
+    return (
+      <div
+        className="mt-4 rounded-lg px-5 py-3 text-center text-sm"
+        style={{
+          background: "rgba(74, 103, 65, 0.15)",
+          border: "1px solid rgba(74, 103, 65, 0.3)",
+          color: "var(--color-sage)",
+        }}
+      >
+        ✓ &nbsp;Saved to &ldquo;{savedChapterName}&rdquo;
+      </div>
+    );
+  }
+
+  if (step === "saving") {
+    return (
+      <Button variant="ghost" loading disabled className="mt-4">
+        Saving…
+      </Button>
+    );
+  }
+
+  if (step === "error") {
+    return (
+      <div className="mt-4 text-center">
+        <p className="mb-2 text-xs" style={{ color: "var(--color-crimson)" }}>
+          {errorMsg}
+        </p>
+        <button
+          type="button"
+          className="text-xs underline"
+          style={{ color: "var(--color-mist)" }}
+          onClick={() => { setStep("idle"); setErrorMsg(""); }}
+        >
+          Try again
+        </button>
+      </div>
+    );
+  }
+
+  if (step === "loading") {
+    return (
+      <Button variant="ghost" loading disabled className="mt-4">
+        Loading…
+      </Button>
+    );
+  }
+
+  if (step === "pick-project") {
+    return (
+      <div className="mt-4 w-full max-w-xs">
+        <p
+          className="mb-2 text-center text-[10px] uppercase tracking-widest"
+          style={{ color: "var(--color-mist)" }}
+        >
+          Pick a project
+        </p>
+        <div
+          className="max-h-48 overflow-y-auto rounded-lg"
+          style={{
+            background: "var(--color-sepia)",
+            border: "1px solid var(--color-border-strong)",
+            scrollbarWidth: "thin",
+            scrollbarColor: "var(--color-border-strong) transparent",
+          }}
+        >
+          {projects.length === 0 ? (
+            <p
+              className="px-4 py-3 text-center text-sm"
+              style={{ color: "var(--color-mist)" }}
+            >
+              No projects yet
+            </p>
+          ) : (
+            <ul role="list">
+              {projects.map((project, i) => (
+                <li key={project.id}>
+                  <button
+                    type="button"
+                    onClick={() => handleSelectProject(project)}
+                    className="w-full px-4 py-3 text-left text-sm transition-colors duration-100 hover:bg-rune-gold/10"
+                    style={{
+                      color: "var(--color-parchment)",
+                      borderTop: i > 0 ? "1px solid var(--color-border)" : undefined,
+                    }}
+                  >
+                    <span className="font-rune-serif">{project.title}</span>
+                    <span
+                      className="ml-2 text-xs"
+                      style={{ color: "var(--color-mist)" }}
+                    >
+                      {project.word_count.toLocaleString()} words
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+        <button
+          type="button"
+          className="mt-2 w-full text-center text-xs"
+          style={{ color: "var(--color-mist)", opacity: 0.6 }}
+          onClick={() => setStep("idle")}
+        >
+          Cancel
+        </button>
+      </div>
+    );
+  }
+
+  if (step === "pick-chapter") {
+    return (
+      <div className="mt-4 w-full max-w-xs">
+        <p
+          className="mb-1 text-center text-[10px] uppercase tracking-widest"
+          style={{ color: "var(--color-mist)" }}
+        >
+          Pick a chapter
+        </p>
+        <p
+          className="mb-2 text-center text-xs font-rune-serif"
+          style={{ color: "var(--color-gold)" }}
+        >
+          {selectedProject?.title}
+        </p>
+        <div
+          className="max-h-48 overflow-y-auto rounded-lg"
+          style={{
+            background: "var(--color-sepia)",
+            border: "1px solid var(--color-border-strong)",
+            scrollbarWidth: "thin",
+            scrollbarColor: "var(--color-border-strong) transparent",
+          }}
+        >
+          {chapters.length === 0 ? (
+            <p
+              className="px-4 py-3 text-center text-sm"
+              style={{ color: "var(--color-mist)" }}
+            >
+              No chapters in this project
+            </p>
+          ) : (
+            <ul role="list">
+              {chapters.map((chapter, i) => (
+                <li key={chapter.id}>
+                  <button
+                    type="button"
+                    onClick={() => handleSelectChapter(chapter)}
+                    className="w-full px-4 py-3 text-left text-sm transition-colors duration-100 hover:bg-rune-gold/10"
+                    style={{
+                      color: "var(--color-parchment)",
+                      borderTop: i > 0 ? "1px solid var(--color-border)" : undefined,
+                    }}
+                  >
+                    <span className="font-rune-serif">{chapter.title}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+        <button
+          type="button"
+          className="mt-2 w-full text-center text-xs"
+          style={{ color: "var(--color-mist)", opacity: 0.6 }}
+          onClick={() => { setStep("pick-project"); setChapters([]); }}
+        >
+          ← Back to projects
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <Button variant="ghost" className="mt-4" onClick={handleOpenProjects}>
+      Save to Project
+    </Button>
+  );
+}
+
 // ── Results ───────────────────────────────────────────────────────────────────
 
 function ResultsState({
   result,
   isSaving,
+  textWritten,
   onBattleAgain,
 }: {
   result: ResultData;
   isSaving: boolean;
+  textWritten: string;
   onBattleAgain: () => void;
 }) {
   const isVictory = result.outcome === "victory";
@@ -558,6 +817,9 @@ function ResultsState({
             <Button variant="ghost">Return to Hub</Button>
           </Link>
         </div>
+
+        {/* Save to Project */}
+        <SaveToProject words={result.words} textWritten={textWritten} />
       </div>
     </div>
   );
@@ -566,6 +828,8 @@ function ResultsState({
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function BattlePage() {
+  const router = useRouter();
+
   // Phase
   const [phase, setPhase] = useState<BattlePhase>("enemy-select");
   const [selectedEnemy, setSelectedEnemy] = useState<EnemyDef | null>(null);
@@ -574,6 +838,7 @@ export default function BattlePage() {
   const [playerHp, setPlayerHp] = useState(PLAYER_MAX_HP);
   const [enemyHp, setEnemyHp] = useState(0);
   const [wordsWritten, setWordsWritten] = useState(0);
+  const [battleTextWritten, setBattleTextWritten] = useState("");
   const [idleWarning, setIdleWarning] = useState(false);
   const [battleLog, setBattleLog] = useState<BattleLogEntry[]>([]);
   const [gameKey, setGameKey] = useState(0);
@@ -607,6 +872,7 @@ export default function BattlePage() {
       if (phaseRef.current !== "active") return;
       phaseRef.current = "results";
       setPhase("results");
+      useGameStore.getState().setGameState("results");
 
       const words = wordsWrittenRef.current;
       const baseXp = xpRewardForWords(words);
@@ -620,26 +886,29 @@ export default function BattlePage() {
       if (!hasSavedRef.current) {
         hasSavedRef.current = true;
         const userId = useProfileStore.getState().profile?.id;
-        if (userId) {
-          setIsSaving(true);
-          Promise.all([
-            awardXp(userId, xp, "battle_mode"),
-            createGameSession(
-              "battle",
-              words,
-              elapsedSecondsRef.current,
-              xp,
-              enemy.id
-            ),
-          ]).then(([xpResult]) => {
-            setIsSaving(false);
-            if (xpResult.data) {
-              useProfileStore
-                .getState()
-                .updateXp(xpResult.data.xp, xpResult.data.level);
-            }
-          });
-        }
+        setIsSaving(true);
+        Promise.all([
+          createGameSession(
+            "battle",
+            words,
+            elapsedSecondsRef.current,
+            xp,
+            enemy.id
+          ),
+          userId
+            ? awardXp(userId, xp, "battle_mode")
+            : Promise.resolve<{ data: null; error: null }>({
+                data: null,
+                error: null,
+              }),
+        ]).then(([_, xpResult]) => {
+          setIsSaving(false);
+          if (xpResult.data) {
+            useProfileStore
+              .getState()
+              .updateXp(xpResult.data.xp, xpResult.data.level);
+          }
+        });
       }
     },
     [addLog]
@@ -751,6 +1020,7 @@ export default function BattlePage() {
       setPlayerHp(PLAYER_MAX_HP);
       setEnemyHp(enemy.hp);
       setWordsWritten(0);
+      setBattleTextWritten("");
       setIdleWarning(false);
       setBattleLog([
         { id: 0, message: `You face ${enemy.name}.` },
@@ -760,21 +1030,24 @@ export default function BattlePage() {
       setResultData(null);
       setGameKey((k) => k + 1);
       setPhase("active");
+      useGameStore.getState().setGameState("active");
     },
     []
   );
 
   const handleExit = useCallback(() => {
-    if (!confirm("Surrender? Your current progress will not be saved.")) return;
-    setPhase("enemy-select");
-    setSelectedEnemy(null);
-  }, []);
+    if (!confirm("Are you sure you want to surrender? Your progress in this encounter will be lost.")) return;
+    useGameStore.getState().resetToSetup();
+    router.push("/games");
+  }, [router]);
 
   const handleBattleAgain = useCallback(() => {
     hasSavedRef.current = false;
     setResultData(null);
+    setBattleTextWritten("");
     setPhase("enemy-select");
     setSelectedEnemy(null);
+    useGameStore.getState().resetToSetup();
   }, []);
 
   // ── Render ──────────────────────────────────────────────────────────────────
@@ -788,6 +1061,7 @@ export default function BattlePage() {
       <ResultsState
         result={resultData}
         isSaving={isSaving}
+        textWritten={battleTextWritten}
         onBattleAgain={handleBattleAgain}
       />
     );
@@ -826,7 +1100,14 @@ export default function BattlePage() {
               "0 0 0 4px rgba(201,168,76,0.03), 0 4px 32px rgba(0,0,0,0.18)",
           }}
         >
-          <GameEditor key={gameKey} onWordCountChange={handleWordCount} />
+          <GameEditor
+            key={gameKey}
+            onWordCountChange={handleWordCount}
+            onTextChange={(html) => {
+              setBattleTextWritten(html);
+              useGameStore.getState().setTextWritten(html);
+            }}
+          />
         </div>
       </div>
     </div>

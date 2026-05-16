@@ -28,12 +28,19 @@ export async function createGameSession(
       duration_seconds: durationSeconds,
       xp_earned: xpEarned,
       completed: true,
-      ...(enemyType ? { enemy_type: enemyType } : {}),
+      ...(enemyType != null && enemyType !== ""
+        ? { enemy_type: enemyType }
+        : {}),
     })
     .select("id")
     .single();
 
-  if (error) return { data: null, error: error.message };
+  if (error) {
+    console.error("❌ SUPABASE INSERT ERROR:", error);
+    return { data: null, error: error.message };
+  }
+  revalidatePath("/profile");
+  revalidatePath("/dashboard");
   return { data: data as { id: string }, error: null };
 }
 

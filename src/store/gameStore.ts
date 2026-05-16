@@ -14,6 +14,7 @@ interface GameStore {
   setTextWritten: (text: string) => void;
   setPersonalBest: (duration: number, count: number) => void;
   resetToSetup: () => void;
+  setGameState: (s: GameState) => void;
 }
 
 export const useGameStore = create<GameStore>((set) => ({
@@ -39,4 +40,6 @@ export const useGameStore = create<GameStore>((set) => ({
     })),
 
   resetToSetup: () => set({ gameState: "idle", wordsWritten: 0, textWritten: "" }),
+
+  setGameState: (s) => set({ gameState: s }),
 }));

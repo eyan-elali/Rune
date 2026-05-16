@@ -56,5 +56,6 @@ export interface GameSession {
   duration_seconds: number | null;
   xp_earned: number;
   completed: boolean;
+  enemy_type: string | null;
   created_at: string;
 }

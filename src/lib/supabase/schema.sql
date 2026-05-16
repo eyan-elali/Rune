@@ -57,8 +57,12 @@ create table if not exists public.game_sessions (
   duration_seconds integer,
   xp_earned        integer     not null default 0,
   completed        boolean     not null default false,
+  enemy_type       text,
   created_at       timestamptz not null default now()
 );
+
+-- Existing projects created before enemy_type: run once in Supabase SQL if inserts fail:
+-- alter table public.game_sessions add column if not exists enemy_type text;
 
 -- ── xp_events ────────────────────────────────────────────────────────
 create table if not exists public.xp_events (
@@ -89,13 +93,13 @@ create policy "profiles: update own"
   on public.profiles for update
   using (auth.uid() = id);
 
--- projects: users manage only their own projects
+-- projects: users manaehage only their own projects
 create policy "projects: select own"
   on public.projects for select
   using (auth.uid() = user_id);
 
 create policy "projects: insert own"
-  on public.projects for insert
+  on public.pmusirojects for insert
   with check (auth.uid() = user_id);
 
 create policy "projects: update own"

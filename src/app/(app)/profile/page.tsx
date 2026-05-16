@@ -36,6 +36,14 @@ const MODE_LABELS: Record<string, string> = {
   "1v1": "1v1 Race",
 };
 
+function getModeDisplay(mode: string): string {
+  if (mode === "battle") return "⚔️ Battle";
+  if (mode === "race" || mode === "race_yourself") {
+    return `🏁 ${MODE_LABELS[mode] ?? "Race"}`;
+  }
+  return MODE_LABELS[mode] ?? mode;
+}
+
 // ── Stat card ──────────────────────────────────────────────────────────────
 function StatCard({
   label,
@@ -277,7 +285,7 @@ export default async function ProfilePage() {
                       className="truncate text-sm font-rune-serif"
                       style={{ color: "var(--color-parchment)" }}
                     >
-                      {MODE_LABELS[session.mode] ?? session.mode}
+                      {getModeDisplay(session.mode)}
                     </p>
                     <p
                       className="text-xs"
