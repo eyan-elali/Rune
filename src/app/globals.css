@@ -113,8 +113,8 @@ body {
 .ProseMirror {
   font-family: var(--font-newsreader), serif;
   font-variation-settings: "wght" 480;
-  font-size: 1.25rem;
-  line-height: 1.8;
+  font-size: var(--editor-font-size, 1.25rem);
+  line-height: var(--editor-line-height, 1.8);
   color: var(--color-ink);
   -webkit-font-smoothing: antialiased;
   letter-spacing: -0.015em;
@@ -219,7 +219,7 @@ body {
 }
 
 /* ── Unlockable theme: Midnight Library ─────────────────────────── */
-[data-theme="theme-midnight-library"] {
+[data-theme="midnight-library"] {
   --color-ink:          #0d0c12;
   --color-parchment:    #d8d6e8;
   --color-vellum:       #ccc9dc;
@@ -232,7 +232,7 @@ body {
 }
 
 /* ── Unlockable theme: Crimson Ink ──────────────────────────────── */
-[data-theme="theme-crimson-ink"] {
+[data-theme="crimson-ink"] {
   --color-ink:          #160908;
   --color-parchment:    #f0dedd;
   --color-vellum:       #e8d2d0;
@@ -246,7 +246,7 @@ body {
 
 /* ── Unlockable theme: The Ivory Tower ──────────────────────────── */
 /*    Redefines the palette so dark-mode tokens produce a light UI  */
-[data-theme="theme-ivory-tower"] {
+[data-theme="ivory-tower"] {
   --color-ink:          #f5f3ee;
   --color-parchment:    #2d3244;
   --color-vellum:       #eceae4;
@@ -260,7 +260,7 @@ body {
   --color-border-strong: rgba(90, 106, 138, 0.35);
 }
 
-.dark[data-theme="theme-ivory-tower"] {
+.dark[data-theme="ivory-tower"] {
   --bg-primary:  var(--color-ink);
   --bg-secondary: var(--color-vellum);
   --bg-sidebar:  var(--color-sepia);

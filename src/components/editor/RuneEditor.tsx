@@ -272,7 +272,11 @@ export default function RuneEditor({
       <div
         ref={scrollContainerRef}
         className="flex-1 overflow-y-auto"
-        style={{ background: "var(--color-vellum)" }}
+        style={{
+          background: "var(--color-vellum)",
+          "--editor-font-size": `${fontSize}px`,
+          "--editor-line-height": String(lineHeight),
+        } as React.CSSProperties}
       >
         <div className="mx-auto w-[90%] md:w-[80%] lg:w-[70%] xl:w-3/5 2xl:w-2/5 max-w-[1000px] px-6 pt-24 pb-16 min-h-[calc(100vh-9rem)]">
         {/* No extra background or shadow needed here now, since the parent is vellum */}
@@ -313,11 +317,7 @@ export default function RuneEditor({
             }}
             aria-label="Page title"
           />
-          {editor ? (
-            <div style={{ fontSize: `${fontSize}px`, lineHeight }}>
-              <EditorContent editor={editor} />
-            </div>
-          ) : null}
+          {editor ? <EditorContent editor={editor} /> : null}
         </div>
       </div>
 
