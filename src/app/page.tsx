@@ -319,7 +319,7 @@ export default function LandingPage() {
       <nav
         className="sticky top-0 z-50 px-6 py-4 sm:px-10"
         style={{
-          background: "rgba(45,41,38,0.92)",
+          background: "rgba(26,22,20,0.58)",
           backdropFilter: "blur(12px)",
           WebkitBackdropFilter: "blur(12px)",
           borderBottom: "1px solid var(--color-border)",
@@ -359,10 +359,6 @@ export default function LandingPage() {
       {/* ── 1. The Opening ──────────────────────────────────────────────── */}
       <section
         className="relative flex flex-col items-center px-6 py-36 text-center sm:px-10 sm:py-44 lg:py-56"
-        style={{
-          background:
-            "radial-gradient(ellipse at 50% -10%, rgba(44,36,32,1) 0%, var(--color-ink) 62%)",
-        }}
       >
         {/* Top ornament */}
         <div
@@ -447,7 +443,6 @@ export default function LandingPage() {
       <section
         id="sanctuary"
         className="px-6 py-28 sm:px-10 md:py-40"
-        style={{ background: "var(--color-sepia)" }}
       >
         <div className="mx-auto w-full max-w-5xl">
           <div className="mb-16 max-w-xl">
@@ -537,7 +532,6 @@ export default function LandingPage() {
       <section
         id="arena"
         className="px-6 py-28 sm:px-10 md:py-40"
-        style={{ background: "var(--color-ink)" }}
       >
         <div className="mx-auto w-full max-w-5xl">
           <div className="mb-16 max-w-xl">
@@ -616,7 +610,6 @@ export default function LandingPage() {
       <section
         className="px-6 py-28 sm:px-10 md:py-36"
         style={{
-          background: "var(--color-sepia)",
           borderTop: "1px solid var(--color-border)",
           borderBottom: "1px solid var(--color-border)",
         }}
@@ -699,7 +692,6 @@ export default function LandingPage() {
       {/* ── 5. The Human Ink Manifesto ──────────────────────────────────── */}
       <section
         className="relative px-6 py-32 sm:px-10 md:py-44"
-        style={{ background: "var(--color-ink)" }}
       >
         {/* Edge rules */}
         <div
@@ -781,7 +773,6 @@ export default function LandingPage() {
       <section
         id="pricing"
         className="px-6 pb-36 pt-28 sm:px-10 md:pt-36"
-        style={{ background: "var(--color-sepia)" }}
       >
         <div className="mx-auto w-full max-w-5xl">
           {/* Header */}
