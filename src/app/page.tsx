@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import type { Metadata } from "next";
 import BackgroundPattern from "@/components/landing/BackgroundPattern";
 
@@ -64,73 +65,19 @@ function FocusMockup() {
         </div>
       </div>
 
-      {/* Writing canvas — the full-screen dark Focus Mode environment */}
+      {/* Screenshot — authentic Focus Mode environment */}
       <div
-        className="relative px-6 py-14"
-        style={{
-          background: "#1a1614",
-          backgroundImage:
-            "radial-gradient(ellipse at 50% 45%, rgba(44,36,32,0.5) 0%, #0e0c0a 100%)",
-          minHeight: "320px",
-        }}
+        className="relative rounded-lg border border-white/5 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.7)]"
+        style={{ background: "#fcfaf2" }}
       >
-        {/* Deep atmospheric vignette — mirrors real Focus Mode radial shadow */}
-        <div
-          className="pointer-events-none absolute inset-0"
-          style={{
-            background:
-              "radial-gradient(ellipse 82% 72% at 50% 50%, transparent 18%, rgba(0,0,0,0.84) 100%)",
-          }}
-          aria-hidden
+        <Image
+          src="/images/editor-focus-preview.webp"
+          alt="Rune Focus Mode — a distraction-free writing environment with a warm parchment canvas"
+          width={3020}
+          height={1896}
+          style={{ width: "100%", height: "auto", display: "block" }}
+          priority
         />
-
-        {/* Manuscript surface — warm vellum paper, centered, as in the real editor */}
-        <div
-          className="relative mx-auto"
-          style={{ maxWidth: "500px" }}
-        >
-          <div
-            style={{
-              background: "#ede8db",
-              padding: "2.5rem 2.75rem",
-              boxShadow:
-                "0 4px 60px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.35)",
-            }}
-          >
-            <p
-              className="font-rune-serif selection:bg-[rgba(201,168,76,0.25)]"
-              style={{
-                color: "var(--color-ink)",
-                fontSize: "1.125rem",
-                lineHeight: 1.9,
-                letterSpacing: "0.012em",
-                textIndent: "2em",
-              }}
-            >
-              She had been walking for three days when the forest finally ended.
-              The road ahead was unpaved and smelled of rain. She did not know
-              what came next. Neither, she realized, did the story.
-            </p>
-            <p
-              className="font-rune-serif selection:bg-[rgba(201,168,76,0.25)]"
-              style={{
-                color: "var(--color-ink)",
-                fontSize: "1.125rem",
-                lineHeight: 1.9,
-                letterSpacing: "0.012em",
-                textIndent: "2em",
-                marginTop: "0.6em",
-              }}
-            >
-              She knelt and touched the mud.{" "}
-              <span
-                className="inline-block w-[2px] h-[1.3em] translate-y-[0.15em] animate-pulse"
-                style={{ background: "var(--color-gold)" }}
-                aria-hidden
-              />
-            </p>
-          </div>
-        </div>
       </div>
     </div>
   );
