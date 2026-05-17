@@ -78,9 +78,22 @@ function renderPageDivider(state: State): void {
   d.setFont(FONT, "normal");
   d.setFontSize(10);
   d.setTextColor(122, 111, 99);
-  d.text("✶", PW / 2, state.y, { align: "center" }); // ✶ six-pointed star
+  d.text("* * *", PW / 2, state.y, { align: "center" });
   state.y += lh(10) + before;
   d.setTextColor(30, 26, 22);
+}
+
+function hasText(node: TNode): boolean {
+  if (node.type === "text") return (node.text ?? "").trim().length > 0;
+  return (node.content ?? []).some(hasText);
+}
+
+function endsWithParagraphBlock(page: Page): boolean {
+  const root = page.content as TNode | null;
+  const blocks = root?.content ?? [];
+  const lastBlock = [...blocks].reverse().find(hasText);
+
+  return lastBlock?.type === "paragraph";
 }
 
 export async function exportProjectAsPdf(
@@ -134,7 +147,9 @@ export async function exportProjectAsPdf(
 
     for (let i = 0; i < pagesToExport.length; i++) {
       if (i > 0) {
-        renderPageDivider(state);
+        if (endsWithParagraphBlock(pagesToExport[i - 1])) {
+          renderPageDivider(state);
+        }
         state.bodyParagraphCount = 0;
       }
       const root = pagesToExport[i].content as TNode | null;
