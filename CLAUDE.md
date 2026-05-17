@@ -3,6 +3,8 @@
 > This file is the source of truth for Claude Code when building Rune. Read it in full before every session. It describes what Rune is, how it is built, and the conventions that must be followed consistently across all prompts.
 
 ---
+##Always do first
+-**Invoke the 'frontend-design' skill** before writing any frontend code, every session, no exceptions.
 
 ## What Is Rune?
 

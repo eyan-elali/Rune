@@ -1,7 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import BackgroundPattern from "@/components/landing/BackgroundPattern";
-import SectionDivider from "@/components/landing/SectionDivider";
 
 export const metadata: Metadata = {
   title: "Rune — The manuscript is waiting.",
@@ -310,7 +309,52 @@ export default function LandingPage() {
       className="relative min-h-screen scroll-smooth"
       style={{ background: "var(--color-ink)", color: "var(--color-parchment)" }}
     >
-      <BackgroundPattern />
+      
+
+      {/* ── Flowing line overlay — sweeps lazily top to bottom ── */}
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 1000 100"
+        preserveAspectRatio="none"
+        aria-hidden="true"
+        style={{
+          position: "absolute",
+          inset: 0,
+          width: "100%",
+          height: "100%",
+          zIndex: 0,
+          pointerEvents: "none",
+        }}
+      >
+        <path
+          d="M-50,0 C200,12 800,4 1050,38 C1260,58 820,80 600,100"
+          fill="none"
+          stroke="var(--color-gold)"
+          strokeWidth="0.5"
+          opacity="0.04"
+        />
+        <path
+          d="M1050,0 C820,18 180,8 -50,44 C-200,64 300,84 500,100"
+          fill="none"
+          stroke="var(--color-gold)"
+          strokeWidth="0.5"
+          opacity="0.04"
+        />
+        <path
+          d="M480,0 C580,22 380,42 540,62 C700,80 460,90 420,100"
+          fill="none"
+          stroke="var(--color-gold)"
+          strokeWidth="0.5"
+          opacity="0.04"
+        />
+        <path
+          d="M220,0 C100,26 720,36 820,62 C900,82 660,90 760,100"
+          fill="none"
+          stroke="var(--color-gold)"
+          strokeWidth="0.5"
+          opacity="0.04"
+        />
+      </svg>
 
       {/* All page content sits above the pattern layer */}
       <div className="relative z-10">
@@ -358,77 +402,83 @@ export default function LandingPage() {
 
       {/* ── 1. The Opening ──────────────────────────────────────────────── */}
       <section
-        className="relative flex flex-col items-center px-6 py-36 text-center sm:px-10 sm:py-44 lg:py-56"
+        className="relative flex min-h-screen flex-col items-center justify-center px-6 py-24 text-center md:py-36 lg:py-48 sm:px-10"
+        style={{
+          background:
+            "linear-gradient(180deg, transparent 0%, color-mix(in srgb, var(--color-sepia) 14%, transparent) 50%, transparent 100%)",
+        }}
       >
-        {/* Top ornament */}
-        <div
-          className="mb-12 h-px w-14"
-          style={{
-            background:
-              "linear-gradient(90deg, transparent, var(--color-gold), transparent)",
-            opacity: 0.6,
-          }}
-          aria-hidden
-        />
-
-        <h1
-          className="font-rune-serif leading-none"
-          style={{
-            fontSize: "clamp(5rem, 15vw, 11rem)",
-            color: "var(--color-parchment)",
-            letterSpacing: "0.07em",
-          }}
-        >
-          Rune
-        </h1>
-
-        <p
-          className="mx-auto mb-6 mt-9 max-w-lg font-rune-serif italic"
-          style={{
-            fontSize: "clamp(1.05rem, 2.5vw, 1.35rem)",
-            color: "var(--color-mist)",
-            lineHeight: 1.75,
-          }}
-        >
-          The manuscript has been sitting there for three weeks.
-          <br className="hidden sm:block" />
-          You know the one.
-        </p>
-
-        <p
-          className="mb-12 max-w-sm text-sm leading-loose"
-          style={{ color: "var(--color-mist)", opacity: 0.5 }}
-        >
-          Rune is a writing environment that takes the problem of sitting down
-          seriously.
-        </p>
-
-        <div className="flex flex-col items-center gap-4 sm:flex-row">
-          <Link
-            href="/signup"
-            className="rounded px-9 py-3.5 text-sm font-medium transition-all duration-150 hover:-translate-y-px hover:opacity-90"
+        <div className="flex flex-col items-center">
+          {/* Top ornament */}
+          <div
+            className="mb-12 h-px w-14"
             style={{
-              background: "var(--color-gold)",
-              color: "var(--color-ink)",
+              background:
+                "linear-gradient(90deg, transparent, var(--color-gold), transparent)",
+              opacity: 0.6,
             }}
-          >
-            Begin Writing Free
-          </Link>
-          <a
-            href="#sanctuary"
-            className="rounded px-9 py-3.5 text-sm transition-all duration-150 hover:bg-white/5"
+            aria-hidden
+          />
+
+          <h1
+            className="font-rune-serif leading-none"
             style={{
-              border: "1px solid var(--color-border-strong)",
+              fontSize: "clamp(5rem, 15vw, 11rem)",
               color: "var(--color-parchment)",
+              letterSpacing: "0.07em",
             }}
           >
-            See How It Works
-          </a>
+            Rune
+          </h1>
+
+          <p
+            className="mx-auto mb-6 mt-9 max-w-lg font-rune-serif italic"
+            style={{
+              fontSize: "clamp(1.05rem, 2.5vw, 1.35rem)",
+              color: "var(--color-mist)",
+              lineHeight: 1.75,
+            }}
+          >
+            The manuscript has been sitting there for three weeks.
+            <br className="hidden sm:block" />
+            You know the one.
+          </p>
+
+          <p
+            className="mb-12 max-w-sm text-sm leading-loose"
+            style={{ color: "var(--color-mist)", opacity: 0.5 }}
+          >
+            Rune is a writing environment that takes the problem of sitting down
+            seriously.
+          </p>
+
+          <div className="flex flex-col items-center gap-4 sm:flex-row">
+            <Link
+              href="/signup"
+              className="rounded px-9 py-3.5 text-sm font-medium transition-all duration-150 hover:-translate-y-px hover:opacity-90"
+              style={{
+                background: "var(--color-gold)",
+                color: "var(--color-ink)",
+              }}
+            >
+              Begin Writing Free
+            </Link>
+            <a
+              href="#sanctuary"
+              className="rounded px-9 py-3.5 text-sm transition-all duration-150 hover:bg-white/5"
+              style={{
+                border: "1px solid var(--color-border-strong)",
+                color: "var(--color-parchment)",
+              }}
+            >
+              See How It Works
+            </a>
+          </div>
         </div>
 
         {/* Bottom ornament */}
         <div
-          className="mt-24 h-px w-14"
+          className="absolute bottom-10 h-px w-14 sm:bottom-14"
           style={{
             background:
               "linear-gradient(90deg, transparent, var(--color-border-strong), transparent)",
@@ -437,12 +487,23 @@ export default function LandingPage() {
         />
       </section>
 
-      <SectionDivider />
+      <div
+        className="h-24 md:h-32"
+        aria-hidden="true"
+        style={{
+          background:
+            "linear-gradient(to bottom, transparent, color-mix(in srgb, var(--color-ink) 92%, var(--color-sepia) 8%), transparent)",
+        }}
+      />
 
       {/* ── 2. The Sanctuary — Focus Mode ──────────────────────────────── */}
       <section
         id="sanctuary"
-        className="px-6 py-28 sm:px-10 md:py-40"
+        className="px-6 py-24 sm:px-10 md:py-36 lg:py-48"
+        style={{
+          background:
+            "linear-gradient(180deg, transparent 0%, color-mix(in srgb, var(--color-sepia) 20%, transparent) 45%, transparent 100%)",
+        }}
       >
         <div className="mx-auto w-full max-w-5xl">
           <div className="mb-16 max-w-xl">
@@ -526,12 +587,23 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <SectionDivider />
+      <div
+        className="h-24 md:h-32"
+        aria-hidden="true"
+        style={{
+          background:
+            "linear-gradient(to bottom, transparent, color-mix(in srgb, var(--color-ink) 92%, var(--color-sepia) 8%), transparent)",
+        }}
+      />
 
       {/* ── 3. The Arena — Game Mode ────────────────────────────────────── */}
       <section
         id="arena"
-        className="px-6 py-28 sm:px-10 md:py-40"
+        className="px-6 py-24 sm:px-10 md:py-36 lg:py-48"
+        style={{
+          background:
+            "linear-gradient(180deg, transparent 0%, color-mix(in srgb, var(--color-crimson) 8%, transparent) 48%, transparent 100%)",
+        }}
       >
         <div className="mx-auto w-full max-w-5xl">
           <div className="mb-16 max-w-xl">
@@ -604,12 +676,21 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <SectionDivider />
+      <div
+        className="h-24 md:h-32"
+        aria-hidden="true"
+        style={{
+          background:
+            "linear-gradient(to bottom, transparent, color-mix(in srgb, var(--color-ink) 92%, var(--color-sepia) 8%), transparent)",
+        }}
+      />
 
       {/* ── 4. The Philosophy of Velocity ──────────────────────────────── */}
       <section
-        className="px-6 py-28 sm:px-10 md:py-36"
+        className="px-6 py-24 sm:px-10 md:py-36 lg:py-48"
         style={{
+          background:
+            "linear-gradient(180deg, transparent 0%, color-mix(in srgb, var(--color-ink) 88%, transparent) 50%, transparent 100%)",
           borderTop: "1px solid var(--color-border)",
           borderBottom: "1px solid var(--color-border)",
         }}
@@ -687,11 +768,22 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <SectionDivider />
+      <div
+        className="h-24 md:h-32"
+        aria-hidden="true"
+        style={{
+          background:
+            "linear-gradient(to bottom, transparent, color-mix(in srgb, var(--color-ink) 92%, var(--color-sepia) 8%), transparent)",
+        }}
+      />
 
       {/* ── 5. The Human Ink Manifesto ──────────────────────────────────── */}
       <section
-        className="relative px-6 py-32 sm:px-10 md:py-44"
+        className="relative px-6 py-24 sm:px-10 md:py-36 lg:py-48"
+        style={{
+          background:
+            "linear-gradient(180deg, transparent 0%, color-mix(in srgb, var(--color-sepia) 16%, transparent) 52%, transparent 100%)",
+        }}
       >
         {/* Edge rules */}
         <div
@@ -767,12 +859,23 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <SectionDivider />
+      <div
+        className="h-24 md:h-32"
+        aria-hidden="true"
+        style={{
+          background:
+            "linear-gradient(to bottom, transparent, color-mix(in srgb, var(--color-ink) 92%, var(--color-sepia) 8%), transparent)",
+        }}
+      />
 
       {/* ── 6. Pricing ──────────────────────────────────────────────────── */}
       <section
         id="pricing"
-        className="px-6 pb-36 pt-28 sm:px-10 md:pt-36"
+        className="px-6 py-24 sm:px-10 md:py-36 lg:py-48"
+        style={{
+          background:
+            "linear-gradient(180deg, transparent 0%, color-mix(in srgb, var(--color-ink) 90%, transparent) 46%, transparent 100%)",
+        }}
       >
         <div className="mx-auto w-full max-w-5xl">
           {/* Header */}
@@ -992,7 +1095,14 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <SectionDivider />
+      <div
+        className="h-24 md:h-32"
+        aria-hidden="true"
+        style={{
+          background:
+            "linear-gradient(to bottom, transparent, color-mix(in srgb, var(--color-ink) 92%, var(--color-sepia) 8%), transparent)",
+        }}
+      />
 
       {/* ── 7. Footer ───────────────────────────────────────────────────── */}
       <footer
