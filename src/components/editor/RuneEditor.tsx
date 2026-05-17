@@ -100,7 +100,10 @@ export default function RuneEditor({
         setIsSaving(true);
         try {
           await updatePage(page.id, content, wordCount);
-          onPageUpdatedRef.current(page.id, { word_count: wordCount });
+          onPageUpdatedRef.current(page.id, {
+            content,
+            word_count: wordCount,
+          });
           setIsSaving(false);
           setLastSaved(new Date());
 
@@ -114,7 +117,10 @@ export default function RuneEditor({
           saveTimerRef.current = setTimeout(async () => {
             try {
               await updatePage(page.id, content, wordCount);
-              onPageUpdatedRef.current(page.id, { word_count: wordCount });
+              onPageUpdatedRef.current(page.id, {
+                content,
+                word_count: wordCount,
+              });
               setLastSaved(new Date());
             } catch (retryErr) {
               console.error("Auto-save retry failed:", retryErr);
@@ -177,7 +183,16 @@ export default function RuneEditor({
       const content = editor.getJSON() as Record<string, unknown>;
       const wordCount =
         (editor.storage.characterCount?.words?.() as number | undefined) ?? 0;
-      updatePage(prevPageId, content, wordCount);
+      void updatePage(prevPageId, content, wordCount)
+        .then(() => {
+          onPageUpdatedRef.current(prevPageId, {
+            content,
+            word_count: wordCount,
+          });
+        })
+        .catch((err) => {
+          console.error("Page switch save failed:", err);
+        });
     }
 
     prevPageIdRef.current = newPageId;
