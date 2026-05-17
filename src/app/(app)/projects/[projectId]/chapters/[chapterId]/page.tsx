@@ -13,13 +13,20 @@ export default async function ChapterEditorPage({
   const { projectId, chapterId } = await params;
   const supabase = await createClient();
 
-  const { data: chapter } = await supabase
-    .from("chapters")
-    .select("id, title, project_id")
-    .eq("id", chapterId)
-    .single();
+  const [{ data: chapter }, { data: project }] = await Promise.all([
+    supabase
+      .from("chapters")
+      .select("*")
+      .eq("id", chapterId)
+      .single(),
+    supabase
+      .from("projects")
+      .select("*")
+      .eq("id", projectId)
+      .single(),
+  ]);
 
-  if (!chapter) notFound();
+  if (!chapter || !project) notFound();
 
   const { data: pages } = await getPages(chapterId);
   const initialPages = pages ?? [];
@@ -30,6 +37,8 @@ export default async function ChapterEditorPage({
         projectId={projectId}
         chapterId={chapterId}
         initialPages={initialPages}
+        chapter={chapter}
+        project={project}
       />
     </div>
   );

@@ -4,7 +4,8 @@ import dynamic from "next/dynamic";
 import { useState, useCallback, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { PageList } from "./PageList";
-import type { Page } from "@/lib/types";
+import { ExportButton } from "./ExportButton";
+import type { Page, Chapter, Project } from "@/lib/types";
 import {
   createPage,
   deletePage,
@@ -29,12 +30,16 @@ interface EditorShellProps {
   projectId: string;
   chapterId: string;
   initialPages: Page[];
+  chapter: Chapter;
+  project: Project;
 }
 
 export function EditorShell({
   projectId,
   chapterId,
   initialPages,
+  chapter,
+  project,
 }: EditorShellProps) {
   const [pages, setPages] = useState<Page[]>(initialPages);
   const [selectedPageId, setSelectedPageId] = useState<string | null>(
@@ -130,7 +135,18 @@ export function EditorShell({
           onClearCanonical={handleClearCanonical}
         />
       )}
-      <div className="flex min-w-0 flex-1 overflow-hidden">
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        {!shouldHideUI && (
+          <div
+            className="flex shrink-0 items-center justify-end px-4 py-1.5"
+            style={{
+              borderBottom: "1px solid var(--color-border)",
+              background: "var(--surface-editor)",
+            }}
+          >
+            <ExportButton page={currentPage} chapter={chapter} project={project} />
+          </div>
+        )}
         <RuneEditor
           projectId={projectId}
           chapterId={chapterId}
