@@ -19,11 +19,12 @@ function FocusMockup() {
   return (
     <div
       role="img"
-      aria-label="Preview of Rune's Focus Mode: a dark writing canvas with only a centered text column"
+      aria-label="Preview of Rune's Focus Mode: a fullscreen writing canvas with a centered manuscript column"
       className="relative mx-auto w-full max-w-2xl overflow-hidden rounded-xl"
       style={{
-        border: "1px solid rgba(201,168,76,0.15)",
-        boxShadow: "0 40px 100px rgba(0,0,0,0.7)",
+        border: "1px solid rgba(201,168,76,0.05)",
+        boxShadow:
+          "0 48px 120px rgba(0,0,0,0.85), 0 8px 40px rgba(0,0,0,0.55)",
       }}
     >
       {/* Browser chrome */}
@@ -63,57 +64,72 @@ function FocusMockup() {
         </div>
       </div>
 
-      {/* Writing canvas */}
+      {/* Writing canvas — the full-screen dark Focus Mode environment */}
       <div
-        className="relative px-8 py-16 sm:px-16"
+        className="relative px-6 py-14"
         style={{
-          background: "#2c2420",
+          background: "#1a1614",
           backgroundImage:
-            "radial-gradient(ellipse at 50% 50%, #2c2420 30%, rgba(0,0,0,0.85) 100%)",
-          minHeight: "300px",
+            "radial-gradient(ellipse at 50% 45%, rgba(44,36,32,0.5) 0%, #0e0c0a 100%)",
+          minHeight: "320px",
         }}
       >
-        {/* Vignette */}
+        {/* Deep atmospheric vignette — mirrors real Focus Mode radial shadow */}
         <div
           className="pointer-events-none absolute inset-0"
           style={{
             background:
-              "radial-gradient(ellipse at 50% 40%, transparent 25%, rgba(0,0,0,0.72) 100%)",
+              "radial-gradient(ellipse 82% 72% at 50% 50%, transparent 18%, rgba(0,0,0,0.84) 100%)",
           }}
           aria-hidden
         />
 
-        {/* Text column */}
-        <div className="relative mx-auto max-w-[460px]">
-          <p
-            className="font-rune-serif leading-loose"
+        {/* Manuscript surface — warm vellum paper, centered, as in the real editor */}
+        <div
+          className="relative mx-auto"
+          style={{ maxWidth: "500px" }}
+        >
+          <div
             style={{
-              color: "var(--color-parchment)",
-              fontSize: "1.05rem",
-              opacity: 0.88,
-              letterSpacing: "-0.01em",
+              background: "#ede8db",
+              padding: "2.5rem 2.75rem",
+              boxShadow:
+                "0 4px 60px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.35)",
             }}
           >
-            She had been walking for three days when the forest finally ended.
-            The road ahead was unpaved and smelled of rain. She did not know
-            what came next. Neither, she realized, did the story.
-          </p>
-          <p
-            className="mt-6 font-rune-serif leading-loose"
-            style={{
-              color: "var(--color-parchment)",
-              fontSize: "1.05rem",
-              opacity: 0.88,
-              letterSpacing: "-0.01em",
-            }}
-          >
-            She knelt and touched the mud.{" "}
-            <span
-              className="inline-block h-[1.1em] w-0.5 translate-y-[0.15em] animate-pulse"
-              style={{ background: "var(--color-gold)" }}
-              aria-hidden
-            />
-          </p>
+            <p
+              className="font-rune-serif selection:bg-[rgba(201,168,76,0.25)]"
+              style={{
+                color: "var(--color-ink)",
+                fontSize: "1.125rem",
+                lineHeight: 1.9,
+                letterSpacing: "0.012em",
+                textIndent: "2em",
+              }}
+            >
+              She had been walking for three days when the forest finally ended.
+              The road ahead was unpaved and smelled of rain. She did not know
+              what came next. Neither, she realized, did the story.
+            </p>
+            <p
+              className="font-rune-serif selection:bg-[rgba(201,168,76,0.25)]"
+              style={{
+                color: "var(--color-ink)",
+                fontSize: "1.125rem",
+                lineHeight: 1.9,
+                letterSpacing: "0.012em",
+                textIndent: "2em",
+                marginTop: "0.6em",
+              }}
+            >
+              She knelt and touched the mud.{" "}
+              <span
+                className="inline-block w-[2px] h-[1.3em] translate-y-[0.15em] animate-pulse"
+                style={{ background: "var(--color-gold)" }}
+                aria-hidden
+              />
+            </p>
+          </div>
         </div>
       </div>
     </div>
