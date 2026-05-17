@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { ChapterList } from "@/components/projects/ChapterList";
+import { ManuscriptExportButton } from "@/components/projects/ManuscriptExportButton";
 import type { Chapter } from "@/lib/types";
 
 type ChapterWithStats = Chapter & {
@@ -43,22 +44,27 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
             style={{ background: project.cover_color }}
           />
         )}
-        <h1
-          className="font-rune-serif text-3xl"
-          style={{ color: "var(--text-primary)" }}
-        >
-          {project.title}
-        </h1>
-        {project.description && (
-          <p className="mt-2 max-w-prose text-sm text-rune-mist">
-            {project.description}
-          </p>
-        )}
-        <p className="mt-4 text-xs text-rune-mist/40">
-          {project.word_count.toLocaleString()} words total ·{" "}
-          {typedChapters.length}{" "}
-          {typedChapters.length === 1 ? "chapter" : "chapters"}
-        </p>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1
+              className="font-rune-serif text-3xl"
+              style={{ color: "var(--text-primary)" }}
+            >
+              {project.title}
+            </h1>
+            {project.description && (
+              <p className="mt-2 max-w-prose text-sm text-rune-mist">
+                {project.description}
+              </p>
+            )}
+            <p className="mt-4 text-xs text-rune-mist/40">
+              {project.word_count.toLocaleString()} words total ·{" "}
+              {typedChapters.length}{" "}
+              {typedChapters.length === 1 ? "chapter" : "chapters"}
+            </p>
+          </div>
+          <ManuscriptExportButton project={project} />
+        </div>
       </div>
 
       {/* Chapter list */}
