@@ -55,7 +55,7 @@ function UnlockableCard({
         )}
         <h3
           className="font-rune-serif text-lg leading-snug"
-          style={{ color: "var(--color-parchment)" }}
+          style={{ color: "var(--text-primary)" }}
         >
           {item.name}
         </h3>
@@ -124,7 +124,10 @@ export default async function UnlockablesPage() {
   return (
     <div className="mx-auto max-w-4xl px-8 py-12">
       <div className="mb-10">
-        <h1 className="font-rune-serif text-4xl text-rune-parchment">
+        <h1
+          className="font-rune-serif text-4xl"
+          style={{ color: "var(--text-primary)" }}
+        >
           Unlockables
         </h1>
         <p className="mt-2 font-rune-serif text-lg text-rune-mist">

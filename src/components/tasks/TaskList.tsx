@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { Check, Plus, Trash2 } from "lucide-react";
 import { getTasks, createTask, updateTask, deleteTask } from "@/lib/actions/tasks";
 import { useModeStore } from "@/store/modeStore";
 import { cn } from "@/lib/utils";
@@ -177,7 +177,7 @@ export function TaskList() {
                   aria-checked={task.completed}
                   aria-label={`Mark "${task.text}" as ${task.completed ? "incomplete" : "complete"}`}
                   onClick={() => handleToggle(task)}
-                  className="h-4 w-4 shrink-0 rounded-sm border transition-colors duration-150"
+                  className="flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border transition-colors duration-150"
                   style={{
                     borderColor: task.completed
                       ? "var(--color-gold)"
@@ -186,7 +186,16 @@ export function TaskList() {
                       ? "var(--color-gold)"
                       : "transparent",
                   }}
-                />
+                >
+                  {task.completed && (
+                    <Check
+                      size={12}
+                      strokeWidth={3}
+                      style={{ color: "var(--text-on-accent)" }}
+                      aria-hidden
+                    />
+                  )}
+                </button>
                 {/* Text + due date */}
                 <div className="min-w-0 flex-1">
                   <span

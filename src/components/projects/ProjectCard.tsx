@@ -72,7 +72,8 @@ function KebabMenu({
               onOpenChange(false);
               onEdit();
             }}
-            className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-sm text-rune-parchment/70 transition-colors hover:bg-rune-gold/10 hover:text-rune-gold"
+            className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-sm transition-colors hover:bg-rune-gold/10"
+            style={{ color: "var(--text-primary)" }}
           >
             <Pencil size={13} />
             Edit
@@ -84,7 +85,8 @@ function KebabMenu({
               onOpenChange(false);
               onDelete();
             }}
-            className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-sm text-rune-parchment/70 transition-colors hover:bg-rune-crimson/10 hover:text-rune-crimson"
+            className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-sm transition-colors hover:bg-rune-crimson/10"
+            style={{ color: "var(--text-primary)" }}
           >
             <Trash2 size={13} />
             Delete

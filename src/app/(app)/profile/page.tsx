@@ -79,7 +79,7 @@ function StatCard({
     >
       <p
         className="text-2xl font-rune-serif"
-        style={{ color: "var(--color-parchment)" }}
+        style={{ color: "var(--text-primary)" }}
       >
         {value}
       </p>
@@ -195,7 +195,7 @@ export default async function ProfilePage() {
         <div className="min-w-0">
           <h1
             className="font-rune-serif text-2xl leading-tight"
-            style={{ color: "var(--color-parchment)" }}
+            style={{ color: "var(--text-primary)" }}
           >
             {displayName}
           </h1>
@@ -282,7 +282,7 @@ export default async function ProfilePage() {
           <div>
             <p
               className="text-sm font-semibold"
-              style={{ color: "var(--color-parchment)" }}
+              style={{ color: "var(--text-primary)" }}
             >
               Unlockables Gallery
             </p>
@@ -338,7 +338,7 @@ export default async function ProfilePage() {
                       <div className="flex flex-wrap items-baseline gap-x-2">
                         <p
                           className="truncate text-sm font-rune-serif"
-                          style={{ color: "var(--color-parchment)" }}
+                          style={{ color: "var(--text-primary)" }}
                         >
                           {getModeDisplay(session.mode)}
                         </p>
@@ -378,7 +378,7 @@ export default async function ProfilePage() {
                       <div>
                         <p
                           className="text-sm font-rune-serif"
-                          style={{ color: "var(--color-parchment)" }}
+                          style={{ color: "var(--text-primary)" }}
                         >
                           {session.words_written.toLocaleString()}
                         </p>
@@ -419,7 +419,7 @@ export default async function ProfilePage() {
               border: "1px dashed var(--color-border-strong)",
             }}
           >
-            <p className="font-rune-serif text-sm" style={{ color: "var(--color-parchment)", opacity: 0.4 }}>
+            <p className="font-rune-serif text-sm" style={{ color: "var(--text-primary)", opacity: 0.55 }}>
               No game sessions yet.
             </p>
           </div>
