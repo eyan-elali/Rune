@@ -5,7 +5,12 @@ import { useState, useCallback, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { PageList } from "./PageList";
 import type { Page } from "@/lib/types";
-import { createPage, deletePage } from "@/lib/actions/pages";
+import {
+  createPage,
+  deletePage,
+  setCanonicalPage,
+  clearCanonicalPage,
+} from "@/lib/actions/pages";
 import { useEditorStore } from "@/store/editorStore";
 import { useModeStore } from "@/store/modeStore";
 
@@ -79,14 +84,11 @@ export function EditorShell({
     [selectedPageId]
   );
 
-  const handleRenamePage = useCallback(
-    (pageId: string, title: string) => {
-      setPages((prev) =>
-        prev.map((p) => (p.id === pageId ? { ...p, title } : p))
-      );
-    },
-    []
-  );
+  const handleRenamePage = useCallback((pageId: string, title: string) => {
+    setPages((prev) =>
+      prev.map((p) => (p.id === pageId ? { ...p, title } : p))
+    );
+  }, []);
 
   const handlePageUpdated = useCallback(
     (pageId: string, updates: Partial<Page>) => {
@@ -96,6 +98,23 @@ export function EditorShell({
     },
     []
   );
+
+  const handleSetCanonical = useCallback(
+    async (pageId: string) => {
+      // Optimistic update
+      setPages((prev) =>
+        prev.map((p) => ({ ...p, is_canonical: p.id === pageId }))
+      );
+      await setCanonicalPage(pageId, chapterId);
+    },
+    [chapterId]
+  );
+
+  const handleClearCanonical = useCallback(async () => {
+    // Optimistic update
+    setPages((prev) => prev.map((p) => ({ ...p, is_canonical: false })));
+    await clearCanonicalPage(chapterId);
+  }, [chapterId]);
 
   return (
     <div className="flex min-h-0 h-full overflow-hidden">
@@ -107,6 +126,8 @@ export function EditorShell({
           onAddPage={handleAddPage}
           onDeletePage={handleDeletePage}
           onRenamePage={handleRenamePage}
+          onSetCanonical={handleSetCanonical}
+          onClearCanonical={handleClearCanonical}
         />
       )}
       <div className="flex min-w-0 flex-1 overflow-hidden">

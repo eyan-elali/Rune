@@ -957,7 +957,7 @@ export default function LandingPage() {
                 <li>Unlimited projects</li>
                 <li>Full editor &amp; Focus Mode</li>
                 <li>XP &amp; level progression</li>
-                <li>5 game tickets per week</li>
+                <li>1 game ticket per week</li>
               </ul>
               <Link
                 href="/signup"

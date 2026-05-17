@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { updatePage, renamePage } from "@/lib/actions/pages";
 import { useEditorStore } from "@/store/editorStore";
 import { useProfileStore } from "@/store/profileStore";
+import { useToastStore } from "@/store/toastStore";
 import type { Page, UserPreferences } from "@/lib/types";
 
 interface RuneEditorProps {
@@ -33,6 +34,7 @@ export default function RuneEditor({
   onRenamePage,
 }: RuneEditorProps) {
   const { setIsSaving, setLastSaved, isSaving } = useEditorStore();
+  const showToast = useToastStore((s) => s.showToast);
   const rawPrefs = useProfileStore((s) => s.profile?.preferences);
   const prefs = (rawPrefs ?? {}) as Partial<UserPreferences>;
   const fontSize = prefs.fontSize ?? 18;
@@ -90,19 +92,35 @@ export default function RuneEditor({
         const page = currentPageRef.current;
         if (!page) return;
 
-        setIsSaving(true);
+        // Save engine — content and persistence are intentionally decoupled
         const content = editor.getJSON() as Record<string, unknown>;
         const wordCount =
           (editor.storage.characterCount?.words?.() as number | undefined) ?? 0;
 
-        await updatePage(page.id, content, wordCount);
-        onPageUpdatedRef.current(page.id, { word_count: wordCount });
-        setIsSaving(false);
-        setLastSaved(new Date());
+        setIsSaving(true);
+        try {
+          await updatePage(page.id, content, wordCount);
+          onPageUpdatedRef.current(page.id, { word_count: wordCount });
+          setIsSaving(false);
+          setLastSaved(new Date());
 
-        setShowSaved(true);
-        clearTimeout(showSavedTimerRef.current);
-        showSavedTimerRef.current = setTimeout(() => setShowSaved(false), 2000);
+          setShowSaved(true);
+          clearTimeout(showSavedTimerRef.current);
+          showSavedTimerRef.current = setTimeout(() => setShowSaved(false), 2000);
+        } catch (err) {
+          console.error("Auto-save failed:", err);
+          setIsSaving(false);
+          showToast("Save failed — retrying", "error");
+          saveTimerRef.current = setTimeout(async () => {
+            try {
+              await updatePage(page.id, content, wordCount);
+              onPageUpdatedRef.current(page.id, { word_count: wordCount });
+              setLastSaved(new Date());
+            } catch (retryErr) {
+              console.error("Auto-save retry failed:", retryErr);
+            }
+          }, 3000);
+        }
       }, autoSaveDelayRef.current);
     },
     onSelectionUpdate({ editor }) {

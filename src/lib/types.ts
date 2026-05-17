@@ -53,6 +53,7 @@ export interface Page {
   content: Record<string, unknown> | null;
   word_count: number;
   position: number;
+  is_canonical: boolean;
   created_at: string;
   updated_at: string;
 }

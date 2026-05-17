@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npx tsc *)"
+      "Bash(npx tsc *)",
+      "Skill(frontend-design)",
+      "Bash(npm run *)"
     ]
   }
 }

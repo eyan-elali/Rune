@@ -14,7 +14,61 @@ async function getUser() {
   return { supabase, user };
 }
 
-export async function getPages(chapterId: string): Promise<ActionResult<Page[]>> {
+// For each chapter: if a canonical page exists use only its word count,
+// otherwise sum all pages. This prevents double-counting scene drafts.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function recalculateProjectWordCount(supabase: any, projectId: string) {
+  const { data: projectChapters } = await supabase
+    .from("chapters")
+    .select("id")
+    .eq("project_id", projectId);
+
+  if (!projectChapters?.length) {
+    await supabase
+      .from("projects")
+      .update({ word_count: 0 })
+      .eq("id", projectId);
+    return;
+  }
+
+  const chapterIds = projectChapters.map((c: { id: string }) => c.id);
+
+  const { data: allPages } = await supabase
+    .from("pages")
+    .select("chapter_id, word_count, is_canonical")
+    .in("chapter_id", chapterIds);
+
+  if (!allPages) return;
+
+  let totalWords = 0;
+  for (const chapId of chapterIds) {
+    const chapterPages: Array<{
+      chapter_id: string;
+      word_count: number;
+      is_canonical: boolean;
+    }> = allPages.filter(
+      (p: { chapter_id: string }) => p.chapter_id === chapId
+    );
+    const canonical = chapterPages.find((p) => p.is_canonical);
+    if (canonical) {
+      totalWords += canonical.word_count;
+    } else {
+      totalWords += chapterPages.reduce(
+        (sum, p) => sum + (p.word_count ?? 0),
+        0
+      );
+    }
+  }
+
+  await supabase
+    .from("projects")
+    .update({ word_count: totalWords })
+    .eq("id", projectId);
+}
+
+export async function getPages(
+  chapterId: string
+): Promise<ActionResult<Page[]>> {
   const { supabase, user } = await getUser();
   if (!user) return { data: null, error: "Not authenticated" };
 
@@ -53,6 +107,7 @@ export async function createPage(
       content: null,
       word_count: 0,
       position,
+      is_canonical: false,
     })
     .select()
     .single();
@@ -94,28 +149,8 @@ export async function updatePage(
     .single();
 
   if (chapter) {
-    const { data: projectChapters } = await supabase
-      .from("chapters")
-      .select("id")
-      .eq("project_id", chapter.project_id);
-
-    if (projectChapters) {
-      const chapterIds = projectChapters.map((c) => c.id);
-      const { data: allPages } = await supabase
-        .from("pages")
-        .select("word_count")
-        .in("chapter_id", chapterIds);
-
-      const totalWords =
-        allPages?.reduce((sum, p) => sum + (p.word_count ?? 0), 0) ?? 0;
-
-      await supabase
-        .from("projects")
-        .update({ word_count: totalWords })
-        .eq("id", chapter.project_id);
-
-      revalidatePath(`/projects/${chapter.project_id}`);
-    }
+    await recalculateProjectWordCount(supabase, chapter.project_id);
+    revalidatePath(`/projects/${chapter.project_id}`);
   }
 
   return { data: page, error: null };
@@ -130,7 +165,10 @@ export async function renamePage(
 
   const { data, error } = await supabase
     .from("pages")
-    .update({ title: title.trim() || "Untitled", updated_at: new Date().toISOString() })
+    .update({
+      title: title.trim() || "Untitled",
+      updated_at: new Date().toISOString(),
+    })
     .eq("id", id)
     .select()
     .single();
@@ -139,11 +177,95 @@ export async function renamePage(
   return { data, error: null };
 }
 
-export async function deletePage(id: string): Promise<{ error: string | null }> {
-  const { supabase } = await getUser();
+export async function deletePage(
+  id: string
+): Promise<{ error: string | null }> {
+  const { supabase, user } = await getUser();
+  if (!user) return { error: "Not authenticated" };
+
+  // Capture chapter/project info before deletion for word count recalculation
+  const { data: page } = await supabase
+    .from("pages")
+    .select("chapter_id")
+    .eq("id", id)
+    .single();
 
   const { error } = await supabase.from("pages").delete().eq("id", id);
+  if (error) return { error: error.message };
+
+  if (page) {
+    const { data: chapter } = await supabase
+      .from("chapters")
+      .select("project_id")
+      .eq("id", page.chapter_id)
+      .single();
+
+    if (chapter) {
+      await recalculateProjectWordCount(supabase, chapter.project_id);
+      revalidatePath(`/projects/${chapter.project_id}`);
+    }
+  }
+
+  return { error: null };
+}
+
+export async function setCanonicalPage(
+  pageId: string,
+  chapterId: string
+): Promise<{ error: string | null }> {
+  const { supabase, user } = await getUser();
+  if (!user) return { error: "Not authenticated" };
+
+  // Clear all canonical flags in the chapter first (the DB trigger also enforces this)
+  await supabase
+    .from("pages")
+    .update({ is_canonical: false })
+    .eq("chapter_id", chapterId);
+
+  const { error } = await supabase
+    .from("pages")
+    .update({ is_canonical: true })
+    .eq("id", pageId);
 
   if (error) return { error: error.message };
+
+  const { data: chapter } = await supabase
+    .from("chapters")
+    .select("project_id")
+    .eq("id", chapterId)
+    .single();
+
+  if (chapter) {
+    await recalculateProjectWordCount(supabase, chapter.project_id);
+    revalidatePath(`/projects/${chapter.project_id}`);
+  }
+
+  return { error: null };
+}
+
+export async function clearCanonicalPage(
+  chapterId: string
+): Promise<{ error: string | null }> {
+  const { supabase, user } = await getUser();
+  if (!user) return { error: "Not authenticated" };
+
+  const { error } = await supabase
+    .from("pages")
+    .update({ is_canonical: false })
+    .eq("chapter_id", chapterId);
+
+  if (error) return { error: error.message };
+
+  const { data: chapter } = await supabase
+    .from("chapters")
+    .select("project_id")
+    .eq("id", chapterId)
+    .single();
+
+  if (chapter) {
+    await recalculateProjectWordCount(supabase, chapter.project_id);
+    revalidatePath(`/projects/${chapter.project_id}`);
+  }
+
   return { error: null };
 }
