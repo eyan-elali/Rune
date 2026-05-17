@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { cn } from "@/lib/utils";
 import { updatePage, renamePage } from "@/lib/actions/pages";
+import { recordWordsWritten } from "@/lib/actions/writingStats";
 import { useEditorStore } from "@/store/editorStore";
 import { useProfileStore } from "@/store/profileStore";
 import { useToastStore } from "@/store/toastStore";
@@ -53,6 +54,7 @@ export default function RuneEditor({
   const isLoadingRef = useRef(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const showSavedTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const lastSavedWordCountRef = useRef<number>(currentPage?.word_count ?? 0);
 
   // Keep preference refs in sync without recreating the editor
   useEffect(() => {
@@ -97,6 +99,8 @@ export default function RuneEditor({
         const wordCount =
           (editor.storage.characterCount?.words?.() as number | undefined) ?? 0;
 
+        const delta = wordCount - lastSavedWordCountRef.current;
+
         setIsSaving(true);
         try {
           await updatePage(page.id, content, wordCount);
@@ -104,6 +108,12 @@ export default function RuneEditor({
             content,
             word_count: wordCount,
           });
+          if (delta > 0) {
+            lastSavedWordCountRef.current = wordCount;
+            void recordWordsWritten(projectId, delta);
+          } else {
+            lastSavedWordCountRef.current = wordCount;
+          }
           setIsSaving(false);
           setLastSaved(new Date());
 
@@ -197,6 +207,7 @@ export default function RuneEditor({
 
     prevPageIdRef.current = newPageId;
     currentPageRef.current = currentPage ?? null;
+    lastSavedWordCountRef.current = currentPage?.word_count ?? 0;
 
     isLoadingRef.current = true;
     editor.commands.setContent(currentPage?.content ?? null);

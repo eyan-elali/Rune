@@ -1,9 +1,16 @@
 "use client";
 
 import Link from "next/link";
+import { useState, useTransition } from "react";
+import { Plus, Trash2, Feather } from "lucide-react";
 import { useModeStore } from "@/store/modeStore";
 import { TaskList } from "@/components/tasks/TaskList";
+import { AddGoalModal } from "@/components/goals/AddGoalModal";
+import { deleteGoal } from "@/lib/actions/writingStats";
+import { useToastStore } from "@/store/toastStore";
+import { useRouter } from "next/navigation";
 import type { Project } from "@/lib/types";
+import type { WritingGoal } from "@/lib/actions/writingStats";
 
 // ── Shared sub-components ────────────────────────────────────────────────────
 
@@ -174,6 +181,8 @@ interface DashboardContentProps {
   profile: { display_name: string | null; xp: number; level: number } | null;
   personalBests: Record<string, number>;
   combatRecords?: Record<string, CombatRecord>;
+  wordsToday?: number;
+  goals?: WritingGoal[];
 }
 
 const RACE_DURATIONS: { seconds: number; label: string }[] = [
@@ -226,6 +235,192 @@ function StatRowsCard({
   );
 }
 
+// ── Goal section ──────────────────────────────────────────────────────────────
+
+function GoalProgressBar({ current, target }: { current: number; target: number }) {
+  const pct = Math.min(100, Math.round((current / target) * 100));
+  const reached = current >= target;
+  return (
+    <div className="mt-2 h-1 w-full overflow-hidden rounded-full" style={{ background: "rgba(201,168,76,0.12)" }}>
+      <div
+        className="h-full rounded-full transition-all duration-500"
+        style={{
+          width: `${pct}%`,
+          background: reached ? "var(--color-sage)" : "var(--color-gold)",
+        }}
+      />
+    </div>
+  );
+}
+
+function GoalSection({
+  goals,
+  wordsToday,
+  projects,
+}: {
+  goals: WritingGoal[];
+  wordsToday: number;
+  projects: Project[];
+}) {
+  const router = useRouter();
+  const showToast = useToastStore((s) => s.showToast);
+  const [showModal, setShowModal] = useState(false);
+  const [, startTransition] = useTransition();
+
+  const hasDailyGoal = goals.some((g) => g.type === "daily_global");
+  const dailyGoal = goals.find((g) => g.type === "daily_global");
+
+  async function handleDelete(id: string) {
+    await deleteGoal(id);
+    showToast("Goal removed.", "success");
+    startTransition(() => router.refresh());
+  }
+
+  return (
+    <section className="mb-10" aria-label="Writing goals">
+      {/* Words Today */}
+      <div className="mb-4 flex items-center justify-between">
+        <h2
+          className="text-xs font-semibold uppercase tracking-widest"
+          style={{ color: "var(--color-mist)" }}
+        >
+          Writing Goals
+        </h2>
+        <button
+          onClick={() => setShowModal(true)}
+          className="flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium transition-colors"
+          style={{
+            border: "1px solid var(--color-border)",
+            color: "var(--color-gold)",
+          }}
+          aria-label="Add writing goal"
+        >
+          <Plus size={12} />
+          Add Goal
+        </button>
+      </div>
+
+      <div className="flex flex-col gap-3">
+        {/* Words Today card — always shown */}
+        <div
+          className="flex items-start gap-4 rounded-lg p-5"
+          style={{ background: "var(--surface-card)", border: "1px solid var(--color-border)" }}
+        >
+          <Feather
+            size={18}
+            style={{ color: "var(--color-gold)", flexShrink: 0, marginTop: 2 }}
+            aria-hidden
+          />
+          <div className="min-w-0 flex-1">
+            <div className="flex items-baseline gap-2">
+              <span
+                className="font-rune-serif text-3xl leading-none"
+                style={{ color: "var(--text-primary)" }}
+              >
+                {wordsToday.toLocaleString()}
+              </span>
+              <span className="text-sm" style={{ color: "var(--color-mist)" }}>
+                words today
+              </span>
+            </div>
+            {dailyGoal && (
+              <>
+                <GoalProgressBar current={wordsToday} target={dailyGoal.target_words} />
+                <p className="mt-1.5 text-xs" style={{ color: "var(--color-mist)" }}>
+                  {wordsToday >= dailyGoal.target_words
+                    ? "Daily goal reached ✦"
+                    : `${(dailyGoal.target_words - wordsToday).toLocaleString()} to go — goal: ${dailyGoal.target_words.toLocaleString()} words`}
+                </p>
+              </>
+            )}
+          </div>
+          {dailyGoal && (
+            <button
+              onClick={() => handleDelete(dailyGoal.id)}
+              className="mt-0.5 flex h-6 w-6 items-center justify-center rounded transition-colors"
+              style={{ color: "var(--color-mist)", opacity: 0.5 }}
+              aria-label="Remove daily goal"
+            >
+              <Trash2 size={13} />
+            </button>
+          )}
+        </div>
+
+        {/* Project total goals */}
+        {goals
+          .filter((g) => g.type === "project_total")
+          .map((goal) => {
+            const reached = goal.current_words >= goal.target_words;
+            const remaining = goal.target_words - goal.current_words;
+            return (
+              <div
+                key={goal.id}
+                className="flex items-start gap-4 rounded-lg p-5"
+                style={{
+                  background: "var(--surface-card)",
+                  border: "1px solid var(--color-border)",
+                }}
+              >
+                <div className="min-w-0 flex-1">
+                  <p
+                    className="mb-0.5 text-xs font-semibold uppercase tracking-widest"
+                    style={{ color: "var(--color-mist)" }}
+                  >
+                    Project Goal
+                  </p>
+                  <p
+                    className="font-rune-serif text-base leading-snug"
+                    style={{ color: "var(--text-primary)" }}
+                  >
+                    {goal.project_title ?? "Unknown Project"} — {goal.target_words.toLocaleString()} words
+                  </p>
+                  <GoalProgressBar current={goal.current_words} target={goal.target_words} />
+                  <p className="mt-1.5 text-xs" style={{ color: "var(--color-mist)" }}>
+                    {reached
+                      ? "Goal reached! ✦"
+                      : `${remaining.toLocaleString()} words to go · ${goal.current_words.toLocaleString()} written`}
+                  </p>
+                </div>
+                <button
+                  onClick={() => handleDelete(goal.id)}
+                  className="mt-0.5 flex h-6 w-6 items-center justify-center rounded transition-colors"
+                  style={{ color: "var(--color-mist)", opacity: 0.5 }}
+                  aria-label="Remove goal"
+                >
+                  <Trash2 size={13} />
+                </button>
+              </div>
+            );
+          })}
+
+        {goals.length === 0 && (
+          <div
+            className="rounded-lg px-5 py-4 text-sm"
+            style={{
+              border: "1px dashed var(--color-border)",
+              color: "var(--color-mist)",
+            }}
+          >
+            No goals set. Add one to track your progress.
+          </div>
+        )}
+      </div>
+
+      {showModal && (
+        <AddGoalModal
+          onClose={() => setShowModal(false)}
+          onCreated={() => {
+            setShowModal(false);
+            startTransition(() => router.refresh());
+          }}
+          projects={projects}
+          hasDailyGoal={hasDailyGoal}
+        />
+      )}
+    </section>
+  );
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 export function DashboardContent({
@@ -237,6 +432,8 @@ export function DashboardContent({
   profile,
   personalBests,
   combatRecords = {},
+  wordsToday = 0,
+  goals = [],
 }: DashboardContentProps) {
   const mode = useModeStore((s) => s.mode);
   const recentProject = projects[0] ?? null;
@@ -415,6 +612,8 @@ export function DashboardContent({
           </div>
         </section>
       )}
+
+      <GoalSection goals={goals} wordsToday={wordsToday} projects={projects} />
 
       <section className="mb-10 grid grid-cols-2 gap-4 sm:grid-cols-3" aria-label="Stats">
         <div className="flex items-center gap-4 rounded-lg p-5" style={cardStyle}>

@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { XpBar } from "@/components/profile/XpBar";
+import { WritingActivitySection } from "@/components/profile/WritingActivitySection";
+import { getWordsByDay } from "@/lib/actions/writingStats";
 import type { GameSession } from "@/lib/types";
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -102,7 +104,7 @@ export default async function ProfilePage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const [{ data: profile }, { data: rawProjects }, { data: recentSessions }] =
+  const [{ data: profile }, { data: rawProjects }, { data: recentSessions }, wordsByDay] =
     await Promise.all([
       supabase.from("profiles").select("*").eq("id", user!.id).single(),
       supabase
@@ -115,6 +117,7 @@ export default async function ProfilePage() {
         .eq("user_id", user!.id)
         .order("created_at", { ascending: false })
         .limit(5),
+      getWordsByDay(user!.id, 30),
     ]);
 
   const projects = rawProjects ?? [];
@@ -268,6 +271,9 @@ export default async function ProfilePage() {
           />
         </div>
       </section>
+
+      {/* ── Writing Activity ────────────────────────────────────────── */}
+      <WritingActivitySection data={wordsByDay} />
 
       {/* ── Unlockables link ────────────────────────────────────────── */}
       <div className="mb-8">

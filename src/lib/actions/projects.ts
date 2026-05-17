@@ -73,6 +73,126 @@ export async function updateProject(
   return { data, error: null };
 }
 
+export async function duplicateProject(
+  projectId: string
+): Promise<ActionResult<Project>> {
+  const { supabase, user } = await getUser();
+  if (!user) return { data: null, error: "Not authenticated" };
+
+  // Fetch original project
+  const { data: original, error: projErr } = await supabase
+    .from("projects")
+    .select("*")
+    .eq("id", projectId)
+    .eq("user_id", user.id)
+    .single();
+
+  if (projErr || !original) return { data: null, error: "Project not found" };
+
+  // Find a unique draft title
+  const { data: existingTitles } = await supabase
+    .from("projects")
+    .select("title")
+    .eq("user_id", user.id)
+    .ilike("title", `${original.title} — Draft%`);
+
+  const usedNumbers = new Set<number>();
+  for (const { title } of existingTitles ?? []) {
+    const match = title.match(/— Draft (\d+)$/);
+    if (match) usedNumbers.add(parseInt(match[1], 10));
+  }
+  let draftNum = 2;
+  while (usedNumbers.has(draftNum)) draftNum++;
+  const newTitle = `${original.title} — Draft ${draftNum}`;
+
+  // Create new project
+  const { data: newProject, error: createErr } = await supabase
+    .from("projects")
+    .insert({
+      user_id: user.id,
+      title: newTitle,
+      description: original.description,
+      cover_color: original.cover_color,
+      word_count: 0,
+    })
+    .select()
+    .single();
+
+  if (createErr || !newProject) return { data: null, error: createErr?.message ?? "Failed to create project" };
+
+  // Fetch chapters in order
+  const { data: chapters } = await supabase
+    .from("chapters")
+    .select("*")
+    .eq("project_id", projectId)
+    .order("position", { ascending: true });
+
+  for (const chapter of chapters ?? []) {
+    const { data: newChapter, error: chapErr } = await supabase
+      .from("chapters")
+      .insert({
+        project_id: newProject.id,
+        title: chapter.title,
+        position: chapter.position,
+      })
+      .select()
+      .single();
+
+    if (chapErr || !newChapter) continue;
+
+    // Fetch pages in order
+    const { data: pages } = await supabase
+      .from("pages")
+      .select("*")
+      .eq("chapter_id", chapter.id)
+      .order("position", { ascending: true });
+
+    for (const page of pages ?? []) {
+      await supabase.from("pages").insert({
+        chapter_id: newChapter.id,
+        title: page.title,
+        content: page.content,
+        word_count: page.word_count,
+        position: page.position,
+        is_canonical: page.is_canonical,
+      });
+    }
+  }
+
+  // Recalculate word count for new project
+  const { data: newChapters } = await supabase
+    .from("chapters")
+    .select("id")
+    .eq("project_id", newProject.id);
+
+  const newChapterIds = (newChapters ?? []).map((c: { id: string }) => c.id);
+  let totalWords = 0;
+  if (newChapterIds.length > 0) {
+    const { data: allPages } = await supabase
+      .from("pages")
+      .select("word_count, is_canonical, chapter_id")
+      .in("chapter_id", newChapterIds);
+
+    for (const chapId of newChapterIds) {
+      const chapterPages = (allPages ?? []).filter((p: { chapter_id: string }) => p.chapter_id === chapId);
+      const canonical = chapterPages.find((p: { is_canonical: boolean }) => p.is_canonical);
+      if (canonical) {
+        totalWords += canonical.word_count;
+      } else {
+        totalWords += chapterPages.reduce((s: number, p: { word_count: number }) => s + (p.word_count ?? 0), 0);
+      }
+    }
+
+    await supabase
+      .from("projects")
+      .update({ word_count: totalWords })
+      .eq("id", newProject.id);
+  }
+
+  revalidatePath("/projects");
+  return { data: { ...newProject, word_count: totalWords }, error: null };
+}
+
 export async function deleteProject(id: string): Promise<{ error: string | null }> {
   const { supabase, user } = await getUser();
   if (!user) return { error: "Not authenticated" };

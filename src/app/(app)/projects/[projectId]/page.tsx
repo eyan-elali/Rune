@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { ChapterList } from "@/components/projects/ChapterList";
 import { ManuscriptExportButton } from "@/components/projects/ManuscriptExportButton";
+import { NewDraftButton } from "@/components/projects/NewDraftButton";
 import type { Chapter } from "@/lib/types";
 
 type ChapterWithStats = Chapter & {
@@ -63,7 +64,10 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
               {typedChapters.length === 1 ? "chapter" : "chapters"}
             </p>
           </div>
-          <ManuscriptExportButton project={project} />
+          <div className="flex items-center gap-2">
+            <NewDraftButton projectId={project.id} projectTitle={project.title} />
+            <ManuscriptExportButton project={project} />
+          </div>
         </div>
       </div>
 
