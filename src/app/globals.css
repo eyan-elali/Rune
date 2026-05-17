@@ -1,54 +1,66 @@
 @import "tailwindcss";
 @config "../../tailwind.config.ts";
 
-/* Class-based dark variant kept for potential future use */
+/* Class-based dark mode for next-themes */
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* ── Design tokens — Parchment (default / light) ────────────────── */
+/* ── Design tokens ─────────────────────────────────────────────── */
 :root {
-  /* Raw palette */
-  --color-ink:          #1e1a16;
-  --color-parchment:    #faf7f2;
-  --color-vellum:       #f5f0e6;
-  --color-sepia:        #f0ebe0;
-  --color-gold:         #b8922a;
-  --color-gold-dim:     #8a6a1c;
-  --color-crimson:      #8b2e2e;
-  --color-sage:         #4a6741;
-  --color-mist:         #7a6f63;
-  --color-border:       rgba(139, 110, 60, 0.18);
-  --color-border-strong: rgba(139, 110, 60, 0.35);
-  --color-shadow:       rgba(60, 45, 20, 0.08);
+  --color-ink: #2D2926;
+  --color-ink-muted: rgba(45, 41, 38, 0.6);
+  --color-parchment: #f5f0e8;
+  --color-vellum: #ede8db;
+  --color-sepia: #2c2420;
+  --color-gold: #c9a84c;
+  --color-gold-dim: #8a6f2e;
+  --color-crimson: #8b2e2e;
+  --color-sage: #4a6741;
+  --color-mist: #6b6560;
+  --color-border: rgba(201, 168, 76, 0.2);
+  --color-border-strong: rgba(201, 168, 76, 0.4);
 
-  /* Semantic layout — warm light surfaces */
-  --bg-primary:         #faf7f2;
-  --bg-secondary:       #f5f0e6;
-  --bg-sidebar:         #f0ebe0;
-  --surface-card:       #ffffff;
-  --surface-editor:     #ffffff;
-  --text-primary:       var(--color-ink);
-  --text-muted:         var(--color-mist);
-  --text-on-accent:     #ffffff;
-  --editor-text:        var(--color-ink);
+  /* Light mode: parchment backgrounds, ink text */
+  --bg-primary: var(--color-parchment);
+  --bg-secondary: var(--color-vellum);
+  --bg-sidebar: var(--color-vellum);
+  --surface-card: var(--color-vellum);
+  --surface-editor: var(--color-vellum);
+  --text-primary: var(--color-ink);
+  --text-muted: var(--color-mist);
+  --text-on-accent: var(--color-ink);
+  --editor-text: var(--color-ink);
 }
 
-/* ── Tailwind theme tokens ───────────────────────────────────────── */
+.dark {
+  /* Dark mode: ink/sepia backgrounds, parchment text */
+  --bg-primary: var(--color-ink);
+  --bg-secondary: var(--color-sepia);
+  --bg-sidebar: var(--color-sepia);
+  --surface-card: var(--color-sepia);
+  --surface-editor: var(--color-vellum);
+  --text-primary: var(--color-parchment);
+  --text-muted: var(--color-mist);
+  --text-on-accent: var(--color-ink);
+  --editor-text: var(--color-ink);
+}
+
+/* ── Tailwind theme tokens (inline = no duplicate CSS vars) ─────── */
 @theme inline {
-  --color-rune-ink:        var(--color-ink);
-  --color-rune-parchment:  var(--color-parchment);
-  --color-rune-vellum:     var(--color-vellum);
-  --color-rune-sepia:      var(--color-sepia);
-  --color-rune-gold:       var(--color-gold);
-  --color-rune-gold-dim:   var(--color-gold-dim);
-  --color-rune-crimson:    var(--color-crimson);
-  --color-rune-sage:       var(--color-sage);
-  --color-rune-mist:       var(--color-mist);
-  --color-rune-text:       var(--text-primary);
-  --color-rune-surface:    var(--bg-primary);
-  --color-rune-panel:      var(--surface-card);
+  --color-rune-ink: var(--color-ink);
+  --color-rune-parchment: var(--color-parchment);
+  --color-rune-vellum: var(--color-vellum);
+  --color-rune-sepia: var(--color-sepia);
+  --color-rune-gold: var(--color-gold);
+  --color-rune-gold-dim: var(--color-gold-dim);
+  --color-rune-crimson: var(--color-crimson);
+  --color-rune-sage: var(--color-sage);
+  --color-rune-mist: var(--color-mist);
+  --color-rune-text: var(--text-primary);
+  --color-rune-surface: var(--bg-primary);
+  --color-rune-panel: var(--surface-card);
 
   --font-rune-serif: Georgia, "Times New Roman", Times, serif;
-  --font-rune-sans:  ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+  --font-rune-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
     sans-serif;
 }
 
@@ -59,21 +71,23 @@
   box-sizing: border-box;
 }
 
-h1, h2, h3, h4, h5, h6 {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
   margin: 0;
 }
 
 /* ── Base styles ────────────────────────────────────────────────── */
 html {
-  color-scheme: light;
+  color-scheme: dark;
   scroll-behavior: smooth;
 }
 
-/* Dark themes flip the color-scheme */
-html[data-theme="candlelight"],
-html[data-theme="midnight-library"],
-html[data-theme="crimson-ink"] {
-  color-scheme: dark;
+html:not(.dark) {
+  color-scheme: light;
 }
 
 body {
@@ -107,7 +121,7 @@ body {
   scrollbar-color: rgba(201, 168, 76, 0.3) transparent;
 }
 
-/* ── Tiptap / ProseMirror ───────────────────────────────────────── */
+/* ── Tiptap / ProseMirror ───────────────────────────────────────────── */
 .ProseMirror {
   font-family: var(--font-newsreader), serif;
   font-variation-settings: "wght" 480;
@@ -189,7 +203,7 @@ body {
   color: var(--editor-text);
 }
 
-/* Placeholder */
+/* Placeholder — only when the whole document is empty (node has .is-editor-empty) */
 .ProseMirror .is-empty.is-editor-empty::before {
   content: attr(data-placeholder);
   float: left;
@@ -201,7 +215,7 @@ body {
 
 /* Selection highlight */
 .ProseMirror ::selection {
-  background: rgba(184, 146, 42, 0.25);
+  background: rgba(201, 168, 76, 0.25);
 }
 
 /* ── Autosave star pulse ─────────────────────────────────────────── */
@@ -222,32 +236,6 @@ body {
   animation: rune-level-up 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
 
-/* ── Selectable theme: Candlelight (dark scholar) ────────────────── */
-[data-theme="candlelight"] {
-  --color-ink:          #2D2926;
-  --color-parchment:    #f5f0e8;
-  --color-vellum:       #ede8db;
-  --color-sepia:        #2c2420;
-  --color-gold:         #c9a84c;
-  --color-gold-dim:     #8a6f2e;
-  --color-crimson:      #8b2e2e;
-  --color-sage:         #4a6741;
-  --color-mist:         #6b6560;
-  --color-border:       rgba(201, 168, 76, 0.2);
-  --color-border-strong: rgba(201, 168, 76, 0.4);
-  --color-shadow:       rgba(0, 0, 0, 0.3);
-
-  --bg-primary:         #1a1614;
-  --bg-secondary:       var(--color-sepia);
-  --bg-sidebar:         var(--color-sepia);
-  --surface-card:       var(--color-sepia);
-  --surface-editor:     var(--color-vellum);
-  --text-primary:       var(--color-parchment);
-  --text-muted:         var(--color-mist);
-  --text-on-accent:     var(--color-ink);
-  --editor-text:        var(--color-ink);
-}
-
 /* ── Unlockable theme: Midnight Library ─────────────────────────── */
 [data-theme="midnight-library"] {
   --color-ink:          #0d0c12;
@@ -259,17 +247,6 @@ body {
   --color-mist:         #6a6880;
   --color-border:       rgba(123, 158, 206, 0.2);
   --color-border-strong: rgba(123, 158, 206, 0.4);
-  --color-shadow:       rgba(0, 0, 0, 0.4);
-
-  --bg-primary:         #0d0c12;
-  --bg-secondary:       var(--color-sepia);
-  --bg-sidebar:         var(--color-sepia);
-  --surface-card:       var(--color-sepia);
-  --surface-editor:     var(--color-vellum);
-  --text-primary:       var(--color-parchment);
-  --text-muted:         var(--color-mist);
-  --text-on-accent:     var(--color-ink);
-  --editor-text:        var(--color-ink);
 }
 
 /* ── Unlockable theme: Crimson Ink ──────────────────────────────── */
@@ -283,23 +260,13 @@ body {
   --color-mist:         #6e5858;
   --color-border:       rgba(192, 72, 72, 0.22);
   --color-border-strong: rgba(192, 72, 72, 0.45);
-  --color-shadow:       rgba(0, 0, 0, 0.4);
-
-  --bg-primary:         #160908;
-  --bg-secondary:       var(--color-sepia);
-  --bg-sidebar:         var(--color-sepia);
-  --surface-card:       var(--color-sepia);
-  --surface-editor:     var(--color-vellum);
-  --text-primary:       var(--color-parchment);
-  --text-muted:         var(--color-mist);
-  --text-on-accent:     var(--color-ink);
-  --editor-text:        var(--color-ink);
 }
 
 /* ── Unlockable theme: The Ivory Tower ──────────────────────────── */
+/*    Redefines the palette so dark-mode tokens produce a light UI  */
 [data-theme="ivory-tower"] {
   --color-ink:          #2d3244;
-  --color-parchment:    #f5f3ee;
+  --color-parchment:    #c04848;
   --color-vellum:       #eceae4;
   --color-sepia:        #e8e4db;
   --color-gold:         #5a6a8a;
@@ -309,20 +276,22 @@ body {
   --color-mist:         #5f6678;
   --color-border:       rgba(90, 106, 138, 0.2);
   --color-border-strong: rgba(90, 106, 138, 0.35);
-  --color-shadow:       rgba(45, 50, 68, 0.08);
+}
 
-  --bg-primary:         #f5f3ee;
-  --bg-secondary:       var(--color-vellum);
-  --bg-sidebar:         var(--color-sepia);
-  --surface-card:       #ffffff;
-  --surface-editor:     #ffffff;
-  --text-primary:       var(--color-ink);
-  --text-muted:         var(--color-mist);
-  --text-on-accent:     #ffffff;
-  --editor-text:        var(--color-ink);
+.dark[data-theme="ivory-tower"] {
+  --bg-primary:  #f5f3ee;
+  --bg-secondary: var(--color-vellum);
+  --bg-sidebar:  var(--color-sepia);
+  --surface-card: var(--color-sepia);
+  --surface-editor: var(--color-vellum);
+  --text-primary: #2d3244;
+  --text-muted: var(--color-mist);
+  --text-on-accent: #2d3244;
+  --editor-text: #2d3244;
 }
 
 /* ── Ivory Tower: arena icon contrast ───────────────────────────── */
+/*    Hardcoded rgba bg becomes invisible on the light sepia surface  */
 [data-theme="ivory-tower"] .arena-game-icon {
   background: rgba(45, 50, 68, 0.1) !important;
   border-color: rgba(45, 50, 68, 0.35) !important;
