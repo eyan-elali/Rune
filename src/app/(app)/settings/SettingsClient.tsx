@@ -57,7 +57,7 @@ function SettingRow({
       style={{ borderBottom: last ? "none" : "1px solid var(--color-border)" }}
     >
       <div className="min-w-0">
-        <p className="text-sm" style={{ color: "var(--color-parchment)" }}>
+        <p className="text-sm" style={{ color: "var(--text-primary)" }}>
           {label}
         </p>
         {description && (
@@ -561,7 +561,7 @@ function AppearanceTab({ unlockedIds }: { unlockedIds: Set<string> }) {
   const setPreferences = useProfileStore((s) => s.setPreferences);
   const prefs = (storeProfile?.preferences ?? {}) as Partial<UserPreferences>;
 
-  const activeTheme = prefs.activeTheme ?? "candlelight";
+  const activeTheme = prefs.activeTheme ?? "parchment";
   const activeAvatar = prefs.activeAvatar ?? "quill";
 
   const themes = UNLOCKABLES.filter((u) => u.type === "theme");
@@ -601,8 +601,8 @@ function AppearanceTab({ unlockedIds }: { unlockedIds: Set<string> }) {
                 className="relative flex flex-col items-start rounded-lg p-4 text-left transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rune-gold"
                 style={{
                   background: active
-                    ? "rgba(201, 168, 76, 0.1)"
-                    : "var(--color-ink)",
+                    ? "rgba(184, 146, 42, 0.1)"
+                    : "var(--bg-secondary)",
                   border: `1px solid ${active ? "var(--color-gold)" : "var(--color-border)"}`,
                   opacity: unlocked ? 1 : 0.45,
                   cursor: unlocked ? "pointer" : "not-allowed",
@@ -618,7 +618,7 @@ function AppearanceTab({ unlockedIds }: { unlockedIds: Set<string> }) {
                     aria-hidden
                   />
                 )}
-                {active && (
+                {active ? (
                   <span
                     className="absolute right-3 top-3 text-xs"
                     style={{ color: "var(--color-gold)" }}
@@ -626,10 +626,22 @@ function AppearanceTab({ unlockedIds }: { unlockedIds: Set<string> }) {
                   >
                     ✓
                   </span>
-                )}
+                ) : theme.id === "parchment" ? (
+                  <span
+                    className="absolute right-3 top-3 rounded px-1.5 py-0.5 text-[10px] uppercase tracking-widest"
+                    style={{
+                      background: "rgba(184, 146, 42, 0.1)",
+                      border: "1px solid var(--color-border)",
+                      color: "var(--color-mist)",
+                    }}
+                    aria-hidden
+                  >
+                    Default
+                  </span>
+                ) : null}
                 <p
                   className="font-rune-serif text-sm font-semibold"
-                  style={{ color: "var(--color-parchment)" }}
+                  style={{ color: "var(--text-primary)" }}
                 >
                   {theme.name}
                 </p>
@@ -662,8 +674,8 @@ function AppearanceTab({ unlockedIds }: { unlockedIds: Set<string> }) {
                 className="relative flex flex-col items-center gap-2 rounded-lg p-3 transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rune-gold"
                 style={{
                   background: active
-                    ? "rgba(201, 168, 76, 0.1)"
-                    : "var(--color-ink)",
+                    ? "rgba(184, 146, 42, 0.1)"
+                    : "var(--bg-secondary)",
                   border: `1px solid ${active ? "var(--color-gold)" : "var(--color-border)"}`,
                   opacity: unlocked ? 1 : 0.4,
                   cursor: unlocked ? "pointer" : "not-allowed",
@@ -699,7 +711,7 @@ function AppearanceTab({ unlockedIds }: { unlockedIds: Set<string> }) {
                   className="text-center text-[10px] leading-tight"
                   style={{
                     color: unlocked
-                      ? "var(--color-parchment)"
+                      ? "var(--text-primary)"
                       : "var(--color-mist)",
                   }}
                 >
@@ -722,7 +734,7 @@ function AppearanceTab({ unlockedIds }: { unlockedIds: Set<string> }) {
         <div>
           <p
             className="text-sm font-semibold"
-            style={{ color: "var(--color-parchment)" }}
+            style={{ color: "var(--text-primary)" }}
           >
             Unlockables gallery
           </p>
@@ -788,7 +800,7 @@ function DangerTab() {
       <Card>
         <p
           className="text-sm font-semibold"
-          style={{ color: "var(--color-parchment)" }}
+          style={{ color: "var(--text-primary)" }}
         >
           Export all my data
         </p>

@@ -12,10 +12,17 @@ export interface Unlockable {
 export const UNLOCKABLES: Unlockable[] = [
   // ── Themes ──────────────────────────────────────────────────────────────────
   {
+    id: "parchment",
+    name: "Parchment",
+    type: "theme",
+    description: "Warm whites and antique gold. Write by daylight.",
+    requirement: null,
+  },
+  {
     id: "candlelight",
     name: "Candlelight",
     type: "theme",
-    description: "Warm amber tones by candlelight. The default Rune experience.",
+    description: "The original dark scholar aesthetic.",
     requirement: null,
   },
   {

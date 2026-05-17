@@ -7,6 +7,7 @@ import { useGameStore } from "@/store/gameStore";
 import { useToastStore } from "@/store/toastStore";
 import { useProfileStore } from "@/store/profileStore";
 import { ModeToggle } from "@/components/ui/ModeToggle";
+import { ThemeApplier } from "@/components/layout/ThemeApplier";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { LevelUpModal } from "@/components/ui/LevelUpModal";
@@ -41,16 +42,6 @@ export function AppShell({ profile, children }: AppShellProps) {
 
   const storeProfile = useProfileStore((s) => s.profile);
 
-  // Apply unlockable theme to <html data-theme="..."> — reads from store so live changes apply
-  useEffect(() => {
-    const prefs = storeProfile?.preferences as Record<string, unknown> | null | undefined;
-    const activeTheme = (prefs?.activeTheme as string | undefined) ?? "candlelight";
-    if (activeTheme && activeTheme !== "candlelight") {
-      document.documentElement.setAttribute("data-theme", activeTheme);
-    } else {
-      document.documentElement.removeAttribute("data-theme");
-    }
-  }, [storeProfile?.preferences]);
 
   const displayName =
     profile?.display_name ?? profile?.username ?? "Writer";
@@ -103,6 +94,7 @@ export function AppShell({ profile, children }: AppShellProps) {
       className="flex h-screen w-full overflow-hidden"
       style={{ background: "var(--bg-sidebar)" }}
     >
+      <ThemeApplier />
       {!shouldHideUI && (
         <div className="flex h-screen w-[18%] min-w-[200px] max-w-[280px] shrink-0 flex-col overflow-hidden md:w-[15%] md:min-w-[180px] lg:w-[18%] lg:min-w-[200px]">
           <Sidebar displayName={displayName} avatarUrl={avatarUrl} />

@@ -22,10 +22,10 @@ function ToastItem({ toast }: { toast: Toast }) {
     <div
       className="px-5 py-2.5 rounded-lg text-sm font-rune-sans"
       style={{
-        background: "var(--color-sepia)",
-        border: "1px solid var(--color-border-strong)",
+        background: "var(--color-ink)",
+        border: "1px solid rgba(201, 168, 76, 0.25)",
         color: "var(--color-parchment)",
-        boxShadow: "0 4px 16px rgba(0,0,0,0.45)",
+        boxShadow: "0 4px 16px rgba(0,0,0,0.35)",
         opacity: visible ? 1 : 0,
         transform: visible ? "translateY(0)" : "translateY(6px)",
         transition: "opacity 0.2s ease, transform 0.2s ease",

@@ -67,9 +67,9 @@ function FocusMockup() {
       <div
         className="relative px-8 py-16 sm:px-16"
         style={{
-          background: "var(--color-sepia)",
+          background: "#2c2420",
           backgroundImage:
-            "radial-gradient(ellipse at 50% 50%, var(--color-sepia) 30%, rgba(0,0,0,0.85) 100%)",
+            "radial-gradient(ellipse at 50% 50%, #2c2420 30%, rgba(0,0,0,0.85) 100%)",
           minHeight: "300px",
         }}
       >
@@ -307,6 +307,7 @@ export default function LandingPage() {
   return (
     <div
       className="relative min-h-screen scroll-smooth"
+      data-theme="candlelight"
       style={{ background: "var(--color-ink)", color: "var(--color-parchment)" }}
     >
       
@@ -341,7 +342,7 @@ export default function LandingPage() {
           opacity="0.04"
         />
         <path
-          d="M480,0 C580,22 380,42 540,62 C700,80 460,90 420,100"
+          d="M780,0 C900,26 280,36 180,62 C100,82 340,90 240,100"
           fill="none"
           stroke="var(--color-gold)"
           strokeWidth="0.5"
@@ -405,7 +406,7 @@ export default function LandingPage() {
         className="relative flex min-h-screen flex-col items-center justify-center px-6 py-24 text-center md:py-36 lg:py-48 sm:px-10"
         style={{
           background:
-            "linear-gradient(180deg, transparent 0%, color-mix(in srgb, var(--color-sepia) 14%, transparent) 50%, transparent 100%)",
+            "linear-gradient(180deg, transparent 0%, color-mix(in srgb, #2c2420 14%, transparent) 50%, transparent 100%)",
         }}
       >
         <div className="flex flex-col items-center">
@@ -492,7 +493,7 @@ export default function LandingPage() {
         aria-hidden="true"
         style={{
           background:
-            "linear-gradient(to bottom, transparent, color-mix(in srgb, var(--color-ink) 92%, var(--color-sepia) 8%), transparent)",
+            "linear-gradient(to bottom, transparent, color-mix(in srgb, var(--color-ink) 92%, #2c2420 8%), transparent)",
         }}
       />
 
@@ -502,7 +503,7 @@ export default function LandingPage() {
         className="px-6 py-24 sm:px-10 md:py-36 lg:py-48"
         style={{
           background:
-            "linear-gradient(180deg, transparent 0%, color-mix(in srgb, var(--color-sepia) 20%, transparent) 45%, transparent 100%)",
+            "linear-gradient(180deg, transparent 0%, color-mix(in srgb, #2c2420 20%, transparent) 45%, transparent 100%)",
         }}
       >
         <div className="mx-auto w-full max-w-5xl">
@@ -592,7 +593,7 @@ export default function LandingPage() {
         aria-hidden="true"
         style={{
           background:
-            "linear-gradient(to bottom, transparent, color-mix(in srgb, var(--color-ink) 92%, var(--color-sepia) 8%), transparent)",
+            "linear-gradient(to bottom, transparent, color-mix(in srgb, var(--color-ink) 92%, #2c2420 8%), transparent)",
         }}
       />
 
@@ -681,7 +682,7 @@ export default function LandingPage() {
         aria-hidden="true"
         style={{
           background:
-            "linear-gradient(to bottom, transparent, color-mix(in srgb, var(--color-ink) 92%, var(--color-sepia) 8%), transparent)",
+            "linear-gradient(to bottom, transparent, color-mix(in srgb, var(--color-ink) 92%, #2c2420 8%), transparent)",
         }}
       />
 
@@ -773,7 +774,7 @@ export default function LandingPage() {
         aria-hidden="true"
         style={{
           background:
-            "linear-gradient(to bottom, transparent, color-mix(in srgb, var(--color-ink) 92%, var(--color-sepia) 8%), transparent)",
+            "linear-gradient(to bottom, transparent, color-mix(in srgb, var(--color-ink) 92%, #2c2420 8%), transparent)",
         }}
       />
 
@@ -782,7 +783,7 @@ export default function LandingPage() {
         className="relative px-6 py-24 sm:px-10 md:py-36 lg:py-48"
         style={{
           background:
-            "linear-gradient(180deg, transparent 0%, color-mix(in srgb, var(--color-sepia) 16%, transparent) 52%, transparent 100%)",
+            "linear-gradient(180deg, transparent 0%, color-mix(in srgb, #2c2420 16%, transparent) 52%, transparent 100%)",
         }}
       >
         {/* Edge rules */}
@@ -864,7 +865,7 @@ export default function LandingPage() {
         aria-hidden="true"
         style={{
           background:
-            "linear-gradient(to bottom, transparent, color-mix(in srgb, var(--color-ink) 92%, var(--color-sepia) 8%), transparent)",
+            "linear-gradient(to bottom, transparent, color-mix(in srgb, var(--color-ink) 92%, #2c2420 8%), transparent)",
         }}
       />
 
@@ -1100,7 +1101,7 @@ export default function LandingPage() {
         aria-hidden="true"
         style={{
           background:
-            "linear-gradient(to bottom, transparent, color-mix(in srgb, var(--color-ink) 92%, var(--color-sepia) 8%), transparent)",
+            "linear-gradient(to bottom, transparent, color-mix(in srgb, var(--color-ink) 92%, #2c2420 8%), transparent)",
         }}
       />
 
