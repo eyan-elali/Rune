@@ -14,6 +14,7 @@ const cardStyle = {
 
 type RecentPageCard = {
   pageId: string;
+  pageTitle: string;
   chapterId: string;
   chapterTitle: string;
   projectId: string;
@@ -33,12 +34,14 @@ function FocusCard({
   href,
   label,
   title,
+  subtitle,
   meta,
   className,
 }: {
   href: string;
   label: string;
   title: string;
+  subtitle?: string;
   meta: string;
   className?: string;
 }) {
@@ -60,6 +63,11 @@ function FocusCard({
       >
         {title}
       </h3>
+      {subtitle && (
+        <p className="mt-1 text-xs line-clamp-1" style={{ color: "var(--color-mist)" }}>
+          {subtitle}
+        </p>
+      )}
       <p className="mt-auto pt-3 text-xs" style={{ color: "var(--color-mist)" }}>
         {meta}
       </p>
@@ -479,8 +487,9 @@ export function DashboardContent({
           {recentPageCards[0] ? (
             <FocusCard
               href={`/projects/${recentPageCards[0].projectId}/chapters/${recentPageCards[0].chapterId}`}
-              label={recentPageCards[0].projectTitle}
-              title={recentPageCards[0].chapterTitle}
+              label="Recent Page"
+              title={recentPageCards[0].pageTitle}
+              subtitle={`${recentPageCards[0].chapterTitle} · ${recentPageCards[0].projectTitle}`}
               meta={`${recentPageCards[0].wordCount.toLocaleString()} words`}
             />
           ) : (
@@ -490,8 +499,9 @@ export function DashboardContent({
           {recentPageCards[1] ? (
             <FocusCard
               href={`/projects/${recentPageCards[1].projectId}/chapters/${recentPageCards[1].chapterId}`}
-              label={recentPageCards[1].projectTitle}
-              title={recentPageCards[1].chapterTitle}
+              label="Recent Page"
+              title={recentPageCards[1].pageTitle}
+              subtitle={`${recentPageCards[1].chapterTitle} · ${recentPageCards[1].projectTitle}`}
               meta={`${recentPageCards[1].wordCount.toLocaleString()} words`}
             />
           ) : (

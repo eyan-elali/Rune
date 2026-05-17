@@ -11,6 +11,7 @@ import { ThemeApplier } from "@/components/layout/ThemeApplier";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { LevelUpModal } from "@/components/ui/LevelUpModal";
+import { useUIStore } from "@/store/uiStore";
 import type { ReactNode } from "react";
 import type { Profile } from "@/lib/types";
 
@@ -47,6 +48,7 @@ export function AppShell({ profile, children }: AppShellProps) {
     profile?.display_name ?? profile?.username ?? "Writer";
   const avatarUrl = profile?.avatar_url ?? null;
 
+  const sidebarCollapsed = useUIStore((s) => s.sidebarCollapsed);
   const gameState = useGameStore((s) => s.gameState);
   const isRaceActive =
     pathname.includes("/games/race") && gameState === "active";
@@ -96,7 +98,14 @@ export function AppShell({ profile, children }: AppShellProps) {
     >
       <ThemeApplier />
       {!shouldHideUI && (
-        <div className="flex h-screen w-[18%] min-w-[200px] max-w-[280px] shrink-0 flex-col overflow-hidden md:w-[15%] md:min-w-[180px] lg:w-[18%] lg:min-w-[200px]">
+        <div
+          className="flex h-screen shrink-0 flex-col overflow-hidden"
+          style={{
+            width: sidebarCollapsed ? "64px" : "260px",
+            minWidth: sidebarCollapsed ? "64px" : "200px",
+            transition: "width 0.25s ease, min-width 0.25s ease",
+          }}
+        >
           <Sidebar displayName={displayName} avatarUrl={avatarUrl} />
         </div>
       )}

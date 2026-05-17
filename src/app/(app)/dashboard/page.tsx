@@ -12,6 +12,7 @@ import type { Project } from "@/lib/types";
 
 type RecentPageCard = {
   pageId: string;
+  pageTitle: string;
   chapterId: string;
   chapterTitle: string;
   projectId: string;
@@ -66,7 +67,7 @@ export default async function DashboardPage() {
       const { data: recentPages } = await supabase
         .from("pages")
         .select(
-          `id, word_count, chapters ( id, title, projects ( id, title ) )`
+          `id, title, word_count, chapters ( id, title, projects ( id, title ) )`
         )
         .in("chapter_id", chapterIds)
         .order("updated_at", { ascending: false })
@@ -82,6 +83,7 @@ export default async function DashboardPage() {
           if (!project) continue;
           recentPageCards.push({
             pageId: row.id,
+            pageTitle: (row as { title?: string }).title ?? "Untitled Page",
             chapterId: chapter.id,
             chapterTitle: chapter.title,
             projectId: project.id,
