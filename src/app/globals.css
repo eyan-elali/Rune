@@ -127,8 +127,19 @@ body {
 }
 
 .ProseMirror p {
-  margin: 0;
-  text-indent: 2em;
+  margin: 0 0 0.25em;
+  text-indent: 2rem;
+}
+
+.ProseMirror p + p {
+  margin-top: 0;
+}
+
+.ProseMirror > p:first-child,
+.ProseMirror h1 + p,
+.ProseMirror h2 + p,
+.ProseMirror h3 + p {
+  text-indent: 0 !important;
 }
 
 .ProseMirror h1 {

@@ -53,6 +53,7 @@ interface State {
   y: number;
   pageNum: number;
   projectTitle: string;
+  bodyParagraphCount: number;
 }
 
 function drawHeader(state: State) {
@@ -61,15 +62,28 @@ function drawHeader(state: State) {
   d.setFont(FONT, "normal");
   d.setTextColor(122, 111, 99); // mist
   d.text(state.projectTitle, M, 14);
-  d.text(String(state.pageNum), PW - M, 14, { align: "right" });
   d.setTextColor(30, 26, 22); // ink
+}
+
+function drawFooter(state: State) {
+  const d = state.doc;
+  d.setFontSize(9);
+  d.setFont(FONT, "normal");
+  d.setTextColor(122, 111, 99); // mist
+  d.text(String(state.pageNum), PW - M, PH - 12.7, { align: "right" });
+  d.setTextColor(30, 26, 22); // ink
+}
+
+function drawPageChrome(state: State) {
+  drawHeader(state);
+  drawFooter(state);
 }
 
 function guard(state: State, needed: number) {
   if (state.y + needed > PH - M) {
     state.doc.addPage();
     state.pageNum++;
-    drawHeader(state);
+    drawPageChrome(state);
     state.y = M + 10;
   }
 }
@@ -170,7 +184,9 @@ function renderNode(state: State, node: TNode) {
         state.y += lh(BODY_PT);
         return;
       }
-      renderPara(state, segs, BODY_PT, M, M + PARA_INDENT, PW - M, paraAfter);
+      const firstX = state.bodyParagraphCount === 0 ? M : M + PARA_INDENT;
+      renderPara(state, segs, BODY_PT, M, firstX, PW - M, paraAfter);
+      state.bodyParagraphCount++;
       break;
     }
 
@@ -295,10 +311,11 @@ export async function exportPageAsPdf(
     y: M + 10,
     pageNum: 1,
     projectTitle: project.title,
+    bodyParagraphCount: 0,
   };
 
   // First page header + chapter title
-  drawHeader(state);
+  drawPageChrome(state);
 
   doc.setFont(FONT, "bold");
   doc.setFontSize(14);
