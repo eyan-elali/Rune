@@ -1,5 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import BackgroundPattern from "@/components/landing/BackgroundPattern";
+import SectionDivider from "@/components/landing/SectionDivider";
 
 export const metadata: Metadata = {
   title: "Rune — The manuscript is waiting.",
@@ -305,9 +307,14 @@ function BattleMockup() {
 export default function LandingPage() {
   return (
     <div
-      className="min-h-screen scroll-smooth"
+      className="relative min-h-screen scroll-smooth"
       style={{ background: "var(--color-ink)", color: "var(--color-parchment)" }}
     >
+      <BackgroundPattern />
+
+      {/* All page content sits above the pattern layer */}
+      <div className="relative z-10">
+
       {/* ── Nav ─────────────────────────────────────────────────────────── */}
       <nav
         className="sticky top-0 z-50 px-6 py-4 sm:px-10"
@@ -434,6 +441,8 @@ export default function LandingPage() {
         />
       </section>
 
+      <SectionDivider />
+
       {/* ── 2. The Sanctuary — Focus Mode ──────────────────────────────── */}
       <section
         id="sanctuary"
@@ -522,6 +531,8 @@ export default function LandingPage() {
         </div>
       </section>
 
+      <SectionDivider />
+
       {/* ── 3. The Arena — Game Mode ────────────────────────────────────── */}
       <section
         id="arena"
@@ -598,6 +609,8 @@ export default function LandingPage() {
           <BattleMockup />
         </div>
       </section>
+
+      <SectionDivider />
 
       {/* ── 4. The Philosophy of Velocity ──────────────────────────────── */}
       <section
@@ -681,6 +694,8 @@ export default function LandingPage() {
         </div>
       </section>
 
+      <SectionDivider />
+
       {/* ── 5. The Human Ink Manifesto ──────────────────────────────────── */}
       <section
         className="relative px-6 py-32 sm:px-10 md:py-44"
@@ -759,6 +774,8 @@ export default function LandingPage() {
           />
         </div>
       </section>
+
+      <SectionDivider />
 
       {/* ── 6. Pricing ──────────────────────────────────────────────────── */}
       <section
@@ -984,6 +1001,8 @@ export default function LandingPage() {
         </div>
       </section>
 
+      <SectionDivider />
+
       {/* ── 7. Footer ───────────────────────────────────────────────────── */}
       <footer
         className="px-6 py-16 text-center sm:px-10"
@@ -1021,6 +1040,8 @@ export default function LandingPage() {
           </div>
         </div>
       </footer>
+
+      </div>{/* end z-10 content wrapper */}
     </div>
   );
 }
