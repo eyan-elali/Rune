@@ -9,7 +9,7 @@ import { HpBar } from "@/components/games/HpBar";
 import { BattleLog, type BattleLogEntry } from "@/components/games/BattleLog";
 import { awardXp } from "@/lib/actions/xp";
 import { appendSprintToProject, createGameSession } from "@/lib/actions/games";
-import { recordWordsWritten } from "@/lib/actions/writingStats";
+import { recordWordsWritten, transferGameWordsToProject } from "@/lib/actions/writingStats";
 import { getProjects } from "@/lib/actions/projects";
 import { getChapters } from "@/lib/actions/chapters";
 import { xpRewardForWords } from "@/lib/xp";
@@ -517,8 +517,8 @@ function SaveToProject({
       setStep("error");
       return;
     }
-    // Retroactively attribute sprint words to the project for daily goal tracking
-    await recordWordsWritten(selectedProject.id, words);
+    // Move sprint words from the anonymous game bucket into the project bucket
+    await transferGameWordsToProject(selectedProject.id, words);
     setSavedChapterName(chapter.title);
     setStep("saved");
   }

@@ -100,7 +100,6 @@ export default function RuneEditor({
           (editor.storage.characterCount?.words?.() as number | undefined) ?? 0;
 
         const delta = wordCount - lastSavedWordCountRef.current;
-        lastSavedWordCountRef.current = wordCount;
 
         if (isLoadingRef.current) {
           return;
@@ -114,9 +113,8 @@ export default function RuneEditor({
             word_count: wordCount,
           });
           if (delta > 0) {
-            // Only attribute words to the project when the page is canonical
-            const isCanonical = currentPageRef.current?.is_canonical === true;
-            void recordWordsWritten(isCanonical ? projectId : null, delta);
+            lastSavedWordCountRef.current = wordCount;
+            void recordWordsWritten(projectId, delta, page?.id ?? null);
           }
           setIsSaving(false);
           setLastSaved(new Date());
