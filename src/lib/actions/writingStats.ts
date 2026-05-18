@@ -247,31 +247,27 @@ export async function createGoal(
   const { supabase, user } = await getUser();
   if (!user) return { data: null, error: "Not authenticated" };
 
-  // Enforce: max 1 daily_global per user
-  if (type === "daily_global") {
+  // Enforce: max 1 daily goal total per user (daily_global OR daily_project)
+  if (type === "daily_global" || type === "daily_project") {
     const { count } = await supabase
       .from("writing_goals")
       .select("id", { count: "exact", head: true })
       .eq("user_id", user.id)
-      .eq("type", "daily_global");
+      .in("type", ["daily_global", "daily_project"]);
     if ((count ?? 0) > 0) {
-      return { data: null, error: "You already have a daily global goal." };
+      return { data: null, error: "You already have a daily writing goal." };
     }
   }
 
-  // Enforce: max 1 daily_project per project per user
-  if (type === "daily_project" && projectId) {
+  // Enforce: max 1 project_total goal per user
+  if (type === "project_total") {
     const { count } = await supabase
       .from("writing_goals")
       .select("id", { count: "exact", head: true })
       .eq("user_id", user.id)
-      .eq("type", "daily_project")
-      .eq("project_id", projectId);
+      .eq("type", "project_total");
     if ((count ?? 0) > 0) {
-      return {
-        data: null,
-        error: "This project already has a daily goal.",
-      };
+      return { data: null, error: "You already have a manuscript goal." };
     }
   }
 

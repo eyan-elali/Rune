@@ -229,6 +229,8 @@ function SaveToProject({
       setStep("error");
       return;
     }
+    // Retroactively attribute sprint words to the project for daily goal tracking
+    await recordWordsWritten(selectedProject.id, words);
     setSavedChapterName(chapter.title);
     setStep("saved");
   }

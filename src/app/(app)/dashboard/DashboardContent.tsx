@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState, useTransition } from "react";
-import { Plus, Trash2, Feather } from "lucide-react";
+import { Trash2, Feather } from "lucide-react";
 import { useModeStore } from "@/store/modeStore";
 import { TaskList } from "@/components/tasks/TaskList";
 import { AddGoalModal } from "@/components/goals/AddGoalModal";
@@ -237,19 +237,56 @@ function StatRowsCard({
 
 // ── Goal section ──────────────────────────────────────────────────────────────
 
-function GoalProgressBar({ current, target }: { current: number; target: number }) {
-  const pct = Math.min(100, Math.round((current / target) * 100));
-  const reached = current >= target;
+function CircularRing({
+  current,
+  target,
+  size = 128,
+}: {
+  current: number;
+  target: number;
+  size?: number;
+}) {
+  const strokeWidth = 9;
+  const radius = (size - strokeWidth * 2) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const pct = Math.min(1, target > 0 ? current / target : 0);
+  const reached = current >= target && target > 0;
+  const strokeColor = reached ? "var(--color-sage)" : "var(--color-gold)";
+  const cx = size / 2;
+  const cy = size / 2;
+
   return (
-    <div className="mt-2 h-1 w-full overflow-hidden rounded-full" style={{ background: "rgba(201,168,76,0.12)" }}>
-      <div
-        className="h-full rounded-full transition-all duration-500"
-        style={{
-          width: `${pct}%`,
-          background: reached ? "var(--color-sage)" : "var(--color-gold)",
-        }}
+    <svg
+      width={size}
+      height={size}
+      viewBox={`0 0 ${size} ${size}`}
+      aria-hidden
+      style={{ flexShrink: 0 }}
+    >
+      {/* Track */}
+      <circle
+        cx={cx}
+        cy={cy}
+        r={radius}
+        fill="none"
+        stroke="rgba(201,168,76,0.10)"
+        strokeWidth={strokeWidth}
       />
-    </div>
+      {/* Progress arc */}
+      <circle
+        cx={cx}
+        cy={cy}
+        r={radius}
+        fill="none"
+        stroke={strokeColor}
+        strokeWidth={strokeWidth}
+        strokeDasharray={circumference}
+        strokeDashoffset={circumference * (1 - pct)}
+        strokeLinecap="round"
+        transform={`rotate(-90 ${cx} ${cy})`}
+        style={{ transition: "stroke-dashoffset 0.6s ease, stroke 0.4s ease" }}
+      />
+    </svg>
   );
 }
 
@@ -264,15 +301,19 @@ function GoalSection({
 }) {
   const router = useRouter();
   const showToast = useToastStore((s) => s.showToast);
-  const [showModal, setShowModal] = useState(false);
+  const [modalCategory, setModalCategory] = useState<"daily" | "project_total" | null>(null);
   const [, startTransition] = useTransition();
 
-  const hasDailyGoal = goals.some((g) => g.type === "daily_global");
-  const dailyGoal = goals.find((g) => g.type === "daily_global");
-  const dailyProjectGoals = goals.filter((g) => g.type === "daily_project");
-  const dailyProjectGoalProjectIds = dailyProjectGoals
-    .map((g) => g.project_id)
-    .filter((id): id is string => id !== null);
+  // One daily slot (global or project-scoped)
+  const dailyGoal =
+    goals.find((g) => g.type === "daily_global") ??
+    goals.find((g) => g.type === "daily_project") ??
+    null;
+  const hasDailyGoal = dailyGoal !== null;
+
+  // One project_total slot
+  const totalGoal = goals.find((g) => g.type === "project_total") ?? null;
+  const hasProjectTotalGoal = totalGoal !== null;
 
   async function handleDelete(id: string) {
     await deleteGoal(id);
@@ -282,207 +323,194 @@ function GoalSection({
 
   return (
     <section className="mb-10" aria-label="Writing goals">
-      <div className="mb-4 flex items-center justify-between">
-        <h2
-          className="text-xs font-semibold uppercase tracking-widest"
-          style={{ color: "var(--color-mist)" }}
-        >
-          Writing Goals
-        </h2>
-        <button
-          onClick={() => setShowModal(true)}
-          className="flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium transition-colors"
-          style={{
-            border: "1px solid var(--color-border)",
-            color: "var(--color-gold)",
-          }}
-          aria-label="Add writing goal"
-        >
-          <Plus size={12} />
-          Add Goal
-        </button>
-      </div>
+      <h2
+        className="mb-4 text-xs font-semibold uppercase tracking-widest"
+        style={{ color: "var(--color-mist)" }}
+      >
+        Writing Goals
+      </h2>
 
-      <div className="flex flex-col gap-3">
-        {/* Words Today card — always shown, tracks global count */}
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+        {/* ── Card 1: Words Today ─────────────────────────────── */}
         <div
-          className="flex items-start gap-4 rounded-lg p-5"
+          className="flex flex-col rounded-lg p-5"
           style={{ background: "var(--surface-card)", border: "1px solid var(--color-border)" }}
         >
-          <Feather
-            size={18}
-            style={{ color: "var(--color-gold)", flexShrink: 0, marginTop: 2 }}
-            aria-hidden
-          />
-          <div className="min-w-0 flex-1">
-            <div className="flex items-baseline gap-2">
-              <span
-                className="font-rune-serif text-3xl leading-none"
-                style={{ color: "var(--text-primary)" }}
-              >
-                {wordsToday.toLocaleString()}
-              </span>
-              <span className="text-sm" style={{ color: "var(--color-mist)" }}>
-                words today
-              </span>
-            </div>
-            {dailyGoal && (
-              <>
-                <GoalProgressBar current={wordsToday} target={dailyGoal.target_words} />
-                <p className="mt-1.5 text-xs" style={{ color: "var(--color-mist)" }}>
-                  {wordsToday >= dailyGoal.target_words
-                    ? "Daily goal reached ✦"
-                    : `${(dailyGoal.target_words - wordsToday).toLocaleString()} to go — goal: ${dailyGoal.target_words.toLocaleString()} words`}
-                </p>
-              </>
-            )}
+          <div className="mb-3 flex items-center gap-2">
+            <Feather size={13} style={{ color: "var(--color-gold)" }} aria-hidden />
+            <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--color-mist)" }}>
+              Words Today
+            </p>
           </div>
-          {dailyGoal && (
-            <button
-              onClick={() => handleDelete(dailyGoal.id)}
-              className="mt-0.5 flex h-6 w-6 items-center justify-center rounded transition-colors"
-              style={{ color: "var(--color-mist)", opacity: 0.5 }}
-              aria-label="Remove daily goal"
-            >
-              <Trash2 size={13} />
-            </button>
-          )}
+          <p
+            className="font-rune-serif leading-none"
+            style={{ color: "var(--text-primary)", fontSize: "2.75rem" }}
+          >
+            {wordsToday.toLocaleString()}
+          </p>
+          <p className="mt-2 text-xs" style={{ color: "var(--color-mist)" }}>
+            words written today
+          </p>
         </div>
 
-        {/* Daily project goals — project-scoped today word count */}
-        {dailyProjectGoals.map((goal) => {
-          const reached = goal.current_words >= goal.target_words;
-          const remaining = goal.target_words - goal.current_words;
-          return (
-            <div
-              key={goal.id}
-              className="flex items-start gap-4 rounded-lg p-5"
-              style={{
-                background: "var(--surface-card)",
-                border: "1px solid var(--color-border)",
-              }}
-            >
-              <div className="min-w-0 flex-1">
-                <div className="mb-1 flex items-center gap-2">
-                  <p
-                    className="text-xs font-semibold uppercase tracking-widest"
-                    style={{ color: "var(--color-mist)" }}
-                  >
-                    Daily Goal
-                  </p>
-                  {goal.project_title && (
-                    <span
-                      className="rounded px-1.5 py-0.5 text-[10px] font-medium"
-                      style={{
-                        background: "rgba(201,168,76,0.10)",
-                        border: "1px solid var(--color-border)",
-                        color: "var(--color-gold)",
-                      }}
-                    >
-                      {goal.project_title}
-                    </span>
-                  )}
-                </div>
-                <div className="flex items-baseline gap-2">
-                  <span
-                    className="font-rune-serif text-3xl leading-none"
-                    style={{ color: "var(--text-primary)" }}
-                  >
-                    {goal.current_words.toLocaleString()}
-                  </span>
-                  <span className="text-sm" style={{ color: "var(--color-mist)" }}>
-                    words today
-                  </span>
-                </div>
-                <GoalProgressBar current={goal.current_words} target={goal.target_words} />
-                <p className="mt-1.5 text-xs" style={{ color: "var(--color-mist)" }}>
-                  {reached
-                    ? "Daily goal reached ✦"
-                    : `${remaining.toLocaleString()} to go — goal: ${goal.target_words.toLocaleString()} words`}
-                </p>
-              </div>
-              <button
-                onClick={() => handleDelete(goal.id)}
-                className="mt-0.5 flex h-6 w-6 items-center justify-center rounded transition-colors"
-                style={{ color: "var(--color-mist)", opacity: 0.5 }}
-                aria-label="Remove daily project goal"
-              >
-                <Trash2 size={13} />
-              </button>
-            </div>
-          );
-        })}
-
-        {/* Project total goals */}
-        {goals
-          .filter((g) => g.type === "project_total")
-          .map((goal) => {
-            const reached = goal.current_words >= goal.target_words;
-            const remaining = goal.target_words - goal.current_words;
-            return (
-              <div
-                key={goal.id}
-                className="flex items-start gap-4 rounded-lg p-5"
-                style={{
-                  background: "var(--surface-card)",
-                  border: "1px solid var(--color-border)",
-                }}
-              >
-                <div className="min-w-0 flex-1">
-                  <p
-                    className="mb-0.5 text-xs font-semibold uppercase tracking-widest"
-                    style={{ color: "var(--color-mist)" }}
-                  >
-                    Project Goal
-                  </p>
-                  <p
-                    className="font-rune-serif text-base leading-snug"
-                    style={{ color: "var(--text-primary)" }}
-                  >
-                    {goal.project_title ?? "Unknown Project"} — {goal.target_words.toLocaleString()} words
-                  </p>
-                  <GoalProgressBar current={goal.current_words} target={goal.target_words} />
-                  <p className="mt-1.5 text-xs" style={{ color: "var(--color-mist)" }}>
-                    {reached
-                      ? "Goal reached! ✦"
-                      : `${remaining.toLocaleString()} words to go · ${goal.current_words.toLocaleString()} written`}
-                  </p>
-                </div>
-                <button
-                  onClick={() => handleDelete(goal.id)}
-                  className="mt-0.5 flex h-6 w-6 items-center justify-center rounded transition-colors"
-                  style={{ color: "var(--color-mist)", opacity: 0.5 }}
-                  aria-label="Remove goal"
-                >
-                  <Trash2 size={13} />
-                </button>
-              </div>
-            );
-          })}
-
-        {goals.length === 0 && (
+        {/* ── Card 2: Daily Writing Goal ──────────────────────── */}
+        {dailyGoal ? (
           <div
-            className="rounded-lg px-5 py-4 text-sm"
-            style={{
-              border: "1px dashed var(--color-border)",
-              color: "var(--color-mist)",
-            }}
+            className="relative flex flex-col rounded-lg p-5"
+            style={{ background: "var(--surface-card)", border: "1px solid var(--color-border)" }}
           >
-            No goals set. Add one to track your progress.
+            {/* Delete button */}
+            <button
+              onClick={() => handleDelete(dailyGoal.id)}
+              className="absolute right-3 top-3 flex h-6 w-6 items-center justify-center rounded transition-colors"
+              style={{ color: "var(--color-mist)", opacity: 0.45 }}
+              aria-label="Remove daily goal"
+            >
+              <Trash2 size={12} />
+            </button>
+
+            {/* Header */}
+            <div className="mb-1">
+              <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--color-mist)" }}>
+                {dailyGoal.type === "daily_project" ? "Daily Project Goal" : "Daily Goal"}
+              </p>
+              {dailyGoal.type === "daily_project" && dailyGoal.project_title && (
+                <span
+                  className="mt-1 inline-block rounded px-1.5 py-0.5 text-[10px] font-medium"
+                  style={{
+                    background: "rgba(201,168,76,0.10)",
+                    border: "1px solid var(--color-border)",
+                    color: "var(--color-gold)",
+                  }}
+                >
+                  {dailyGoal.project_title}
+                </span>
+              )}
+            </div>
+
+            {/* Ring + center text */}
+            <div className="relative mx-auto my-3 flex items-center justify-center" style={{ width: 128, height: 128 }}>
+              <CircularRing current={dailyGoal.current_words} target={dailyGoal.target_words} size={128} />
+              <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
+                <span className="font-rune-serif text-xl leading-none" style={{ color: "var(--text-primary)" }}>
+                  {dailyGoal.current_words.toLocaleString()}
+                </span>
+                <span className="mt-0.5 text-[9px] uppercase tracking-wider" style={{ color: "var(--color-mist)" }}>
+                  / {dailyGoal.target_words.toLocaleString()}
+                </span>
+              </div>
+            </div>
+
+            {dailyGoal.current_words >= dailyGoal.target_words ? (
+              <p className="mt-auto text-center text-xs italic" style={{ color: "var(--color-gold)" }}>
+                Goal Reached! ✦
+              </p>
+            ) : (
+              <p className="mt-auto text-center text-xs" style={{ color: "var(--color-mist)" }}>
+                {(dailyGoal.target_words - dailyGoal.current_words).toLocaleString()} words to go
+              </p>
+            )}
           </div>
+        ) : (
+          <button
+            onClick={() => setModalCategory("daily")}
+            className="flex flex-col items-center justify-center rounded-lg p-5 text-center transition-colors duration-150 hover:border-rune-gold/40"
+            style={{
+              background: "var(--surface-card)",
+              border: "1px dashed var(--color-border)",
+              cursor: "pointer",
+            }}
+            aria-label="Set daily writing goal"
+          >
+            <span className="mb-2 text-lg" style={{ color: "var(--color-border-strong)" }} aria-hidden>◎</span>
+            <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--color-mist)" }}>
+              Daily Goal
+            </p>
+            <p className="mt-3 text-xs font-medium" style={{ color: "var(--color-gold)" }}>
+              + Set Daily Goal
+            </p>
+          </button>
+        )}
+
+        {/* ── Card 3: Project Total Goal ──────────────────────── */}
+        {totalGoal ? (
+          <div
+            className="relative flex flex-col rounded-lg p-5"
+            style={{ background: "var(--surface-card)", border: "1px solid var(--color-border)" }}
+          >
+            {/* Delete button */}
+            <button
+              onClick={() => handleDelete(totalGoal.id)}
+              className="absolute right-3 top-3 flex h-6 w-6 items-center justify-center rounded transition-colors"
+              style={{ color: "var(--color-mist)", opacity: 0.45 }}
+              aria-label="Remove manuscript goal"
+            >
+              <Trash2 size={12} />
+            </button>
+
+            {/* Header */}
+            <div className="mb-1">
+              <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--color-mist)" }}>
+                {totalGoal.project_title ? `${totalGoal.project_title} — Total Target` : "Manuscript Goal"}
+              </p>
+            </div>
+
+            {/* Ring + center text */}
+            <div className="relative mx-auto my-3 flex items-center justify-center" style={{ width: 128, height: 128 }}>
+              <CircularRing current={totalGoal.current_words} target={totalGoal.target_words} size={128} />
+              <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
+                <span className="font-rune-serif text-xl leading-none" style={{ color: "var(--text-primary)" }}>
+                  {totalGoal.current_words.toLocaleString()}
+                </span>
+                <span className="mt-0.5 text-[9px] uppercase tracking-wider" style={{ color: "var(--color-mist)" }}>
+                  / {totalGoal.target_words.toLocaleString()}
+                </span>
+              </div>
+            </div>
+
+            {totalGoal.current_words >= totalGoal.target_words ? (
+              <p className="mt-auto text-center text-xs italic" style={{ color: "var(--color-gold)" }}>
+                Goal Reached! ✦
+              </p>
+            ) : (
+              <p className="mt-auto text-center text-xs" style={{ color: "var(--color-mist)" }}>
+                {(totalGoal.target_words - totalGoal.current_words).toLocaleString()} words to go
+              </p>
+            )}
+          </div>
+        ) : (
+          <button
+            onClick={() => setModalCategory("project_total")}
+            className="flex flex-col items-center justify-center rounded-lg p-5 text-center transition-colors duration-150 hover:border-rune-gold/40"
+            style={{
+              background: "var(--surface-card)",
+              border: "1px dashed var(--color-border)",
+              cursor: "pointer",
+            }}
+            aria-label="Pin manuscript word count target"
+          >
+            <span className="mb-2 text-lg" style={{ color: "var(--color-border-strong)" }} aria-hidden>◎</span>
+            <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--color-mist)" }}>
+              Manuscript Goal
+            </p>
+            <p className="mt-3 text-xs font-medium" style={{ color: "var(--color-gold)" }}>
+              + Pinned Book Target
+            </p>
+          </button>
         )}
       </div>
 
-      {showModal && (
+      {modalCategory !== null && (
         <AddGoalModal
-          onClose={() => setShowModal(false)}
+          onClose={() => setModalCategory(null)}
           onCreated={() => {
-            setShowModal(false);
+            setModalCategory(null);
             startTransition(() => router.refresh());
           }}
           projects={projects}
           hasDailyGoal={hasDailyGoal}
-          dailyProjectGoalProjectIds={dailyProjectGoalProjectIds}
+          hasProjectTotalGoal={hasProjectTotalGoal}
+          initialCategory={modalCategory}
         />
       )}
     </section>

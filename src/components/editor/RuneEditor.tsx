@@ -114,7 +114,9 @@ export default function RuneEditor({
             word_count: wordCount,
           });
           if (delta > 0) {
-            void recordWordsWritten(projectId, delta);
+            // Only attribute words to the project when the page is canonical
+            const isCanonical = currentPageRef.current?.is_canonical === true;
+            void recordWordsWritten(isCanonical ? projectId : null, delta);
           }
           setIsSaving(false);
           setLastSaved(new Date());
