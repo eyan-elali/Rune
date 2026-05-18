@@ -100,6 +100,11 @@ export default function RuneEditor({
           (editor.storage.characterCount?.words?.() as number | undefined) ?? 0;
 
         const delta = wordCount - lastSavedWordCountRef.current;
+        lastSavedWordCountRef.current = wordCount;
+
+        if (isLoadingRef.current) {
+          return;
+        }
 
         setIsSaving(true);
         try {
@@ -109,10 +114,7 @@ export default function RuneEditor({
             word_count: wordCount,
           });
           if (delta > 0) {
-            lastSavedWordCountRef.current = wordCount;
             void recordWordsWritten(projectId, delta);
-          } else {
-            lastSavedWordCountRef.current = wordCount;
           }
           setIsSaving(false);
           setLastSaved(new Date());
@@ -211,6 +213,10 @@ export default function RuneEditor({
 
     isLoadingRef.current = true;
     editor.commands.setContent(currentPage?.content ?? null);
+    lastSavedWordCountRef.current =
+      (editor.storage.characterCount?.words?.() as number | undefined) ??
+      currentPage?.word_count ??
+      0;
     setTimeout(() => {
       isLoadingRef.current = false;
     }, 0);
