@@ -1,9 +1,22 @@
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { createClient } from "@/lib/supabase/server";
 import { XpBar } from "@/components/profile/XpBar";
-import { WritingActivitySection } from "@/components/profile/WritingActivitySection";
-import { getWordsByDay } from "@/lib/actions/writingStats";
+import { getContributionHistory } from "@/lib/actions/writingStats";
 import type { GameSession } from "@/lib/types";
+
+const ContributionHeatmap = dynamic(
+  () => import("@/components/profile/ContributionHeatmap").then((m) => m.ContributionHeatmap),
+  {
+    ssr: false,
+    loading: () => (
+      <div
+        className="h-32 w-full rounded-lg"
+        style={{ background: "rgba(201,168,76,0.06)", border: "1px solid var(--color-border)" }}
+      />
+    ),
+  }
+);
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 function formatDate(iso: string) {
@@ -104,7 +117,7 @@ export default async function ProfilePage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const [{ data: profile }, { data: rawProjects }, { data: recentSessions }, wordsByDay] =
+  const [{ data: profile }, { data: rawProjects }, { data: recentSessions }, contributionHistory] =
     await Promise.all([
       supabase.from("profiles").select("*").eq("id", user!.id).single(),
       supabase
@@ -117,7 +130,7 @@ export default async function ProfilePage() {
         .eq("user_id", user!.id)
         .order("created_at", { ascending: false })
         .limit(5),
-      getWordsByDay(user!.id, 30),
+      getContributionHistory(user!.id),
     ]);
 
   const projects = rawProjects ?? [];
@@ -272,8 +285,23 @@ export default async function ProfilePage() {
         </div>
       </section>
 
-      {/* ── Writing Activity ────────────────────────────────────────── */}
-      <WritingActivitySection data={wordsByDay} />
+      {/* ── Contribution Heatmap ─────────────────────────────────────── */}
+      <section
+        className="mb-8 rounded-lg p-6"
+        style={{
+          background: "var(--color-sepia)",
+          border: "1px solid var(--color-border)",
+        }}
+        aria-label="Writing activity heatmap"
+      >
+        <h2
+          className="mb-5 text-xs font-semibold uppercase tracking-widest"
+          style={{ color: "var(--color-mist)" }}
+        >
+          Writing Activity — Past Year
+        </h2>
+        <ContributionHeatmap data={contributionHistory} />
+      </section>
 
       {/* ── Unlockables link ────────────────────────────────────────── */}
       <div className="mb-8">

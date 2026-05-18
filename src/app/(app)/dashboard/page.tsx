@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   description: "Your writing dashboard. Projects, recent work, and game stats.",
 };
 import { getPersonalBests, getCombatRecords } from "@/lib/actions/games";
-import { getWordsToday, getGoals } from "@/lib/actions/writingStats";
+import { getGoals, getWritingStreak, getChapterProgress } from "@/lib/actions/writingStats";
 import { DashboardContent } from "./DashboardContent";
 import type { Project } from "@/lib/types";
 import type { WritingGoal } from "@/lib/actions/writingStats";
@@ -122,12 +122,17 @@ export default async function DashboardPage() {
     }
   }
 
-  const [personalBests, combatRecords, wordsToday, goals] = await Promise.all([
-    getPersonalBests(user!.id),
-    getCombatRecords(user!.id),
-    getWordsToday(user!.id),
-    getGoals(user!.id),
-  ]);
+  const firstProjectId = projects[0]?.id ?? null;
+
+  const [personalBests, combatRecords, goals, writingStreak, chapterProgress] =
+    await Promise.all([
+      getPersonalBests(user!.id),
+      getCombatRecords(user!.id),
+      getGoals(user!.id),
+      getWritingStreak(user!.id),
+      firstProjectId ? getChapterProgress(firstProjectId) : Promise.resolve(null),
+    ]);
+
   const serializedBests: Record<string, number> = {};
   for (const [k, v] of Object.entries(personalBests)) {
     serializedBests[k] = v;
@@ -143,8 +148,10 @@ export default async function DashboardPage() {
       profile={profile ?? null}
       personalBests={serializedBests}
       combatRecords={combatRecords}
-      wordsToday={wordsToday}
       goals={goals}
+      writingStreak={writingStreak}
+      chapterProgress={chapterProgress}
+      chapterProgressProjectTitle={projects[0]?.title ?? null}
     />
   );
 }

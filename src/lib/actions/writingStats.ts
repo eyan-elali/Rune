@@ -70,29 +70,6 @@ export async function recordWordsWritten(
   }
 }
 
-export async function getWordsToday(userId: string): Promise<number> {
-  const supabase = await createClient();
-  const today = new Date().toISOString().slice(0, 10);
-
-  const { data, error } = await supabase
-    .from("writing_sessions")
-    .select("words_added, page_id, pages:pages!writing_sessions_page_id_fkey(is_canonical)")
-    .eq("user_id", userId)
-    .eq("session_date", today);
-
-  if (error) {
-    console.error("Failed to fetch today's writing sessions:", error);
-  }
-
-  return (data ?? []).reduce((sum, session) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const pagesData = session.pages as any;
-    const isCanonical = Array.isArray(pagesData) ? pagesData[0]?.is_canonical : pagesData?.is_canonical;
-    if (session.page_id !== null && isCanonical === false) return sum;
-    return sum + (session.words_added ?? 0);
-  }, 0);
-}
-
 export async function getWordsByDay(
   userId: string,
   days: number
@@ -129,6 +106,121 @@ export async function getWordsByDay(
   return result;
 }
 
+// ── Writing Streak ─────────────────────────────────────────────────────────────
+
+function computeStreaks(dates: string[]): { currentStreak: number; maxStreak: number } {
+  if (dates.length === 0) return { currentStreak: 0, maxStreak: 0 };
+
+  const nowUTC = new Date();
+  const todayStr = nowUTC.toISOString().slice(0, 10);
+  const yesterdayUTC = new Date(nowUTC);
+  yesterdayUTC.setUTCDate(yesterdayUTC.getUTCDate() - 1);
+  const yesterdayStr = yesterdayUTC.toISOString().slice(0, 10);
+
+  // Compute max streak over entire history
+  let maxStreak = 1;
+  let runLen = 1;
+  for (let i = 1; i < dates.length; i++) {
+    const diffMs =
+      new Date(dates[i] + "T00:00:00Z").getTime() -
+      new Date(dates[i - 1] + "T00:00:00Z").getTime();
+    if (diffMs === 86400000) {
+      runLen++;
+      if (runLen > maxStreak) maxStreak = runLen;
+    } else {
+      runLen = 1;
+    }
+  }
+
+  // Current streak: consecutive run ending on today or yesterday
+  const lastDate = dates[dates.length - 1];
+  if (lastDate !== todayStr && lastDate !== yesterdayStr) {
+    return { currentStreak: 0, maxStreak };
+  }
+
+  let currentStreak = 1;
+  for (let i = dates.length - 1; i > 0; i--) {
+    const diffMs =
+      new Date(dates[i] + "T00:00:00Z").getTime() -
+      new Date(dates[i - 1] + "T00:00:00Z").getTime();
+    if (diffMs === 86400000) {
+      currentStreak++;
+    } else {
+      break;
+    }
+  }
+
+  return { currentStreak, maxStreak };
+}
+
+export async function getWritingStreak(
+  userId: string
+): Promise<{ currentStreak: number; maxStreak: number }> {
+  const supabase = await createClient();
+
+  const { data } = await supabase
+    .from("writing_sessions")
+    .select("session_date")
+    .eq("user_id", userId)
+    .gt("words_added", 0)
+    .order("session_date", { ascending: true });
+
+  if (!data || data.length === 0) return { currentStreak: 0, maxStreak: 0 };
+
+  const uniqueDates = [...new Set(data.map((r) => r.session_date as string))].sort();
+  return computeStreaks(uniqueDates);
+}
+
+// ── Contribution History ───────────────────────────────────────────────────────
+
+export async function getContributionHistory(
+  userId: string
+): Promise<{ date: string; count: number }[]> {
+  const supabase = await createClient();
+
+  const since = new Date();
+  since.setUTCDate(since.getUTCDate() - 364);
+  const sinceStr = since.toISOString().slice(0, 10);
+
+  const { data } = await supabase
+    .from("writing_sessions")
+    .select("session_date, words_added")
+    .eq("user_id", userId)
+    .gte("session_date", sinceStr)
+    .order("session_date", { ascending: true });
+
+  const byDate = new Map<string, number>();
+  for (const row of data ?? []) {
+    byDate.set(
+      row.session_date,
+      (byDate.get(row.session_date) ?? 0) + (row.words_added ?? 0)
+    );
+  }
+
+  return Array.from(byDate.entries())
+    .map(([date, count]) => ({ date, count }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+}
+
+// ── Chapter Progress ───────────────────────────────────────────────────────────
+
+export async function getChapterProgress(
+  projectId: string
+): Promise<{ completed: number; total: number }> {
+  const supabase = await createClient();
+
+  const { data } = await supabase
+    .from("chapters")
+    .select("id, is_completed")
+    .eq("project_id", projectId);
+
+  const chapters = data ?? [];
+  return {
+    total: chapters.length,
+    completed: chapters.filter((c) => c.is_completed).length,
+  };
+}
+
 // ── Writing Goals ─────────────────────────────────────────────────────────────
 
 export interface WritingGoal {
@@ -144,54 +236,18 @@ export interface WritingGoal {
 
 export async function getGoals(userId: string): Promise<WritingGoal[]> {
   const supabase = await createClient();
-  const today = new Date().toISOString().slice(0, 10);
 
   const { data: goals } = await supabase
     .from("writing_goals")
     .select("*, projects(title)")
     .eq("user_id", userId)
+    .eq("type", "project_total")
     .order("created_at", { ascending: true });
 
   if (!goals) return [];
 
-  // Fetch all today's sessions once — used for daily_global and daily_project
-  const { data: todaySessions, error: todaySessionsError } = await supabase
-    .from("writing_sessions")
-    .select("project_id, words_added, page_id, pages:pages!writing_sessions_page_id_fkey(is_canonical)")
-    .eq("user_id", userId)
-    .eq("session_date", today);
-
-  if (todaySessionsError) {
-    console.error("Failed to fetch today's writing sessions for goals:", todaySessionsError);
-  }
-
-  // Global total — exclude sessions for non-canonical pages
-  const wordsTodayGlobal = (todaySessions ?? []).reduce((sum, session) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const pagesData = session.pages as any;
-    const isCanonical = Array.isArray(pagesData) ? pagesData[0]?.is_canonical : pagesData?.is_canonical;
-    if (session.page_id !== null && isCanonical === false) return sum;
-    return sum + (session.words_added ?? 0);
-  }, 0);
-
-  // Per-project sums for daily_project goals — same canonical filter
-  const wordsTodayByProject = new Map<string, number>();
-  for (const session of todaySessions ?? []) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const pagesData = session.pages as any;
-    const isCanonical = Array.isArray(pagesData) ? pagesData[0]?.is_canonical : pagesData?.is_canonical;
-    if (session.page_id !== null && isCanonical === false) continue;
-    if (session.project_id) {
-      wordsTodayByProject.set(
-        session.project_id,
-        (wordsTodayByProject.get(session.project_id) ?? 0) + (session.words_added ?? 0)
-      );
-    }
-  }
-
-  // Compute canonical word counts for project_total goals
   const projectIds = goals
-    .filter((g) => g.type === "project_total" && g.project_id)
+    .filter((g) => g.project_id)
     .map((g) => g.project_id as string);
 
   const projectWordCounts: Record<string, number> = {};
@@ -243,15 +299,6 @@ export async function getGoals(userId: string): Promise<WritingGoal[]> {
       ? (projectData[0]?.title ?? null)
       : (projectData?.title ?? null);
 
-    let current_words = 0;
-    if (g.type === "daily_global") {
-      current_words = wordsTodayGlobal;
-    } else if (g.type === "daily_project" && g.project_id) {
-      current_words = wordsTodayByProject.get(g.project_id) ?? 0;
-    } else if (g.type === "project_total" && g.project_id) {
-      current_words = projectWordCounts[g.project_id] ?? 0;
-    }
-
     return {
       id: g.id,
       user_id: g.user_id,
@@ -259,7 +306,7 @@ export async function getGoals(userId: string): Promise<WritingGoal[]> {
       project_title: projectTitle,
       type: g.type as "daily_global" | "daily_project" | "project_total",
       target_words: g.target_words,
-      current_words,
+      current_words: g.project_id ? (projectWordCounts[g.project_id] ?? 0) : 0,
       created_at: g.created_at,
     };
   });

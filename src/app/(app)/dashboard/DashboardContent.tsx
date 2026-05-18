@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState, useTransition } from "react";
-import { Trash2, Feather } from "lucide-react";
+import { Trash2, Flame } from "lucide-react";
 import { useModeStore } from "@/store/modeStore";
 import { TaskList } from "@/components/tasks/TaskList";
 import { AddGoalModal } from "@/components/goals/AddGoalModal";
@@ -181,8 +181,10 @@ interface DashboardContentProps {
   profile: { display_name: string | null; xp: number; level: number } | null;
   personalBests: Record<string, number>;
   combatRecords?: Record<string, CombatRecord>;
-  wordsToday?: number;
   goals?: WritingGoal[];
+  writingStreak?: { currentStreak: number; maxStreak: number };
+  chapterProgress?: { completed: number; total: number } | null;
+  chapterProgressProjectTitle?: string | null;
 }
 
 const RACE_DURATIONS: { seconds: number; label: string }[] = [
@@ -235,7 +237,7 @@ function StatRowsCard({
   );
 }
 
-// ── Goal section ──────────────────────────────────────────────────────────────
+// ── Circular ring (for project goal) ─────────────────────────────────────────
 
 function CircularRing({
   current,
@@ -263,7 +265,6 @@ function CircularRing({
       aria-hidden
       style={{ flexShrink: 0 }}
     >
-      {/* Track */}
       <circle
         cx={cx}
         cy={cy}
@@ -272,7 +273,6 @@ function CircularRing({
         stroke="rgba(201,168,76,0.10)"
         strokeWidth={strokeWidth}
       />
-      {/* Progress arc */}
       <circle
         cx={cx}
         cy={cy}
@@ -290,28 +290,26 @@ function CircularRing({
   );
 }
 
+// ── Goal section ──────────────────────────────────────────────────────────────
+
 function GoalSection({
   goals,
-  wordsToday,
   projects,
+  writingStreak,
+  chapterProgress,
+  chapterProgressProjectTitle,
 }: {
   goals: WritingGoal[];
-  wordsToday: number;
   projects: Project[];
+  writingStreak: { currentStreak: number; maxStreak: number };
+  chapterProgress: { completed: number; total: number } | null;
+  chapterProgressProjectTitle: string | null;
 }) {
   const router = useRouter();
   const showToast = useToastStore((s) => s.showToast);
-  const [modalCategory, setModalCategory] = useState<"daily" | "project_total" | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
   const [, startTransition] = useTransition();
 
-  // One daily slot (global or project-scoped)
-  const dailyGoal =
-    goals.find((g) => g.type === "daily_global") ??
-    goals.find((g) => g.type === "daily_project") ??
-    null;
-  const hasDailyGoal = dailyGoal !== null;
-
-  // One project_total slot
   const totalGoal = goals.find((g) => g.type === "project_total") ?? null;
   const hasProjectTotalGoal = totalGoal !== null;
 
@@ -322,7 +320,7 @@ function GoalSection({
   }
 
   return (
-    <section className="mb-10" aria-label="Writing goals">
+    <section className="mb-10" aria-label="Writing momentum">
       <h2
         className="mb-4 text-xs font-semibold uppercase tracking-widest"
         style={{ color: "var(--color-mist)" }}
@@ -331,114 +329,110 @@ function GoalSection({
       </h2>
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-        {/* ── Card 1: Words Today ─────────────────────────────── */}
+
+        {/* ── Card 1: Writing Streak ──────────────────────────────── */}
         <div
           className="flex flex-col rounded-lg p-5"
-          style={{ background: "var(--surface-card)", border: "1px solid var(--color-border)" }}
+          style={cardStyle}
         >
           <div className="mb-3 flex items-center gap-2">
-            <Feather size={13} style={{ color: "var(--color-gold)" }} aria-hidden />
+            <Flame size={13} style={{ color: "var(--color-gold)" }} aria-hidden />
             <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--color-mist)" }}>
-              Words Today
+              Writing Streak
             </p>
           </div>
-          <p
-            className="font-rune-serif leading-none"
-            style={{ color: "var(--text-primary)", fontSize: "2.75rem" }}
-          >
-            {wordsToday.toLocaleString()}
-          </p>
-          <p className="mt-2 text-xs" style={{ color: "var(--color-mist)" }}>
-            words written today
-          </p>
+
+          {writingStreak.currentStreak > 0 ? (
+            <>
+              <p
+                className="font-rune-serif leading-none"
+                style={{ color: "var(--color-gold)", fontSize: "2.75rem" }}
+              >
+                {writingStreak.currentStreak}
+              </p>
+              <p className="mt-1 text-xs" style={{ color: "var(--color-mist)" }}>
+                Day Streak
+              </p>
+              <p className="mt-auto pt-3 text-xs" style={{ color: "var(--color-mist)", opacity: 0.55 }}>
+                Best: {writingStreak.maxStreak} {writingStreak.maxStreak === 1 ? "day" : "days"}
+              </p>
+            </>
+          ) : (
+            <>
+              <p
+                className="font-rune-serif leading-none"
+                style={{ color: "var(--text-primary)", fontSize: "2.75rem" }}
+              >
+                0
+              </p>
+              <p className="mt-1 text-xs" style={{ color: "var(--color-mist)" }}>
+                Day Streak
+              </p>
+              <p className="mt-auto pt-3 text-xs italic" style={{ color: "var(--color-mist)", opacity: 0.6 }}>
+                Start your streak today
+              </p>
+            </>
+          )}
         </div>
 
-        {/* ── Card 2: Daily Writing Goal ──────────────────────── */}
-        {dailyGoal ? (
-          <div
-            className="relative flex flex-col rounded-lg p-5"
-            style={{ background: "var(--surface-card)", border: "1px solid var(--color-border)" }}
-          >
-            {/* Delete button */}
-            <button
-              onClick={() => handleDelete(dailyGoal.id)}
-              className="absolute right-3 top-3 flex h-6 w-6 items-center justify-center rounded transition-colors"
-              style={{ color: "var(--color-mist)", opacity: 0.45 }}
-              aria-label="Remove daily goal"
-            >
-              <Trash2 size={12} />
-            </button>
-
-            {/* Header */}
-            <div className="mb-1">
-              <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--color-mist)" }}>
-                {dailyGoal.type === "daily_project" ? "Daily Project Goal" : "Daily Goal"}
-              </p>
-              {dailyGoal.type === "daily_project" && dailyGoal.project_title && (
-                <span
-                  className="mt-1 inline-block rounded px-1.5 py-0.5 text-[10px] font-medium"
-                  style={{
-                    background: "rgba(201,168,76,0.10)",
-                    border: "1px solid var(--color-border)",
-                    color: "var(--color-gold)",
-                  }}
-                >
-                  {dailyGoal.project_title}
-                </span>
-              )}
-            </div>
-
-            {/* Ring + center text */}
-            <div className="relative mx-auto my-3 flex items-center justify-center" style={{ width: 128, height: 128 }}>
-              <CircularRing current={dailyGoal.current_words} target={dailyGoal.target_words} size={128} />
-              <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
-                <span className="font-rune-serif text-xl leading-none" style={{ color: "var(--text-primary)" }}>
-                  {dailyGoal.current_words.toLocaleString()}
-                </span>
-                <span className="mt-0.5 text-[9px] uppercase tracking-wider" style={{ color: "var(--color-mist)" }}>
-                  / {dailyGoal.target_words.toLocaleString()}
-                </span>
-              </div>
-            </div>
-
-            {dailyGoal.current_words >= dailyGoal.target_words ? (
-              <p className="mt-auto text-center text-xs italic" style={{ color: "var(--color-gold)" }}>
-                Goal Reached! ✦
-              </p>
-            ) : (
-              <p className="mt-auto text-center text-xs" style={{ color: "var(--color-mist)" }}>
-                {(dailyGoal.target_words - dailyGoal.current_words).toLocaleString()} words to go
-              </p>
-            )}
-          </div>
-        ) : (
-          <button
-            onClick={() => setModalCategory("daily")}
-            className="flex flex-col items-center justify-center rounded-lg p-5 text-center transition-colors duration-150 hover:border-rune-gold/40"
-            style={{
-              background: "var(--surface-card)",
-              border: "1px dashed var(--color-border)",
-              cursor: "pointer",
-            }}
-            aria-label="Set daily writing goal"
-          >
-            <span className="mb-2 text-lg" style={{ color: "var(--color-border-strong)" }} aria-hidden>◎</span>
+        {/* ── Card 2: Chapter Blueprint ───────────────────────────── */}
+        <div
+          className="flex flex-col rounded-lg p-5"
+          style={cardStyle}
+        >
+          <div className="mb-3">
             <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--color-mist)" }}>
-              Daily Goal
+              Chapter Blueprint
             </p>
-            <p className="mt-3 text-xs font-medium" style={{ color: "var(--color-gold)" }}>
-              + Set Daily Goal
-            </p>
-          </button>
-        )}
+          </div>
 
-        {/* ── Card 3: Project Total Goal ──────────────────────── */}
+          {chapterProgress && chapterProgress.total > 0 ? (
+            <>
+              <p
+                className="mb-3 font-rune-serif text-sm"
+                style={{ color: "var(--text-primary)" }}
+              >
+                {chapterProgress.completed} of {chapterProgress.total} chapters complete
+              </p>
+              <div
+                className="h-2 w-full overflow-hidden rounded-full"
+                style={{ background: "rgba(107,101,96,0.25)" }}
+                role="progressbar"
+                aria-valuenow={chapterProgress.completed}
+                aria-valuemax={chapterProgress.total}
+                aria-label="Chapter completion progress"
+              >
+                <div
+                  className="h-full rounded-full transition-all duration-500"
+                  style={{
+                    background: "var(--color-gold)",
+                    width: `${Math.round((chapterProgress.completed / chapterProgress.total) * 100)}%`,
+                  }}
+                />
+              </div>
+              {chapterProgressProjectTitle && (
+                <p className="mt-auto pt-3 text-xs" style={{ color: "var(--color-mist)", opacity: 0.55 }}>
+                  {chapterProgressProjectTitle}
+                </p>
+              )}
+            </>
+          ) : chapterProgress && chapterProgress.total === 0 ? (
+            <p className="font-rune-serif text-sm" style={{ color: "var(--text-primary)", opacity: 0.45 }}>
+              No chapters yet
+            </p>
+          ) : (
+            <p className="font-rune-serif text-sm" style={{ color: "var(--text-primary)", opacity: 0.45 }}>
+              No projects yet
+            </p>
+          )}
+        </div>
+
+        {/* ── Card 3: Project Total Goal ──────────────────────────── */}
         {totalGoal ? (
           <div
             className="relative flex flex-col rounded-lg p-5"
-            style={{ background: "var(--surface-card)", border: "1px solid var(--color-border)" }}
+            style={cardStyle}
           >
-            {/* Delete button */}
             <button
               onClick={() => handleDelete(totalGoal.id)}
               className="absolute right-3 top-3 flex h-6 w-6 items-center justify-center rounded transition-colors"
@@ -448,14 +442,12 @@ function GoalSection({
               <Trash2 size={12} />
             </button>
 
-            {/* Header */}
             <div className="mb-1">
               <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--color-mist)" }}>
                 {totalGoal.project_title ? `${totalGoal.project_title} — Total Target` : "Manuscript Goal"}
               </p>
             </div>
 
-            {/* Ring + center text */}
             <div className="relative mx-auto my-3 flex items-center justify-center" style={{ width: 128, height: 128 }}>
               <CircularRing current={totalGoal.current_words} target={totalGoal.target_words} size={128} />
               <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
@@ -480,7 +472,7 @@ function GoalSection({
           </div>
         ) : (
           <button
-            onClick={() => setModalCategory("project_total")}
+            onClick={() => setModalOpen(true)}
             className="flex flex-col items-center justify-center rounded-lg p-5 text-center transition-colors duration-150 hover:border-rune-gold/40"
             style={{
               background: "var(--surface-card)",
@@ -500,17 +492,17 @@ function GoalSection({
         )}
       </div>
 
-      {modalCategory !== null && (
+      {modalOpen && (
         <AddGoalModal
-          onClose={() => setModalCategory(null)}
+          onClose={() => setModalOpen(false)}
           onCreated={() => {
-            setModalCategory(null);
+            setModalOpen(false);
             startTransition(() => router.refresh());
           }}
           projects={projects}
-          hasDailyGoal={hasDailyGoal}
+          hasDailyGoal={false}
           hasProjectTotalGoal={hasProjectTotalGoal}
-          initialCategory={modalCategory}
+          initialCategory="project_total"
         />
       )}
     </section>
@@ -528,8 +520,10 @@ export function DashboardContent({
   profile,
   personalBests,
   combatRecords = {},
-  wordsToday = 0,
   goals = [],
+  writingStreak = { currentStreak: 0, maxStreak: 0 },
+  chapterProgress = null,
+  chapterProgressProjectTitle = null,
 }: DashboardContentProps) {
   const mode = useModeStore((s) => s.mode);
   const recentProject = projects[0] ?? null;
@@ -709,7 +703,13 @@ export function DashboardContent({
         </section>
       )}
 
-      <GoalSection goals={goals} wordsToday={wordsToday} projects={projects} />
+      <GoalSection
+        goals={goals}
+        projects={projects}
+        writingStreak={writingStreak}
+        chapterProgress={chapterProgress}
+        chapterProgressProjectTitle={chapterProgressProjectTitle}
+      />
 
       <section className="mb-10 grid grid-cols-2 gap-4 sm:grid-cols-3" aria-label="Stats">
         <div className="flex items-center gap-4 rounded-lg p-5" style={cardStyle}>

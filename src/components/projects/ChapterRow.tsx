@@ -2,8 +2,9 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { GripVertical, Trash2 } from "lucide-react";
-import { updateChapter, deleteChapter } from "@/lib/actions/chapters";
+import { GripVertical, Trash2, CheckCircle, Circle } from "lucide-react";
+import { updateChapter, deleteChapter, markChapterComplete } from "@/lib/actions/chapters";
+import { useToastStore } from "@/store/toastStore";
 import { cn } from "@/lib/utils";
 import type { Chapter } from "@/lib/types";
 
@@ -18,9 +19,11 @@ interface ChapterRowProps {
 
 export function ChapterRow({ chapter, projectId }: ChapterRowProps) {
   const router = useRouter();
+  const showToast = useToastStore((s) => s.showToast);
   const [isEditing, setIsEditing] = useState(false);
   const [titleValue, setTitleValue] = useState(chapter.title);
   const [saving, setSaving] = useState(false);
+  const [isCompleted, setIsCompleted] = useState(chapter.is_completed ?? false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const pageCount = chapter.pages?.length ?? 0;
@@ -62,6 +65,18 @@ export function ChapterRow({ chapter, projectId }: ChapterRowProps) {
     router.refresh();
   }
 
+  async function handleToggleComplete(e: React.MouseEvent) {
+    e.stopPropagation();
+    const next = !isCompleted;
+    setIsCompleted(next); // optimistic
+    try {
+      await markChapterComplete(chapter.id, next);
+      if (next) showToast("Chapter complete ✦", "success");
+    } catch {
+      setIsCompleted(!next); // revert on error
+    }
+  }
+
   return (
     <div
       onClick={() =>
@@ -85,6 +100,17 @@ export function ChapterRow({ chapter, projectId }: ChapterRowProps) {
       >
         <GripVertical size={16} />
       </span>
+
+      {/* Completion toggle */}
+      <button
+        type="button"
+        aria-label={isCompleted ? "Mark chapter incomplete" : "Mark chapter complete"}
+        onClick={handleToggleComplete}
+        className="shrink-0 transition-colors duration-150"
+        style={{ color: isCompleted ? "var(--color-gold)" : "var(--color-border-strong)" }}
+      >
+        {isCompleted ? <CheckCircle size={16} /> : <Circle size={16} />}
+      </button>
 
       {/* Title — editable on double-click */}
       <div className="min-w-0 flex-1">
@@ -114,8 +140,11 @@ export function ChapterRow({ chapter, projectId }: ChapterRowProps) {
               startEditing(e);
             }}
             title="Double-click to rename"
-            className="block truncate text-sm transition-colors"
-            style={{ color: "var(--text-primary)", opacity: 0.8 }}
+            className={cn(
+              "block truncate text-sm transition-colors",
+              isCompleted && "line-through opacity-50"
+            )}
+            style={{ color: "var(--text-primary)", opacity: isCompleted ? undefined : 0.8 }}
           >
             {chapter.title}
           </span>
