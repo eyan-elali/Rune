@@ -9,6 +9,7 @@ import { HpBar } from "@/components/games/HpBar";
 import { BattleLog, type BattleLogEntry } from "@/components/games/BattleLog";
 import { awardXp } from "@/lib/actions/xp";
 import { appendSprintToProject, createGameSession } from "@/lib/actions/games";
+import { recordWordsWritten } from "@/lib/actions/writingStats";
 import { getProjects } from "@/lib/actions/projects";
 import { getChapters } from "@/lib/actions/chapters";
 import { xpRewardForWords } from "@/lib/xp";
@@ -998,6 +999,7 @@ export default function BattlePage() {
                 data: null,
                 error: null,
               }),
+          recordWordsWritten(null, totalWords),
         ]).then(([, xpResult]) => {
           setIsSaving(false);
           if (xpResult.data) {

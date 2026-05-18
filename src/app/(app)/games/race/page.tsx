@@ -14,6 +14,7 @@ import {
   createGameSession,
   getPersonalBests,
 } from "@/lib/actions/games";
+import { recordWordsWritten } from "@/lib/actions/writingStats";
 import { getProjects } from "@/lib/actions/projects";
 import { getChapters } from "@/lib/actions/chapters";
 import { xpRewardForWords } from "@/lib/xp";
@@ -880,6 +881,7 @@ export default function RaceYourselfPage() {
             lap_words: lapWords,
           }
         ),
+        recordWordsWritten(null, finalWords),
       ]).then(([xpResult]) => {
         setIsSaving(false);
         if (xpResult.data) {

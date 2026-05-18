@@ -3,7 +3,7 @@ create table if not exists writing_goals (
   id          uuid primary key default gen_random_uuid(),
   user_id     uuid not null references profiles(id) on delete cascade,
   project_id  uuid references projects(id) on delete cascade,
-  type        text not null check (type in ('daily_global', 'project_total')),
+  type        text not null check (type in ('daily_global', 'daily_project', 'project_total')),
   target_words integer not null,
   created_at  timestamptz not null default now()
 );
@@ -32,3 +32,12 @@ create policy "Users manage own writing sessions"
   on writing_sessions for all
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
+
+-- ── Migration step: extend goal type constraint ───────────────────────────────
+-- Run this block if the table was already created with the old constraint.
+alter table writing_goals
+  drop constraint if exists writing_goals_type_check;
+
+alter table writing_goals
+  add constraint writing_goals_type_check
+  check (type in ('daily_global', 'daily_project', 'project_total'));

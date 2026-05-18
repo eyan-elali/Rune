@@ -269,6 +269,10 @@ function GoalSection({
 
   const hasDailyGoal = goals.some((g) => g.type === "daily_global");
   const dailyGoal = goals.find((g) => g.type === "daily_global");
+  const dailyProjectGoals = goals.filter((g) => g.type === "daily_project");
+  const dailyProjectGoalProjectIds = dailyProjectGoals
+    .map((g) => g.project_id)
+    .filter((id): id is string => id !== null);
 
   async function handleDelete(id: string) {
     await deleteGoal(id);
@@ -278,7 +282,6 @@ function GoalSection({
 
   return (
     <section className="mb-10" aria-label="Writing goals">
-      {/* Words Today */}
       <div className="mb-4 flex items-center justify-between">
         <h2
           className="text-xs font-semibold uppercase tracking-widest"
@@ -301,7 +304,7 @@ function GoalSection({
       </div>
 
       <div className="flex flex-col gap-3">
-        {/* Words Today card — always shown */}
+        {/* Words Today card — always shown, tracks global count */}
         <div
           className="flex items-start gap-4 rounded-lg p-5"
           style={{ background: "var(--surface-card)", border: "1px solid var(--color-border)" }}
@@ -345,6 +348,70 @@ function GoalSection({
             </button>
           )}
         </div>
+
+        {/* Daily project goals — project-scoped today word count */}
+        {dailyProjectGoals.map((goal) => {
+          const reached = goal.current_words >= goal.target_words;
+          const remaining = goal.target_words - goal.current_words;
+          return (
+            <div
+              key={goal.id}
+              className="flex items-start gap-4 rounded-lg p-5"
+              style={{
+                background: "var(--surface-card)",
+                border: "1px solid var(--color-border)",
+              }}
+            >
+              <div className="min-w-0 flex-1">
+                <div className="mb-1 flex items-center gap-2">
+                  <p
+                    className="text-xs font-semibold uppercase tracking-widest"
+                    style={{ color: "var(--color-mist)" }}
+                  >
+                    Daily Goal
+                  </p>
+                  {goal.project_title && (
+                    <span
+                      className="rounded px-1.5 py-0.5 text-[10px] font-medium"
+                      style={{
+                        background: "rgba(201,168,76,0.10)",
+                        border: "1px solid var(--color-border)",
+                        color: "var(--color-gold)",
+                      }}
+                    >
+                      {goal.project_title}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <span
+                    className="font-rune-serif text-3xl leading-none"
+                    style={{ color: "var(--text-primary)" }}
+                  >
+                    {goal.current_words.toLocaleString()}
+                  </span>
+                  <span className="text-sm" style={{ color: "var(--color-mist)" }}>
+                    words today
+                  </span>
+                </div>
+                <GoalProgressBar current={goal.current_words} target={goal.target_words} />
+                <p className="mt-1.5 text-xs" style={{ color: "var(--color-mist)" }}>
+                  {reached
+                    ? "Daily goal reached ✦"
+                    : `${remaining.toLocaleString()} to go — goal: ${goal.target_words.toLocaleString()} words`}
+                </p>
+              </div>
+              <button
+                onClick={() => handleDelete(goal.id)}
+                className="mt-0.5 flex h-6 w-6 items-center justify-center rounded transition-colors"
+                style={{ color: "var(--color-mist)", opacity: 0.5 }}
+                aria-label="Remove daily project goal"
+              >
+                <Trash2 size={13} />
+              </button>
+            </div>
+          );
+        })}
 
         {/* Project total goals */}
         {goals
@@ -415,6 +482,7 @@ function GoalSection({
           }}
           projects={projects}
           hasDailyGoal={hasDailyGoal}
+          dailyProjectGoalProjectIds={dailyProjectGoalProjectIds}
         />
       )}
     </section>

@@ -16,7 +16,7 @@ async function getUser() {
 // ── Writing Sessions ──────────────────────────────────────────────────────────
 
 export async function recordWordsWritten(
-  projectId: string,
+  projectId: string | null,
   wordsAdded: number
 ): Promise<{ error: string | null }> {
   if (wordsAdded <= 0) return { error: null };
@@ -36,13 +36,16 @@ export async function recordWordsWritten(
 
   // If the RPC doesn't exist yet (pre-migration), fall back to manual upsert
   if (error) {
-    const { data: existing } = await supabase
+    const baseQuery = supabase
       .from("writing_sessions")
       .select("id, words_added")
       .eq("user_id", user.id)
-      .eq("project_id", projectId)
-      .eq("session_date", today)
-      .maybeSingle();
+      .eq("session_date", today);
+
+    const { data: existing } = await (projectId
+      ? baseQuery.eq("project_id", projectId)
+      : baseQuery.is("project_id", null)
+    ).maybeSingle();
 
     if (existing) {
       await supabase
@@ -118,7 +121,7 @@ export interface WritingGoal {
   user_id: string;
   project_id: string | null;
   project_title?: string | null;
-  type: "daily_global" | "project_total";
+  type: "daily_global" | "daily_project" | "project_total";
   target_words: number;
   current_words: number;
   created_at: string;
@@ -136,32 +139,74 @@ export async function getGoals(userId: string): Promise<WritingGoal[]> {
 
   if (!goals) return [];
 
-  // Fetch today's total for daily_global goals
+  // Fetch all today's sessions once — used for daily_global and daily_project
   const { data: todaySessions } = await supabase
     .from("writing_sessions")
-    .select("words_added")
+    .select("project_id, words_added")
     .eq("user_id", userId)
     .eq("session_date", today);
 
-  const wordsToday = (todaySessions ?? []).reduce(
+  // Global total (all sessions today including null-project game sessions)
+  const wordsTodayGlobal = (todaySessions ?? []).reduce(
     (sum, r) => sum + (r.words_added ?? 0),
     0
   );
 
-  // Fetch project word counts for project_total goals
+  // Per-project sums for daily_project goals
+  const wordsTodayByProject = new Map<string, number>();
+  for (const row of todaySessions ?? []) {
+    if (row.project_id) {
+      wordsTodayByProject.set(
+        row.project_id,
+        (wordsTodayByProject.get(row.project_id) ?? 0) + (row.words_added ?? 0)
+      );
+    }
+  }
+
+  // Compute canonical word counts for project_total goals
   const projectIds = goals
     .filter((g) => g.type === "project_total" && g.project_id)
     .map((g) => g.project_id as string);
 
-  let projectWordCounts: Record<string, number> = {};
-  if (projectIds.length > 0) {
-    const { data: projects } = await supabase
-      .from("projects")
-      .select("id, word_count")
-      .in("id", projectIds);
+  const projectWordCounts: Record<string, number> = {};
 
-    for (const p of projects ?? []) {
-      projectWordCounts[p.id] = p.word_count ?? 0;
+  if (projectIds.length > 0) {
+    const { data: chapters } = await supabase
+      .from("chapters")
+      .select("id, project_id")
+      .in("project_id", projectIds);
+
+    if (chapters && chapters.length > 0) {
+      const chapterIds = chapters.map((c) => c.id);
+
+      const { data: pages } = await supabase
+        .from("pages")
+        .select("id, chapter_id, word_count, is_canonical, position")
+        .in("chapter_id", chapterIds)
+        .order("position", { ascending: true });
+
+      for (const projectId of projectIds) {
+        const projectChapterIds = chapters
+          .filter((c) => c.project_id === projectId)
+          .map((c) => c.id);
+
+        let total = 0;
+        for (const chapterId of projectChapterIds) {
+          const chapterPages = (pages ?? []).filter(
+            (p) => p.chapter_id === chapterId
+          );
+          const canonicalPage = chapterPages.find((p) => p.is_canonical);
+          if (canonicalPage) {
+            total += canonicalPage.word_count ?? 0;
+          } else {
+            total += chapterPages.reduce(
+              (sum, p) => sum + (p.word_count ?? 0),
+              0
+            );
+          }
+        }
+        projectWordCounts[projectId] = total;
+      }
     }
   }
 
@@ -174,7 +219,9 @@ export async function getGoals(userId: string): Promise<WritingGoal[]> {
 
     let current_words = 0;
     if (g.type === "daily_global") {
-      current_words = wordsToday;
+      current_words = wordsTodayGlobal;
+    } else if (g.type === "daily_project" && g.project_id) {
+      current_words = wordsTodayByProject.get(g.project_id) ?? 0;
     } else if (g.type === "project_total" && g.project_id) {
       current_words = projectWordCounts[g.project_id] ?? 0;
     }
@@ -184,7 +231,7 @@ export async function getGoals(userId: string): Promise<WritingGoal[]> {
       user_id: g.user_id,
       project_id: g.project_id ?? null,
       project_title: projectTitle,
-      type: g.type as "daily_global" | "project_total",
+      type: g.type as "daily_global" | "daily_project" | "project_total",
       target_words: g.target_words,
       current_words,
       created_at: g.created_at,
@@ -193,12 +240,40 @@ export async function getGoals(userId: string): Promise<WritingGoal[]> {
 }
 
 export async function createGoal(
-  type: "daily_global" | "project_total",
+  type: "daily_global" | "daily_project" | "project_total",
   targetWords: number,
   projectId?: string
 ): Promise<ActionResult<WritingGoal>> {
   const { supabase, user } = await getUser();
   if (!user) return { data: null, error: "Not authenticated" };
+
+  // Enforce: max 1 daily_global per user
+  if (type === "daily_global") {
+    const { count } = await supabase
+      .from("writing_goals")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .eq("type", "daily_global");
+    if ((count ?? 0) > 0) {
+      return { data: null, error: "You already have a daily global goal." };
+    }
+  }
+
+  // Enforce: max 1 daily_project per project per user
+  if (type === "daily_project" && projectId) {
+    const { count } = await supabase
+      .from("writing_goals")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .eq("type", "daily_project")
+      .eq("project_id", projectId);
+    if ((count ?? 0) > 0) {
+      return {
+        data: null,
+        error: "This project already has a daily goal.",
+      };
+    }
+  }
 
   const { data, error } = await supabase
     .from("writing_goals")
@@ -218,7 +293,7 @@ export async function createGoal(
       ...data,
       project_id: data.project_id ?? null,
       project_title: null,
-      type: data.type as "daily_global" | "project_total",
+      type: data.type as "daily_global" | "daily_project" | "project_total",
       current_words: 0,
     },
     error: null,
