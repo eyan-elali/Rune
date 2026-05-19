@@ -70,7 +70,7 @@ export function ChapterRow({ chapter, projectId }: ChapterRowProps) {
     const next = !isCompleted;
     setIsCompleted(next); // optimistic
     try {
-      await markChapterComplete(chapter.id, next);
+      await markChapterComplete(chapter.id, next, projectId);
       if (next) showToast("Chapter complete ✦", "success");
     } catch {
       setIsCompleted(!next); // revert on error

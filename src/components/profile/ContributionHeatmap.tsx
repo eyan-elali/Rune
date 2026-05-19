@@ -90,9 +90,9 @@ export function ContributionHeatmap({ data }: ContributionHeatmapProps) {
   const CELL_STEP = DAY_SIZE + GAP;
 
   return (
-    <div>
+    <div className="flex w-full flex-col items-center mx-auto">
       {/* Range toggle */}
-      <div className="mb-4 flex items-center gap-1" role="group" aria-label="Activity time range">
+      <div className="mb-4 flex items-center justify-center gap-1" role="group" aria-label="Activity time range">
         {RANGE_OPTIONS.map(({ value, label }) => (
           <button
             key={value}
@@ -118,8 +118,14 @@ export function ContributionHeatmap({ data }: ContributionHeatmapProps) {
         ))}
       </div>
 
-      <div style={{ overflowX: "auto" }}>
-        <div style={{ display: "inline-block", minWidth: "max-content" }}>
+      <div
+        className="flex w-full items-center justify-center mx-auto"
+        style={{ overflowX: "auto" }}
+      >
+        <div
+          className="mx-auto"
+          style={{ display: "inline-block", minWidth: "max-content" }}
+        >
           {/* Month labels row */}
           <div
             style={{

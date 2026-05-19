@@ -86,11 +86,15 @@ export async function deleteChapter(
 
 export async function markChapterComplete(
   chapterId: string,
-  isCompleted: boolean
+  isCompleted: boolean,
+  projectId: string
 ): Promise<void> {
   const { supabase } = await getUser();
-  await supabase
+  const { error } = await supabase
     .from("chapters")
     .update({ is_completed: isCompleted, updated_at: new Date().toISOString() })
     .eq("id", chapterId);
+
+  if (error) throw new Error(error.message);
+  revalidatePath(`/projects/${projectId}`);
 }
