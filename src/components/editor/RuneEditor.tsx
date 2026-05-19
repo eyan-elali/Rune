@@ -12,6 +12,7 @@ import { recordWordsWritten } from "@/lib/actions/writingStats";
 import { awardProjectXp } from "@/lib/actions/xp";
 import { xpRewardForWords } from "@/lib/xp";
 import { useEditorStore } from "@/store/editorStore";
+import { useModeStore } from "@/store/modeStore";
 import { useProfileStore } from "@/store/profileStore";
 import { useToastStore } from "@/store/toastStore";
 import type { Page, UserPreferences } from "@/lib/types";
@@ -41,16 +42,22 @@ export default function RuneEditor({
   const rawPrefs = useProfileStore((s) => s.profile?.preferences);
   const setStoredProfile = useProfileStore((s) => s.setProfile);
   const setPendingLevelUp = useProfileStore((s) => s.setPendingLevelUp);
+  const isFocusMode = useModeStore((s) => s.mode === "focus");
   const prefs = (rawPrefs ?? {}) as Partial<UserPreferences>;
   const fontSize = prefs.fontSize ?? 18;
   const lineHeight = prefs.lineHeight ?? 1.9;
   const typewriterModeRef = useRef(prefs.typewriterMode ?? false);
   const autoSaveDelayRef = useRef(prefs.autoSaveDelay ?? 1500);
+  const isFocusModeRef = useRef(isFocusMode);
 
   const [showSaved, setShowSaved] = useState(false);
   const [toolbarPos, setToolbarPos] = useState<ToolbarPos | null>(null);
   const [titleDraft, setTitleDraft] = useState(currentPage?.title ?? "");
   const [sessionInvalidated, setSessionInvalidated] = useState(false);
+  // Ephemeral XP flash — text-only HUD pulse under the word count pill.
+  // `id` retriggers the CSS animation on each increment via React key.
+  const [xpFlash, setXpFlash] = useState<{ id: number; amount: number } | null>(null);
+  const xpFlashTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const currentPageRef = useRef<Page | null>(currentPage);
@@ -73,6 +80,18 @@ export default function RuneEditor({
     const delay = prefs.autoSaveDelay ?? 1500;
     autoSaveDelayRef.current = delay === 0 ? 100 : delay;
   }, [prefs.typewriterMode, prefs.autoSaveDelay]);
+
+  // Mirror focus-mode flag into a ref so the autosave heartbeat (which
+  // runs inside the editor closure) reads the live value without forcing
+  // the editor to re-instantiate.
+  useEffect(() => {
+    isFocusModeRef.current = isFocusMode;
+    if (isFocusMode) {
+      // Wipe any visible XP text the moment focus mode activates.
+      clearTimeout(xpFlashTimerRef.current);
+      setXpFlash(null);
+    }
+  }, [isFocusMode]);
 
   useEffect(() => {
     onPageUpdatedRef.current = onPageUpdated;
@@ -147,7 +166,9 @@ export default function RuneEditor({
             }
           }
 
-          // XP heartbeat — fire after every successful persist, additions only
+          // XP heartbeat — fire after every successful persist, additions only.
+          // NOTE: The math/server pipeline always runs (including in focus mode).
+          // Only the visual HUD pulse is suppressed when focus mode is active.
           const wordsThisIncrement = wordCount - lastAwardedWordCountRef.current;
           if (wordsThisIncrement > 0 && !sessionInvalidatedRef.current) {
             const xpGain = xpRewardForWords(wordsThisIncrement);
@@ -159,7 +180,11 @@ export default function RuneEditor({
                 if (result.data.leveledUp) {
                   setPendingLevelUp({ newLevel: result.data.newLevel, newUnlockables: result.data.newUnlockables });
                 }
-                showToast(`+${xpGain} XP ✦`, "success");
+                if (!isFocusModeRef.current) {
+                  setXpFlash({ id: Date.now(), amount: xpGain });
+                  clearTimeout(xpFlashTimerRef.current);
+                  xpFlashTimerRef.current = setTimeout(() => setXpFlash(null), 2200);
+                }
               }
             });
           }
@@ -282,6 +307,7 @@ export default function RuneEditor({
       if (remaining > 0 && !sessionInvalidatedRef.current) {
         void awardProjectXp(xpRewardForWords(remaining), { mode: "project" }, sessionId.current);
       }
+      clearTimeout(xpFlashTimerRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -452,8 +478,8 @@ export default function RuneEditor({
   ✦
 </div>
 
-{/* Floating Word Count Pill */}
-<div className="fixed bottom-6 right-6 md:bottom-8 md:right-8 z-50">
+{/* Floating Word Count Pill + text-only XP flash anchor */}
+<div className="fixed bottom-6 right-6 md:bottom-8 md:right-8 z-50 flex flex-col items-end gap-1.5">
   <div
     className={cn(
       "flex items-center rounded-full shadow-xl transition-all duration-300",
@@ -468,6 +494,23 @@ export default function RuneEditor({
     }}
   >
     {wordCount} <span className="ml-1 opacity-80">{wordCount === 1 ? "word" : "words"}</span>
+  </div>
+
+  {/* Text-only XP HUD — no container, no border, fades in/out beneath the pill */}
+  <div
+    className="pointer-events-none h-3 select-none pr-1 text-right font-serif text-[11px] italic tracking-wide"
+    aria-live="polite"
+    aria-atomic="true"
+  >
+    {xpFlash && !isFocusMode && (
+      <span
+        key={xpFlash.id}
+        className="rune-xp-flash"
+        style={{ color: "var(--color-gold)" }}
+      >
+        +{xpFlash.amount} XP ✦
+      </span>
+    )}
   </div>
 </div>
 </div>
