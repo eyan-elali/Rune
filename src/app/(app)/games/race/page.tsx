@@ -53,7 +53,23 @@ interface ResultData {
 }
 
 function extractWords(html: string): string[] {
-  return html.replace(/<[^>]+>/g, " ").split(/\s+/).filter((w) => w.length >= 2);
+  return html.replace(/<[^>]+>/g, " ").split(/\s+/).filter((w) => w.length > 0);
+}
+
+function isSessionValid(sessionWords: string[]): boolean {
+  if (sessionWords.length < 50) return true;
+
+  const WINDOW_SIZE = 50;
+  const THRESHOLD = 0.12;
+
+  for (let i = 0; i <= sessionWords.length - WINDOW_SIZE; i++) {
+    const window = sessionWords.slice(i, i + WINDOW_SIZE);
+    const unique = new Set(window.map((w) => w.toLowerCase()));
+    const ratio = unique.size / window.length;
+    if (ratio < THRESHOLD) return false;
+  }
+
+  return true;
 }
 
 // ── Setup ─────────────────────────────────────────────────────────────────────
@@ -790,7 +806,7 @@ export default function RaceYourselfPage() {
   const [resultData, setResultData] = useState<ResultData | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [raceFinished, setRaceFinished] = useState(false);
-  const [isSessionValid, setIsSessionValid] = useState(true);
+  const [sessionValid, setSessionValid] = useState(true);
 
   // Refs for split-XP tracking across effect boundaries
   const wordsAtFinishRef = useRef(0);
@@ -866,10 +882,8 @@ export default function RaceYourselfPage() {
 
     // Uniqueness check — typed words only (paste is not blocked in race editor)
     const wordList = extractWords(store.textWritten);
-    const uniqueWords = new Set(wordList.map((w) => w.toLowerCase()));
-    const uniquenessRatio = wordList.length > 0 ? uniqueWords.size / wordList.length : 1;
-    const sessionIsValid = uniquenessRatio >= 0.15;
-    setIsSessionValid(sessionIsValid);
+    const sessionIsValid = isSessionValid(wordList);
+    setSessionValid(sessionIsValid);
 
     if (!sessionIsValid) {
       useToastStore.getState().showToast(
@@ -939,7 +953,7 @@ export default function RaceYourselfPage() {
     raceFinishedRef.current = false;
     wordsAtFinishRef.current = 0;
     setRaceFinished(false);
-    setIsSessionValid(true);
+    setSessionValid(true);
     resetToSetup();
     setResultData(null);
   }, [resetToSetup]);
@@ -973,7 +987,7 @@ export default function RaceYourselfPage() {
         result={resultData}
         isSaving={isSaving}
         textWritten={textWritten}
-        isSessionValid={isSessionValid}
+        isSessionValid={sessionValid}
         onRaceAgain={handleRaceAgain}
       />
     );

@@ -28,7 +28,23 @@ const GameEditor = dynamic(() => import("@/components/editor/GameEditor"), {
 });
 
 function extractWords(html: string): string[] {
-  return html.replace(/<[^>]+>/g, " ").split(/\s+/).filter((w) => w.length >= 2);
+  return html.replace(/<[^>]+>/g, " ").split(/\s+/).filter((w) => w.length > 0);
+}
+
+function isSessionValid(sessionWords: string[]): boolean {
+  if (sessionWords.length < 50) return true;
+
+  const WINDOW_SIZE = 50;
+  const THRESHOLD = 0.12;
+
+  for (let i = 0; i <= sessionWords.length - WINDOW_SIZE; i++) {
+    const window = sessionWords.slice(i, i + WINDOW_SIZE);
+    const unique = new Set(window.map((w) => w.toLowerCase()));
+    const ratio = unique.size / window.length;
+    if (ratio < THRESHOLD) return false;
+  }
+
+  return true;
 }
 
 // ── Enemy definitions ─────────────────────────────────────────────────────────
@@ -928,7 +944,7 @@ export default function BattlePage() {
   // Results
   const [resultData, setResultData] = useState<ResultData | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [isSessionValid, setIsSessionValid] = useState(true);
+  const [sessionValid, setSessionValid] = useState(true);
 
   // Refs — read by game loop and callbacks without re-render
   const playerHpRef = useRef(PLAYER_MAX_HP);
@@ -982,10 +998,8 @@ export default function BattlePage() {
 
       // Uniqueness check — paste is blocked in GameEditor, so all words are typed
       const wordList = extractWords(battleTextWrittenRef.current);
-      const uniqueWords = new Set(wordList.map((w) => w.toLowerCase()));
-      const uniquenessRatio = wordList.length > 0 ? uniqueWords.size / wordList.length : 1;
-      const sessionIsValid = uniquenessRatio >= 0.15;
-      setIsSessionValid(sessionIsValid);
+      const sessionIsValid = isSessionValid(wordList);
+      setSessionValid(sessionIsValid);
 
       if (!sessionIsValid) {
         xp = 0;
@@ -1209,7 +1223,7 @@ export default function BattlePage() {
     wordsAtVictoryRef.current = 0;
     battleTextWrittenRef.current = "";
     setVictoryAchieved(false);
-    setIsSessionValid(true);
+    setSessionValid(true);
     setResultData(null);
     setBattleTextWritten("");
     setPhase("enemy-select");
@@ -1229,7 +1243,7 @@ export default function BattlePage() {
         result={resultData}
         isSaving={isSaving}
         textWritten={battleTextWritten}
-        isSessionValid={isSessionValid}
+        isSessionValid={sessionValid}
         onBattleAgain={handleBattleAgain}
       />
     );
