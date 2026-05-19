@@ -23,6 +23,7 @@ export interface XpEvent {
   user_id: string;
   amount: number;
   reason: string;
+  source_session_id: string | null;
   created_at: string;
 }
 

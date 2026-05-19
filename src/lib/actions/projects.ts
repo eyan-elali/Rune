@@ -190,6 +190,7 @@ export async function duplicateProject(
   }
 
   revalidatePath("/projects");
+  // No XP awarded for duplication — only manual typing earns progression.
   return { data: { ...newProject, word_count: totalWords }, error: null };
 }
 

@@ -66,12 +66,16 @@ create table if not exists public.game_sessions (
 
 -- ── xp_events ────────────────────────────────────────────────────────
 create table if not exists public.xp_events (
-  id         uuid        primary key default gen_random_uuid(),
-  user_id    uuid        not null references public.profiles (id) on delete cascade,
-  amount     integer     not null,
-  reason     text        not null,
-  created_at timestamptz not null default now()
+  id                uuid        primary key default gen_random_uuid(),
+  user_id           uuid        not null references public.profiles (id) on delete cascade,
+  amount            integer     not null,
+  reason            text        not null,
+  source_session_id uuid,
+  created_at        timestamptz not null default now()
 );
+
+-- Run once in Supabase SQL if xp_events already exists:
+-- alter table public.xp_events add column if not exists source_session_id uuid;
 
 -- ═══════════════════════════════════════════════════════════════════
 --  Row Level Security

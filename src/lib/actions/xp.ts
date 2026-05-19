@@ -1,7 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import { levelFromXp } from "@/lib/xp";
+import { levelFromXp, applyMultiplier, type XpContext } from "@/lib/xp";
 import { checkAndGrantUnlockables } from "@/lib/actions/unlockables";
 import type { Profile } from "@/lib/types";
 
@@ -16,9 +16,37 @@ type ActionResult<T> = { data: T; error: null } | { data: null; error: string };
 export async function awardXp(
   userId: string,
   amount: number,
-  reason: string
+  reason: string,
+  context: XpContext = { mode: "project" },
+  sourceSessionId?: string
 ): Promise<ActionResult<AwardXpData>> {
   const supabase = await createClient();
+
+  // Prevent double-awarding XP for the same game session
+  if (sourceSessionId) {
+    const { data: duplicate } = await supabase
+      .from("xp_events")
+      .select("id")
+      .eq("source_session_id", sourceSessionId)
+      .maybeSingle();
+
+    if (duplicate) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", userId)
+        .single();
+      return {
+        data: {
+          ...(profile as Profile),
+          leveledUp: false,
+          newLevel: (profile as Profile).level,
+          newUnlockables: [],
+        },
+        error: null,
+      };
+    }
+  }
 
   const { data: existing, error: fetchError } = await supabase
     .from("profiles")
@@ -30,8 +58,9 @@ export async function awardXp(
     return { data: null, error: fetchError?.message ?? "Profile not found" };
   }
 
+  const finalAmount = applyMultiplier(amount, context);
   const prevLevel = existing.level ?? 1;
-  const newXp = (existing.xp ?? 0) + amount;
+  const newXp = (existing.xp ?? 0) + finalAmount;
   const newLevel = levelFromXp(newXp);
   const leveledUp = newLevel > prevLevel;
 
@@ -46,7 +75,12 @@ export async function awardXp(
     return { data: null, error: updateError.message };
   }
 
-  await supabase.from("xp_events").insert({ user_id: userId, amount, reason });
+  await supabase.from("xp_events").insert({
+    user_id: userId,
+    amount: finalAmount,
+    reason,
+    source_session_id: sourceSessionId ?? null,
+  });
 
   const newUnlockables = await checkAndGrantUnlockables(userId);
 
