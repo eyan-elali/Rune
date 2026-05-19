@@ -31,6 +31,8 @@ const GameEditor = dynamic(() => import("@/components/editor/GameEditor"), {
 });
 
 const DURATIONS = [
+  // TESTING ONLY — REMOVE BEFORE RELEASE
+  { label: "10s", seconds: 10 },
   { label: "5 min", seconds: 300 },
   { label: "10 min", seconds: 600 },
   { label: "15 min", seconds: 900 },

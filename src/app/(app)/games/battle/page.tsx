@@ -62,6 +62,22 @@ interface EnemyDef {
 }
 
 const ENEMIES: EnemyDef[] = [
+  // TESTING ONLY — REMOVE BEFORE RELEASE
+  {
+    id: "tester-bot",
+    name: "The Sandbox Mirage (TEST)",
+    hp: 10,
+    description:
+      "A fragile training construct designed for rapid anti-cheat and telemetry verification.",
+    gimmick: null,
+    gimmickName: null,
+    flavorLines: [
+      "The Sandbox Mirage flickers...",
+      "A test signal hums.",
+      "Diagnostic lattice exposed.",
+      "The construct waits, half-real.",
+    ],
+  },
   {
     id: "blank-page",
     name: "The Blank Page",
