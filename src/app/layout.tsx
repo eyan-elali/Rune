@@ -20,7 +20,7 @@ const newsreader = Newsreader({
 export const metadata: Metadata = {
   title: {
     // This controls what shows up on your main landing pages
-    default: "Rune — Craft Your Epic", 
+    default: "Rune — Write Without Fear", 
     // This allows sub-pages to say things like "Arena | Rune" smoothly
     template: "%s | Rune", 
   },
@@ -29,7 +29,7 @@ export const metadata: Metadata = {
   // Crucial update: point your base url to your live production domain
   metadataBase: new URL("https://rune-app.com"), 
   openGraph: {
-    title: "Rune — Craft Your Epic",
+    title: "Rune — Write Without Fear",
     description:
       "A gamified, distraction-free writing environment. Focus Mode. Battle Arena. Race Mode.",
     type: "website",
