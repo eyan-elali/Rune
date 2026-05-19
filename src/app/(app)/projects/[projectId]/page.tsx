@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { ChapterList } from "@/components/projects/ChapterList";
 import { ManuscriptExportButton } from "@/components/projects/ManuscriptExportButton";
 import { NewDraftButton } from "@/components/projects/NewDraftButton";
+import { ChapterGoalControl } from "@/components/projects/ChapterGoalControl";
 import type { Chapter } from "@/lib/types";
 
 type ChapterWithStats = Chapter & {
@@ -34,6 +35,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
     .order("position", { ascending: true });
 
   const typedChapters = (chapters ?? []) as ChapterWithStats[];
+  const completedCount = typedChapters.filter((c) => c.is_completed).length;
 
   return (
     <div className="px-10 py-10">
@@ -64,9 +66,12 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
               {typedChapters.length === 1 ? "chapter" : "chapters"}
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <NewDraftButton projectId={project.id} projectTitle={project.title} />
-            <ManuscriptExportButton project={project} />
+          <div className="flex items-start gap-4">
+            <ChapterGoalControl project={project} completedCount={completedCount} />
+            <div className="flex items-center gap-2">
+              <NewDraftButton projectId={project.id} projectTitle={project.title} />
+              <ManuscriptExportButton project={project} />
+            </div>
           </div>
         </div>
       </div>

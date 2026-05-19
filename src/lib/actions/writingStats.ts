@@ -179,7 +179,7 @@ export async function getContributionHistory(
   const supabase = await createClient();
 
   const since = new Date();
-  since.setUTCDate(since.getUTCDate() - 364);
+  since.setUTCDate(since.getUTCDate() - 179);
   const sinceStr = since.toISOString().slice(0, 10);
 
   const { data } = await supabase

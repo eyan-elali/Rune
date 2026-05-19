@@ -33,6 +33,7 @@ export interface Project {
   description: string | null;
   cover_color: string | null;
   word_count: number;
+  chapter_goal?: number | null;
   created_at: string;
   updated_at: string;
 }

@@ -1,22 +1,9 @@
 import Link from "next/link";
-import dynamic from "next/dynamic";
 import { createClient } from "@/lib/supabase/server";
 import { XpBar } from "@/components/profile/XpBar";
+import { ContributionHeatmap } from "@/components/profile/ContributionHeatmap";
 import { getContributionHistory } from "@/lib/actions/writingStats";
 import type { GameSession } from "@/lib/types";
-
-const ContributionHeatmap = dynamic(
-  () => import("@/components/profile/ContributionHeatmap").then((m) => m.ContributionHeatmap),
-  {
-    ssr: false,
-    loading: () => (
-      <div
-        className="h-32 w-full rounded-lg"
-        style={{ background: "rgba(201,168,76,0.06)", border: "1px solid var(--color-border)" }}
-      />
-    ),
-  }
-);
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 function formatDate(iso: string) {
@@ -298,7 +285,7 @@ export default async function ProfilePage() {
           className="mb-5 text-xs font-semibold uppercase tracking-widest"
           style={{ color: "var(--color-mist)" }}
         >
-          Writing Activity — Past Year
+          Writing Activity
         </h2>
         <ContributionHeatmap data={contributionHistory} />
       </section>

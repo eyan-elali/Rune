@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { Trash2, Flame } from "lucide-react";
 import { useModeStore } from "@/store/modeStore";
 import { TaskList } from "@/components/tasks/TaskList";
 import { AddGoalModal } from "@/components/goals/AddGoalModal";
 import { deleteGoal } from "@/lib/actions/writingStats";
+import { getProjectStats } from "@/lib/actions/projects";
 import { useToastStore } from "@/store/toastStore";
 import { useRouter } from "next/navigation";
 import type { Project } from "@/lib/types";
@@ -183,8 +184,6 @@ interface DashboardContentProps {
   combatRecords?: Record<string, CombatRecord>;
   goals?: WritingGoal[];
   writingStreak?: { currentStreak: number; maxStreak: number };
-  chapterProgress?: { completed: number; total: number } | null;
-  chapterProgressProjectTitle?: string | null;
 }
 
 const RACE_DURATIONS: { seconds: number; label: string }[] = [
@@ -290,20 +289,118 @@ function CircularRing({
   );
 }
 
+// ── Average Words Per Chapter widget ─────────────────────────────────────────
+
+function AvgWordsPerChapter({ projects }: { projects: Project[] }) {
+  const [selectedProjectId, setSelectedProjectId] = useState<string>(projects[0]?.id ?? "");
+  const [metric, setMetric] = useState<number | "none" | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [initialized, setInitialized] = useState(false);
+
+  useEffect(() => {
+    const stored = localStorage.getItem("rune_avg_wpc_project_id");
+    const resolvedId =
+      stored && projects.some((p) => p.id === stored) ? stored : (projects[0]?.id ?? "");
+    setSelectedProjectId(resolvedId);
+    setInitialized(true);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (!initialized || !selectedProjectId) return;
+    setLoading(true);
+    getProjectStats(selectedProjectId).then(({ chapterCount, totalCanonicalWords }) => {
+      setMetric(chapterCount === 0 ? "none" : Math.round(totalCanonicalWords / chapterCount));
+      setLoading(false);
+    });
+  }, [selectedProjectId, initialized]);
+
+  function handleSelect(projectId: string) {
+    setSelectedProjectId(projectId);
+    localStorage.setItem("rune_avg_wpc_project_id", projectId);
+  }
+
+  return (
+    <div className="flex flex-col rounded-lg p-5" style={cardStyle}>
+      <div className="mb-3">
+        <p
+          className="text-xs font-semibold uppercase tracking-widest"
+          style={{ color: "var(--color-mist)" }}
+        >
+          Avg. Words / Chapter
+        </p>
+      </div>
+
+      {projects.length > 0 ? (
+        <>
+          <select
+            value={selectedProjectId}
+            onChange={(e) => handleSelect(e.target.value)}
+            className="mb-4 w-full rounded-md border px-2 py-1.5 text-xs outline-none focus:ring-1 focus:ring-rune-gold/40"
+            style={{
+              background: "var(--color-sepia)",
+              borderColor: "var(--color-border)",
+              color: "var(--text-primary)",
+            }}
+            aria-label="Select project for average words per chapter"
+          >
+            {projects.map((p) => (
+              <option key={p.id} value={p.id} style={{ background: "var(--color-sepia)" }}>
+                {p.title}
+              </option>
+            ))}
+          </select>
+
+          {loading ? (
+            <p
+              className="font-rune-serif leading-none"
+              style={{ color: "var(--text-primary)", opacity: 0.35, fontSize: "2.75rem" }}
+            >
+              …
+            </p>
+          ) : metric === "none" || metric === null ? (
+            <p
+              className="font-rune-serif text-sm"
+              style={{ color: "var(--text-primary)", opacity: 0.45 }}
+            >
+              No chapters yet
+            </p>
+          ) : (
+            <>
+              <p
+                className="font-rune-serif leading-none"
+                style={{ color: "var(--text-primary)", fontSize: "2.75rem" }}
+              >
+                {(metric as number).toLocaleString()}
+              </p>
+              <p className="mt-1 text-xs" style={{ color: "var(--color-mist)" }}>
+                avg. words per chapter
+              </p>
+            </>
+          )}
+        </>
+      ) : (
+        <p
+          className="font-rune-serif text-sm"
+          style={{ color: "var(--text-primary)", opacity: 0.45 }}
+        >
+          No projects yet
+        </p>
+      )}
+    </div>
+  );
+}
+
 // ── Goal section ──────────────────────────────────────────────────────────────
 
 function GoalSection({
   goals,
   projects,
   writingStreak,
-  chapterProgress,
-  chapterProgressProjectTitle,
 }: {
   goals: WritingGoal[];
   projects: Project[];
   writingStreak: { currentStreak: number; maxStreak: number };
-  chapterProgress: { completed: number; total: number } | null;
-  chapterProgressProjectTitle: string | null;
 }) {
   const router = useRouter();
   const showToast = useToastStore((s) => s.showToast);
@@ -375,57 +472,8 @@ function GoalSection({
           )}
         </div>
 
-        {/* ── Card 2: Chapter Blueprint ───────────────────────────── */}
-        <div
-          className="flex flex-col rounded-lg p-5"
-          style={cardStyle}
-        >
-          <div className="mb-3">
-            <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--color-mist)" }}>
-              Chapter Blueprint
-            </p>
-          </div>
-
-          {chapterProgress && chapterProgress.total > 0 ? (
-            <>
-              <p
-                className="mb-3 font-rune-serif text-sm"
-                style={{ color: "var(--text-primary)" }}
-              >
-                {chapterProgress.completed} of {chapterProgress.total} chapters complete
-              </p>
-              <div
-                className="h-2 w-full overflow-hidden rounded-full"
-                style={{ background: "rgba(107,101,96,0.25)" }}
-                role="progressbar"
-                aria-valuenow={chapterProgress.completed}
-                aria-valuemax={chapterProgress.total}
-                aria-label="Chapter completion progress"
-              >
-                <div
-                  className="h-full rounded-full transition-all duration-500"
-                  style={{
-                    background: "var(--color-gold)",
-                    width: `${Math.round((chapterProgress.completed / chapterProgress.total) * 100)}%`,
-                  }}
-                />
-              </div>
-              {chapterProgressProjectTitle && (
-                <p className="mt-auto pt-3 text-xs" style={{ color: "var(--color-mist)", opacity: 0.55 }}>
-                  {chapterProgressProjectTitle}
-                </p>
-              )}
-            </>
-          ) : chapterProgress && chapterProgress.total === 0 ? (
-            <p className="font-rune-serif text-sm" style={{ color: "var(--text-primary)", opacity: 0.45 }}>
-              No chapters yet
-            </p>
-          ) : (
-            <p className="font-rune-serif text-sm" style={{ color: "var(--text-primary)", opacity: 0.45 }}>
-              No projects yet
-            </p>
-          )}
-        </div>
+        {/* ── Card 2: Avg. Words Per Chapter ─────────────────────── */}
+        <AvgWordsPerChapter projects={projects} />
 
         {/* ── Card 3: Project Total Goal ──────────────────────────── */}
         {totalGoal ? (
@@ -500,9 +548,7 @@ function GoalSection({
             startTransition(() => router.refresh());
           }}
           projects={projects}
-          hasDailyGoal={false}
           hasProjectTotalGoal={hasProjectTotalGoal}
-          initialCategory="project_total"
         />
       )}
     </section>
@@ -522,8 +568,6 @@ export function DashboardContent({
   combatRecords = {},
   goals = [],
   writingStreak = { currentStreak: 0, maxStreak: 0 },
-  chapterProgress = null,
-  chapterProgressProjectTitle = null,
 }: DashboardContentProps) {
   const mode = useModeStore((s) => s.mode);
   const recentProject = projects[0] ?? null;
@@ -707,8 +751,6 @@ export function DashboardContent({
         goals={goals}
         projects={projects}
         writingStreak={writingStreak}
-        chapterProgress={chapterProgress}
-        chapterProgressProjectTitle={chapterProgressProjectTitle}
       />
 
       <section className="mb-10 grid grid-cols-2 gap-4 sm:grid-cols-3" aria-label="Stats">

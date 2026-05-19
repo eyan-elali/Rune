@@ -54,7 +54,7 @@ export async function createProject(
 
 export async function updateProject(
   id: string,
-  fields: Partial<Pick<Project, "title" | "description" | "cover_color">>
+  fields: Partial<Pick<Project, "title" | "description" | "cover_color" | "chapter_goal">>
 ): Promise<ActionResult<Project>> {
   const { supabase, user } = await getUser();
   if (!user) return { data: null, error: "Not authenticated" };
@@ -206,4 +206,41 @@ export async function deleteProject(id: string): Promise<{ error: string | null 
   if (error) return { error: error.message };
   revalidatePath("/projects");
   return { error: null };
+}
+
+export async function getProjectStats(
+  projectId: string
+): Promise<{ chapterCount: number; totalCanonicalWords: number }> {
+  const { supabase } = await getUser();
+
+  const { data: chapters } = await supabase
+    .from("chapters")
+    .select("id")
+    .eq("project_id", projectId);
+
+  const chapterIds = (chapters ?? []).map((c: { id: string }) => c.id);
+  if (chapterIds.length === 0) return { chapterCount: 0, totalCanonicalWords: 0 };
+
+  const { data: pages } = await supabase
+    .from("pages")
+    .select("chapter_id, word_count, is_canonical")
+    .in("chapter_id", chapterIds);
+
+  let totalWords = 0;
+  for (const chapterId of chapterIds) {
+    const chapterPages = (pages ?? []).filter(
+      (p: { chapter_id: string }) => p.chapter_id === chapterId
+    );
+    const canonical = chapterPages.find((p: { is_canonical: boolean }) => p.is_canonical);
+    if (canonical) {
+      totalWords += (canonical as { word_count: number }).word_count ?? 0;
+    } else {
+      totalWords += chapterPages.reduce(
+        (s: number, p: { word_count: number }) => s + (p.word_count ?? 0),
+        0
+      );
+    }
+  }
+
+  return { chapterCount: chapterIds.length, totalCanonicalWords: totalWords };
 }

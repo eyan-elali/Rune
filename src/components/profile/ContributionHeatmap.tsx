@@ -1,11 +1,20 @@
 "use client";
 
+import { useEffect, useState } from "react";
+
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+type Range = 30 | 90 | 180;
+const RANGE_OPTIONS: { value: Range; label: string }[] = [
+  { value: 30, label: "1 Month" },
+  { value: 90, label: "3 Months" },
+  { value: 180, label: "6 Months" },
+];
 
 interface HeatmapCell {
   date: string;
   count: number;
-  outside: boolean; // before the 365-day window or after today
+  outside: boolean;
 }
 
 interface ContributionHeatmapProps {
@@ -21,23 +30,36 @@ function getCellBackground(count: number, outside: boolean): string {
 }
 
 export function ContributionHeatmap({ data }: ContributionHeatmapProps) {
+  const [mounted, setMounted] = useState(false);
+  const [range, setRange] = useState<Range>(180);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return (
+      <div
+        className="h-32 w-full rounded-lg"
+        style={{ background: "rgba(201,168,76,0.06)", border: "1px solid var(--color-border)" }}
+      />
+    );
+  }
+
   const countMap = new Map(data.map((d) => [d.date, d.count]));
 
-  // Range: 365 days ending today (inclusive)
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const startDate = new Date(today);
-  startDate.setDate(today.getDate() - 364);
+  startDate.setDate(today.getDate() - (range - 1));
 
   // Align grid to the Sunday on or before startDate
   const gridStart = new Date(startDate);
   gridStart.setDate(gridStart.getDate() - gridStart.getDay());
 
-  // Total columns (weeks) needed to cover gridStart → today
   const totalDays = Math.floor((today.getTime() - gridStart.getTime()) / 86400000) + 1;
   const numColumns = Math.ceil(totalDays / 7);
 
-  // Build cells in column-major order (col 0..N, row 0..6 within each col)
   const cells: HeatmapCell[] = [];
   for (let i = 0; i < numColumns * 7; i++) {
     const d = new Date(gridStart);
@@ -47,7 +69,6 @@ export function ContributionHeatmap({ data }: ContributionHeatmapProps) {
     cells.push({ date: dateStr, count: countMap.get(dateStr) ?? 0, outside });
   }
 
-  // Month labels: first non-outside cell in each column where the month changes
   const monthLabels: { label: string; column: number }[] = [];
   let lastMonth = -1;
   for (let col = 0; col < numColumns; col++) {
@@ -69,89 +90,118 @@ export function ContributionHeatmap({ data }: ContributionHeatmapProps) {
   const CELL_STEP = DAY_SIZE + GAP;
 
   return (
-    <div style={{ overflowX: "auto" }}>
-      <div style={{ display: "inline-block", minWidth: "max-content" }}>
-        {/* Month labels row */}
-        <div
-          style={{
-            position: "relative",
-            height: "16px",
-            marginBottom: "4px",
-            width: `${numColumns * CELL_STEP - GAP}px`,
-          }}
-          aria-hidden
-        >
-          {monthLabels.map(({ label, column }) => (
-            <span
-              key={`${label}-${column}`}
-              style={{
-                position: "absolute",
-                left: `${column * CELL_STEP}px`,
-                fontSize: "10px",
-                color: "var(--color-mist)",
-                whiteSpace: "nowrap",
-              }}
-            >
-              {label}
-            </span>
-          ))}
-        </div>
+    <div>
+      {/* Range toggle */}
+      <div className="mb-4 flex items-center gap-1" role="group" aria-label="Activity time range">
+        {RANGE_OPTIONS.map(({ value, label }) => (
+          <button
+            key={value}
+            type="button"
+            onClick={() => setRange(value)}
+            className="rounded px-3 py-1 text-xs font-medium transition-all duration-150"
+            style={
+              range === value
+                ? {
+                    background: "rgba(201,168,76,0.15)",
+                    color: "var(--color-gold)",
+                    borderBottom: "2px solid var(--color-gold)",
+                  }
+                : {
+                    color: "var(--color-mist)",
+                    borderBottom: "2px solid transparent",
+                  }
+            }
+            aria-pressed={range === value}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
 
-        {/* Heatmap grid */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: `repeat(${numColumns}, ${DAY_SIZE}px)`,
-            gridTemplateRows: `repeat(7, ${DAY_SIZE}px)`,
-            gap: `${GAP}px`,
-          }}
-          role="img"
-          aria-label="Writing contribution heatmap for the past year"
-        >
-          {cells.map((cell, i) => {
-            const col = Math.floor(i / 7) + 1;
-            const row = (i % 7) + 1;
-            const d = new Date(cell.date + "T00:00:00");
-            const tooltipText = cell.outside
-              ? undefined
-              : `${d.toLocaleDateString("en-US", { month: "long", day: "numeric" })} — ${cell.count.toLocaleString()} words`;
-
-            return (
-              <div
-                key={cell.date + i}
-                title={tooltipText}
+      <div style={{ overflowX: "auto" }}>
+        <div style={{ display: "inline-block", minWidth: "max-content" }}>
+          {/* Month labels row */}
+          <div
+            style={{
+              position: "relative",
+              height: "16px",
+              marginBottom: "4px",
+              width: `${numColumns * CELL_STEP - GAP}px`,
+            }}
+            aria-hidden
+          >
+            {monthLabels.map(({ label, column }) => (
+              <span
+                key={`${label}-${column}`}
                 style={{
-                  gridColumn: col,
-                  gridRow: row,
+                  position: "absolute",
+                  left: `${column * CELL_STEP}px`,
+                  fontSize: "10px",
+                  color: "var(--color-mist)",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {label}
+              </span>
+            ))}
+          </div>
+
+          {/* Heatmap grid */}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: `repeat(${numColumns}, ${DAY_SIZE}px)`,
+              gridTemplateRows: `repeat(7, ${DAY_SIZE}px)`,
+              gap: `${GAP}px`,
+            }}
+            role="img"
+            aria-label={`Writing contribution heatmap for the past ${range} days`}
+          >
+            {cells.map((cell, i) => {
+              const col = Math.floor(i / 7) + 1;
+              const row = (i % 7) + 1;
+              const d = new Date(cell.date + "T00:00:00");
+              const tooltipText = cell.outside
+                ? undefined
+                : `${d.toLocaleDateString("en-US", { month: "long", day: "numeric" })} — ${cell.count.toLocaleString()} words`;
+
+              return (
+                <div
+                  key={cell.date + i}
+                  title={tooltipText}
+                  style={{
+                    gridColumn: col,
+                    gridRow: row,
+                    width: `${DAY_SIZE}px`,
+                    height: `${DAY_SIZE}px`,
+                    borderRadius: "2px",
+                    backgroundColor: getCellBackground(cell.count, cell.outside),
+                  }}
+                />
+              );
+            })}
+          </div>
+
+          {/* Legend */}
+          <div
+            className="mt-3 flex items-center gap-2"
+            aria-hidden
+            style={{ fontSize: "10px", color: "var(--color-mist)" }}
+          >
+            <span>Less</span>
+            {[0, 150, 600, 900].map((threshold, idx) => (
+              <div
+                key={idx}
+                style={{
                   width: `${DAY_SIZE}px`,
                   height: `${DAY_SIZE}px`,
                   borderRadius: "2px",
-                  backgroundColor: getCellBackground(cell.count, cell.outside),
+                  backgroundColor: getCellBackground(threshold, false),
                 }}
               />
-            );
-          })}
-        </div>
-
-        {/* Legend */}
-        <div
-          className="mt-3 flex items-center gap-2"
-          aria-hidden
-          style={{ fontSize: "10px", color: "var(--color-mist)" }}
-        >
-          <span>Less</span>
-          {[0, 150, 600, 900].map((threshold, idx) => (
-            <div
-              key={idx}
-              style={{
-                width: `${DAY_SIZE}px`,
-                height: `${DAY_SIZE}px`,
-                borderRadius: "2px",
-                backgroundColor: getCellBackground(threshold, false),
-              }}
-            />
-          ))}
-          <span>More</span>
+            ))}
+            <span>More</span>
+          </div>
         </div>
       </div>
     </div>
