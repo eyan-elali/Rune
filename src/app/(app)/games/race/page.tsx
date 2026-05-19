@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
 import { useGameStore } from "@/store/gameStore";
 import { useProfileStore } from "@/store/profileStore";
+import { useToastStore } from "@/store/toastStore";
 import { awardXp } from "@/lib/actions/xp";
 import {
   appendSprintToProject,
@@ -49,6 +50,10 @@ interface ResultData {
   isNewBest: boolean;
   sprintWords: number;
   lapWords: number;
+}
+
+function extractWords(html: string): string[] {
+  return html.replace(/<[^>]+>/g, " ").split(/\s+/).filter((w) => w.length >= 2);
 }
 
 // ── Setup ─────────────────────────────────────────────────────────────────────
@@ -177,9 +182,11 @@ type SaveStep =
 function SaveToProject({
   words,
   textWritten,
+  sessionInvalidated = false,
 }: {
   words: number;
   textWritten: string;
+  sessionInvalidated?: boolean;
 }) {
   const [step, setStep] = useState<SaveStep>("idle");
   const [projects, setProjects] = useState<Project[]>([]);
@@ -229,8 +236,10 @@ function SaveToProject({
       setStep("error");
       return;
     }
-    // Move sprint words from the anonymous game bucket into the project bucket
-    await transferGameWordsToProject(selectedProject.id, words);
+    // Transfer words to project stats unless session was invalidated by anti-cheat
+    if (!sessionInvalidated) {
+      await transferGameWordsToProject(selectedProject.id, words);
+    }
     setSavedChapterName(chapter.title);
     setStep("saved");
   }
@@ -426,11 +435,13 @@ function ResultsState({
   result,
   isSaving,
   textWritten,
+  isSessionValid,
   onRaceAgain,
 }: {
   result: ResultData;
   isSaving: boolean;
   textWritten: string;
+  isSessionValid: boolean;
   onRaceAgain: () => void;
 }) {
   const wpm =
@@ -577,7 +588,7 @@ function ResultsState({
         </div>
 
         {/* Save to Project */}
-        <SaveToProject words={result.words} textWritten={textWritten} />
+        <SaveToProject words={result.words} textWritten={textWritten} sessionInvalidated={!isSessionValid} />
       </div>
     </div>
   );
@@ -779,6 +790,7 @@ export default function RaceYourselfPage() {
   const [resultData, setResultData] = useState<ResultData | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [raceFinished, setRaceFinished] = useState(false);
+  const [isSessionValid, setIsSessionValid] = useState(true);
 
   // Refs for split-XP tracking across effect boundaries
   const wordsAtFinishRef = useRef(0);
@@ -852,13 +864,27 @@ export default function RaceYourselfPage() {
     const sprintWords = raceFinishedRef.current ? wordsAtFinishRef.current : finalWords;
     const lapWords = Math.max(0, finalWords - sprintWords);
 
+    // Uniqueness check — typed words only (paste is not blocked in race editor)
+    const wordList = extractWords(store.textWritten);
+    const uniqueWords = new Set(wordList.map((w) => w.toLowerCase()));
+    const uniquenessRatio = wordList.length > 0 ? uniqueWords.size / wordList.length : 1;
+    const sessionIsValid = uniquenessRatio >= 0.15;
+    setIsSessionValid(sessionIsValid);
+
+    if (!sessionIsValid) {
+      useToastStore.getState().showToast(
+        "Telemetry unrecognized. Session rewards suspended.",
+        "error"
+      );
+    }
+
     // Race Yourself is 1× base for all words; split is for display only
     const sprintXp = xpRewardForWords(sprintWords);
     const lapXp = lapWords > 0 ? xpRewardForWords(lapWords) : 0;
-    const xp = sprintXp + lapXp;
+    const xp = sessionIsValid ? sprintXp + lapXp : 0;
 
     const prevBest = store.personalBests[dur] ?? 0;
-    const isNewBest = finalWords > prevBest;
+    const isNewBest = sessionIsValid && finalWords > prevBest;
 
     if (isNewBest && finalWords > 0) {
       useGameStore.getState().setPersonalBest(dur, finalWords);
@@ -870,7 +896,9 @@ export default function RaceYourselfPage() {
     if (userId && finalWords > 0) {
       setIsSaving(true);
       Promise.all([
-        awardXp(userId, xp, "race_yourself"),
+        sessionIsValid
+          ? awardXp(userId, xp, "race_yourself")
+          : Promise.resolve({ data: null, error: null } as { data: null; error: null }),
         createGameSession(
           "race",
           finalWords,
@@ -881,6 +909,7 @@ export default function RaceYourselfPage() {
             is_pb: isNewBest,
             sprint_words: sprintWords,
             lap_words: lapWords,
+            ...(sessionIsValid ? {} : { invalidated: true }),
           }
         ),
         recordWordsWritten(null, finalWords),
@@ -910,6 +939,7 @@ export default function RaceYourselfPage() {
     raceFinishedRef.current = false;
     wordsAtFinishRef.current = 0;
     setRaceFinished(false);
+    setIsSessionValid(true);
     resetToSetup();
     setResultData(null);
   }, [resetToSetup]);
@@ -943,6 +973,7 @@ export default function RaceYourselfPage() {
         result={resultData}
         isSaving={isSaving}
         textWritten={textWritten}
+        isSessionValid={isSessionValid}
         onRaceAgain={handleRaceAgain}
       />
     );

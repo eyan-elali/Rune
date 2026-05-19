@@ -15,6 +15,7 @@ import { getChapters } from "@/lib/actions/chapters";
 import { xpRewardForWords } from "@/lib/xp";
 import { useGameStore } from "@/store/gameStore";
 import { useProfileStore } from "@/store/profileStore";
+import { useToastStore } from "@/store/toastStore";
 import type { Project, Chapter } from "@/lib/types";
 
 const GameEditor = dynamic(() => import("@/components/editor/GameEditor"), {
@@ -25,6 +26,10 @@ const GameEditor = dynamic(() => import("@/components/editor/GameEditor"), {
     </div>
   ),
 });
+
+function extractWords(html: string): string[] {
+  return html.replace(/<[^>]+>/g, " ").split(/\s+/).filter((w) => w.length >= 2);
+}
 
 // ── Enemy definitions ─────────────────────────────────────────────────────────
 
@@ -465,9 +470,11 @@ type SaveStep =
 function SaveToProject({
   words,
   textWritten,
+  sessionInvalidated = false,
 }: {
   words: number;
   textWritten: string;
+  sessionInvalidated?: boolean;
 }) {
   const [step, setStep] = useState<SaveStep>("idle");
   const [projects, setProjects] = useState<Project[]>([]);
@@ -517,8 +524,10 @@ function SaveToProject({
       setStep("error");
       return;
     }
-    // Move sprint words from the anonymous game bucket into the project bucket
-    await transferGameWordsToProject(selectedProject.id, words);
+    // Transfer words to project stats unless session was invalidated by anti-cheat
+    if (!sessionInvalidated) {
+      await transferGameWordsToProject(selectedProject.id, words);
+    }
     setSavedChapterName(chapter.title);
     setStep("saved");
   }
@@ -711,11 +720,13 @@ function ResultsState({
   result,
   isSaving,
   textWritten,
+  isSessionValid,
   onBattleAgain,
 }: {
   result: ResultData;
   isSaving: boolean;
   textWritten: string;
+  isSessionValid: boolean;
   onBattleAgain: () => void;
 }) {
   const isVictory = result.outcome === "victory";
@@ -889,7 +900,7 @@ function ResultsState({
         </div>
 
         {/* Save to Project */}
-        <SaveToProject words={result.words} textWritten={textWritten} />
+        <SaveToProject words={result.words} textWritten={textWritten} sessionInvalidated={!isSessionValid} />
       </div>
     </div>
   );
@@ -917,10 +928,12 @@ export default function BattlePage() {
   // Results
   const [resultData, setResultData] = useState<ResultData | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isSessionValid, setIsSessionValid] = useState(true);
 
   // Refs — read by game loop and callbacks without re-render
   const playerHpRef = useRef(PLAYER_MAX_HP);
   const enemyHpRef = useRef(0);
+  const battleTextWrittenRef = useRef("");
   const lastTypedAtRef = useRef(0);
   const elapsedSecondsRef = useRef(0);
   const logIdRef = useRef(0);
@@ -967,6 +980,21 @@ export default function BattlePage() {
         xp = Math.max(5, Math.round(xpRewardForWords(totalWords) * 0.5));
       }
 
+      // Uniqueness check — paste is blocked in GameEditor, so all words are typed
+      const wordList = extractWords(battleTextWrittenRef.current);
+      const uniqueWords = new Set(wordList.map((w) => w.toLowerCase()));
+      const uniquenessRatio = wordList.length > 0 ? uniqueWords.size / wordList.length : 1;
+      const sessionIsValid = uniquenessRatio >= 0.15;
+      setIsSessionValid(sessionIsValid);
+
+      if (!sessionIsValid) {
+        xp = 0;
+        useToastStore.getState().showToast(
+          "Telemetry unrecognized. Session rewards suspended.",
+          "error"
+        );
+      }
+
       setResultData({
         words: totalWords,
         xp,
@@ -989,13 +1017,13 @@ export default function BattlePage() {
             xp,
             enemy.id,
             {
-              outcome,
+              outcome: sessionIsValid ? outcome : "invalidated",
               enemy_name: enemy.name,
               sprint_words: sprintWords,
               lap_words: lapWords,
             }
           ),
-          userId
+          userId && sessionIsValid
             ? awardXp(userId, xp, "battle_mode")
             : Promise.resolve<{ data: null; error: null }>({
                 data: null,
@@ -1146,6 +1174,7 @@ export default function BattlePage() {
       logIdRef.current = 3;
       victoryAchievedRef.current = false;
       wordsAtVictoryRef.current = 0;
+      battleTextWrittenRef.current = "";
 
       // Set state
       setSelectedEnemy(enemy);
@@ -1178,7 +1207,9 @@ export default function BattlePage() {
     hasSavedRef.current = false;
     victoryAchievedRef.current = false;
     wordsAtVictoryRef.current = 0;
+    battleTextWrittenRef.current = "";
     setVictoryAchieved(false);
+    setIsSessionValid(true);
     setResultData(null);
     setBattleTextWritten("");
     setPhase("enemy-select");
@@ -1198,6 +1229,7 @@ export default function BattlePage() {
         result={resultData}
         isSaving={isSaving}
         textWritten={battleTextWritten}
+        isSessionValid={isSessionValid}
         onBattleAgain={handleBattleAgain}
       />
     );
@@ -1242,6 +1274,7 @@ export default function BattlePage() {
             key={gameKey}
             onWordCountChange={handleWordCount}
             onTextChange={(html) => {
+              battleTextWrittenRef.current = html;
               setBattleTextWritten(html);
               useGameStore.getState().setTextWritten(html);
             }}

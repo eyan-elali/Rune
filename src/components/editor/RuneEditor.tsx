@@ -46,6 +46,7 @@ export default function RuneEditor({
   const [showSaved, setShowSaved] = useState(false);
   const [toolbarPos, setToolbarPos] = useState<ToolbarPos | null>(null);
   const [titleDraft, setTitleDraft] = useState(currentPage?.title ?? "");
+  const [sessionInvalidated, setSessionInvalidated] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const currentPageRef = useRef<Page | null>(currentPage);
@@ -55,6 +56,8 @@ export default function RuneEditor({
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const showSavedTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const lastSavedWordCountRef = useRef<number>(currentPage?.word_count ?? 0);
+  const pastedWordsRef = useRef(0);
+  const sessionInvalidatedRef = useRef(false);
 
   // Keep preference refs in sync without recreating the editor
   useEffect(() => {
@@ -86,6 +89,20 @@ export default function RuneEditor({
       CharacterCount,
     ],
     content: currentPage?.content ?? null,
+    editorProps: {
+      handlePaste: (_view, event) => {
+        const text = event.clipboardData?.getData("text/plain") ?? "";
+        const wc = text.split(/\s+/).filter((t) => t.length >= 2).length;
+        if (wc > 0) {
+          pastedWordsRef.current += wc;
+          if (!sessionInvalidatedRef.current) {
+            sessionInvalidatedRef.current = true;
+            setSessionInvalidated(true);
+          }
+        }
+        return false; // allow normal paste insertion — content is preserved
+      },
+    },
     onUpdate({ editor }) {
       if (isLoadingRef.current) return;
 
@@ -113,8 +130,13 @@ export default function RuneEditor({
             word_count: wordCount,
           });
           if (delta > 0) {
+            const pastedDeduction = Math.min(pastedWordsRef.current, delta);
+            pastedWordsRef.current = Math.max(0, pastedWordsRef.current - pastedDeduction);
             lastSavedWordCountRef.current = wordCount;
-            void recordWordsWritten(projectId, delta, page?.id ?? null);
+            const adjustedDelta = delta - pastedDeduction;
+            if (adjustedDelta > 0) {
+              void recordWordsWritten(projectId, adjustedDelta, page?.id ?? null);
+            }
           }
           setIsSaving(false);
           setLastSaved(new Date());
@@ -210,6 +232,9 @@ export default function RuneEditor({
     prevPageIdRef.current = newPageId;
     currentPageRef.current = currentPage ?? null;
     lastSavedWordCountRef.current = currentPage?.word_count ?? 0;
+    pastedWordsRef.current = 0;
+    sessionInvalidatedRef.current = false;
+    setSessionInvalidated(false);
 
     isLoadingRef.current = true;
     editor.commands.setContent(currentPage?.content ?? null);
@@ -390,16 +415,17 @@ export default function RuneEditor({
 
 {/* Floating Word Count Pill */}
 <div className="fixed bottom-6 right-6 md:bottom-8 md:right-8 z-50">
-  <div 
+  <div
     className={cn(
       "flex items-center rounded-full shadow-xl transition-all duration-300",
       "px-3 py-1.5 text-[10px] tracking-tight", // Laptop/Mobile defaults
       "2xl:px-4 2xl:py-1.5 2xl:text-[11px] 2xl:tracking-widest" // Big monitor upgrades
     )}
-    style={{ 
-      background: "var(--surface-card)", 
+    aria-label={`${wordCount} ${wordCount === 1 ? "word" : "words"}${sessionInvalidated ? " — paste detected" : ""}`}
+    style={{
+      background: "var(--surface-card)",
       color: "var(--text-primary)",
-      border: "1px solid rgba(201, 168, 76, 0.4)" 
+      border: "1px solid rgba(201, 168, 76, 0.4)"
     }}
   >
     {wordCount} <span className="ml-1 opacity-80">{wordCount === 1 ? "word" : "words"}</span>
