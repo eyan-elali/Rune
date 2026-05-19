@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import type { Chapter } from "@/lib/types";
 
 type ChapterWithStats = Chapter & {
-  pages: { id: string; word_count: number }[];
+  pages: { id: string; word_count: number; is_canonical: boolean }[];
 };
 
 interface ChapterRowProps {
@@ -27,7 +27,7 @@ export function ChapterRow({ chapter, projectId }: ChapterRowProps) {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const pageCount = chapter.pages?.length ?? 0;
-  const wordCount = chapter.pages?.reduce((s, p) => s + p.word_count, 0) ?? 0;
+  const wordCount = chapter.pages?.filter((p) => p.is_canonical).reduce((s, p) => s + p.word_count, 0) ?? 0;
 
   function startEditing(e: React.MouseEvent) {
     e.stopPropagation();

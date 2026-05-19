@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/Button";
 import type { Chapter } from "@/lib/types";
 
 type ChapterWithStats = Chapter & {
-  pages: { id: string; word_count: number }[];
+  pages: { id: string; word_count: number; is_canonical: boolean }[];
 };
 
 interface ChapterListProps {

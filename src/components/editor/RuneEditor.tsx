@@ -9,6 +9,8 @@ import { flushSync } from "react-dom";
 import { cn } from "@/lib/utils";
 import { updatePage, renamePage } from "@/lib/actions/pages";
 import { recordWordsWritten } from "@/lib/actions/writingStats";
+import { awardProjectXp } from "@/lib/actions/xp";
+import { xpRewardForWords } from "@/lib/xp";
 import { useEditorStore } from "@/store/editorStore";
 import { useProfileStore } from "@/store/profileStore";
 import { useToastStore } from "@/store/toastStore";
@@ -37,6 +39,8 @@ export default function RuneEditor({
   const { setIsSaving, setLastSaved, isSaving } = useEditorStore();
   const showToast = useToastStore((s) => s.showToast);
   const rawPrefs = useProfileStore((s) => s.profile?.preferences);
+  const setStoredProfile = useProfileStore((s) => s.setProfile);
+  const setPendingLevelUp = useProfileStore((s) => s.setPendingLevelUp);
   const prefs = (rawPrefs ?? {}) as Partial<UserPreferences>;
   const fontSize = prefs.fontSize ?? 18;
   const lineHeight = prefs.lineHeight ?? 1.9;
@@ -58,6 +62,10 @@ export default function RuneEditor({
   const lastSavedWordCountRef = useRef<number>(currentPage?.word_count ?? 0);
   const pastedWordsRef = useRef(0);
   const sessionInvalidatedRef = useRef(false);
+  // One UUID per editor mount; persists for the lifetime of this component instance.
+  const sessionId = useRef(crypto.randomUUID());
+  // Tracks the last word count at which XP was awarded; advances forward only.
+  const lastAwardedWordCountRef = useRef<number>(currentPage?.word_count ?? 0);
 
   // Keep preference refs in sync without recreating the editor
   useEffect(() => {
@@ -138,6 +146,24 @@ export default function RuneEditor({
               void recordWordsWritten(projectId, adjustedDelta, page?.id ?? null);
             }
           }
+
+          // XP heartbeat — fire after every successful persist, additions only
+          const wordsThisIncrement = wordCount - lastAwardedWordCountRef.current;
+          if (wordsThisIncrement > 0 && !sessionInvalidatedRef.current) {
+            const xpGain = xpRewardForWords(wordsThisIncrement);
+            // Advance milestone optimistically to guard against duplicate dispatch
+            lastAwardedWordCountRef.current = wordCount;
+            void awardProjectXp(xpGain, { mode: "project" }, sessionId.current).then((result) => {
+              if (result.data) {
+                setStoredProfile(result.data);
+                if (result.data.leveledUp) {
+                  setPendingLevelUp({ newLevel: result.data.newLevel, newUnlockables: result.data.newUnlockables });
+                }
+                showToast(`+${xpGain} XP ✦`, "success");
+              }
+            });
+          }
+
           setIsSaving(false);
           setLastSaved(new Date());
 
@@ -232,6 +258,7 @@ export default function RuneEditor({
     prevPageIdRef.current = newPageId;
     currentPageRef.current = currentPage ?? null;
     lastSavedWordCountRef.current = currentPage?.word_count ?? 0;
+    lastAwardedWordCountRef.current = currentPage?.word_count ?? 0;
     pastedWordsRef.current = 0;
     sessionInvalidatedRef.current = false;
     setSessionInvalidated(false);
@@ -242,10 +269,22 @@ export default function RuneEditor({
       (editor.storage.characterCount?.words?.() as number | undefined) ??
       currentPage?.word_count ??
       0;
+    lastAwardedWordCountRef.current = lastSavedWordCountRef.current;
     setTimeout(() => {
       isLoadingRef.current = false;
     }, 0);
   }, [editor, currentPage?.id]); // intentionally omitting currentPage to avoid re-running on word_count updates
+
+  // Trailing XP sync on unmount — catches words saved but not yet awarded
+  useEffect(() => {
+    return () => {
+      const remaining = lastSavedWordCountRef.current - lastAwardedWordCountRef.current;
+      if (remaining > 0 && !sessionInvalidatedRef.current) {
+        void awardProjectXp(xpRewardForWords(remaining), { mode: "project" }, sessionId.current);
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const wordCount =
     (editor?.storage.characterCount?.words?.() as number | undefined) ?? 0;

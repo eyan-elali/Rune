@@ -7,7 +7,7 @@ import { ChapterGoalControl } from "@/components/projects/ChapterGoalControl";
 import type { Chapter } from "@/lib/types";
 
 type ChapterWithStats = Chapter & {
-  pages: { id: string; word_count: number }[];
+  pages: { id: string; word_count: number; is_canonical: boolean }[];
 };
 
 interface ProjectPageProps {
@@ -30,7 +30,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
   // Fetch chapters with page stats
   const { data: chapters } = await supabase
     .from("chapters")
-    .select("*, pages(id, word_count)")
+    .select("*, pages(id, word_count, is_canonical)")
     .eq("project_id", projectId)
     .order("position", { ascending: true });
 
