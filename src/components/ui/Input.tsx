@@ -5,10 +5,15 @@ interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label: string;
   error?: string;
   serif?: boolean;
+  /** High-contrast labels and subdued placeholders for dark auth surfaces */
+  authContrast?: boolean;
 }
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(
-  ({ label, error, serif = false, className, id, style, ...props }, ref) => {
+  (
+    { label, error, serif = false, authContrast = false, className, id, style, ...props },
+    ref
+  ) => {
     const inputId = id ?? `input-${label.toLowerCase().replace(/\s+/g, "-")}`;
     const errorId = `${inputId}-error`;
 
@@ -16,7 +21,10 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
       <div className="flex flex-col gap-1.5">
         <label
           htmlFor={inputId}
-          className="text-xs font-medium uppercase tracking-widest text-rune-mist"
+          className={cn(
+            "text-xs font-medium uppercase tracking-widest",
+            authContrast ? "text-stone-100" : "text-rune-mist"
+          )}
         >
           {label}
         </label>
@@ -28,7 +36,9 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           className={cn(
             "w-full rounded border px-3 py-2.5 text-sm outline-none",
             "transition-colors duration-150",
-            "bg-transparent placeholder:text-rune-mist/50",
+            authContrast
+              ? "bg-transparent placeholder:text-stone-500"
+              : "bg-transparent placeholder:text-rune-mist/50",
             "border-[var(--color-border)]",
             "focus:border-rune-gold focus:ring-2 focus:ring-rune-gold/20",
             error &&

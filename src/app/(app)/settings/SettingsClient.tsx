@@ -447,6 +447,7 @@ function EditorTab() {
   const lineHeight = prefs.lineHeight ?? 1.9;
   const autoSaveDelay = prefs.autoSaveDelay ?? 1000;
   const typewriterMode = prefs.typewriterMode ?? false;
+  const wideEditor = prefs.wideEditor ?? false;
 
   const [localFontSize, setLocalFontSize] = useState(fontSize);
   const fontSaveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
@@ -527,6 +528,17 @@ function EditorTab() {
               { label: "1s", value: 1000 },
               { label: "3s", value: 3000 },
             ]}
+          />
+        </SettingRow>
+
+        <SettingRow
+          label="Wide line width"
+          description="Expand the writing column for broader screens"
+        >
+          <Toggle
+            checked={wideEditor}
+            onChange={(v) => savePref({ wideEditor: v })}
+            label="Wide line width"
           />
         </SettingRow>
 

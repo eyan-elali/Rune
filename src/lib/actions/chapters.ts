@@ -47,6 +47,18 @@ export async function createChapter(
     .single();
 
   if (error) return { data: null, error: error.message };
+
+  const { error: pageError } = await supabase.from("pages").insert({
+    chapter_id: data.id,
+    title: "Page 1",
+    content: null,
+    word_count: 0,
+    position: 0,
+    is_canonical: true,
+  });
+
+  if (pageError) return { data: null, error: pageError.message };
+
   revalidatePath(`/projects/${projectId}`);
   return { data, error: null };
 }

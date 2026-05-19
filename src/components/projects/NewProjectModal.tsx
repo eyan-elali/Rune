@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { X } from "lucide-react";
 import { createProject, updateProject } from "@/lib/actions/projects";
 import { Button } from "@/components/ui/Button";
@@ -36,6 +37,7 @@ export function NewProjectModal({
   onSuccess,
   editing,
 }: NewProjectModalProps) {
+  const router = useRouter();
   const [visible, setVisible] = useState(false);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -89,7 +91,11 @@ export function NewProjectModal({
       return;
     }
     onClose();
+    if (!editing && result.data) {
+      router.push(`/projects/${result.data.id}`);
+    }
     onSuccess();
+    router.refresh();
   }
 
   if (!open) return null;

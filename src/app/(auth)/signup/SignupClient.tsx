@@ -94,7 +94,7 @@ export default function SignupClient() {
           borderColor: "var(--color-border)",
         }}
       >
-        <h1 className="!mb-6 font-rune-serif text-xl text-rune-parchment">
+        <h1 className="!mb-6 font-rune-serif text-xl text-stone-100">
           Create your account
         </h1>
 
@@ -108,7 +108,7 @@ export default function SignupClient() {
             autoComplete="name"
             required
             placeholder="Your pen name"
-            className="placeholder:text-stone-100"
+            authContrast
           />
           <Input
             label="Email"
@@ -119,7 +119,7 @@ export default function SignupClient() {
             autoComplete="email"
             required
             placeholder="you@example.com"
-            className="placeholder:text-stone-100"
+            authContrast
           />
           <Input
             label="Password"
@@ -131,7 +131,7 @@ export default function SignupClient() {
             required
             placeholder="At least 8 characters"
             error={fieldErrors.password}
-            className="placeholder:text-stone-100"
+            authContrast
           />
           <Input
             label="Confirm Password"
@@ -143,7 +143,7 @@ export default function SignupClient() {
             required
             placeholder="••••••••"
             error={fieldErrors.confirmPassword}
-            className="placeholder:text-stone-100"
+            authContrast
           />
 
           {error && (

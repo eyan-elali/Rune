@@ -91,7 +91,7 @@ export default function LoginClient() {
           borderColor: "var(--color-border)",
         }}
       >
-        <h1 className="!mb-4 font-rune-serif text-xl text-rune-parchment">
+        <h1 className="!mb-4 font-rune-serif text-xl text-stone-100">
           {mode === "password" ? "Sign in" : "Sign in with magic link"}
         </h1>
 
@@ -105,7 +105,7 @@ export default function LoginClient() {
             autoComplete="email"
             required
             placeholder="you@example.com"
-            className="placeholder:text-stone-100"
+            authContrast
           />
 
           {mode === "password" && (
@@ -118,7 +118,7 @@ export default function LoginClient() {
               autoComplete="current-password"
               required
               placeholder="••••••••"
-              className="placeholder:text-stone-100"
+              authContrast
             />
           )}
 

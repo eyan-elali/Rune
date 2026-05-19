@@ -46,6 +46,7 @@ export default function RuneEditor({
   const prefs = (rawPrefs ?? {}) as Partial<UserPreferences>;
   const fontSize = prefs.fontSize ?? 18;
   const lineHeight = prefs.lineHeight ?? 1.9;
+  const wideEditor = prefs.wideEditor ?? false;
   const typewriterModeRef = useRef(prefs.typewriterMode ?? false);
   const autoSaveDelayRef = useRef(prefs.autoSaveDelay ?? 1500);
   const isFocusModeRef = useRef(isFocusMode);
@@ -419,7 +420,12 @@ export default function RuneEditor({
           "--editor-line-height": String(lineHeight),
         } as React.CSSProperties}
       >
-        <div className="mx-auto w-[90%] md:w-[80%] lg:w-[70%] xl:w-3/5 2xl:w-2/5 max-w-[1000px] px-6 pt-24 pb-16 min-h-[calc(100vh-9rem)]">
+        <div
+          className={cn(
+            "mx-auto w-full px-6 pt-24 pb-16 min-h-[calc(100vh-9rem)]",
+            wideEditor ? "max-w-5xl" : "max-w-2xl"
+          )}
+        >
         {/* No extra background or shadow needed here now, since the parent is vellum */}
           <input
             id={`page-title-${currentPage.id}`}

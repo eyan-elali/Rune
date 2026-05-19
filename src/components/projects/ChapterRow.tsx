@@ -17,6 +17,8 @@ interface ChapterRowProps {
   projectId: string;
 }
 
+const NAV_CLICK_DELAY_MS = 250;
+
 export function ChapterRow({ chapter, projectId }: ChapterRowProps) {
   const router = useRouter();
   const showToast = useToastStore((s) => s.showToast);
@@ -25,14 +27,31 @@ export function ChapterRow({ chapter, projectId }: ChapterRowProps) {
   const [saving, setSaving] = useState(false);
   const [isCompleted, setIsCompleted] = useState(chapter.is_completed ?? false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const navClickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const pageCount = chapter.pages?.length ?? 0;
   const wordCount = chapter.pages?.filter((p) => p.is_canonical).reduce((s, p) => s + p.word_count, 0) ?? 0;
 
-  function startEditing(e: React.MouseEvent) {
-    e.stopPropagation();
+  function startEditing() {
     setIsEditing(true);
     setTimeout(() => inputRef.current?.select(), 0);
+  }
+
+  function handleRowClick() {
+    if (isEditing) return;
+    if (navClickTimerRef.current) clearTimeout(navClickTimerRef.current);
+    navClickTimerRef.current = setTimeout(() => {
+      router.push(`/projects/${projectId}/chapters/${chapter.id}`);
+    }, NAV_CLICK_DELAY_MS);
+  }
+
+  function handleRowDoubleClick(e: React.MouseEvent) {
+    e.preventDefault();
+    if (navClickTimerRef.current) {
+      clearTimeout(navClickTimerRef.current);
+      navClickTimerRef.current = null;
+    }
+    if (!isEditing) startEditing();
   }
 
   async function commitEdit() {
@@ -79,10 +98,8 @@ export function ChapterRow({ chapter, projectId }: ChapterRowProps) {
 
   return (
     <div
-      onClick={() =>
-        !isEditing &&
-        router.push(`/projects/${projectId}/chapters/${chapter.id}`)
-      }
+      onClick={handleRowClick}
+      onDoubleClick={handleRowDoubleClick}
       className={cn(
         "group flex cursor-pointer items-center gap-3 rounded-lg border px-4 py-4",
         "transition-all duration-150",
@@ -101,7 +118,7 @@ export function ChapterRow({ chapter, projectId }: ChapterRowProps) {
         <GripVertical size={16} />
       </span>
 
-      {/* Title — editable on double-click */}
+      {/* Title — rename on double-click only */}
       <div className="min-w-0 flex-1">
         {isEditing ? (
           <input
@@ -123,11 +140,6 @@ export function ChapterRow({ chapter, projectId }: ChapterRowProps) {
           />
         ) : (
           <span
-            onClick={(e) => e.stopPropagation()}
-            onDoubleClick={(e) => {
-              e.stopPropagation();
-              startEditing(e);
-            }}
             title="Double-click to rename"
             className="block truncate text-sm transition-colors"
             style={{ color: "var(--text-primary)", opacity: 0.8 }}
