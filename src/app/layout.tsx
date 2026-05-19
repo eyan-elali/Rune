@@ -19,16 +19,19 @@ const newsreader = Newsreader({
 
 export const metadata: Metadata = {
   title: {
-    default: "Rune — Write more. Fear less.",
-    template: "%s",
+    // This controls what shows up on your main landing pages
+    default: "Rune — Craft Your Epic", 
+    // This allows sub-pages to say things like "Arena | Rune" smoothly
+    template: "%s | Rune", 
   },
   description:
-    "A gamified, distraction-free writing environment for writers who struggle to start.",
-  metadataBase: new URL("https://rune.vercel.app"),
+    "A gamified, focus-driven writing workspace built specifically for epic fantasy authors.",
+  // Crucial update: point your base url to your live production domain
+  metadataBase: new URL("https://rune-app.com"), 
   openGraph: {
-    title: "Rune — Write more. Fear less.",
+    title: "Rune — Craft Your Epic",
     description:
-      "A gamified, distraction-free writing environment. Focus Mode. Battle Mode. Race Mode.",
+      "A gamified, distraction-free writing environment. Focus Mode. Battle Arena. Race Mode.",
     type: "website",
   },
 };
