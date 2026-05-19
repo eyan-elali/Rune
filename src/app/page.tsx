@@ -483,7 +483,7 @@ export default function LandingPage() {
               Focus Mode
             </p>
             <h2
-              className="mb-6 font-rune-serif leading-tight"
+              className="!mb-6 font-rune-serif leading-tight"
               style={{
                 fontSize: "clamp(2.2rem, 5vw, 3.4rem)",
                 color: "var(--color-parchment)",
@@ -583,7 +583,7 @@ export default function LandingPage() {
               Game Mode
             </p>
             <h2
-              className="mb-6 font-rune-serif leading-tight"
+              className="!mb-6 font-rune-serif leading-tight"
               style={{
                 fontSize: "clamp(2.2rem, 5vw, 3.4rem)",
                 color: "var(--color-parchment)",
@@ -672,7 +672,7 @@ export default function LandingPage() {
             XP &amp; Progression
           </p>
           <h2
-            className="mb-10 font-rune-serif leading-tight"
+            className="!mb-10 font-rune-serif leading-tight"
             style={{
               fontSize: "clamp(2rem, 4.5vw, 3rem)",
               color: "var(--color-parchment)",
@@ -783,7 +783,7 @@ export default function LandingPage() {
           </p>
 
           <h2
-            className="mb-10 text-center font-rune-serif leading-snug"
+            className="!mb-10 text-center font-rune-serif leading-snug"
             style={{
               fontSize: "clamp(2rem, 5vw, 3.5rem)",
               color: "var(--color-parchment)",

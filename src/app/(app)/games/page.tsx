@@ -99,8 +99,8 @@ export default async function GamesPage() {
 
             {/* Name + description */}
             <h2
-              className="font-rune-serif text-2xl mb-2 transition-colors duration-150"
-              style={{ color: "var(--color-parchment)" }}
+              className="!mb-2 font-rune-serif text-2xl text-stone-900 transition-colors duration-150"
+              style={{ color: "var(--text-primary)" }}
             >
               Race Yourself
             </h2>
@@ -188,8 +188,8 @@ export default async function GamesPage() {
 
             {/* Name + description */}
             <h2
-              className="font-rune-serif text-2xl mb-2 transition-colors duration-150"
-              style={{ color: "var(--color-parchment)" }}
+              className="!mb-2 font-rune-serif text-2xl text-stone-900 transition-colors duration-150"
+              style={{ color: "var(--text-primary)" }}
             >
               Battle Mode
             </h2>

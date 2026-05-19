@@ -23,8 +23,8 @@ export default function AppError({
         ✦ &nbsp;An error occurred&nbsp; ✦
       </p>
       <h1
-        className="font-rune-serif text-3xl"
-        style={{ color: "var(--color-parchment)" }}
+        className="font-rune-serif text-3xl text-stone-900"
+        style={{ color: "var(--text-primary)" }}
       >
         Something went wrong
       </h1>

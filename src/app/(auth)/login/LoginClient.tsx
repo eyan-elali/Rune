@@ -66,14 +66,14 @@ export default function LoginClient() {
           <p className="font-rune-serif text-lg text-rune-parchment">
             Check your inbox
           </p>
-          <p className="mt-2 text-sm text-rune-mist">
+          <p className="mt-2 text-sm text-stone-100">
             We sent a magic link to{" "}
             <span className="text-rune-gold">{email}</span>.
           </p>
           <button
             type="button"
             onClick={() => setMagicSent(false)}
-            className="mt-5 text-xs text-rune-mist underline-offset-2 hover:text-rune-gold transition-colors hover:underline"
+            className="mt-5 text-xs text-stone-100 underline-offset-2 transition-colors hover:text-rune-gold hover:underline"
           >
             Use a different email
           </button>
@@ -105,6 +105,7 @@ export default function LoginClient() {
             autoComplete="email"
             required
             placeholder="you@example.com"
+            className="placeholder:text-stone-100"
           />
 
           {mode === "password" && (
@@ -117,6 +118,7 @@ export default function LoginClient() {
               autoComplete="current-password"
               required
               placeholder="••••••••"
+              className="placeholder:text-stone-100"
             />
           )}
 
@@ -143,7 +145,7 @@ export default function LoginClient() {
           <button
             type="button"
             onClick={toggleMode}
-            className="w-full text-center text-xs text-rune-mist transition-colors hover:text-rune-gold"
+            className="w-full text-center text-xs text-stone-100 transition-colors hover:text-rune-gold"
           >
             {mode === "password"
               ? "Sign in with a magic link instead"
@@ -152,7 +154,7 @@ export default function LoginClient() {
         </div>
       </div>
 
-      <p className="mt-5 text-center text-xs text-rune-mist">
+      <p className="mt-5 text-center text-xs text-stone-100">
         No account?{" "}
         <Link
           href="/signup"

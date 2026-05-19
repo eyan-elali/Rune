@@ -69,7 +69,7 @@ export function NewDraftButton({ projectId, projectTitle }: NewDraftButtonProps)
             }}
           >
             <h2
-              className="mb-2 font-rune-serif text-xl"
+              className="!mb-2 font-rune-serif text-xl"
               style={{ color: "var(--text-primary)" }}
             >
               Create a Draft?

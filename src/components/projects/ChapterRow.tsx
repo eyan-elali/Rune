@@ -84,7 +84,7 @@ export function ChapterRow({ chapter, projectId }: ChapterRowProps) {
         router.push(`/projects/${projectId}/chapters/${chapter.id}`)
       }
       className={cn(
-        "group flex cursor-pointer items-center gap-3 rounded-lg border px-4 py-3.5",
+        "group flex cursor-pointer items-center gap-3 rounded-lg border px-4 py-4",
         "transition-all duration-150",
         "hover:border-[var(--color-border-strong)] hover:bg-rune-gold/5",
         saving && "opacity-60"

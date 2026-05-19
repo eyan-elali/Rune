@@ -101,8 +101,8 @@ function SetupState({
         </p>
 
         <h1
-          className="mb-2 text-center font-rune-serif text-4xl"
-          style={{ color: "var(--color-parchment)" }}
+          className="!mb-2 text-center font-rune-serif text-4xl text-stone-900"
+          style={{ color: "var(--text-primary)" }}
         >
           Set the Clock
         </h1>
@@ -348,7 +348,7 @@ function SaveToProject({
                     onClick={() => handleSelectProject(project)}
                     className="w-full px-4 py-3 text-left text-sm transition-colors duration-100 hover:bg-rune-gold/10"
                     style={{
-                      color: "var(--color-parchment)",
+                      color: "var(--text-primary)",
                       borderTop: i > 0 ? "1px solid var(--color-border)" : undefined,
                     }}
                   >
@@ -416,7 +416,7 @@ function SaveToProject({
                     onClick={() => handleSelectChapter(chapter)}
                     className="w-full px-4 py-3 text-left text-sm transition-colors duration-100 hover:bg-rune-gold/10"
                     style={{
-                      color: "var(--color-parchment)",
+                      color: "var(--text-primary)",
                       borderTop: i > 0 ? "1px solid var(--color-border)" : undefined,
                     }}
                   >
@@ -509,7 +509,7 @@ function ResultsState({
 
         <p
           className="font-rune-serif leading-none"
-          style={{ fontSize: "5.5rem", color: "var(--color-parchment)" }}
+          style={{ fontSize: "5.5rem", color: "var(--text-primary)" }}
         >
           {result.words.toLocaleString()}
         </p>
@@ -532,7 +532,7 @@ function ResultsState({
           >
             <span style={{ color: "var(--color-mist)" }}>
               Sprint Words:{" "}
-              <span style={{ color: "var(--color-parchment)" }}>
+              <span style={{ color: "var(--text-primary)" }}>
                 {result.sprintWords.toLocaleString()}
               </span>
               {" · "}
@@ -548,7 +548,7 @@ function ResultsState({
           <div>
             <p
               className="font-rune-serif text-2xl"
-              style={{ color: "var(--color-parchment)" }}
+              style={{ color: "var(--text-primary)" }}
             >
               {wpm}
             </p>
@@ -582,7 +582,7 @@ function ResultsState({
           <div>
             <p
               className="font-rune-serif text-2xl"
-              style={{ color: "var(--color-parchment)" }}
+              style={{ color: "var(--text-primary)" }}
             >
               {durationLabel}
             </p>
@@ -660,8 +660,8 @@ function HUD({
           {/* Words written */}
           <div className="min-w-[7rem]">
             <p
-              className="font-rune-serif text-2xl tabular-nums"
-              style={{ color: "var(--color-parchment)" }}
+              className="font-rune-serif text-2xl tabular-nums text-stone-900"
+              style={{ color: "var(--text-primary)" }}
             >
               {wordsWritten.toLocaleString()}
             </p>

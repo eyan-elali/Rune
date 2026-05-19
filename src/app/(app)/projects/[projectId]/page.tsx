@@ -78,7 +78,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
 
       {/* Chapter list */}
       <section aria-label="Chapters">
-        <h2 className="mb-3 text-xs font-medium uppercase tracking-widest text-rune-mist/60">
+        <h2 className="!mb-3 text-xs font-medium uppercase tracking-widest text-rune-mist/60">
           Chapters
         </h2>
         <ChapterList chapters={typedChapters} projectId={projectId} />

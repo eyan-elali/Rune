@@ -152,7 +152,7 @@ function EnemyCard({ name, hp, description, gimmick }: (typeof ENEMIES)[number])
         )}
       </p>
       <h3
-        className="mb-2 font-rune-serif text-lg"
+        className="!mb-2 font-rune-serif text-lg"
         style={{ color: "var(--text-primary)" }}
       >
         {name}
@@ -419,7 +419,7 @@ function GoalSection({
   return (
     <section className="mb-10" aria-label="Writing momentum">
       <h2
-        className="mb-4 text-xs font-semibold uppercase tracking-widest"
+        className="!mb-4 text-xs font-semibold uppercase tracking-widest"
         style={{ color: "var(--color-mist)" }}
       >
         Writing Goals

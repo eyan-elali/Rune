@@ -80,7 +80,7 @@ export function AddGoalModal({
         </button>
 
         <h2
-          className="mb-5 font-rune-serif text-xl"
+          className="!mb-5 font-rune-serif text-xl"
           style={{ color: "var(--text-primary)" }}
         >
           Manuscript Goal

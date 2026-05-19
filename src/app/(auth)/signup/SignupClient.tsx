@@ -67,13 +67,13 @@ export default function SignupClient() {
           <p className="font-rune-serif text-lg text-rune-parchment">
             Check your email
           </p>
-          <p className="mt-2 text-sm text-rune-mist">
+          <p className="mt-2 text-sm text-stone-100">
             We sent a confirmation link to{" "}
             <span className="text-rune-gold">{email}</span>. Click it to
             activate your account.
           </p>
         </div>
-        <p className="mt-5 text-center text-xs text-rune-mist">
+        <p className="mt-5 text-center text-xs text-stone-100">
           <Link
             href="/login"
             className="text-rune-gold transition-colors hover:text-rune-gold-dim"
@@ -94,7 +94,7 @@ export default function SignupClient() {
           borderColor: "var(--color-border)",
         }}
       >
-        <h1 className="mb-6 font-rune-serif text-xl text-rune-parchment">
+        <h1 className="!mb-6 font-rune-serif text-xl text-rune-parchment">
           Create your account
         </h1>
 
@@ -108,6 +108,7 @@ export default function SignupClient() {
             autoComplete="name"
             required
             placeholder="Your pen name"
+            className="placeholder:text-stone-100"
           />
           <Input
             label="Email"
@@ -118,6 +119,7 @@ export default function SignupClient() {
             autoComplete="email"
             required
             placeholder="you@example.com"
+            className="placeholder:text-stone-100"
           />
           <Input
             label="Password"
@@ -129,6 +131,7 @@ export default function SignupClient() {
             required
             placeholder="At least 8 characters"
             error={fieldErrors.password}
+            className="placeholder:text-stone-100"
           />
           <Input
             label="Confirm Password"
@@ -140,6 +143,7 @@ export default function SignupClient() {
             required
             placeholder="••••••••"
             error={fieldErrors.confirmPassword}
+            className="placeholder:text-stone-100"
           />
 
           {error && (
@@ -159,7 +163,7 @@ export default function SignupClient() {
         </form>
       </div>
 
-      <p className="mt-5 text-center text-xs text-rune-mist">
+      <p className="mt-5 text-center text-xs text-stone-100">
         Already have an account?{" "}
         <Link
           href="/login"

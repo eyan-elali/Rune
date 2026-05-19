@@ -223,7 +223,7 @@ export default async function ProfilePage() {
         aria-label="Level and XP"
       >
         <h2
-          className="mb-5 text-xs font-semibold uppercase tracking-widest"
+          className="!mb-5 text-xs font-semibold uppercase tracking-widest"
           style={{ color: "var(--color-mist)" }}
         >
           Progress
@@ -234,7 +234,7 @@ export default async function ProfilePage() {
       {/* ── Writing stats ────────────────────────────────────────────── */}
       <section className="mb-8" aria-label="Writing stats">
         <h2
-          className="mb-4 text-xs font-semibold uppercase tracking-widest"
+          className="!mb-4 text-xs font-semibold uppercase tracking-widest"
           style={{ color: "var(--color-mist)" }}
         >
           Writing Stats
@@ -282,7 +282,7 @@ export default async function ProfilePage() {
         aria-label="Writing activity heatmap"
       >
         <h2
-          className="mb-5 text-xs font-semibold uppercase tracking-widest"
+          className="!mb-5 text-xs font-semibold uppercase tracking-widest"
           style={{ color: "var(--color-mist)" }}
         >
           Writing Activity
@@ -320,7 +320,7 @@ export default async function ProfilePage() {
       {/* ── Recent activity ──────────────────────────────────────────── */}
       <section aria-label="Recent activity">
         <h2
-          className="mb-4 text-xs font-semibold uppercase tracking-widest"
+          className="!mb-4 text-xs font-semibold uppercase tracking-widest"
           style={{ color: "var(--color-mist)" }}
         >
           Recent Sessions

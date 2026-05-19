@@ -153,8 +153,8 @@ function EnemySelectState({ onSelect }: { onSelect: (e: EnemyDef) => void }) {
           ✦ Battle Mode ✦
         </p>
         <h1
-          className="mb-3 font-rune-serif text-4xl"
-          style={{ color: "var(--color-parchment)" }}
+          className="!mb-3 font-rune-serif text-4xl text-stone-900"
+          style={{ color: "var(--text-primary)" }}
         >
           Choose Your Adversary
         </h1>
@@ -189,8 +189,8 @@ function EnemySelectState({ onSelect }: { onSelect: (e: EnemyDef) => void }) {
 
             <div className="flex flex-1 flex-col p-7">
               <h2
-                className="mb-1 font-rune-serif text-xl transition-colors duration-150"
-                style={{ color: "var(--color-parchment)" }}
+                className="!mb-1 font-rune-serif text-xl text-stone-900 transition-colors duration-150"
+                style={{ color: "var(--text-primary)" }}
               >
                 {enemy.name}
               </h2>
@@ -330,8 +330,8 @@ function BattleHUD({
         <div>
           <div className="mb-2 flex items-center justify-between">
             <h2
-              className="font-rune-serif text-lg leading-tight"
-              style={{ color: "var(--color-parchment)" }}
+              className="font-rune-serif text-lg leading-tight text-stone-900"
+              style={{ color: "var(--text-primary)" }}
             >
               {enemy.name}
             </h2>
@@ -432,8 +432,8 @@ function BattleHUD({
           }}
         >
           <span
-            className="font-rune-serif text-2xl tabular-nums"
-            style={{ color: "var(--color-parchment)" }}
+            className="font-rune-serif text-2xl tabular-nums text-stone-900"
+            style={{ color: "var(--text-primary)" }}
           >
             {wordsWritten}
           </span>
@@ -647,7 +647,7 @@ function SaveToProject({
                     onClick={() => handleSelectProject(project)}
                     className="w-full px-4 py-3 text-left text-sm transition-colors duration-100 hover:bg-rune-gold/10"
                     style={{
-                      color: "var(--color-parchment)",
+                      color: "var(--text-primary)",
                       borderTop: i > 0 ? "1px solid var(--color-border)" : undefined,
                     }}
                   >
@@ -716,7 +716,7 @@ function SaveToProject({
                     onClick={() => handleSelectChapter(chapter)}
                     className="w-full px-4 py-3 text-left text-sm transition-colors duration-100 hover:bg-rune-gold/10"
                     style={{
-                      color: "var(--color-parchment)",
+                      color: "var(--text-primary)",
                       borderTop: i > 0 ? "1px solid var(--color-border)" : undefined,
                     }}
                   >
@@ -797,7 +797,7 @@ function ResultsState({
         </p>
 
         <h1
-          className={`font-rune-serif text-6xl mb-6 ${
+          className={`!mb-6 font-rune-serif text-6xl ${
             isVictory ? "shimmer-gold" : "shimmer-crimson"
           }`}
         >
@@ -818,7 +818,7 @@ function ResultsState({
         {/* Total word count */}
         <p
           className="font-rune-serif leading-none"
-          style={{ fontSize: "5.5rem", color: "var(--color-parchment)" }}
+          style={{ fontSize: "5.5rem", color: "var(--text-primary)" }}
         >
           {result.words.toLocaleString()}
         </p>
@@ -841,7 +841,7 @@ function ResultsState({
           >
             <span style={{ color: "var(--color-mist)" }}>
               Battle Words:{" "}
-              <span style={{ color: "var(--color-parchment)" }}>
+              <span style={{ color: "var(--text-primary)" }}>
                 {result.sprintWords.toLocaleString()}
               </span>
               {" · "}
@@ -898,7 +898,7 @@ function ResultsState({
               className="font-rune-serif text-sm leading-tight"
               style={{
                 color: isVictory
-                  ? "var(--color-parchment)"
+                  ? "var(--text-primary)"
                   : "var(--color-crimson)",
               }}
             >

@@ -90,7 +90,7 @@ function Section({
   return (
     <section className="mb-10" aria-label={title}>
       <h2
-        className="mb-4 text-xs font-semibold uppercase tracking-widest"
+        className="!mb-4 text-xs font-semibold uppercase tracking-widest"
         style={{ color: "var(--color-mist)" }}
       >
         {title}
