@@ -4,26 +4,22 @@ import { NextResponse, type NextRequest } from "next/server";
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   
-  // 1. Supabase email templates send a token_hash, not a code
-  const token_hash = searchParams.get("token_hash");
-  const type = searchParams.get("type") ?? "signup"; 
+  // 1. Extract the PKCE authorization code sent by the email link
+  const code = searchParams.get("code");
   const next = searchParams.get("next") ?? "/dashboard";
 
-  if (token_hash) {
+  if (code) {
     const supabase = await createClient();
     
-    // 2. Verify the email OTP token hash behind the scenes
-    const { error } = await supabase.auth.verifyOtp({
-      token_hash,
-      type: type as any,
-    });
-
+    // 2. Trade the temporary code for a secure, active session cookie
+    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    
     if (!error) {
-      // 3. Email is verified, session cookies are set, slide to the dashboard!
+      // 3. Success! Send them straight into the workspace dashboard
       return NextResponse.redirect(`${origin}${next}`);
     }
   }
 
-  // Fallback if the token expired or failed
+  // Fallback if the code exchange failed or expired
   return NextResponse.redirect(`${origin}/login?error=auth_callback_failed`);
 }
