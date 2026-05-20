@@ -100,14 +100,14 @@ function KebabMenu({
 export function ProjectCardSkeleton() {
   return (
     <div
-      className="flex flex-col rounded-lg border"
+      className="flex flex-col overflow-hidden rounded-lg border"
       style={{
         background: "var(--surface-card)",
         borderColor: "var(--color-border)",
       }}
     >
       <div
-        className="h-1.5 w-full animate-pulse rounded-t-lg"
+        className="h-1.5 w-full shrink-0 animate-pulse rounded-t-lg"
         style={{ background: "rgba(107, 101, 96, 0.2)" }}
       />
       <div className="flex flex-col gap-3 p-5">
@@ -159,7 +159,7 @@ export function ProjectCard({ project, onEdit }: ProjectCardProps) {
     <article
       onClick={() => router.push(`/projects/${project.id}`)}
       className={cn(
-        "group relative flex cursor-pointer flex-col rounded-lg",
+        "group relative flex cursor-pointer flex-col overflow-hidden rounded-lg",
         "border transition-all duration-200",
         "hover:-translate-y-0.5 hover:shadow-lg",
         menuOpen && "z-50",
@@ -178,7 +178,7 @@ export function ProjectCard({ project, onEdit }: ProjectCardProps) {
     >
       {/* Colored top band */}
       <div
-        className="h-1.5 w-full shrink-0"
+        className="h-1.5 w-full shrink-0 rounded-t-lg"
         style={{ background: project.cover_color ?? DEFAULT_BAND_COLOR }}
       />
 

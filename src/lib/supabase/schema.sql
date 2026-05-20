@@ -288,6 +288,14 @@ begin
     new.raw_user_meta_data ->> 'display_name',
     new.raw_user_meta_data ->> 'avatar_url'
   );
+
+  insert into public.tasks (user_id, text) values
+    (new.id, 'Create your first writing project'),
+    (new.id, 'Launch a session in The Arena (Toggle Game Mode)'),
+    (new.id, 'Write distraction-free in Focus Mode'),
+    (new.id, 'Set a core manuscript page to Canonical'),
+    (new.id, 'Customize your editor view settings');
+
   return new;
 end;
 $$;

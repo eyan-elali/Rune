@@ -657,34 +657,38 @@ function HUD({
       {isVisible && (
         <div className="hud-stats-tick flex items-center justify-between px-8 py-3">
           {/* Word counts — timed vs victory lap after sprint ends */}
-          <div className="min-w-[7rem]">
+          <div className={raceFinished ? undefined : "min-w-[7rem]"}>
             {raceFinished ? (
-              <>
-                <p
-                  className="font-rune-serif text-2xl tabular-nums"
-                  style={{ color: "var(--text-primary)" }}
-                >
-                  {timedWords.toLocaleString()}
-                </p>
-                <p
-                  className="text-[10px] uppercase tracking-widest"
-                  style={{ color: "var(--color-mist)" }}
-                >
-                  timed
-                </p>
-                <p
-                  className="mt-1 font-rune-serif text-lg tabular-nums"
-                  style={{ color: "var(--color-gold)" }}
-                >
-                  {lapWords.toLocaleString()}
-                </p>
-                <p
-                  className="text-[10px] uppercase tracking-widest"
-                  style={{ color: "var(--color-mist)", opacity: 0.7 }}
-                >
-                  lap
-                </p>
-              </>
+              <div className="flex flex-row items-center gap-4">
+                <div>
+                  <p
+                    className="font-rune-serif text-2xl tabular-nums"
+                    style={{ color: "var(--text-primary)" }}
+                  >
+                    {timedWords.toLocaleString()}
+                  </p>
+                  <p
+                    className="text-[10px] uppercase tracking-widest"
+                    style={{ color: "var(--color-mist)" }}
+                  >
+                    timed
+                  </p>
+                </div>
+                <div>
+                  <p
+                    className="font-rune-serif text-lg tabular-nums"
+                    style={{ color: "var(--color-gold)" }}
+                  >
+                    {lapWords.toLocaleString()}
+                  </p>
+                  <p
+                    className="text-[10px] uppercase tracking-widest"
+                    style={{ color: "var(--color-mist)", opacity: 0.7 }}
+                  >
+                    lap
+                  </p>
+                </div>
+              </div>
             ) : (
               <>
                 <p

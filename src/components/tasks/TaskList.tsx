@@ -4,6 +4,7 @@ import { useEffect, useState, useTransition } from "react";
 import { Check, Plus, Trash2 } from "lucide-react";
 import { getTasks, createTask, updateTask, deleteTask } from "@/lib/actions/tasks";
 import { useModeStore } from "@/store/modeStore";
+import { useProfileStore } from "@/store/profileStore";
 import { cn } from "@/lib/utils";
 import type { Task } from "@/lib/types";
 
@@ -24,8 +25,15 @@ function shouldRender(task: Task, today: string): boolean {
   return true;
 }
 
+const DARK_THEMES = new Set(["candlelight", "midnight-library", "crimson-ink"]);
+
 export function TaskList() {
   const mode = useModeStore((s) => s.mode);
+  const activeTheme =
+    (useProfileStore((s) => s.profile?.preferences)?.activeTheme as
+      | string
+      | undefined) ?? "parchment";
+  const isParchment = activeTheme === "parchment";
   const [tasks, setTasks] = useState<Task[]>([]);
   const [activeTab, setActiveTab] = useState<"today" | "all-pending">("today");
   const [newText, setNewText] = useState("");
@@ -266,8 +274,14 @@ export function TaskList() {
           value={newDueDate}
           onChange={(e) => setNewDueDate(e.target.value)}
           aria-label="Due date"
-          className="bg-transparent text-xs outline-none"
-          style={{ color: "var(--color-mist)", colorScheme: "dark" }}
+          className={cn(
+            "bg-transparent text-xs outline-none",
+            isParchment && "text-stone-700"
+          )}
+          style={{
+            color: isParchment ? undefined : "var(--color-mist)",
+            colorScheme: DARK_THEMES.has(activeTheme) ? "dark" : "light",
+          }}
         />
         <button
           type="submit"
