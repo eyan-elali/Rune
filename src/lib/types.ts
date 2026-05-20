@@ -2,7 +2,6 @@ export interface UserPreferences {
   fontSize: number;
   lineHeight: number;
   autoSaveDelay: number;
-  typewriterMode: boolean;
   wideEditor: boolean;
   activeTheme: string;
   activeAvatar: string;

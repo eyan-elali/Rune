@@ -292,7 +292,8 @@ function BattleHUD({
   enemy,
   enemyHp,
   playerHp,
-  wordsWritten,
+  timedWords,
+  lapWords,
   idleWarning,
   victoryAchieved,
   battleLog,
@@ -302,7 +303,8 @@ function BattleHUD({
   enemy: EnemyDef;
   enemyHp: number;
   playerHp: number;
-  wordsWritten: number;
+  timedWords: number;
+  lapWords: number;
   idleWarning: boolean;
   victoryAchieved: boolean;
   battleLog: BattleLogEntry[];
@@ -423,26 +425,44 @@ function BattleHUD({
           )}
         </div>
 
-        {/* Word count */}
+        {/* Word count — battle vs victory lap */}
         <div
-          className="flex items-baseline gap-2 rounded px-3 py-2"
+          className="rounded px-3 py-2"
           style={{
             background: "rgba(201, 168, 76, 0.06)",
             border: "1px solid var(--color-border)",
           }}
         >
-          <span
-            className="font-rune-serif text-2xl tabular-nums text-stone-900"
-            style={{ color: "var(--text-primary)" }}
-          >
-            {wordsWritten}
-          </span>
-          <span
-            className="text-[10px] uppercase tracking-widest"
-            style={{ color: "var(--color-mist)" }}
-          >
-            words
-          </span>
+          <div className="flex items-baseline gap-2">
+            <span
+              className="font-rune-serif text-2xl tabular-nums"
+              style={{ color: "var(--text-primary)" }}
+            >
+              {timedWords.toLocaleString()}
+            </span>
+            <span
+              className="text-[10px] uppercase tracking-widest"
+              style={{ color: "var(--color-mist)" }}
+            >
+              {victoryAchieved ? "battle" : "words"}
+            </span>
+          </div>
+          {victoryAchieved && (
+            <div className="mt-2 flex items-baseline gap-2">
+              <span
+                className="font-rune-serif text-lg tabular-nums"
+                style={{ color: "var(--color-gold)" }}
+              >
+                {lapWords.toLocaleString()}
+              </span>
+              <span
+                className="text-[10px] uppercase tracking-widest"
+                style={{ color: "var(--color-mist)", opacity: 0.7 }}
+              >
+                lap
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Battle log */}
@@ -815,22 +835,20 @@ function ResultsState({
           }}
         />
 
-        {/* Total word count */}
         <p
           className="font-rune-serif leading-none"
           style={{ fontSize: "5.5rem", color: "var(--text-primary)" }}
         >
-          {result.words.toLocaleString()}
+          {result.sprintWords.toLocaleString()}
         </p>
         <p
           className="mt-2 text-xs uppercase tracking-[0.3em]"
           style={{ color: "var(--color-mist)" }}
         >
-          words written
+          {isVictory ? "battle words" : "words written"}
         </p>
 
-        {/* Split breakdown — only shown on victory when lap words exist */}
-        {isVictory && result.lapWords > 0 && (
+        {isVictory && (
           <div
             className="mt-4 rounded px-5 py-2.5 text-xs"
             style={{
@@ -1265,6 +1283,13 @@ export default function BattlePage() {
     );
   }
 
+  const hudTimedWords = victoryAchieved
+    ? wordsAtVictoryRef.current
+    : wordsWritten;
+  const hudLapWords = victoryAchieved
+    ? Math.max(0, wordsWritten - wordsAtVictoryRef.current)
+    : 0;
+
   // Active battle — two-column layout
   return (
     <div className="flex h-full min-h-0">
@@ -1275,7 +1300,8 @@ export default function BattlePage() {
             enemy={selectedEnemy}
             enemyHp={enemyHp}
             playerHp={playerHp}
-            wordsWritten={wordsWritten}
+            timedWords={hudTimedWords}
+            lapWords={hudLapWords}
             idleWarning={idleWarning}
             victoryAchieved={victoryAchieved}
             battleLog={battleLog}

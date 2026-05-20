@@ -142,14 +142,21 @@ export default async function ProfilePage() {
     }
   }
 
-  // Longest session
-  const { data: topSession } = await supabase
+  // Longest timed session (victory lap words excluded when meta is present)
+  const { data: allSessions } = await supabase
     .from("game_sessions")
-    .select("words_written")
-    .eq("user_id", user!.id)
-    .order("words_written", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .select("words_written, meta")
+    .eq("user_id", user!.id);
+
+  let longestTimedWords = 0;
+  for (const session of allSessions ?? []) {
+    const meta = session.meta as SessionMeta | null;
+    const timed =
+      typeof meta?.sprint_words === "number"
+        ? meta.sprint_words
+        : session.words_written;
+    if (timed > longestTimedWords) longestTimedWords = timed;
+  }
 
   const xp = profile?.xp ?? 0;
   const level = profile?.level ?? 1;
@@ -255,8 +262,8 @@ export default async function ProfilePage() {
           <StatCard
             label="Longest session"
             value={
-              topSession?.words_written
-                ? `${topSession.words_written.toLocaleString()} words`
+              longestTimedWords > 0
+                ? `${longestTimedWords.toLocaleString()} timed words`
                 : "—"
             }
           />
@@ -397,15 +404,47 @@ export default async function ProfilePage() {
                     </div>
                     <div className="flex shrink-0 items-center gap-5 text-right">
                       <div>
-                        <p
-                          className="text-sm font-rune-serif"
-                          style={{ color: "var(--text-primary)" }}
-                        >
-                          {session.words_written.toLocaleString()}
-                        </p>
-                        <p className="text-xs" style={{ color: "var(--color-mist)" }}>
-                          words
-                        </p>
+                        {typeof meta?.sprint_words === "number" ? (
+                          <>
+                            <p
+                              className="text-sm font-rune-serif tabular-nums"
+                              style={{ color: "var(--text-primary)" }}
+                            >
+                              {meta.sprint_words.toLocaleString()}
+                            </p>
+                            <p className="text-xs" style={{ color: "var(--color-mist)" }}>
+                              timed
+                            </p>
+                            {(meta.lap_words ?? 0) > 0 && (
+                              <>
+                                <p
+                                  className="mt-1 text-sm font-rune-serif tabular-nums"
+                                  style={{ color: "var(--color-gold)" }}
+                                >
+                                  {(meta.lap_words ?? 0).toLocaleString()}
+                                </p>
+                                <p
+                                  className="text-xs"
+                                  style={{ color: "var(--color-mist)", opacity: 0.7 }}
+                                >
+                                  lap
+                                </p>
+                              </>
+                            )}
+                          </>
+                        ) : (
+                          <>
+                            <p
+                              className="text-sm font-rune-serif"
+                              style={{ color: "var(--text-primary)" }}
+                            >
+                              {session.words_written.toLocaleString()}
+                            </p>
+                            <p className="text-xs" style={{ color: "var(--color-mist)" }}>
+                              words
+                            </p>
+                          </>
+                        )}
                       </div>
                       <div>
                         <p

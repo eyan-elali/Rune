@@ -54,7 +54,7 @@ export async function createChapter(
     content: null,
     word_count: 0,
     position: 0,
-    is_canonical: true,
+    is_canonical: false,
   });
 
   if (pageError) return { data: null, error: pageError.message };

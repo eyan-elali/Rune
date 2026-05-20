@@ -47,7 +47,6 @@ export default function RuneEditor({
   const fontSize = prefs.fontSize ?? 18;
   const lineHeight = prefs.lineHeight ?? 1.9;
   const wideEditor = prefs.wideEditor ?? false;
-  const typewriterModeRef = useRef(prefs.typewriterMode ?? false);
   const autoSaveDelayRef = useRef(prefs.autoSaveDelay ?? 1500);
   const isFocusModeRef = useRef(isFocusMode);
 
@@ -77,10 +76,9 @@ export default function RuneEditor({
 
   // Keep preference refs in sync without recreating the editor
   useEffect(() => {
-    typewriterModeRef.current = prefs.typewriterMode ?? false;
     const delay = prefs.autoSaveDelay ?? 1500;
     autoSaveDelayRef.current = delay === 0 ? 100 : delay;
-  }, [prefs.typewriterMode, prefs.autoSaveDelay]);
+  }, [prefs.autoSaveDelay]);
 
   // Mirror focus-mode flag into a ref so the autosave heartbeat (which
   // runs inside the editor closure) reads the live value without forcing
@@ -217,23 +215,6 @@ export default function RuneEditor({
     },
     onSelectionUpdate({ editor }) {
       const { from, to, empty } = editor.state.selection;
-
-      // Typewriter mode: keep cursor vertically centered relative to scroll frame
-      if (typewriterModeRef.current) {
-        try {
-          const coords = editor.view.coordsAtPos(from);
-          const el = scrollContainerRef.current;
-          if (el) {
-            const elRect = el.getBoundingClientRect();
-            const lineMid = (coords.top + coords.bottom) / 2;
-            const scrollTarget =
-              el.scrollTop + (lineMid - elRect.top) - el.clientHeight / 2;
-            el.scrollTo({ top: Math.max(0, scrollTarget), behavior: "smooth" });
-          }
-        } catch {
-          // coords out of range — ignore
-        }
-      }
 
       if (empty) {
         setToolbarPos(null);

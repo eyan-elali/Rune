@@ -464,7 +464,7 @@ function ResultsState({
 }) {
   const wpm =
     result.duration > 0
-      ? ((result.words / result.duration) * 60).toFixed(1)
+      ? ((result.sprintWords / result.duration) * 60).toFixed(1)
       : "0.0";
   const durationLabel =
     DURATIONS.find((d) => d.seconds === result.duration)?.label ??
@@ -488,7 +488,7 @@ function ResultsState({
       `}</style>
 
       <div className="flex w-full max-w-lg flex-col items-center text-center">
-        {result.isNewBest && result.words > 0 && (
+        {result.isNewBest && result.sprintWords > 0 && (
           <div className="mb-6">
             <span
               className="shimmer-text font-rune-serif text-xl font-semibold tracking-wide"
@@ -511,18 +511,16 @@ function ResultsState({
           className="font-rune-serif leading-none"
           style={{ fontSize: "5.5rem", color: "var(--text-primary)" }}
         >
-          {result.words.toLocaleString()}
+          {result.sprintWords.toLocaleString()}
         </p>
         <p
           className="mt-2 text-xs uppercase tracking-[0.3em]"
           style={{ color: "var(--color-mist)" }}
         >
-          words written
+          timed words
         </p>
 
-        {/* Split breakdown — only shown when lap words exist */}
-        {result.lapWords > 0 && (
-          <div
+        <div
             className="mt-4 rounded px-5 py-2.5 text-xs"
             style={{
               background: "rgba(201, 168, 76, 0.06)",
@@ -531,7 +529,7 @@ function ResultsState({
             aria-label="Split word count breakdown"
           >
             <span style={{ color: "var(--color-mist)" }}>
-              Sprint Words:{" "}
+              Timed Words:{" "}
               <span style={{ color: "var(--text-primary)" }}>
                 {result.sprintWords.toLocaleString()}
               </span>
@@ -542,7 +540,6 @@ function ResultsState({
               </span>
             </span>
           </div>
-        )}
 
         <div className="mx-auto mt-10 mb-10 flex max-w-xs items-center justify-center gap-6">
           <div>
@@ -617,7 +614,8 @@ function ResultsState({
 function HUD({
   timeLeft,
   selectedDuration,
-  wordsWritten,
+  timedWords,
+  lapWords,
   personalBest,
   raceFinished,
   onExit,
@@ -625,7 +623,8 @@ function HUD({
 }: {
   timeLeft: number;
   selectedDuration: number;
-  wordsWritten: number;
+  timedWords: number;
+  lapWords: number;
   personalBest: number;
   raceFinished: boolean;
   onExit: () => void;
@@ -657,20 +656,51 @@ function HUD({
       {/* Stats row */}
       {isVisible && (
         <div className="hud-stats-tick flex items-center justify-between px-8 py-3">
-          {/* Words written */}
+          {/* Word counts — timed vs victory lap after sprint ends */}
           <div className="min-w-[7rem]">
-            <p
-              className="font-rune-serif text-2xl tabular-nums text-stone-900"
-              style={{ color: "var(--text-primary)" }}
-            >
-              {wordsWritten.toLocaleString()}
-            </p>
-            <p
-              className="text-[10px] uppercase tracking-widest"
-              style={{ color: "var(--color-mist)" }}
-            >
-              words
-            </p>
+            {raceFinished ? (
+              <>
+                <p
+                  className="font-rune-serif text-2xl tabular-nums"
+                  style={{ color: "var(--text-primary)" }}
+                >
+                  {timedWords.toLocaleString()}
+                </p>
+                <p
+                  className="text-[10px] uppercase tracking-widest"
+                  style={{ color: "var(--color-mist)" }}
+                >
+                  timed
+                </p>
+                <p
+                  className="mt-1 font-rune-serif text-lg tabular-nums"
+                  style={{ color: "var(--color-gold)" }}
+                >
+                  {lapWords.toLocaleString()}
+                </p>
+                <p
+                  className="text-[10px] uppercase tracking-widest"
+                  style={{ color: "var(--color-mist)", opacity: 0.7 }}
+                >
+                  lap
+                </p>
+              </>
+            ) : (
+              <>
+                <p
+                  className="font-rune-serif text-2xl tabular-nums"
+                  style={{ color: "var(--text-primary)" }}
+                >
+                  {timedWords.toLocaleString()}
+                </p>
+                <p
+                  className="text-[10px] uppercase tracking-widest"
+                  style={{ color: "var(--color-mist)" }}
+                >
+                  timed words
+                </p>
+              </>
+            )}
           </div>
 
           {/* Timer */}
@@ -900,10 +930,10 @@ export default function RaceYourselfPage() {
     const xp = sessionIsValid ? sprintXp + lapXp : 0;
 
     const prevBest = store.personalBests[dur] ?? 0;
-    const isNewBest = sessionIsValid && finalWords > prevBest;
+    const isNewBest = sessionIsValid && sprintWords > prevBest;
 
-    if (isNewBest && finalWords > 0) {
-      useGameStore.getState().setPersonalBest(dur, finalWords);
+    if (isNewBest && sprintWords > 0) {
+      useGameStore.getState().setPersonalBest(dur, sprintWords);
     }
 
     setResultData({ words: finalWords, duration: dur, xp, isNewBest, sprintWords, lapWords });
@@ -995,13 +1025,21 @@ export default function RaceYourselfPage() {
     );
   }
 
+  const hudTimedWords = raceFinished
+    ? wordsAtFinishRef.current
+    : wordsWritten;
+  const hudLapWords = raceFinished
+    ? Math.max(0, wordsWritten - wordsAtFinishRef.current)
+    : 0;
+
   // Active game
   return (
     <div className="flex min-h-0 h-full flex-col">
       <HUD
         timeLeft={timeLeft}
         selectedDuration={selectedDuration}
-        wordsWritten={wordsWritten}
+        timedWords={hudTimedWords}
+        lapWords={hudLapWords}
         personalBest={personalBests[selectedDuration] ?? 0}
         raceFinished={raceFinished}
         onExit={handleExit}

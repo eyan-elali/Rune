@@ -188,7 +188,7 @@ export async function getPersonalBests(
 
   const { data, error } = await supabase
     .from("game_sessions")
-    .select("duration_seconds, words_written")
+    .select("duration_seconds, words_written, meta")
     .eq("user_id", userId)
     .eq("mode", "race")
     .eq("completed", true);
@@ -199,8 +199,13 @@ export async function getPersonalBests(
   for (const session of data) {
     const dur = session.duration_seconds;
     if (dur === null) continue;
-    if (!bests[dur] || session.words_written > bests[dur]) {
-      bests[dur] = session.words_written;
+    const meta = session.meta as { sprint_words?: number } | null;
+    const timedWords =
+      typeof meta?.sprint_words === "number"
+        ? meta.sprint_words
+        : session.words_written;
+    if (!bests[dur] || timedWords > bests[dur]) {
+      bests[dur] = timedWords;
     }
   }
   return bests;
