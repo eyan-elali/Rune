@@ -124,6 +124,58 @@ export async function updatePage(
   const { supabase, user } = await getUser();
   if (!user) return { data: null, error: "Not authenticated" };
 
+  const { data: profileRow } = await supabase
+    .from("profiles")
+    .select("subscription_tier")
+    .eq("id", user.id)
+    .single();
+
+  const tier = profileRow?.subscription_tier ?? "free";
+
+  if (tier === "free") {
+    const { data: currentPage } = await supabase
+      .from("pages")
+      .select("chapter_id, word_count")
+      .eq("id", id)
+      .single();
+
+    if (currentPage) {
+      const { data: chapter } = await supabase
+        .from("chapters")
+        .select("project_id")
+        .eq("id", currentPage.chapter_id)
+        .single();
+
+      if (chapter) {
+        const { data: projectChapters } = await supabase
+          .from("chapters")
+          .select("id")
+          .eq("project_id", chapter.project_id);
+
+        const chapterIds = (projectChapters ?? []).map((c: { id: string }) => c.id);
+
+        if (chapterIds.length > 0) {
+          const { data: allPages } = await supabase
+            .from("pages")
+            .select("id, word_count")
+            .in("chapter_id", chapterIds);
+
+          const totalExcludingCurrent = (allPages ?? [])
+            .filter((p: { id: string }) => p.id !== id)
+            .reduce((s: number, p: { word_count: number }) => s + (p.word_count ?? 0), 0);
+
+          if (totalExcludingCurrent + wordCount > 20000) {
+            return {
+              data: null,
+              error:
+                "You've reached the 20,000 word limit. Upgrade to Scribe for unlimited writing.",
+            };
+          }
+        }
+      }
+    }
+  }
+
   const { data: page, error } = await supabase
     .from("pages")
     .update({

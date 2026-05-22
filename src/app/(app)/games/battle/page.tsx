@@ -7,6 +7,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { HpBar } from "@/components/games/HpBar";
 import { BattleLog, type BattleLogEntry } from "@/components/games/BattleLog";
+import { TicketGate } from "@/components/games/TicketGate";
 import { awardXp } from "@/lib/actions/xp";
 import { appendSprintToProject, createGameSession } from "@/lib/actions/games";
 import { recordWordsWritten, transferGameWordsToProject } from "@/lib/actions/writingStats";
@@ -979,6 +980,7 @@ export default function BattlePage() {
   const [resultData, setResultData] = useState<ResultData | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [sessionValid, setSessionValid] = useState(true);
+  const [ticketConsumed, setTicketConsumed] = useState(false);
 
   // Refs — read by game loop and callbacks without re-render
   const playerHpRef = useRef(PLAYER_MAX_HP);
@@ -1267,7 +1269,15 @@ export default function BattlePage() {
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
-  if (phase === "enemy-select") {
+  if (phase === "enemy-select" && !ticketConsumed) {
+    return (
+      <TicketGate onTicketConsumed={() => setTicketConsumed(true)}>
+        <EnemySelectState onSelect={handleSelectEnemy} />
+      </TicketGate>
+    );
+  }
+
+  if (phase === "enemy-select" && ticketConsumed) {
     return <EnemySelectState onSelect={handleSelectEnemy} />;
   }
 

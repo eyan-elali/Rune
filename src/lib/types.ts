@@ -16,6 +16,11 @@ export interface Profile {
   level: number;
   preferences: Record<string, unknown> | null;
   created_at: string;
+  stripe_customer_id: string | null;
+  subscription_tier: string | null;
+  subscription_status: string | null;
+  subscription_price_id: string | null;
+  subscription_period_end: string | null;
 }
 
 export interface XpEvent {

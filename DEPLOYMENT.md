@@ -107,6 +107,56 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ---
 
+## Stripe Setup
+
+### 1. Create products and prices
+
+In the [Stripe Dashboard](https://dashboard.stripe.com):
+
+1. Create two products: **Scribe** and **Arcane**.
+2. For each product, create four prices: Monthly USD, Annual USD, Monthly CAD, Annual CAD.
+   - Scribe: $6 USD/mo · $72 USD/yr · $8 CAD/mo · $84 CAD/yr
+   - Arcane: $12 USD/mo · $120 USD/yr · $16 CAD/mo · $156 CAD/yr
+3. Copy each price ID (starts with `price_`) into the corresponding env variable.
+
+### 2. Configure webhook endpoint
+
+1. Go to **Developers → Webhooks → Add endpoint**.
+2. Endpoint URL: `https://your-domain.com/api/webhooks/stripe`
+3. Select events: `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.payment_failed`
+4. Copy the **Signing secret** (`whsec_...`) into `STRIPE_WEBHOOK_SECRET`.
+
+For local webhook testing: `stripe listen --forward-to localhost:3000/api/webhooks/stripe`
+
+### 3. Configure the Customer Portal
+
+Go to **Settings → Billing → Customer portal** in the Stripe dashboard and enable it.
+
+### 4. Run DB migrations
+
+Run these SQL files in order in the Supabase SQL Editor:
+- `src/lib/supabase/migrations/004_billing.sql` — adds billing columns to profiles + subscription_events table
+- `src/lib/supabase/migrations/005_game_tickets.sql` — game_tickets table + increment RPC
+
+### Environment variables for Stripe
+
+| Variable | Description |
+|---|---|
+| `STRIPE_SECRET_KEY` | From Stripe Dashboard → Developers → API keys |
+| `STRIPE_WEBHOOK_SECRET` | From webhook endpoint signing secret |
+| `SUPABASE_SERVICE_ROLE_KEY` | From Supabase → Project Settings → API (service_role key) |
+| `NEXT_PUBLIC_APP_URL` | Your production URL (e.g. `https://rune.vercel.app`) — used for Stripe redirect URLs |
+| `NEXT_PUBLIC_STRIPE_SCRIBE_MONTHLY_USD` | Price ID for Scribe monthly USD |
+| `NEXT_PUBLIC_STRIPE_SCRIBE_MONTHLY_CAD` | Price ID for Scribe monthly CAD |
+| `NEXT_PUBLIC_STRIPE_SCRIBE_ANNUAL_USD` | Price ID for Scribe annual USD |
+| `NEXT_PUBLIC_STRIPE_SCRIBE_ANNUAL_CAD` | Price ID for Scribe annual CAD |
+| `NEXT_PUBLIC_STRIPE_ARCANE_MONTHLY_USD` | Price ID for Arcane monthly USD |
+| `NEXT_PUBLIC_STRIPE_ARCANE_MONTHLY_CAD` | Price ID for Arcane monthly CAD |
+| `NEXT_PUBLIC_STRIPE_ARCANE_ANNUAL_USD` | Price ID for Arcane annual USD |
+| `NEXT_PUBLIC_STRIPE_ARCANE_ANNUAL_CAD` | Price ID for Arcane annual CAD |
+
+---
+
 ## Verify a Successful Deployment
 
 - [ ] Landing page loads at `/`
@@ -114,3 +164,7 @@ Open [http://localhost:3000](http://localhost:3000).
 - [ ] Login redirects to `/dashboard`
 - [ ] Creating a project and editing a page auto-saves
 - [ ] Game modes launch without errors
+- [ ] Pricing table on landing page shows USD/CAD and monthly/annual toggles
+- [ ] Billing tab in Settings shows current plan
+- [ ] Stripe Checkout redirects correctly with `?upgraded=true` on success
+- [ ] Webhook endpoint returns 400 for invalid signatures, 200 for valid ones

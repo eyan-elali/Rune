@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useTransition } from "react";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { Lock } from "lucide-react";
 import { Button } from "@/components/ui/Button";
@@ -12,14 +13,18 @@ import {
   exportUserData,
   deleteAccount,
 } from "@/lib/actions/settings";
+import { createPortalSession } from "@/lib/actions/billing";
 import { useProfileStore } from "@/store/profileStore";
+import { useToastStore } from "@/store/toastStore";
 import { UNLOCKABLES, requirementLabel } from "@/lib/unlockables";
 import { createClient } from "@/lib/supabase/client";
+import { PricingTable } from "@/components/billing/PricingTable";
 import type { Profile, UserPreferences } from "@/lib/types";
+import type { SubscriptionTier } from "@/lib/subscription";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type Tab = "account" | "editor" | "appearance" | "danger";
+type Tab = "account" | "editor" | "appearance" | "billing" | "danger";
 
 export interface SettingsClientProps {
   profile: Profile | null;
@@ -876,12 +881,112 @@ function DangerTab() {
   );
 }
 
+// ─── Billing Tab ──────────────────────────────────────────────────────────────
+
+function BillingTab({ subscriptionTier, profile }: { subscriptionTier: SubscriptionTier; profile: Profile | null }) {
+  const [isPending, startTransition] = useTransition();
+
+  const tierLabels: Record<SubscriptionTier, string> = {
+    free: "Free",
+    scribe: "Scribe",
+    arcane: "Arcane",
+  };
+
+  const statusColors: Record<string, string> = {
+    active: "var(--color-sage)",
+    past_due: "var(--color-crimson)",
+    canceled: "var(--color-mist)",
+    inactive: "var(--color-mist)",
+  };
+
+  const status = profile?.subscription_status ?? "inactive";
+  const periodEnd = profile?.subscription_period_end
+    ? new Date(profile.subscription_period_end).toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      })
+    : null;
+
+  function handleManageSubscription() {
+    startTransition(async () => {
+      const { url, error } = await createPortalSession();
+      if (url && !error) window.location.href = url;
+    });
+  }
+
+  return (
+    <div className="flex flex-col gap-6">
+      {/* Current plan card */}
+      <Card>
+        <SectionTitle>Current plan</SectionTitle>
+
+        {status === "past_due" && (
+          <div
+            className="mt-4 rounded-lg px-4 py-3 text-sm"
+            role="alert"
+            style={{
+              background: "rgba(139,46,46,0.1)",
+              border: "1px solid rgba(139,46,46,0.3)",
+              color: "var(--color-crimson)",
+            }}
+          >
+            Your last payment failed. Update your payment method to keep access.
+          </div>
+        )}
+
+        <div className="mt-5 flex items-center justify-between">
+          <div>
+            <p className="font-rune-serif text-2xl" style={{ color: "var(--color-gold)" }}>
+              {tierLabels[subscriptionTier]}
+            </p>
+            <div className="mt-1 flex items-center gap-2">
+              <span
+                className="inline-block h-1.5 w-1.5 rounded-full"
+                style={{ background: statusColors[status] ?? "var(--color-mist)" }}
+                aria-hidden
+              />
+              <p className="text-xs capitalize" style={{ color: statusColors[status] ?? "var(--color-mist)" }}>
+                {status}
+              </p>
+            </div>
+            {periodEnd && subscriptionTier !== "free" && (
+              <p className="mt-1 text-xs" style={{ color: "var(--color-mist)" }}>
+                Next billing date: {periodEnd}
+              </p>
+            )}
+          </div>
+
+          {subscriptionTier !== "free" && (
+            <Button
+              variant="ghost"
+              onClick={handleManageSubscription}
+              loading={isPending}
+            >
+              Manage Subscription
+            </Button>
+          )}
+        </div>
+      </Card>
+
+      {/* Pricing table */}
+      <div>
+        <p className="mb-6 text-xs uppercase tracking-widest" style={{ color: "var(--color-mist)" }}>
+          Plans
+        </p>
+        <PricingTable currentTier={subscriptionTier} isLoggedIn={true} />
+      </div>
+    </div>
+  );
+}
+
 // ─── Settings page shell ──────────────────────────────────────────────────────
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "account", label: "Account" },
   { id: "editor", label: "Editor" },
   { id: "appearance", label: "Appearance" },
+  { id: "billing", label: "Billing" },
   { id: "danger", label: "Danger Zone" },
 ];
 
@@ -890,7 +995,25 @@ export function SettingsClient({
   email,
   unlockedIds,
 }: SettingsClientProps) {
-  const [activeTab, setActiveTab] = useState<Tab>("account");
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const showToast = useToastStore((s) => s.showToast);
+  const subscriptionTier = useProfileStore((s) => s.subscriptionTier);
+
+  const initialTab: Tab = searchParams.get("tab") === "billing" ? "billing" : "account";
+  const [activeTab, setActiveTab] = useState<Tab>(initialTab);
+
+  useEffect(() => {
+    if (searchParams.get("upgraded") === "true") {
+      const tierLabels: Record<SubscriptionTier, string> = { free: "Free", scribe: "Scribe", arcane: "Arcane" };
+      showToast(`Welcome to ${tierLabels[subscriptionTier]}! Your plan is now active.`, "success");
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete("upgraded");
+      router.replace(`${pathname}?${params.toString()}`);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="mx-auto max-w-2xl px-8 py-12">
@@ -966,6 +1089,14 @@ export function SettingsClient({
         hidden={activeTab !== "appearance"}
       >
         <AppearanceTab unlockedIds={unlockedIds} />
+      </div>
+      <div
+        id="panel-billing"
+        role="tabpanel"
+        aria-labelledby="tab-billing"
+        hidden={activeTab !== "billing"}
+      >
+        <BillingTab subscriptionTier={subscriptionTier} profile={profile} />
       </div>
       <div
         id="panel-danger"

@@ -10,6 +10,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@stripe/stripe-js": "^9.6.0",
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.105.4",
     "@tiptap/extension-character-count": "^3.23.4",
@@ -25,6 +26,7 @@
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "recharts": "^3.8.1",
+    "stripe": "^22.1.1",
     "tailwind-merge": "^3.6.0",
     "uuid": "^14.0.0",
     "zustand": "^5.0.13"

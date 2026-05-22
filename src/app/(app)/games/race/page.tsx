@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
+import { TicketGate } from "@/components/games/TicketGate";
 import { useGameStore } from "@/store/gameStore";
 import { useProfileStore } from "@/store/profileStore";
 import { useToastStore } from "@/store/toastStore";
@@ -594,9 +595,14 @@ function ResultsState({
 
         {/* Primary actions */}
         <div className="flex justify-center gap-4">
-          <Button variant="primary" onClick={onRaceAgain}>
-            Race Again
-          </Button>
+        <Button 
+          variant="primary" 
+          onClick={() => {
+            onRaceAgain();
+          }}
+        >
+          Race Again
+        </Button>
           <Link href="/games">
             <Button variant="ghost">Return to Hub</Button>
           </Link>
@@ -843,6 +849,7 @@ export default function RaceYourselfPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [raceFinished, setRaceFinished] = useState(false);
   const [sessionValid, setSessionValid] = useState(true);
+  const [ticketConsumed, setTicketConsumed] = useState(false);
 
   // Refs for split-XP tracking across effect boundaries
   const wordsAtFinishRef = useRef(0);
@@ -1006,7 +1013,20 @@ export default function RaceYourselfPage() {
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
-  if (gameState === "idle") {
+  if (gameState === "idle" && !ticketConsumed) {
+    return (
+      <TicketGate onTicketConsumed={() => setTicketConsumed(true)}>
+        <SetupState
+          localDuration={localDuration}
+          setLocalDuration={setLocalDuration}
+          personalBests={personalBests}
+          onBegin={handleBeginRace}
+        />
+      </TicketGate>
+    );
+  }
+
+  if (gameState === "idle" && ticketConsumed) {
     return (
       <SetupState
         localDuration={localDuration}
@@ -1024,7 +1044,11 @@ export default function RaceYourselfPage() {
         isSaving={isSaving}
         textWritten={textWritten}
         isSessionValid={sessionValid}
-        onRaceAgain={handleRaceAgain}
+        oonRaceAgain={() => {
+          setTicketConsumed(false); // ✦ Drop the ticket permission first!
+          // Call whatever the original function was, for example:
+          setGameState("idle"); 
+        }}
       />
     );
   }
