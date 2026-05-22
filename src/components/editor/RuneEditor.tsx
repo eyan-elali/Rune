@@ -37,7 +37,7 @@ export default function RuneEditor({
   onPageUpdated,
   onRenamePage,
 }: RuneEditorProps) {
-  const { setIsSaving, setLastSaved, isSaving } = useEditorStore();
+  const { setIsSaving, setLastSaved, clearLastSaved, isSaving } = useEditorStore();
   const showToast = useToastStore((s) => s.showToast);
   const rawPrefs = useProfileStore((s) => s.profile?.preferences);
   const setStoredProfile = useProfileStore((s) => s.setProfile);
@@ -150,7 +150,16 @@ export default function RuneEditor({
 
         setIsSaving(true);
         try {
-          await updatePage(page.id, content, wordCount);
+          const result = await updatePage(page.id, content, wordCount);
+          if (result.error) {
+            setIsSaving(false);
+            
+            setShowSaved(false);
+            clearTimeout(showSavedTimerRef.current);
+            showToast(result.error, "error");
+            return;
+          }
+
           onPageUpdatedRef.current(page.id, {
             content,
             word_count: wordCount,
@@ -197,10 +206,17 @@ export default function RuneEditor({
         } catch (err) {
           console.error("Auto-save failed:", err);
           setIsSaving(false);
+          clearLastSaved();
+          setShowSaved(false);
+          clearTimeout(showSavedTimerRef.current);
           showToast("Save failed — retrying", "error");
           saveTimerRef.current = setTimeout(async () => {
             try {
-              await updatePage(page.id, content, wordCount);
+              const retryResult = await updatePage(page.id, content, wordCount);
+              if (retryResult.error) {
+                showToast(retryResult.error, "error");
+                return;
+              }
               onPageUpdatedRef.current(page.id, {
                 content,
                 word_count: wordCount,
@@ -251,7 +267,11 @@ export default function RuneEditor({
       const wordCount =
         (editor.storage.characterCount?.words?.() as number | undefined) ?? 0;
       void updatePage(prevPageId, content, wordCount)
-        .then(() => {
+        .then((result) => {
+          if (result.error) {
+            showToast(result.error, "error");
+            return;
+          }
           onPageUpdatedRef.current(prevPageId, {
             content,
             word_count: wordCount,
@@ -259,6 +279,7 @@ export default function RuneEditor({
         })
         .catch((err) => {
           console.error("Page switch save failed:", err);
+          showToast("Save failed — changes may not be saved", "error");
         });
     }
 

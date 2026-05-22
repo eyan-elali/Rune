@@ -9,6 +9,7 @@ interface EditorState {
   setCurrentPage: (projectId: string, chapterId: string, pageId: string) => void;
   setIsSaving: (isSaving: boolean) => void;
   setLastSaved: (date: Date) => void;
+  clearLastSaved: () => void;
 }
 
 export const useEditorStore = create<EditorState>((set) => ({
@@ -21,4 +22,5 @@ export const useEditorStore = create<EditorState>((set) => ({
     set({ currentProjectId: projectId, currentChapterId: chapterId, currentPageId: pageId }),
   setIsSaving: (isSaving) => set({ isSaving }),
   setLastSaved: (lastSaved) => set({ lastSaved }),
+  clearLastSaved: () => set({ lastSaved: null }),
 }));
