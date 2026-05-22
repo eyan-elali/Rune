@@ -10,10 +10,12 @@ import { BattleLog, type BattleLogEntry } from "@/components/games/BattleLog";
 import { TicketGate } from "@/components/games/TicketGate";
 import { awardXp } from "@/lib/actions/xp";
 import { appendSprintToProject, createGameSession } from "@/lib/actions/games";
+import { getWeeklyTicketUsage } from "@/lib/actions/billing";
 import { recordWordsWritten, transferGameWordsToProject } from "@/lib/actions/writingStats";
 import { getProjects } from "@/lib/actions/projects";
 import { getChapters } from "@/lib/actions/chapters";
 import { xpRewardForWords } from "@/lib/xp";
+import { getGameTicketsAllowed } from "@/lib/subscription";
 import { useGameStore } from "@/store/gameStore";
 import { useProfileStore } from "@/store/profileStore";
 import { useToastStore } from "@/store/toastStore";
@@ -775,12 +777,14 @@ function ResultsState({
   textWritten,
   isSessionValid,
   onBattleAgain,
+  canBattleAgain,
 }: {
   result: ResultData;
   isSaving: boolean;
   textWritten: string;
   isSessionValid: boolean;
   onBattleAgain: () => void;
+  canBattleAgain: boolean;
 }) {
   const isVictory = result.outcome === "victory";
 
@@ -941,13 +945,38 @@ function ResultsState({
           </p>
         )}
 
-        <div className="flex justify-center gap-4">
-          <Button variant="primary" onClick={onBattleAgain}>
-            Battle Again
-          </Button>
-          <Link href="/games">
-            <Button variant="ghost">Return to Hub</Button>
-          </Link>
+        {!canBattleAgain && (
+          <p
+            className="mb-6 max-w-sm text-sm leading-relaxed"
+            style={{ color: "var(--color-mist)" }}
+          >
+            No tickets left this week. Upgrade to Arcane for unlimited entries!
+          </p>
+        )}
+
+        <div className="flex flex-col items-center gap-4">
+          <div className="flex justify-center gap-4">
+            <Button
+              variant="primary"
+              onClick={onBattleAgain}
+              disabled={!canBattleAgain}
+              aria-disabled={!canBattleAgain}
+            >
+              Battle Again
+            </Button>
+            <Link href="/games">
+              <Button variant="ghost">Return to Hub</Button>
+            </Link>
+          </div>
+          {!canBattleAgain && (
+            <Link
+              href="/settings"
+              className="text-xs uppercase tracking-widest transition-opacity duration-150 hover:opacity-100"
+              style={{ color: "var(--color-gold)", opacity: 0.75 }}
+            >
+              View plans in Settings
+            </Link>
+          )}
         </div>
 
         {/* Save to Project */}
@@ -961,6 +990,8 @@ function ResultsState({
 
 export default function BattlePage() {
   const router = useRouter();
+  const profile = useProfileStore((s) => s.profile);
+  const subscriptionTier = useProfileStore((s) => s.subscriptionTier);
 
   // Phase
   const [phase, setPhase] = useState<BattlePhase>("enemy-select");
@@ -981,6 +1012,7 @@ export default function BattlePage() {
   const [isSaving, setIsSaving] = useState(false);
   const [sessionValid, setSessionValid] = useState(true);
   const [ticketConsumed, setTicketConsumed] = useState(false);
+  const [canBattleAgain, setCanBattleAgain] = useState(true);
 
   // Refs — read by game loop and callbacks without re-render
   const playerHpRef = useRef(PLAYER_MAX_HP);
@@ -1000,6 +1032,24 @@ export default function BattlePage() {
   useEffect(() => {
     phaseRef.current = phase;
   }, [phase]);
+
+  useEffect(() => {
+    if (phase !== "results" || !profile?.id) return;
+
+    const allowed = getGameTicketsAllowed(subscriptionTier);
+    if (allowed === Infinity) {
+      setCanBattleAgain(true);
+      return;
+    }
+
+    let cancelled = false;
+    getWeeklyTicketUsage(profile.id).then((used) => {
+      if (!cancelled) setCanBattleAgain(used < allowed);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [phase, profile?.id, subscriptionTier]);
 
   const addLog = useCallback((message: string) => {
     const id = logIdRef.current++;
@@ -1254,18 +1304,20 @@ export default function BattlePage() {
   }, [router]);
 
   const handleBattleAgain = useCallback(() => {
+    if (!canBattleAgain) return;
     hasSavedRef.current = false;
     victoryAchievedRef.current = false;
     wordsAtVictoryRef.current = 0;
     battleTextWrittenRef.current = "";
     setVictoryAchieved(false);
     setSessionValid(true);
+    setTicketConsumed(false);
     setResultData(null);
     setBattleTextWritten("");
     setPhase("enemy-select");
     setSelectedEnemy(null);
     useGameStore.getState().resetToSetup();
-  }, []);
+  }, [canBattleAgain]);
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
@@ -1289,6 +1341,7 @@ export default function BattlePage() {
         textWritten={battleTextWritten}
         isSessionValid={sessionValid}
         onBattleAgain={handleBattleAgain}
+        canBattleAgain={canBattleAgain}
       />
     );
   }
