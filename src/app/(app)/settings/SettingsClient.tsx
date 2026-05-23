@@ -1016,7 +1016,12 @@ export function SettingsClient({
   }, []);
 
   return (
-    <div className="mx-auto max-w-2xl px-8 py-12">
+    <div
+      className={cn(
+        "mx-auto px-8 py-12",
+        activeTab === "billing" ? "max-w-6xl" : "max-w-2xl"
+      )}
+    >
       <h1
         className="!mb-8 font-rune-serif text-4xl"
         style={{ color: "var(--text-primary)" }}

@@ -20,5 +20,6 @@ export function canAccessFeature(
 
 export function getGameTicketsAllowed(tier: SubscriptionTier): number {
   if (tier === 'arcane') return Infinity
+  if (tier === 'scribe') return 3
   return 1
 }

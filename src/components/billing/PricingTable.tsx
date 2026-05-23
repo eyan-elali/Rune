@@ -33,7 +33,7 @@ const TIER_FEATURES = {
     { label: 'Writing heatmap & stats', included: true },
     { label: 'Export pages & manuscripts (PDF)', included: true },
     { label: 'More unlockables', included: true },
-    { label: '1 game ticket / week', included: true },
+    { label: '3 game tickets / week', included: true },
     { label: 'Game Mode (unlimited)', included: false },
   ],
   arcane: [
@@ -44,6 +44,10 @@ const TIER_FEATURES = {
     { label: 'All unlockables', included: true },
     { label: 'Priority support', included: true },
   ],
+}
+
+function featureLabelNeedsNowrap(label: string): boolean {
+  return /word limit|game ticket/i.test(label)
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -250,7 +254,7 @@ function TierCard({
   return (
     <div
       className={cn(
-        'relative flex flex-col rounded-xl p-7 transition-all duration-300',
+        'relative flex flex-col rounded-xl px-5 py-8 transition-all duration-300',
         isFeatured && 'shadow-2xl'
       )}
       style={{
@@ -365,7 +369,9 @@ function TierCard({
             >
               {f.included ? '✦' : '—'}
             </span>
-            {f.label}
+            <span className={featureLabelNeedsNowrap(f.label) ? 'whitespace-nowrap' : undefined}>
+              {f.label}
+            </span>
           </li>
         ))}
       </ul>
@@ -420,7 +426,7 @@ export function PricingTable({ currentTier = 'free', isLoggedIn = false }: Prici
   ]
 
   return (
-    <div>
+    <div className="mx-auto w-full max-w-6xl">
       {/* Toggles */}
       <div className="mb-10 flex flex-wrap items-center justify-center gap-4">
         <PillToggle
@@ -444,7 +450,7 @@ export function PricingTable({ currentTier = 'free', isLoggedIn = false }: Prici
       </div>
 
       {/* Cards */}
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-3 md:items-end">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-3 w-full">
         {tiers.map((t) => (
           <TierCard
             key={t.id}

@@ -83,7 +83,7 @@ export function TicketGate({ children, onTicketConsumed }: TicketGateProps) {
           className="mb-8 max-w-sm text-sm leading-relaxed"
           style={{ color: 'var(--color-mist)' }}
         >
-          Free and Scribe plans include 1 game per week. Your ticket resets
+          Free includes 1 game per week; Scribe includes 3. Your tickets reset
           every Monday. Upgrade to Arcane for unlimited games.
         </p>
 
@@ -158,7 +158,7 @@ function TicketPrompt({
         style={{ color: 'var(--color-mist)' }}
       >
         {isScribe
-          ? 'Scribe includes 1 game ticket per week.'
+          ? 'Scribe includes 3 game tickets per week.'
           : 'Free includes 1 game ticket per week.'}
         {' '}Ticket resets every Monday.
       </p>

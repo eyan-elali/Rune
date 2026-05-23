@@ -842,7 +842,7 @@ export default function LandingPage() {
             "linear-gradient(180deg, transparent 0%, color-mix(in srgb, var(--color-ink) 90%, transparent) 46%, transparent 100%)",
         }}
       >
-        <div className="mx-auto w-full max-w-5xl">
+        <div className="mx-auto w-full max-w-6xl">
           {/* Header */}
           <div className="mb-20 text-center">
             <p
