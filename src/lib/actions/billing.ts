@@ -3,14 +3,13 @@
 import { createClient } from '@/lib/supabase/server'
 import { stripe } from '@/lib/stripe/client'
 import { PRICE_IDS } from '@/lib/stripe/config'
-import type { PaidTier, BillingPeriod, Currency } from '@/lib/stripe/config'
+import type { PaidTier, BillingPeriod } from '@/lib/stripe/config'
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL!
 
 export async function createCheckoutSession(
   tier: PaidTier,
-  billingPeriod: BillingPeriod,
-  currency: Currency
+  billingPeriod: BillingPeriod
 ): Promise<{ url: string | null; error: string | null }> {
   const supabase = await createClient()
   const {
@@ -41,7 +40,7 @@ export async function createCheckoutSession(
       .eq('id', user.id)
   }
 
-  const priceId = PRICE_IDS[tier][billingPeriod][currency]
+  const priceId = PRICE_IDS[tier][billingPeriod]
 
   const session = await stripe.checkout.sessions.create({
     mode: 'subscription',

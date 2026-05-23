@@ -6,11 +6,11 @@ import { cn } from '@/lib/utils'
 import { createCheckoutSession, createPortalSession } from '@/lib/actions/billing'
 import type { SubscriptionTier } from '@/lib/subscription'
 
-// ─── Prices ──────────────────────────────────────────────────────────────────
+// ─── Prices (USD) ─────────────────────────────────────────────────────────────
 
 const PRICES = {
-  scribe: { monthly: { usd: 6, cad: 8 }, annual: { usd: 5, cad: 7 } },
-  arcane: { monthly: { usd: 12, cad: 16 }, annual: { usd: 10, cad: 13 } },
+  scribe: { monthly: 6, annual: 5 },
+  arcane: { monthly: 12, annual: 10 },
 }
 
 // ─── Feature list per tier ────────────────────────────────────────────────────
@@ -56,6 +56,8 @@ interface PricingTableProps {
   currentTier?: SubscriptionTier
   isLoggedIn?: boolean
 }
+
+type TierPrice = { monthly: number; annual: number } | null
 
 // ─── Pill toggle ──────────────────────────────────────────────────────────────
 
@@ -103,14 +105,12 @@ function CtaButton({
   currentTier,
   isLoggedIn,
   billingPeriod,
-  currency,
   isFeatured,
 }: {
   tier: SubscriptionTier
   currentTier: SubscriptionTier
   isLoggedIn: boolean
   billingPeriod: 'monthly' | 'annual'
-  currency: 'usd' | 'cad'
   isFeatured: boolean
 }) {
   const router = useRouter()
@@ -127,8 +127,7 @@ function CtaButton({
       try {
         const res = await createCheckoutSession(
           tier as 'scribe' | 'arcane',
-          billingPeriod,
-          currency
+          billingPeriod
         )
         if (res?.url) {
           window.location.href = res.url
@@ -177,7 +176,6 @@ function CtaButton({
     )
   }
 
-  // Downgrade — user is on a paid plan and this is a lower tier
   const tierOrder: SubscriptionTier[] = ['free', 'scribe', 'arcane']
   const isDowngrade =
     isLoggedIn &&
@@ -224,6 +222,44 @@ function CtaButton({
 
 // ─── Tier card ────────────────────────────────────────────────────────────────
 
+function tierTextColors(tier: SubscriptionTier, isFeatured: boolean) {
+  if (isFeatured) {
+    return {
+      heading: 'var(--color-ink)',
+      tagline: 'rgba(26,22,20,0.6)',
+      price: 'var(--color-ink)',
+      priceSuffix: 'rgba(26,22,20,0.55)',
+      annualNote: 'rgba(26,22,20,0.5)',
+      featureIncluded: 'rgba(26,22,20,0.8)',
+      featureExcluded: 'rgba(26,22,20,0.35)',
+      featureMark: 'var(--color-ink)',
+    }
+  }
+  if (tier === 'arcane') {
+    return {
+      heading: 'var(--color-parchment)',
+      tagline: 'var(--color-mist)',
+      price: 'var(--color-parchment)',
+      priceSuffix: 'var(--color-mist)',
+      annualNote: 'var(--color-mist)',
+      featureIncluded: 'var(--color-mist)',
+      featureExcluded: 'rgba(107,101,96,0.35)',
+      featureMark: 'var(--color-gold)',
+    }
+  }
+  // Free — surface-card bg; ink on light themes, parchment on dark (via text-primary)
+  return {
+    heading: 'var(--text-primary)',
+    tagline: 'var(--text-muted)',
+    price: 'var(--text-primary)',
+    priceSuffix: 'var(--text-muted)',
+    annualNote: 'var(--text-muted)',
+    featureIncluded: 'var(--text-primary)',
+    featureExcluded: 'var(--text-muted)',
+    featureMark: 'var(--color-gold)',
+  }
+}
+
 function TierCard({
   tier,
   name,
@@ -231,7 +267,6 @@ function TierCard({
   price,
   features,
   billingPeriod,
-  currency,
   currentTier,
   isLoggedIn,
   isFeatured,
@@ -239,17 +274,17 @@ function TierCard({
   tier: SubscriptionTier
   name: string
   tagline: string
-  price: { monthly: { usd: number; cad: number }; annual: { usd: number; cad: number } } | null
+  price: TierPrice
   features: { label: string; included: boolean }[]
   billingPeriod: 'monthly' | 'annual'
-  currency: 'usd' | 'cad'
   currentTier: SubscriptionTier
   isLoggedIn: boolean
   isFeatured: boolean
 }) {
-  const effectivePrice = price ? price[billingPeriod][currency] : 0
-  const monthlyEquiv = price ? price.annual[currency] : 0
-  const currSymbol = currency === 'usd' ? '$' : 'CA$'
+  const effectivePrice = price ? price[billingPeriod] : 0
+  const monthlyEquiv = price ? price.annual : 0
+  const colors = tierTextColors(tier, isFeatured)
+  const isFree = tier === 'free'
 
   return (
     <div
@@ -262,7 +297,7 @@ function TierCard({
           ? 'var(--color-gold)'
           : tier === 'arcane'
           ? 'var(--color-ink)'
-          : 'transparent',
+          : 'var(--surface-card)',
         border: isFeatured
           ? 'none'
           : tier === 'arcane'
@@ -275,7 +310,6 @@ function TierCard({
           : undefined,
       }}
     >
-      {/* Arcane bloom */}
       {tier === 'arcane' && (
         <div
           className="pointer-events-none absolute inset-0 rounded-xl blur-2xl"
@@ -284,7 +318,6 @@ function TierCard({
         />
       )}
 
-      {/* Annual badge */}
       {billingPeriod === 'annual' && tier !== 'free' && (
         <div
           className="absolute -top-3 right-5 rounded-full px-3 py-0.5 text-[10px] font-semibold uppercase tracking-widest"
@@ -298,32 +331,30 @@ function TierCard({
         </div>
       )}
 
-      {/* Header */}
       <p
         className="mb-1 font-rune-serif text-xl"
-        style={{ color: isFeatured ? 'var(--color-ink)' : 'var(--color-parchment)' }}
+        style={{ color: colors.heading }}
       >
         {name}
       </p>
       <p
         className="mb-6 text-xs"
-        style={{ color: isFeatured ? 'rgba(26,22,20,0.6)' : 'var(--color-mist)' }}
+        style={{ color: colors.tagline }}
       >
         {tagline}
       </p>
 
-      {/* Price */}
       <div className="mb-2 flex items-baseline gap-0.5">
         <span
           className="font-rune-serif text-4xl"
-          style={{ color: isFeatured ? 'var(--color-ink)' : 'var(--color-parchment)' }}
+          style={{ color: colors.price }}
         >
-          {price ? `${currSymbol}${effectivePrice}` : '$0'}
+          {price ? `$${effectivePrice}` : '$0'}
         </span>
         {price && (
           <span
             className="text-sm"
-            style={{ color: isFeatured ? 'rgba(26,22,20,0.55)' : 'var(--color-mist)' }}
+            style={{ color: colors.priceSuffix }}
           >
             /mo
           </span>
@@ -333,37 +364,27 @@ function TierCard({
       {billingPeriod === 'annual' && price && (
         <p
           className="mb-6 text-xs"
-          style={{ color: isFeatured ? 'rgba(26,22,20,0.5)' : 'var(--color-mist)', opacity: 0.7 }}
+          style={{ color: colors.annualNote, opacity: isFeatured ? 1 : 0.7 }}
         >
-          {currSymbol}{monthlyEquiv}/mo · billed annually
+          ${monthlyEquiv}/mo · billed annually
         </p>
       )}
       {!(billingPeriod === 'annual' && price) && <div className="mb-6" />}
 
-      {/* Features */}
       <ul className="mb-8 flex-1 space-y-2.5">
         {features.map((f) => (
           <li
             key={f.label}
             className="flex items-start gap-2 text-sm"
             style={{
-              color: f.included
-                ? isFeatured
-                  ? 'rgba(26,22,20,0.8)'
-                  : 'var(--color-mist)'
-                : isFeatured
-                ? 'rgba(26,22,20,0.35)'
-                : 'rgba(107,101,96,0.35)',
+              color: f.included ? colors.featureIncluded : colors.featureExcluded,
+              opacity: f.included ? 1 : isFree ? 0.55 : 1,
             }}
           >
             <span
               className="mt-px shrink-0 text-xs"
               style={{
-                color: f.included
-                  ? isFeatured
-                    ? 'var(--color-ink)'
-                    : 'var(--color-gold)'
-                  : 'transparent',
+                color: f.included ? colors.featureMark : 'transparent',
               }}
               aria-hidden
             >
@@ -376,13 +397,11 @@ function TierCard({
         ))}
       </ul>
 
-      {/* CTA */}
       <CtaButton
         tier={tier}
         currentTier={currentTier}
         isLoggedIn={isLoggedIn}
         billingPeriod={billingPeriod}
-        currency={currency}
         isFeatured={isFeatured}
       />
     </div>
@@ -393,13 +412,12 @@ function TierCard({
 
 export function PricingTable({ currentTier = 'free', isLoggedIn = false }: PricingTableProps) {
   const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'annual'>('monthly')
-  const [currency, setCurrency] = useState<'usd' | 'cad'>('usd')
 
   const tiers: {
     id: SubscriptionTier
     name: string
     tagline: string
-    price: { monthly: { usd: number; cad: number }; annual: { usd: number; cad: number } } | null
+    price: TierPrice
     featured: boolean
   }[] = [
     {
@@ -427,7 +445,6 @@ export function PricingTable({ currentTier = 'free', isLoggedIn = false }: Prici
 
   return (
     <div className="mx-auto w-full max-w-6xl">
-      {/* Toggles */}
       <div className="mb-10 flex flex-wrap items-center justify-center gap-4">
         <PillToggle
           label="Billing period"
@@ -438,19 +455,9 @@ export function PricingTable({ currentTier = 'free', isLoggedIn = false }: Prici
             { label: 'Annual', value: 'annual' },
           ]}
         />
-        <PillToggle
-          label="Currency"
-          value={currency}
-          onChange={setCurrency}
-          options={[
-            { label: 'USD', value: 'usd' },
-            { label: 'CAD', value: 'cad' },
-          ]}
-        />
       </div>
 
-      {/* Cards */}
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-3 w-full">
+      <div className="grid w-full grid-cols-1 gap-6 md:grid-cols-3">
         {tiers.map((t) => (
           <TierCard
             key={t.id}
@@ -460,7 +467,6 @@ export function PricingTable({ currentTier = 'free', isLoggedIn = false }: Prici
             price={t.price}
             features={TIER_FEATURES[t.id]}
             billingPeriod={billingPeriod}
-            currency={currency}
             currentTier={currentTier}
             isLoggedIn={isLoggedIn}
             isFeatured={t.featured}

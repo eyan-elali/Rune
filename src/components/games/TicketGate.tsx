@@ -44,7 +44,7 @@ export function TicketGate({ children, onTicketConsumed }: TicketGateProps) {
 
   function handleUpgrade() {
     startUpgradeTransition(async () => {
-      const { url, error } = await createCheckoutSession('arcane', 'monthly', 'usd')
+      const { url, error } = await createCheckoutSession('arcane', 'monthly')
       if (url && !error) window.location.href = url
     })
   }

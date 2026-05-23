@@ -29,7 +29,7 @@ export function ExportButton({ page, chapter, project }: ExportButtonProps) {
         type="button"
         onClick={() => {
           startUpgradeTransition(async () => {
-            const { url, error } = await createCheckoutSession("scribe", "monthly", "usd");
+            const { url, error } = await createCheckoutSession("scribe", "monthly");
             if (url && !error) window.location.href = url;
           });
         }}

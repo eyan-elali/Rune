@@ -8,7 +8,7 @@ export function GameModeGate() {
 
   function handleUpgrade() {
     startTransition(async () => {
-      const { url, error } = await createCheckoutSession('arcane', 'monthly', 'usd')
+      const { url, error } = await createCheckoutSession('arcane', 'monthly')
       if (url && !error) window.location.href = url
     })
   }
