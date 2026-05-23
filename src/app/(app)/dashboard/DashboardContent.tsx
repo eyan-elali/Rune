@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
-import { Trash2, Flame, Lock } from "lucide-react";
+import { Trash2, Flame } from "lucide-react";
 import { useModeStore } from "@/store/modeStore";
 import { TaskList } from "@/components/tasks/TaskList";
 import { UpgradeTeaser } from "@/components/billing/UpgradeTeaser";
@@ -479,83 +479,29 @@ function GoalSection({
             )}
           </div>
         ) : (
-          <div className="relative">
-            <div className="flex flex-col rounded-lg p-5" style={cardStyle}>
-              <div className="mb-3 flex items-center gap-2">
-                <Flame size={13} style={{ color: "var(--color-gold)" }} aria-hidden />
-                <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--color-mist)" }}>
-                  Writing Streak
-                </p>
-              </div>
-              <p className="font-rune-serif leading-none" style={{ color: "var(--text-primary)", fontSize: "2.75rem" }}>
-                0
-              </p>
-              <p className="mt-1 text-xs" style={{ color: "var(--color-mist)" }}>Day Streak</p>
-              <p className="mt-auto pt-3 text-xs italic" style={{ color: "var(--color-mist)", opacity: 0.6 }}>
-                Start your streak today
-              </p>
-            </div>
-            <div
-              className="absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-lg"
-              style={{ background: "rgba(0,0,0,0.45)" }}
-            >
-              <Lock size={20} style={{ color: "var(--color-gold)" }} aria-hidden />
-              <p className="text-xs font-semibold" style={{ color: "var(--color-parchment)" }}>
-                Streaks — Scribe &amp; above
-              </p>
-              <Link
-                href="/settings?tab=billing"
-                className="text-xs transition-opacity hover:opacity-70"
-                style={{ color: "var(--color-gold)" }}
-              >
-                Unlock
-              </Link>
-            </div>
-          </div>
+          <UpgradeTeaser
+            feature="Writing Streaks"
+            description="Track your consecutive days writing and maintain your momentum."
+            tier="scribe"
+          />
         )}
 
         {/* ── Card 2: Avg. Words Per Chapter ─────────────────────── */}
         {canAccessAvgWords ? (
           <AvgWordsPerChapter projects={projects} />
         ) : (
-          <div className="relative">
-            <div className="flex flex-col rounded-lg p-5" style={cardStyle}>
-              <div className="mb-3">
-                <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--color-mist)" }}>
-                  Avg. Words / Chapter
-                </p>
-              </div>
-              <p
-                className="font-rune-serif leading-none"
-                style={{ color: "var(--text-primary)", fontSize: "2.75rem", opacity: 0.15 }}
-              >
-                —
-              </p>
-            </div>
-            <div
-              className="absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-lg"
-              style={{ background: "rgba(0,0,0,0.45)" }}
-            >
-              <Lock size={20} style={{ color: "var(--color-gold)" }} aria-hidden />
-              <p className="text-xs font-semibold" style={{ color: "var(--color-parchment)" }}>
-                Analytics — Scribe &amp; above
-              </p>
-              <Link
-                href="/settings?tab=billing"
-                className="text-xs transition-opacity hover:opacity-70"
-                style={{ color: "var(--color-gold)" }}
-              >
-                Unlock
-              </Link>
-            </div>
-          </div>
+          <UpgradeTeaser
+            feature="Advanced Analytics"
+            description="View detailed word count performance and chapter averages."
+            tier="scribe"
+          />
         )}
 
         {/* ── Card 3: Project Total Goal ──────────────────────────── */}
         {!canAccessGoals ? (
           <UpgradeTeaser
             feature="Writing Goals"
-            description="Set daily and project word count targets."
+            description="Set project word count targets to keep your manuscripts on track."
             tier="scribe"
           />
         ) : totalGoal ? (
