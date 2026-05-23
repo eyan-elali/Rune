@@ -9,6 +9,7 @@ export const metadata: Metadata = {
 import { getPersonalBests, getCombatRecords } from "@/lib/actions/games";
 import { getGoals, getWritingStreak } from "@/lib/actions/writingStats";
 import { DashboardContent } from "./DashboardContent";
+import { canAccessFeature, type SubscriptionTier } from "@/lib/subscription";
 import type { Project } from "@/lib/types";
 import type { WritingGoal } from "@/lib/actions/writingStats";
 
@@ -39,7 +40,7 @@ export default async function DashboardPage() {
   const [{ data: profile }, { data: rawProjects }] = await Promise.all([
     supabase
       .from("profiles")
-      .select("display_name, xp, level")
+      .select("display_name, xp, level, subscription_tier")
       .eq("id", user!.id)
       .single(),
     supabase
@@ -122,11 +123,15 @@ export default async function DashboardPage() {
     }
   }
 
+  const subscriptionTier = ((profile as { subscription_tier?: string | null } | null)?.subscription_tier ?? 'free') as SubscriptionTier;
+  const canSeeGoals = canAccessFeature(subscriptionTier, 'projectGoals');
+  const canSeeStreaks = canAccessFeature(subscriptionTier, 'streaks');
+
   const [personalBests, combatRecords, goals, writingStreak] = await Promise.all([
     getPersonalBests(user!.id),
     getCombatRecords(user!.id),
-    getGoals(user!.id),
-    getWritingStreak(user!.id),
+    canSeeGoals ? getGoals(user!.id) : Promise.resolve([] as WritingGoal[]),
+    canSeeStreaks ? getWritingStreak(user!.id) : Promise.resolve({ currentStreak: 0, maxStreak: 0 }),
   ]);
 
   const serializedBests: Record<string, number> = {};
@@ -146,6 +151,7 @@ export default async function DashboardPage() {
       combatRecords={combatRecords}
       goals={goals}
       writingStreak={writingStreak}
+      subscriptionTier={subscriptionTier}
     />
   );
 }

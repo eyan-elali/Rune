@@ -1,9 +1,11 @@
 import { notFound } from "next/navigation";
+import { Lock } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { ChapterList } from "@/components/projects/ChapterList";
 import { ManuscriptExportButton } from "@/components/projects/ManuscriptExportButton";
 import { NewDraftButton } from "@/components/projects/NewDraftButton";
 import { ChapterGoalControl } from "@/components/projects/ChapterGoalControl";
+import { canAccessFeature, type SubscriptionTier } from "@/lib/subscription";
 import type { Chapter } from "@/lib/types";
 
 type ChapterWithStats = Chapter & {
@@ -18,21 +20,27 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
   const { projectId } = await params;
   const supabase = await createClient();
 
-  // Fetch project
-  const { data: project } = await supabase
-    .from("projects")
-    .select("*")
-    .eq("id", projectId)
-    .single();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  // Fetch project, chapters, and subscription tier in parallel
+  const [{ data: project }, { data: chapters }, { data: profileTier }] = await Promise.all([
+    supabase.from("projects").select("*").eq("id", projectId).single(),
+    supabase
+      .from("chapters")
+      .select("*, pages(id, word_count, is_canonical)")
+      .eq("project_id", projectId)
+      .order("position", { ascending: true }),
+    supabase
+      .from("profiles")
+      .select("subscription_tier")
+      .eq("id", user!.id)
+      .single(),
+  ]);
 
   if (!project) notFound();
 
-  // Fetch chapters with page stats
-  const { data: chapters } = await supabase
-    .from("chapters")
-    .select("*, pages(id, word_count, is_canonical)")
-    .eq("project_id", projectId)
-    .order("position", { ascending: true });
+  const subscriptionTier = (profileTier?.subscription_tier ?? 'free') as SubscriptionTier;
+  const canSeeChapterGoals = canAccessFeature(subscriptionTier, 'chapterGoals');
 
   const typedChapters = (chapters ?? []) as ChapterWithStats[];
   const completedCount = typedChapters.filter((c) => c.is_completed).length;
@@ -67,7 +75,18 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
             </p>
           </div>
           <div className="flex items-start gap-4">
-            <ChapterGoalControl project={project} completedCount={completedCount} />
+            {canSeeChapterGoals ? (
+              <ChapterGoalControl project={project} completedCount={completedCount} />
+            ) : (
+              <div
+                className="flex items-center gap-1.5 text-xs"
+                style={{ color: "var(--color-mist)" }}
+                aria-label="Chapter goals locked — Scribe &amp; above"
+              >
+                <Lock size={13} aria-hidden style={{ color: "var(--color-mist)", opacity: 0.6 }} />
+                <span style={{ opacity: 0.7 }}>Chapter goals — Scribe &amp; above</span>
+              </div>
+            )}
             <div className="flex items-center gap-2">
               <NewDraftButton projectId={project.id} projectTitle={project.title} />
               <ManuscriptExportButton project={project} />

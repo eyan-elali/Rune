@@ -2,14 +2,16 @@
 
 import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
-import { Trash2, Flame } from "lucide-react";
+import { Trash2, Flame, Lock } from "lucide-react";
 import { useModeStore } from "@/store/modeStore";
 import { TaskList } from "@/components/tasks/TaskList";
+import { UpgradeTeaser } from "@/components/billing/UpgradeTeaser";
 import { AddGoalModal } from "@/components/goals/AddGoalModal";
 import { deleteGoal } from "@/lib/actions/writingStats";
 import { getProjectStats } from "@/lib/actions/projects";
 import { useToastStore } from "@/store/toastStore";
 import { useRouter } from "next/navigation";
+import { canAccessFeature, type SubscriptionTier } from "@/lib/subscription";
 import type { Project } from "@/lib/types";
 import type { WritingGoal } from "@/lib/actions/writingStats";
 
@@ -184,6 +186,7 @@ interface DashboardContentProps {
   combatRecords?: Record<string, CombatRecord>;
   goals?: WritingGoal[];
   writingStreak?: { currentStreak: number; maxStreak: number };
+  subscriptionTier?: SubscriptionTier;
 }
 
 const RACE_DURATIONS: { seconds: number; label: string }[] = [
@@ -397,15 +400,21 @@ function GoalSection({
   goals,
   projects,
   writingStreak,
+  tier,
 }: {
   goals: WritingGoal[];
   projects: Project[];
   writingStreak: { currentStreak: number; maxStreak: number };
+  tier: SubscriptionTier;
 }) {
   const router = useRouter();
   const showToast = useToastStore((s) => s.showToast);
   const [modalOpen, setModalOpen] = useState(false);
   const [, startTransition] = useTransition();
+
+  const canAccessStreaks = canAccessFeature(tier, 'streaks');
+  const canAccessAvgWords = canAccessFeature(tier, 'avgWordsWidget');
+  const canAccessGoals = canAccessFeature(tier, 'projectGoals');
 
   const totalGoal = goals.find((g) => g.type === "project_total") ?? null;
   const hasProjectTotalGoal = totalGoal !== null;
@@ -428,55 +437,128 @@ function GoalSection({
       <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
 
         {/* ── Card 1: Writing Streak ──────────────────────────────── */}
-        <div
-          className="flex flex-col rounded-lg p-5"
-          style={cardStyle}
-        >
-          <div className="mb-3 flex items-center gap-2">
-            <Flame size={13} style={{ color: "var(--color-gold)" }} aria-hidden />
-            <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--color-mist)" }}>
-              Writing Streak
-            </p>
-          </div>
+        {canAccessStreaks ? (
+          <div className="flex flex-col rounded-lg p-5" style={cardStyle}>
+            <div className="mb-3 flex items-center gap-2">
+              <Flame size={13} style={{ color: "var(--color-gold)" }} aria-hidden />
+              <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--color-mist)" }}>
+                Writing Streak
+              </p>
+            </div>
 
-          {writingStreak.currentStreak > 0 ? (
-            <>
-              <p
-                className="font-rune-serif leading-none"
-                style={{ color: "var(--color-gold)", fontSize: "2.75rem" }}
-              >
-                {writingStreak.currentStreak}
-              </p>
-              <p className="mt-1 text-xs" style={{ color: "var(--color-mist)" }}>
-                Day Streak
-              </p>
-              <p className="mt-auto pt-3 text-xs" style={{ color: "var(--color-mist)", opacity: 0.55 }}>
-                Best: {writingStreak.maxStreak} {writingStreak.maxStreak === 1 ? "day" : "days"}
-              </p>
-            </>
-          ) : (
-            <>
-              <p
-                className="font-rune-serif leading-none"
-                style={{ color: "var(--text-primary)", fontSize: "2.75rem" }}
-              >
+            {writingStreak.currentStreak > 0 ? (
+              <>
+                <p
+                  className="font-rune-serif leading-none"
+                  style={{ color: "var(--color-gold)", fontSize: "2.75rem" }}
+                >
+                  {writingStreak.currentStreak}
+                </p>
+                <p className="mt-1 text-xs" style={{ color: "var(--color-mist)" }}>
+                  Day Streak
+                </p>
+                <p className="mt-auto pt-3 text-xs" style={{ color: "var(--color-mist)", opacity: 0.55 }}>
+                  Best: {writingStreak.maxStreak} {writingStreak.maxStreak === 1 ? "day" : "days"}
+                </p>
+              </>
+            ) : (
+              <>
+                <p
+                  className="font-rune-serif leading-none"
+                  style={{ color: "var(--text-primary)", fontSize: "2.75rem" }}
+                >
+                  0
+                </p>
+                <p className="mt-1 text-xs" style={{ color: "var(--color-mist)" }}>
+                  Day Streak
+                </p>
+                <p className="mt-auto pt-3 text-xs italic" style={{ color: "var(--color-mist)", opacity: 0.6 }}>
+                  Start your streak today
+                </p>
+              </>
+            )}
+          </div>
+        ) : (
+          <div className="relative">
+            <div className="flex flex-col rounded-lg p-5" style={cardStyle}>
+              <div className="mb-3 flex items-center gap-2">
+                <Flame size={13} style={{ color: "var(--color-gold)" }} aria-hidden />
+                <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--color-mist)" }}>
+                  Writing Streak
+                </p>
+              </div>
+              <p className="font-rune-serif leading-none" style={{ color: "var(--text-primary)", fontSize: "2.75rem" }}>
                 0
               </p>
-              <p className="mt-1 text-xs" style={{ color: "var(--color-mist)" }}>
-                Day Streak
-              </p>
+              <p className="mt-1 text-xs" style={{ color: "var(--color-mist)" }}>Day Streak</p>
               <p className="mt-auto pt-3 text-xs italic" style={{ color: "var(--color-mist)", opacity: 0.6 }}>
                 Start your streak today
               </p>
-            </>
-          )}
-        </div>
+            </div>
+            <div
+              className="absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-lg"
+              style={{ background: "rgba(0,0,0,0.45)" }}
+            >
+              <Lock size={20} style={{ color: "var(--color-gold)" }} aria-hidden />
+              <p className="text-xs font-semibold" style={{ color: "var(--color-parchment)" }}>
+                Streaks — Scribe &amp; above
+              </p>
+              <Link
+                href="/settings?tab=billing"
+                className="text-xs transition-opacity hover:opacity-70"
+                style={{ color: "var(--color-gold)" }}
+              >
+                Unlock
+              </Link>
+            </div>
+          </div>
+        )}
 
         {/* ── Card 2: Avg. Words Per Chapter ─────────────────────── */}
-        <AvgWordsPerChapter projects={projects} />
+        {canAccessAvgWords ? (
+          <AvgWordsPerChapter projects={projects} />
+        ) : (
+          <div className="relative">
+            <div className="flex flex-col rounded-lg p-5" style={cardStyle}>
+              <div className="mb-3">
+                <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--color-mist)" }}>
+                  Avg. Words / Chapter
+                </p>
+              </div>
+              <p
+                className="font-rune-serif leading-none"
+                style={{ color: "var(--text-primary)", fontSize: "2.75rem", opacity: 0.15 }}
+              >
+                —
+              </p>
+            </div>
+            <div
+              className="absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-lg"
+              style={{ background: "rgba(0,0,0,0.45)" }}
+            >
+              <Lock size={20} style={{ color: "var(--color-gold)" }} aria-hidden />
+              <p className="text-xs font-semibold" style={{ color: "var(--color-parchment)" }}>
+                Analytics — Scribe &amp; above
+              </p>
+              <Link
+                href="/settings?tab=billing"
+                className="text-xs transition-opacity hover:opacity-70"
+                style={{ color: "var(--color-gold)" }}
+              >
+                Unlock
+              </Link>
+            </div>
+          </div>
+        )}
 
         {/* ── Card 3: Project Total Goal ──────────────────────────── */}
-        {totalGoal ? (
+        {!canAccessGoals ? (
+          <UpgradeTeaser
+            feature="Writing Goals"
+            description="Set daily and project word count targets."
+            tier="scribe"
+          />
+        ) : totalGoal ? (
           <div
             className="relative flex flex-col rounded-lg p-5"
             style={cardStyle}
@@ -540,7 +622,7 @@ function GoalSection({
         )}
       </div>
 
-      {modalOpen && (
+      {modalOpen && canAccessGoals && (
         <AddGoalModal
           onClose={() => setModalOpen(false)}
           onCreated={() => {
@@ -568,15 +650,25 @@ export function DashboardContent({
   combatRecords = {},
   goals = [],
   writingStreak = { currentStreak: 0, maxStreak: 0 },
+  subscriptionTier = 'free',
 }: DashboardContentProps) {
   const mode = useModeStore((s) => s.mode);
   const recentProject = projects[0] ?? null;
+  const canSeeTasks = canAccessFeature(subscriptionTier, 'tasks');
 
   if (mode === "focus") {
     return (
       <div className="flex min-h-screen items-center justify-center px-6 py-12">
         <div className="w-full max-w-[480px]">
-          <TaskList />
+          {canSeeTasks ? (
+            <TaskList />
+          ) : (
+            <UpgradeTeaser
+              feature="Task Manager"
+              description="Organize your writing with a personal task list."
+              tier="scribe"
+            />
+          )}
         </div>
       </div>
     );
@@ -598,7 +690,15 @@ export function DashboardContent({
         </div>
 
         <div className="mb-8">
-          <TaskList />
+          {canSeeTasks ? (
+            <TaskList />
+          ) : (
+            <UpgradeTeaser
+              feature="Task Manager"
+              description="Organize your writing with a personal task list."
+              tier="scribe"
+            />
+          )}
         </div>
 
         <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
@@ -701,7 +801,15 @@ export function DashboardContent({
       </div>
 
       <div className="mb-10">
-        <TaskList />
+        {canSeeTasks ? (
+          <TaskList />
+        ) : (
+          <UpgradeTeaser
+            feature="Task Manager"
+            description="Organize your writing with a personal task list."
+            tier="scribe"
+          />
+        )}
       </div>
 
       {recentWork && (
@@ -751,6 +859,7 @@ export function DashboardContent({
         goals={goals}
         projects={projects}
         writingStreak={writingStreak}
+        tier={subscriptionTier}
       />
 
       <section className="mb-10 grid grid-cols-2 gap-4 sm:grid-cols-3" aria-label="Stats">

@@ -9,6 +9,11 @@ export const FEATURE_GATES = {
   gameMode:            ['arcane'],
   allUnlockables:      ['arcane'],
   multipleGameTickets: ['arcane'],
+  tasks:               ['scribe', 'arcane'],
+  heatmap:             ['scribe', 'arcane'],
+  avgWordsWidget:      ['scribe', 'arcane'],
+  projectGoals:        ['scribe', 'arcane'],
+  chapterGoals:        ['scribe', 'arcane'],
 } as const satisfies Record<string, readonly SubscriptionTier[]>
 
 export function canAccessFeature(

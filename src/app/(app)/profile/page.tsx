@@ -1,8 +1,10 @@
 import Link from "next/link";
+import { Lock } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { XpBar } from "@/components/profile/XpBar";
 import { ContributionHeatmap } from "@/components/profile/ContributionHeatmap";
 import { getContributionHistory } from "@/lib/actions/writingStats";
+import { canAccessFeature, type SubscriptionTier } from "@/lib/subscription";
 import type { GameSession } from "@/lib/types";
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -104,7 +106,7 @@ export default async function ProfilePage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const [{ data: profile }, { data: rawProjects }, { data: recentSessions }, contributionHistory] =
+  const [{ data: profile }, { data: rawProjects }, { data: recentSessions }] =
     await Promise.all([
       supabase.from("profiles").select("*").eq("id", user!.id).single(),
       supabase
@@ -117,8 +119,11 @@ export default async function ProfilePage() {
         .eq("user_id", user!.id)
         .order("created_at", { ascending: false })
         .limit(5),
-      getContributionHistory(user!.id),
     ]);
+
+  const subscriptionTier = (profile?.subscription_tier ?? 'free') as SubscriptionTier;
+  const canSeeHeatmap = canAccessFeature(subscriptionTier, 'heatmap');
+  const contributionHistory = canSeeHeatmap ? await getContributionHistory(user!.id) : [];
 
   const projects = rawProjects ?? [];
   const projectIds = projects.map((p) => p.id);
@@ -281,7 +286,7 @@ export default async function ProfilePage() {
 
       {/* ── Contribution Heatmap ─────────────────────────────────────── */}
       <section
-        className="mb-8 rounded-lg p-6"
+        className="relative mb-8 rounded-lg p-6"
         style={{
           background: "var(--color-sepia)",
           border: "1px solid var(--color-border)",
@@ -295,6 +300,24 @@ export default async function ProfilePage() {
           Writing Activity
         </h2>
         <ContributionHeatmap data={contributionHistory} />
+        {!canSeeHeatmap && (
+          <div
+            className="absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-lg"
+            style={{ background: "rgba(0,0,0,0.45)" }}
+          >
+            <Lock size={20} style={{ color: "var(--color-gold)" }} aria-hidden />
+            <p className="text-xs font-semibold" style={{ color: "var(--color-parchment)" }}>
+              Heatmap — Scribe &amp; above
+            </p>
+            <Link
+              href="/settings?tab=billing"
+              className="text-xs transition-opacity hover:opacity-70"
+              style={{ color: "var(--color-gold)" }}
+            >
+              Unlock
+            </Link>
+          </div>
+        )}
       </section>
 
       {/* ── Unlockables link ────────────────────────────────────────── */}
