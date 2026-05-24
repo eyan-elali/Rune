@@ -9,7 +9,11 @@ import type { SubscriptionTier } from '@/lib/subscription'
 // ─── Prices (USD) ─────────────────────────────────────────────────────────────
 
 const PRICES = {
-  scribe: { monthly: 6, annual: 5 },
+  scribe: { monthly: 9.99, annualPerMonth: 8, annualTotal: 96 },
+}
+
+function formatUsd(amount: number): string {
+  return `$${amount.toFixed(2)}`
 }
 
 // ─── Feature list per tier ────────────────────────────────────────────────────
@@ -21,7 +25,7 @@ const TIER_FEATURES = {
     { label: 'Basic editor', included: true },
     { label: 'Focus Mode', included: true },
     { label: 'Limited Arena access (1 entry / week)', included: true },
-    { label: 'Limited cosmetics (3 themes, 3 avatars, 2 fonts)', included: true },
+    { label: 'Limited cosmetics', included: true },
     { label: 'Goals & streaks', included: false },
     { label: 'Export pages & manuscripts', included: false },
   ],
@@ -47,7 +51,7 @@ interface PricingTableProps {
   isLoggedIn?: boolean
 }
 
-type TierPrice = { monthly: number; annual: number } | null
+type TierPrice = { monthly: number; annualPerMonth: number; annualTotal: number } | null
 
 // ─── Pill toggle ──────────────────────────────────────────────────────────────
 
@@ -255,8 +259,11 @@ function TierCard({
   isLoggedIn: boolean
   isFeatured: boolean
 }) {
-  const effectivePrice = price ? price[billingPeriod] : 0
-  const monthlyEquiv = price ? price.annual : 0
+  const effectivePrice = price
+    ? billingPeriod === 'monthly'
+      ? price.monthly
+      : price.annualPerMonth
+    : 0
   const colors = tierTextColors(isFeatured)
   const isFree = tier === 'free'
 
@@ -281,7 +288,7 @@ function TierCard({
             color: 'var(--color-gold)',
           }}
         >
-          2 months free
+          20% off
         </div>
       )}
 
@@ -303,7 +310,7 @@ function TierCard({
           className="font-rune-serif text-4xl"
           style={{ color: colors.price }}
         >
-          {price ? `$${effectivePrice}` : '$0'}
+          {price ? formatUsd(effectivePrice) : '$0'}
         </span>
         {price && (
           <span
@@ -320,7 +327,7 @@ function TierCard({
           className="mb-6 text-xs"
           style={{ color: colors.annualNote, opacity: isFeatured ? 1 : 0.7 }}
         >
-          ${monthlyEquiv}/mo · billed annually
+          Billed annually at {formatUsd(price.annualTotal)}/yr
         </p>
       )}
       {!(billingPeriod === 'annual' && price) && <div className="mb-6" />}
@@ -399,7 +406,7 @@ export function PricingTable({ currentTier = 'free', isLoggedIn = false }: Prici
           onChange={setBillingPeriod}
           options={[
             { label: 'Monthly', value: 'monthly' },
-            { label: 'Annual', value: 'annual' },
+            { label: 'Annual (Save 20%)', value: 'annual' },
           ]}
         />
       </div>
