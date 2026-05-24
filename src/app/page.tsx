@@ -343,12 +343,8 @@ export default function LandingPage() {
                       borderRadius: '8px',
                       color: cfg.textMuted,
                       transition: 'color 0.3s ease',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '4px',
                     }}
                   >
-                    <Eye size={10} style={{ color: cfg.gold }} aria-hidden />
                     Focus
                   </span>
                   <span
