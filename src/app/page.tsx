@@ -98,53 +98,7 @@ export default function LandingPage() {
 
   return (
     <div style={{ position: 'relative' }}>
-      {/* ── GOLDEN FLOWING LINES ─────────────────────────────────────── */}
-      <svg
-        aria-hidden="true"
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          width: '100%',
-          height: '100%',
-          pointerEvents: 'none',
-          zIndex: 0,
-        }}
-        viewBox="0 0 1440 4000"
-        preserveAspectRatio="xMidYMid slice"
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        <path
-          d="M 180 0 C 320 800, 80 1600, 260 2400 C 400 3200, 140 3600, 120 4000"
-          fill="none"
-          stroke="var(--color-gold)"
-          strokeWidth="0.6"
-          opacity="0.07"
-        />
-        <path
-          d="M 1260 0 C 1100,680 1400,1180 1260,2000 C 980,2600 1300,3400 1320,4000"
-          fill="none"
-          stroke="var(--color-gold)"
-          strokeWidth="0.6"
-          opacity="0.07"
-        />
-        <path
-          d="M 480 0 C 560 700, 380 1200, 520 1800 C 660 2400, 420 3000, 500 4000"
-          fill="none"
-          stroke="var(--color-gold)"
-          strokeWidth="0.6"
-          opacity="0.07"
-        />
-        <path
-          d="M 960 0 C 880 900, 1040 1500, 900 2200 C 760 2900, 1000 3400, 940 4000"
-          fill="none"
-          stroke="var(--color-gold)"
-          strokeWidth="0.6"
-          opacity="0.07"
-        />
-      </svg>
-
-      {/* All page content sits above the SVG layer */}
+      {/* All page content — interactive layer beneath decorative lines */}
       <div style={{ position: 'relative', zIndex: 1 }}>
 
         {/* ── SECTION 1: FIXED HEADER ──────────────────────────────────── */}
@@ -736,9 +690,11 @@ export default function LandingPage() {
         {/* ── SECTION 3: PROFESSIONAL NOVELIST SUITE ───────────────────── */}
         <section
           style={{
+            position: 'relative',
+            zIndex: 10,
             width: '100%',
             padding: '7rem 1.5rem',
-            background: 'var(--bg-secondary)',
+            background: 'color-mix(in srgb, var(--bg-secondary) 72%, transparent)',
             borderTop: '1px solid var(--color-border)',
             borderBottom: '1px solid var(--color-border)',
           }}
@@ -802,7 +758,7 @@ export default function LandingPage() {
               </p>
             </div>
 
-            {/* Card 2 — Plot Manager (no Scribe badge) */}
+            {/* Card 2 — Plot & Task Manager (no Scribe badge) */}
             <div className="feature-card" style={{ background: 'var(--surface-card)', border: '1px solid var(--color-border)', borderRadius: '8px', padding: '2rem', transition: 'border-color 0.2s ease' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '1.25rem' }} aria-hidden>
                 <div style={{ height: '4px', borderRadius: '2px', background: 'var(--color-gold)', width: '24px' }} />
@@ -810,10 +766,10 @@ export default function LandingPage() {
                 <div style={{ height: '4px', borderRadius: '2px', background: 'var(--color-gold)', width: '20px' }} />
               </div>
               <h3 style={{ fontFamily: SERIF, fontSize: '17px', color: 'var(--text-primary)', fontWeight: 600, marginBottom: '0.5rem' }}>
-                Plot Manager
+                Plot &amp; Task Manager
               </h3>
               <p style={{ fontFamily: SANS, fontSize: '14px', color: 'var(--text-muted)', lineHeight: 1.65 }}>
-                Map your narrative structure alongside your manuscript. Scene cards, chapter beats, and story arcs live directly beside your writing — so the architecture of your novel is never more than a glance away.
+                Your narrative beats, scene cards, and chapter notes live alongside your manuscript — not in a separate app. Keep the architecture of your story always within reach.
               </p>
             </div>
 
@@ -1424,6 +1380,63 @@ export default function LandingPage() {
         </footer>
 
       </div>{/* end content z-index wrapper */}
+
+      {/* ── GOLDEN FLOWING LINES (non-interactive overlay) ─────────────── */}
+      <div
+        aria-hidden="true"
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 10,
+          pointerEvents: 'none',
+        }}
+      >
+        <svg
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+          }}
+          viewBox="0 0 1440 4000"
+          preserveAspectRatio="xMidYMid slice"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M 180 0 C 320 800, 80 1600, 260 2400 C 400 3200, 140 3600, 120 4000"
+            fill="none"
+            stroke="var(--color-gold)"
+            strokeWidth="10.0"
+            opacity="0.07"
+          />
+          <path
+            d="M 1260 0 C 1100,680 1400,1180 1260,2000 C 980,2600 1300,3400 1320,4000"
+            fill="none"
+            stroke="var(--color-gold)"
+            strokeWidth="10.0"
+            opacity="0.07"
+          />
+          <path
+  d="M 520 0 C 680 800, 880 1400, 720 2000 C 560 2600, 360 3200, 480 4000"
+  stroke="var(--color-gold)"
+  strokeWidth="2.0"
+  fill="none"
+  opacity="0.07"
+/>
+
+<path
+  d="M 920 0 C 760 800, 560 1400, 720 2000 C 880 2600, 1080 3200, 960 4000"
+  stroke="var(--color-gold)"
+  strokeWidth="2.0"
+  fill="none"
+  opacity="0.07"
+/>
+        </svg>
+      </div>
     </div>
   )
 }
