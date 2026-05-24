@@ -6,9 +6,11 @@ import {
   LayoutDashboard,
   BookOpen,
   User,
+  Users,
   Swords,
   Settings,
   LogOut,
+  KanbanSquare,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -176,7 +178,7 @@ export default function LandingPage() {
               display: 'inline-block',
             }}
           >
-            Enter Forge →
+            Enter Workspace →
           </Link>
         </header>
 
@@ -246,7 +248,7 @@ export default function LandingPage() {
               transition: 'background 0.15s ease',
             }}
           >
-            START FORGING YOUR DRAFT — FREE
+            START YOUR MANUSCRIPT — FREE
           </Link>
 
           {/* ── INTERACTIVE THEME MOCKUP ── */}
@@ -799,10 +801,10 @@ export default function LandingPage() {
                 <div style={{ height: '4px', borderRadius: '2px', background: 'var(--color-gold)', width: '20px' }} />
               </div>
               <h3 style={{ fontFamily: SERIF, fontSize: '17px', color: 'var(--text-primary)', fontWeight: 600, marginBottom: '0.5rem' }}>
-                Plot &amp; Task Manager
+                 Task Manager
               </h3>
               <p style={{ fontFamily: SANS, fontSize: '14px', color: 'var(--text-muted)', lineHeight: 1.65 }}>
-                Your narrative beats, scene cards, and chapter notes live alongside your manuscript — not in a separate app. Keep the architecture of your story always within reach.
+              Command the entire scope of your manuscript from a centralized operational hub. Track high-level scene criteria, character arcs, and overarching plot requirements across all chapters before you step foot in the editor. Plan the work, then execute without distraction.
               </p>
             </div>
 
@@ -1039,49 +1041,7 @@ export default function LandingPage() {
                 COMING SOON
               </span>
 
-              {/* Icon: two person silhouettes with VS between */}
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  height: '40px',
-                  marginBottom: '1rem',
-                }}
-                aria-hidden
-              >
-                <div
-                  style={{
-                    width: '8px',
-                    height: '14px',
-                    borderRadius: '4px 4px 2px 2px',
-                    background: 'var(--color-gold)',
-                    opacity: 0.4,
-                    flexShrink: 0,
-                  }}
-                />
-                <span
-                  style={{
-                    fontFamily: SANS,
-                    fontSize: '8px',
-                    color: 'var(--color-gold)',
-                    fontWeight: 700,
-                    margin: '0 6px',
-                    lineHeight: 1,
-                  }}
-                >
-                  VS
-                </span>
-                <div
-                  style={{
-                    width: '8px',
-                    height: '14px',
-                    borderRadius: '4px 4px 2px 2px',
-                    background: 'var(--color-gold)',
-                    opacity: 0.4,
-                    flexShrink: 0,
-                  }}
-                />
-              </div>
+              <Users size={24} className="text-[var(--color-gold)] opacity-70 mb-4" aria-hidden />
 
               <h3
                 style={{
@@ -1134,31 +1094,7 @@ export default function LandingPage() {
                 COMING SOON
               </span>
 
-              {/* Icon: 2×3 grid of scene cards */}
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(3, 10px)',
-                  gridTemplateRows: 'repeat(2, 7px)',
-                  gap: '3px',
-                  marginBottom: '1rem',
-                  width: 'fit-content',
-                }}
-                aria-hidden
-              >
-                {Array.from({ length: 6 }).map((_, i) => (
-                  <div
-                    key={i}
-                    style={{
-                      width: '10px',
-                      height: '7px',
-                      borderRadius: '1px',
-                      background: 'var(--color-gold)',
-                      opacity: 0.3,
-                    }}
-                  />
-                ))}
-              </div>
+              <KanbanSquare size={24} className="text-[var(--color-gold)] opacity-70 mb-4" aria-hidden />
 
               <h3
                 style={{
@@ -1342,7 +1278,7 @@ export default function LandingPage() {
                 'Goals, streaks & heatmap analytics',
                 'Export pages & full manuscripts (PDF)',
                 'All 34 themes, fonts & avatar insignias',
-                'Task & plot manager',
+                'Task manager',
                 'Priority support',
               ].map((f) => (
                 <div key={f} style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', marginBottom: '10px', fontSize: '14px', color: 'var(--text-primary)', lineHeight: 1.5, fontFamily: SANS }}>
