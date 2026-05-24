@@ -163,6 +163,29 @@ export default function LoginClient() {
           Create one
         </Link>
       </p>
+
+      <p
+        className="mt-4 text-center leading-relaxed"
+        style={{ fontSize: "0.7rem", color: "var(--color-mist)", opacity: 0.5 }}
+      >
+        By signing in you agree to our{" "}
+        <Link
+          href="/terms"
+          className="transition-opacity duration-150 hover:opacity-100"
+          style={{ color: "var(--color-gold)" }}
+        >
+          Terms of Service
+        </Link>{" "}
+        and{" "}
+        <Link
+          href="/privacy"
+          className="transition-opacity duration-150 hover:opacity-100"
+          style={{ color: "var(--color-gold)" }}
+        >
+          Privacy Policy
+        </Link>
+        .
+      </p>
     </div>
   );
 }

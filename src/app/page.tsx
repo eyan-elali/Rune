@@ -915,6 +915,24 @@ export default function LandingPage() {
               Create account
             </Link>
           </div>
+          <div
+            className="mt-5 flex items-center justify-center gap-3 text-xs"
+            style={{ color: "var(--color-mist)", opacity: 0.3 }}
+          >
+            <Link
+              href="/terms"
+              className="transition-opacity duration-150 hover:opacity-100"
+            >
+              Terms of Service
+            </Link>
+            <span aria-hidden>·</span>
+            <Link
+              href="/privacy"
+              className="transition-opacity duration-150 hover:opacity-100"
+            >
+              Privacy Policy
+            </Link>
+          </div>
         </div>
       </footer>
 

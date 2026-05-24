@@ -365,6 +365,39 @@ export function Sidebar({ displayName, avatarUrl }: SidebarProps) {
             <LogOut size={16} aria-hidden="true" />
             {!sidebarCollapsed && "Sign out"}
           </button>
+
+          {!sidebarCollapsed && (
+            <>
+              <div
+                className="mx-1 mt-3 h-px"
+                style={{ background: "var(--color-border)" }}
+                aria-hidden
+              />
+              <div className="flex items-center justify-center gap-2 px-3 pb-1 pt-2">
+                <Link
+                  href="/terms"
+                  className="text-[10px] transition-opacity duration-150 hover:opacity-100"
+                  style={{ color: "var(--color-mist)", opacity: 0.35 }}
+                >
+                  Terms
+                </Link>
+                <span
+                  className="text-[10px]"
+                  style={{ color: "var(--color-mist)", opacity: 0.2 }}
+                  aria-hidden
+                >
+                  ·
+                </span>
+                <Link
+                  href="/privacy"
+                  className="text-[10px] transition-opacity duration-150 hover:opacity-100"
+                  style={{ color: "var(--color-mist)", opacity: 0.35 }}
+                >
+                  Privacy
+                </Link>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </aside>
