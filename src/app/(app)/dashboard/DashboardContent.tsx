@@ -122,7 +122,7 @@ const ENEMIES = [
     name: "Writer's Block",
     hp: 800,
     description: "A stubborn phantom that feeds on hesitation. Stop moving and it heals.",
-    gimmick: "Heals 50 HP every 60 s",
+    gimmick: "Heals 50 HP every 60s",
   },
   {
     id: "deadline",
@@ -136,7 +136,7 @@ const ENEMIES = [
 function EnemyCard({ name, hp, description, gimmick }: (typeof ENEMIES)[number]) {
   return (
     <div
-      className="flex flex-col rounded-lg p-5"
+      className="flex h-full flex-col rounded-lg p-5"
       style={{
         background: "var(--surface-card)",
         border: "1px solid var(--color-border)",
@@ -219,7 +219,7 @@ function StatRowsCard({
   rows: { label: string; value: string }[];
 }) {
   return (
-    <div className="rounded-lg p-5" style={cardStyle}>
+    <div className="flex-1 rounded-lg p-5" style={cardStyle}>
       <ul className="flex flex-col gap-3">
         {rows.map(({ label, value }) => (
           <li key={label} className="flex items-center justify-between gap-4">
@@ -647,22 +647,27 @@ export function DashboardContent({
           )}
         </div>
 
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-          {/* Column 1 — Enemies */}
-          <div className="flex flex-col gap-4">
-            <h2
-              className="text-xs font-semibold uppercase tracking-widest"
-              style={{ color: "var(--color-mist)" }}
-            >
-              Enemies
-            </h2>
+        {/* Row 1 — Enemies */}
+        <section className="mb-8" aria-label="Enemies">
+          <h2
+            className="!mb-4 text-xs font-semibold uppercase tracking-widest"
+            style={{ color: "var(--color-mist)" }}
+          >
+            Enemies
+          </h2>
+          <div className="grid w-full grid-cols-1 gap-6 md:grid-cols-3">
             {ENEMIES.map((e) => (
               <EnemyCard key={e.id} {...e} />
             ))}
           </div>
+        </section>
 
-          {/* Column 2 — Personal Bests & Combat Records */}
-          <div className="flex flex-col gap-4">
+        {/* Row 2 — Stats & Quick Start */}
+        <section
+          className="grid w-full grid-cols-1 gap-6 lg:grid-cols-3"
+          aria-label="Arena stats and quick start"
+        >
+          <div className="flex min-w-0 flex-col gap-4">
             <h2
               className="text-xs font-semibold uppercase tracking-widest"
               style={{ color: "var(--color-mist)" }}
@@ -678,7 +683,9 @@ export function DashboardContent({
                     : "—",
               }))}
             />
+          </div>
 
+          <div className="flex min-w-0 flex-col gap-4">
             <h2
               className="text-xs font-semibold uppercase tracking-widest"
               style={{ color: "var(--color-mist)" }}
@@ -693,18 +700,20 @@ export function DashboardContent({
             />
           </div>
 
-          {/* Column 3 — Quick Start */}
-          <div className="flex flex-col gap-4">
+          <div className="flex min-w-0 flex-col gap-4">
             <h2
               className="text-xs font-semibold uppercase tracking-widest"
               style={{ color: "var(--color-mist)" }}
             >
               Quick Start
             </h2>
-            <div className="flex flex-col gap-3">
+            <div
+              className="flex flex-1 flex-col gap-3 rounded-lg p-5"
+              style={cardStyle}
+            >
               <Link
                 href="/games"
-                className="flex items-center justify-center rounded-md px-6 py-4 text-base font-medium transition-colors duration-150"
+                className="flex items-center justify-center rounded-md px-6 py-4 text-base font-medium transition-colors duration-150 hover:bg-rune-gold/10"
                 style={{
                   border: "1px solid var(--color-gold)",
                   color: "var(--color-gold)",
@@ -715,7 +724,7 @@ export function DashboardContent({
               </Link>
               <Link
                 href="/games/race"
-                className="flex items-center justify-center rounded-md px-6 py-4 text-base font-medium transition-colors duration-150"
+                className="flex items-center justify-center rounded-md px-6 py-4 text-base font-medium transition-colors duration-150 hover:bg-rune-gold/10"
                 style={{
                   border: "1px solid var(--color-gold)",
                   color: "var(--color-gold)",
@@ -726,7 +735,7 @@ export function DashboardContent({
               </Link>
             </div>
           </div>
-        </div>
+        </section>
       </div>
     );
   }
