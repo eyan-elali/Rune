@@ -92,9 +92,9 @@ export default function TermsPage() {
 
         <Section title="4. Subscription and Billing">
           <p>
-            Rune offers a free tier and paid subscription plans (&quot;Scribe&quot;
-            and &quot;Arcane&quot;). Paid plans are billed on a recurring monthly
-            basis via Stripe. By subscribing, you authorize Rune to charge your
+            Rune offers a free tier and a paid subscription plan (&quot;Scribe&quot;).
+            Paid plans are billed on a recurring monthly or annual basis via Stripe.
+            By subscribing, you authorize Rune to charge your
             payment method on the billing cycle selected at checkout.
           </p>
           <p>

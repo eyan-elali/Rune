@@ -1288,7 +1288,7 @@ export default function LandingPage() {
               ))}
 
               <Link
-                href="/signup?plan=scribe"
+                href={`/signup?plan=scribe&billing=${billing}`}
                 className="gold-btn"
                 style={{
                   display: 'block',

@@ -13,9 +13,7 @@ function createServiceClient() {
 
 function tierFromPriceId(priceId: string): string {
   for (const [tier, periods] of Object.entries(PRICE_IDS)) {
-    for (const currencies of Object.values(periods)) {
-      if (Object.values(currencies).includes(priceId)) return tier
-    }
+    if ((Object.values(periods) as string[]).includes(priceId)) return tier
   }
   return 'free'
 }
