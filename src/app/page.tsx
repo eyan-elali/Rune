@@ -2,6 +2,15 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import {
+  LayoutDashboard,
+  BookOpen,
+  User,
+  Swords,
+  Settings,
+  LogOut,
+} from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 
 const THEME_CONFIGS = {
   parchment: {
@@ -65,11 +74,11 @@ const SERIF = "Georgia, 'Times New Roman', serif"
 const SANS  = 'system-ui, -apple-system, sans-serif'
 
 // Nav items matching real Sidebar.tsx NAV_LINKS + Arena in order
-const MOCK_NAV = [
-  { label: 'Dashboard',      active: true  },
-  { label: 'Projects',       active: false },
-  { label: 'Profile & Stats',active: false },
-  { label: 'Arena',          active: false },
+const MOCK_NAV: { label: string; active: boolean; icon: LucideIcon }[] = [
+  { label: 'Dashboard',       active: true,  icon: LayoutDashboard },
+  { label: 'Projects',        active: false, icon: BookOpen },
+  { label: 'Profile & Stats', active: false, icon: User },
+  { label: 'Arena',           active: false, icon: Swords },
 ]
 
 export default function LandingPage() {
@@ -323,17 +332,25 @@ export default function LandingPage() {
                 </div>
 
                 {/* Focus / Game mode toggle pill */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '2px',
+                    border: `1px solid ${cfg.borderStrong}`,
+                    borderRadius: '10px',
+                    padding: '2px',
+                    transition: 'border-color 0.3s ease',
+                  }}
+                >
                   <span
                     style={{
                       fontFamily: SANS,
                       fontSize: '9px',
                       padding: '2px 8px',
-                      borderRadius: '10px',
-                      background: `${cfg.gold}22`,
-                      border: `1px solid ${cfg.gold}`,
-                      color: cfg.gold,
-                      transition: 'color 0.3s ease, background-color 0.3s ease',
+                      borderRadius: '8px',
+                      color: cfg.textMuted,
+                      transition: 'color 0.3s ease',
                     }}
                   >
                     Focus
@@ -343,7 +360,7 @@ export default function LandingPage() {
                       fontFamily: SANS,
                       fontSize: '9px',
                       padding: '2px 8px',
-                      borderRadius: '10px',
+                      borderRadius: '8px',
                       color: cfg.textMuted,
                       transition: 'color 0.3s ease',
                     }}
@@ -504,7 +521,9 @@ export default function LandingPage() {
 
                   {/* Primary nav — matching NAV_LINKS + Arena from real Sidebar.tsx */}
                   <nav style={{ flex: 1, padding: '2px 6px', overflow: 'hidden' }}>
-                    {MOCK_NAV.map((item) => (
+                    {MOCK_NAV.map((item) => {
+                      const NavIcon = item.icon
+                      return (
                       <div
                         key={item.label}
                         style={{
@@ -520,16 +539,14 @@ export default function LandingPage() {
                           transition: 'background-color 0.3s ease',
                         }}
                       >
-                        {/* Icon placeholder — 10×10 square, matching icon size in real sidebar */}
-                        <div
+                        <NavIcon
+                          size={14}
+                          className="mr-2.5 shrink-0"
                           style={{
-                            width: '10px',
-                            height: '10px',
-                            borderRadius: '2px',
-                            flexShrink: 0,
-                            background: `${cfg.gold}40`,
-                            transition: 'background-color 0.3s ease',
+                            color: item.active ? cfg.gold : cfg.textPrimary,
+                            transition: 'color 0.3s ease',
                           }}
+                          aria-hidden
                         />
                         <span
                           style={{
@@ -546,7 +563,7 @@ export default function LandingPage() {
                           {item.label}
                         </span>
                       </div>
-                    ))}
+                    )})}
                   </nav>
 
                   {/* Bottom section — settings + sign out */}
@@ -566,14 +583,11 @@ export default function LandingPage() {
                           marginBottom: '2px',
                         }}
                       >
-                        <div
-                          style={{
-                            width: '10px',
-                            height: '10px',
-                            borderRadius: '2px',
-                            flexShrink: 0,
-                            background: `${cfg.gold}28`,
-                          }}
+                        <Settings
+                          size={14}
+                          className="mr-2.5 shrink-0"
+                          style={{ color: cfg.textMuted, transition: 'color 0.3s ease' }}
+                          aria-hidden
                         />
                         <span
                           style={{
@@ -598,14 +612,11 @@ export default function LandingPage() {
                           borderLeft: '2px solid transparent',
                         }}
                       >
-                        <div
-                          style={{
-                            width: '10px',
-                            height: '10px',
-                            borderRadius: '2px',
-                            flexShrink: 0,
-                            background: `${cfg.gold}28`,
-                          }}
+                        <LogOut
+                          size={14}
+                          className="mr-2.5 shrink-0"
+                          style={{ color: cfg.textMuted, transition: 'color 0.3s ease' }}
+                          aria-hidden
                         />
                         <span
                           style={{
