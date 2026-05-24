@@ -50,6 +50,17 @@ const THEME_CONFIGS = {
 
 type ThemeKey = keyof typeof THEME_CONFIGS
 
+function LocalBackgroundLines() {
+  return (
+    <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden" aria-hidden="true">
+      <svg className="w-full h-full min-h-[800px]" viewBox="0 0 1440 1200" preserveAspectRatio="none" fill="none">
+        <path d="M 520 0 C 680 300, 880 900, 720 1200" stroke="var(--color-gold)" strokeWidth="2.0" opacity="0.07" />
+        <path d="M 920 0 C 760 300, 560 900, 720 1200" stroke="var(--color-gold)" strokeWidth="2.0" opacity="0.07" />
+      </svg>
+    </div>
+  )
+}
+
 function SectionDivider() {
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 1.5rem' }}>
@@ -98,8 +109,8 @@ export default function LandingPage() {
 
   return (
     <div style={{ position: 'relative' }}>
-      {/* All page content — interactive layer beneath decorative lines */}
-      <div style={{ position: 'relative', zIndex: 1 }}>
+      {/* Page content */}
+      <div>
 
         {/* ── SECTION 1: FIXED HEADER ──────────────────────────────────── */}
         <header
@@ -157,6 +168,7 @@ export default function LandingPage() {
 
         {/* ── SECTION 2: HERO ──────────────────────────────────────────── */}
         <section
+          className="relative bg-transparent"
           style={{
             minHeight: 'calc(100vh - 56px)',
             display: 'flex',
@@ -167,6 +179,9 @@ export default function LandingPage() {
             padding: '4rem 1.5rem 6rem',
           }}
         >
+          <div className="absolute inset-0 bg-[var(--bg-primary)] z-0 pointer-events-none" />
+          <LocalBackgroundLines />
+          <div className="relative z-10 w-full">
           <h1
             style={{
               fontFamily: SERIF,
@@ -683,22 +698,24 @@ export default function LandingPage() {
               </div>
             </div>
           </div>
+          </div>
         </section>
 
         <SectionDivider />
 
         {/* ── SECTION 3: PROFESSIONAL NOVELIST SUITE ───────────────────── */}
         <section
+          className="relative bg-transparent"
           style={{
-            position: 'relative',
-            zIndex: 10,
             width: '100%',
             padding: '7rem 1.5rem',
-            background: 'color-mix(in srgb, var(--bg-secondary) 72%, transparent)',
             borderTop: '1px solid var(--color-border)',
             borderBottom: '1px solid var(--color-border)',
           }}
         >
+          <div className="absolute inset-0 bg-[var(--bg-secondary)] z-0 pointer-events-none" />
+          <LocalBackgroundLines />
+          <div className="relative z-10">
           <h2
             style={{
               fontFamily: SERIF,
@@ -788,12 +805,16 @@ export default function LandingPage() {
               </p>
             </div>
           </div>
+          </div>
         </section>
 
         <SectionDivider />
 
         {/* ── SECTION 4: THE ARENA ─────────────────────────────────────── */}
-        <section style={{ width: '100%', padding: '7rem 1.5rem', background: 'var(--bg-primary)' }}>
+        <section className="relative bg-transparent" style={{ width: '100%', padding: '7rem 1.5rem' }}>
+          <div className="absolute inset-0 bg-[var(--bg-primary)] z-0 pointer-events-none" />
+          <LocalBackgroundLines />
+          <div className="relative z-10">
           <h2
             style={{
               fontFamily: SERIF,
@@ -934,18 +955,16 @@ export default function LandingPage() {
               </div>
             </div>
           </div>
+          </div>
         </section>
 
         <SectionDivider />
 
         {/* ── SECTION 5: COMING SOON ───────────────────────────────────── */}
-        <section
-          style={{
-            width: '100%',
-            padding: '6rem 1.5rem',
-            background: 'var(--bg-primary)',
-          }}
-        >
+        <section className="relative bg-transparent" style={{ width: '100%', padding: '6rem 1.5rem' }}>
+          <div className="absolute inset-0 bg-[var(--bg-secondary)] z-0 pointer-events-none" />
+          <LocalBackgroundLines />
+          <div className="relative z-10">
           <h2
             style={{
               fontFamily: SERIF,
@@ -1154,19 +1173,23 @@ export default function LandingPage() {
               </p>
             </div>
           </div>
+          </div>
         </section>
 
         <SectionDivider />
 
         {/* ── SECTION 6: PRICING ───────────────────────────────────────── */}
         <section
+          className="relative bg-transparent"
           style={{
             width: '100%',
             padding: '7rem 1.5rem',
-            background: 'var(--bg-secondary)',
             borderTop: '1px solid var(--color-border)',
           }}
         >
+          <div className="absolute inset-0 bg-[var(--bg-primary)] z-0 pointer-events-none" />
+          <LocalBackgroundLines />
+          <div className="relative z-10">
           <h2
             style={{
               fontFamily: SERIF,
@@ -1346,6 +1369,7 @@ export default function LandingPage() {
               </Link>
             </div>
           </div>
+          </div>
         </section>
 
         <SectionDivider />
@@ -1379,64 +1403,8 @@ export default function LandingPage() {
           </div>
         </footer>
 
-      </div>{/* end content z-index wrapper */}
-
-      {/* ── GOLDEN FLOWING LINES (non-interactive overlay) ─────────────── */}
-      <div
-        aria-hidden="true"
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          zIndex: 10,
-          pointerEvents: 'none',
-        }}
-      >
-        <svg
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            width: '100%',
-            height: '100%',
-          }}
-          viewBox="0 0 1440 4000"
-          preserveAspectRatio="xMidYMid slice"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <path
-            d="M 180 0 C 320 800, 80 1600, 260 2400 C 400 3200, 140 3600, 120 4000"
-            fill="none"
-            stroke="var(--color-gold)"
-            strokeWidth="10.0"
-            opacity="0.07"
-          />
-          <path
-            d="M 1260 0 C 1100,680 1400,1180 1260,2000 C 980,2600 1300,3400 1320,4000"
-            fill="none"
-            stroke="var(--color-gold)"
-            strokeWidth="10.0"
-            opacity="0.07"
-          />
-          <path
-  d="M 520 0 C 680 800, 880 1400, 720 2000 C 560 2600, 360 3200, 480 4000"
-  stroke="var(--color-gold)"
-  strokeWidth="2.0"
-  fill="none"
-  opacity="0.07"
-/>
-
-<path
-  d="M 920 0 C 760 800, 560 1400, 720 2000 C 880 2600, 1080 3200, 960 4000"
-  stroke="var(--color-gold)"
-  strokeWidth="2.0"
-  fill="none"
-  opacity="0.07"
-/>
-        </svg>
       </div>
+
     </div>
   )
 }
