@@ -23,12 +23,23 @@ function useBreadcrumbs() {
   const pathname = usePathname();
   const segments = pathname.split("/").filter(Boolean);
 
+  const projectId = segments.find(
+    (seg, i) => i > 0 && segments[i - 1] === "projects" && UUID_RE.test(seg)
+  );
+
   return segments
     .map((seg, i) => {
       if (UUID_RE.test(seg)) return null;
+
+      let href = "/" + segments.slice(0, i + 1).join("/");
+      // No /projects/:id/chapters index route — link to the project workspace
+      if (seg === "chapters" && projectId) {
+        href = `/projects/${projectId}`;
+      }
+
       return {
         label: SEGMENT_LABELS[seg] ?? seg,
-        href: "/" + segments.slice(0, i + 1).join("/"),
+        href,
         isLast: i === segments.length - 1,
       };
     })

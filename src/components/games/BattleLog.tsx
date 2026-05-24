@@ -1,5 +1,7 @@
 "use client";
 
+import { cn } from "@/lib/utils";
+
 export interface BattleLogEntry {
   id: number;
   message: string;
@@ -29,12 +31,12 @@ export function BattleLog({ entries }: BattleLogProps) {
         {visible.map((entry, idx) => (
           <p
             key={entry.id}
-            className="battle-entry text-xs leading-relaxed"
-            style={{
-              color:
-                idx === 0 ? "var(--color-parchment)" : "var(--color-mist)",
-              opacity: Math.max(0.3, 1 - idx * 0.18),
-            }}
+            className={cn(
+              "battle-entry text-xs leading-relaxed",
+              idx === 0
+                ? "text-[var(--text-primary)]"
+                : "text-[var(--text-primary)]/60"
+            )}
           >
             {entry.message}
           </p>

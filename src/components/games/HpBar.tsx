@@ -1,5 +1,7 @@
 "use client";
 
+import { cn } from "@/lib/utils";
+
 interface HpBarProps {
   current: number;
   max: number;
@@ -23,11 +25,7 @@ export function HpBar({ current, max, variant, label }: HpBarProps) {
         </p>
       )}
       <div
-        className="relative h-3 w-full overflow-hidden rounded-full"
-        style={{
-          background: "rgba(26, 22, 20, 0.7)",
-          border: "1px solid rgba(255,255,255,0.05)",
-        }}
+        className="battle-hp-bar__track relative h-3 w-full overflow-hidden rounded-full"
         role="progressbar"
         aria-valuenow={Math.round(current)}
         aria-valuemin={0}
@@ -35,17 +33,21 @@ export function HpBar({ current, max, variant, label }: HpBarProps) {
         aria-label={label}
       >
         <div
-          className="h-full rounded-full"
+          className={cn(
+            "battle-hp-bar__fill h-full rounded-full",
+            isEnemy
+              ? cn(
+                  "battle-hp-bar__fill--enemy",
+                  isLow && "battle-hp-bar__fill--low"
+                )
+              : cn(
+                  "battle-hp-bar__fill--player",
+                  isLow && "battle-hp-bar__fill--low"
+                )
+          )}
           style={{
             width: `${pct}%`,
             transition: "width 0.3s ease",
-            background: isEnemy
-              ? isLow
-                ? "#6b1a1a"
-                : "linear-gradient(90deg, #6b1a1a, var(--color-crimson))"
-              : isLow
-              ? "var(--color-crimson)"
-              : "linear-gradient(90deg, var(--color-gold-dim), var(--color-gold))",
           }}
         />
       </div>

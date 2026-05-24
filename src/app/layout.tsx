@@ -19,19 +19,17 @@ const newsreader = Newsreader({
 
 export const metadata: Metadata = {
   title: {
-    // This controls what shows up on your main landing pages
-    default: "Rune — Write Without Fear", 
-    // This allows sub-pages to say things like "Arena | Rune" smoothly
-    template: "%s | Rune", 
+    default: "Rune — The Creative Forge for Serious Authors",
+    template: "%s | Rune",
   },
   description:
-    "A gamified, focus-driven writing workspace built specifically for epic fantasy authors.",
-  // Crucial update: point your base url to your live production domain
-  metadataBase: new URL("https://rune-app.com"), 
+    "A professional writing workspace with deep focus tools, manuscript tracking, and a gamified Arena mode designed to silence your internal editor and drive raw creative output.",
+  metadataBase: new URL("https://www.rune-app.com"),
   openGraph: {
-    title: "Rune — Write Without Fear",
+    title: "Rune — The Creative Forge for Serious Authors",
     description:
-      "A gamified, distraction-free writing environment. Focus Mode. Battle Arena. Race Mode.",
+      "Stop writing in sterile office software. Command a canvas built for long-form novelists.",
+    url: "https://www.rune-app.com",
     type: "website",
   },
 };

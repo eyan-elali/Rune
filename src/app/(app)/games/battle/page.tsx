@@ -402,38 +402,18 @@ function BattleHUD({
             </div>
           ) : (
             <div
-              className="mt-3 flex items-center gap-2 rounded px-3 py-2 text-xs transition-all duration-300"
-              style={{
-                background: idleWarning
-                  ? "rgba(139, 46, 46, 0.15)"
-                  : "rgba(26, 22, 20, 0.4)",
-                border: `1px solid ${
-                  idleWarning
-                    ? "rgba(139, 46, 46, 0.4)"
-                    : "var(--color-border)"
-                }`,
-              }}
+              className={`mt-3 flex items-center gap-2 rounded px-3 py-2 text-xs transition-all duration-300 battle-status-badge ${
+                idleWarning
+                  ? "battle-status-badge--idle"
+                  : "battle-status-badge--writing"
+              }`}
               aria-live="assertive"
               aria-label={idleWarning ? "Idle — taking damage" : "Writing"}
             >
               <div
-                className={`h-2 w-2 flex-shrink-0 rounded-full ${idleWarning ? "idle-dot" : ""}`}
-                style={{
-                  background: idleWarning
-                    ? "var(--color-crimson)"
-                    : "var(--color-mist)",
-                  opacity: idleWarning ? 1 : 0.35,
-                }}
+                className={`battle-status-badge__dot h-2 w-2 flex-shrink-0 rounded-full ${idleWarning ? "idle-dot" : ""}`}
               />
-              <span
-                className="text-[10px] uppercase tracking-wider"
-                style={{
-                  color: idleWarning
-                    ? "var(--color-crimson)"
-                    : "var(--color-mist)",
-                  opacity: idleWarning ? 1 : 0.4,
-                }}
-              >
+              <span className="battle-status-badge__text text-[10px] uppercase tracking-wider">
                 {idleWarning ? "Idle — taking damage!" : "Keep writing…"}
               </span>
             </div>
@@ -441,13 +421,7 @@ function BattleHUD({
         </div>
 
         {/* Word count — battle vs victory lap */}
-        <div
-          className="rounded px-3 py-2"
-          style={{
-            background: "rgba(201, 168, 76, 0.06)",
-            border: "1px solid var(--color-border)",
-          }}
-        >
+        <div className="battle-word-count rounded px-3 py-2">
           <div className="flex items-baseline gap-2">
             <span
               className="font-rune-serif text-2xl tabular-nums"

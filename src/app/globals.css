@@ -123,6 +123,112 @@ body {
   scrollbar-color: rgba(201, 168, 76, 0.3) transparent;
 }
 
+/* ── Battle Mode arena — HP bars, status badge, word metric ─────── */
+.battle-hp-bar__track {
+  background: rgba(26, 22, 20, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.battle-hp-bar__fill--enemy {
+  background: linear-gradient(90deg, #6b1a1a, var(--color-crimson));
+}
+
+.battle-hp-bar__fill--enemy.battle-hp-bar__fill--low {
+  background: #6b1a1a;
+}
+
+.battle-hp-bar__fill--player {
+  background: linear-gradient(90deg, var(--color-gold-dim), var(--color-gold));
+}
+
+.battle-hp-bar__fill--player.battle-hp-bar__fill--low {
+  background: var(--color-crimson);
+}
+
+.battle-status-badge--writing {
+  background: rgba(26, 22, 20, 0.4);
+  border: 1px solid var(--color-border);
+}
+
+.battle-status-badge--writing .battle-status-badge__dot {
+  background: var(--color-mist);
+  opacity: 0.35;
+}
+
+.battle-status-badge--writing .battle-status-badge__text {
+  color: var(--color-mist);
+  opacity: 0.4;
+}
+
+.battle-status-badge--idle {
+  background: rgba(139, 46, 46, 0.15);
+  border: 1px solid rgba(139, 46, 46, 0.4);
+}
+
+.battle-status-badge--idle .battle-status-badge__dot {
+  background: var(--color-crimson);
+}
+
+.battle-status-badge--idle .battle-status-badge__text {
+  color: var(--color-crimson);
+}
+
+.battle-word-count {
+  background: rgba(201, 168, 76, 0.06);
+  border: 1px solid var(--color-border);
+}
+
+/* Parchment theme — antique arena palette */
+:root:not([data-theme]) .battle-hp-bar__track,
+[data-theme="parchment"] .battle-hp-bar__track {
+  background: #e2d9c8;
+  border: 1px solid var(--color-border);
+}
+
+:root:not([data-theme]) .battle-hp-bar__fill--enemy,
+[data-theme="parchment"] .battle-hp-bar__fill--enemy {
+  background: #7c1a22;
+}
+
+:root:not([data-theme]) .battle-hp-bar__fill--enemy.battle-hp-bar__fill--low,
+[data-theme="parchment"] .battle-hp-bar__fill--enemy.battle-hp-bar__fill--low {
+  background: #5f151c;
+}
+
+:root:not([data-theme]) .battle-hp-bar__fill--player,
+[data-theme="parchment"] .battle-hp-bar__fill--player {
+  background: #b48c35;
+}
+
+:root:not([data-theme]) .battle-hp-bar__fill--player.battle-hp-bar__fill--low,
+[data-theme="parchment"] .battle-hp-bar__fill--player.battle-hp-bar__fill--low {
+  background: var(--color-crimson);
+}
+
+:root:not([data-theme]) .battle-status-badge--writing,
+[data-theme="parchment"] .battle-status-badge--writing {
+  background: rgba(0, 0, 0, 0.02);
+  border: 1px solid var(--color-border);
+}
+
+:root:not([data-theme]) .battle-status-badge--writing .battle-status-badge__dot,
+[data-theme="parchment"] .battle-status-badge--writing .battle-status-badge__dot {
+  background: var(--color-gold-dim);
+  opacity: 1;
+}
+
+:root:not([data-theme]) .battle-status-badge--writing .battle-status-badge__text,
+[data-theme="parchment"] .battle-status-badge--writing .battle-status-badge__text {
+  color: var(--color-ink);
+  opacity: 1;
+}
+
+:root:not([data-theme]) .battle-word-count,
+[data-theme="parchment"] .battle-word-count {
+  background: rgba(245, 235, 215, 0.4);
+  border: 1px solid var(--color-border);
+}
+
 /* ── Tiptap / ProseMirror ───────────────────────────────────────── */
 .ProseMirror {
   font-family: var(--font-editor-family);
@@ -535,6 +641,61 @@ body {
   --text-muted:         var(--color-mist);
   --text-on-accent:     var(--color-ink);
   --editor-text:        var(--color-ink);
+}
+
+/* ── Landing page ───────────────────────────────────────────────── */
+@keyframes landing-cursor-blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+.landing-cursor {
+  animation: landing-cursor-blink 1s infinite;
+}
+
+.landing-header-cta:hover {
+  background: var(--color-border) !important;
+}
+
+.landing-tab-active {
+  background: color-mix(in srgb, var(--color-gold) 15%, transparent) !important;
+  border-color: var(--color-gold) !important;
+  color: var(--color-gold) !important;
+}
+
+.landing-tab-inactive:hover {
+  border-color: var(--color-border-strong) !important;
+  color: var(--text-primary) !important;
+}
+
+.feature-card:hover {
+  border-color: var(--color-border-strong) !important;
+}
+
+.ghost-btn:hover {
+  background: var(--color-border) !important;
+}
+
+.gold-btn:hover {
+  background: var(--color-gold-dim) !important;
+}
+
+@media (max-width: 768px) {
+  .feature-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .arena-grid {
+    flex-direction: column !important;
+  }
+  .mockup-sidebar {
+    display: none !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .pricing-grid {
+    flex-direction: column !important;
+  }
 }
 
 /* ── Unlockable theme: The Void ─────────────────────────────────── */
