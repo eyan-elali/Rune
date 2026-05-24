@@ -1,5 +1,5 @@
 export const dynamic = "force-dynamic";
-import { Lock } from "lucide-react";
+import { Lock, Skull } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import {
   checkAndGrantUnlockables,
@@ -72,6 +72,23 @@ function UnlockableCard({
         </p>
         {item.tier === "scribe" && <ScribeBadge />}
       </div>
+
+      {item.type === "avatar" && item.id === "skull-roses" && (
+        <div
+          className="mb-3 flex h-10 w-10 items-center justify-center rounded-full"
+          style={{
+            background: "rgba(201, 168, 76, 0.12)",
+            border: "1px solid rgba(201, 168, 76, 0.25)",
+          }}
+          aria-hidden
+        >
+          <Skull
+            size={18}
+            className="text-[var(--color-gold)] opacity-80"
+            aria-hidden
+          />
+        </div>
+      )}
 
       {/* Name row */}
       <div className="flex items-start gap-2">

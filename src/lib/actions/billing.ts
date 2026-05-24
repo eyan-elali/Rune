@@ -48,6 +48,10 @@ export async function createCheckoutSession(
     line_items: [{ price: priceId, quantity: 1 }],
     success_url: `${APP_URL}/settings?upgraded=true`,
     cancel_url: `${APP_URL}/settings`,
+    metadata: {
+      supabase_user_id: user.id,
+      tier,
+    },
     subscription_data: {
       metadata: { supabase_user_id: user.id, tier },
     },

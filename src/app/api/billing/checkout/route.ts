@@ -57,6 +57,10 @@ export async function GET(request: NextRequest) {
     line_items: [{ price: priceId, quantity: 1 }],
     success_url: `${APP_URL}/settings?upgraded=true`,
     cancel_url: `${APP_URL}/settings`,
+    metadata: {
+      supabase_user_id: user.id,
+      tier: plan,
+    },
     subscription_data: {
       metadata: { supabase_user_id: user.id, tier: plan },
     },

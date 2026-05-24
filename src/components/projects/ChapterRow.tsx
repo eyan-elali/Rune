@@ -30,7 +30,9 @@ export function ChapterRow({ chapter, projectId }: ChapterRowProps) {
   const navClickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const pageCount = chapter.pages?.length ?? 0;
-  const wordCount = chapter.pages?.filter((p) => p.is_canonical).reduce((s, p) => s + p.word_count, 0) ?? 0;
+  const canonicalPage = chapter.pages?.find((p) => p.is_canonical);
+  const targetPage = canonicalPage || chapter.pages?.[0];
+  const totalWords = targetPage ? targetPage.word_count || 0 : 0;
 
   function startEditing() {
     setIsEditing(true);
@@ -152,7 +154,7 @@ export function ChapterRow({ chapter, projectId }: ChapterRowProps) {
       {/* Stats */}
       <div className="flex shrink-0 items-center gap-4 text-xs text-rune-mist/40">
         <span>{pageCount} {pageCount === 1 ? "page" : "pages"}</span>
-        <span>{wordCount.toLocaleString()} words</span>
+        <span>{totalWords.toLocaleString()} words</span>
       </div>
 
       {/* Completion toggle — text button */}

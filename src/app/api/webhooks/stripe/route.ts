@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
+
+export const dynamic = 'force-dynamic'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { stripe } from '@/lib/stripe/client'
 import { PRICE_IDS } from '@/lib/stripe/config'
@@ -56,8 +58,7 @@ export async function POST(request: NextRequest) {
     case 'checkout.session.completed': {
       const session = event.data.object as Stripe.Checkout.Session
       const userId = session.metadata?.supabase_user_id
-      const tier = session.metadata?.tier
-      if (!userId || !tier) break
+      if (!userId) break
 
       const subscriptionId =
         typeof session.subscription === 'string'
@@ -69,6 +70,8 @@ export async function POST(request: NextRequest) {
       const subscription = await stripe.subscriptions.retrieve(subscriptionId)
       const firstItem = subscription.items.data[0]
       const priceId = firstItem?.price.id ?? ''
+      const tier =
+        session.metadata?.tier ?? tierFromPriceId(priceId) ?? 'scribe'
       const periodEnd = firstItem?.current_period_end
         ? new Date(firstItem.current_period_end * 1000).toISOString()
         : null

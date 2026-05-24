@@ -989,7 +989,7 @@ export default function LandingPage() {
               marginBottom: '0.75rem',
             }}
           >
-            What&apos;s Coming to the Forge
+            What&apos;s Coming to Rune
           </h2>
           <p
             style={{

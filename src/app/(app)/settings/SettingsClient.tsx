@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useTransition } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
-import { Lock } from "lucide-react";
+import { Lock, Skull } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { cn } from "@/lib/utils";
@@ -558,7 +558,6 @@ const AVATAR_SYMBOL: Record<string, string> = {
   quill: "✒",
   inkwell: "✦",
   "open-book": "◫",
-  "skull-roses": "☽",
   "crescent-moon": "☽",
   ouroboros: "∞",
   hourglass: "⌛",
@@ -570,6 +569,19 @@ const AVATAR_SYMBOL: Record<string, string> = {
   crown: "⊕",
   "void-walker": "◼",
 };
+
+function AvatarGlyph({ id }: { id: string }) {
+  if (id === "skull-roses") {
+    return (
+      <Skull
+        size={18}
+        className="text-[var(--color-gold)] opacity-80"
+        aria-hidden
+      />
+    );
+  }
+  return <>{AVATAR_SYMBOL[id] ?? "✦"}</>;
+}
 
 function AppearanceTab({ unlockedIds }: { unlockedIds: Set<string> }) {
   const storeProfile = useProfileStore((s) => s.profile);
@@ -789,7 +801,7 @@ function AppearanceTab({ unlockedIds }: { unlockedIds: Set<string> }) {
                   }}
                   aria-hidden
                 >
-                  {AVATAR_SYMBOL[avatar.id] ?? "✦"}
+                  <AvatarGlyph id={avatar.id} />
                 </div>
                 <p
                   className="text-center text-[10px] leading-tight"
