@@ -5,6 +5,7 @@ export interface UserPreferences {
   wideEditor: boolean;
   activeTheme: string;
   activeAvatar: string;
+  activeFont: string;
 }
 
 export interface Profile {

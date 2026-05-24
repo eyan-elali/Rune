@@ -25,10 +25,6 @@ export function TicketGate({ children, onTicketConsumed }: TicketGateProps) {
 
   useEffect(() => {
     if (!profile?.id) return
-    if (allowed === Infinity) {
-      setTicketsUsed(0)
-      return
-    }
     getWeeklyTicketUsage(profile.id).then(setTicketsUsed)
   }, [profile?.id, allowed])
 
@@ -44,7 +40,7 @@ export function TicketGate({ children, onTicketConsumed }: TicketGateProps) {
 
   function handleUpgrade() {
     startUpgradeTransition(async () => {
-      const { url, error } = await createCheckoutSession('arcane', 'monthly')
+      const { url, error } = await createCheckoutSession('scribe', 'monthly')
       if (url && !error) window.location.href = url
     })
   }
@@ -58,7 +54,7 @@ export function TicketGate({ children, onTicketConsumed }: TicketGateProps) {
     )
   }
 
-  // Gated — used weekly ticket
+  // Gated — used weekly tickets
   if (isGated) {
     return (
       <div className="flex min-h-full flex-col items-center justify-center px-8 py-20 text-center">
@@ -77,14 +73,14 @@ export function TicketGate({ children, onTicketConsumed }: TicketGateProps) {
           className="mb-2 font-rune-serif text-2xl"
           style={{ color: 'var(--color-parchment)' }}
         >
-          You&rsquo;ve used your weekly ticket
+          You&rsquo;ve used your weekly tickets
         </p>
         <p
           className="mb-8 max-w-sm text-sm leading-relaxed"
           style={{ color: 'var(--color-mist)' }}
         >
           Free includes 1 game per week; Scribe includes 3. Your tickets reset
-          every Monday. Upgrade to Arcane for unlimited games.
+          every Monday. Upgrade to Scribe for more games.
         </p>
 
         <div className="flex flex-col items-center gap-3 sm:flex-row">
@@ -94,7 +90,7 @@ export function TicketGate({ children, onTicketConsumed }: TicketGateProps) {
             className="rounded-lg px-8 py-3 text-sm font-medium transition-opacity duration-150 hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rune-gold"
             style={{ background: 'var(--color-gold)', color: 'var(--color-ink)' }}
           >
-            {upgradePending ? 'Loading…' : 'Upgrade to Arcane'}
+            {upgradePending ? 'Loading…' : 'Upgrade to Scribe'}
           </button>
           <Link href="/games">
             <button
@@ -114,8 +110,7 @@ export function TicketGate({ children, onTicketConsumed }: TicketGateProps) {
   }
 
   // Not yet consumed this session — show gate "play now" state
-  // After arcane users or first click of the week, render the children
-  if (!ticketConsumed && allowed !== Infinity) {
+  if (!ticketConsumed) {
     return (
       <TicketPrompt onPlay={handleConsumeAndPlay} ticketsUsed={ticketsUsed} />
     )
@@ -154,19 +149,13 @@ function TicketPrompt({
         {ticketsUsed === 0 ? 'Use your weekly ticket?' : 'Game ticket available'}
       </p>
       <p
-        className="mb-2 text-sm leading-relaxed"
+        className="mb-8 text-sm leading-relaxed"
         style={{ color: 'var(--color-mist)' }}
       >
         {isScribe
           ? 'Scribe includes 3 game tickets per week.'
           : 'Free includes 1 game ticket per week.'}
-        {' '}Ticket resets every Monday.
-      </p>
-      <p
-        className="mb-8 text-xs"
-        style={{ color: 'var(--color-mist)', opacity: 0.5 }}
-      >
-        Upgrade to Arcane for unlimited games.
+        {' '}Tickets reset every Monday.
       </p>
 
       <button

@@ -21,7 +21,7 @@ interface ProfileState {
 
 function tierFromProfile(profile: Profile): SubscriptionTier {
   const t = profile.subscription_tier
-  if (t === 'scribe' || t === 'arcane') return t
+  if (t === 'scribe') return t
   return 'free'
 }
 

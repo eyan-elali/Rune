@@ -1,3 +1,10 @@
+@import url('https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400;1,700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;0,700;1,400;1,600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,700;1,400;1,500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Crimson+Text:ital,wght@0,400;0,600;0,700;1,400;1,600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=IM+Fell+English:ital@0;1&display=swap');
 @import "tailwindcss";
 @config "../../tailwind.config.ts";
 
@@ -19,6 +26,9 @@
   --color-border:       rgba(139, 110, 60, 0.18);
   --color-border-strong: rgba(139, 110, 60, 0.35);
   --color-shadow:       rgba(60, 45, 20, 0.08);
+
+  /* Editor font family — overridden by data-font attribute */
+  --font-editor-family: Georgia, 'Times New Roman', serif;
 
   /* Semantic layout — warm light surfaces */
   --bg-primary:         #faf7f2;
@@ -72,7 +82,13 @@ html {
 /* Dark themes flip the color-scheme */
 html[data-theme="candlelight"],
 html[data-theme="midnight-library"],
-html[data-theme="crimson-ink"] {
+html[data-theme="crimson-ink"],
+html[data-theme="forest-scriptorium"],
+html[data-theme="obsidian"],
+html[data-theme="absinthe"],
+html[data-theme="ravens-court"],
+html[data-theme="gilded-age"],
+html[data-theme="the-void"] {
   color-scheme: dark;
 }
 
@@ -109,7 +125,7 @@ body {
 
 /* ── Tiptap / ProseMirror ───────────────────────────────────────── */
 .ProseMirror {
-  font-family: var(--font-newsreader), serif;
+  font-family: var(--font-editor-family);
   font-variation-settings: "wght" 480;
   font-size: var(--editor-font-size, 1.25rem);
   line-height: var(--editor-line-height, 1.8);
@@ -249,6 +265,15 @@ body {
   animation: rune-level-up 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
 
+/* ── Font pack overrides ─────────────────────────────────────────── */
+[data-font="font-typewriter"] { --font-editor-family: 'Courier Prime', 'Courier New', monospace; }
+[data-font="font-lora"]       { --font-editor-family: 'Lora', Georgia, serif; }
+[data-font="font-palatino"]   { --font-editor-family: 'EB Garamond', Palatino, 'Book Antiqua', serif; }
+[data-font="font-libre"]      { --font-editor-family: 'Libre Baskerville', Baskerville, Georgia, serif; }
+[data-font="font-playfair"]   { --font-editor-family: 'Playfair Display', Georgia, serif; }
+[data-font="font-crimson"]    { --font-editor-family: 'Crimson Text', Georgia, serif; }
+[data-font="font-im-fell"]    { --font-editor-family: 'IM Fell English', 'Palatino Linotype', serif; }
+
 /* ── Selectable theme: Candlelight (dark scholar) ────────────────── */
 [data-theme="candlelight"] {
   --color-ink:          #2D2926;
@@ -354,4 +379,186 @@ body {
   background: rgba(45, 50, 68, 0.1) !important;
   border-color: rgba(45, 50, 68, 0.35) !important;
   filter: saturate(0) contrast(1.2);
+}
+
+/* ── Unlockable theme: London Fog (cool light) ──────────────────── */
+[data-theme="fog"] {
+  --color-ink:          #2a3038;
+  --color-parchment:    #f4f6f8;
+  --color-vellum:       #e8ecf0;
+  --color-sepia:        #dce2e8;
+  --color-gold:         #5a6a7a;
+  --color-gold-dim:     #445260;
+  --color-crimson:      #7a3a3a;
+  --color-sage:         #4a5f52;
+  --color-mist:         #6a7380;
+  --color-border:       rgba(90, 106, 122, 0.2);
+  --color-border-strong: rgba(90, 106, 122, 0.38);
+  --color-shadow:       rgba(42, 48, 56, 0.1);
+
+  --bg-primary:         #f4f6f8;
+  --bg-secondary:       var(--color-vellum);
+  --bg-sidebar:         var(--color-sepia);
+  --surface-card:       #ffffff;
+  --surface-editor:     #ffffff;
+  --text-primary:       var(--color-ink);
+  --text-muted:         var(--color-mist);
+  --text-on-accent:     #ffffff;
+  --editor-text:        var(--color-ink);
+}
+
+/* ── Unlockable theme: Forest Scriptorium ───────────────────────── */
+[data-theme="forest-scriptorium"] {
+  --color-ink:          #0e140e;
+  --color-parchment:    #e4ebe0;
+  --color-vellum:       #d4ddd0;
+  --color-sepia:        #1a2418;
+  --color-gold:         #7a9a62;
+  --color-gold-dim:     #5a7248;
+  --color-crimson:      #8b3e3e;
+  --color-sage:         #4a6741;
+  --color-mist:         #6a7564;
+  --color-border:       rgba(122, 154, 98, 0.22);
+  --color-border-strong: rgba(122, 154, 98, 0.42);
+  --color-shadow:       rgba(0, 0, 0, 0.35);
+
+  --bg-primary:         #0e140e;
+  --bg-secondary:       var(--color-sepia);
+  --bg-sidebar:         var(--color-sepia);
+  --surface-card:       var(--color-sepia);
+  --surface-editor:     var(--color-vellum);
+  --text-primary:       var(--color-parchment);
+  --text-muted:         var(--color-mist);
+  --text-on-accent:     var(--color-ink);
+  --editor-text:        var(--color-ink);
+}
+
+/* ── Unlockable theme: Obsidian ─────────────────────────────────── */
+[data-theme="obsidian"] {
+  --color-ink:          #060608;
+  --color-parchment:    #e4eef4;
+  --color-vellum:       #d0dde8;
+  --color-sepia:        #101018;
+  --color-gold:         #6eb0d4;
+  --color-gold-dim:     #4a8aaa;
+  --color-crimson:      #9a4048;
+  --color-sage:         #3d5a48;
+  --color-mist:         #6a7888;
+  --color-border:       rgba(110, 176, 212, 0.2);
+  --color-border-strong: rgba(110, 176, 212, 0.4);
+  --color-shadow:       rgba(0, 0, 0, 0.5);
+
+  --bg-primary:         #060608;
+  --bg-secondary:       var(--color-sepia);
+  --bg-sidebar:         var(--color-sepia);
+  --surface-card:       var(--color-sepia);
+  --surface-editor:     var(--color-vellum);
+  --text-primary:       var(--color-parchment);
+  --text-muted:         var(--color-mist);
+  --text-on-accent:     var(--color-ink);
+  --editor-text:        var(--color-ink);
+}
+
+/* ── Unlockable theme: Absinthe ─────────────────────────────────── */
+[data-theme="absinthe"] {
+  --color-ink:          #081210;
+  --color-parchment:    #e8f0e4;
+  --color-vellum:       #d8e8d0;
+  --color-sepia:        #0e1a14;
+  --color-gold:         #c9a84c;
+  --color-gold-dim:     #8a6f2e;
+  --color-crimson:      #8b4040;
+  --color-sage:         #3a6848;
+  --color-mist:         #6a8070;
+  --color-border:       rgba(201, 168, 76, 0.22);
+  --color-border-strong: rgba(201, 168, 76, 0.42);
+  --color-shadow:       rgba(0, 0, 0, 0.4);
+
+  --bg-primary:         #081210;
+  --bg-secondary:       var(--color-sepia);
+  --bg-sidebar:         var(--color-sepia);
+  --surface-card:       var(--color-sepia);
+  --surface-editor:     var(--color-vellum);
+  --text-primary:       var(--color-parchment);
+  --text-muted:         var(--color-mist);
+  --text-on-accent:     var(--color-ink);
+  --editor-text:        var(--color-ink);
+}
+
+/* ── Unlockable theme: Raven's Court ────────────────────────────── */
+[data-theme="ravens-court"] {
+  --color-ink:          #0a0810;
+  --color-parchment:    #e4e0ec;
+  --color-vellum:       #d4d0e0;
+  --color-sepia:        #14101c;
+  --color-gold:         #9a88c0;
+  --color-gold-dim:     #6a5a90;
+  --color-crimson:      #9a4868;
+  --color-sage:         #4a5a48;
+  --color-mist:         #787088;
+  --color-border:       rgba(154, 136, 192, 0.22);
+  --color-border-strong: rgba(154, 136, 192, 0.42);
+  --color-shadow:       rgba(0, 0, 0, 0.45);
+
+  --bg-primary:         #0a0810;
+  --bg-secondary:       var(--color-sepia);
+  --bg-sidebar:         var(--color-sepia);
+  --surface-card:       var(--color-sepia);
+  --surface-editor:     var(--color-vellum);
+  --text-primary:       var(--color-parchment);
+  --text-muted:         var(--color-mist);
+  --text-on-accent:     var(--color-ink);
+  --editor-text:        var(--color-ink);
+}
+
+/* ── Unlockable theme: Gilded Age ───────────────────────────────── */
+[data-theme="gilded-age"] {
+  --color-ink:          #14080c;
+  --color-parchment:    #f0e8e4;
+  --color-vellum:       #e8dcd4;
+  --color-sepia:        #1e1014;
+  --color-gold:         #d4a84c;
+  --color-gold-dim:     #a07830;
+  --color-crimson:      #6a1828;
+  --color-sage:         #4a5a40;
+  --color-mist:         #8a7068;
+  --color-border:       rgba(212, 168, 76, 0.24);
+  --color-border-strong: rgba(212, 168, 76, 0.45);
+  --color-shadow:       rgba(0, 0, 0, 0.4);
+
+  --bg-primary:         #14080c;
+  --bg-secondary:       var(--color-sepia);
+  --bg-sidebar:         var(--color-sepia);
+  --surface-card:       var(--color-sepia);
+  --surface-editor:     var(--color-vellum);
+  --text-primary:       var(--color-parchment);
+  --text-muted:         var(--color-mist);
+  --text-on-accent:     var(--color-ink);
+  --editor-text:        var(--color-ink);
+}
+
+/* ── Unlockable theme: The Void ─────────────────────────────────── */
+[data-theme="the-void"] {
+  --color-ink:          #000000;
+  --color-parchment:    #dcd4e8;
+  --color-vellum:       #c8c0d8;
+  --color-sepia:        #08060c;
+  --color-gold:         #6a5a8a;
+  --color-gold-dim:     #4a3a68;
+  --color-crimson:      #8a3858;
+  --color-sage:         #3a4840;
+  --color-mist:         #686078;
+  --color-border:       rgba(106, 90, 138, 0.2);
+  --color-border-strong: rgba(106, 90, 138, 0.38);
+  --color-shadow:       rgba(0, 0, 0, 0.6);
+
+  --bg-primary:         #000000;
+  --bg-secondary:       var(--color-sepia);
+  --bg-sidebar:         var(--color-sepia);
+  --surface-card:       var(--color-sepia);
+  --surface-editor:     var(--color-vellum);
+  --text-primary:       var(--color-parchment);
+  --text-muted:         var(--color-mist);
+  --text-on-accent:     var(--color-ink);
+  --editor-text:        var(--color-ink);
 }

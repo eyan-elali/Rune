@@ -21,6 +21,7 @@ import { createClient } from "@/lib/supabase/client";
 import { PricingTable } from "@/components/billing/PricingTable";
 import type { Profile, UserPreferences } from "@/lib/types";
 import type { SubscriptionTier } from "@/lib/subscription";
+import { resolveThemeId } from "@/lib/themes";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -555,10 +556,19 @@ function EditorTab() {
 
 const AVATAR_SYMBOL: Record<string, string> = {
   quill: "✒",
+  inkwell: "✦",
+  "open-book": "◫",
   "skull-roses": "☽",
   "crescent-moon": "☽",
   ouroboros: "∞",
   hourglass: "⌛",
+  compass: "◎",
+  crow: "◉",
+  lantern: "◈",
+  sigil: "✦",
+  "the-eye": "◎",
+  crown: "⊕",
+  "void-walker": "◼",
 };
 
 function AppearanceTab({ unlockedIds }: { unlockedIds: Set<string> }) {
@@ -566,11 +576,13 @@ function AppearanceTab({ unlockedIds }: { unlockedIds: Set<string> }) {
   const setPreferences = useProfileStore((s) => s.setPreferences);
   const prefs = (storeProfile?.preferences ?? {}) as Partial<UserPreferences>;
 
-  const activeTheme = prefs.activeTheme ?? "parchment";
+  const activeTheme = resolveThemeId(prefs.activeTheme);
   const activeAvatar = prefs.activeAvatar ?? "quill";
+  const activeFont = prefs.activeFont ?? "font-classical";
 
   const themes = UNLOCKABLES.filter((u) => u.type === "theme");
   const avatars = UNLOCKABLES.filter((u) => u.type === "avatar");
+  const fonts = UNLOCKABLES.filter((u) => u.type === "font");
 
   function isItemUnlocked(id: string) {
     const item = UNLOCKABLES.find((u) => u.id === id);
@@ -587,6 +599,12 @@ function AppearanceTab({ unlockedIds }: { unlockedIds: Set<string> }) {
     if (!isItemUnlocked(id)) return;
     setPreferences({ activeAvatar: id });
     await updatePreferences({ activeAvatar: id });
+  }
+
+  async function selectFont(id: string) {
+    if (!isItemUnlocked(id)) return;
+    setPreferences({ activeFont: id });
+    await updatePreferences({ activeFont: id });
   }
 
   return (
@@ -657,6 +675,67 @@ function AppearanceTab({ unlockedIds }: { unlockedIds: Set<string> }) {
                   {unlocked
                     ? theme.description
                     : requirementLabel(theme.requirement)}
+                </p>
+              </button>
+            );
+          })}
+        </div>
+      </Card>
+
+      <Card>
+        <SectionTitle>Font Pack</SectionTitle>
+        <div className="mt-4 grid grid-cols-2 gap-3">
+          {fonts.map((font) => {
+            const unlocked = isItemUnlocked(font.id);
+            const active = activeFont === font.id;
+            return (
+              <button
+                key={font.id}
+                type="button"
+                disabled={!unlocked}
+                onClick={() => selectFont(font.id)}
+                className="relative flex flex-col items-start rounded-lg p-4 text-left transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rune-gold"
+                style={{
+                  background: active
+                    ? "rgba(184, 146, 42, 0.1)"
+                    : "var(--bg-secondary)",
+                  border: `1px solid ${active ? "var(--color-gold)" : "var(--color-border)"}`,
+                  opacity: unlocked ? 1 : 0.45,
+                  cursor: unlocked ? "pointer" : "not-allowed",
+                }}
+                aria-pressed={active}
+                aria-label={`${font.name}${!unlocked ? " — locked" : ""}`}
+              >
+                {!unlocked && (
+                  <Lock
+                    size={12}
+                    className="absolute right-3 top-3"
+                    style={{ color: "var(--color-mist)" }}
+                    aria-hidden
+                  />
+                )}
+                {active && (
+                  <span
+                    className="absolute right-3 top-3 text-xs"
+                    style={{ color: "var(--color-gold)" }}
+                    aria-hidden
+                  >
+                    ✓
+                  </span>
+                )}
+                <p
+                  className="font-rune-serif text-sm font-semibold"
+                  style={{ color: "var(--text-primary)" }}
+                >
+                  {font.name}
+                </p>
+                <p
+                  className="mt-1 text-xs leading-relaxed"
+                  style={{ color: "var(--color-mist)" }}
+                >
+                  {unlocked
+                    ? font.description
+                    : requirementLabel(font.requirement)}
                 </p>
               </button>
             );
@@ -744,7 +823,7 @@ function AppearanceTab({ unlockedIds }: { unlockedIds: Set<string> }) {
             Unlockables gallery
           </p>
           <p className="mt-0.5 text-xs" style={{ color: "var(--color-mist)" }}>
-            View all themes and avatars you can earn
+            View all themes, fonts, and avatars you can earn
           </p>
         </div>
         <span style={{ color: "var(--color-gold)" }} aria-hidden>
@@ -889,7 +968,6 @@ function BillingTab({ subscriptionTier, profile }: { subscriptionTier: Subscript
   const tierLabels: Record<SubscriptionTier, string> = {
     free: "Free",
     scribe: "Scribe",
-    arcane: "Arcane",
   };
 
   const statusColors: Record<string, string> = {
@@ -1003,10 +1081,15 @@ export function SettingsClient({
 
   const initialTab: Tab = searchParams.get("tab") === "billing" ? "billing" : "account";
   const [activeTab, setActiveTab] = useState<Tab>(initialTab);
+  const setProfile = useProfileStore((s) => s.setProfile);
+
+  useEffect(() => {
+    if (profile) setProfile(profile);
+  }, [profile, setProfile]);
 
   useEffect(() => {
     if (searchParams.get("upgraded") === "true") {
-      const tierLabels: Record<SubscriptionTier, string> = { free: "Free", scribe: "Scribe", arcane: "Arcane" };
+      const tierLabels: Record<SubscriptionTier, string> = { free: "Free", scribe: "Scribe" };
       showToast(`Welcome to ${tierLabels[subscriptionTier]}! Your plan is now active.`, "success");
       const params = new URLSearchParams(searchParams.toString());
       params.delete("upgraded");

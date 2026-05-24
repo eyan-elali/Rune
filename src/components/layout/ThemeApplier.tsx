@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { useProfileStore } from "@/store/profileStore";
+import { DEFAULT_THEME_ID, resolveThemeId } from "@/lib/themes";
 
 export function ThemeApplier() {
   const preferences = useProfileStore((s) => s.profile?.preferences) as
@@ -9,16 +10,28 @@ export function ThemeApplier() {
     | null
     | undefined;
 
-  const activeTheme =
-    (preferences?.activeTheme as string | undefined) ?? "parchment";
+  const activeTheme = resolveThemeId(
+    preferences?.activeTheme as string | undefined
+  );
+  const activeFont =
+    (preferences?.activeFont as string | undefined) ?? "";
 
   useEffect(() => {
-    if (activeTheme && activeTheme !== "parchment") {
-      document.documentElement.setAttribute("data-theme", activeTheme);
+    const root = document.documentElement;
+    if (activeTheme === DEFAULT_THEME_ID) {
+      root.removeAttribute("data-theme");
     } else {
-      document.documentElement.removeAttribute("data-theme");
+      root.setAttribute("data-theme", activeTheme);
     }
   }, [activeTheme]);
+
+  useEffect(() => {
+    if (activeFont && activeFont !== "font-classical") {
+      document.documentElement.setAttribute("data-font", activeFont);
+    } else {
+      document.documentElement.removeAttribute("data-font");
+    }
+  }, [activeFont]);
 
   return null;
 }

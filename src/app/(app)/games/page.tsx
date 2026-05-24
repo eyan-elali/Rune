@@ -47,7 +47,7 @@ export default async function GamesPage() {
   ]);
 
   const tier = (profileRow?.subscription_tier ?? "free") as string;
-  const canPlayGames = ["free", "scribe", "arcane"].includes(tier);
+  const canPlayGames = ["free", "scribe"].includes(tier);
 
   return (
     <div className="mx-auto max-w-4xl px-8 py-12">

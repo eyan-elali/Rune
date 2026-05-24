@@ -34,16 +34,6 @@ export function AppShell({ profile, children }: AppShellProps) {
   const [hotzoneActive, setHotzoneActive] = useState(false);
   const modeRef = useRef<Mode>(mode);
 
-  // Hydrate profileStore on mount (and whenever server-fetched profile changes)
-  useState(() => {
-    if (profile) {
-      useProfileStore.getState().setProfile(profile);
-    }
-  });
-
-  const storeProfile = useProfileStore((s) => s.profile);
-
-
   const displayName =
     profile?.display_name ?? profile?.username ?? "Writer";
   const avatarUrl = profile?.avatar_url ?? null;
@@ -64,8 +54,7 @@ export function AppShell({ profile, children }: AppShellProps) {
 
   useEffect(() => {
     if (profile) setProfile(profile);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profile?.xp, profile?.level]);
+  }, [profile, setProfile]);
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {

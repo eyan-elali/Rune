@@ -62,7 +62,11 @@ export async function checkAndGrantUnlockables(userId: string): Promise<string[]
     { data: raceSessions },
     { data: alreadyUnlocked },
   ] = await Promise.all([
-    supabase.from("profiles").select("level").eq("id", user.id).single(),
+    supabase
+      .from("profiles")
+      .select("level, xp, subscription_tier")
+      .eq("id", user.id)
+      .single(),
     supabase.from("projects").select("word_count").eq("user_id", user.id),
     supabase
       .from("game_sessions")
@@ -83,6 +87,9 @@ export async function checkAndGrantUnlockables(userId: string): Promise<string[]
   ]);
 
   const currentLevel = profile?.level ?? 1;
+  const xp = (profile as { xp?: number | null } | null)?.xp ?? 0;
+  const subscriptionTier = (profile as { subscription_tier?: string | null } | null)?.subscription_tier ?? 'free';
+
   const totalWords = (projects ?? []).reduce(
     (sum, p) => sum + (p.word_count ?? 0),
     0
@@ -92,7 +99,7 @@ export async function checkAndGrantUnlockables(userId: string): Promise<string[]
     return meta?.outcome === "victory";
   }).length;
   const hasThirtyMinRace = (raceSessions ?? []).some(
-    (s) => s.duration_seconds === 1800
+    (s) => (s.duration_seconds ?? 0) >= 1800
   );
 
   const unlockedIds = new Set(
@@ -105,13 +112,19 @@ export async function checkAndGrantUnlockables(userId: string): Promise<string[]
     if (unlockable.requirement === null) continue;
     if (unlockedIds.has(unlockable.id)) continue;
 
+    // Free users cannot earn scribe-tier cosmetics
+    if (unlockable.tier === 'scribe' && subscriptionTier !== 'scribe') continue;
+
     const { type, value } = unlockable.requirement;
     let qualifies = false;
 
-    if (type === "level") qualifies = currentLevel >= value;
-    else if (type === "total_words") qualifies = totalWords >= value;
-    else if (type === "battle_wins") qualifies = battleWins >= value;
-    else if (type === "race_duration") qualifies = hasThirtyMinRace;
+    if (type === 'level') qualifies = currentLevel >= Number(value);
+    else if (type === 'words') qualifies = totalWords >= Number(value);
+    else if (type === 'battles_won') qualifies = battleWins >= Number(value);
+    else if (type === 'race_30min') qualifies = hasThirtyMinRace;
+    else if (type === 'xp') qualifies = xp >= Number(value);
+    else if (type === 'streak') qualifies = false; // streak column not yet in schema
+    else if (type === 'theme_unlocked') qualifies = unlockedIds.has(value as string);
 
     if (qualifies) toGrant.push(unlockable.id);
   }

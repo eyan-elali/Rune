@@ -1,6 +1,9 @@
 export const dynamic = "force-dynamic";
 import { createClient } from "@/lib/supabase/server";
-import { getUserUnlockables } from "@/lib/actions/unlockables";
+import {
+  checkAndGrantUnlockables,
+  getUserUnlockables,
+} from "@/lib/actions/unlockables";
 import { SettingsClient } from "./SettingsClient";
 import type { Profile } from "@/lib/types";
 
@@ -15,7 +18,11 @@ export default async function SettingsPage() {
     getUserUnlockables(user!.id),
   ]);
 
-  const unlockedIds = new Set(userUnlockables.map((u) => u.unlockable_id));
+  const newlyGranted = await checkAndGrantUnlockables(user!.id);
+  const unlockedIds = new Set([
+    ...userUnlockables.map((u) => u.unlockable_id),
+    ...newlyGranted,
+  ]);
 
   return (
     <SettingsClient

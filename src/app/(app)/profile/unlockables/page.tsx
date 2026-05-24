@@ -16,36 +16,66 @@ function formatDate(iso: string) {
   });
 }
 
+function ScribeBadge() {
+  return (
+    <span
+      className="inline-flex items-center rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-widest"
+      style={{
+        background: "rgba(201,168,76,0.1)",
+        border: "1px solid rgba(201,168,76,0.35)",
+        color: "var(--color-gold)",
+      }}
+    >
+      Scribe
+    </span>
+  );
+}
+
 function UnlockableCard({
   item,
   unlockedAt,
+  userTier,
 }: {
   item: Unlockable;
   unlockedAt: string | null;
+  userTier: string;
 }) {
-  const isUnlocked = unlockedAt !== null || item.requirement === null;
+  const isAlwaysFree = item.requirement === null && item.tier === "free";
+  const isTierGated = item.tier === "scribe" && userTier !== "scribe";
+  const isMetricLocked =
+    !isTierGated && unlockedAt === null && item.requirement !== null;
+  const isUnlocked = unlockedAt !== null || isAlwaysFree;
+
+  const cardBorder = isTierGated
+    ? "1.5px dashed rgba(201,168,76,0.45)"
+    : isUnlocked
+    ? "1px solid var(--color-border-strong)"
+    : "1px solid var(--color-border)";
 
   return (
     <div
       className="flex flex-col rounded-lg p-5 transition-opacity duration-150"
       style={{
         background: "var(--color-sepia)",
-        border: `1px solid ${isUnlocked ? "var(--color-border-strong)" : "var(--color-border)"}`,
-        opacity: isUnlocked ? 1 : 0.4,
-        filter: isUnlocked ? "none" : "grayscale(1)",
+        border: cardBorder,
+        opacity: isTierGated ? 0.65 : isMetricLocked ? 0.4 : 1,
+        filter: isMetricLocked && !isTierGated ? "grayscale(1)" : "none",
       }}
     >
-      {/* Type chip */}
-      <p
-        className="mb-3 text-xs font-semibold uppercase tracking-widest"
-        style={{ color: isUnlocked ? "var(--color-gold)" : "var(--color-mist)" }}
-      >
-        {item.type}
-      </p>
+      {/* Type + tier row */}
+      <div className="mb-3 flex items-center gap-2">
+        <p
+          className="text-xs font-semibold uppercase tracking-widest"
+          style={{ color: isUnlocked ? "var(--color-gold)" : "var(--color-mist)" }}
+        >
+          {item.type}
+        </p>
+        {item.tier === "scribe" && <ScribeBadge />}
+      </div>
 
       {/* Name row */}
       <div className="flex items-start gap-2">
-        {!isUnlocked && (
+        {(isMetricLocked || isTierGated) && (
           <Lock
             size={14}
             aria-hidden
@@ -69,6 +99,10 @@ function UnlockableCard({
         {isUnlocked ? (
           <p className="text-xs" style={{ color: "var(--color-gold)", opacity: 0.75 }}>
             {unlockedAt ? `Earned ${formatDate(unlockedAt)}` : "Always available"}
+          </p>
+        ) : isTierGated ? (
+          <p className="text-xs" style={{ color: "var(--color-gold)", opacity: 0.6 }}>
+            Requires Scribe subscription
           </p>
         ) : (
           <p className="text-xs" style={{ color: "var(--color-mist)" }}>
@@ -108,13 +142,25 @@ export default async function UnlockablesPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const reconciledUnlockables = await checkAndGrantUnlockables(user!.id);
-  const userUnlockables = await getUserUnlockables(user!.id);
+  const [reconciledUnlockables, userUnlockables, profileRow] = await Promise.all([
+    checkAndGrantUnlockables(user!.id),
+    getUserUnlockables(user!.id),
+    supabase
+      .from("profiles")
+      .select("subscription_tier")
+      .eq("id", user!.id)
+      .single()
+      .then(({ data }) => data),
+  ]);
+
+  const userTier = (profileRow?.subscription_tier ?? "free") as string;
+
   const unlockedMap = new Map(
     userUnlockables.map((u) => [u.unlockable_id, u.unlocked_at])
   );
 
   const themes = UNLOCKABLES.filter((u) => u.type === "theme");
+  const fonts = UNLOCKABLES.filter((u) => u.type === "font");
   const avatars = UNLOCKABLES.filter((u) => u.type === "avatar");
 
   console.log("[UnlockablesPage] static registry IDs:", UNLOCKABLES.map((u) => u.id));
@@ -141,6 +187,18 @@ export default async function UnlockablesPage() {
             key={item.id}
             item={item}
             unlockedAt={unlockedMap.get(item.id) ?? null}
+            userTier={userTier}
+          />
+        ))}
+      </Section>
+
+      <Section title="Font Packs">
+        {fonts.map((item) => (
+          <UnlockableCard
+            key={item.id}
+            item={item}
+            unlockedAt={unlockedMap.get(item.id) ?? null}
+            userTier={userTier}
           />
         ))}
       </Section>
@@ -151,6 +209,7 @@ export default async function UnlockablesPage() {
             key={item.id}
             item={item}
             unlockedAt={unlockedMap.get(item.id) ?? null}
+            userTier={userTier}
           />
         ))}
       </Section>

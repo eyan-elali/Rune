@@ -10,7 +10,6 @@ import type { SubscriptionTier } from '@/lib/subscription'
 
 const PRICES = {
   scribe: { monthly: 6, annual: 5 },
-  arcane: { monthly: 12, annual: 10 },
 }
 
 // ─── Feature list per tier ────────────────────────────────────────────────────
@@ -22,9 +21,9 @@ const TIER_FEATURES = {
     { label: 'Basic editor', included: true },
     { label: 'Focus Mode', included: true },
     { label: '1 game ticket / week', included: true },
+    { label: 'Limited cosmetics (3 themes, 3 avatars, 2 fonts)', included: true },
     { label: 'Goals & streaks', included: false },
     { label: 'Export pages & manuscripts', included: false },
-    { label: 'Game Mode', included: false },
   ],
   scribe: [
     { label: 'Everything in Free', included: true },
@@ -32,17 +31,8 @@ const TIER_FEATURES = {
     { label: 'Goals & streaks', included: true },
     { label: 'Writing heatmap & stats', included: true },
     { label: 'Export pages & manuscripts (PDF)', included: true },
-    { label: 'More unlockables', included: true },
+    { label: 'Full collection — all 34 cosmetics, current & future', included: true },
     { label: '3 game tickets / week', included: true },
-    { label: 'Game Mode (unlimited)', included: false },
-  ],
-  arcane: [
-    { label: 'Everything in Scribe', included: true },
-    { label: 'Full Game Mode (unlimited)', included: true },
-    { label: 'Battle Mode enemies', included: true },
-    { label: '1v1 multiplayer (coming soon)', included: true },
-    { label: 'All unlockables', included: true },
-    { label: 'Priority support', included: true },
   ],
 }
 
@@ -125,10 +115,7 @@ function CtaButton({
     }
     startTransition(async () => {
       try {
-        const res = await createCheckoutSession(
-          tier as 'scribe' | 'arcane',
-          billingPeriod
-        )
+        const res = await createCheckoutSession('scribe', billingPeriod)
         if (res?.url) {
           window.location.href = res.url
         } else if (res?.error) {
@@ -176,7 +163,7 @@ function CtaButton({
     )
   }
 
-  const tierOrder: SubscriptionTier[] = ['free', 'scribe', 'arcane']
+  const tierOrder: SubscriptionTier[] = ['free', 'scribe']
   const isDowngrade =
     isLoggedIn &&
     tierOrder.indexOf(tier) < tierOrder.indexOf(currentTier)
@@ -222,7 +209,7 @@ function CtaButton({
 
 // ─── Tier card ────────────────────────────────────────────────────────────────
 
-function tierTextColors(tier: SubscriptionTier, isFeatured: boolean) {
+function tierTextColors(isFeatured: boolean) {
   if (isFeatured) {
     return {
       heading: 'var(--color-ink)',
@@ -235,19 +222,6 @@ function tierTextColors(tier: SubscriptionTier, isFeatured: boolean) {
       featureMark: 'var(--color-ink)',
     }
   }
-  if (tier === 'arcane') {
-    return {
-      heading: 'var(--color-parchment)',
-      tagline: 'var(--color-mist)',
-      price: 'var(--color-parchment)',
-      priceSuffix: 'var(--color-mist)',
-      annualNote: 'var(--color-mist)',
-      featureIncluded: 'var(--color-mist)',
-      featureExcluded: 'rgba(107,101,96,0.35)',
-      featureMark: 'var(--color-gold)',
-    }
-  }
-  // Free — surface-card bg; ink on light themes, parchment on dark (via text-primary)
   return {
     heading: 'var(--text-primary)',
     tagline: 'var(--text-muted)',
@@ -283,7 +257,7 @@ function TierCard({
 }) {
   const effectivePrice = price ? price[billingPeriod] : 0
   const monthlyEquiv = price ? price.annual : 0
-  const colors = tierTextColors(tier, isFeatured)
+  const colors = tierTextColors(isFeatured)
   const isFree = tier === 'free'
 
   return (
@@ -293,38 +267,18 @@ function TierCard({
         isFeatured && 'shadow-2xl'
       )}
       style={{
-        background: isFeatured
-          ? 'var(--color-gold)'
-          : tier === 'arcane'
-          ? 'var(--color-ink)'
-          : 'var(--surface-card)',
-        border: isFeatured
-          ? 'none'
-          : tier === 'arcane'
-          ? '1px solid rgba(201,168,76,0.42)'
-          : '1px solid var(--color-border)',
-        boxShadow: tier === 'arcane'
-          ? '0 0 0 1px rgba(201,168,76,0.07), inset 0 1px 0 rgba(201,168,76,0.11), 0 6px 48px rgba(201,168,76,0.06)'
-          : isFeatured
-          ? '0 8px 48px rgba(201,168,76,0.22)'
-          : undefined,
+        background: isFeatured ? 'var(--color-gold)' : 'var(--surface-card)',
+        border: isFeatured ? 'none' : '1px solid var(--color-border)',
+        boxShadow: isFeatured ? '0 8px 48px rgba(201,168,76,0.22)' : undefined,
       }}
     >
-      {tier === 'arcane' && (
-        <div
-          className="pointer-events-none absolute inset-0 rounded-xl blur-2xl"
-          style={{ background: 'var(--color-gold)', opacity: 0.06, zIndex: -1 }}
-          aria-hidden
-        />
-      )}
-
       {billingPeriod === 'annual' && tier !== 'free' && (
         <div
           className="absolute -top-3 right-5 rounded-full px-3 py-0.5 text-[10px] font-semibold uppercase tracking-widest"
           style={{
             background: isFeatured ? 'var(--color-ink)' : 'rgba(201,168,76,0.15)',
             border: `1px solid ${isFeatured ? 'transparent' : 'rgba(201,168,76,0.3)'}`,
-            color: isFeatured ? 'var(--color-gold)' : 'var(--color-gold)',
+            color: 'var(--color-gold)',
           }}
         >
           2 months free
@@ -434,17 +388,10 @@ export function PricingTable({ currentTier = 'free', isLoggedIn = false }: Prici
       price: PRICES.scribe,
       featured: true,
     },
-    {
-      id: 'arcane',
-      name: 'Arcane',
-      tagline: 'For the devoted.',
-      price: PRICES.arcane,
-      featured: false,
-    },
   ]
 
   return (
-    <div className="mx-auto w-full max-w-6xl">
+    <div className="mx-auto w-full max-w-4xl">
       <div className="mb-10 flex flex-wrap items-center justify-center gap-4">
         <PillToggle
           label="Billing period"
@@ -457,7 +404,7 @@ export function PricingTable({ currentTier = 'free', isLoggedIn = false }: Prici
         />
       </div>
 
-      <div className="grid w-full grid-cols-1 gap-6 md:grid-cols-3">
+      <div className="grid w-full grid-cols-1 gap-6 md:grid-cols-2">
         {tiers.map((t) => (
           <TierCard
             key={t.id}

@@ -8,7 +8,7 @@ export function GameModeGate() {
 
   function handleUpgrade() {
     startTransition(async () => {
-      const { url, error } = await createCheckoutSession('arcane', 'monthly')
+      const { url, error } = await createCheckoutSession('scribe', 'monthly')
       if (url && !error) window.location.href = url
     })
   }
@@ -43,14 +43,14 @@ export function GameModeGate() {
         className="mb-2 font-rune-serif text-2xl"
         style={{ color: 'var(--color-parchment)' }}
       >
-        Game Mode is an Arcane feature
+        Game Mode is a Scribe feature
       </p>
       <p
         className="mb-8 max-w-sm text-sm leading-relaxed"
         style={{ color: 'var(--color-mist)' }}
       >
-        Unlock unlimited games, Battle Mode, and early multiplayer access.
-        Words are your weapons — upgrade to wield them.
+        Unlock unlimited games, Battle Mode, and cosmetics that grow with your
+        craft. Words are your weapons — upgrade to wield them.
       </p>
 
       <button
@@ -59,7 +59,7 @@ export function GameModeGate() {
         className="rounded-lg px-8 py-3 text-sm font-medium transition-opacity duration-150 hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rune-gold"
         style={{ background: 'var(--color-gold)', color: 'var(--color-ink)' }}
       >
-        {isPending ? 'Loading…' : 'Upgrade to Arcane'}
+        {isPending ? 'Loading…' : 'Upgrade to Scribe'}
       </button>
     </div>
   )

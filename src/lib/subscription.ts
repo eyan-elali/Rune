@@ -1,19 +1,19 @@
-export type SubscriptionTier = 'free' | 'scribe' | 'arcane'
+export type SubscriptionTier = 'free' | 'scribe'
 
 export const FEATURE_GATES = {
-  unlimitedProjects:   ['scribe', 'arcane'],
-  goals:               ['scribe', 'arcane'],
-  streaks:             ['scribe', 'arcane'],
-  export:              ['scribe', 'arcane'],
-  focusMode:           ['free', 'scribe', 'arcane'],
-  gameMode:            ['arcane'],
-  allUnlockables:      ['arcane'],
-  multipleGameTickets: ['arcane'],
-  tasks:               ['scribe', 'arcane'],
-  heatmap:             ['scribe', 'arcane'],
-  avgWordsWidget:      ['scribe', 'arcane'],
-  projectGoals:        ['scribe', 'arcane'],
-  chapterGoals:        ['scribe', 'arcane'],
+  unlimitedProjects:   ['scribe'],
+  goals:               ['scribe'],
+  streaks:             ['scribe'],
+  export:              ['scribe'],
+  focusMode:           ['free', 'scribe'],
+  gameMode:            ['free', 'scribe'],
+  unlockables:         ['scribe'],
+  multipleGameTickets: ['scribe'],
+  tasks:               ['scribe'],
+  heatmap:             ['scribe'],
+  avgWordsWidget:      ['scribe'],
+  projectGoals:        ['scribe'],
+  chapterGoals:        ['scribe'],
 } as const satisfies Record<string, readonly SubscriptionTier[]>
 
 export function canAccessFeature(
@@ -24,7 +24,6 @@ export function canAccessFeature(
 }
 
 export function getGameTicketsAllowed(tier: SubscriptionTier): number {
-  if (tier === 'arcane') return Infinity
   if (tier === 'scribe') return 3
   return 1
 }

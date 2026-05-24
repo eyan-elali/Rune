@@ -4,7 +4,7 @@ import { Lock } from "lucide-react"
 interface UpgradeTeaserProps {
   feature: string
   description: string
-  tier: 'scribe' | 'arcane'
+  tier: 'scribe'
 }
 
 export function UpgradeTeaser({ feature, description, tier }: UpgradeTeaserProps) {
@@ -40,7 +40,7 @@ export function UpgradeTeaser({ feature, description, tier }: UpgradeTeaserProps
         className="text-xs font-medium transition-opacity hover:opacity-70"
         style={{ color: "var(--color-gold)" }}
       >
-        Upgrade to {tier === 'scribe' ? 'Scribe' : 'Arcane'} →
+        Upgrade to Scribe →
       </Link>
     </div>
   )

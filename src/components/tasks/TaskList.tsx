@@ -6,6 +6,7 @@ import { getTasks, createTask, updateTask, deleteTask } from "@/lib/actions/task
 import { useModeStore } from "@/store/modeStore";
 import { useProfileStore } from "@/store/profileStore";
 import { cn } from "@/lib/utils";
+import { DARK_THEMES } from "@/lib/themes";
 import type { Task } from "@/lib/types";
 
 function getToday(): string {
@@ -24,8 +25,6 @@ function shouldRender(task: Task, today: string): boolean {
   if (task.completed && task.due_date !== null && task.due_date < today) return false;
   return true;
 }
-
-const DARK_THEMES = new Set(["candlelight", "midnight-library", "crimson-ink"]);
 
 export function TaskList() {
   const mode = useModeStore((s) => s.mode);
