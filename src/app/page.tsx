@@ -64,6 +64,14 @@ const HEATMAP_FILLED = [
 const SERIF = "Georgia, 'Times New Roman', serif"
 const SANS  = 'system-ui, -apple-system, sans-serif'
 
+// Nav items matching real Sidebar.tsx NAV_LINKS + Arena in order
+const MOCK_NAV = [
+  { label: 'Dashboard',      active: true  },
+  { label: 'Projects',       active: false },
+  { label: 'Profile & Stats',active: false },
+  { label: 'Arena',          active: false },
+]
+
 export default function LandingPage() {
   const [activeTheme, setActiveTheme] = useState<ThemeKey>('parchment')
   const [billing, setBilling] = useState<'monthly' | 'annual'>('monthly')
@@ -76,837 +84,1335 @@ export default function LandingPage() {
     setTimeout(() => { setBilling(plan); setPriceVisible(true) }, 200)
   }
 
+  // Always dark-on-light — works on all three editor surfaces (all are light/warm)
+  const textLineColor = 'rgba(30, 26, 22, 0.12)'
+
   return (
-    <>
-      {/* ── SECTION 1: FIXED HEADER ──────────────────────────────────── */}
-      <header
+    <div style={{ position: 'relative' }}>
+      {/* ── GOLDEN FLOWING LINES ─────────────────────────────────────── */}
+      <svg
+        aria-hidden="true"
         style={{
-          position: 'fixed',
-          top: 0, left: 0, right: 0,
-          zIndex: 50,
-          height: '56px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '0 2rem',
-          background: 'color-mix(in srgb, var(--bg-primary) 90%, transparent)',
-          backdropFilter: 'blur(12px)',
-          WebkitBackdropFilter: 'blur(12px)',
-          borderBottom: '1px solid var(--color-border)',
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          width: '100%',
+          height: '100%',
+          pointerEvents: 'none',
+          zIndex: 0,
         }}
+        viewBox="0 0 1440 4000"
+        preserveAspectRatio="xMidYMid slice"
+        xmlns="http://www.w3.org/2000/svg"
       >
-        <span
+        <path
+          d="M 180 0 C 320 800, 80 1600, 260 2400 C 400 3200, 140 3600, 120 4000"
+          fill="none"
+          stroke="var(--color-gold)"
+          strokeWidth="0.6"
+          opacity="0.07"
+        />
+        <path
+          d="M 1260 0 C 1100,680 1400,1180 1260,2000 C 980,2600 1300,3400 1320,4000"
+          fill="none"
+          stroke="var(--color-gold)"
+          strokeWidth="0.6"
+          opacity="0.07"
+        />
+        <path
+          d="M 480 0 C 560 700, 380 1200, 520 1800 C 660 2400, 420 3000, 500 4000"
+          fill="none"
+          stroke="var(--color-gold)"
+          strokeWidth="0.6"
+          opacity="0.07"
+        />
+        <path
+          d="M 960 0 C 880 900, 1040 1500, 900 2200 C 760 2900, 1000 3400, 940 4000"
+          fill="none"
+          stroke="var(--color-gold)"
+          strokeWidth="0.6"
+          opacity="0.07"
+        />
+      </svg>
+
+      {/* All page content sits above the SVG layer */}
+      <div style={{ position: 'relative', zIndex: 1 }}>
+
+        {/* ── SECTION 1: FIXED HEADER ──────────────────────────────────── */}
+        <header
           style={{
-            fontFamily: SERIF,
-            fontSize: '18px',
-            letterSpacing: '0.12em',
-            color: 'var(--color-gold)',
-            userSelect: 'none',
+            position: 'fixed',
+            top: 0, left: 0, right: 0,
+            zIndex: 50,
+            height: '56px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '0 2rem',
+            background: 'color-mix(in srgb, var(--bg-primary) 90%, transparent)',
+            backdropFilter: 'blur(12px)',
+            WebkitBackdropFilter: 'blur(12px)',
+            borderBottom: '1px solid var(--color-border)',
           }}
         >
-          ✦ RUNE
-        </span>
-
-        <Link
-          href="/login"
-          className="landing-header-cta"
-          style={{
-            border: '1px solid var(--color-border-strong)',
-            background: 'transparent',
-            color: 'var(--text-primary)',
-            fontSize: '13px',
-            letterSpacing: '0.04em',
-            padding: '8px 18px',
-            borderRadius: '4px',
-            transition: 'background 0.15s ease',
-            textDecoration: 'none',
-            display: 'inline-block',
-          }}
-        >
-          Enter Forge →
-        </Link>
-      </header>
-
-      {/* spacer so content clears the fixed header */}
-      <div style={{ height: '56px' }} aria-hidden />
-
-      <SectionDivider />
-
-      {/* ── SECTION 2: HERO ──────────────────────────────────────────── */}
-      <section
-        style={{
-          minHeight: 'calc(100vh - 56px)',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          textAlign: 'center',
-          padding: '4rem 1.5rem 6rem',
-        }}
-      >
-        <h1
-          style={{
-            fontFamily: SERIF,
-            fontSize: 'clamp(2.2rem, 5vw, 4rem)',
-            fontWeight: 700,
-            letterSpacing: '0.04em',
-            color: 'var(--text-primary)',
-            maxWidth: '820px',
-            margin: '0 auto 1.5rem',
-            lineHeight: 1.15,
-          }}
-        >
-          THE CREATIVE FORGE FOR SERIOUS AUTHORS
-        </h1>
-
-        <p
-          style={{
-            fontFamily: SANS,
-            fontSize: 'clamp(1rem, 2vw, 1.2rem)',
-            color: 'var(--text-muted)',
-            maxWidth: '580px',
-            margin: '0 auto 2.5rem',
-            lineHeight: 1.7,
-          }}
-        >
-          Stop writing in sterile office software. Command a canvas built from the ground up for deep focus, structured execution, and psychological momentum.
-        </p>
-
-        <Link
-          href="/signup"
-          className="gold-btn"
-          style={{
-            background: 'var(--color-gold)',
-            color: '#1e1a16',
-            fontFamily: SERIF,
-            fontSize: '14px',
-            letterSpacing: '0.1em',
-            fontWeight: 600,
-            padding: '14px 32px',
-            borderRadius: '4px',
-            border: 'none',
-            textDecoration: 'none',
-            display: 'inline-block',
-            marginBottom: '4rem',
-            transition: 'background 0.15s ease',
-          }}
-        >
-          START FORGING YOUR DRAFT — FREE
-        </Link>
-
-        {/* ── INTERACTIVE THEME MOCKUP ── */}
-        <div style={{ maxWidth: '860px', margin: '0 auto', width: '100%' }}>
-          {/* Tab row */}
-          <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginBottom: '16px' }}>
-            {(Object.keys(THEME_CONFIGS) as ThemeKey[]).map((key) => (
-              <button
-                key={key}
-                onClick={() => setActiveTheme(key)}
-                className={activeTheme === key ? 'landing-tab-active' : 'landing-tab-inactive'}
-                style={{
-                  background: 'transparent',
-                  border: '1px solid var(--color-border)',
-                  color: 'var(--text-muted)',
-                  fontFamily: SANS,
-                  fontSize: '12px',
-                  letterSpacing: '0.08em',
-                  padding: '6px 18px',
-                  borderRadius: '20px',
-                  cursor: 'pointer',
-                  transition: 'all 0.15s ease',
-                }}
-              >
-                {THEME_CONFIGS[key].name}
-              </button>
-            ))}
-          </div>
-
-          {/* Mockup frame — ALL colors from cfg, never CSS variables */}
-          <div
+          <span
             style={{
-              borderRadius: '8px',
-              overflow: 'hidden',
-              border: `1px solid ${cfg.borderStrong}`,
-              boxShadow: '0 24px 64px rgba(0,0,0,0.18)',
-              transition: 'border-color 0.3s ease',
+              fontFamily: SERIF,
+              fontSize: '18px',
+              letterSpacing: '0.12em',
+              color: 'var(--color-gold)',
+              userSelect: 'none',
             }}
           >
-            {/* macOS top bar */}
-            <div
-              style={{
-                height: '32px',
-                background: cfg.bgSidebar,
-                borderBottom: `1px solid ${cfg.border}`,
-                display: 'flex',
-                alignItems: 'center',
-                padding: '0 12px',
-                gap: '6px',
-                transition: 'background-color 0.3s ease',
-              }}
-            >
-              <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#ff5f56', flexShrink: 0 }} />
-              <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#ffbd2e', flexShrink: 0 }} />
-              <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#27c93f', flexShrink: 0 }} />
-              <div style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
-                <span style={{ color: cfg.gold, fontFamily: SERIF, fontSize: '11px', letterSpacing: '0.12em', transition: 'color 0.3s ease' }}>
-                  ✦ RUNE
-                </span>
-              </div>
+            ✦ RUNE
+          </span>
+
+          <Link
+            href="/login"
+            className="landing-header-cta"
+            style={{
+              border: '1px solid var(--color-border-strong)',
+              background: 'transparent',
+              color: 'var(--text-primary)',
+              fontSize: '13px',
+              letterSpacing: '0.04em',
+              padding: '8px 18px',
+              borderRadius: '4px',
+              transition: 'background 0.15s ease',
+              textDecoration: 'none',
+              display: 'inline-block',
+            }}
+          >
+            Enter Forge →
+          </Link>
+        </header>
+
+        {/* spacer so content clears the fixed header */}
+        <div style={{ height: '56px' }} aria-hidden />
+
+        <SectionDivider />
+
+        {/* ── SECTION 2: HERO ──────────────────────────────────────────── */}
+        <section
+          style={{
+            minHeight: 'calc(100vh - 56px)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            textAlign: 'center',
+            padding: '4rem 1.5rem 6rem',
+          }}
+        >
+          <h1
+            style={{
+              fontFamily: SERIF,
+              fontSize: 'clamp(2.2rem, 5vw, 4rem)',
+              fontWeight: 700,
+              letterSpacing: '0.04em',
+              color: 'var(--text-primary)',
+              maxWidth: '820px',
+              margin: '0 auto 1.5rem',
+              lineHeight: 1.15,
+            }}
+          >
+            THE CREATIVE FORGE FOR SERIOUS AUTHORS
+          </h1>
+
+          <p
+            style={{
+              fontFamily: SANS,
+              fontSize: 'clamp(1rem, 2vw, 1.2rem)',
+              color: 'var(--text-muted)',
+              maxWidth: '580px',
+              margin: '0 auto 2.5rem',
+              lineHeight: 1.7,
+            }}
+          >
+            Stop writing in sterile office software. Command a canvas built from the ground up for deep focus, structured execution, and psychological momentum.
+          </p>
+
+          <Link
+            href="/signup"
+            className="gold-btn"
+            style={{
+              background: 'var(--color-gold)',
+              color: '#1e1a16',
+              fontFamily: SERIF,
+              fontSize: '14px',
+              letterSpacing: '0.1em',
+              fontWeight: 600,
+              padding: '14px 32px',
+              borderRadius: '4px',
+              border: 'none',
+              textDecoration: 'none',
+              display: 'inline-block',
+              marginBottom: '4rem',
+              transition: 'background 0.15s ease',
+            }}
+          >
+            START FORGING YOUR DRAFT — FREE
+          </Link>
+
+          {/* ── INTERACTIVE THEME MOCKUP ── */}
+          <div style={{ maxWidth: '860px', margin: '0 auto', width: '100%' }}>
+            {/* Tab row */}
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginBottom: '16px' }}>
+              {(Object.keys(THEME_CONFIGS) as ThemeKey[]).map((key) => (
+                <button
+                  key={key}
+                  onClick={() => setActiveTheme(key)}
+                  className={activeTheme === key ? 'landing-tab-active' : 'landing-tab-inactive'}
+                  style={{
+                    background: 'transparent',
+                    border: '1px solid var(--color-border)',
+                    color: 'var(--text-muted)',
+                    fontFamily: SANS,
+                    fontSize: '12px',
+                    letterSpacing: '0.08em',
+                    padding: '6px 18px',
+                    borderRadius: '20px',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  {THEME_CONFIGS[key].name}
+                </button>
+              ))}
             </div>
 
-            {/* Mockup body */}
-            <div style={{ display: 'flex', height: '380px' }}>
-              {/* Sidebar */}
+            {/* Mockup frame — ALL colors from cfg, never CSS variables */}
+            <div
+              style={{
+                borderRadius: '8px',
+                overflow: 'hidden',
+                border: `1px solid ${cfg.borderStrong}`,
+                boxShadow: '0 24px 64px rgba(0,0,0,0.18)',
+                transition: 'border-color 0.3s ease',
+              }}
+            >
+              {/* ── MOCK HEADER — replica of real Header.tsx ── */}
               <div
-                className="mockup-sidebar"
                 style={{
-                  width: '200px',
-                  background: cfg.bgSidebar,
-                  borderRight: `1px solid ${cfg.border}`,
-                  padding: '12px',
+                  height: '36px',
+                  background: cfg.bgPrimary,
+                  borderBottom: `1px solid ${cfg.border}`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '0 14px',
                   flexShrink: 0,
                   transition: 'background-color 0.3s ease',
-                  overflow: 'hidden',
                 }}
               >
-                <div style={{ fontSize: '9px', fontFamily: SANS, letterSpacing: '0.1em', color: cfg.textMuted, marginBottom: '6px' }}>
-                  PROJECTS
+                {/* Breadcrumb — matches real Header.tsx breadcrumb style */}
+                <div
+                  style={{
+                    fontFamily: SANS,
+                    fontSize: '11px',
+                    color: cfg.textMuted,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    transition: 'color 0.3s ease',
+                  }}
+                >
+                  <span>Projects</span>
+                  <span style={{ opacity: 0.5, fontSize: '9px' }}>›</span>
+                  <span>The Obsidian Manuscript</span>
                 </div>
 
-                {[
-                  { label: 'The Obsidian Manuscript', active: true },
-                  { label: 'Chapter Notes',            active: false },
-                  { label: 'World Atlas',              active: false },
-                ].map((item) => (
-                  <div
-                    key={item.label}
+                {/* Focus / Game mode toggle pill */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+                  <span
                     style={{
-                      height: '28px',
-                      borderRadius: '4px',
-                      padding: '4px 8px',
-                      fontSize: '11px',
-                      fontFamily: SERIF,
-                      color: cfg.textPrimary,
-                      background: item.active ? `${cfg.gold}18` : 'transparent',
-                      borderLeft: item.active ? `2px solid ${cfg.gold}` : '2px solid transparent',
-                      display: 'flex',
-                      alignItems: 'center',
-                      marginBottom: '2px',
-                      overflow: 'hidden',
-                      whiteSpace: 'nowrap',
-                      textOverflow: 'ellipsis',
+                      fontFamily: SANS,
+                      fontSize: '9px',
+                      padding: '2px 8px',
+                      borderRadius: '10px',
+                      background: `${cfg.gold}22`,
+                      border: `1px solid ${cfg.gold}`,
+                      color: cfg.gold,
                       transition: 'color 0.3s ease, background-color 0.3s ease',
                     }}
                   >
-                    {item.label}
-                  </div>
-                ))}
-
-                <div style={{ height: '1px', background: cfg.border, margin: '8px 0' }} />
-
-                <div style={{ fontSize: '9px', fontFamily: SANS, letterSpacing: '0.1em', color: cfg.textMuted, marginBottom: '6px' }}>
-                  CHAPTERS
-                </div>
-
-                {['I. The Arrival', 'II. The Reckoning'].map((ch) => (
-                  <div
-                    key={ch}
+                    Focus
+                  </span>
+                  <span
                     style={{
-                      height: '28px',
-                      borderRadius: '4px',
-                      padding: '4px 8px',
-                      fontSize: '11px',
-                      fontFamily: SERIF,
-                      color: cfg.textPrimary,
-                      display: 'flex',
-                      alignItems: 'center',
-                      marginBottom: '2px',
+                      fontFamily: SANS,
+                      fontSize: '9px',
+                      padding: '2px 8px',
+                      borderRadius: '10px',
+                      color: cfg.textMuted,
                       transition: 'color 0.3s ease',
                     }}
                   >
-                    {ch}
-                  </div>
-                ))}
-
-                <div style={{ height: '1px', background: cfg.border, margin: '8px 0' }} />
-
-                <div style={{ fontSize: '9px', fontFamily: SANS, letterSpacing: '0.1em', color: cfg.textMuted, marginBottom: '6px' }}>
-                  TASKS
+                    Game
+                  </span>
                 </div>
-
-                {['Outline Act II', 'Research setting'].map((task) => (
-                  <div key={task} style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
-                    <div style={{ width: '8px', height: '8px', border: `1px solid ${cfg.gold}`, borderRadius: '2px', flexShrink: 0 }} />
-                    <span style={{ fontSize: '10px', fontFamily: SANS, color: cfg.textMuted, transition: 'color 0.3s ease' }}>
-                      {task}
-                    </span>
-                  </div>
-                ))}
               </div>
 
-              {/* Editor panel */}
-              <div
-                style={{
-                  flex: 1,
-                  background: cfg.bgEditor,
-                  padding: '20px 28px',
-                  overflow: 'hidden',
-                  position: 'relative',
-                  transition: 'background-color 0.3s ease',
-                }}
-              >
-                <div style={{ fontFamily: SERIF, fontSize: '13px', color: cfg.textMuted, marginBottom: '16px', transition: 'color 0.3s ease' }}>
-                  Chapter I — The Arrival
-                </div>
+              {/* Mockup body */}
+              <div style={{ display: 'flex', height: '380px' }}>
 
-                {[100, 88, 95, 72].map((w, i) => (
-                  <div
-                    key={`a${i}`}
-                    style={{
-                      height: '10px',
-                      borderRadius: '2px',
-                      background: `${cfg.textPrimary}1a`,
-                      width: `${w}%`,
-                      marginBottom: '8px',
-                      transition: 'background-color 0.3s ease',
-                    }}
-                  />
-                ))}
-
-                <div style={{ height: '16px' }} />
-
-                {[100, 91].map((w, i) => (
-                  <div
-                    key={`b${i}`}
-                    style={{
-                      height: '10px',
-                      borderRadius: '2px',
-                      background: `${cfg.textPrimary}1a`,
-                      width: `${w}%`,
-                      marginBottom: '8px',
-                      transition: 'background-color 0.3s ease',
-                    }}
-                  />
-                ))}
-
-                {/* Last line + blinking cursor */}
-                <div style={{ display: 'flex', alignItems: 'center' }}>
-                  <div style={{ height: '10px', borderRadius: '2px', background: `${cfg.textPrimary}1a`, width: '60%', transition: 'background-color 0.3s ease' }} />
-                  <div
-                    className="landing-cursor"
-                    style={{ width: '2px', height: '14px', background: cfg.gold, display: 'inline-block', marginLeft: '4px', transition: 'background-color 0.3s ease' }}
-                  />
-                </div>
-
-                {/* Word count pill */}
+                {/* ── MOCK SIDEBAR — replica of real Sidebar.tsx ── */}
                 <div
+                  className="mockup-sidebar"
                   style={{
-                    position: 'absolute',
-                    bottom: '12px',
-                    right: '12px',
-                    fontSize: '10px',
-                    fontFamily: SANS,
-                    color: cfg.textMuted,
-                    border: `1px solid ${cfg.border}`,
-                    padding: '2px 8px',
-                    borderRadius: '10px',
-                    transition: 'color 0.3s ease, border-color 0.3s ease',
+                    width: '200px',
+                    background: cfg.bgSidebar,
+                    borderRight: `1px solid ${cfg.border}`,
+                    flexShrink: 0,
+                    transition: 'background-color 0.3s ease',
+                    overflow: 'hidden',
+                    display: 'flex',
+                    flexDirection: 'column',
                   }}
                 >
-                  1,247 words
+                  {/* Wordmark + collapse toggle */}
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '10px 14px 9px',
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontFamily: SERIF,
+                        fontSize: '15px',
+                        letterSpacing: '0.2em',
+                        color: cfg.gold,
+                        transition: 'color 0.3s ease',
+                      }}
+                    >
+                      Rune
+                    </span>
+                    {/* Collapse toggle placeholder */}
+                    <div
+                      style={{
+                        width: '16px',
+                        height: '16px',
+                        borderRadius: '3px',
+                        background: `${cfg.gold}18`,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0,
+                      }}
+                    >
+                      <div style={{ width: '6px', height: '1px', background: cfg.textMuted }} />
+                    </div>
+                  </div>
+
+                  {/* Divider */}
+                  <div style={{ height: '1px', background: cfg.border, marginBottom: '0' }} />
+
+                  {/* User identity section */}
+                  <div
+                    style={{
+                      padding: '9px 14px 0',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                    }}
+                  >
+                    {/* Avatar circle — 22px, matching real sidebar avatar */}
+                    <div
+                      style={{
+                        width: '22px',
+                        height: '22px',
+                        borderRadius: '50%',
+                        flexShrink: 0,
+                        background: `${cfg.gold}33`,
+                        border: `1px solid ${cfg.gold}66`,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        transition: 'background-color 0.3s ease',
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontFamily: SERIF,
+                          fontSize: '10px',
+                          color: cfg.gold,
+                          lineHeight: 1,
+                          transition: 'color 0.3s ease',
+                        }}
+                      >
+                        R
+                      </span>
+                    </div>
+                    {/* Display name + username */}
+                    <div style={{ overflow: 'hidden', minWidth: 0 }}>
+                      <div
+                        style={{
+                          fontFamily: SERIF,
+                          fontSize: '11px',
+                          color: cfg.textPrimary,
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          lineHeight: 1.3,
+                          transition: 'color 0.3s ease',
+                        }}
+                      >
+                        Scholar
+                      </div>
+                      <div
+                        style={{
+                          fontFamily: SANS,
+                          fontSize: '9px',
+                          color: cfg.textMuted,
+                          whiteSpace: 'nowrap',
+                          lineHeight: 1.3,
+                          transition: 'color 0.3s ease',
+                        }}
+                      >
+                        @scholar
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Mini XP bar */}
+                  <div
+                    style={{
+                      margin: '8px 14px 0',
+                      height: '3px',
+                      background: `${cfg.gold}22`,
+                      borderRadius: '2px',
+                      overflow: 'hidden',
+                      transition: 'background-color 0.3s ease',
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: '65%',
+                        height: '100%',
+                        background: cfg.gold,
+                        opacity: 0.5,
+                        transition: 'background-color 0.3s ease',
+                      }}
+                    />
+                  </div>
+
+                  {/* Divider */}
+                  <div style={{ height: '1px', background: cfg.border, margin: '10px 0 3px' }} />
+
+                  {/* Primary nav — matching NAV_LINKS + Arena from real Sidebar.tsx */}
+                  <nav style={{ flex: 1, padding: '2px 6px', overflow: 'hidden' }}>
+                    {MOCK_NAV.map((item) => (
+                      <div
+                        key={item.label}
+                        style={{
+                          height: '27px',
+                          borderRadius: '0 4px 4px 0',
+                          padding: '0 8px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          marginBottom: '2px',
+                          background: item.active ? `${cfg.gold}18` : 'transparent',
+                          borderLeft: item.active ? `2px solid ${cfg.gold}` : '2px solid transparent',
+                          transition: 'background-color 0.3s ease',
+                        }}
+                      >
+                        {/* Icon placeholder — 10×10 square, matching icon size in real sidebar */}
+                        <div
+                          style={{
+                            width: '10px',
+                            height: '10px',
+                            borderRadius: '2px',
+                            flexShrink: 0,
+                            background: `${cfg.gold}40`,
+                            transition: 'background-color 0.3s ease',
+                          }}
+                        />
+                        <span
+                          style={{
+                            fontFamily: SANS,
+                            fontSize: '11px',
+                            color: item.active ? cfg.gold : cfg.textPrimary,
+                            opacity: item.active ? 1 : 0.75,
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            transition: 'color 0.3s ease',
+                          }}
+                        >
+                          {item.label}
+                        </span>
+                      </div>
+                    ))}
+                  </nav>
+
+                  {/* Bottom section — settings + sign out */}
+                  <div>
+                    <div style={{ height: '1px', background: cfg.border }} />
+                    <div style={{ padding: '4px 6px 8px' }}>
+                      {/* Settings row */}
+                      <div
+                        style={{
+                          height: '27px',
+                          borderRadius: '0 4px 4px 0',
+                          padding: '0 8px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          borderLeft: '2px solid transparent',
+                          marginBottom: '2px',
+                        }}
+                      >
+                        <div
+                          style={{
+                            width: '10px',
+                            height: '10px',
+                            borderRadius: '2px',
+                            flexShrink: 0,
+                            background: `${cfg.gold}28`,
+                          }}
+                        />
+                        <span
+                          style={{
+                            fontFamily: SANS,
+                            fontSize: '11px',
+                            color: cfg.textMuted,
+                            transition: 'color 0.3s ease',
+                          }}
+                        >
+                          Settings
+                        </span>
+                      </div>
+                      {/* Sign out row */}
+                      <div
+                        style={{
+                          height: '27px',
+                          borderRadius: '0 4px 4px 0',
+                          padding: '0 8px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          borderLeft: '2px solid transparent',
+                        }}
+                      >
+                        <div
+                          style={{
+                            width: '10px',
+                            height: '10px',
+                            borderRadius: '2px',
+                            flexShrink: 0,
+                            background: `${cfg.gold}28`,
+                          }}
+                        />
+                        <span
+                          style={{
+                            fontFamily: SANS,
+                            fontSize: '11px',
+                            color: cfg.textMuted,
+                            opacity: 0.6,
+                            transition: 'color 0.3s ease',
+                          }}
+                        >
+                          Sign out
+                        </span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
 
-      <SectionDivider />
-
-      {/* ── SECTION 3: PROFESSIONAL NOVELIST SUITE ───────────────────── */}
-      <section
-        style={{
-          width: '100%',
-          padding: '7rem 1.5rem',
-          background: 'var(--bg-secondary)',
-          borderTop: '1px solid var(--color-border)',
-          borderBottom: '1px solid var(--color-border)',
-        }}
-      >
-        <h2
-          style={{
-            fontFamily: SERIF,
-            fontSize: 'clamp(1.6rem, 3vw, 2.4rem)',
-            fontWeight: 600,
-            color: 'var(--text-primary)',
-            textAlign: 'center',
-            marginBottom: '1rem',
-          }}
-        >
-          Engineered for the Long-Form Novelist
-        </h2>
-        <p style={{ fontFamily: SANS, fontSize: '16px', color: 'var(--text-muted)', textAlign: 'center', marginBottom: '4rem' }}>
-          Every tool a serious author needs. Nothing a hobbyist would recognize.
-        </p>
-
-        <div
-          className="feature-grid"
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(3, 1fr)',
-            gap: '1.5rem',
-            maxWidth: '1000px',
-            margin: '0 auto',
-          }}
-        >
-          {/* Card 1 — Heatmap */}
-          <div className="feature-card" style={{ background: 'var(--surface-card)', border: '1px solid var(--color-border)', borderRadius: '8px', padding: '2rem', transition: 'border-color 0.2s ease' }}>
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(5, 7px)',
-                gridTemplateRows: 'repeat(7, 7px)',
-                gap: '2px',
-                marginBottom: '1.25rem',
-              }}
-              aria-hidden
-            >
-              {HEATMAP_FILLED.map((filled, i) => (
+                {/* Editor panel */}
                 <div
-                  key={i}
                   style={{
-                    width: '7px',
-                    height: '7px',
-                    borderRadius: '1px',
-                    background: 'var(--color-gold)',
-                    opacity: filled ? 1 : 0.15,
+                    flex: 1,
+                    background: cfg.bgEditor,
+                    padding: '20px 28px',
+                    overflow: 'hidden',
+                    position: 'relative',
+                    transition: 'background-color 0.3s ease',
                   }}
-                />
-              ))}
-            </div>
-            <h3 style={{ fontFamily: SERIF, fontSize: '17px', color: 'var(--text-primary)', fontWeight: 600, marginBottom: '0.5rem' }}>
-              Writing Consistency Heatmap
-            </h3>
-            <p style={{ fontFamily: SANS, fontSize: '14px', color: 'var(--text-muted)', lineHeight: 1.65 }}>
-              A GitHub-style contribution map tracks every word across every session. See your momentum at a glance. Identify your patterns. Never lose a streak again.
-            </p>
-          </div>
+                >
+                  <div
+                    style={{
+                      fontFamily: SERIF,
+                      fontSize: '13px',
+                      color: cfg.textMuted,
+                      marginBottom: '16px',
+                      transition: 'color 0.3s ease',
+                    }}
+                  >
+                    Chapter I — The Arrival
+                  </div>
 
-          {/* Card 2 — Task Manager */}
-          <div className="feature-card" style={{ background: 'var(--surface-card)', border: '1px solid var(--color-border)', borderRadius: '8px', padding: '2rem', transition: 'border-color 0.2s ease' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '1.25rem' }} aria-hidden>
-              <div style={{ height: '4px', borderRadius: '2px', background: 'var(--color-gold)', width: '24px' }} />
-              <div style={{ height: '4px', borderRadius: '2px', background: 'var(--color-gold)', width: '18px' }} />
-              <div style={{ height: '4px', borderRadius: '2px', background: 'var(--color-gold)', width: '20px' }} />
-            </div>
-            <h3 style={{ fontFamily: SERIF, fontSize: '17px', color: 'var(--text-primary)', fontWeight: 600, marginBottom: '0.5rem' }}>
-              Plot &amp; Task Manager
-            </h3>
-            <p style={{ fontFamily: SANS, fontSize: '14px', color: 'var(--text-muted)', lineHeight: 1.65 }}>
-              Your narrative beats, scene cards, and chapter notes live alongside your manuscript — not in a separate app. Keep the architecture of your story always within reach.
-            </p>
-            <span
-              style={{
-                display: 'inline-block',
-                fontSize: '10px',
-                fontFamily: SANS,
-                letterSpacing: '0.08em',
-                color: 'var(--color-gold)',
-                border: '1px solid var(--color-border-strong)',
-                padding: '2px 8px',
-                borderRadius: '10px',
-                marginTop: '0.75rem',
-              }}
-            >
-              Scribe
-            </span>
-          </div>
+                  {[100, 88, 95, 72].map((w, i) => (
+                    <div
+                      key={`a${i}`}
+                      style={{
+                        height: '10px',
+                        borderRadius: '2px',
+                        background: textLineColor,
+                        width: `${w}%`,
+                        marginBottom: '8px',
+                      }}
+                    />
+                  ))}
 
-          {/* Card 3 — Goals & Streaks */}
-          <div className="feature-card" style={{ background: 'var(--surface-card)', border: '1px solid var(--color-border)', borderRadius: '8px', padding: '2rem', transition: 'border-color 0.2s ease' }}>
-            <div style={{ marginBottom: '1.25rem' }} aria-hidden>
-              <svg width="40" height="40" viewBox="0 0 40 40" fill="none" aria-hidden>
-                <path d="M 20 5 A 15 15 0 1 1 5 20" stroke="var(--color-gold)" strokeWidth="2" strokeLinecap="round" />
-              </svg>
-            </div>
-            <h3 style={{ fontFamily: SERIF, fontSize: '17px', color: 'var(--text-primary)', fontWeight: 600, marginBottom: '0.5rem' }}>
-              Manuscript Goals &amp; Daily Streaks
-            </h3>
-            <p style={{ fontFamily: SANS, fontSize: '14px', color: 'var(--text-muted)', lineHeight: 1.65 }}>
-              Set a total word count target for your manuscript. Track daily streaks. Watch the heatmap fill. The system rewards consistency — not inspiration.
-            </p>
-          </div>
-        </div>
-      </section>
+                  <div style={{ height: '16px' }} />
 
-      <SectionDivider />
+                  {[100, 91].map((w, i) => (
+                    <div
+                      key={`b${i}`}
+                      style={{
+                        height: '10px',
+                        borderRadius: '2px',
+                        background: textLineColor,
+                        width: `${w}%`,
+                        marginBottom: '8px',
+                      }}
+                    />
+                  ))}
 
-      {/* ── SECTION 4: THE ARENA ─────────────────────────────────────── */}
-      <section style={{ width: '100%', padding: '7rem 1.5rem', background: 'var(--bg-primary)' }}>
-        <h2
-          style={{
-            fontFamily: SERIF,
-            fontSize: 'clamp(1.6rem, 3vw, 2.4rem)',
-            fontWeight: 600,
-            color: 'var(--text-primary)',
-            textAlign: 'center',
-            marginBottom: '1rem',
-          }}
-        >
-          The Arena — Why Gamify Execution?
-        </h2>
+                  {/* Last line + blinking cursor */}
+                  <div style={{ display: 'flex', alignItems: 'center' }}>
+                    <div
+                      style={{
+                        height: '10px',
+                        borderRadius: '2px',
+                        background: textLineColor,
+                        width: '60%',
+                      }}
+                    />
+                    <div
+                      className="landing-cursor"
+                      style={{
+                        width: '2px',
+                        height: '14px',
+                        background: cfg.gold,
+                        display: 'inline-block',
+                        marginLeft: '4px',
+                        transition: 'background-color 0.3s ease',
+                      }}
+                    />
+                  </div>
 
-        <p
-          style={{
-            fontFamily: SERIF,
-            fontStyle: 'italic',
-            fontSize: 'clamp(1.2rem, 2.5vw, 1.6rem)',
-            color: 'var(--color-gold)',
-            textAlign: 'center',
-            maxWidth: '640px',
-            margin: '1rem auto 3.5rem',
-          }}
-        >
-          &ldquo;The blank page is an enemy. Defeat it with raw volume.&rdquo;
-        </p>
-
-        <p
-          style={{
-            fontFamily: SANS,
-            fontSize: '16px',
-            color: 'var(--text-muted)',
-            lineHeight: 1.75,
-            maxWidth: '620px',
-            margin: '0 auto 4rem',
-            textAlign: 'center',
-          }}
-        >
-          Most writers stall because their internal editor fires before the first draft is done. They rewrite sentence two before sentence three exists. The Arena eliminates this. Under pressure and HP stakes, the analytical brain goes quiet. Raw creative output is all that remains.
-        </p>
-
-        {/* Two-column split */}
-        <div
-          className="arena-grid"
-          style={{ display: 'flex', flexDirection: 'row', gap: '2rem', maxWidth: '960px', margin: '0 auto' }}
-        >
-          {/* Battle Mode */}
-          <div style={{ flex: 1, background: 'var(--surface-card)', border: '1px solid var(--color-border)', borderRadius: '8px', padding: '2rem' }}>
-            <span
-              style={{
-                display: 'inline-block',
-                fontSize: '10px',
-                fontFamily: SANS,
-                letterSpacing: '0.12em',
-                color: 'var(--color-crimson)',
-                border: '1px solid rgba(139, 46, 46, 0.4)',
-                padding: '3px 10px',
-                borderRadius: '10px',
-                marginBottom: '1.25rem',
-              }}
-            >
-              BATTLE MODE
-            </span>
-            <h3 style={{ fontFamily: SERIF, fontSize: '20px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.75rem' }}>
-              Fight the Blank Page
-            </h3>
-            <p style={{ fontFamily: SANS, fontSize: '14px', color: 'var(--text-muted)', lineHeight: 1.65, marginBottom: '1.5rem' }}>
-              An enemy with an HP bar faces you across the canvas. Every word you write deals damage. Every second you stop typing, you take damage instead. No pausing to edit. No second-guessing a sentence. The only way through is through.
-            </p>
-
-            {/* HP bar mockup */}
-            <div>
-              <div style={{ marginBottom: '12px' }}>
-                <div style={{ fontSize: '8px', fontFamily: SANS, letterSpacing: '0.08em', color: 'var(--text-muted)', marginBottom: '4px' }}>
-                  THE BLANK PAGE
-                </div>
-                <div style={{ width: '100%', height: '8px', borderRadius: '4px', background: 'var(--color-border)' }}>
-                  <div style={{ width: '45%', height: '100%', background: 'linear-gradient(90deg, #6b1a1a, #8b2e2e)', borderRadius: '4px' }} />
-                </div>
-              </div>
-              <div>
-                <div style={{ fontSize: '8px', fontFamily: SANS, letterSpacing: '0.08em', color: 'var(--color-gold)', marginBottom: '4px' }}>
-                  YOU
-                </div>
-                <div style={{ width: '100%', height: '8px', borderRadius: '4px', background: 'var(--color-border)' }}>
-                  <div style={{ width: '78%', height: '100%', background: 'linear-gradient(90deg, var(--color-gold-dim), var(--color-gold))', borderRadius: '4px' }} />
+                  {/* Word count pill */}
+                  <div
+                    style={{
+                      position: 'absolute',
+                      bottom: '12px',
+                      right: '12px',
+                      fontSize: '10px',
+                      fontFamily: SANS,
+                      color: cfg.textMuted,
+                      border: `1px solid ${cfg.border}`,
+                      padding: '2px 8px',
+                      borderRadius: '10px',
+                      transition: 'color 0.3s ease, border-color 0.3s ease',
+                    }}
+                  >
+                    1,247 words
+                  </div>
                 </div>
               </div>
             </div>
           </div>
+        </section>
 
-          {/* Race Mode */}
-          <div style={{ flex: 1, background: 'var(--surface-card)', border: '1px solid var(--color-border)', borderRadius: '8px', padding: '2rem' }}>
-            <span
-              style={{
-                display: 'inline-block',
-                fontSize: '10px',
-                fontFamily: SANS,
-                letterSpacing: '0.12em',
-                color: 'var(--color-gold)',
-                border: '1px solid var(--color-border-strong)',
-                padding: '3px 10px',
-                borderRadius: '10px',
-                marginBottom: '1.25rem',
-              }}
-            >
-              RACE MODE
-            </span>
-            <h3 style={{ fontFamily: SERIF, fontSize: '20px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.75rem' }}>
-              Race the Clock
-            </h3>
-            <p style={{ fontFamily: SANS, fontSize: '14px', color: 'var(--text-muted)', lineHeight: 1.65, marginBottom: '1.5rem' }}>
-              Choose your duration: 5, 10, 15, or 30 minutes. Write as many words as you can before time expires. Your personal record is always visible. Every session is a chance to beat it. Consistency compounds.
-            </p>
+        <SectionDivider />
 
-            {/* Timer mockup */}
-            <div style={{ textAlign: 'center' }}>
+        {/* ── SECTION 3: PROFESSIONAL NOVELIST SUITE ───────────────────── */}
+        <section
+          style={{
+            width: '100%',
+            padding: '7rem 1.5rem',
+            background: 'var(--bg-secondary)',
+            borderTop: '1px solid var(--color-border)',
+            borderBottom: '1px solid var(--color-border)',
+          }}
+        >
+          <h2
+            style={{
+              fontFamily: SERIF,
+              fontSize: 'clamp(1.6rem, 3vw, 2.4rem)',
+              fontWeight: 600,
+              color: 'var(--text-primary)',
+              textAlign: 'center',
+              marginBottom: '1rem',
+            }}
+          >
+            Engineered for the Long-Form Novelist
+          </h2>
+          <p style={{ fontFamily: SANS, fontSize: '16px', color: 'var(--text-muted)', textAlign: 'center', marginBottom: '4rem' }}>
+            Every tool a serious author needs. Nothing a hobbyist would recognize.
+          </p>
+
+          <div
+            className="feature-grid"
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(3, 1fr)',
+              gap: '1.5rem',
+              maxWidth: '1000px',
+              margin: '0 auto',
+            }}
+          >
+            {/* Card 1 — Heatmap */}
+            <div className="feature-card" style={{ background: 'var(--surface-card)', border: '1px solid var(--color-border)', borderRadius: '8px', padding: '2rem', transition: 'border-color 0.2s ease' }}>
               <div
                 style={{
-                  fontFamily: SERIF,
-                  fontSize: '36px',
-                  fontWeight: 700,
-                  color: 'var(--color-gold)',
-                  letterSpacing: '0.05em',
-                  lineHeight: 1,
-                  marginBottom: '12px',
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(5, 7px)',
+                  gridTemplateRows: 'repeat(7, 7px)',
+                  gap: '2px',
+                  marginBottom: '1.25rem',
+                }}
+                aria-hidden
+              >
+                {HEATMAP_FILLED.map((filled, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      width: '7px',
+                      height: '7px',
+                      borderRadius: '1px',
+                      background: 'var(--color-gold)',
+                      opacity: filled ? 1 : 0.15,
+                    }}
+                  />
+                ))}
+              </div>
+              <h3 style={{ fontFamily: SERIF, fontSize: '17px', color: 'var(--text-primary)', fontWeight: 600, marginBottom: '0.5rem' }}>
+                Writing Consistency Heatmap
+              </h3>
+              <p style={{ fontFamily: SANS, fontSize: '14px', color: 'var(--text-muted)', lineHeight: 1.65 }}>
+                A GitHub-style contribution map tracks every word across every session. See your momentum at a glance. Identify your patterns. Never lose a streak again.
+              </p>
+            </div>
+
+            {/* Card 2 — Plot Manager (no Scribe badge) */}
+            <div className="feature-card" style={{ background: 'var(--surface-card)', border: '1px solid var(--color-border)', borderRadius: '8px', padding: '2rem', transition: 'border-color 0.2s ease' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '1.25rem' }} aria-hidden>
+                <div style={{ height: '4px', borderRadius: '2px', background: 'var(--color-gold)', width: '24px' }} />
+                <div style={{ height: '4px', borderRadius: '2px', background: 'var(--color-gold)', width: '18px' }} />
+                <div style={{ height: '4px', borderRadius: '2px', background: 'var(--color-gold)', width: '20px' }} />
+              </div>
+              <h3 style={{ fontFamily: SERIF, fontSize: '17px', color: 'var(--text-primary)', fontWeight: 600, marginBottom: '0.5rem' }}>
+                Plot Manager
+              </h3>
+              <p style={{ fontFamily: SANS, fontSize: '14px', color: 'var(--text-muted)', lineHeight: 1.65 }}>
+                Map your narrative structure alongside your manuscript. Scene cards, chapter beats, and story arcs live directly beside your writing — so the architecture of your novel is never more than a glance away.
+              </p>
+            </div>
+
+            {/* Card 3 — Goals & Streaks */}
+            <div className="feature-card" style={{ background: 'var(--surface-card)', border: '1px solid var(--color-border)', borderRadius: '8px', padding: '2rem', transition: 'border-color 0.2s ease' }}>
+              <div style={{ marginBottom: '1.25rem' }} aria-hidden>
+                <svg width="40" height="40" viewBox="0 0 40 40" fill="none" aria-hidden>
+                  <path d="M 20 5 A 15 15 0 1 1 5 20" stroke="var(--color-gold)" strokeWidth="2" strokeLinecap="round" />
+                </svg>
+              </div>
+              <h3 style={{ fontFamily: SERIF, fontSize: '17px', color: 'var(--text-primary)', fontWeight: 600, marginBottom: '0.5rem' }}>
+                Manuscript Goals &amp; Daily Streaks
+              </h3>
+              <p style={{ fontFamily: SANS, fontSize: '14px', color: 'var(--text-muted)', lineHeight: 1.65 }}>
+                Set a total word count target for your manuscript. Track daily streaks. Watch the heatmap fill. The system rewards consistency — not inspiration.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <SectionDivider />
+
+        {/* ── SECTION 4: THE ARENA ─────────────────────────────────────── */}
+        <section style={{ width: '100%', padding: '7rem 1.5rem', background: 'var(--bg-primary)' }}>
+          <h2
+            style={{
+              fontFamily: SERIF,
+              fontSize: 'clamp(1.6rem, 3vw, 2.4rem)',
+              fontWeight: 600,
+              color: 'var(--text-primary)',
+              textAlign: 'center',
+              marginBottom: '1rem',
+            }}
+          >
+            The Arena — Why Gamify Execution?
+          </h2>
+
+          <p
+            style={{
+              fontFamily: SERIF,
+              fontStyle: 'italic',
+              fontSize: 'clamp(1.2rem, 2.5vw, 1.6rem)',
+              color: 'var(--color-gold)',
+              textAlign: 'center',
+              maxWidth: '640px',
+              margin: '1rem auto 3.5rem',
+            }}
+          >
+            &ldquo;The blank page is an enemy. Defeat it with raw volume.&rdquo;
+          </p>
+
+          <p
+            style={{
+              fontFamily: SANS,
+              fontSize: '16px',
+              color: 'var(--text-muted)',
+              lineHeight: 1.75,
+              maxWidth: '620px',
+              margin: '0 auto 4rem',
+              textAlign: 'center',
+            }}
+          >
+            Most writers stall because their internal editor fires before the first draft is done. They rewrite sentence two before sentence three exists. The Arena eliminates this. Under pressure and HP stakes, the analytical brain goes quiet. Raw creative output is all that remains.
+          </p>
+
+          {/* Two-column split */}
+          <div
+            className="arena-grid"
+            style={{ display: 'flex', flexDirection: 'row', gap: '2rem', maxWidth: '960px', margin: '0 auto' }}
+          >
+            {/* Battle Mode */}
+            <div style={{ flex: 1, background: 'var(--surface-card)', border: '1px solid var(--color-border)', borderRadius: '8px', padding: '2rem' }}>
+              <span
+                style={{
+                  display: 'inline-block',
+                  fontSize: '10px',
+                  fontFamily: SANS,
+                  letterSpacing: '0.12em',
+                  color: 'var(--color-crimson)',
+                  border: '1px solid rgba(139, 46, 46, 0.4)',
+                  padding: '3px 10px',
+                  borderRadius: '10px',
+                  marginBottom: '1.25rem',
                 }}
               >
-                12:47
+                BATTLE MODE
+              </span>
+              <h3 style={{ fontFamily: SERIF, fontSize: '20px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.75rem' }}>
+                Fight the Blank Page
+              </h3>
+              <p style={{ fontFamily: SANS, fontSize: '14px', color: 'var(--text-muted)', lineHeight: 1.65, marginBottom: '1.5rem' }}>
+                An enemy with an HP bar faces you across the canvas. Every word you write deals damage. Every second you stop typing, you take damage instead. No pausing to edit. No second-guessing a sentence. The only way through is through.
+              </p>
+
+              {/* HP bar mockup */}
+              <div>
+                <div style={{ marginBottom: '12px' }}>
+                  <div style={{ fontSize: '8px', fontFamily: SANS, letterSpacing: '0.08em', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                    THE BLANK PAGE
+                  </div>
+                  <div style={{ width: '100%', height: '8px', borderRadius: '4px', background: 'var(--color-border)' }}>
+                    <div style={{ width: '45%', height: '100%', background: 'linear-gradient(90deg, #6b1a1a, #8b2e2e)', borderRadius: '4px' }} />
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '8px', fontFamily: SANS, letterSpacing: '0.08em', color: 'var(--color-gold)', marginBottom: '4px' }}>
+                    YOU
+                  </div>
+                  <div style={{ width: '100%', height: '8px', borderRadius: '4px', background: 'var(--color-border)' }}>
+                    <div style={{ width: '78%', height: '100%', background: 'linear-gradient(90deg, var(--color-gold-dim), var(--color-gold))', borderRadius: '4px' }} />
+                  </div>
+                </div>
               </div>
-              <div style={{ width: '100%', height: '4px', borderRadius: '2px', background: 'var(--color-border)', marginBottom: '8px' }}>
-                <div style={{ width: '57%', height: '100%', background: 'var(--color-gold)', borderRadius: '2px' }} />
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: '12px', fontFamily: SANS, color: 'var(--text-primary)', fontWeight: 600 }}>843 words</span>
-                <span style={{ fontSize: '12px', fontFamily: SANS, color: 'var(--text-muted)' }}>Personal best: 1,204</span>
+            </div>
+
+            {/* Race Mode */}
+            <div style={{ flex: 1, background: 'var(--surface-card)', border: '1px solid var(--color-border)', borderRadius: '8px', padding: '2rem' }}>
+              <span
+                style={{
+                  display: 'inline-block',
+                  fontSize: '10px',
+                  fontFamily: SANS,
+                  letterSpacing: '0.12em',
+                  color: 'var(--color-gold)',
+                  border: '1px solid var(--color-border-strong)',
+                  padding: '3px 10px',
+                  borderRadius: '10px',
+                  marginBottom: '1.25rem',
+                }}
+              >
+                RACE MODE
+              </span>
+              <h3 style={{ fontFamily: SERIF, fontSize: '20px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.75rem' }}>
+                Race the Clock
+              </h3>
+              <p style={{ fontFamily: SANS, fontSize: '14px', color: 'var(--text-muted)', lineHeight: 1.65, marginBottom: '1.5rem' }}>
+                Choose your duration: 5, 10, 15, or 30 minutes. Write as many words as you can before time expires. Your personal record is always visible. Every session is a chance to beat it. Consistency compounds.
+              </p>
+
+              {/* Timer mockup */}
+              <div style={{ textAlign: 'center' }}>
+                <div
+                  style={{
+                    fontFamily: SERIF,
+                    fontSize: '36px',
+                    fontWeight: 700,
+                    color: 'var(--color-gold)',
+                    letterSpacing: '0.05em',
+                    lineHeight: 1,
+                    marginBottom: '12px',
+                  }}
+                >
+                  12:47
+                </div>
+                <div style={{ width: '100%', height: '4px', borderRadius: '2px', background: 'var(--color-border)', marginBottom: '8px' }}>
+                  <div style={{ width: '57%', height: '100%', background: 'var(--color-gold)', borderRadius: '2px' }} />
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '12px', fontFamily: SANS, color: 'var(--text-primary)', fontWeight: 600 }}>843 words</span>
+                  <span style={{ fontSize: '12px', fontFamily: SANS, color: 'var(--text-muted)' }}>Personal best: 1,204</span>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <SectionDivider />
+        <SectionDivider />
 
-      {/* ── SECTION 5: PRICING ───────────────────────────────────────── */}
-      <section
-        style={{
-          width: '100%',
-          padding: '7rem 1.5rem',
-          background: 'var(--bg-secondary)',
-          borderTop: '1px solid var(--color-border)',
-        }}
-      >
-        <h2
+        {/* ── SECTION 5: COMING SOON ───────────────────────────────────── */}
+        <section
           style={{
-            fontFamily: SERIF,
-            fontSize: 'clamp(1.6rem, 3vw, 2.4rem)',
-            fontWeight: 600,
-            color: 'var(--text-primary)',
-            textAlign: 'center',
-            marginBottom: '0.75rem',
+            width: '100%',
+            padding: '6rem 1.5rem',
+            background: 'var(--bg-primary)',
           }}
         >
-          The Price of Absolute Craftsmanship
-        </h2>
-        <p style={{ fontFamily: SANS, fontSize: '16px', color: 'var(--text-muted)', textAlign: 'center', marginBottom: '2.5rem' }}>
-          Start free. Upgrade when you&apos;re ready to go all in.
-        </p>
+          <h2
+            style={{
+              fontFamily: SERIF,
+              fontSize: 'clamp(1.6rem, 3vw, 2.4rem)',
+              fontWeight: 600,
+              color: 'var(--text-primary)',
+              textAlign: 'center',
+              marginBottom: '0.75rem',
+            }}
+          >
+            What&apos;s Coming to the Forge
+          </h2>
+          <p
+            style={{
+              fontFamily: SANS,
+              fontSize: '15px',
+              color: 'var(--text-muted)',
+              textAlign: 'center',
+              marginBottom: '3.5rem',
+            }}
+          >
+            Rune is being built in the open. These features are in active development.
+          </p>
 
-        {/* Billing toggle */}
-        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '3rem' }}>
-          <div style={{ display: 'inline-flex', border: '1px solid var(--color-border)', borderRadius: '24px', padding: '4px' }}>
-            {(['monthly', 'annual'] as const).map((plan) => (
-              <button
-                key={plan}
-                onClick={() => handleBilling(plan)}
+          <div
+            className="coming-soon-grid"
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(2, 1fr)',
+              gap: '1.5rem',
+              maxWidth: '700px',
+              margin: '0 auto',
+            }}
+          >
+            {/* Card 1 — 1v1 Live Races */}
+            <div
+              style={{
+                background: 'var(--surface-card)',
+                border: '1px solid var(--color-border)',
+                borderRadius: '8px',
+                padding: '1.75rem',
+                position: 'relative',
+              }}
+            >
+              <span
                 style={{
-                  background: billing === plan ? 'var(--color-gold)' : 'transparent',
-                  color: billing === plan ? '#1e1a16' : 'var(--text-muted)',
-                  borderRadius: '20px',
-                  padding: '6px 20px',
-                  fontSize: '13px',
-                  fontWeight: billing === plan ? 600 : 400,
-                  cursor: 'pointer',
-                  border: 'none',
-                  transition: 'all 0.2s ease',
+                  position: 'absolute',
+                  top: '12px',
+                  right: '12px',
+                  background: 'rgba(201, 168, 76, 0.1)',
+                  border: '1px solid var(--color-border-strong)',
+                  color: 'var(--color-gold)',
+                  fontSize: '9px',
+                  letterSpacing: '0.1em',
+                  fontWeight: 600,
+                  padding: '2px 8px',
+                  borderRadius: '3px',
                   fontFamily: SANS,
                 }}
               >
-                {plan === 'monthly' ? 'Monthly' : 'Annual (Save 20%)'}
-              </button>
-            ))}
-          </div>
-        </div>
+                COMING SOON
+              </span>
 
-        {/* Pricing grid */}
-        <div
-          className="pricing-grid"
-          style={{ display: 'flex', flexDirection: 'row', gap: '1.5rem', maxWidth: '780px', margin: '0 auto', alignItems: 'flex-start' }}
-        >
-          {/* Free */}
-          <div style={{ flex: 1, background: 'var(--surface-card)', border: '1px solid var(--color-border)', borderRadius: '8px', padding: '2rem' }}>
-            <div style={{ fontFamily: SERIF, fontSize: '22px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.35rem' }}>Free</div>
-            <div style={{ fontFamily: SANS, fontSize: '14px', color: 'var(--text-muted)', marginBottom: '1.5rem' }}>Start your practice.</div>
-            <div style={{ display: 'flex', alignItems: 'baseline' }}>
-              <span style={{ fontFamily: SERIF, fontSize: '48px', fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1 }}>$0</span>
-              <span style={{ fontFamily: SANS, fontSize: '14px', color: 'var(--text-muted)', marginLeft: '4px' }}>/month</span>
+              {/* Icon: two person silhouettes with VS between */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  height: '40px',
+                  marginBottom: '1rem',
+                }}
+                aria-hidden
+              >
+                <div
+                  style={{
+                    width: '8px',
+                    height: '14px',
+                    borderRadius: '4px 4px 2px 2px',
+                    background: 'var(--color-gold)',
+                    opacity: 0.4,
+                    flexShrink: 0,
+                  }}
+                />
+                <span
+                  style={{
+                    fontFamily: SANS,
+                    fontSize: '8px',
+                    color: 'var(--color-gold)',
+                    fontWeight: 700,
+                    margin: '0 6px',
+                    lineHeight: 1,
+                  }}
+                >
+                  VS
+                </span>
+                <div
+                  style={{
+                    width: '8px',
+                    height: '14px',
+                    borderRadius: '4px 4px 2px 2px',
+                    background: 'var(--color-gold)',
+                    opacity: 0.4,
+                    flexShrink: 0,
+                  }}
+                />
+              </div>
+
+              <h3
+                style={{
+                  fontFamily: SERIF,
+                  fontSize: '17px',
+                  fontWeight: 600,
+                  color: 'var(--text-primary)',
+                  marginBottom: '0.5rem',
+                }}
+              >
+                1v1 Live Races
+              </h3>
+              <p
+                style={{
+                  fontFamily: SANS,
+                  fontSize: '14px',
+                  color: 'var(--text-muted)',
+                  lineHeight: 1.65,
+                }}
+              >
+                Challenge another writer to a real-time word count race. Same duration, same stakes. See who breaks first. Leaderboards, match history, and ranked seasons are all in scope.
+              </p>
             </div>
 
-            <div style={{ height: '1px', background: 'var(--color-border)', margin: '1.5rem 0' }} />
-
-            {['1 active project', '20,000 word limit', 'Core text editor', 'Focus Mode', '1 Arena ticket / week'].map((f) => (
-              <div key={f} style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', marginBottom: '10px', fontSize: '14px', color: 'var(--text-primary)', lineHeight: 1.5, fontFamily: SANS }}>
-                <span style={{ color: 'var(--color-gold)', fontSize: '12px', flexShrink: 0, marginTop: '1px' }}>✦</span>
-                {f}
-              </div>
-            ))}
-            {['Goals & streak tracking', 'Export to PDF', 'Arena unlimited access'].map((f) => (
-              <div key={f} style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', marginBottom: '10px', fontSize: '14px', color: 'var(--text-muted)', lineHeight: 1.5, fontFamily: SANS }}>
-                <span style={{ color: 'var(--text-muted)', fontSize: '12px', flexShrink: 0, marginTop: '1px' }}>—</span>
-                {f}
-              </div>
-            ))}
-
-            <Link
-              href="/signup"
-              className="ghost-btn"
-              style={{
-                display: 'block',
-                width: '100%',
-                marginTop: '2rem',
-                border: '1px solid var(--color-border-strong)',
-                background: 'transparent',
-                color: 'var(--text-primary)',
-                padding: '11px 0',
-                borderRadius: '4px',
-                fontSize: '14px',
-                fontFamily: SERIF,
-                letterSpacing: '0.06em',
-                cursor: 'pointer',
-                transition: 'background 0.15s ease',
-                textAlign: 'center',
-                textDecoration: 'none',
-              }}
-            >
-              Get Started — Free
-            </Link>
-          </div>
-
-          {/* Scribe */}
-          <div style={{ flex: 1, background: 'var(--surface-card)', border: '1px dashed var(--color-gold)', borderRadius: '8px', padding: '2rem', position: 'relative' }}>
+            {/* Card 2 — Plotting & Story Architecture */}
             <div
               style={{
-                position: 'absolute',
-                top: '-12px',
-                left: '50%',
-                transform: 'translateX(-50%)',
-                background: 'var(--color-gold)',
-                color: '#1e1a16',
-                fontSize: '11px',
-                fontWeight: 600,
-                letterSpacing: '0.1em',
-                padding: '3px 14px',
-                borderRadius: '10px',
-                whiteSpace: 'nowrap',
-                fontFamily: SANS,
+                background: 'var(--surface-card)',
+                border: '1px solid var(--color-border)',
+                borderRadius: '8px',
+                padding: '1.75rem',
+                position: 'relative',
               }}
             >
-              MOST POPULAR
+              <span
+                style={{
+                  position: 'absolute',
+                  top: '12px',
+                  right: '12px',
+                  background: 'rgba(201, 168, 76, 0.1)',
+                  border: '1px solid var(--color-border-strong)',
+                  color: 'var(--color-gold)',
+                  fontSize: '9px',
+                  letterSpacing: '0.1em',
+                  fontWeight: 600,
+                  padding: '2px 8px',
+                  borderRadius: '3px',
+                  fontFamily: SANS,
+                }}
+              >
+                COMING SOON
+              </span>
+
+              {/* Icon: 2×3 grid of scene cards */}
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(3, 10px)',
+                  gridTemplateRows: 'repeat(2, 7px)',
+                  gap: '3px',
+                  marginBottom: '1rem',
+                  width: 'fit-content',
+                }}
+                aria-hidden
+              >
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      width: '10px',
+                      height: '7px',
+                      borderRadius: '1px',
+                      background: 'var(--color-gold)',
+                      opacity: 0.3,
+                    }}
+                  />
+                ))}
+              </div>
+
+              <h3
+                style={{
+                  fontFamily: SERIF,
+                  fontSize: '17px',
+                  fontWeight: 600,
+                  color: 'var(--text-primary)',
+                  marginBottom: '0.5rem',
+                }}
+              >
+                Plotting &amp; Story Architecture
+              </h3>
+              <p
+                style={{
+                  fontFamily: SANS,
+                  fontSize: '14px',
+                  color: 'var(--text-muted)',
+                  lineHeight: 1.65,
+                }}
+              >
+                A dedicated plotting workspace with drag-and-drop scene cards, act structure templates, character relationship maps, and timeline views. Your story&apos;s skeleton, built before a single chapter begins.
+              </p>
             </div>
+          </div>
+        </section>
 
-            <div style={{ fontFamily: SERIF, fontSize: '22px', fontWeight: 600, color: 'var(--color-gold)', marginBottom: '0.35rem' }}>Scribe</div>
-            <div style={{ fontFamily: SANS, fontSize: '14px', color: 'var(--text-muted)', marginBottom: '1.5rem' }}>For writers who show up.</div>
+        <SectionDivider />
 
-            <div style={{ opacity: priceVisible ? 1 : 0, transition: 'opacity 0.2s ease' }}>
+        {/* ── SECTION 6: PRICING ───────────────────────────────────────── */}
+        <section
+          style={{
+            width: '100%',
+            padding: '7rem 1.5rem',
+            background: 'var(--bg-secondary)',
+            borderTop: '1px solid var(--color-border)',
+          }}
+        >
+          <h2
+            style={{
+              fontFamily: SERIF,
+              fontSize: 'clamp(1.6rem, 3vw, 2.4rem)',
+              fontWeight: 600,
+              color: 'var(--text-primary)',
+              textAlign: 'center',
+              marginBottom: '0.75rem',
+            }}
+          >
+            The Price of Absolute Craftsmanship
+          </h2>
+          <p style={{ fontFamily: SANS, fontSize: '16px', color: 'var(--text-muted)', textAlign: 'center', marginBottom: '2.5rem' }}>
+            Start free. Upgrade when you&apos;re ready to go all in.
+          </p>
+
+          {/* Billing toggle */}
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '3rem' }}>
+            <div style={{ display: 'inline-flex', border: '1px solid var(--color-border)', borderRadius: '24px', padding: '4px' }}>
+              {(['monthly', 'annual'] as const).map((plan) => (
+                <button
+                  key={plan}
+                  onClick={() => handleBilling(plan)}
+                  style={{
+                    background: billing === plan ? 'var(--color-gold)' : 'transparent',
+                    color: billing === plan ? '#1e1a16' : 'var(--text-muted)',
+                    borderRadius: '20px',
+                    padding: '6px 20px',
+                    fontSize: '13px',
+                    fontWeight: billing === plan ? 600 : 400,
+                    cursor: 'pointer',
+                    border: 'none',
+                    transition: 'all 0.2s ease',
+                    fontFamily: SANS,
+                  }}
+                >
+                  {plan === 'monthly' ? 'Monthly' : 'Annual (Save 20%)'}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Pricing grid */}
+          <div
+            className="pricing-grid"
+            style={{ display: 'flex', flexDirection: 'row', gap: '1.5rem', maxWidth: '780px', margin: '0 auto', alignItems: 'flex-start' }}
+          >
+            {/* Free */}
+            <div style={{ flex: 1, background: 'var(--surface-card)', border: '1px solid var(--color-border)', borderRadius: '8px', padding: '2rem' }}>
+              <div style={{ fontFamily: SERIF, fontSize: '22px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.35rem' }}>Free</div>
+              <div style={{ fontFamily: SANS, fontSize: '14px', color: 'var(--text-muted)', marginBottom: '1.5rem' }}>Start your practice.</div>
               <div style={{ display: 'flex', alignItems: 'baseline' }}>
-                <span style={{ fontFamily: SERIF, fontSize: '48px', fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1 }}>
-                  {billing === 'monthly' ? '$9.99' : '$8.00'}
-                </span>
-                <span style={{ fontFamily: SANS, fontSize: '14px', color: 'var(--text-muted)', marginLeft: '4px' }}>/mo</span>
+                <span style={{ fontFamily: SERIF, fontSize: '48px', fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1 }}>$0</span>
+                <span style={{ fontFamily: SANS, fontSize: '14px', color: 'var(--text-muted)', marginLeft: '4px' }}>/month</span>
               </div>
-              {billing === 'annual' && (
-                <div style={{ fontFamily: SANS, fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>
-                  Billed annually at $96/yr
+
+              <div style={{ height: '1px', background: 'var(--color-border)', margin: '1.5rem 0' }} />
+
+              {['1 active project', '20,000 word limit', 'Core text editor', 'Focus Mode', '1 Arena ticket / week'].map((f) => (
+                <div key={f} style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', marginBottom: '10px', fontSize: '14px', color: 'var(--text-primary)', lineHeight: 1.5, fontFamily: SANS }}>
+                  <span style={{ color: 'var(--color-gold)', fontSize: '12px', flexShrink: 0, marginTop: '1px' }}>✦</span>
+                  {f}
                 </div>
-              )}
+              ))}
+              {['Goals & streak tracking', 'Export to PDF', 'Arena unlimited access'].map((f) => (
+                <div key={f} style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', marginBottom: '10px', fontSize: '14px', color: 'var(--text-muted)', lineHeight: 1.5, fontFamily: SANS }}>
+                  <span style={{ color: 'var(--text-muted)', fontSize: '12px', flexShrink: 0, marginTop: '1px' }}>—</span>
+                  {f}
+                </div>
+              ))}
+
+              <Link
+                href="/signup"
+                className="ghost-btn"
+                style={{
+                  display: 'block',
+                  width: '100%',
+                  marginTop: '2rem',
+                  border: '1px solid var(--color-border-strong)',
+                  background: 'transparent',
+                  color: 'var(--text-primary)',
+                  padding: '11px 0',
+                  borderRadius: '4px',
+                  fontSize: '14px',
+                  fontFamily: SERIF,
+                  letterSpacing: '0.06em',
+                  cursor: 'pointer',
+                  transition: 'background 0.15s ease',
+                  textAlign: 'center',
+                  textDecoration: 'none',
+                }}
+              >
+                Get Started — Free
+              </Link>
             </div>
 
-            <div style={{ height: '1px', background: 'var(--color-border)', margin: '1.5rem 0' }} />
-
-            {[
-              'Everything in Free',
-              'Unlimited projects & words',
-              'Full Arena access — unlimited tickets',
-              'Goals, streaks & heatmap analytics',
-              'Export pages & full manuscripts (PDF)',
-              'All 34 themes, fonts & avatar insignias',
-              'Task & plot manager',
-              'Priority support',
-            ].map((f) => (
-              <div key={f} style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', marginBottom: '10px', fontSize: '14px', color: 'var(--text-primary)', lineHeight: 1.5, fontFamily: SANS }}>
-                <span style={{ color: 'var(--color-gold)', fontSize: '12px', flexShrink: 0, marginTop: '1px' }}>✦</span>
-                {f}
+            {/* Scribe */}
+            <div style={{ flex: 1, background: 'var(--surface-card)', border: '1px dashed var(--color-gold)', borderRadius: '8px', padding: '2rem', position: 'relative' }}>
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '-12px',
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  background: 'var(--color-gold)',
+                  color: '#1e1a16',
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  letterSpacing: '0.1em',
+                  padding: '3px 14px',
+                  borderRadius: '10px',
+                  whiteSpace: 'nowrap',
+                  fontFamily: SANS,
+                }}
+              >
+                MOST POPULAR
               </div>
-            ))}
 
-            <Link
-              href="/signup?plan=scribe"
-              className="gold-btn"
-              style={{
-                display: 'block',
-                width: '100%',
-                marginTop: '2rem',
-                background: 'var(--color-gold)',
-                color: '#1e1a16',
-                border: 'none',
-                padding: '13px 0',
-                borderRadius: '4px',
-                fontSize: '14px',
-                fontFamily: SERIF,
-                fontWeight: 600,
-                letterSpacing: '0.08em',
-                cursor: 'pointer',
-                transition: 'background 0.15s ease',
-                textAlign: 'center',
-                textDecoration: 'none',
-              }}
-            >
-              Unlock Access →
+              <div style={{ fontFamily: SERIF, fontSize: '22px', fontWeight: 600, color: 'var(--color-gold)', marginBottom: '0.35rem' }}>Scribe</div>
+              <div style={{ fontFamily: SANS, fontSize: '14px', color: 'var(--text-muted)', marginBottom: '1.5rem' }}>For writers who show up.</div>
+
+              <div style={{ opacity: priceVisible ? 1 : 0, transition: 'opacity 0.2s ease' }}>
+                <div style={{ display: 'flex', alignItems: 'baseline' }}>
+                  <span style={{ fontFamily: SERIF, fontSize: '48px', fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1 }}>
+                    {billing === 'monthly' ? '$9.99' : '$8.00'}
+                  </span>
+                  <span style={{ fontFamily: SANS, fontSize: '14px', color: 'var(--text-muted)', marginLeft: '4px' }}>/mo</span>
+                </div>
+                {billing === 'annual' && (
+                  <div style={{ fontFamily: SANS, fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                    Billed annually at $96/yr
+                  </div>
+                )}
+              </div>
+
+              <div style={{ height: '1px', background: 'var(--color-border)', margin: '1.5rem 0' }} />
+
+              {[
+                'Everything in Free',
+                'Unlimited projects & words',
+                'Full Arena access — unlimited tickets',
+                'Goals, streaks & heatmap analytics',
+                'Export pages & full manuscripts (PDF)',
+                'All 34 themes, fonts & avatar insignias',
+                'Task & plot manager',
+                'Priority support',
+              ].map((f) => (
+                <div key={f} style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', marginBottom: '10px', fontSize: '14px', color: 'var(--text-primary)', lineHeight: 1.5, fontFamily: SANS }}>
+                  <span style={{ color: 'var(--color-gold)', fontSize: '12px', flexShrink: 0, marginTop: '1px' }}>✦</span>
+                  {f}
+                </div>
+              ))}
+
+              <Link
+                href="/signup?plan=scribe"
+                className="gold-btn"
+                style={{
+                  display: 'block',
+                  width: '100%',
+                  marginTop: '2rem',
+                  background: 'var(--color-gold)',
+                  color: '#1e1a16',
+                  border: 'none',
+                  padding: '13px 0',
+                  borderRadius: '4px',
+                  fontSize: '14px',
+                  fontFamily: SERIF,
+                  fontWeight: 600,
+                  letterSpacing: '0.08em',
+                  cursor: 'pointer',
+                  transition: 'background 0.15s ease',
+                  textAlign: 'center',
+                  textDecoration: 'none',
+                }}
+              >
+                Unlock Access →
+              </Link>
+            </div>
+          </div>
+        </section>
+
+        <SectionDivider />
+
+        {/* ── SECTION 7: FOOTER ────────────────────────────────────────── */}
+        <footer
+          style={{
+            padding: '2.5rem 1.5rem',
+            background: 'var(--bg-primary)',
+            borderTop: '1px solid var(--color-border)',
+            textAlign: 'center',
+          }}
+        >
+          <div style={{ fontFamily: SERIF, fontSize: '14px', letterSpacing: '0.12em', color: 'var(--color-gold)', marginBottom: '0.75rem' }}>
+            ✦ RUNE
+          </div>
+          <div style={{ fontFamily: SANS, fontSize: '13px', color: 'var(--text-muted)', marginBottom: '1rem' }}>
+            Built for writers who want to actually write.
+          </div>
+          <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Link href="/terms" style={{ fontSize: '12px', fontFamily: SANS, color: 'var(--text-muted)', textDecoration: 'none' }}>
+              Terms of Service
+            </Link>
+            <span style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '0 10px' }} aria-hidden> · </span>
+            <Link href="/privacy" style={{ fontSize: '12px', fontFamily: SANS, color: 'var(--text-muted)', textDecoration: 'none' }}>
+              Privacy Policy
             </Link>
           </div>
-        </div>
-      </section>
+          <div style={{ fontFamily: SANS, fontSize: '11px', color: 'var(--text-muted)', marginTop: '0.75rem', opacity: 0.6 }}>
+            © 2025 Rune. All rights reserved.
+          </div>
+        </footer>
 
-      <SectionDivider />
-
-      {/* ── SECTION 6: FOOTER ────────────────────────────────────────── */}
-      <footer
-        style={{
-          padding: '2.5rem 1.5rem',
-          background: 'var(--bg-primary)',
-          borderTop: '1px solid var(--color-border)',
-          textAlign: 'center',
-        }}
-      >
-        <div style={{ fontFamily: SERIF, fontSize: '14px', letterSpacing: '0.12em', color: 'var(--color-gold)', marginBottom: '0.75rem' }}>
-          ✦ RUNE
-        </div>
-        <div style={{ fontFamily: SANS, fontSize: '13px', color: 'var(--text-muted)', marginBottom: '1rem' }}>
-          Built for writers who want to actually write.
-        </div>
-        <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Link href="/terms" style={{ fontSize: '12px', fontFamily: SANS, color: 'var(--text-muted)', textDecoration: 'none' }}>
-            Terms of Service
-          </Link>
-          <span style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '0 10px' }} aria-hidden> · </span>
-          <Link href="/privacy" style={{ fontSize: '12px', fontFamily: SANS, color: 'var(--text-muted)', textDecoration: 'none' }}>
-            Privacy Policy
-          </Link>
-        </div>
-        <div style={{ fontFamily: SANS, fontSize: '11px', color: 'var(--text-muted)', marginTop: '0.75rem', opacity: 0.6 }}>
-          © 2025 Rune. All rights reserved.
-        </div>
-      </footer>
-    </>
+      </div>{/* end content z-index wrapper */}
+    </div>
   )
 }

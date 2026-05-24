@@ -690,6 +690,9 @@ body {
   .mockup-sidebar {
     display: none !important;
   }
+  .coming-soon-grid {
+    grid-template-columns: 1fr !important;
+  }
 }
 
 @media (max-width: 640px) {
