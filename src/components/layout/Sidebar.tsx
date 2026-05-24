@@ -73,6 +73,66 @@ function NavLink({
   );
 }
 
+function ArenaNavLink({
+  collapsed,
+  active,
+  isGameMode,
+}: {
+  collapsed: boolean;
+  active: boolean;
+  isGameMode: boolean;
+}) {
+  const setMode = useModeStore((s) => s.setMode);
+
+  return (
+    <Link
+      href="/games"
+      title={collapsed ? "Arena" : undefined}
+      onClick={() => {
+        if (!isGameMode) setMode("game");
+      }}
+      className={cn(
+        "group flex items-center rounded-r-md border-l-2 py-2.5 text-sm transition-all duration-300",
+        collapsed ? "justify-center px-0" : "gap-3 px-3",
+        isGameMode
+          ? active
+            ? "border-rune-gold bg-rune-gold/10 text-rune-gold"
+            : "border-transparent hover:bg-rune-gold/5"
+          : "border-transparent text-[var(--color-mist)] opacity-40 hover:bg-rune-gold/5 hover:text-[var(--color-gold)] hover:opacity-90"
+      )}
+      style={
+        isGameMode && !active
+          ? { color: "var(--text-primary)", opacity: 0.65 }
+          : undefined
+      }
+      aria-current={isGameMode && active ? "page" : undefined}
+    >
+      <span className="relative flex shrink-0 items-center">
+        <Swords size={16} aria-hidden="true" />
+        {!isGameMode && (
+          <span
+            className="absolute -right-0.5 -top-0.5 h-1 w-1 rounded-full opacity-0 transition-opacity duration-300 group-hover:opacity-70"
+            style={{ background: "var(--color-gold)" }}
+            aria-hidden="true"
+          />
+        )}
+      </span>
+      {!collapsed && (
+        <span className="inline-flex items-center gap-1.5">
+          Arena
+          {!isGameMode && (
+            <span
+              className="h-1 w-1 shrink-0 rounded-full opacity-0 transition-opacity duration-300 group-hover:opacity-70"
+              style={{ background: "var(--color-gold)" }}
+              aria-hidden="true"
+            />
+          )}
+        </span>
+      )}
+    </Link>
+  );
+}
+
 function MiniXpBar() {
   const profile = useProfileStore((s) => s.profile);
   const [mounted, setMounted] = useState(false);
@@ -114,6 +174,7 @@ export function Sidebar({ displayName, avatarUrl }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const mode = useModeStore((s) => s.mode);
+  const isGameMode = mode === "game";
   const profile = useProfileStore((s) => s.profile);
   const { sidebarCollapsed, toggleSidebar, setSidebarCollapsed } = useUIStore();
   const showToast = useToastStore((s) => s.showToast);
@@ -264,17 +325,15 @@ export function Sidebar({ displayName, avatarUrl }: SidebarProps) {
               />
             </li>
           ))}
-          {mode === "game" && (
-            <li>
-              <NavLink
-                href="/games"
-                label="Arena"
-                icon={Swords}
-                collapsed={sidebarCollapsed}
-                active={pathname === "/games" || pathname.startsWith("/games/")}
-              />
-            </li>
-          )}
+          <li>
+            <ArenaNavLink
+              collapsed={sidebarCollapsed}
+              isGameMode={isGameMode}
+              active={
+                pathname === "/games" || pathname.startsWith("/games/")
+              }
+            />
+          </li>
         </ul>
       </nav>
 
