@@ -25,10 +25,12 @@ export function PageSourceSelector({ onSelect, className }: PageSourceSelectorPr
   const [pages, setPages] = useState<Record<string, Page[]>>({});
   const [loading, setLoading] = useState(false);
   const [pagesLoading, setPagesLoading] = useState(false);
+  const [selectedPageId, setSelectedPageId] = useState<string | null>(null);
   const [error, setError] = useState("");
 
   async function handleModeChange(next: "fresh" | "existing") {
     setMode(next);
+    setSelectedPageId(null);
     if (next === "fresh") {
       onSelect({ type: "fresh" });
       return;
@@ -46,6 +48,7 @@ export function PageSourceSelector({ onSelect, className }: PageSourceSelectorPr
 
   async function handleSelectProject(project: Project) {
     setSelectedProject(project);
+    setSelectedPageId(null);
     setChapters([]);
     setPages({});
     setError("");
@@ -161,6 +164,7 @@ export function PageSourceSelector({ onSelect, className }: PageSourceSelectorPr
                   type="button"
                   onClick={() => {
                     setSelectedProject(null);
+                    setSelectedPageId(null);
                     setChapters([]);
                     setPages({});
                     setPagesLoading(false);
@@ -213,23 +217,42 @@ export function PageSourceSelector({ onSelect, className }: PageSourceSelectorPr
                             No pages
                           </p>
                         ) : (
-                          chapterPages.map((page, i) => (
-                            <button
-                              key={page.id}
-                              type="button"
-                              onClick={() => onSelect({ type: "existing", page, project: selectedProject })}
-                              className="w-full px-4 py-2.5 text-left text-sm transition-colors duration-100 hover:bg-rune-gold/10"
-                              style={{
-                                color: "var(--text-primary)",
-                                borderTop: i > 0 ? "1px solid var(--color-border)" : undefined,
-                              }}
-                            >
-                              <span className="font-rune-serif">{page.title}</span>
-                              <span className="ml-2 text-[10px]" style={{ color: "var(--color-mist)" }}>
-                                {page.word_count.toLocaleString()} words
-                              </span>
-                            </button>
-                          ))
+                          chapterPages.map((page, i) => {
+                            const isActive = selectedPageId === page.id;
+
+                            return (
+                              <button
+                                key={page.id}
+                                type="button"
+                                aria-pressed={isActive}
+                                onClick={() => {
+                                  setSelectedPageId(page.id);
+                                  onSelect({ type: "existing", page, project: selectedProject });
+                                }}
+                                className={cn(
+                                  "w-full border-l-2 px-4 py-2.5 text-left text-sm transition-colors duration-100",
+                                  isActive
+                                    ? "border-[var(--color-gold)] bg-[var(--color-gold)]/10 hover:bg-[var(--color-gold)]/15"
+                                    : "border-transparent hover:bg-white/5"
+                                )}
+                                style={{
+                                  borderTop: i > 0 ? "1px solid var(--color-border)" : undefined,
+                                }}
+                              >
+                                <span
+                                  className={cn(
+                                    "font-rune-serif",
+                                    isActive ? "text-[var(--color-gold)]" : "text-[var(--text-primary)]"
+                                  )}
+                                >
+                                  {page.title}
+                                </span>
+                                <span className="ml-2 text-[10px]" style={{ color: "var(--color-mist)" }}>
+                                  {page.word_count.toLocaleString()} words
+                                </span>
+                              </button>
+                            );
+                          })
                         )}
                       </div>
                     </div>
