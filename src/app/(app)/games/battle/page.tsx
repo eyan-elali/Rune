@@ -9,7 +9,9 @@ import { HpBar } from "@/components/games/HpBar";
 import { BattleLog, type BattleLogEntry } from "@/components/games/BattleLog";
 import { TicketGate } from "@/components/games/TicketGate";
 import { awardXp } from "@/lib/actions/xp";
-import { appendSprintToProject, createGameSession } from "@/lib/actions/games";
+import { appendSprintToProject, appendToExistingPage, createGameSession } from "@/lib/actions/games";
+import { PageSourceSelector, type PageSource } from "@/components/games/PageSourceSelector";
+import { ContextPageHeader } from "@/components/games/ContextPageHeader";
 import { getWeeklyTicketUsage } from "@/lib/actions/billing";
 import { recordWordsWritten, transferGameWordsToProject } from "@/lib/actions/writingStats";
 import { getProjects } from "@/lib/actions/projects";
@@ -145,7 +147,13 @@ interface ResultData {
 
 // ── Enemy Select ──────────────────────────────────────────────────────────────
 
-function EnemySelectState({ onSelect }: { onSelect: (e: EnemyDef) => void }) {
+function EnemySelectState({
+  onSelect,
+  onSourceSelect,
+}: {
+  onSelect: (e: EnemyDef) => void;
+  onSourceSelect: (source: PageSource) => void;
+}) {
   return (
     <div className="mx-auto max-w-4xl px-8 py-12">
       <div className="mb-10 text-center">
@@ -276,7 +284,11 @@ function EnemySelectState({ onSelect }: { onSelect: (e: EnemyDef) => void }) {
         ))}
       </div>
 
-      <div className="mt-10 text-center">
+      <div className="mx-auto mt-10 max-w-md">
+        <PageSourceSelector onSelect={onSourceSelect} />
+      </div>
+
+      <div className="mt-8 text-center">
         <Link
           href="/games"
           className="text-xs transition-opacity duration-150 hover:opacity-100"
@@ -526,10 +538,12 @@ function SaveToProject({
   words,
   textWritten,
   sessionInvalidated = false,
+  pageSource,
 }: {
   words: number;
   textWritten: string;
   sessionInvalidated?: boolean;
+  pageSource?: PageSource;
 }) {
   const [step, setStep] = useState<SaveStep>("idle");
   const [projects, setProjects] = useState<Project[]>([]);
@@ -537,8 +551,60 @@ function SaveToProject({
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [savedChapterName, setSavedChapterName] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
+  const [appendStep, setAppendStep] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [appendError, setAppendError] = useState("");
 
   if (words === 0) return null;
+
+  async function handleAppend() {
+    if (pageSource?.type !== "existing") return;
+    setAppendStep("saving");
+    const result = await appendToExistingPage(pageSource.page.id, textWritten, words);
+    if (result.error) { setAppendError(result.error); setAppendStep("error"); return; }
+    if (!sessionInvalidated) {
+      await import("@/lib/actions/writingStats").then((m) =>
+        m.transferGameWordsToProject(pageSource.project.id, words)
+      );
+    }
+    setAppendStep("saved");
+  }
+
+  if (pageSource?.type === "existing") {
+    const { page, project } = pageSource;
+    if (appendStep === "saved") {
+      return (
+        <div className="mt-4 rounded-lg px-5 py-3 text-center text-sm"
+          style={{ background: "rgba(74, 103, 65, 0.15)", border: "1px solid rgba(74, 103, 65, 0.3)", color: "var(--color-sage)" }}>
+          ✓ &nbsp;Appended to &ldquo;{page.title}&rdquo;
+        </div>
+      );
+    }
+    if (appendStep === "saving") {
+      return <Button variant="ghost" loading disabled className="mt-4">Saving…</Button>;
+    }
+    if (appendStep === "error") {
+      return (
+        <div className="mt-4 text-center">
+          <p className="mb-2 text-xs" style={{ color: "var(--color-crimson)" }}>{appendError}</p>
+          <button type="button" className="text-xs underline" style={{ color: "var(--color-mist)" }}
+            onClick={() => { setAppendStep("idle"); setAppendError(""); }}>Try again</button>
+        </div>
+      );
+    }
+    return (
+      <div className="mt-4 text-center">
+        <p className="mb-2 text-xs" style={{ color: "var(--color-mist)" }}>
+          Append to:{" "}
+          <span className="font-rune-serif" style={{ color: "var(--color-gold)" }}>{page.title}</span>
+          {" · "}
+          <span style={{ opacity: 0.6 }}>{project.title}</span>
+        </p>
+        <Button variant="ghost" className="mt-1" onClick={handleAppend}>
+          Append to Page
+        </Button>
+      </div>
+    );
+  }
 
   async function handleOpenProjects() {
     setStep("loading");
@@ -778,6 +844,7 @@ function ResultsState({
   isSessionValid,
   onBattleAgain,
   canBattleAgain,
+  pageSource,
 }: {
   result: ResultData;
   isSaving: boolean;
@@ -785,6 +852,7 @@ function ResultsState({
   isSessionValid: boolean;
   onBattleAgain: () => void;
   canBattleAgain: boolean;
+  pageSource?: PageSource;
 }) {
   const isVictory = result.outcome === "victory";
 
@@ -979,8 +1047,25 @@ function ResultsState({
           )}
         </div>
 
+        {/* Written-in context */}
+        {pageSource?.type === "existing" && (
+          <p className="mt-6 text-xs" style={{ color: "var(--color-mist)" }}>
+            Written in:{" "}
+            <span className="font-rune-serif" style={{ color: "var(--text-primary)" }}>
+              {pageSource.page.title}
+            </span>
+            {" — "}
+            <span style={{ opacity: 0.6 }}>{pageSource.project.title}</span>
+          </p>
+        )}
+
         {/* Save to Project */}
-        <SaveToProject words={result.words} textWritten={textWritten} sessionInvalidated={!isSessionValid} />
+        <SaveToProject
+          words={result.words}
+          textWritten={textWritten}
+          sessionInvalidated={!isSessionValid}
+          pageSource={pageSource}
+        />
       </div>
     </div>
   );
@@ -996,6 +1081,7 @@ export default function BattlePage() {
   // Phase
   const [phase, setPhase] = useState<BattlePhase>("enemy-select");
   const [selectedEnemy, setSelectedEnemy] = useState<EnemyDef | null>(null);
+  const [pageSource, setPageSource] = useState<PageSource>({ type: "fresh" });
 
   // Battle state (rendered)
   const [playerHp, setPlayerHp] = useState(PLAYER_MAX_HP);
@@ -1324,13 +1410,13 @@ export default function BattlePage() {
   if (phase === "enemy-select" && !ticketConsumed) {
     return (
       <TicketGate onTicketConsumed={() => setTicketConsumed(true)}>
-        <EnemySelectState onSelect={handleSelectEnemy} />
+        <EnemySelectState onSelect={handleSelectEnemy} onSourceSelect={setPageSource} />
       </TicketGate>
     );
   }
 
   if (phase === "enemy-select" && ticketConsumed) {
-    return <EnemySelectState onSelect={handleSelectEnemy} />;
+    return <EnemySelectState onSelect={handleSelectEnemy} onSourceSelect={setPageSource} />;
   }
 
   if (phase === "results" && resultData) {
@@ -1342,6 +1428,7 @@ export default function BattlePage() {
         isSessionValid={sessionValid}
         onBattleAgain={handleBattleAgain}
         canBattleAgain={canBattleAgain}
+        pageSource={pageSource}
       />
     );
   }
@@ -1379,6 +1466,11 @@ export default function BattlePage() {
         className="flex-1 overflow-y-auto"
         style={{ background: "var(--color-vellum)" }}
       >
+        {pageSource.type === "existing" && pageSource.page.content && (
+          <div className="mx-auto max-w-[680px]">
+            <ContextPageHeader content={pageSource.page.content} />
+          </div>
+        )}
         <div
           className="mx-auto my-8 max-w-[680px]"
           style={{

@@ -13,9 +13,12 @@ import { useToastStore } from "@/store/toastStore";
 import { awardXp } from "@/lib/actions/xp";
 import {
   appendSprintToProject,
+  appendToExistingPage,
   createGameSession,
   getPersonalBests,
 } from "@/lib/actions/games";
+import { PageSourceSelector, type PageSource } from "@/components/games/PageSourceSelector";
+import { ContextPageHeader } from "@/components/games/ContextPageHeader";
 import { recordWordsWritten, transferGameWordsToProject } from "@/lib/actions/writingStats";
 import { getWeeklyTicketUsage } from "@/lib/actions/billing";
 import { getProjects } from "@/lib/actions/projects";
@@ -84,11 +87,13 @@ function SetupState({
   setLocalDuration,
   personalBests,
   onBegin,
+  onSourceSelect,
 }: {
   localDuration: number;
   setLocalDuration: (d: number) => void;
   personalBests: Record<number, number>;
   onBegin: () => void;
+  onSourceSelect: (source: PageSource) => void;
 }) {
   const best = personalBests[localDuration] ?? 0;
   const label = DURATIONS.find((d) => d.seconds === localDuration)?.label ?? "";
@@ -175,7 +180,9 @@ function SetupState({
           )}
         </div>
 
-        <div className="flex justify-center">
+        <PageSourceSelector onSelect={onSourceSelect} />
+
+        <div className="mt-8 flex justify-center">
           <Button
             variant="primary"
             className="px-12 py-3 text-base"
@@ -204,10 +211,12 @@ function SaveToProject({
   words,
   textWritten,
   sessionInvalidated = false,
+  pageSource,
 }: {
   words: number;
   textWritten: string;
   sessionInvalidated?: boolean;
+  pageSource?: PageSource;
 }) {
   const [step, setStep] = useState<SaveStep>("idle");
   const [projects, setProjects] = useState<Project[]>([]);
@@ -215,8 +224,61 @@ function SaveToProject({
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [savedChapterName, setSavedChapterName] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
+  const [appendStep, setAppendStep] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [appendError, setAppendError] = useState("");
 
   if (words === 0) return null;
+
+  // ── Existing page append flow ───────────────────────────────────────────────
+  async function handleAppend() {
+    if (pageSource?.type !== "existing") return;
+    setAppendStep("saving");
+    const result = await appendToExistingPage(pageSource.page.id, textWritten, words);
+    if (result.error) { setAppendError(result.error); setAppendStep("error"); return; }
+    if (!sessionInvalidated) {
+      await import("@/lib/actions/writingStats").then((m) =>
+        m.transferGameWordsToProject(pageSource.project.id, words)
+      );
+    }
+    setAppendStep("saved");
+  }
+
+  if (pageSource?.type === "existing") {
+    const { page, project } = pageSource;
+    if (appendStep === "saved") {
+      return (
+        <div className="mt-4 rounded-lg px-5 py-3 text-center text-sm"
+          style={{ background: "rgba(74, 103, 65, 0.15)", border: "1px solid rgba(74, 103, 65, 0.3)", color: "var(--color-sage)" }}>
+          ✓ &nbsp;Appended to &ldquo;{page.title}&rdquo;
+        </div>
+      );
+    }
+    if (appendStep === "saving") {
+      return <Button variant="ghost" loading disabled className="mt-4">Saving…</Button>;
+    }
+    if (appendStep === "error") {
+      return (
+        <div className="mt-4 text-center">
+          <p className="mb-2 text-xs" style={{ color: "var(--color-crimson)" }}>{appendError}</p>
+          <button type="button" className="text-xs underline" style={{ color: "var(--color-mist)" }}
+            onClick={() => { setAppendStep("idle"); setAppendError(""); }}>Try again</button>
+        </div>
+      );
+    }
+    return (
+      <div className="mt-4 text-center">
+        <p className="mb-2 text-xs" style={{ color: "var(--color-mist)" }}>
+          Append to:{" "}
+          <span className="font-rune-serif" style={{ color: "var(--color-gold)" }}>{page.title}</span>
+          {" · "}
+          <span style={{ opacity: 0.6 }}>{project.title}</span>
+        </p>
+        <Button variant="ghost" className="mt-1" onClick={handleAppend}>
+          Append to Page
+        </Button>
+      </div>
+    );
+  }
 
   async function handleOpenProjects() {
     setStep("loading");
@@ -459,6 +521,7 @@ function ResultsState({
   isSessionValid,
   onRaceAgain,
   canRaceAgain,
+  pageSource,
 }: {
   result: ResultData;
   isSaving: boolean;
@@ -466,6 +529,7 @@ function ResultsState({
   isSessionValid: boolean;
   onRaceAgain: () => void;
   canRaceAgain: boolean;
+  pageSource?: PageSource;
 }) {
   const wpm =
     result.duration > 0
@@ -632,8 +696,25 @@ function ResultsState({
           )}
         </div>
 
+        {/* Written-in context */}
+        {pageSource?.type === "existing" && (
+          <p className="mt-6 text-xs" style={{ color: "var(--color-mist)" }}>
+            Written in:{" "}
+            <span className="font-rune-serif" style={{ color: "var(--text-primary)" }}>
+              {pageSource.page.title}
+            </span>
+            {" — "}
+            <span style={{ opacity: 0.6 }}>{pageSource.project.title}</span>
+          </p>
+        )}
+
         {/* Save to Project */}
-        <SaveToProject words={result.words} textWritten={textWritten} sessionInvalidated={!isSessionValid} />
+        <SaveToProject
+          words={result.words}
+          textWritten={textWritten}
+          sessionInvalidated={!isSessionValid}
+          pageSource={pageSource}
+        />
       </div>
     </div>
   );
@@ -867,6 +948,7 @@ export default function RaceYourselfPage() {
     resetToSetup,
   } = useGameStore();
 
+  const [pageSource, setPageSource] = useState<PageSource>({ type: "fresh" });
   const [localDuration, setLocalDuration] = useState(600);
   const [timeLeft, setTimeLeft] = useState(600);
   const [gameKey, setGameKey] = useState(0);
@@ -1067,6 +1149,7 @@ export default function RaceYourselfPage() {
           setLocalDuration={setLocalDuration}
           personalBests={personalBests}
           onBegin={handleBeginRace}
+          onSourceSelect={setPageSource}
         />
       </TicketGate>
     );
@@ -1079,6 +1162,7 @@ export default function RaceYourselfPage() {
         setLocalDuration={setLocalDuration}
         personalBests={personalBests}
         onBegin={handleBeginRace}
+        onSourceSelect={setPageSource}
       />
     );
   }
@@ -1092,6 +1176,7 @@ export default function RaceYourselfPage() {
         isSessionValid={sessionValid}
         onRaceAgain={handleRaceAgain}
         canRaceAgain={canRaceAgain}
+        pageSource={pageSource}
       />
     );
   }
@@ -1121,6 +1206,11 @@ export default function RaceYourselfPage() {
         className="min-h-0 flex-1 overflow-y-auto"
         style={{ background: "var(--color-vellum)" }}
       >
+        {pageSource.type === "existing" && pageSource.page.content && (
+          <div className="mx-auto max-w-[720px]">
+            <ContextPageHeader content={pageSource.page.content} />
+          </div>
+        )}
         <div
           className="mx-auto my-8 max-w-[720px]"
           style={{

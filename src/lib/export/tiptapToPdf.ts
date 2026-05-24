@@ -286,3 +286,60 @@ export function renderNode(state: State, node: TNode): void {
     }
   }
 }
+
+export function tiptapToPlainLines(root: TNode): string[] {
+  const lines: string[] = [];
+
+  function walk(node: TNode): void {
+    switch (node.type) {
+      case "doc":
+        for (const child of node.content ?? []) walk(child);
+        break;
+      case "paragraph": {
+        const text = collectSegs(node).map((s) => s.text).join("").trim();
+        if (text) lines.push(text);
+        break;
+      }
+      case "heading": {
+        const text = collectSegs(node).map((s) => s.text).join("").trim();
+        if (text) lines.push(text);
+        break;
+      }
+      case "blockquote":
+        for (const child of node.content ?? [])
+          if (child.type === "paragraph") {
+            const text = collectSegs(child).map((s) => s.text).join("").trim();
+            if (text) lines.push(text);
+          }
+        break;
+      case "bulletList":
+        for (const item of node.content ?? []) {
+          if (item.type !== "listItem") continue;
+          const text = (item.content ?? [])
+            .flatMap((c) => (c.type === "paragraph" ? collectSegs(c) : []))
+            .map((s) => s.text).join("").trim();
+          if (text) lines.push(`• ${text}`);
+        }
+        break;
+      case "orderedList": {
+        let n = (node.attrs?.start as number) ?? 1;
+        for (const item of node.content ?? []) {
+          if (item.type !== "listItem") continue;
+          const text = (item.content ?? [])
+            .flatMap((c) => (c.type === "paragraph" ? collectSegs(c) : []))
+            .map((s) => s.text).join("").trim();
+          if (text) { lines.push(`${n}. ${text}`); n++; }
+        }
+        break;
+      }
+      case "horizontalRule":
+        lines.push("—");
+        break;
+      default:
+        for (const child of node.content ?? []) walk(child);
+    }
+  }
+
+  walk(root);
+  return lines;
+}

@@ -143,6 +143,90 @@ export async function appendSprintToProject(
   return { data: page as { id: string }, error: null };
 }
 
+export async function appendToExistingPage(
+  pageId: string,
+  html: string,
+  additionalWordCount: number
+): Promise<ActionResult<{ id: string }>> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { data: null, error: "Not authenticated" };
+
+  const { data: page, error: fetchError } = await supabase
+    .from("pages")
+    .select("id, content, word_count, chapter_id")
+    .eq("id", pageId)
+    .single();
+
+  if (fetchError || !page) return { data: null, error: "Page not found" };
+
+  const newDoc = htmlToTiptapDoc(html);
+  const existingNodes =
+    (page.content as { type: string; content?: unknown[] } | null)?.content ?? [];
+  const newNodes = (newDoc.content as unknown[]) ?? [];
+
+  const mergedContent = {
+    type: "doc",
+    content: [...existingNodes, { type: "horizontalRule" }, ...newNodes],
+  };
+
+  const newWordCount = (page.word_count ?? 0) + additionalWordCount;
+
+  const { data: updated, error: updateError } = await supabase
+    .from("pages")
+    .update({
+      content: mergedContent,
+      word_count: newWordCount,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", pageId)
+    .select("id, chapter_id")
+    .single();
+
+  if (updateError) return { data: null, error: updateError.message };
+
+  const { data: chapter } = await supabase
+    .from("chapters")
+    .select("project_id")
+    .eq("id", updated.chapter_id)
+    .single();
+
+  if (chapter) {
+    const { data: allChapters } = await supabase
+      .from("chapters")
+      .select("id")
+      .eq("project_id", chapter.project_id);
+
+    if (allChapters) {
+      const chapterIds = allChapters.map((c: { id: string }) => c.id);
+      const { data: allPages } = await supabase
+        .from("pages")
+        .select("word_count")
+        .in("chapter_id", chapterIds);
+
+      const totalWords =
+        allPages?.reduce(
+          (sum: number, p: { word_count: number }) => sum + (p.word_count ?? 0),
+          0
+        ) ?? 0;
+
+      await supabase
+        .from("projects")
+        .update({ word_count: totalWords })
+        .eq("id", chapter.project_id);
+    }
+
+    revalidatePath(`/projects/${chapter.project_id}`);
+    revalidatePath(
+      `/projects/${chapter.project_id}/chapters/${updated.chapter_id}`
+    );
+  }
+
+  return { data: { id: updated.id }, error: null };
+}
+
 export type CombatRecord = { wins: number; losses: number };
 
 const COMBAT_ENEMY_IDS = ["blank-page", "writers-block", "deadline"] as const;
