@@ -1,5 +1,6 @@
 "use client";
 
+import { useLayoutEffect, useRef } from "react";
 import type { TNode } from "@/lib/export/tiptapToPdf";
 import { tiptapToPlainLines } from "@/lib/export/tiptapToPdf";
 
@@ -8,14 +9,23 @@ type ContextPageHeaderProps = {
 };
 
 export function ContextPageHeader({ content }: ContextPageHeaderProps) {
-  if (!content) return null;
-  const lines = tiptapToPlainLines(content as TNode);
-  if (lines.length === 0) return null;
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const lines = content ? tiptapToPlainLines(content as TNode) : [];
+
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    if (el) {
+      el.scrollTop = el.scrollHeight;
+    }
+  }, [content, lines.length]);
+
+  if (!content || lines.length === 0) return null;
 
   return (
     <div className="px-8 pb-0 pt-8">
       <div style={{ position: "relative" }}>
         <div
+          ref={scrollRef}
           style={{
             maxHeight: "200px",
             overflowY: "auto",

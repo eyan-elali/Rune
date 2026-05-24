@@ -156,6 +156,10 @@ function EnemySelectState({
 }) {
   return (
     <div className="mx-auto max-w-4xl px-8 py-12">
+      <div className="mx-auto mb-10 max-w-md">
+        <PageSourceSelector className="mt-0" onSelect={onSourceSelect} />
+      </div>
+
       <div className="mb-10 text-center">
         <p
           className="mb-3 text-xs uppercase tracking-[0.3em]"
@@ -282,10 +286,6 @@ function EnemySelectState({
             </div>
           </button>
         ))}
-      </div>
-
-      <div className="mx-auto mt-10 max-w-md">
-        <PageSourceSelector onSelect={onSourceSelect} />
       </div>
 
       <div className="mt-8 text-center">

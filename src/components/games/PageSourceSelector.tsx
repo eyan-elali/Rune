@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Loader2 } from "lucide-react";
 import { getProjects } from "@/lib/actions/projects";
 import { getChapters } from "@/lib/actions/chapters";
 import { getPages } from "@/lib/actions/pages";
@@ -13,15 +14,17 @@ export type PageSource =
 
 type PageSourceSelectorProps = {
   onSelect: (source: PageSource) => void;
+  className?: string;
 };
 
-export function PageSourceSelector({ onSelect }: PageSourceSelectorProps) {
+export function PageSourceSelector({ onSelect, className }: PageSourceSelectorProps) {
   const [mode, setMode] = useState<"fresh" | "existing">("fresh");
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [pages, setPages] = useState<Record<string, Page[]>>({});
   const [loading, setLoading] = useState(false);
+  const [pagesLoading, setPagesLoading] = useState(false);
   const [error, setError] = useState("");
 
   async function handleModeChange(next: "fresh" | "existing") {
@@ -45,27 +48,30 @@ export function PageSourceSelector({ onSelect }: PageSourceSelectorProps) {
     setSelectedProject(project);
     setChapters([]);
     setPages({});
+    setError("");
     setLoading(true);
+    setPagesLoading(true);
     const chResult = await getChapters(project.id);
-    setLoading(false);
     if (chResult.error || !chResult.data) {
+      setLoading(false);
+      setPagesLoading(false);
       setError(chResult.error ?? "Failed to load chapters");
       return;
     }
     const chapterList = chResult.data as Chapter[];
     setChapters(chapterList);
+    setLoading(false);
     const pageResults = await Promise.all(chapterList.map((ch) => getPages(ch.id)));
     const pagesMap: Record<string, Page[]> = {};
     for (let i = 0; i < chapterList.length; i++) {
-      if (pageResults[i].data) {
-        pagesMap[chapterList[i].id] = pageResults[i].data!;
-      }
+      pagesMap[chapterList[i].id] = pageResults[i].data ?? [];
     }
     setPages(pagesMap);
+    setPagesLoading(false);
   }
 
   return (
-    <div className="mt-8">
+    <div className={cn("mt-8", className)}>
       <p
         className="mb-3 text-center text-[10px] uppercase tracking-widest"
         style={{ color: "var(--color-mist)" }}
@@ -94,10 +100,10 @@ export function PageSourceSelector({ onSelect }: PageSourceSelectorProps) {
 
       {mode === "existing" && (
         <div className="mx-auto max-w-sm">
-          {loading && (
-            <p className="text-center text-xs" style={{ color: "var(--color-mist)" }}>
-              Loading…
-            </p>
+          {loading && !selectedProject && (
+            <div className="flex justify-center py-3" aria-label="Loading projects">
+              <Loader2 className="h-4 w-4 animate-spin text-[var(--color-gold)]" />
+            </div>
           )}
           {error && (
             <p className="text-center text-xs" style={{ color: "var(--color-crimson)" }}>
@@ -120,8 +126,12 @@ export function PageSourceSelector({ onSelect }: PageSourceSelectorProps) {
                 Select project
               </p>
               <div
-                className="overflow-hidden rounded-lg"
-                style={{ border: "1px solid var(--color-border-strong)", background: "var(--color-sepia)" }}
+                className="max-h-[8.25rem] overflow-y-auto rounded-lg"
+                style={{
+                  border: "1px solid var(--color-border-strong)",
+                  background: "var(--color-sepia)",
+                  scrollbarWidth: "thin",
+                }}
               >
                 {projects.map((p, i) => (
                   <button
@@ -149,7 +159,12 @@ export function PageSourceSelector({ onSelect }: PageSourceSelectorProps) {
               <div className="mb-3 flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => { setSelectedProject(null); setChapters([]); setPages({}); }}
+                  onClick={() => {
+                    setSelectedProject(null);
+                    setChapters([]);
+                    setPages({});
+                    setPagesLoading(false);
+                  }}
                   className="text-xs transition-opacity duration-150 hover:opacity-100"
                   style={{ color: "var(--color-mist)", opacity: 0.6 }}
                 >
@@ -160,6 +175,12 @@ export function PageSourceSelector({ onSelect }: PageSourceSelectorProps) {
                 </span>
               </div>
 
+              {chapters.length === 0 && loading && (
+                <div className="flex justify-center py-6" aria-label="Loading chapters">
+                  <Loader2 className="h-4 w-4 animate-spin text-[var(--color-gold)]" />
+                </div>
+              )}
+
               {chapters.length === 0 && !loading && (
                 <p className="text-center text-xs" style={{ color: "var(--color-mist)", opacity: 0.5 }}>
                   No chapters in this project.
@@ -167,44 +188,53 @@ export function PageSourceSelector({ onSelect }: PageSourceSelectorProps) {
               )}
 
               <div className="max-h-64 space-y-3 overflow-y-auto" style={{ scrollbarWidth: "thin" }}>
-                {chapters.map((chapter) => (
-                  <div key={chapter.id}>
-                    <p
-                      className="mb-1.5 px-1 text-[10px] uppercase tracking-widest"
-                      style={{ color: "var(--color-mist)", opacity: 0.5 }}
-                    >
-                      {chapter.title}
-                    </p>
-                    <div
-                      className="overflow-hidden rounded"
-                      style={{ border: "1px solid var(--color-border)", background: "var(--color-sepia)" }}
-                    >
-                      {!(pages[chapter.id]?.length) ? (
-                        <p className="px-4 py-2 text-xs" style={{ color: "var(--color-mist)", opacity: 0.4 }}>
-                          No pages
-                        </p>
-                      ) : (
-                        (pages[chapter.id] ?? []).map((page, i) => (
-                          <button
-                            key={page.id}
-                            type="button"
-                            onClick={() => onSelect({ type: "existing", page, project: selectedProject })}
-                            className="w-full px-4 py-2.5 text-left text-sm transition-colors duration-100 hover:bg-rune-gold/10"
-                            style={{
-                              color: "var(--text-primary)",
-                              borderTop: i > 0 ? "1px solid var(--color-border)" : undefined,
-                            }}
-                          >
-                            <span className="font-rune-serif">{page.title}</span>
-                            <span className="ml-2 text-[10px]" style={{ color: "var(--color-mist)" }}>
-                              {page.word_count.toLocaleString()} words
-                            </span>
-                          </button>
-                        ))
-                      )}
+                {chapters.map((chapter) => {
+                  const chapterPages = pages[chapter.id];
+                  const isPagesPending = pagesLoading || chapterPages === undefined;
+
+                  return (
+                    <div key={chapter.id}>
+                      <p
+                        className="mb-1.5 px-1 text-[10px] uppercase tracking-widest"
+                        style={{ color: "var(--color-mist)", opacity: 0.5 }}
+                      >
+                        {chapter.title}
+                      </p>
+                      <div
+                        className="overflow-hidden rounded"
+                        style={{ border: "1px solid var(--color-border)", background: "var(--color-sepia)" }}
+                      >
+                        {isPagesPending ? (
+                          <div className="flex justify-center px-4 py-3" aria-label="Loading pages">
+                            <Loader2 className="h-3.5 w-3.5 animate-spin text-[var(--color-gold)]" />
+                          </div>
+                        ) : chapterPages.length === 0 ? (
+                          <p className="px-4 py-2 text-xs" style={{ color: "var(--color-mist)", opacity: 0.4 }}>
+                            No pages
+                          </p>
+                        ) : (
+                          chapterPages.map((page, i) => (
+                            <button
+                              key={page.id}
+                              type="button"
+                              onClick={() => onSelect({ type: "existing", page, project: selectedProject })}
+                              className="w-full px-4 py-2.5 text-left text-sm transition-colors duration-100 hover:bg-rune-gold/10"
+                              style={{
+                                color: "var(--text-primary)",
+                                borderTop: i > 0 ? "1px solid var(--color-border)" : undefined,
+                              }}
+                            >
+                              <span className="font-rune-serif">{page.title}</span>
+                              <span className="ml-2 text-[10px]" style={{ color: "var(--color-mist)" }}>
+                                {page.word_count.toLocaleString()} words
+                              </span>
+                            </button>
+                          ))
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
