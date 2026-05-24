@@ -18,7 +18,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
           Rune
         </span>
         <span className="text-[10px] uppercase tracking-[0.35em] text-rune-mist">
-          Write with Intention
+          Write Fearlessly
         </span>
       </div>
 

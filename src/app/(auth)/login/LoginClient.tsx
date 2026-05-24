@@ -67,7 +67,7 @@ export default function LoginClient() {
             Check your inbox
           </p>
           <p className="mt-2 text-sm text-stone-100">
-            We sent a magic link to{" "}
+            We sent a link to{" "}
             <span className="text-rune-gold">{email}</span>.
           </p>
           <button
@@ -92,7 +92,7 @@ export default function LoginClient() {
         }}
       >
         <h1 className="!mb-4 font-rune-serif text-xl text-stone-100">
-          {mode === "password" ? "Sign in" : "Sign in with magic link"}
+          {mode === "password" ? "Sign in" : "Sign in with link"}
         </h1>
 
         <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
@@ -134,7 +134,7 @@ export default function LoginClient() {
             loading={loading}
             className="mt-1 w-full"
           >
-            {mode === "magic-link" ? "Send Magic Link" : "Sign In"}
+            {mode === "magic-link" ? "Send Link" : "Sign In"}
           </Button>
         </form>
 
@@ -148,7 +148,7 @@ export default function LoginClient() {
             className="w-full text-center text-xs text-stone-100 transition-colors hover:text-rune-gold"
           >
             {mode === "password"
-              ? "Sign in with a magic link instead"
+              ? "Sign in with a link instead"
               : "Sign in with a password instead"}
           </button>
         </div>

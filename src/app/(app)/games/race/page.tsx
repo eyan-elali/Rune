@@ -99,27 +99,30 @@ function SetupState({
   return (
     <div className="flex min-h-full flex-col items-center justify-center px-8 py-16">
       <div className="w-full max-w-md">
-        <p
-          className="mb-4 text-center text-xs uppercase tracking-[0.3em]"
-          style={{ color: "var(--color-mist)", opacity: 0.6 }}
-        >
-          ✦ &nbsp; Race Yourself &nbsp; ✦
-        </p>
+        <div className="mb-10">
+          <PageSourceSelector className="mt-0" onSelect={onSourceSelect} />
+        </div>
 
-        <h1
-          className="!mb-2 text-center font-rune-serif text-4xl text-stone-900"
-          style={{ color: "var(--text-primary)" }}
-        >
-          Set the Clock
-        </h1>
-        <p
-          className="mb-10 text-center text-sm leading-relaxed"
-          style={{ color: "var(--color-mist)" }}
-        >
-          Write as many words as you can within the time limit.
-          <br />
-          Only additions count &mdash; deletions don&rsquo;t subtract.
-        </p>
+        <div className="mb-10 text-center">
+          <p
+            className="mb-3 text-xs uppercase tracking-[0.3em]"
+            style={{ color: "var(--color-mist)", opacity: 0.6 }}
+          >
+            ✦ &nbsp; Race Yourself &nbsp; ✦
+          </p>
+
+          <h1
+            className="!mb-3 font-rune-serif text-4xl text-stone-900"
+            style={{ color: "var(--text-primary)" }}
+          >
+            Set the Clock
+          </h1>
+          <p className="text-sm leading-relaxed" style={{ color: "var(--color-mist)" }}>
+            Write as many words as you can within the time limit.
+            <br />
+            Only additions count &mdash; deletions don&rsquo;t subtract.
+          </p>
+        </div>
 
         <div className="mb-8">
           <p
@@ -197,8 +200,6 @@ function SetupState({
             </p>
           )}
         </div>
-
-        <PageSourceSelector onSelect={onSourceSelect} />
 
         <div className="mt-8 flex justify-center">
           <Button
