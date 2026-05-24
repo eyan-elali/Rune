@@ -1,5 +1,6 @@
 export const dynamic = "force-dynamic";
-import { Lock, Skull } from "lucide-react";
+import { Lock } from "lucide-react";
+import { AvatarGlyph } from "@/components/profile/UserAvatar";
 import { createClient } from "@/lib/supabase/server";
 import {
   checkAndGrantUnlockables,
@@ -73,7 +74,7 @@ function UnlockableCard({
         {item.tier === "scribe" && <ScribeBadge />}
       </div>
 
-      {item.type === "avatar" && item.id === "skull-roses" && (
+      {item.type === "avatar" && (
         <div
           className="mb-3 flex h-10 w-10 items-center justify-center rounded-full"
           style={{
@@ -82,11 +83,7 @@ function UnlockableCard({
           }}
           aria-hidden
         >
-          <Skull
-            size={18}
-            className="text-[var(--color-gold)] opacity-80"
-            aria-hidden
-          />
+          <AvatarGlyph id={item.id} />
         </div>
       )}
 

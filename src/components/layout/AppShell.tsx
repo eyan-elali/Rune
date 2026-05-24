@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useModeStore, type Mode } from "@/store/modeStore";
 import { useGameStore } from "@/store/gameStore";
@@ -36,7 +36,6 @@ export function AppShell({ profile, children }: AppShellProps) {
 
   const displayName =
     profile?.display_name ?? profile?.username ?? "Writer";
-  const avatarUrl = profile?.avatar_url ?? null;
 
   const sidebarCollapsed = useUIStore((s) => s.sidebarCollapsed);
   const gameState = useGameStore((s) => s.gameState);
@@ -52,7 +51,7 @@ export function AppShell({ profile, children }: AppShellProps) {
     modeRef.current = mode;
   }, [mode]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (profile) setProfile(profile);
   }, [profile, setProfile]);
 
@@ -95,7 +94,7 @@ export function AppShell({ profile, children }: AppShellProps) {
             transition: "width 0.25s ease, min-width 0.25s ease",
           }}
         >
-          <Sidebar displayName={displayName} avatarUrl={avatarUrl} />
+          <Sidebar displayName={displayName} />
         </div>
       )}
 

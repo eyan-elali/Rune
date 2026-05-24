@@ -18,21 +18,13 @@ import { useProfileStore } from "@/store/profileStore";
 import { useModeStore } from "@/store/modeStore";
 import { useUIStore } from "@/store/uiStore";
 import { useToastStore } from "@/store/toastStore";
+import { UserAvatar } from "@/components/profile/UserAvatar";
 import type { UserPreferences } from "@/lib/types";
 import { xpProgressInCurrentLevel } from "@/lib/xp";
 import { cn } from "@/lib/utils";
 
-const AVATAR_SIGIL: Record<string, string> = {
-  quill: "✒",
-  "skull-roses": "☠",
-  "crescent-moon": "☽",
-  ouroboros: "∞",
-  hourglass: "⌛",
-};
-
 interface SidebarProps {
   displayName: string;
-  avatarUrl: string | null;
 }
 
 const NAV_LINKS = [
@@ -170,7 +162,7 @@ function MiniXpBar() {
   );
 }
 
-export function Sidebar({ displayName, avatarUrl }: SidebarProps) {
+export function Sidebar({ displayName }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const mode = useModeStore((s) => s.mode);
@@ -181,9 +173,11 @@ export function Sidebar({ displayName, avatarUrl }: SidebarProps) {
 
   const prefs = (profile?.preferences ?? {}) as Partial<UserPreferences>;
   const activeAvatar = prefs.activeAvatar ?? "quill";
-  const sigil = AVATAR_SIGIL[activeAvatar] ?? "✒";
-
-  const initial = displayName.trim().charAt(0).toUpperCase() || "W";
+  const avatarUrl = profile?.avatar_url ?? null;
+  const resolvedName =
+    profile?.display_name?.trim() ||
+    profile?.username?.trim() ||
+    displayName;
 
   // Restore collapsed state from localStorage on mount
   useEffect(() => {
@@ -272,34 +266,18 @@ export function Sidebar({ displayName, avatarUrl }: SidebarProps) {
             sidebarCollapsed ? "justify-center px-0" : "gap-3 px-5"
           )}
         >
-          {avatarUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={avatarUrl}
-              alt={displayName}
-              className="h-8 w-8 shrink-0 rounded-full object-cover"
-              title={sidebarCollapsed ? displayName : undefined}
-            />
-          ) : (
-            <div
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-base"
-              style={{
-                background: "rgba(201, 168, 76, 0.12)",
-                border: "1px solid rgba(201, 168, 76, 0.25)",
-                color: "var(--color-gold)",
-              }}
-              aria-label={`Avatar: ${activeAvatar}`}
-              title={sidebarCollapsed ? displayName : undefined}
-            >
-              {sigil}
-            </div>
-          )}
+          <UserAvatar
+            activeAvatarId={activeAvatar}
+            avatarUrl={avatarUrl}
+            displayName={resolvedName}
+            title={sidebarCollapsed ? resolvedName : undefined}
+          />
           {!sidebarCollapsed && (
             <span
               className="truncate text-sm"
               style={{ color: "var(--text-primary)", opacity: 0.8 }}
             >
-              {displayName}
+              {resolvedName}
             </span>
           )}
         </div>

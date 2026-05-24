@@ -10,7 +10,10 @@ import {
   Swords,
   Settings,
   LogOut,
-  KanbanSquare,
+  Eye,
+  Compass,
+  Feather,
+  Crown,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -340,8 +343,12 @@ export default function LandingPage() {
                       borderRadius: '8px',
                       color: cfg.textMuted,
                       transition: 'color 0.3s ease',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
                     }}
                   >
+                    <Eye size={10} style={{ color: cfg.gold }} aria-hidden />
                     Focus
                   </span>
                   <span
@@ -710,8 +717,12 @@ export default function LandingPage() {
                       padding: '2px 8px',
                       borderRadius: '10px',
                       transition: 'color 0.3s ease, border-color 0.3s ease',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px',
                     }}
                   >
+                    <Feather size={11} style={{ color: cfg.gold }} aria-hidden />
                     1,247 words
                   </div>
                 </div>
@@ -754,9 +765,9 @@ export default function LandingPage() {
             className="feature-grid"
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(3, 1fr)',
+              gridTemplateColumns: 'repeat(4, 1fr)',
               gap: '1.5rem',
-              maxWidth: '1000px',
+              maxWidth: '1200px',
               margin: '0 auto',
             }}
           >
@@ -820,6 +831,19 @@ export default function LandingPage() {
               </h3>
               <p style={{ fontFamily: SANS, fontSize: '14px', color: 'var(--text-muted)', lineHeight: 1.65 }}>
                 Set a total word count target for your manuscript. Track daily streaks. Watch the heatmap fill. The system rewards consistency — not inspiration.
+              </p>
+            </div>
+
+            {/* Card 4 — Focus Mode */}
+            <div className="feature-card relative z-20 bg-[var(--surface-card)]" style={{ border: '1px solid var(--color-border)', borderRadius: '8px', padding: '2rem', transition: 'border-color 0.2s ease' }}>
+              <div style={{ marginBottom: '1.25rem' }} aria-hidden>
+                <Eye size={20} className="text-[var(--color-gold)]" />
+              </div>
+              <h3 style={{ fontFamily: SERIF, fontSize: '17px', color: 'var(--text-primary)', fontWeight: 600, marginBottom: '0.5rem' }}>
+                Distraction-Free Focus Mode
+              </h3>
+              <p style={{ fontFamily: SANS, fontSize: '14px', color: 'var(--text-muted)', lineHeight: 1.65 }}>
+                Strip the chrome. Unmount the sidebar. Silence the gamification. One command returns you to the full workspace — the canvas stays yours.
               </p>
             </div>
           </div>
@@ -1094,7 +1118,7 @@ export default function LandingPage() {
                 COMING SOON
               </span>
 
-              <KanbanSquare size={24} className="text-[var(--color-gold)] opacity-70 mb-4" aria-hidden />
+              <Compass size={24} className="text-[var(--color-gold)] opacity-70 mb-4" aria-hidden />
 
               <h3
                 style={{
@@ -1252,7 +1276,10 @@ export default function LandingPage() {
                 MOST POPULAR
               </div>
 
-              <div style={{ fontFamily: SERIF, fontSize: '22px', fontWeight: 600, color: 'var(--color-gold)', marginBottom: '0.35rem' }}>Scribe</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontFamily: SERIF, fontSize: '22px', fontWeight: 600, color: 'var(--color-gold)', marginBottom: '0.35rem' }}>
+                <Crown size={20} className="text-[var(--color-gold)]" aria-hidden />
+                Scribe
+              </div>
               <div style={{ fontFamily: SANS, fontSize: '14px', color: 'var(--text-muted)', marginBottom: '1.5rem' }}>For writers who show up.</div>
 
               <div style={{ opacity: priceVisible ? 1 : 0, transition: 'opacity 0.2s ease' }}>

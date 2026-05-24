@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef, useTransition } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
-import { Lock, Skull } from "lucide-react";
+import { Lock, Feather } from "lucide-react";
+import { AvatarGlyph } from "@/components/profile/UserAvatar";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { cn } from "@/lib/utils";
@@ -477,7 +478,10 @@ function EditorTab() {
 
   return (
     <Card>
-      <SectionTitle>Editor preferences</SectionTitle>
+      <div className="mb-1 flex items-center gap-2">
+        <Feather size={20} className="text-[var(--color-gold)]" aria-hidden />
+        <SectionTitle>Editor preferences</SectionTitle>
+      </div>
       <div className="mt-1">
         <SettingRow label="Font size" description={`${localFontSize}px`}>
           <div className="flex items-center gap-3">
@@ -553,35 +557,6 @@ function EditorTab() {
 }
 
 // ─── Appearance Tab ───────────────────────────────────────────────────────────
-
-const AVATAR_SYMBOL: Record<string, string> = {
-  quill: "✒",
-  inkwell: "✦",
-  "open-book": "◫",
-  "crescent-moon": "☽",
-  ouroboros: "∞",
-  hourglass: "⌛",
-  compass: "◎",
-  crow: "◉",
-  lantern: "◈",
-  sigil: "✦",
-  "the-eye": "◎",
-  crown: "⊕",
-  "void-walker": "◼",
-};
-
-function AvatarGlyph({ id }: { id: string }) {
-  if (id === "skull-roses") {
-    return (
-      <Skull
-        size={18}
-        className="text-[var(--color-gold)] opacity-80"
-        aria-hidden
-      />
-    );
-  }
-  return <>{AVATAR_SYMBOL[id] ?? "✦"}</>;
-}
 
 function AppearanceTab({ unlockedIds }: { unlockedIds: Set<string> }) {
   const storeProfile = useProfileStore((s) => s.profile);
