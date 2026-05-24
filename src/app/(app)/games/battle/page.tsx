@@ -950,7 +950,7 @@ function ResultsState({
             className="mb-6 max-w-sm text-sm leading-relaxed"
             style={{ color: "var(--color-mist)" }}
           >
-            No tickets left this week. Upgrade to Arcane for unlimited entries!
+            No Arena entries left this week. Upgrade to Scribe for unlimited battles and races!
           </p>
         )}
 

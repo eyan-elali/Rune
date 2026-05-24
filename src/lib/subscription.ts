@@ -8,7 +8,7 @@ export const FEATURE_GATES = {
   focusMode:           ['free', 'scribe'],
   gameMode:            ['free', 'scribe'],
   unlockables:         ['scribe'],
-  multipleGameTickets: ['scribe'],
+  unlimitedArena: ['scribe'],
   tasks:               ['scribe'],
   heatmap:             ['scribe'],
   avgWordsWidget:      ['scribe'],
@@ -24,6 +24,6 @@ export function canAccessFeature(
 }
 
 export function getGameTicketsAllowed(tier: SubscriptionTier): number {
-  if (tier === 'scribe') return 3
+  if (tier === 'scribe') return Infinity
   return 1
 }

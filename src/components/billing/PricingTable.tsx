@@ -20,7 +20,7 @@ const TIER_FEATURES = {
     { label: '20,000 word limit', included: true },
     { label: 'Basic editor', included: true },
     { label: 'Focus Mode', included: true },
-    { label: '1 game ticket / week', included: true },
+    { label: 'Limited Arena access (1 entry / week)', included: true },
     { label: 'Limited cosmetics (3 themes, 3 avatars, 2 fonts)', included: true },
     { label: 'Goals & streaks', included: false },
     { label: 'Export pages & manuscripts', included: false },
@@ -32,12 +32,12 @@ const TIER_FEATURES = {
     { label: 'Writing heatmap & stats', included: true },
     { label: 'Export pages & manuscripts (PDF)', included: true },
     { label: 'Full collection — all 34 cosmetics, current & future', included: true },
-    { label: '3 game tickets / week', included: true },
+    { label: 'Full access to the Arena (unlimited battles & races)', included: true },
   ],
 }
 
 function featureLabelNeedsNowrap(label: string): boolean {
-  return /word limit|game ticket/i.test(label)
+  return /word limit|Arena access|Full access to the Arena/i.test(label)
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────

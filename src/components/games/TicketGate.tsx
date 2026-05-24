@@ -21,12 +21,23 @@ export function TicketGate({ children, onTicketConsumed }: TicketGateProps) {
   const [upgradePending, startUpgradeTransition] = useTransition()
 
   const allowed = getGameTicketsAllowed(subscriptionTier)
-  const isGated = ticketsUsed !== null && ticketsUsed >= allowed && !ticketConsumed
+  const isUnlimited = allowed === Infinity
+  const isGated =
+    !isUnlimited &&
+    ticketsUsed !== null &&
+    ticketsUsed >= allowed &&
+    !ticketConsumed
 
   useEffect(() => {
-    if (!profile?.id) return
+    if (isUnlimited) {
+      onTicketConsumed()
+    }
+  }, [isUnlimited, onTicketConsumed])
+
+  useEffect(() => {
+    if (!profile?.id || isUnlimited) return
     getWeeklyTicketUsage(profile.id).then(setTicketsUsed)
-  }, [profile?.id, allowed])
+  }, [profile?.id, isUnlimited])
 
   function handleConsumeAndPlay() {
     if (!profile?.id) return
@@ -45,6 +56,10 @@ export function TicketGate({ children, onTicketConsumed }: TicketGateProps) {
     })
   }
 
+  if (isUnlimited) {
+    return <>{children}</>
+  }
+
   // Still loading
   if (ticketsUsed === null) {
     return (
@@ -54,7 +69,7 @@ export function TicketGate({ children, onTicketConsumed }: TicketGateProps) {
     )
   }
 
-  // Gated — used weekly tickets
+  // Gated — used weekly ticket (Free tier)
   if (isGated) {
     return (
       <div className="flex min-h-full flex-col items-center justify-center px-8 py-20 text-center">
@@ -73,14 +88,14 @@ export function TicketGate({ children, onTicketConsumed }: TicketGateProps) {
           className="mb-2 font-rune-serif text-2xl"
           style={{ color: 'var(--color-parchment)' }}
         >
-          You&rsquo;ve used your weekly tickets
+          You&rsquo;ve used your weekly Arena entry
         </p>
         <p
           className="mb-8 max-w-sm text-sm leading-relaxed"
           style={{ color: 'var(--color-mist)' }}
         >
-          Free includes 1 game per week; Scribe includes 3. Your tickets reset
-          every Monday. Upgrade to Scribe for more games.
+          Free includes one Arena entry per week; your access resets every Monday.
+          Upgrade to Scribe for unlimited battles and races.
         </p>
 
         <div className="flex flex-col items-center gap-3 sm:flex-row">
@@ -126,9 +141,6 @@ function TicketPrompt({
   onPlay: () => void
   ticketsUsed: number
 }) {
-  const subscriptionTier = useProfileStore((s) => s.subscriptionTier)
-  const isScribe = subscriptionTier === 'scribe'
-
   return (
     <div className="flex min-h-full flex-col items-center justify-center px-8 py-20 text-center">
       <div
@@ -146,16 +158,13 @@ function TicketPrompt({
         className="mb-2 font-rune-serif text-2xl"
         style={{ color: 'var(--color-parchment)' }}
       >
-        {ticketsUsed === 0 ? 'Use your weekly ticket?' : 'Game ticket available'}
+        {ticketsUsed === 0 ? 'Use your weekly Arena entry?' : 'Arena entry available'}
       </p>
       <p
         className="mb-8 text-sm leading-relaxed"
         style={{ color: 'var(--color-mist)' }}
       >
-        {isScribe
-          ? 'Scribe includes 3 game tickets per week.'
-          : 'Free includes 1 game ticket per week.'}
-        {' '}Tickets reset every Monday.
+        Free includes one Arena entry per week. Entries reset every Monday.
       </p>
 
       <button
@@ -163,7 +172,7 @@ function TicketPrompt({
         className="rounded-lg px-10 py-3 text-sm font-medium transition-opacity duration-150 hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rune-gold"
         style={{ background: 'var(--color-gold)', color: 'var(--color-ink)' }}
       >
-        Use ticket &amp; play
+        Enter the Arena
       </button>
     </div>
   )
