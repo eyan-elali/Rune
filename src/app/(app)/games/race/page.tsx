@@ -37,8 +37,6 @@ const GameEditor = dynamic(() => import("@/components/editor/GameEditor"), {
 });
 
 const DURATIONS = [
-  // TESTING ONLY — REMOVE BEFORE RELEASE
-  { label: "10s", seconds: 10 },
   { label: "5 min", seconds: 300 },
   { label: "10 min", seconds: 600 },
   { label: "15 min", seconds: 900 },
@@ -135,27 +133,47 @@ function SetupState({
             role="group"
             aria-label="Select time limit"
           >
-            {DURATIONS.map(({ label, seconds }) => (
-              <button
-                key={seconds}
-                type="button"
-                onClick={() => setLocalDuration(seconds)}
-                aria-pressed={localDuration === seconds}
-                className={cn(
-                  "rounded px-4 py-2.5 text-sm font-medium transition-all duration-150",
-                  localDuration === seconds
-                    ? "bg-rune-gold text-rune-ink shadow-lg"
-                    : "border text-rune-gold hover:border-rune-gold hover:bg-rune-gold/5"
-                )}
-                style={
-                  localDuration !== seconds
-                    ? { borderColor: "var(--color-border-strong)" }
-                    : undefined
-                }
+            {DURATIONS.length > 0 ? (
+              DURATIONS.map(({ label, seconds }) => (
+                <button
+                  key={seconds}
+                  type="button"
+                  onClick={() => setLocalDuration(seconds)}
+                  aria-pressed={localDuration === seconds}
+                  className={cn(
+                    "rounded px-4 py-2.5 text-sm font-medium transition-all duration-150",
+                    localDuration === seconds
+                      ? "bg-rune-gold text-rune-ink shadow-lg"
+                      : "border text-rune-gold hover:border-rune-gold hover:bg-rune-gold/5"
+                  )}
+                  style={
+                    localDuration !== seconds
+                      ? { borderColor: "var(--color-border-strong)" }
+                      : undefined
+                  }
+                >
+                  {label}
+                </button>
+              ))
+            ) : (
+              <div
+                className="w-full rounded-lg px-6 py-8 text-center"
+                style={{
+                  background: "var(--color-sepia)",
+                  border: "1px dashed var(--color-border-strong)",
+                }}
               >
-                {label}
-              </button>
-            ))}
+                <p
+                  className="mb-1 font-rune-serif text-base"
+                  style={{ color: "var(--text-primary)", opacity: 0.55 }}
+                >
+                  No race durations available
+                </p>
+                <p className="text-sm" style={{ color: "var(--color-mist)", opacity: 0.65 }}>
+                  Sessions will open here once the queue is active.
+                </p>
+              </div>
+            )}
           </div>
         </div>
 
@@ -187,6 +205,8 @@ function SetupState({
             variant="primary"
             className="px-12 py-3 text-base"
             onClick={onBegin}
+            disabled={DURATIONS.length === 0}
+            aria-disabled={DURATIONS.length === 0}
           >
             Begin Race
           </Button>

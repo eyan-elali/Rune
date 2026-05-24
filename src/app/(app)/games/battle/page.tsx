@@ -67,22 +67,6 @@ interface EnemyDef {
 }
 
 const ENEMIES: EnemyDef[] = [
-  // TESTING ONLY — REMOVE BEFORE RELEASE
-  {
-    id: "tester-bot",
-    name: "The Sandbox Mirage (TEST)",
-    hp: 10,
-    description:
-      "A fragile training construct designed for rapid anti-cheat and telemetry verification.",
-    gimmick: null,
-    gimmickName: null,
-    flavorLines: [
-      "The Sandbox Mirage flickers...",
-      "A test signal hums.",
-      "Diagnostic lattice exposed.",
-      "The construct waits, half-real.",
-    ],
-  },
   {
     id: "blank-page",
     name: "The Blank Page",
@@ -179,7 +163,8 @@ function EnemySelectState({
       </div>
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-        {ENEMIES.map((enemy) => (
+        {ENEMIES.length > 0 ? (
+          ENEMIES.map((enemy) => (
           <button
             key={enemy.id}
             type="button"
@@ -285,7 +270,26 @@ function EnemySelectState({
               </span>
             </div>
           </button>
-        ))}
+          ))
+        ) : (
+          <div
+            className="col-span-full rounded-lg px-8 py-14 text-center"
+            style={{
+              background: "var(--color-sepia)",
+              border: "1px dashed var(--color-border-strong)",
+            }}
+          >
+            <p
+              className="mb-2 font-rune-serif text-lg"
+              style={{ color: "var(--text-primary)", opacity: 0.55 }}
+            >
+              No adversaries in the queue
+            </p>
+            <p className="text-sm" style={{ color: "var(--color-mist)", opacity: 0.65 }}>
+              Check back soon — new challenges will appear here when available.
+            </p>
+          </div>
+        )}
       </div>
 
       <div className="mt-8 text-center">
