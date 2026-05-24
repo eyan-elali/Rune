@@ -50,17 +50,6 @@ const THEME_CONFIGS = {
 
 type ThemeKey = keyof typeof THEME_CONFIGS
 
-function LocalBackgroundLines() {
-  return (
-    <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden" aria-hidden="true">
-      <svg className="w-full h-full min-h-[800px]" viewBox="0 0 1440 1200" preserveAspectRatio="none" fill="none">
-        <path d="M 520 0 C 680 300, 880 900, 720 1200" stroke="var(--color-gold)" strokeWidth="2.0" opacity="0.07" />
-        <path d="M 920 0 C 760 300, 560 900, 720 1200" stroke="var(--color-gold)" strokeWidth="2.0" opacity="0.07" />
-      </svg>
-    </div>
-  )
-}
-
 function SectionDivider() {
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 1.5rem' }}>
@@ -108,24 +97,54 @@ export default function LandingPage() {
   const textLineColor = 'rgba(30, 26, 22, 0.12)'
 
   return (
-    <div style={{ position: 'relative' }}>
-      {/* Page content */}
-      <div>
+    <div className="relative">
 
-        {/* ── SECTION 1: FIXED HEADER ──────────────────────────────────── */}
-        <header
+      {/* Layer 2 — continuous gold lines over section backgrounds */}
+      <div
+        className="absolute inset-0 z-10 pointer-events-none overflow-hidden select-none"
+        aria-hidden={true}
+      >
+        <svg className="w-full h-full min-h-[4500px]" viewBox="0 0 1440 4500" preserveAspectRatio="none" fill="none">
+          {/* PATH 1: Left Margin Accent (Thick Frame) */}
+          <path
+            d="M 80 0 C 180 900, 40 1800, 140 2700 C 220 3400, 60 3900, 70 4500"
+            stroke="var(--color-gold)"
+            strokeWidth="10.0"
+            opacity="0.04"
+          />
+          {/* PATH 2: Right Margin Accent (Thick Frame) */}
+          <path
+            d="M 1360 0 C 1260 900, 1400 1800, 1300 2700 C 1220 3400, 1380 3900, 1370 4500"
+            stroke="var(--color-gold)"
+            strokeWidth="10.0"
+            opacity="0.04"
+          />
+          {/* PATH 3: Symmetrical Center-Left (Criss-Cross Path) */}
+          <path
+            d="M 520 0 C 680 900, 880 1800, 720 2700 C 560 3400, 420 3900, 480 4500"
+            stroke="var(--color-gold)"
+            strokeWidth="4.0"
+            opacity="0.06"
+          />
+          {/* PATH 4: Symmetrical Center-Right (Criss-Cross Mirror) */}
+          <path
+            d="M 920 0 C 760 900, 560 1800, 720 2700 C 880 3400, 1020 3900, 960 4500"
+            stroke="var(--color-gold)"
+            strokeWidth="4.0"
+            opacity="0.06"
+          />
+        </svg>
+      </div>
+
+      {/* Layer 3 — fixed header (above lines and content) */}
+      <header
+          className="fixed top-0 left-0 right-0 z-50 bg-[var(--bg-primary)]"
           style={{
-            position: 'fixed',
-            top: 0, left: 0, right: 0,
-            zIndex: 50,
             height: '56px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
             padding: '0 2rem',
-            background: 'color-mix(in srgb, var(--bg-primary) 90%, transparent)',
-            backdropFilter: 'blur(12px)',
-            WebkitBackdropFilter: 'blur(12px)',
             borderBottom: '1px solid var(--color-border)',
           }}
         >
@@ -168,7 +187,7 @@ export default function LandingPage() {
 
         {/* ── SECTION 2: HERO ──────────────────────────────────────────── */}
         <section
-          className="relative bg-transparent"
+          className="bg-[var(--bg-primary)]"
           style={{
             minHeight: 'calc(100vh - 56px)',
             display: 'flex',
@@ -179,9 +198,7 @@ export default function LandingPage() {
             padding: '4rem 1.5rem 6rem',
           }}
         >
-          <div className="absolute inset-0 bg-[var(--bg-primary)] z-0 pointer-events-none" />
-          <LocalBackgroundLines />
-          <div className="relative z-10 w-full">
+          <div className="relative z-20 w-full">
           <h1
             style={{
               fontFamily: SERIF,
@@ -261,6 +278,7 @@ export default function LandingPage() {
 
             {/* Mockup frame — ALL colors from cfg, never CSS variables */}
             <div
+              className="relative z-20 bg-[var(--surface-card)]"
               style={{
                 borderRadius: '8px',
                 overflow: 'hidden',
@@ -705,7 +723,7 @@ export default function LandingPage() {
 
         {/* ── SECTION 3: PROFESSIONAL NOVELIST SUITE ───────────────────── */}
         <section
-          className="relative bg-transparent"
+          className="bg-[var(--bg-secondary)]"
           style={{
             width: '100%',
             padding: '7rem 1.5rem',
@@ -713,9 +731,7 @@ export default function LandingPage() {
             borderBottom: '1px solid var(--color-border)',
           }}
         >
-          <div className="absolute inset-0 bg-[var(--bg-secondary)] z-0 pointer-events-none" />
-          <LocalBackgroundLines />
-          <div className="relative z-10">
+          <div className="relative z-20">
           <h2
             style={{
               fontFamily: SERIF,
@@ -743,7 +759,7 @@ export default function LandingPage() {
             }}
           >
             {/* Card 1 — Heatmap */}
-            <div className="feature-card" style={{ background: 'var(--surface-card)', border: '1px solid var(--color-border)', borderRadius: '8px', padding: '2rem', transition: 'border-color 0.2s ease' }}>
+            <div className="feature-card relative z-20 bg-[var(--surface-card)]" style={{ border: '1px solid var(--color-border)', borderRadius: '8px', padding: '2rem', transition: 'border-color 0.2s ease' }}>
               <div
                 style={{
                   display: 'grid',
@@ -776,7 +792,7 @@ export default function LandingPage() {
             </div>
 
             {/* Card 2 — Plot & Task Manager (no Scribe badge) */}
-            <div className="feature-card" style={{ background: 'var(--surface-card)', border: '1px solid var(--color-border)', borderRadius: '8px', padding: '2rem', transition: 'border-color 0.2s ease' }}>
+            <div className="feature-card relative z-20 bg-[var(--surface-card)]" style={{ border: '1px solid var(--color-border)', borderRadius: '8px', padding: '2rem', transition: 'border-color 0.2s ease' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '1.25rem' }} aria-hidden>
                 <div style={{ height: '4px', borderRadius: '2px', background: 'var(--color-gold)', width: '24px' }} />
                 <div style={{ height: '4px', borderRadius: '2px', background: 'var(--color-gold)', width: '18px' }} />
@@ -791,7 +807,7 @@ export default function LandingPage() {
             </div>
 
             {/* Card 3 — Goals & Streaks */}
-            <div className="feature-card" style={{ background: 'var(--surface-card)', border: '1px solid var(--color-border)', borderRadius: '8px', padding: '2rem', transition: 'border-color 0.2s ease' }}>
+            <div className="feature-card relative z-20 bg-[var(--surface-card)]" style={{ border: '1px solid var(--color-border)', borderRadius: '8px', padding: '2rem', transition: 'border-color 0.2s ease' }}>
               <div style={{ marginBottom: '1.25rem' }} aria-hidden>
                 <svg width="40" height="40" viewBox="0 0 40 40" fill="none" aria-hidden>
                   <path d="M 20 5 A 15 15 0 1 1 5 20" stroke="var(--color-gold)" strokeWidth="2" strokeLinecap="round" />
@@ -811,10 +827,8 @@ export default function LandingPage() {
         <SectionDivider />
 
         {/* ── SECTION 4: THE ARENA ─────────────────────────────────────── */}
-        <section className="relative bg-transparent" style={{ width: '100%', padding: '7rem 1.5rem' }}>
-          <div className="absolute inset-0 bg-[var(--bg-primary)] z-0 pointer-events-none" />
-          <LocalBackgroundLines />
-          <div className="relative z-10">
+        <section className="bg-[var(--bg-primary)]" style={{ width: '100%', padding: '7rem 1.5rem' }}>
+          <div className="relative z-20">
           <h2
             style={{
               fontFamily: SERIF,
@@ -862,7 +876,7 @@ export default function LandingPage() {
             style={{ display: 'flex', flexDirection: 'row', gap: '2rem', maxWidth: '960px', margin: '0 auto' }}
           >
             {/* Battle Mode */}
-            <div style={{ flex: 1, background: 'var(--surface-card)', border: '1px solid var(--color-border)', borderRadius: '8px', padding: '2rem' }}>
+            <div className="relative z-20 bg-[var(--surface-card)]" style={{ flex: 1, border: '1px solid var(--color-border)', borderRadius: '8px', padding: '2rem' }}>
               <span
                 style={{
                   display: 'inline-block',
@@ -907,7 +921,7 @@ export default function LandingPage() {
             </div>
 
             {/* Race Mode */}
-            <div style={{ flex: 1, background: 'var(--surface-card)', border: '1px solid var(--color-border)', borderRadius: '8px', padding: '2rem' }}>
+            <div className="relative z-20 bg-[var(--surface-card)]" style={{ flex: 1, border: '1px solid var(--color-border)', borderRadius: '8px', padding: '2rem' }}>
               <span
                 style={{
                   display: 'inline-block',
@@ -961,10 +975,8 @@ export default function LandingPage() {
         <SectionDivider />
 
         {/* ── SECTION 5: COMING SOON ───────────────────────────────────── */}
-        <section className="relative bg-transparent" style={{ width: '100%', padding: '6rem 1.5rem' }}>
-          <div className="absolute inset-0 bg-[var(--bg-secondary)] z-0 pointer-events-none" />
-          <LocalBackgroundLines />
-          <div className="relative z-10">
+        <section className="bg-[var(--bg-secondary)]" style={{ width: '100%', padding: '6rem 1.5rem' }}>
+          <div className="relative z-20">
           <h2
             style={{
               fontFamily: SERIF,
@@ -1001,12 +1013,11 @@ export default function LandingPage() {
           >
             {/* Card 1 — 1v1 Live Races */}
             <div
+              className="relative z-20 bg-[var(--surface-card)]"
               style={{
-                background: 'var(--surface-card)',
                 border: '1px solid var(--color-border)',
                 borderRadius: '8px',
                 padding: '1.75rem',
-                position: 'relative',
               }}
             >
               <span
@@ -1097,12 +1108,11 @@ export default function LandingPage() {
 
             {/* Card 2 — Plotting & Story Architecture */}
             <div
+              className="relative z-20 bg-[var(--surface-card)]"
               style={{
-                background: 'var(--surface-card)',
                 border: '1px solid var(--color-border)',
                 borderRadius: '8px',
                 padding: '1.75rem',
-                position: 'relative',
               }}
             >
               <span
@@ -1180,16 +1190,14 @@ export default function LandingPage() {
 
         {/* ── SECTION 6: PRICING ───────────────────────────────────────── */}
         <section
-          className="relative bg-transparent"
+          className="bg-[var(--bg-primary)]"
           style={{
             width: '100%',
             padding: '7rem 1.5rem',
             borderTop: '1px solid var(--color-border)',
           }}
         >
-          <div className="absolute inset-0 bg-[var(--bg-primary)] z-0 pointer-events-none" />
-          <LocalBackgroundLines />
-          <div className="relative z-10">
+          <div className="relative z-20">
           <h2
             style={{
               fontFamily: SERIF,
@@ -1238,7 +1246,7 @@ export default function LandingPage() {
             style={{ display: 'flex', flexDirection: 'row', gap: '1.5rem', maxWidth: '780px', margin: '0 auto', alignItems: 'flex-start' }}
           >
             {/* Free */}
-            <div style={{ flex: 1, background: 'var(--surface-card)', border: '1px solid var(--color-border)', borderRadius: '8px', padding: '2rem' }}>
+            <div className="relative z-20 bg-[var(--surface-card)]" style={{ flex: 1, border: '1px solid var(--color-border)', borderRadius: '8px', padding: '2rem' }}>
               <div style={{ fontFamily: SERIF, fontSize: '22px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.35rem' }}>Free</div>
               <div style={{ fontFamily: SANS, fontSize: '14px', color: 'var(--text-muted)', marginBottom: '1.5rem' }}>Start your practice.</div>
               <div style={{ display: 'flex', alignItems: 'baseline' }}>
@@ -1287,7 +1295,7 @@ export default function LandingPage() {
             </div>
 
             {/* Scribe */}
-            <div style={{ flex: 1, background: 'var(--surface-card)', border: '1px dashed var(--color-gold)', borderRadius: '8px', padding: '2rem', position: 'relative' }}>
+            <div className="relative z-20 bg-[var(--surface-card)]" style={{ flex: 1, border: '1px dashed var(--color-gold)', borderRadius: '8px', padding: '2rem' }}>
               <div
                 style={{
                   position: 'absolute',
@@ -1376,13 +1384,14 @@ export default function LandingPage() {
 
         {/* ── SECTION 7: FOOTER ────────────────────────────────────────── */}
         <footer
+          className="bg-[var(--bg-primary)]"
           style={{
             padding: '2.5rem 1.5rem',
-            background: 'var(--bg-primary)',
             borderTop: '1px solid var(--color-border)',
             textAlign: 'center',
           }}
         >
+          <div className="relative z-20">
           <div style={{ fontFamily: SERIF, fontSize: '14px', letterSpacing: '0.12em', color: 'var(--color-gold)', marginBottom: '0.75rem' }}>
             ✦ RUNE
           </div>
@@ -1401,9 +1410,8 @@ export default function LandingPage() {
           <div style={{ fontFamily: SANS, fontSize: '11px', color: 'var(--text-muted)', marginTop: '0.75rem', opacity: 0.6 }}>
             © 2025 Rune. All rights reserved.
           </div>
+          </div>
         </footer>
-
-      </div>
 
     </div>
   )
