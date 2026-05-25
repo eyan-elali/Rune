@@ -546,7 +546,7 @@ function FormatButton({
         "flex h-6 w-6 items-center justify-center rounded transition-colors duration-100",
         active
           ? "bg-rune-gold/25 text-rune-gold"
-          : "text-rune-parchment/60 hover:bg-rune-gold/10 hover:text-rune-parchment"
+          : "text-rune-text/60 hover:bg-rune-gold/10 hover:text-rune-text"
       )}
     >
       {children}
