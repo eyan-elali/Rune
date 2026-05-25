@@ -126,30 +126,40 @@ export function ContributionHeatmap({ data }: ContributionHeatmapProps) {
           className="mx-auto"
           style={{ display: "inline-block", minWidth: "max-content" }}
         >
-          {/* Month labels row */}
+          {/* Month labels row — grid-aligned to match heatmap columns */}
           <div
             style={{
-              position: "relative",
-              height: "16px",
+              display: "grid",
+              gridTemplateColumns: `repeat(${numColumns}, ${DAY_SIZE}px)`,
+              gap: `${GAP}px`,
               marginBottom: "4px",
-              width: `${numColumns * CELL_STEP - GAP}px`,
             }}
             aria-hidden
           >
-            {monthLabels.map(({ label, column }) => (
-              <span
-                key={`${label}-${column}`}
-                style={{
-                  position: "absolute",
-                  left: `${column * CELL_STEP}px`,
-                  fontSize: "10px",
-                  color: "var(--color-mist)",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {label}
-              </span>
-            ))}
+            {monthLabels.map(({ label, column }, idx) => {
+              const nextCol =
+                idx < monthLabels.length - 1
+                  ? monthLabels[idx + 1].column
+                  : numColumns;
+              const span = Math.max(1, nextCol - column);
+
+              return (
+                <span
+                  key={`${label}-${column}`}
+                  style={{
+                    gridColumn: `${column + 1} / span ${span}`,
+                    fontSize: "10px",
+                    lineHeight: "16px",
+                    color: "var(--color-mist)",
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                  }}
+                >
+                  {label}
+                </span>
+              );
+            })}
           </div>
 
           {/* Heatmap grid */}
