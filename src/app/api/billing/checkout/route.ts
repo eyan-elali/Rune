@@ -13,6 +13,7 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const plan = searchParams.get('plan') ?? ''
   const billing = searchParams.get('billing') ?? 'monthly'
+  const referralId = searchParams.get('promotekit_referral') ?? ''
 
   if (!VALID_TIERS.has(plan) || !VALID_PERIODS.has(billing)) {
     return NextResponse.redirect(new URL('/settings', APP_URL))
@@ -60,9 +61,14 @@ export async function GET(request: NextRequest) {
     metadata: {
       supabase_user_id: user.id,
       tier: plan,
+      promotekit_referral: referralId || '',
     },
     subscription_data: {
-      metadata: { supabase_user_id: user.id, tier: plan },
+      metadata: {
+        supabase_user_id: user.id,
+        tier: plan,
+        promotekit_referral: referralId || '',
+      },
     },
     allow_promotion_codes: true,
   })

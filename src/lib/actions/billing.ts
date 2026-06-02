@@ -9,7 +9,8 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL!
 
 export async function createCheckoutSession(
   tier: PaidTier,
-  billingPeriod: BillingPeriod
+  billingPeriod: BillingPeriod,
+  referralId?: string
 ): Promise<{ url: string | null; error: string | null }> {
   const supabase = await createClient()
   const {
@@ -51,9 +52,14 @@ export async function createCheckoutSession(
     metadata: {
       supabase_user_id: user.id,
       tier,
+      promotekit_referral: referralId || '',
     },
     subscription_data: {
-      metadata: { supabase_user_id: user.id, tier },
+      metadata: {
+        supabase_user_id: user.id,
+        tier,
+        promotekit_referral: referralId || '',
+      },
     },
     allow_promotion_codes: true,
   })

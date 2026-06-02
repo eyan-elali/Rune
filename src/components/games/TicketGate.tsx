@@ -12,6 +12,12 @@ interface TicketGateProps {
   onTicketConsumed: () => void
 }
 
+function getPromotekitReferral(): string {
+  if (typeof window === 'undefined') return ''
+  const referral = (window as Window & { promotekit_referral?: unknown }).promotekit_referral
+  return typeof referral === 'string' ? referral : ''
+}
+
 export function TicketGate({ children, onTicketConsumed }: TicketGateProps) {
   const profile = useProfileStore((s) => s.profile)
   const subscriptionTier = useProfileStore((s) => s.subscriptionTier)
@@ -51,7 +57,8 @@ export function TicketGate({ children, onTicketConsumed }: TicketGateProps) {
 
   function handleUpgrade() {
     startUpgradeTransition(async () => {
-      const { url, error } = await createCheckoutSession('scribe', 'monthly')
+      const referralId = getPromotekitReferral()
+      const { url, error } = await createCheckoutSession('scribe', 'monthly', referralId)
       if (url && !error) window.location.href = url
     })
   }

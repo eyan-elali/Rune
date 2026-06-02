@@ -53,6 +53,12 @@ interface PricingTableProps {
 
 type TierPrice = { monthly: number; annualPerMonth: number; annualTotal: number } | null
 
+function getPromotekitReferral(): string {
+  if (typeof window === 'undefined') return ''
+  const referral = (window as Window & { promotekit_referral?: unknown }).promotekit_referral
+  return typeof referral === 'string' ? referral : ''
+}
+
 // ─── Pill toggle ──────────────────────────────────────────────────────────────
 
 function PillToggle<T extends string>({
@@ -119,7 +125,8 @@ function CtaButton({
     }
     startTransition(async () => {
       try {
-        const res = await createCheckoutSession('scribe', billingPeriod)
+        const referralId = getPromotekitReferral()
+        const res = await createCheckoutSession('scribe', billingPeriod, referralId)
         if (res?.url) {
           window.location.href = res.url
         } else if (res?.error) {

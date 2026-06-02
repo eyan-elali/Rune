@@ -14,6 +14,12 @@ interface Props {
   project: Project;
 }
 
+function getPromotekitReferral(): string {
+  if (typeof window === "undefined") return "";
+  const referral = (window as Window & { promotekit_referral?: unknown }).promotekit_referral;
+  return typeof referral === "string" ? referral : "";
+}
+
 export function ManuscriptExportButton({ project }: Props) {
   const [loading, setLoading] = useState(false);
   const [upgradePending, startUpgradeTransition] = useTransition();
@@ -27,7 +33,8 @@ export function ManuscriptExportButton({ project }: Props) {
         type="button"
         onClick={() => {
           startUpgradeTransition(async () => {
-            const { url, error } = await createCheckoutSession("scribe", "monthly");
+            const referralId = getPromotekitReferral();
+            const { url, error } = await createCheckoutSession("scribe", "monthly", referralId);
             if (url && !error) window.location.href = url;
           });
         }}

@@ -3,12 +3,19 @@
 import { useTransition } from 'react'
 import { createCheckoutSession } from '@/lib/actions/billing'
 
+function getPromotekitReferral(): string {
+  if (typeof window === 'undefined') return ''
+  const referral = (window as Window & { promotekit_referral?: unknown }).promotekit_referral
+  return typeof referral === 'string' ? referral : ''
+}
+
 export function GameModeGate() {
   const [isPending, startTransition] = useTransition()
 
   function handleUpgrade() {
     startTransition(async () => {
-      const { url, error } = await createCheckoutSession('scribe', 'monthly')
+      const referralId = getPromotekitReferral()
+      const { url, error } = await createCheckoutSession('scribe', 'monthly', referralId)
       if (url && !error) window.location.href = url
     })
   }
