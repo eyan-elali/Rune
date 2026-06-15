@@ -4,11 +4,14 @@ import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import CharacterCount from "@tiptap/extension-character-count";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { cn } from "@/lib/utils";
-import { updatePage, renamePage } from "@/lib/actions/pages";
+import { renamePage } from "@/lib/actions/pages";
 import { recordWordsWritten } from "@/lib/actions/writingStats";
+import { writeToPendingQueue, syncPendingWrite } from "@/lib/offline/syncEngine";
+import { getOfflineDB } from "@/lib/offline/db";
+import { useNetworkStore } from "@/store/networkStore";
 import { awardProjectXp } from "@/lib/actions/xp";
 import { xpRewardForWords } from "@/lib/xp";
 import { useEditorStore } from "@/store/editorStore";
@@ -16,6 +19,25 @@ import { useModeStore } from "@/store/modeStore";
 import { useProfileStore } from "@/store/profileStore";
 import { useToastStore } from "@/store/toastStore";
 import type { Page, UserPreferences } from "@/lib/types";
+
+type DisplaySyncStatus = 'synced' | 'online_dirty' | 'offline_dirty' | 'syncing' | 'conflict'
+
+async function readDbSyncStatus(pageId: string): Promise<string | null> {
+  try {
+    const db = await getOfflineDB()
+    const pending = await db.get('pending_writes', pageId)
+    return pending?.syncStatus ?? null
+  } catch {
+    return null
+  }
+}
+
+function mapDisplayStatus(dbStatus: string | null, online: boolean): DisplaySyncStatus {
+  if (!dbStatus) return 'synced'
+  if (dbStatus === 'conflict') return 'conflict'
+  if (dbStatus === 'syncing') return 'syncing'
+  return online ? 'online_dirty' : 'offline_dirty'
+}
 
 interface RuneEditorProps {
   projectId: string;
@@ -42,7 +64,9 @@ export default function RuneEditor({
   const rawPrefs = useProfileStore((s) => s.profile?.preferences);
   const setStoredProfile = useProfileStore((s) => s.setProfile);
   const setPendingLevelUp = useProfileStore((s) => s.setPendingLevelUp);
+  const userId = useProfileStore((s) => s.profile?.id);
   const isFocusMode = useModeStore((s) => s.mode === "focus");
+  const isOnline = useNetworkStore((s) => s.isOnline);
   const prefs = (rawPrefs ?? {}) as Partial<UserPreferences>;
   const fontSize = prefs.fontSize ?? 18;
   const lineHeight = prefs.lineHeight ?? 1.9;
@@ -51,6 +75,7 @@ export default function RuneEditor({
   const isFocusModeRef = useRef(isFocusMode);
 
   const [showSaved, setShowSaved] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<DisplaySyncStatus>('synced');
   const [toolbarPos, setToolbarPos] = useState<ToolbarPos | null>(null);
   const [titleDraft, setTitleDraft] = useState(currentPage?.title ?? "");
   const [sessionInvalidated, setSessionInvalidated] = useState(false);
@@ -73,6 +98,10 @@ export default function RuneEditor({
   const sessionId = useRef(crypto.randomUUID());
   // Tracks the last word count at which XP was awarded; advances forward only.
   const lastAwardedWordCountRef = useRef<number>(currentPage?.word_count ?? 0);
+  // Refs kept in sync with props/store values so async closures always read latest.
+  const isOnlineRef = useRef(isOnline);
+  const userIdRef = useRef(userId);
+  const projectIdRef = useRef(projectId);
 
   // Keep preference refs in sync without recreating the editor
   useEffect(() => {
@@ -92,6 +121,10 @@ export default function RuneEditor({
     }
   }, [isFocusMode]);
 
+  useEffect(() => { isOnlineRef.current = isOnline; }, [isOnline]);
+  useEffect(() => { userIdRef.current = userId; }, [userId]);
+  useEffect(() => { projectIdRef.current = projectId; }, [projectId]);
+
   useEffect(() => {
     onPageUpdatedRef.current = onPageUpdated;
   }, [onPageUpdated]);
@@ -99,6 +132,52 @@ export default function RuneEditor({
   useEffect(() => {
     setTitleDraft(currentPage?.title ?? "");
   }, [currentPage?.id, currentPage?.title]);
+
+  useEffect(() => {
+    const pageId = currentPage?.id;
+    if (!pageId) { setSyncStatus('synced'); return; }
+    void readDbSyncStatus(pageId).then((dbStatus) => {
+      setSyncStatus(mapDisplayStatus(dbStatus, isOnline));
+    });
+  }, [isOnline, currentPage?.id]);
+
+  const handleSave = useCallback(async (content: Record<string, unknown>, wordCount: number) => {
+    const page = currentPageRef.current;
+    const uid = userIdRef.current;
+    if (!page || !uid) return;
+
+    const delta = wordCount - lastSavedWordCountRef.current;
+
+    // Write to IndexedDB first — survives network loss and tab close
+    await writeToPendingQueue(page.id, uid, content, wordCount);
+
+    setIsSaving(true);
+    onPageUpdatedRef.current(page.id, { content, word_count: wordCount });
+
+    if (delta > 0) {
+      const pastedDeduction = Math.min(pastedWordsRef.current, delta);
+      pastedWordsRef.current = Math.max(0, pastedWordsRef.current - pastedDeduction);
+      lastSavedWordCountRef.current = wordCount;
+      const adjustedDelta = delta - pastedDeduction;
+      if (adjustedDelta > 0) {
+        void recordWordsWritten(projectIdRef.current, adjustedDelta, page.id);
+      }
+    }
+
+    if (isOnlineRef.current) {
+      await syncPendingWrite(page.id);
+      setLastSaved(new Date());
+    }
+
+    setIsSaving(false);
+    void readDbSyncStatus(page.id).then((dbStatus) => {
+      setSyncStatus(mapDisplayStatus(dbStatus, isOnlineRef.current));
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleSaveRef = useRef(handleSave);
+  useEffect(() => { handleSaveRef.current = handleSave; }, [handleSave]);
 
   const editor = useEditor({
     extensions: [
@@ -134,98 +213,35 @@ export default function RuneEditor({
 
       clearTimeout(saveTimerRef.current);
       saveTimerRef.current = setTimeout(async () => {
+        if (isLoadingRef.current) return;
         const page = currentPageRef.current;
         if (!page) return;
 
-        // Save engine — content and persistence are intentionally decoupled
         const content = editor.getJSON() as Record<string, unknown>;
         const wordCount =
           (editor.storage.characterCount?.words?.() as number | undefined) ?? 0;
 
-        const delta = wordCount - lastSavedWordCountRef.current;
+        await handleSaveRef.current(content, wordCount);
 
-        if (isLoadingRef.current) {
-          return;
-        }
-
-        setIsSaving(true);
-        try {
-          const result = await updatePage(page.id, content, wordCount);
-          if (result.error) {
-            setIsSaving(false);
-            
-            setShowSaved(false);
-            clearTimeout(showSavedTimerRef.current);
-            showToast(result.error, "error");
-            return;
-          }
-
-          onPageUpdatedRef.current(page.id, {
-            content,
-            word_count: wordCount,
+        // XP heartbeat — fire after every save, additions only.
+        // Math/server pipeline always runs; HUD pulse suppressed in focus mode.
+        const wordsThisIncrement = wordCount - lastAwardedWordCountRef.current;
+        if (wordsThisIncrement > 0 && !sessionInvalidatedRef.current) {
+          const xpGain = xpRewardForWords(wordsThisIncrement);
+          lastAwardedWordCountRef.current = wordCount;
+          void awardProjectXp(xpGain, { mode: "project" }, sessionId.current).then((result) => {
+            if (result.data) {
+              setStoredProfile(result.data);
+              if (result.data.leveledUp) {
+                setPendingLevelUp({ newLevel: result.data.newLevel, newUnlockables: result.data.newUnlockables });
+              }
+              if (!isFocusModeRef.current) {
+                setXpFlash({ id: Date.now(), amount: xpGain });
+                clearTimeout(xpFlashTimerRef.current);
+                xpFlashTimerRef.current = setTimeout(() => setXpFlash(null), 2200);
+              }
+            }
           });
-          if (delta > 0) {
-            const pastedDeduction = Math.min(pastedWordsRef.current, delta);
-            pastedWordsRef.current = Math.max(0, pastedWordsRef.current - pastedDeduction);
-            lastSavedWordCountRef.current = wordCount;
-            const adjustedDelta = delta - pastedDeduction;
-            if (adjustedDelta > 0) {
-              void recordWordsWritten(projectId, adjustedDelta, page?.id ?? null);
-            }
-          }
-
-          // XP heartbeat — fire after every successful persist, additions only.
-          // NOTE: The math/server pipeline always runs (including in focus mode).
-          // Only the visual HUD pulse is suppressed when focus mode is active.
-          const wordsThisIncrement = wordCount - lastAwardedWordCountRef.current;
-          if (wordsThisIncrement > 0 && !sessionInvalidatedRef.current) {
-            const xpGain = xpRewardForWords(wordsThisIncrement);
-            // Advance milestone optimistically to guard against duplicate dispatch
-            lastAwardedWordCountRef.current = wordCount;
-            void awardProjectXp(xpGain, { mode: "project" }, sessionId.current).then((result) => {
-              if (result.data) {
-                setStoredProfile(result.data);
-                if (result.data.leveledUp) {
-                  setPendingLevelUp({ newLevel: result.data.newLevel, newUnlockables: result.data.newUnlockables });
-                }
-                if (!isFocusModeRef.current) {
-                  setXpFlash({ id: Date.now(), amount: xpGain });
-                  clearTimeout(xpFlashTimerRef.current);
-                  xpFlashTimerRef.current = setTimeout(() => setXpFlash(null), 2200);
-                }
-              }
-            });
-          }
-
-          setIsSaving(false);
-          setLastSaved(new Date());
-
-          setShowSaved(true);
-          clearTimeout(showSavedTimerRef.current);
-          showSavedTimerRef.current = setTimeout(() => setShowSaved(false), 2000);
-        } catch (err) {
-          console.error("Auto-save failed:", err);
-          setIsSaving(false);
-          clearLastSaved();
-          setShowSaved(false);
-          clearTimeout(showSavedTimerRef.current);
-          showToast("Save failed — retrying", "error");
-          saveTimerRef.current = setTimeout(async () => {
-            try {
-              const retryResult = await updatePage(page.id, content, wordCount);
-              if (retryResult.error) {
-                showToast(retryResult.error, "error");
-                return;
-              }
-              onPageUpdatedRef.current(page.id, {
-                content,
-                word_count: wordCount,
-              });
-              setLastSaved(new Date());
-            } catch (retryErr) {
-              console.error("Auto-save retry failed:", retryErr);
-            }
-          }, 3000);
         }
       }, autoSaveDelayRef.current);
     },
@@ -266,21 +282,16 @@ export default function RuneEditor({
       const content = editor.getJSON() as Record<string, unknown>;
       const wordCount =
         (editor.storage.characterCount?.words?.() as number | undefined) ?? 0;
-      void updatePage(prevPageId, content, wordCount)
-        .then((result) => {
-          if (result.error) {
-            showToast(result.error, "error");
-            return;
+      const uid = userIdRef.current;
+      if (uid) {
+        void (async () => {
+          await writeToPendingQueue(prevPageId, uid, content, wordCount);
+          onPageUpdatedRef.current(prevPageId, { content, word_count: wordCount });
+          if (isOnlineRef.current) {
+            void syncPendingWrite(prevPageId);
           }
-          onPageUpdatedRef.current(prevPageId, {
-            content,
-            word_count: wordCount,
-          });
-        })
-        .catch((err) => {
-          console.error("Page switch save failed:", err);
-          showToast("Save failed — changes may not be saved", "error");
-        });
+        })();
+      }
     }
 
     prevPageIdRef.current = newPageId;
@@ -471,19 +482,61 @@ export default function RuneEditor({
       </div>
 
 
-{/* Ghost autosave star — no container, raw symbol, max 35% opacity */}
+{/* Sync status indicator */}
 <div
-  className="pointer-events-none fixed bottom-[4.5rem] right-7 z-40 md:bottom-[5rem] md:right-9"
-  style={{
-    color: "var(--color-gold)",
-    fontSize: "11px",
-    opacity: isSaving ? 0.35 : 0,
-    transition: "opacity 0.4s ease",
-    animation: isSaving ? "autosave-pulse 1s ease-in-out infinite" : "none",
-  }}
-  aria-hidden
+  className="fixed bottom-[4.5rem] right-7 z-40 md:bottom-[5rem] md:right-9"
+  style={{ fontSize: "11px", fontFamily: "var(--font-sans)", letterSpacing: "0.04em" }}
 >
-  ✦
+  {syncStatus === 'synced' && (
+    <span
+      className="pointer-events-none"
+      style={{ color: "var(--color-mist)", opacity: 0.6, transition: "opacity 0.4s" }}
+    >
+      ✦ Saved
+    </span>
+  )}
+  {(syncStatus === 'online_dirty' || isSaving) && (
+    <span
+      className="pointer-events-none"
+      style={{ color: "var(--color-mist)", opacity: 0.8 }}
+    >
+      Saving…
+    </span>
+  )}
+  {syncStatus === 'syncing' && (
+    <span
+      className="pointer-events-none"
+      style={{ color: "var(--color-mist)", opacity: 0.8 }}
+    >
+      Syncing…
+    </span>
+  )}
+  {syncStatus === 'offline_dirty' && !isSaving && (
+    <span
+      className="pointer-events-none"
+      style={{ color: "var(--color-gold)", opacity: 0.9 }}
+    >
+      ⚡ Saved locally
+    </span>
+  )}
+  {syncStatus === 'conflict' && (
+    <button
+      type="button"
+      onClick={() => showToast("Conflict: your draft and the server diverged. Resolve before syncing.", "error")}
+      aria-label="Sync conflict — click for details"
+      style={{
+        color: "var(--color-crimson)",
+        background: "none",
+        border: "none",
+        cursor: "pointer",
+        padding: 0,
+        font: "inherit",
+        letterSpacing: "inherit",
+      }}
+    >
+      ⚠ Conflict
+    </button>
+  )}
 </div>
 
 {/* Floating Word Count Pill + text-only XP flash anchor */}
