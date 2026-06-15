@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { AppShell } from "@/components/layout/AppShell";
+import NetworkProvider from "@/components/providers/NetworkProvider";
 import type { ReactNode } from "react";
 import type { Profile } from "@/lib/types";
 
@@ -21,8 +22,11 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
     .single();
 
   return (
-    <AppShell profile={profile as Profile | null}>
-      {children}
-    </AppShell>
+    <>
+      <NetworkProvider />
+      <AppShell profile={profile as Profile | null}>
+        {children}
+      </AppShell>
+    </>
   );
 }
