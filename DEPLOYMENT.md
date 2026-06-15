@@ -137,6 +137,7 @@ Go to **Settings → Billing → Customer portal** in the Stripe dashboard and e
 Run these SQL files in order in the Supabase SQL Editor:
 - `src/lib/supabase/migrations/004_billing.sql` — adds billing columns to profiles + subscription_events table
 - `src/lib/supabase/migrations/005_game_tickets.sql` — game_tickets table + increment RPC
+- `src/lib/supabase/migrations/006_offline_sync.sql` — ensures `updated_at NOT NULL` on pages, adds `version` integer column, installs `page_version_trigger` for optimistic locking. **Must be run before deploying the offline-sync feature.**
 
 ### Environment variables for Stripe
 
