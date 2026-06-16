@@ -59,7 +59,7 @@ export default function RuneEditor({
   onPageUpdated,
   onRenamePage,
 }: RuneEditorProps) {
-  const { setIsSaving, setLastSaved, clearLastSaved, isSaving } = useEditorStore();
+  const { setIsSaving, setLastSaved } = useEditorStore();
   const showToast = useToastStore((s) => s.showToast);
   const rawPrefs = useProfileStore((s) => s.profile?.preferences);
   const setStoredProfile = useProfileStore((s) => s.setProfile);
@@ -74,7 +74,6 @@ export default function RuneEditor({
   const autoSaveDelayRef = useRef(prefs.autoSaveDelay ?? 1500);
   const isFocusModeRef = useRef(isFocusMode);
 
-  const [showSaved, setShowSaved] = useState(false);
   const [syncStatus, setSyncStatus] = useState<DisplaySyncStatus>('synced');
   const [toolbarPos, setToolbarPos] = useState<ToolbarPos | null>(null);
   const [titleDraft, setTitleDraft] = useState(currentPage?.title ?? "");
@@ -90,8 +89,7 @@ export default function RuneEditor({
   const prevPageIdRef = useRef<string | null>(null);
   const isLoadingRef = useRef(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const showSavedTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const lastSavedWordCountRef = useRef<number>(currentPage?.word_count ?? 0);
+const lastSavedWordCountRef = useRef<number>(currentPage?.word_count ?? 0);
   const pastedWordsRef = useRef(0);
   const sessionInvalidatedRef = useRef(false);
   // One UUID per editor mount; persists for the lifetime of this component instance.
@@ -100,6 +98,7 @@ export default function RuneEditor({
   const lastAwardedWordCountRef = useRef<number>(currentPage?.word_count ?? 0);
   // Refs kept in sync with props/store values so async closures always read latest.
   const isOnlineRef = useRef(isOnline);
+  const prevIsOnlineRef = useRef(isOnline); // tracks prior value to detect reconnect transitions
   const userIdRef = useRef(userId);
   const projectIdRef = useRef(projectId);
 
@@ -136,9 +135,26 @@ export default function RuneEditor({
   useEffect(() => {
     const pageId = currentPage?.id;
     if (!pageId) { setSyncStatus('synced'); return; }
-    void readDbSyncStatus(pageId).then((dbStatus) => {
-      setSyncStatus(mapDisplayStatus(dbStatus, isOnline));
-    });
+
+    const wasOffline = !prevIsOnlineRef.current;
+    prevIsOnlineRef.current = isOnline;
+
+    if (isOnline && wasOffline) {
+      // Reconnect path: show 'syncing' immediately, then resolve to final state
+      void (async () => {
+        const dbStatus = await readDbSyncStatus(pageId);
+        if (dbStatus === 'pending' || dbStatus === 'failed') {
+          setSyncStatus('syncing');
+          await syncPendingWrite(pageId);
+        }
+        const finalStatus = await readDbSyncStatus(pageId);
+        setSyncStatus(mapDisplayStatus(finalStatus, true));
+      })();
+    } else {
+      void readDbSyncStatus(pageId).then((dbStatus) => {
+        setSyncStatus(mapDisplayStatus(dbStatus, isOnline));
+      });
+    }
   }, [isOnline, currentPage?.id]);
 
   const handleSave = useCallback(async (content: Record<string, unknown>, wordCount: number) => {
@@ -148,8 +164,14 @@ export default function RuneEditor({
 
     const delta = wordCount - lastSavedWordCountRef.current;
 
-    // Write to IndexedDB first — survives network loss and tab close
-    await writeToPendingQueue(page.id, uid, content, wordCount);
+    // Write to IndexedDB — survives network loss and tab close.
+    // Explicit catch here surfaces structured-clone errors and transaction locks
+    // that writeToPendingQueue's internal handler would otherwise swallow silently.
+    try {
+      await writeToPendingQueue(page.id, uid, content, wordCount);
+    } catch (err) {
+      console.error('[offline] handleSave: IDB write failed — data may not be persisted locally:', err);
+    }
 
     setIsSaving(true);
     onPageUpdatedRef.current(page.id, { content, word_count: wordCount });
@@ -159,8 +181,11 @@ export default function RuneEditor({
       pastedWordsRef.current = Math.max(0, pastedWordsRef.current - pastedDeduction);
       lastSavedWordCountRef.current = wordCount;
       const adjustedDelta = delta - pastedDeduction;
-      if (adjustedDelta > 0) {
-        void recordWordsWritten(projectIdRef.current, adjustedDelta, page.id);
+      // Guard: recordWordsWritten makes live DB mutations — skip when offline
+      // so a failed tracking call never breaks the primary save stack.
+      if (adjustedDelta > 0 && isOnlineRef.current) {
+        void recordWordsWritten(projectIdRef.current, adjustedDelta, page.id)
+          .catch(err => console.error('[offline] recordWordsWritten failed:', err));
       }
     }
 
@@ -211,6 +236,21 @@ export default function RuneEditor({
     onUpdate({ editor }) {
       if (isLoadingRef.current) return;
 
+      // Per-keystroke: write to IndexedDB immediately, zero lag, no debounce.
+      // This is the data-safety layer — the user's words are captured on every stroke.
+      const pageNow = currentPageRef.current;
+      const uidNow = userIdRef.current;
+      if (pageNow && uidNow) {
+        const contentNow = editor.getJSON() as Record<string, unknown>;
+        const wcNow = (editor.storage.characterCount?.words?.() as number | undefined) ?? 0;
+        try {
+          void writeToPendingQueue(pageNow.id, uidNow, contentNow, wcNow);
+        } catch (err) {
+          console.error('[offline] onUpdate: per-keystroke IDB write failed:', err);
+        }
+      }
+
+      // Debounced cloud push — fires only after the user pauses writing.
       clearTimeout(saveTimerRef.current);
       saveTimerRef.current = setTimeout(async () => {
         if (isLoadingRef.current) return;
@@ -243,7 +283,7 @@ export default function RuneEditor({
             }
           });
         }
-      }, autoSaveDelayRef.current);
+      }, Math.max(autoSaveDelayRef.current, 2500));
     },
     onSelectionUpdate({ editor }) {
       const { from, to, empty } = editor.state.selection;
@@ -495,7 +535,7 @@ export default function RuneEditor({
       ✦ Saved
     </span>
   )}
-  {(syncStatus === 'online_dirty' || isSaving) && (
+  {syncStatus === 'online_dirty' && (
     <span
       className="pointer-events-none"
       style={{ color: "var(--color-mist)", opacity: 0.8 }}
@@ -511,7 +551,7 @@ export default function RuneEditor({
       Syncing…
     </span>
   )}
-  {syncStatus === 'offline_dirty' && !isSaving && (
+  {syncStatus === 'offline_dirty' && (
     <span
       className="pointer-events-none"
       style={{ color: "var(--color-gold)", opacity: 0.9 }}
