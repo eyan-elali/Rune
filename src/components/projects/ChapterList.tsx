@@ -27,10 +27,11 @@ export function ChapterList({ chapters, projectId }: ChapterListProps) {
       chapters.length > 0
         ? Math.max(...chapters.map((c) => c.position)) + 1
         : 1;
+    const nextTitleNum = chapters.length + 1;
 
     await createChapter(
       projectId,
-      `Chapter ${nextPosition}`,
+      `Chapter ${nextTitleNum}`,
       nextPosition
     );
     router.refresh();
