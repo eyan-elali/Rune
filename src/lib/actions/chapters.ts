@@ -24,7 +24,7 @@ export async function getChapters(projectId: string): Promise<
 
   const { data, error } = await supabase
     .from("chapters")
-    .select("*, pages(id, word_count)")
+    .select("*, pages(id, word_count, is_canonical)")
     .eq("project_id", projectId)
     .order("position", { ascending: true });
 

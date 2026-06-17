@@ -229,6 +229,41 @@ body {
   border: 1px solid var(--color-border);
 }
 
+/* London Fog — light theme, same contrast needs as parchment */
+[data-theme="fog"] .battle-status-badge--writing {
+  background: rgba(42, 48, 56, 0.04);
+  border: 1px solid var(--color-border-strong);
+}
+
+[data-theme="fog"] .battle-status-badge--writing .battle-status-badge__dot {
+  background: var(--color-gold-dim);
+  opacity: 1;
+}
+
+[data-theme="fog"] .battle-status-badge--writing .battle-status-badge__text {
+  color: var(--color-ink);
+  opacity: 1;
+}
+
+[data-theme="fog"] .battle-status-badge--idle {
+  background: rgba(122, 58, 58, 0.1);
+  border: 1px solid rgba(122, 58, 58, 0.35);
+}
+
+[data-theme="fog"] .battle-status-badge--idle .battle-status-badge__dot {
+  background: var(--color-crimson);
+}
+
+[data-theme="fog"] .battle-status-badge--idle .battle-status-badge__text {
+  color: var(--color-crimson);
+  opacity: 1;
+}
+
+[data-theme="fog"] .battle-word-count {
+  background: rgba(90, 106, 122, 0.06);
+  border: 1px solid var(--color-border-strong);
+}
+
 /* ── Tiptap / ProseMirror ───────────────────────────────────────── */
 .ProseMirror {
   font-family: var(--font-editor-family);

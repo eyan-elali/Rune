@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import {
   LayoutDashboard,
@@ -90,6 +90,14 @@ export default function LandingPage() {
   const [activeTheme, setActiveTheme] = useState<ThemeKey>('parchment')
   const [billing, setBilling] = useState<'monthly' | 'annual'>('monthly')
   const [priceVisible, setPriceVisible] = useState(true)
+
+  // Clear any user-session theme/font so the public landing page always
+  // renders with the default parchment CSS variables, not a signed-in
+  // user's last active theme.
+  useEffect(() => {
+    document.documentElement.removeAttribute('data-theme')
+    document.documentElement.removeAttribute('data-font')
+  }, [])
 
   const cfg = THEME_CONFIGS[activeTheme]
 

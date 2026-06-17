@@ -31,8 +31,9 @@ export function ChapterRow({ chapter, projectId }: ChapterRowProps) {
 
   const pageCount = chapter.pages?.length ?? 0;
   const canonicalPage = chapter.pages?.find((p) => p.is_canonical);
-  const targetPage = canonicalPage || chapter.pages?.[0];
-  const totalWords = targetPage ? targetPage.word_count || 0 : 0;
+  const totalWords = canonicalPage
+    ? (canonicalPage.word_count ?? 0)
+    : (chapter.pages ?? []).reduce((sum, p) => sum + (p.word_count ?? 0), 0);
 
   function startEditing() {
     setIsEditing(true);
