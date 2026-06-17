@@ -411,13 +411,25 @@ function BattleHUD({
                   ? "battle-status-badge--idle"
                   : "battle-status-badge--writing"
               }`}
+              style={
+                idleWarning
+                  ? undefined
+                  : {
+                      background: "var(--surface-card)",
+                      border: "1px solid var(--color-border-strong)",
+                    }
+              }
               aria-live="assertive"
               aria-label={idleWarning ? "Idle — taking damage" : "Writing"}
             >
               <div
                 className={`battle-status-badge__dot h-2 w-2 flex-shrink-0 rounded-full ${idleWarning ? "idle-dot" : ""}`}
+                style={idleWarning ? undefined : { background: "var(--color-mist)", opacity: 0.6 }}
               />
-              <span className="battle-status-badge__text text-[10px] uppercase tracking-wider">
+              <span
+                className="battle-status-badge__text text-[10px] uppercase tracking-wider"
+                style={idleWarning ? undefined : { color: "var(--text-muted)", opacity: 1 }}
+              >
                 {idleWarning ? "Idle — taking damage!" : "Keep writing…"}
               </span>
             </div>
