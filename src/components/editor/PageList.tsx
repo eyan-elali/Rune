@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
+import { useRouter } from "next/navigation";
 import {
   Plus,
   FileText,
@@ -10,10 +11,14 @@ import {
   Bookmark,
   Info,
   Pencil,
+  BookOpen,
+  ChevronLeft,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { Page } from "@/lib/types";
+import type { Page, Chapter } from "@/lib/types";
 import { renamePage } from "@/lib/actions/pages";
+
+type ChapterWithStats = Chapter & { pages: { id: string; word_count: number }[] };
 
 // ── Skeleton ──────────────────────────────────────────────────────────────────
 
@@ -236,6 +241,9 @@ interface PageListProps {
   onRenamePage: (pageId: string, title: string) => void;
   onSetCanonical: (pageId: string) => void;
   onClearCanonical: () => void;
+  allChapters: ChapterWithStats[];
+  currentChapterId: string;
+  projectId: string;
 }
 
 export function PageList({
@@ -247,10 +255,15 @@ export function PageList({
   onRenamePage,
   onSetCanonical,
   onClearCanonical,
+  allChapters,
+  currentChapterId,
+  projectId,
 }: PageListProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
+  const [view, setView] = useState<"pages" | "chapters">("pages");
   const inputRef = useRef<HTMLInputElement>(null);
+  const router = useRouter();
 
   const hasCanonical = pages.some((p) => p.is_canonical);
 
@@ -268,6 +281,123 @@ export function PageList({
     await renamePage(pageId, title);
   }
 
+  // ── Chapters view ─────────────────────────────────────────────────────────────
+
+  if (view === "chapters") {
+    return (
+      <aside
+        className="flex h-full min-h-0 w-[15%] min-w-[160px] max-w-[240px] shrink-0 flex-col"
+        style={{
+          background: "var(--bg-sidebar)",
+          borderRight: "1px solid var(--color-border)",
+          overflow: "visible",
+        }}
+        aria-label="Chapter list"
+      >
+        {/* Header */}
+        <div className="flex shrink-0 flex-col">
+          <div className="flex items-center gap-1.5 px-3 py-3">
+            <button
+              type="button"
+              onClick={() => setView("pages")}
+              aria-label="Back to pages"
+              title="Back to pages"
+              className="rounded p-0.5 transition-colors duration-100 hover:bg-rune-gold/10"
+              style={{ color: "var(--color-mist)" }}
+            >
+              <ChevronLeft size={13} aria-hidden />
+            </button>
+            <span
+              className="text-xs font-semibold uppercase tracking-widest"
+              style={{ color: "var(--color-mist)" }}
+            >
+              Chapters
+            </span>
+          </div>
+          <div
+            className="mx-auto h-px w-[92%] shrink-0"
+            style={{ background: "var(--color-border)" }}
+            aria-hidden
+          />
+        </div>
+
+        {/* Chapter list */}
+        <div className="flex min-h-0 flex-1 flex-col">
+          <ul
+            className="flex flex-1 flex-col overflow-y-auto py-1"
+            role="list"
+            aria-label="Project chapters"
+          >
+            {allChapters.map((chapter) => {
+              const isCurrent = chapter.id === currentChapterId;
+              const pageCount = chapter.pages.length;
+              const wordCount = chapter.pages.reduce(
+                (sum, p) => sum + (p.word_count ?? 0),
+                0
+              );
+
+              return (
+                <li key={chapter.id} className="shrink-0">
+                  <div
+                    className={cn(
+                      "group mx-2 flex w-[calc(100%-1rem)] cursor-pointer select-none flex-col rounded-md px-3 py-1.5 transition-all duration-200",
+                      isCurrent
+                        ? "bg-rune-gold/15 shadow-sm"
+                        : "hover:bg-rune-gold/5"
+                    )}
+                    onClick={() => {
+                      if (!isCurrent) {
+                        router.push(
+                          `/projects/${projectId}/chapters/${chapter.id}`
+                        );
+                      }
+                    }}
+                    role="button"
+                    tabIndex={0}
+                    aria-current={isCurrent ? "page" : undefined}
+                    onKeyDown={(e) => {
+                      if ((e.key === "Enter" || e.key === " ") && !isCurrent) {
+                        e.preventDefault();
+                        router.push(
+                          `/projects/${projectId}/chapters/${chapter.id}`
+                        );
+                      }
+                    }}
+                  >
+                    <span
+                      className="truncate text-sm"
+                      style={{
+                        color: "var(--text-primary)",
+                        opacity: isCurrent ? 1 : 0.65,
+                      }}
+                      title={chapter.title}
+                    >
+                      {chapter.title}
+                    </span>
+                    <span
+                      className="mt-0.5 text-[10px] tabular-nums"
+                      style={{
+                        color: isCurrent
+                          ? "var(--color-gold)"
+                          : "var(--color-mist)",
+                        opacity: isCurrent ? 0.8 : 0.5,
+                      }}
+                    >
+                      {pageCount} {pageCount === 1 ? "page" : "pages"} ·{" "}
+                      {wordCount.toLocaleString()} words
+                    </span>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      </aside>
+    );
+  }
+
+  // ── Pages view ────────────────────────────────────────────────────────────────
+
   return (
     <aside
       className="flex h-full min-h-0 w-[15%] min-w-[160px] max-w-[240px] shrink-0 flex-col"
@@ -280,13 +410,25 @@ export function PageList({
     >
       {/* Header */}
       <div className="flex shrink-0 flex-col">
-        <div className="flex items-center px-4 py-3">
+        <div className="flex items-center justify-between px-4 py-3">
           <span
             className="text-xs font-semibold uppercase tracking-widest"
             style={{ color: "var(--color-mist)" }}
           >
             Pages
           </span>
+          {allChapters.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setView("chapters")}
+              aria-label="Switch chapter"
+              title="Switch chapter"
+              className="rounded p-0.5 transition-colors duration-100 hover:bg-rune-gold/10"
+              style={{ color: "var(--color-mist)" }}
+            >
+              <BookOpen size={12} aria-hidden />
+            </button>
+          )}
         </div>
         <div
           className="mx-auto h-px w-[92%] shrink-0"

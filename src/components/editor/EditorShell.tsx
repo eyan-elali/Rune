@@ -15,6 +15,8 @@ import {
 import { useEditorStore } from "@/store/editorStore";
 import { useModeStore } from "@/store/modeStore";
 
+type ChapterWithStats = Chapter & { pages: { id: string; word_count: number }[] };
+
 const RuneEditor = dynamic(() => import("./RuneEditor"), {
   ssr: false,
   loading: () => (
@@ -32,6 +34,7 @@ interface EditorShellProps {
   initialPages: Page[];
   chapter: Chapter;
   project: Project;
+  allChapters: ChapterWithStats[];
 }
 
 export function EditorShell({
@@ -40,6 +43,7 @@ export function EditorShell({
   initialPages,
   chapter,
   project,
+  allChapters,
 }: EditorShellProps) {
   const [pages, setPages] = useState<Page[]>(initialPages);
   const [selectedPageId, setSelectedPageId] = useState<string | null>(
@@ -133,6 +137,9 @@ export function EditorShell({
           onRenamePage={handleRenamePage}
           onSetCanonical={handleSetCanonical}
           onClearCanonical={handleClearCanonical}
+          allChapters={allChapters}
+          currentChapterId={chapterId}
+          projectId={projectId}
         />
       )}
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">

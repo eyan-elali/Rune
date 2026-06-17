@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getPages } from "@/lib/actions/pages";
+import { getChapters } from "@/lib/actions/chapters";
 import { EditorShell } from "@/components/editor/EditorShell";
 
 interface ChapterEditorPageProps {
@@ -13,32 +14,25 @@ export default async function ChapterEditorPage({
   const { projectId, chapterId } = await params;
   const supabase = await createClient();
 
-  const [{ data: chapter }, { data: project }] = await Promise.all([
-    supabase
-      .from("chapters")
-      .select("*")
-      .eq("id", chapterId)
-      .single(),
-    supabase
-      .from("projects")
-      .select("*")
-      .eq("id", projectId)
-      .single(),
-  ]);
+  const [{ data: chapter }, { data: project }, pagesResult, chaptersResult] =
+    await Promise.all([
+      supabase.from("chapters").select("*").eq("id", chapterId).single(),
+      supabase.from("projects").select("*").eq("id", projectId).single(),
+      getPages(chapterId),
+      getChapters(projectId),
+    ]);
 
   if (!chapter || !project) notFound();
-
-  const { data: pages } = await getPages(chapterId);
-  const initialPages = pages ?? [];
 
   return (
     <div className="min-h-0 h-full">
       <EditorShell
         projectId={projectId}
         chapterId={chapterId}
-        initialPages={initialPages}
+        initialPages={pagesResult.data ?? []}
         chapter={chapter}
         project={project}
+        allChapters={chaptersResult.data ?? []}
       />
     </div>
   );
