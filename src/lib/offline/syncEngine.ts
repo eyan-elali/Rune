@@ -135,31 +135,40 @@ export async function syncPendingWrite(pageId: string): Promise<void> {
 
 // ── Flush entire queue ─────────────────────────────────────────────────────────
 
+let _flushing = false
+
 export async function flushPendingQueue(): Promise<{
   synced: number
   failed: number
   conflicts: number
 }> {
-  const db = await getOfflineDB()
-  const all = await db.getAll('pending_writes')
-  const pending = all.filter((w) => w.syncStatus === 'pending')
+  if (_flushing) return { synced: 0, failed: 0, conflicts: 0 }
+  _flushing = true
 
   let synced = 0
   let failed = 0
   let conflicts = 0
 
-  for (const write of pending) {
-    await syncPendingWrite(write.id)
-    const after = await db.get('pending_writes', write.id)
-    if (!after) {
-      synced++
-    } else if (after.syncStatus === 'conflict') {
-      conflicts++
-    } else if (after.syncStatus === 'failed') {
-      failed++
+  try {
+    const db = await getOfflineDB()
+    const all = await db.getAll('pending_writes')
+    const pending = all.filter((w) => w.syncStatus === 'pending')
+
+    for (const write of pending) {
+      await syncPendingWrite(write.id)
+      const after = await db.get('pending_writes', write.id)
+      if (!after) {
+        synced++
+      } else if (after.syncStatus === 'conflict') {
+        conflicts++
+      } else if (after.syncStatus === 'failed') {
+        failed++
+      }
+      // 200ms between writes to avoid rate limiting
+      await new Promise((r) => setTimeout(r, 200))
     }
-    // 200ms between writes to avoid rate limiting
-    await new Promise((r) => setTimeout(r, 200))
+  } finally {
+    _flushing = false
   }
 
   return { synced, failed, conflicts }
