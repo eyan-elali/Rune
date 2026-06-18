@@ -3,57 +3,49 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import {
-  LayoutDashboard,
-  BookOpen,
-  User,
   Users,
-  Swords,
-  Settings,
-  LogOut,
   Eye,
   Compass,
-  Feather,
   Crown,
 } from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
 
-const THEME_CONFIGS = {
-  parchment: {
-    bgPrimary:    '#faf7f2',
-    bgSidebar:    '#f0ebe0',
-    bgEditor:     '#ffffff',
-    textPrimary:  '#1e1a16',
-    textMuted:    '#7a6f63',
-    gold:         '#b8922a',
-    border:       'rgba(139, 110, 60, 0.18)',
-    borderStrong: 'rgba(139, 110, 60, 0.35)',
-    name:         'Parchment',
-  },
+const HERO_THEMES = {
   candlelight: {
-    bgPrimary:    '#1a1614',
-    bgSidebar:    '#2c2420',
     bgEditor:     '#ede8db',
-    textPrimary:  '#f5f0e8',
-    textMuted:    '#6b6560',
+    headerBg:     '#1a1614',
+    headerText:   'rgba(245, 240, 232, 0.42)',
+    textMuted:    '#7a6f63',
+    textBody:     '#2c2218',
     gold:         '#c9a84c',
-    border:       'rgba(201, 168, 76, 0.2)',
-    borderStrong: 'rgba(201, 168, 76, 0.4)',
+    border:       'rgba(201, 168, 76, 0.18)',
+    borderStrong: 'rgba(201, 168, 76, 0.38)',
     name:         'Candlelight',
   },
   obsidian: {
-    bgPrimary:    '#060608',
-    bgSidebar:    '#101018',
     bgEditor:     '#d0dde8',
-    textPrimary:  '#e4eef4',
+    headerBg:     '#060608',
+    headerText:   'rgba(208, 221, 232, 0.42)',
     textMuted:    '#6a7888',
+    textBody:     '#1c2a38',
     gold:         '#6eb0d4',
     border:       'rgba(110, 176, 212, 0.2)',
-    borderStrong: 'rgba(110, 176, 212, 0.4)',
+    borderStrong: 'rgba(110, 176, 212, 0.38)',
     name:         'Obsidian',
+  },
+  absinthe: {
+    bgEditor:     '#e4ebe0',
+    headerBg:     '#081210',
+    headerText:   'rgba(228, 235, 224, 0.42)',
+    textMuted:    '#576b54',
+    textBody:     '#1a2c18',
+    gold:         '#6a9e68',
+    border:       'rgba(106, 158, 104, 0.22)',
+    borderStrong: 'rgba(106, 158, 104, 0.42)',
+    name:         'Absinthe',
   },
 } as const
 
-type ThemeKey = keyof typeof THEME_CONFIGS
+type HeroThemeKey = keyof typeof HERO_THEMES
 
 function SectionDivider() {
   return (
@@ -78,36 +70,22 @@ const HEATMAP_FILLED = [
 const SERIF = "Georgia, 'Times New Roman', serif"
 const SANS  = 'system-ui, -apple-system, sans-serif'
 
-// Nav items matching real Sidebar.tsx NAV_LINKS + Arena in order
-const MOCK_NAV: { label: string; active: boolean; icon: LucideIcon }[] = [
-  { label: 'Dashboard',       active: true,  icon: LayoutDashboard },
-  { label: 'Projects',        active: false, icon: BookOpen },
-  { label: 'Profile & Stats', active: false, icon: User },
-  { label: 'Arena',           active: false, icon: Swords },
-]
-
 export default function LandingPage() {
-  const [activeTheme, setActiveTheme] = useState<ThemeKey>('parchment')
+  const [activeHeroTheme, setActiveHeroTheme] = useState<HeroThemeKey>('candlelight')
   const [billing, setBilling] = useState<'monthly' | 'annual'>('monthly')
   const [priceVisible, setPriceVisible] = useState(true)
 
-  // Clear any user-session theme/font so the public landing page always
-  // renders with the default parchment CSS variables, not a signed-in
-  // user's last active theme.
   useEffect(() => {
     document.documentElement.removeAttribute('data-theme')
     document.documentElement.removeAttribute('data-font')
   }, [])
 
-  const cfg = THEME_CONFIGS[activeTheme]
+  const heroTheme = HERO_THEMES[activeHeroTheme]
 
   function handleBilling(plan: 'monthly' | 'annual') {
     setPriceVisible(false)
     setTimeout(() => { setBilling(plan); setPriceVisible(true) }, 200)
   }
-
-  // Always dark-on-light — works on all three editor surfaces (all are light/warm)
-  const textLineColor = 'rgba(30, 26, 22, 0.12)'
 
   return (
     <div className="relative">
@@ -198,171 +176,197 @@ export default function LandingPage() {
 
         <SectionDivider />
 
-        {/* ── SECTION 2: HERO ──────────────────────────────────────────── */}
+        {/* ── SCREEN 1: HERO ───────────────────────────────────────────── */}
         <section
           className="bg-[var(--bg-primary)]"
           style={{
-            minHeight: 'calc(100vh - 56px)',
+            height: 'calc(100vh - 56px)',
             display: 'flex',
-            flexDirection: 'column',
             alignItems: 'center',
-            justifyContent: 'center',
-            textAlign: 'center',
-            padding: '4rem 1.5rem 6rem',
+            overflow: 'hidden',
           }}
         >
-          <div className="relative z-20 w-full">
-          <h1
+          {/* Left — wordmark, headline, paragraph, CTA */}
+          <div
+            className="relative z-20"
             style={{
-              fontFamily: SERIF,
-              fontSize: 'clamp(2.2rem, 5vw, 4rem)',
-              fontWeight: 700,
-              letterSpacing: '0.04em',
-              color: 'var(--text-primary)',
-              maxWidth: '820px',
-              margin: '0 auto 1.5rem',
-              lineHeight: 1.15,
+              width: '44%',
+              flexShrink: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'center',
+              padding: '0 3rem 3rem 5rem',
             }}
           >
-            THE CREATIVE FORGE FOR SERIOUS AUTHORS
-          </h1>
-
-          <p
-            style={{
-              fontFamily: SANS,
-              fontSize: 'clamp(1rem, 2vw, 1.2rem)',
-              color: 'var(--text-muted)',
-              maxWidth: '580px',
-              margin: '0 auto 2.5rem',
-              lineHeight: 1.7,
-            }}
-          >
-            Stop writing in sterile office software. Command a canvas built from the ground up for deep focus, structured execution, and psychological momentum.
-          </p>
-
-          <Link
-            href="/signup"
-            className="gold-btn"
-            style={{
-              background: 'var(--color-gold)',
-              color: '#1e1a16',
-              fontFamily: SERIF,
-              fontSize: '14px',
-              letterSpacing: '0.1em',
-              fontWeight: 600,
-              padding: '14px 32px',
-              borderRadius: '4px',
-              border: 'none',
-              textDecoration: 'none',
-              display: 'inline-block',
-              marginBottom: '4rem',
-              transition: 'background 0.15s ease',
-            }}
-          >
-            START YOUR MANUSCRIPT — FREE
-          </Link>
-
-          {/* ── INTERACTIVE THEME MOCKUP ── */}
-          <div style={{ maxWidth: '860px', margin: '0 auto', width: '100%' }}>
-            {/* Tab row */}
-            <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginBottom: '16px' }}>
-              {(Object.keys(THEME_CONFIGS) as ThemeKey[]).map((key) => (
-                <button
-                  key={key}
-                  onClick={() => setActiveTheme(key)}
-                  className={activeTheme === key ? 'landing-tab-active' : 'landing-tab-inactive'}
-                  style={{
-                    background: 'transparent',
-                    border: '1px solid var(--color-border)',
-                    color: 'var(--text-muted)',
-                    fontFamily: SANS,
-                    fontSize: '12px',
-                    letterSpacing: '0.08em',
-                    padding: '6px 18px',
-                    borderRadius: '20px',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease',
-                  }}
-                >
-                  {THEME_CONFIGS[key].name}
-                </button>
-              ))}
-            </div>
-
-            {/* Mockup frame — ALL colors from cfg, never CSS variables */}
+            {/* Rune logo */}
             <div
-              className="relative z-20 bg-[var(--surface-card)]"
               style={{
-                borderRadius: '8px',
-                overflow: 'hidden',
-                border: `1px solid ${cfg.borderStrong}`,
-                boxShadow: '0 24px 64px rgba(0,0,0,0.18)',
-                transition: 'border-color 0.3s ease',
+                fontFamily: SERIF,
+                fontSize: '12px',
+                letterSpacing: '0.26em',
+                color: 'var(--color-gold)',
+                marginBottom: '2.75rem',
+                opacity: 0.85,
               }}
             >
-              {/* ── MOCK HEADER — replica of real Header.tsx ── */}
+              ✦ RUNE
+            </div>
+
+            {/* Headline */}
+            <h1
+              style={{
+                fontFamily: SERIF,
+                fontSize: 'clamp(2.8rem, 4.3vw, 4.7rem)',
+                fontWeight: 700,
+                color: 'var(--text-primary)',
+                lineHeight: 1.15,
+                letterSpacing: '-0.01em',
+                marginBottom: '1.5rem',
+              }}
+            >
+              The Writing Workspace Built for Novelists
+            </h1>
+
+            {/* Supporting paragraph */}
+            <p
+              style={{
+                fontFamily: SANS,
+                fontSize: '16px',
+                color: 'var(--color-ink)',
+                opacity: 0.65,
+                lineHeight: 1.8,
+                marginBottom: '2.5rem',
+                maxWidth: '360px',
+              }}
+            >
+              Organize your novel into chapters, build momentum every day, and write inside a workspace designed to help you finish your manuscript.
+            </p>
+
+            {/* Primary CTA */}
+            <Link
+              href="/signup"
+              className="gold-btn"
+              style={{
+                display: 'inline-block',
+                alignSelf: 'flex-start',
+                background: 'var(--color-gold)',
+                color: '#1e1a16',
+                fontFamily: SERIF,
+                fontSize: '13px',
+                letterSpacing: '0.1em',
+                fontWeight: 600,
+                padding: '13px 26px',
+                borderRadius: '4px',
+                border: 'none',
+                textDecoration: 'none',
+                transition: 'background 0.15s ease',
+              }}
+            >
+              Start Your Manuscript — Free
+            </Link>
+          </div>
+
+          {/* Right — writing experience preview */}
+          <div
+            style={{
+              flex: 1,
+              minWidth: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'center',
+              padding: '2rem 3.5rem 2rem 0.5rem',
+            }}
+          >
+            {/* Editor frame — application window with minimal chrome */}
+            <div
+              className="relative z-20"
+              style={{
+                height: 'min(500px, 64vh)',
+                borderRadius: '10px',
+                overflow: 'hidden',
+                border: `1px solid ${heroTheme.borderStrong}`,
+                boxShadow: '0 20px 60px rgba(0,0,0,0.22), 0 4px 16px rgba(0,0,0,0.10)',
+                background: heroTheme.bgEditor,
+                display: 'flex',
+                flexDirection: 'column',
+                transition: 'border-color 0.4s ease, background 0.4s ease, box-shadow 0.4s ease',
+              }}
+            >
+              {/* App chrome bar — matches real Candlelight header: dark bg, gold wordmark, mode toggle */}
               <div
                 style={{
-                  height: '36px',
-                  background: cfg.bgPrimary,
-                  borderBottom: `1px solid ${cfg.border}`,
+                  background: heroTheme.headerBg,
+                  borderBottom: `1px solid ${heroTheme.border}`,
+                  padding: '8px 14px',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  padding: '0 14px',
                   flexShrink: 0,
-                  transition: 'background-color 0.3s ease',
+                  transition: 'background 0.4s ease, border-color 0.4s ease',
                 }}
               >
-                {/* Breadcrumb — matches real Header.tsx breadcrumb style */}
-                <div
+                <span
                   style={{
-                    fontFamily: SANS,
+                    fontFamily: SERIF,
                     fontSize: '11px',
-                    color: cfg.textMuted,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    transition: 'color 0.3s ease',
+                    letterSpacing: '0.18em',
+                    color: heroTheme.gold,
+                    transition: 'color 0.4s ease',
                   }}
                 >
-                  <span>Projects</span>
-                  <span style={{ opacity: 0.5, fontSize: '9px' }}>›</span>
-                  <span>The Obsidian Manuscript</span>
-                </div>
-
-                {/* Focus / Game mode toggle pill */}
-                <div
+                  ✦ Rune
+                </span>
+                <span
                   style={{
+                    fontFamily: SERIF,
+                    fontSize: '11px',
+                    color: heroTheme.headerText,
+                    letterSpacing: '0.02em',
+                    transition: 'color 0.4s ease',
+                  }}
+                >
+                  That Manuscript
+                </span>
+                {/* Static Focus/Game pill — matches real ModeToggle: rounded-full, p-[3px], sliding gold indicator */}
+                <div
+                  aria-hidden="true"
+                  style={{
+                    position: 'relative',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '2px',
-                    border: `1px solid ${cfg.borderStrong}`,
-                    borderRadius: '10px',
-                    padding: '2px',
-                    transition: 'border-color 0.3s ease',
+                    borderRadius: '9999px',
+                    padding: '3px',
+                    border: `1px solid ${heroTheme.borderStrong}`,
+                    pointerEvents: 'none',
+                    transition: 'border-color 0.4s ease',
                   }}
                 >
                   <span
                     style={{
+                      position: 'relative',
+                      zIndex: 10,
+                      borderRadius: '9999px',
+                      padding: '3px 10px',
                       fontFamily: SANS,
-                      fontSize: '9px',
-                      padding: '2px 8px',
-                      borderRadius: '8px',
-                      color: cfg.textMuted,
-                      transition: 'color 0.3s ease',
+                      fontSize: '10px',
+                      color: heroTheme.headerText,
+                      background: 'transparent',
+                      transition: 'color 0.4s ease',
                     }}
                   >
                     Focus
                   </span>
                   <span
                     style={{
+                      position: 'relative',
+                      zIndex: 10,
+                      borderRadius: '9999px',
+                      padding: '3px 10px',
                       fontFamily: SANS,
-                      fontSize: '9px',
-                      padding: '2px 8px',
-                      borderRadius: '8px',
-                      color: cfg.textMuted,
-                      transition: 'color 0.3s ease',
+                      fontSize: '10px',
+                      color: heroTheme.headerText,
+                      background: 'transparent',
+                      transition: 'color 0.4s ease',
                     }}
                   >
                     Game
@@ -370,369 +374,216 @@ export default function LandingPage() {
                 </div>
               </div>
 
-              {/* Mockup body */}
-              <div style={{ display: 'flex', height: '380px' }}>
-
-                {/* ── MOCK SIDEBAR — replica of real Sidebar.tsx ── */}
+              {/* Writing surface */}
+              <div
+                style={{
+                  flex: 1,
+                  minHeight: 0,
+                  padding: '2.25rem 3.5rem 2.5rem',
+                  overflow: 'hidden',
+                  position: 'relative',
+                }}
+              >
+                {/* Chapter label */}
                 <div
-                  className="mockup-sidebar"
                   style={{
-                    width: '200px',
-                    background: cfg.bgSidebar,
-                    borderRight: `1px solid ${cfg.border}`,
-                    flexShrink: 0,
-                    transition: 'background-color 0.3s ease',
-                    overflow: 'hidden',
-                    display: 'flex',
-                    flexDirection: 'column',
+                    fontFamily: SERIF,
+                    fontSize: '9px',
+                    letterSpacing: '0.24em',
+                    textTransform: 'uppercase',
+                    color: heroTheme.textMuted,
+                    marginBottom: '1.5rem',
+                    opacity: 0.55,
+                    transition: 'color 0.4s ease',
                   }}
                 >
-                  {/* Wordmark + collapse toggle */}
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      padding: '10px 14px 9px',
-                    }}
-                  >
-                    <span
-                      style={{
-                        fontFamily: SERIF,
-                        fontSize: '15px',
-                        letterSpacing: '0.2em',
-                        color: cfg.gold,
-                        transition: 'color 0.3s ease',
-                      }}
-                    >
-                      Rune
-                    </span>
-                    {/* Collapse toggle placeholder */}
-                    <div
-                      style={{
-                        width: '16px',
-                        height: '16px',
-                        borderRadius: '3px',
-                        background: `${cfg.gold}18`,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        flexShrink: 0,
-                      }}
-                    >
-                      <div style={{ width: '6px', height: '1px', background: cfg.textMuted }} />
-                    </div>
-                  </div>
-
-                  {/* Divider */}
-                  <div style={{ height: '1px', background: cfg.border, marginBottom: '0' }} />
-
-                  {/* User identity section */}
-                  <div
-                    style={{
-                      padding: '9px 14px 0',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                    }}
-                  >
-                    {/* Avatar circle — 22px, matching real sidebar avatar */}
-                    <div
-                      style={{
-                        width: '22px',
-                        height: '22px',
-                        borderRadius: '50%',
-                        flexShrink: 0,
-                        background: `${cfg.gold}33`,
-                        border: `1px solid ${cfg.gold}66`,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        transition: 'background-color 0.3s ease',
-                      }}
-                    >
-                      <span
-                        style={{
-                          fontFamily: SERIF,
-                          fontSize: '10px',
-                          color: cfg.gold,
-                          lineHeight: 1,
-                          transition: 'color 0.3s ease',
-                        }}
-                      >
-                        R
-                      </span>
-                    </div>
-                    {/* Display name + username */}
-                    <div style={{ overflow: 'hidden', minWidth: 0 }}>
-                      <div
-                        style={{
-                          fontFamily: SERIF,
-                          fontSize: '11px',
-                          color: cfg.textPrimary,
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          lineHeight: 1.3,
-                          transition: 'color 0.3s ease',
-                        }}
-                      >
-                        Scholar
-                      </div>
-                      <div
-                        style={{
-                          fontFamily: SANS,
-                          fontSize: '9px',
-                          color: cfg.textMuted,
-                          whiteSpace: 'nowrap',
-                          lineHeight: 1.3,
-                          transition: 'color 0.3s ease',
-                        }}
-                      >
-                        @scholar
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Mini XP bar */}
-                  <div
-                    style={{
-                      margin: '8px 14px 0',
-                      height: '3px',
-                      background: `${cfg.gold}22`,
-                      borderRadius: '2px',
-                      overflow: 'hidden',
-                      transition: 'background-color 0.3s ease',
-                    }}
-                  >
-                    <div
-                      style={{
-                        width: '65%',
-                        height: '100%',
-                        background: cfg.gold,
-                        opacity: 0.5,
-                        transition: 'background-color 0.3s ease',
-                      }}
-                    />
-                  </div>
-
-                  {/* Divider */}
-                  <div style={{ height: '1px', background: cfg.border, margin: '10px 0 3px' }} />
-
-                  {/* Primary nav — matching NAV_LINKS + Arena from real Sidebar.tsx */}
-                  <nav style={{ flex: 1, padding: '2px 6px', overflow: 'hidden' }}>
-                    {MOCK_NAV.map((item) => {
-                      const NavIcon = item.icon
-                      return (
-                      <div
-                        key={item.label}
-                        style={{
-                          height: '27px',
-                          borderRadius: '0 4px 4px 0',
-                          padding: '0 8px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '8px',
-                          marginBottom: '2px',
-                          background: item.active ? `${cfg.gold}18` : 'transparent',
-                          borderLeft: item.active ? `2px solid ${cfg.gold}` : '2px solid transparent',
-                          transition: 'background-color 0.3s ease',
-                        }}
-                      >
-                        <NavIcon
-                          size={14}
-                          className="mr-2.5 shrink-0"
-                          style={{
-                            color: item.active ? cfg.gold : cfg.textPrimary,
-                            transition: 'color 0.3s ease',
-                          }}
-                          aria-hidden
-                        />
-                        <span
-                          style={{
-                            fontFamily: SANS,
-                            fontSize: '11px',
-                            color: item.active ? cfg.gold : cfg.textPrimary,
-                            opacity: item.active ? 1 : 0.75,
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            transition: 'color 0.3s ease',
-                          }}
-                        >
-                          {item.label}
-                        </span>
-                      </div>
-                    )})}
-                  </nav>
-
-                  {/* Bottom section — settings + sign out */}
-                  <div>
-                    <div style={{ height: '1px', background: cfg.border }} />
-                    <div style={{ padding: '4px 6px 8px' }}>
-                      {/* Settings row */}
-                      <div
-                        style={{
-                          height: '27px',
-                          borderRadius: '0 4px 4px 0',
-                          padding: '0 8px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '8px',
-                          borderLeft: '2px solid transparent',
-                          marginBottom: '2px',
-                        }}
-                      >
-                        <Settings
-                          size={14}
-                          className="mr-2.5 shrink-0"
-                          style={{ color: cfg.textMuted, transition: 'color 0.3s ease' }}
-                          aria-hidden
-                        />
-                        <span
-                          style={{
-                            fontFamily: SANS,
-                            fontSize: '11px',
-                            color: cfg.textMuted,
-                            transition: 'color 0.3s ease',
-                          }}
-                        >
-                          Settings
-                        </span>
-                      </div>
-                      {/* Sign out row */}
-                      <div
-                        style={{
-                          height: '27px',
-                          borderRadius: '0 4px 4px 0',
-                          padding: '0 8px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '8px',
-                          borderLeft: '2px solid transparent',
-                        }}
-                      >
-                        <LogOut
-                          size={14}
-                          className="mr-2.5 shrink-0"
-                          style={{ color: cfg.textMuted, transition: 'color 0.3s ease' }}
-                          aria-hidden
-                        />
-                        <span
-                          style={{
-                            fontFamily: SANS,
-                            fontSize: '11px',
-                            color: cfg.textMuted,
-                            opacity: 0.6,
-                            transition: 'color 0.3s ease',
-                          }}
-                        >
-                          Sign out
-                        </span>
-                      </div>
-                    </div>
-                  </div>
+                  CHAPTER I — THE ARRIVAL
                 </div>
 
-                {/* Editor panel */}
-                <div
+                {/* Prose — Rune-centered excerpt */}
+                <p
                   style={{
-                    flex: 1,
-                    background: cfg.bgEditor,
-                    padding: '20px 28px',
-                    overflow: 'hidden',
-                    position: 'relative',
-                    transition: 'background-color 0.3s ease',
+                    fontFamily: SERIF,
+                    fontSize: '13.5px',
+                    lineHeight: 1.9,
+                    color: heroTheme.textBody,
+                    marginBottom: '1.1rem',
+                    transition: 'color 0.4s ease',
                   }}
                 >
-                  <div
+                  I couldn&apos;t focus.
+                </p>
+
+                <p
+                  style={{
+                    fontFamily: SERIF,
+                    fontSize: '13.5px',
+                    lineHeight: 1.9,
+                    color: heroTheme.textBody,
+                    marginBottom: '1.1rem',
+                    textIndent: '2rem',
+                    transition: 'color 0.4s ease',
+                  }}
+                >
+                  My eyes drifted across another blank document. Every sentence felt heavier than the last. Every excuse came faster than the words.
+                </p>
+
+                <p
+                  style={{
+                    fontFamily: SERIF,
+                    fontSize: '13.5px',
+                    lineHeight: 1.9,
+                    color: heroTheme.textBody,
+                    marginBottom: '1.1rem',
+                    fontStyle: 'italic',
+                    textIndent: '2rem',
+                    transition: 'color 0.4s ease',
+                  }}
+                >
+                  &ldquo;You&apos;re writing a novel,&rdquo; I reminded myself.
+                </p>
+
+                <p
+                  style={{
+                    fontFamily: SERIF,
+                    fontSize: '13.5px',
+                    lineHeight: 1.9,
+                    color: heroTheme.textBody,
+                    marginBottom: '1.1rem',
+                    textIndent: '2rem',
+                    transition: 'color 0.4s ease',
+                  }}
+                >
+                  Then something changed.
+                </p>
+
+                <p
+                  style={{
+                    fontFamily: SERIF,
+                    fontSize: '13.5px',
+                    lineHeight: 1.9,
+                    color: heroTheme.textBody,
+                    marginBottom: '1.1rem',
+                    textIndent: '2rem',
+                    transition: 'color 0.4s ease',
+                  }}
+                >
+                  The blank page stopped feeling like an obstacle.
+                </p>
+
+                <p
+                  style={{
+                    fontFamily: SERIF,
+                    fontSize: '13.5px',
+                    lineHeight: 1.9,
+                    color: heroTheme.textBody,
+                    marginBottom: '1.1rem',
+                    textIndent: '2rem',
+                    transition: 'color 0.4s ease',
+                  }}
+                >
+                  It became a battlefield.
+                </p>
+
+                <p
+                  style={{
+                    fontFamily: SERIF,
+                    fontSize: '13.5px',
+                    lineHeight: 1.9,
+                    color: heroTheme.textBody,
+                    textIndent: '2rem',
+                    transition: 'color 0.4s ease',
+                  }}
+                >
+                  I opened{' '}
+                  <span
                     style={{
-                      fontFamily: SERIF,
-                      fontSize: '13px',
-                      color: cfg.textMuted,
-                      marginBottom: '16px',
-                      transition: 'color 0.3s ease',
+                      color: heroTheme.gold,
+                      letterSpacing: '0.1em',
+                      fontWeight: 600,
+                      transition: 'color 0.4s ease',
                     }}
                   >
-                    Chapter I — The Arrival
-                  </div>
-
-                  {[100, 88, 95, 72].map((w, i) => (
-                    <div
-                      key={`a${i}`}
-                      style={{
-                        height: '10px',
-                        borderRadius: '2px',
-                        background: textLineColor,
-                        width: `${w}%`,
-                        marginBottom: '8px',
-                      }}
-                    />
-                  ))}
-
-                  <div style={{ height: '16px' }} />
-
-                  {[100, 91].map((w, i) => (
-                    <div
-                      key={`b${i}`}
-                      style={{
-                        height: '10px',
-                        borderRadius: '2px',
-                        background: textLineColor,
-                        width: `${w}%`,
-                        marginBottom: '8px',
-                      }}
-                    />
-                  ))}
-
-                  {/* Last line + blinking cursor */}
-                  <div style={{ display: 'flex', alignItems: 'center' }}>
-                    <div
-                      style={{
-                        height: '10px',
-                        borderRadius: '2px',
-                        background: textLineColor,
-                        width: '60%',
-                      }}
-                    />
-                    <div
-                      className="landing-cursor"
-                      style={{
-                        width: '2px',
-                        height: '14px',
-                        background: cfg.gold,
-                        display: 'inline-block',
-                        marginLeft: '4px',
-                        transition: 'background-color 0.3s ease',
-                      }}
-                    />
-                  </div>
-
-                  {/* Word count pill */}
-                  <div
+                    RUNE
+                  </span>.{' '}
+                  <span
+                    className="landing-cursor"
                     style={{
-                      position: 'absolute',
-                      bottom: '12px',
-                      right: '12px',
+                      display: 'inline-block',
+                      width: '2px',
+                      height: '15px',
+                      background: heroTheme.gold,
+                      verticalAlign: 'middle',
+                      marginLeft: '1px',
+                      transition: 'background 0.4s ease',
+                    }}
+                  />
+                </p>
+
+                {/* Word count pill — matches real RuneEditor pill: rounded-full, gold border, no icon */}
+                <div
+                  style={{
+                    position: 'absolute',
+                    bottom: '14px',
+                    right: '18px',
+                  }}
+                  aria-hidden="true"
+                >
+                  <span
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.82)',
+                      border: `1px solid ${heroTheme.borderStrong}`,
+                      borderRadius: '9999px',
+                      padding: '5px 12px',
                       fontSize: '10px',
                       fontFamily: SANS,
-                      color: cfg.textMuted,
-                      border: `1px solid ${cfg.border}`,
-                      padding: '2px 8px',
-                      borderRadius: '10px',
-                      transition: 'color 0.3s ease, border-color 0.3s ease',
+                      color: heroTheme.textBody,
                       display: 'inline-flex',
                       alignItems: 'center',
-                      gap: '5px',
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+                      letterSpacing: '-0.01em',
+                      transition: 'all 0.4s ease',
                     }}
                   >
-                    <Feather size={11} style={{ color: cfg.gold }} aria-hidden />
-                    1,247 words
-                  </div>
+                    49{' '}<span style={{ marginLeft: '4px', opacity: 0.75 }}>words</span>
+                  </span>
                 </div>
               </div>
             </div>
-          </div>
+
+            {/* Theme pills — only interaction in the Hero */}
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                gap: '8px',
+                paddingTop: '10px',
+                flexShrink: 0,
+              }}
+            >
+              {(Object.keys(HERO_THEMES) as HeroThemeKey[]).map((key) => (
+                <button
+                  key={key}
+                  onClick={() => setActiveHeroTheme(key)}
+                  aria-label={`Switch to ${HERO_THEMES[key].name} theme`}
+                  style={{
+                    background: 'transparent',
+                    border: `1px solid ${activeHeroTheme === key ? 'var(--color-gold)' : 'var(--color-border)'}`,
+                    color: activeHeroTheme === key ? 'var(--color-gold)' : 'var(--text-muted)',
+                    fontFamily: SANS,
+                    fontSize: '11px',
+                    letterSpacing: '0.07em',
+                    padding: '5px 16px',
+                    borderRadius: '20px',
+                    cursor: 'pointer',
+                    transition: 'border-color 0.2s ease, color 0.2s ease',
+                  }}
+                >
+                  {HERO_THEMES[key].name}
+                </button>
+              ))}
+            </div>
           </div>
         </section>
 

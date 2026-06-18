@@ -43,6 +43,163 @@ ModeToggle is a shared component at src/components/ui/ModeToggle.tsx — used in
 
 ---
 
+## Rune Product Philosophy & Positioning
+
+Rune is not a generic writing app. Rune is the writing workspace built specifically for novelists.
+
+The core promise is not "better documents." The core promise is helping authors finish manuscripts.
+
+Every product, design, and marketing decision should reinforce this idea:
+
+> Rune is the workspace serious fiction writers graduate to when a blank document is no longer enough.
+
+### Primary Audience
+
+Rune is for people writing long-form fiction and books, especially novelists.
+
+Do not position Rune primarily for:
+- bloggers
+- students
+- journalists
+- marketers
+- note-taking
+- general productivity
+
+Those users may still find value, but the product should speak first to authors building manuscripts.
+
+### Core Enemy
+
+Rune's enemy is not another app. Rune's enemy is the blank document.
+
+Most writing tools treat a novel like one long file. Rune treats a novel like a living manuscript system made of projects, chapters, pages, drafts, goals, progress, and momentum.
+
+When writing marketing copy or product UI, make this contrast clear:
+
+- Google Docs, Word, and Notion are document tools.
+- Rune is manuscript software for finishing books.
+
+### Core Transformation
+
+Users do not buy "features." They buy the transformation:
+
+- from scattered drafts to a structured manuscript
+- from staring at a blank page to building momentum
+- from inconsistent writing to visible progress
+- from fragile browser writing to offline-safe manuscript work
+- from one endless document to a professional author workspace
+
+Features should be presented as proof of this transformation.
+
+### Four Pillars
+
+Use these four pillars to organize product thinking and landing-page messaging:
+
+1. Write
+   - beautiful editor
+   - Focus Mode
+   - themes
+   - offline writing
+   - autosave/sync reliability
+
+2. Organize
+   - projects
+   - chapters
+   - pages
+   - canonical pages
+   - task manager
+   - manuscript structure
+
+3. Stay in Motion
+   - Arena
+   - Battle Mode
+   - Race Mode
+   - goals
+   - heatmaps
+   - streaks
+   - XP and progression
+
+4. Finish
+   - manuscript word counts
+   - project progress
+   - exports
+   - stats
+   - completion tracking
+
+Everything should ultimately point toward finishing the manuscript.
+
+### Marketing Voice
+
+Rune's marketing should be clear before it is poetic.
+
+The landing page must communicate within seconds:
+- Rune is software for writing novels.
+- Rune replaces blank document tools for long-form fiction.
+- Rune helps authors organize, write, stay consistent, and finish.
+
+Avoid copy that is beautiful but vague.
+
+Prefer concrete language:
+- "writing workspace built for novelists"
+- "manuscript workspace"
+- "chapters, pages, goals, and progress"
+- "write offline"
+- "finish your novel"
+
+Use poetic language only after the product value is unmistakable.
+
+### Tone
+
+Rune should feel:
+- premium
+- calm
+- literary
+- serious
+- focused
+- elegant
+- quietly motivating
+
+Rune should not feel:
+- generic SaaS
+- childish
+- neon gamer
+- productivity-bro
+- AI-hype-driven
+- cluttered
+- loud
+
+Even when describing gamified features, do not make the product sound like a toy. Arena is a serious tool for defeating the blank page and building drafting momentum.
+
+### Landing Page Principle
+
+The landing page should sell the transformation, not just the interface.
+
+Design can communicate beauty. Copy must communicate why Rune matters.
+
+A visitor from Meta ads should understand this journey:
+
+1. Rune is for writing novels.
+2. Rune is different from Google Docs or Word.
+3. Rune gives structure, focus, offline safety, and momentum.
+4. Rune can help me finish my manuscript.
+5. I should start for free.
+
+Whenever writing landing-page or product copy, ask:
+
+> "Does this make Rune clearer, or merely more decorative?"
+
+If it only sounds beautiful but does not improve understanding, simplify it.
+
+### Product Decision Rule
+
+When deciding between two implementations, prefer the one that:
+- protects manuscript integrity
+- reduces writing friction
+- increases author momentum
+- preserves calm focus
+- reinforces Rune's identity as manuscript software for novelists
+
+---
+
 ## Tech Stack
 
 | Layer          | Technology                           | Notes                                            |
