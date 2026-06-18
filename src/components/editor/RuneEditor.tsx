@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 import { renamePage } from "@/lib/actions/pages";
 import { recordWordsWritten } from "@/lib/actions/writingStats";
 import { writeToPendingQueue, syncPendingWrite } from "@/lib/offline/syncEngine";
-import { getOfflineDB } from "@/lib/offline/db";
+import { getOfflineDB, getPendingWrite } from "@/lib/offline/db";
 import { useNetworkStore } from "@/store/networkStore";
 import { awardProjectXp } from "@/lib/actions/xp";
 import { xpRewardForWords } from "@/lib/xp";
@@ -76,6 +76,8 @@ export default function RuneEditor({
   const isFocusModeRef = useRef(isFocusMode);
 
   const [syncStatus, setSyncStatus] = useState<DisplaySyncStatus>('synced');
+  const [showingLocalDraft, setShowingLocalDraft] = useState(false);
+  const [isSyncingNow, setIsSyncingNow] = useState(false);
   const [toolbarPos, setToolbarPos] = useState<ToolbarPos | null>(null);
   const [titleDraft, setTitleDraft] = useState(currentPage?.title ?? "");
   const [sessionInvalidated, setSessionInvalidated] = useState(false);
@@ -352,9 +354,39 @@ const lastSavedWordCountRef = useRef<number>(currentPage?.word_count ?? 0);
       currentPage?.word_count ??
       0;
     lastAwardedWordCountRef.current = lastSavedWordCountRef.current;
-    setTimeout(() => {
-      isLoadingRef.current = false;
-    }, 0);
+    setShowingLocalDraft(false);
+
+    const pageIdForDraftCheck = newPageId;
+    const serverUpdatedAt = currentPage?.updated_at;
+
+    if (pageIdForDraftCheck) {
+      void (async () => {
+        try {
+          const pending = await getPendingWrite(pageIdForDraftCheck);
+          // Guard: page may have changed while IDB was resolving
+          if (currentPageRef.current?.id !== pageIdForDraftCheck) return;
+          if (pending && serverUpdatedAt) {
+            const serverMs = new Date(serverUpdatedAt).getTime();
+            if (pending.localUpdatedAt > serverMs) {
+              editor.commands.setContent(pending.content);
+              lastSavedWordCountRef.current = pending.wordCount;
+              lastAwardedWordCountRef.current = pending.wordCount;
+              setShowingLocalDraft(true);
+            }
+          }
+        } catch {
+          // best-effort; fall through with server content
+        } finally {
+          if (currentPageRef.current?.id === pageIdForDraftCheck) {
+            isLoadingRef.current = false;
+          }
+        }
+      })();
+    } else {
+      setTimeout(() => {
+        isLoadingRef.current = false;
+      }, 0);
+    }
   }, [editor, currentPage?.id]); // intentionally omitting currentPage to avoid re-running on word_count updates
 
   // Trailing XP sync on unmount — catches words saved but not yet awarded
@@ -371,6 +403,28 @@ const lastSavedWordCountRef = useRef<number>(currentPage?.word_count ?? 0);
 
   const wordCount =
     (editor?.storage.characterCount?.words?.() as number | undefined) ?? 0;
+
+  async function handleSyncNow() {
+    const pageId = currentPageRef.current?.id;
+    if (!pageId || isSyncingNow) return;
+    setIsSyncingNow(true);
+    try {
+      await syncPendingWrite(pageId);
+      const pending = await getPendingWrite(pageId);
+      if (!pending) {
+        setShowingLocalDraft(false);
+        setLastSaved(new Date());
+        setSyncStatus('synced');
+      } else {
+        const dbStatus = await readDbSyncStatus(pageId);
+        setSyncStatus(mapDisplayStatus(dbStatus, isOnlineRef.current));
+      }
+    } catch {
+      // silent
+    } finally {
+      setIsSyncingNow(false);
+    }
+  }
 
   async function commitTitle() {
     const page = currentPageRef.current;
@@ -525,60 +579,92 @@ const lastSavedWordCountRef = useRef<number>(currentPage?.word_count ?? 0);
       </div>
 
 
-{/* Sync status indicator */}
+{/* Sync status + local draft notice */}
 <div
-  className="fixed bottom-[4.5rem] right-7 z-40 md:bottom-[5rem] md:right-9"
+  className="fixed bottom-[4.5rem] right-7 z-40 md:bottom-[5rem] md:right-9 flex flex-col items-end gap-1"
   style={{ fontSize: "11px", fontFamily: "var(--font-sans)", letterSpacing: "0.04em" }}
 >
-  {syncStatus === 'synced' && (
-    <span
-      className="pointer-events-none"
-      style={{ color: "var(--color-mist)", opacity: 0.6, transition: "opacity 0.4s" }}
-    >
-      Saved
+  {showingLocalDraft ? (
+    <span style={{ color: "var(--color-mist)", opacity: 0.8, fontStyle: "italic" }}>
+      Showing latest local draft
+      {isOnline && (
+        <>
+          {" · "}
+          <button
+            type="button"
+            onClick={() => void handleSyncNow()}
+            disabled={isSyncingNow}
+            aria-label="Sync local draft to server"
+            style={{
+              background: "none",
+              border: "none",
+              cursor: isSyncingNow ? "default" : "pointer",
+              padding: 0,
+              font: "inherit",
+              letterSpacing: "inherit",
+              fontStyle: "normal",
+              color: isSyncingNow ? "var(--color-mist)" : "var(--color-gold)",
+              opacity: isSyncingNow ? 0.5 : 1,
+            }}
+          >
+            {isSyncingNow ? "Syncing…" : "Sync now"}
+          </button>
+        </>
+      )}
     </span>
-  )}
-  {syncStatus === 'online_dirty' && (
-    <span
-      className="pointer-events-none"
-      style={{ color: "var(--color-mist)", opacity: 0.8 }}
-    >
-      Saving...
-    </span>
-  )}
-  {syncStatus === 'syncing' && (
-    <span
-      className="pointer-events-none"
-      style={{ color: "var(--color-mist)", opacity: 0.8 }}
-    >
-      Syncing...
-    </span>
-  )}
-  {syncStatus === 'offline_dirty' && (
-    <span
-      className="pointer-events-none"
-      style={{ color: "var(--color-gold)", opacity: 0.9 }}
-    >
-      Saved locally
-    </span>
-  )}
-  {syncStatus === 'conflict' && (
-    <button
-      type="button"
-      onClick={() => showToast("Conflict: your draft and the server diverged. Resolve before syncing.", "error")}
-      aria-label="Sync conflict — click for details"
-      style={{
-        color: "var(--color-crimson)",
-        background: "none",
-        border: "none",
-        cursor: "pointer",
-        padding: 0,
-        font: "inherit",
-        letterSpacing: "inherit",
-      }}
-    >
-      Conflict
-    </button>
+  ) : (
+    <>
+      {syncStatus === 'synced' && (
+        <span
+          className="pointer-events-none"
+          style={{ color: "var(--color-mist)", opacity: 0.6, transition: "opacity 0.4s" }}
+        >
+          Saved
+        </span>
+      )}
+      {syncStatus === 'online_dirty' && (
+        <span
+          className="pointer-events-none"
+          style={{ color: "var(--color-mist)", opacity: 0.8 }}
+        >
+          Saving...
+        </span>
+      )}
+      {syncStatus === 'syncing' && (
+        <span
+          className="pointer-events-none"
+          style={{ color: "var(--color-mist)", opacity: 0.8 }}
+        >
+          Syncing...
+        </span>
+      )}
+      {syncStatus === 'offline_dirty' && (
+        <span
+          className="pointer-events-none"
+          style={{ color: "var(--color-gold)", opacity: 0.9 }}
+        >
+          Saved locally
+        </span>
+      )}
+      {syncStatus === 'conflict' && (
+        <button
+          type="button"
+          onClick={() => showToast("Conflict: your draft and the server diverged. Resolve before syncing.", "error")}
+          aria-label="Sync conflict — click for details"
+          style={{
+            color: "var(--color-crimson)",
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+            padding: 0,
+            font: "inherit",
+            letterSpacing: "inherit",
+          }}
+        >
+          Conflict
+        </button>
+      )}
+    </>
   )}
 </div>
 

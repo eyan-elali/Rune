@@ -68,6 +68,15 @@ export async function requestPersistentStorage(): Promise<void> {
   await navigator.storage.persist()
 }
 
+export async function getPendingWrite(pageId: string) {
+  try {
+    const db = await getOfflineDB()
+    return (await db.get('pending_writes', pageId)) ?? null
+  } catch {
+    return null
+  }
+}
+
 export async function evictOldCacheEntries(): Promise<void> {
   try {
     const db = await getOfflineDB()
