@@ -247,3 +247,52 @@ export async function getCachedChapterMeta(
     return null
   }
 }
+
+// ── Offline storage summary ────────────────────────────────────────────────────
+
+export async function getOfflineStorageSummary(): Promise<{
+  pending: number
+  conflicts: number
+  cached: number
+}> {
+  try {
+    const db = await getOfflineDB()
+    const [allWrites, allCached] = await Promise.all([
+      db.getAll('pending_writes'),
+      db.getAll('page_cache'),
+    ])
+    const pending = allWrites.filter(
+      (w) => w.syncStatus === 'pending' || w.syncStatus === 'syncing' || w.syncStatus === 'failed'
+    ).length
+    const conflicts = allWrites.filter((w) => w.syncStatus === 'conflict').length
+    return { pending, conflicts, cached: allCached.length }
+  } catch {
+    return { pending: 0, conflicts: 0, cached: 0 }
+  }
+}
+
+/**
+ * Clears page_cache entries that have no corresponding pending_writes entry.
+ * Never deletes entries for pages that have unsaved or conflicted local edits.
+ * Returns the number of entries cleared.
+ */
+export async function clearPageCache(): Promise<number> {
+  try {
+    const db = await getOfflineDB()
+    const [allCached, allPending] = await Promise.all([
+      db.getAll('page_cache'),
+      db.getAll('pending_writes'),
+    ])
+    const pendingIds = new Set(allPending.map((w) => w.id))
+    let cleared = 0
+    for (const entry of allCached) {
+      if (!pendingIds.has(entry.id)) {
+        await db.delete('page_cache', entry.id)
+        cleared++
+      }
+    }
+    return cleared
+  } catch {
+    return 0
+  }
+}

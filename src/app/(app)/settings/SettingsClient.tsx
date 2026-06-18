@@ -15,6 +15,8 @@ import {
   deleteAccount,
 } from "@/lib/actions/settings";
 import { createPortalSession } from "@/lib/actions/billing";
+import { getOfflineStorageSummary, clearPageCache } from "@/lib/offline/db";
+import { flushPendingQueue } from "@/lib/offline/syncEngine";
 import { useProfileStore } from "@/store/profileStore";
 import { useToastStore } from "@/store/toastStore";
 import { UNLOCKABLES, requirementLabel } from "@/lib/unlockables";
@@ -26,7 +28,7 @@ import { resolveThemeId } from "@/lib/themes";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type Tab = "account" | "editor" | "appearance" | "billing" | "danger";
+type Tab = "account" | "editor" | "appearance" | "billing" | "sync" | "danger";
 
 export interface SettingsClientProps {
   profile: Profile | null;
@@ -452,7 +454,6 @@ function EditorTab() {
 
   const fontSize = prefs.fontSize ?? 18;
   const lineHeight = prefs.lineHeight ?? 1.9;
-  const autoSaveDelay = prefs.autoSaveDelay ?? 1000;
   const wideEditor = prefs.wideEditor ?? false;
 
   const [localFontSize, setLocalFontSize] = useState(fontSize);
@@ -520,22 +521,6 @@ function EditorTab() {
               { label: "Compact", value: 1.7 },
               { label: "Relaxed", value: 1.9 },
               { label: "Spacious", value: 2.2 },
-            ]}
-          />
-        </SettingRow>
-
-        <SettingRow
-          label="Auto-save"
-          description="How quickly changes are persisted"
-        >
-          <SegmentGroup
-            label="Auto-save delay"
-            value={autoSaveDelay}
-            onChange={(v) => savePref({ autoSaveDelay: v })}
-            options={[
-              { label: "Instant", value: 0 },
-              { label: "1s", value: 1000 },
-              { label: "3s", value: 3000 },
             ]}
           />
         </SettingRow>
@@ -821,6 +806,191 @@ function AppearanceTab({ unlockedIds }: { unlockedIds: Set<string> }) {
   );
 }
 
+// ─── Sync Tab ─────────────────────────────────────────────────────────────────
+
+function SyncTab() {
+  const showToast = useToastStore((s) => s.showToast);
+  const [summary, setSummary] = useState<{
+    pending: number;
+    conflicts: number;
+    cached: number;
+  } | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [isClearing, setIsClearing] = useState(false);
+  const [confirmClear, setConfirmClear] = useState(false);
+
+  async function loadSummary() {
+    const s = await getOfflineStorageSummary();
+    setSummary(s);
+  }
+
+  useEffect(() => {
+    loadSummary();
+  }, []);
+
+  async function handleSyncNow() {
+    setIsSyncing(true);
+    try {
+      const result = await flushPendingQueue();
+      await loadSummary();
+      const parts: string[] = [];
+      if (result.synced > 0)
+        parts.push(`${result.synced} synced`);
+      if (result.conflicts > 0)
+        parts.push(`${result.conflicts} conflict${result.conflicts !== 1 ? "s" : ""}`);
+      if (result.failed > 0)
+        parts.push(`${result.failed} failed`);
+      const message = parts.length > 0 ? parts.join(", ") : "Nothing to sync";
+      const type =
+        result.failed > 0 || result.conflicts > 0 ? "error" : "success";
+      showToast(message, type);
+    } catch {
+      showToast("Sync failed. Try again.", "error");
+    } finally {
+      setIsSyncing(false);
+    }
+  }
+
+  async function handleClearCache() {
+    setIsClearing(true);
+    try {
+      const cleared = await clearPageCache();
+      await loadSummary();
+      setConfirmClear(false);
+      showToast(
+        cleared > 0
+          ? `Cleared ${cleared} cached page${cleared !== 1 ? "s" : ""}.`
+          : "No cached pages to clear.",
+        "success"
+      );
+    } catch {
+      showToast("Could not clear cache.", "error");
+    } finally {
+      setIsClearing(false);
+    }
+  }
+
+  const hasConflicts = (summary?.conflicts ?? 0) > 0;
+
+  const stats = [
+    {
+      label: "Pending syncs",
+      value: summary?.pending ?? "—",
+      danger: false,
+    },
+    {
+      label: "Conflicts",
+      value: summary?.conflicts ?? "—",
+      danger: hasConflicts,
+    },
+    {
+      label: "Cached pages",
+      value: summary?.cached ?? "—",
+      danger: false,
+    },
+  ];
+
+  return (
+    <div className="flex flex-col gap-4">
+      <Card>
+        <SectionTitle>Offline storage</SectionTitle>
+        <div className="mt-5 grid grid-cols-3 gap-3">
+          {stats.map(({ label, value, danger }) => (
+            <div
+              key={label}
+              className="flex flex-col items-center justify-center rounded-lg py-5"
+              style={{
+                background: "var(--bg-secondary)",
+                border: `1px solid ${danger ? "rgba(139,46,46,0.35)" : "var(--color-border)"}`,
+              }}
+            >
+              <span
+                className="font-rune-serif text-3xl tabular-nums"
+                style={{
+                  color: danger ? "var(--color-crimson)" : "var(--color-gold)",
+                }}
+              >
+                {value}
+              </span>
+              <span
+                className="mt-1.5 text-center text-xs leading-snug"
+                style={{ color: "var(--color-mist)" }}
+              >
+                {label}
+              </span>
+            </div>
+          ))}
+        </div>
+      </Card>
+
+      {hasConflicts && (
+        <div
+          className="rounded-lg px-4 py-3 text-sm leading-relaxed"
+          role="status"
+          style={{
+            background: "rgba(139,46,46,0.07)",
+            border: "1px solid rgba(139,46,46,0.25)",
+            color: "var(--color-mist)",
+          }}
+        >
+          <span
+            className="font-rune-serif font-semibold"
+            style={{ color: "var(--color-crimson)" }}
+          >
+            Some pages need review.
+          </span>{" "}
+          Open the conflicted page to choose which version to keep.
+        </div>
+      )}
+
+      <Card>
+        <SectionTitle>Actions</SectionTitle>
+        <div className="mt-4 flex flex-col gap-0">
+          <SettingRow
+            label="Sync now"
+            description="Upload all pending local writes to the server"
+          >
+            <Button
+              variant="ghost"
+              onClick={handleSyncNow}
+              loading={isSyncing}
+            >
+              Sync now
+            </Button>
+          </SettingRow>
+
+          <SettingRow label="Clear cached pages" description="Frees space — only removes read-only cache, never pending or conflicted writes" last>
+            {!confirmClear ? (
+              <Button
+                variant="ghost"
+                onClick={() => setConfirmClear(true)}
+              >
+                Clear cache
+              </Button>
+            ) : (
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="danger"
+                  onClick={handleClearCache}
+                  loading={isClearing}
+                >
+                  Confirm
+                </Button>
+                <Button
+                  variant="ghost"
+                  onClick={() => setConfirmClear(false)}
+                >
+                  Cancel
+                </Button>
+              </div>
+            )}
+          </SettingRow>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
 // ─── Danger Zone Tab ──────────────────────────────────────────────────────────
 
 function DangerTab() {
@@ -1052,6 +1222,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "editor", label: "Editor" },
   { id: "appearance", label: "Appearance" },
   { id: "billing", label: "Billing" },
+  { id: "sync", label: "Sync" },
   { id: "danger", label: "Danger Zone" },
 ];
 
@@ -1172,6 +1343,14 @@ export function SettingsClient({
         hidden={activeTab !== "billing"}
       >
         <BillingTab subscriptionTier={subscriptionTier} profile={profile} />
+      </div>
+      <div
+        id="panel-sync"
+        role="tabpanel"
+        aria-labelledby="tab-sync"
+        hidden={activeTab !== "sync"}
+      >
+        <SyncTab />
       </div>
       <div
         id="panel-danger"
