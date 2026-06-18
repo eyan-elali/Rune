@@ -20,7 +20,11 @@ interface RuneOfflineDB extends DBSchema {
       id: string
       content: Record<string, unknown>
       wordCount: number
-      serverUpdatedAt: string
+      // Last confirmed server updated_at — the baseline for conflict detection.
+      // Absent on cache entries written before the user's first server sync.
+      serverUpdatedAt?: string
+      // Last confirmed server version number — secondary conflict signal.
+      serverVersion?: number
       cachedAt: number
       // Rich view-cache fields — populated by cachePage(); absent in minimal sync entries
       chapter_id?: string
@@ -131,8 +135,8 @@ function cacheEntryToPage(
     word_count: entry.wordCount,
     position: entry.position ?? 0,
     is_canonical: entry.is_canonical ?? false,
-    created_at: entry.created_at ?? entry.serverUpdatedAt,
-    updated_at: entry.updated_at ?? entry.serverUpdatedAt,
+    created_at: entry.created_at ?? entry.serverUpdatedAt ?? '',
+    updated_at: entry.updated_at ?? entry.serverUpdatedAt ?? '',
   }
 }
 

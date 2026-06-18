@@ -16,25 +16,33 @@ export async function writeToPendingQueue(
     const db = await getOfflineDB()
     const now = Date.now()
 
+    // Preserve 'conflict' status — a conflicted page must not be silently reset to
+    // 'pending' by keystrokes. The user must resolve the conflict explicitly via the modal.
+    const existing = await db.get('pending_writes', pageId)
+    const statusToWrite = existing?.syncStatus === 'conflict' ? 'conflict' : 'pending'
+
     await db.put('pending_writes', {
       id: pageId,
       userId,
       content,
       wordCount,
       localUpdatedAt: now,
-      syncStatus: 'pending',
+      syncStatus: statusToWrite,
       retryCount: 0,
     })
 
     const existingCache = await db.get('page_cache', pageId)
     await db.put('page_cache', {
-      // Preserve rich view-cache metadata if already present
+      // Preserve all existing cache metadata — critically including serverUpdatedAt,
+      // which is the last confirmed server snapshot used for conflict detection.
+      // Overwriting it with local clock time would destroy the baseline and allow
+      // silent overwrites of concurrent server edits on reconnect.
       ...(existingCache ?? {}),
       id: pageId,
       content,
       wordCount,
-      serverUpdatedAt: new Date(now).toISOString(),
       cachedAt: now,
+      // serverUpdatedAt intentionally NOT overwritten here — preserved via spread above.
     })
 
     void evictOldCacheEntries()
@@ -60,7 +68,7 @@ export async function syncPendingWrite(pageId: string): Promise<void> {
     return
   }
 
-  // Fetch server state for optimistic locking
+  // Fetch current server state
   const { data: serverPage, error: fetchError } = await supabase
     .from('pages')
     .select('updated_at, version')
@@ -72,10 +80,35 @@ export async function syncPendingWrite(pageId: string): Promise<void> {
     return
   }
 
-  const serverUpdatedAtMs = new Date(serverPage.updated_at as string).getTime()
-  const serverIsNewerByMs = serverUpdatedAtMs - pending.localUpdatedAt
+  // Conflict detection: compare server's current state against the cached server
+  // snapshot (page_cache.serverUpdatedAt) — NOT against the local edit timestamp.
+  //
+  // localUpdatedAt is a browser clock value and unreliable for cross-device comparison.
+  // serverUpdatedAt in the cache is the server's own updated_at from the last time
+  // this device fetched the page — the correct baseline to detect concurrent edits.
+  const cachedPage = await db.get('page_cache', pageId)
 
-  if (serverIsNewerByMs > 5000) {
+  const serverHasChanged = ((): boolean => {
+    // No cached server baseline — cannot determine if another device wrote.
+    // Be conservative: treat as conflict rather than risk a silent overwrite.
+    if (!cachedPage?.serverUpdatedAt) return true
+
+    const serverMs = new Date(serverPage.updated_at as string).getTime()
+    const cachedMs = new Date(cachedPage.serverUpdatedAt).getTime()
+
+    // Primary signal: server updated_at advanced past our cached snapshot
+    if (serverMs > cachedMs) return true
+
+    // Secondary signal: version number advanced (if we have a cached baseline)
+    if (
+      cachedPage.serverVersion !== undefined &&
+      (serverPage.version as number) > cachedPage.serverVersion
+    ) return true
+
+    return false
+  })()
+
+  if (serverHasChanged) {
     await db.put('pending_writes', { ...pending, syncStatus: 'conflict' })
     return
   }
@@ -121,6 +154,7 @@ export async function syncPendingWrite(pageId: string): Promise<void> {
     content: pending.content,
     wordCount: pending.wordCount,
     serverUpdatedAt: (updated[0].updated_at as string) ?? new Date().toISOString(),
+    serverVersion: updated[0].version as number | undefined,
     cachedAt: Date.now(),
   })
 
@@ -214,4 +248,57 @@ export async function getConflictedPages() {
   const db = await getOfflineDB()
   const all = await db.getAll('pending_writes')
   return all.filter((w) => w.syncStatus === 'conflict')
+}
+
+// ── Conflict resolution ────────────────────────────────────────────────────────
+
+/**
+ * Force-write the local pending content to Supabase, bypassing the staleness
+ * check that would normally mark a write as a conflict. Uses the page ID alone
+ * (no version guard) so this always wins over the remote state.
+ *
+ * On success: clears the pending write, updates cache, runs post-sync maintenance.
+ * Returns true if the write succeeded, false otherwise.
+ */
+export async function forceWriteLocalContent(pageId: string): Promise<boolean> {
+  const db = await getOfflineDB()
+  const pending = await db.get('pending_writes', pageId)
+  if (!pending) return false
+
+  const supabase = createClient()
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) return false
+
+  const { data: updated, error: updateError } = await supabase
+    .from('pages')
+    .update({
+      content: pending.content,
+      word_count: pending.wordCount,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', pageId)
+    .select('id, updated_at, version')
+    .single()
+
+  if (updateError || !updated) return false
+
+  await db.delete('pending_writes', pageId)
+  const existingCache = await db.get('page_cache', pageId)
+  await db.put('page_cache', {
+    ...(existingCache ?? {}),
+    id: pageId,
+    content: pending.content,
+    wordCount: pending.wordCount,
+    serverUpdatedAt: (updated.updated_at as string) ?? new Date().toISOString(),
+    serverVersion: updated.version as number | undefined,
+    cachedAt: Date.now(),
+  })
+
+  try {
+    await afterPageSync(pageId)
+  } catch {
+    // Non-fatal
+  }
+
+  return true
 }

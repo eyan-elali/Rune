@@ -11,6 +11,7 @@ import { renamePage } from "@/lib/actions/pages";
 import { recordWordsWritten } from "@/lib/actions/writingStats";
 import { writeToPendingQueue, syncPendingWrite } from "@/lib/offline/syncEngine";
 import { getOfflineDB, getPendingWrite } from "@/lib/offline/db";
+import { SyncConflictModal } from "./SyncConflictModal";
 import { useNetworkStore } from "@/store/networkStore";
 import { awardProjectXp } from "@/lib/actions/xp";
 import { xpRewardForWords } from "@/lib/xp";
@@ -76,8 +77,16 @@ export default function RuneEditor({
   const isFocusModeRef = useRef(isFocusMode);
 
   const [syncStatus, setSyncStatus] = useState<DisplaySyncStatus>('synced');
+  // Ref mirror so async closures (onUpdate, handleSave) read the live status without
+  // capturing stale closure values. Updated in sync with the state setter below.
+  const syncStatusRef = useRef<DisplaySyncStatus>('synced');
+  function setSyncStatusAndRef(s: DisplaySyncStatus) {
+    syncStatusRef.current = s;
+    setSyncStatus(s);
+  }
   const [showingLocalDraft, setShowingLocalDraft] = useState(false);
   const [isSyncingNow, setIsSyncingNow] = useState(false);
+  const [conflictModalOpen, setConflictModalOpen] = useState(false);
   const [toolbarPos, setToolbarPos] = useState<ToolbarPos | null>(null);
   const [titleDraft, setTitleDraft] = useState(currentPage?.title ?? "");
   const [sessionInvalidated, setSessionInvalidated] = useState(false);
@@ -137,28 +146,55 @@ const lastSavedWordCountRef = useRef<number>(currentPage?.word_count ?? 0);
 
   useEffect(() => {
     const pageId = currentPage?.id;
-    if (!pageId) { setSyncStatus('synced'); return; }
+    if (!pageId) { setSyncStatusAndRef('synced'); return; }
 
     const wasOffline = !prevIsOnlineRef.current;
     prevIsOnlineRef.current = isOnline;
 
     if (isOnline && wasOffline) {
-      // Reconnect path: show 'syncing' immediately, then resolve to final state
+      // Reconnect path: NetworkProvider's flushPendingQueue owns the actual sync.
+      // Show 'syncing' immediately for any unresolved write, then let the
+      // rune-sync-queue-updated event deliver the authoritative final status.
+      // As a safety net, also call syncPendingWrite for the current page — the
+      // two calls are idempotent (the second finds no 'pending' write and no-ops).
       void (async () => {
         const dbStatus = await readDbSyncStatus(pageId);
         if (dbStatus === 'pending' || dbStatus === 'failed') {
-          setSyncStatus('syncing');
+          setSyncStatusAndRef('syncing');
           await syncPendingWrite(pageId);
+          // Re-read after our own sync attempt; the event listener will also fire
+          // once flushPendingQueue finishes (handles the case where it ran first).
+          const afterStatus = await readDbSyncStatus(pageId);
+          setSyncStatusAndRef(mapDisplayStatus(afterStatus, true));
+        } else if (dbStatus === 'syncing') {
+          // flushPendingQueue is mid-flight — show 'syncing' and let the event update us.
+          setSyncStatusAndRef('syncing');
+        } else {
+          setSyncStatusAndRef(mapDisplayStatus(dbStatus, true));
         }
-        const finalStatus = await readDbSyncStatus(pageId);
-        setSyncStatus(mapDisplayStatus(finalStatus, true));
       })();
     } else {
       void readDbSyncStatus(pageId).then((dbStatus) => {
-        setSyncStatus(mapDisplayStatus(dbStatus, isOnline));
+        setSyncStatusAndRef(mapDisplayStatus(dbStatus, isOnline));
       });
     }
   }, [isOnline, currentPage?.id]);
+
+  // Re-read IDB status whenever flushPendingQueue (NetworkProvider) finishes a sync cycle.
+  // This is the authoritative resolution for the reconnect race where flushPendingQueue
+  // sets IDB to 'conflict' while RuneEditor's effect had already read 'syncing'.
+  useEffect(() => {
+    function handleSyncQueueUpdated() {
+      const pageId = currentPageRef.current?.id;
+      if (!pageId) return;
+      void readDbSyncStatus(pageId).then((dbStatus) => {
+        setSyncStatusAndRef(mapDisplayStatus(dbStatus, isOnlineRef.current));
+      });
+    }
+    window.addEventListener('rune-sync-queue-updated', handleSyncQueueUpdated);
+    return () => window.removeEventListener('rune-sync-queue-updated', handleSyncQueueUpdated);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleSave = useCallback(async (content: Record<string, unknown>, wordCount: number) => {
     const page = currentPageRef.current;
@@ -193,14 +229,21 @@ const lastSavedWordCountRef = useRef<number>(currentPage?.word_count ?? 0);
     }
 
     if (isOnlineRef.current) {
-      setSyncStatus('syncing');
+      // Never attempt to auto-sync a conflicted page — the user must resolve via the modal.
+      const preCheckStatus = await readDbSyncStatus(page.id);
+      if (preCheckStatus === 'conflict') {
+        setSyncStatusAndRef('conflict');
+        setIsSaving(false);
+        return;
+      }
+      setSyncStatusAndRef('syncing');
       await syncPendingWrite(page.id);
       setLastSaved(new Date());
     }
 
     setIsSaving(false);
     void readDbSyncStatus(page.id).then((dbStatus) => {
-      setSyncStatus(mapDisplayStatus(dbStatus, isOnlineRef.current));
+      setSyncStatusAndRef(mapDisplayStatus(dbStatus, isOnlineRef.current));
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -252,7 +295,10 @@ const lastSavedWordCountRef = useRef<number>(currentPage?.word_count ?? 0);
         } catch (err) {
           console.error('[offline] onUpdate: per-keystroke IDB write failed:', err);
         }
-        setSyncStatus(isOnlineRef.current ? 'online_dirty' : 'offline_dirty');
+        // Don't override 'conflict' on every keystroke — the user must resolve first.
+        if (syncStatusRef.current !== 'conflict') {
+          setSyncStatusAndRef(isOnlineRef.current ? 'online_dirty' : 'offline_dirty');
+        }
       }
 
       // Debounced cloud push — fires only after the user pauses writing.
@@ -407,6 +453,11 @@ const lastSavedWordCountRef = useRef<number>(currentPage?.word_count ?? 0);
   async function handleSyncNow() {
     const pageId = currentPageRef.current?.id;
     if (!pageId || isSyncingNow) return;
+    // Don't auto-sync a conflicted page — user must use the modal.
+    if (syncStatusRef.current === 'conflict') {
+      setConflictModalOpen(true);
+      return;
+    }
     setIsSyncingNow(true);
     try {
       await syncPendingWrite(pageId);
@@ -414,10 +465,10 @@ const lastSavedWordCountRef = useRef<number>(currentPage?.word_count ?? 0);
       if (!pending) {
         setShowingLocalDraft(false);
         setLastSaved(new Date());
-        setSyncStatus('synced');
+        setSyncStatusAndRef('synced');
       } else {
         const dbStatus = await readDbSyncStatus(pageId);
-        setSyncStatus(mapDisplayStatus(dbStatus, isOnlineRef.current));
+        setSyncStatusAndRef(mapDisplayStatus(dbStatus, isOnlineRef.current));
       }
     } catch {
       // silent
@@ -649,8 +700,8 @@ const lastSavedWordCountRef = useRef<number>(currentPage?.word_count ?? 0);
       {syncStatus === 'conflict' && (
         <button
           type="button"
-          onClick={() => showToast("Conflict: your draft and the server diverged. Resolve before syncing.", "error")}
-          aria-label="Sync conflict — click for details"
+          onClick={() => setConflictModalOpen(true)}
+          aria-label="Sync conflict — click to resolve"
           style={{
             color: "var(--color-crimson)",
             background: "none",
@@ -667,6 +718,41 @@ const lastSavedWordCountRef = useRef<number>(currentPage?.word_count ?? 0);
     </>
   )}
 </div>
+
+{/* Sync conflict resolution modal */}
+{conflictModalOpen && currentPage && (
+  <SyncConflictModal
+    pageId={currentPage.id}
+    onKeepLocal={() => {
+      setConflictModalOpen(false);
+      setShowingLocalDraft(false);
+      setLastSaved(new Date());
+      setSyncStatusAndRef('synced');
+      showToast("Local draft kept", "success");
+    }}
+    onKeepServer={(serverContent, serverWordCount) => {
+      setConflictModalOpen(false);
+      setShowingLocalDraft(false);
+      setLastSaved(new Date());
+      setSyncStatusAndRef('synced');
+      // Suppress onUpdate during the programmatic setContent so it does not create
+      // a new pending write or start a debounce cycle from the conflict resolution.
+      // Also clear any stale debounce timer left over from the user's offline typing.
+      isLoadingRef.current = true;
+      editor?.commands.setContent(serverContent);
+      clearTimeout(saveTimerRef.current);
+      isLoadingRef.current = false;
+      lastSavedWordCountRef.current = serverWordCount;
+      lastAwardedWordCountRef.current = serverWordCount;
+      onPageUpdatedRef.current(currentPage.id, {
+        content: serverContent,
+        word_count: serverWordCount,
+      });
+      showToast("Server version kept", "info");
+    }}
+    onClose={() => setConflictModalOpen(false)}
+  />
+)}
 
 {/* Floating Word Count Pill + text-only XP flash anchor */}
 <div className="fixed bottom-6 right-6 md:bottom-8 md:right-8 z-50 flex flex-col items-end gap-1.5">

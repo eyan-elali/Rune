@@ -17,6 +17,9 @@ export default function NetworkProvider() {
     async function syncAndNotify() {
       const { synced, failed, conflicts } = await flushPendingQueue()
 
+      // Signal RuneEditor (and any other listeners) that IDB sync statuses have settled.
+      window.dispatchEvent(new CustomEvent('rune-sync-queue-updated'))
+
       if (synced > 0) {
         showToast(synced === 1 ? '1 page synced' : `${synced} pages synced`, 'success')
       }
