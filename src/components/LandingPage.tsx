@@ -929,7 +929,8 @@ export default function LandingPage() {
                         width: workspaceView === 'focus' ? '0px' : '132px',
                         overflow: 'hidden',
                         flexShrink: 0,
-                        transition: 'width 0.45s cubic-bezier(0.4, 0, 0.2, 1)',
+                        transition: 'width 0.5s cubic-bezier(0.16, 1, 0.3, 1)',
+                        transitionDelay: workspaceView === 'focus' ? '0ms' : '80ms',
                         background: 'var(--bg-sidebar)',
                         borderRight: '1px solid var(--color-border)',
                         display: 'flex',
@@ -969,10 +970,19 @@ export default function LandingPage() {
                             height: '22px',
                             borderRadius: '50%',
                             border: '1px solid var(--color-border-strong)',
-                            background: 'rgba(184, 146, 42, 0.18)',
+                            background: 'rgba(44, 36, 32, 0.9)',
                             flexShrink: 0,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
                           }}
-                        />
+                        >
+                          <svg width="11" height="11" viewBox="0 0 11 11" fill="none" aria-hidden="true">
+                            <path d="M9.5 1C7.5 1 5.5 2.5 4.5 5C3.5 7.5 3.5 10 3.5 10" stroke="var(--color-gold)" strokeWidth="0.9" strokeLinecap="round" opacity="0.88"/>
+                            <path d="M9.5 1C9.5 1 7.5 2.5 7 4C6.5 5.5 7 7 7 7" stroke="var(--color-gold)" strokeWidth="0.7" strokeLinecap="round" opacity="0.72"/>
+                            <path d="M3.5 10L4.5 7.5" stroke="var(--color-gold)" strokeWidth="0.7" strokeLinecap="round" opacity="0.55"/>
+                          </svg>
+                        </div>
                         <span style={{ fontFamily: SANS, fontSize: '10px', color: 'var(--text-primary)', opacity: 0.7, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           Eleanor V.
                         </span>
@@ -1025,7 +1035,7 @@ export default function LandingPage() {
                       {/* Header row */}
                       <div
                         style={{
-                          height: '36px',
+                          height: workspaceView === 'focus' ? '0px' : '36px',
                           background: 'var(--bg-primary)',
                           borderBottom: '1px solid var(--color-border)',
                           display: 'flex',
@@ -1033,8 +1043,10 @@ export default function LandingPage() {
                           justifyContent: 'space-between',
                           padding: '0 14px',
                           flexShrink: 0,
+                          overflow: 'hidden',
                           opacity: workspaceView === 'focus' ? 0 : 1,
-                          transition: 'opacity 0.4s ease',
+                          transition: 'opacity 0.35s ease, height 0.5s cubic-bezier(0.16, 1, 0.3, 1)',
+                          transitionDelay: workspaceView === 'focus' ? '60ms' : '20ms',
                         }}
                         aria-hidden
                       >
@@ -1084,27 +1096,28 @@ export default function LandingPage() {
                             width: workspaceView === 'focus' ? '0px' : '122px',
                             overflow: 'hidden',
                             flexShrink: 0,
-                            transition: 'width 0.45s cubic-bezier(0.4, 0, 0.2, 1)',
+                            transition: 'width 0.5s cubic-bezier(0.16, 1, 0.3, 1)',
+                            transitionDelay: workspaceView === 'focus' ? '30ms' : '50ms',
                             background: 'var(--bg-sidebar)',
                             borderRight: '1px solid var(--color-border)',
+                            display: 'flex',
+                            flexDirection: 'column',
                           }}
                           aria-hidden
                         >
-                          <div style={{ padding: '8px 10px 6px', borderBottom: '1px solid var(--color-border)' }}>
+                          <div style={{ padding: '8px 10px 6px', borderBottom: '1px solid var(--color-border)', flexShrink: 0 }}>
                             <span style={{ fontFamily: SANS, fontSize: '8px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--color-mist)', opacity: 0.65, whiteSpace: 'nowrap' }}>
                               Pages
                             </span>
                           </div>
 
-                          {/* Chapter I */}
-                          <div style={{ padding: '8px 8px 4px' }}>
-                            <div style={{ fontFamily: SANS, fontSize: '9px', color: 'var(--color-gold)', opacity: 0.85, marginBottom: '4px', letterSpacing: '0.04em', whiteSpace: 'nowrap', overflow: 'hidden', padding: '0 2px' }}>
-                              Chapter I
-                            </div>
+                          {/* Pages — flat list, no chapter grouping */}
+                          <div style={{ padding: '6px 8px', flex: 1, overflow: 'hidden' }}>
                             {[
                               { label: 'The Arrival', active: true },
                               { label: 'The Study', active: false },
                               { label: 'First Contact', active: false },
+                              { label: 'Interlude', active: false },
                             ].map(({ label, active }) => (
                               <div
                                 key={label}
@@ -1128,30 +1141,11 @@ export default function LandingPage() {
                             ))}
                           </div>
 
-                          {/* Chapter II */}
-                          <div style={{ padding: '4px 8px 4px' }}>
-                            <div style={{ fontFamily: SANS, fontSize: '9px', color: 'var(--text-muted)', opacity: 0.5, marginBottom: '4px', letterSpacing: '0.04em', whiteSpace: 'nowrap', overflow: 'hidden', padding: '0 2px' }}>
-                              Chapter II
+                          {/* New page */}
+                          <div style={{ padding: '5px 10px 8px', borderTop: '1px solid var(--color-border)', flexShrink: 0 }}>
+                            <div style={{ fontFamily: SANS, fontSize: '9px', color: 'var(--color-gold)', opacity: 0.5, padding: '3px 6px', whiteSpace: 'nowrap' }}>
+                              + New Page
                             </div>
-                            {['The Letter', 'The Garden', 'Midnight'].map((pg) => (
-                              <div
-                                key={pg}
-                                style={{
-                                  padding: '5px 7px',
-                                  borderRadius: '0 3px 3px 0',
-                                  fontFamily: SANS,
-                                  fontSize: '9.5px',
-                                  color: 'var(--text-primary)',
-                                  opacity: 0.38,
-                                  marginBottom: '1px',
-                                  whiteSpace: 'nowrap',
-                                  overflow: 'hidden',
-                                  textOverflow: 'ellipsis',
-                                }}
-                              >
-                                {pg}
-                              </div>
-                            ))}
                           </div>
                         </div>
 
@@ -1169,11 +1163,12 @@ export default function LandingPage() {
                             style={{
                               position: 'absolute',
                               inset: 0,
-                              background: 'radial-gradient(ellipse at 50% 48%, transparent 38%, rgba(26, 22, 20, 0.22) 100%)',
+                              background: 'radial-gradient(ellipse at 50% 50%, transparent 55%, rgba(26, 22, 20, 0.08) 100%)',
                               pointerEvents: 'none',
                               zIndex: 2,
                               opacity: workspaceView === 'focus' ? 1 : 0,
-                              transition: 'opacity 0.55s ease',
+                              transition: 'opacity 0.65s ease',
+                              transitionDelay: workspaceView === 'focus' ? '230ms' : '0ms',
                             }}
                             aria-hidden
                           />
@@ -1181,24 +1176,38 @@ export default function LandingPage() {
                           {/* Editor content */}
                           <div
                             style={{
-                              padding: workspaceView === 'focus' ? '30px 44px 20px' : '18px 24px 18px',
-                              transition: 'padding 0.45s cubic-bezier(0.4, 0, 0.2, 1)',
+                              padding: workspaceView === 'focus' ? '28px 40px 20px' : '16px 22px 18px',
+                              transition: 'padding 0.55s cubic-bezier(0.16, 1, 0.3, 1)',
+                              transitionDelay: workspaceView === 'focus' ? '120ms' : '0ms',
                               position: 'relative',
                               zIndex: 1,
                             }}
                           >
+                            {/* Page title — collapses in focus mode */}
                             <div
                               style={{
-                                fontFamily: SERIF,
-                                fontSize: '7px',
-                                letterSpacing: '0.22em',
-                                textTransform: 'uppercase',
-                                color: 'var(--color-mist)',
-                                marginBottom: '14px',
-                                opacity: 0.45,
+                                overflow: 'hidden',
+                                maxHeight: workspaceView === 'focus' ? '0px' : '56px',
+                                opacity: workspaceView === 'focus' ? 0 : 1,
+                                marginBottom: workspaceView === 'focus' ? '0px' : '14px',
+                                transition: 'max-height 0.45s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease, margin-bottom 0.45s ease',
+                                transitionDelay: workspaceView === 'focus' ? '0ms' : '180ms',
                               }}
                             >
-                              CHAPTER I — THE ARRIVAL
+                              <div
+                                style={{
+                                  fontFamily: SERIF,
+                                  fontSize: '12.5px',
+                                  fontWeight: 700,
+                                  color: 'var(--color-ink)',
+                                  letterSpacing: '-0.01em',
+                                  lineHeight: 1.3,
+                                  paddingBottom: '10px',
+                                  borderBottom: '1px solid var(--color-border)',
+                                }}
+                              >
+                                The Arrival
+                              </div>
                             </div>
 
                             <p style={{ fontFamily: SERIF, fontSize: '11px', lineHeight: 1.9, color: 'var(--color-ink)', marginBottom: '10px' }}>
