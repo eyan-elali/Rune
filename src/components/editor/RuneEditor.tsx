@@ -487,6 +487,10 @@ const lastSavedWordCountRef = useRef<number>(currentPage?.word_count ?? 0);
     }
     setTitleDraft(trimmed);
     onRenamePage(page.id, trimmed);
+    if (!isOnlineRef.current) {
+      showToast("Title saved locally — will sync when reconnected", "info");
+      return;
+    }
     await renamePage(page.id, trimmed);
   }
 
@@ -587,7 +591,6 @@ const lastSavedWordCountRef = useRef<number>(currentPage?.word_count ?? 0);
             wideEditor ? "max-w-5xl" : "max-w-2xl"
           )}
         >
-        {/* No extra background or shadow needed here now, since the parent is vellum */}
           <input
             id={`page-title-${currentPage.id}`}
             type="text"

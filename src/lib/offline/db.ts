@@ -94,7 +94,11 @@ export async function getOfflineDB(): Promise<IDBPDatabase<RuneOfflineDB>> {
 export async function requestPersistentStorage(): Promise<void> {
   if (typeof navigator === 'undefined') return
   if (!navigator.storage?.persist) return
-  await navigator.storage.persist()
+  try {
+    await navigator.storage.persist()
+  } catch {
+    // best-effort — unavailable in Safari private mode and some restricted contexts
+  }
 }
 
 export async function getPendingWrite(pageId: string) {
