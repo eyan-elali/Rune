@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/client'
 import { getOfflineDB, evictOldCacheEntries } from '@/lib/offline/db'
 import { createGameSession } from '@/lib/actions/games'
 import { awardProjectXp } from '@/lib/actions/xp'
+import { afterPageSync } from '@/lib/actions/pages'
 
 // ── Write queue ───────────────────────────────────────────────────────────────
 
@@ -116,6 +117,14 @@ export async function syncPendingWrite(pageId: string): Promise<void> {
     serverUpdatedAt: (updated[0].updated_at as string) ?? new Date().toISOString(),
     cachedAt: Date.now(),
   })
+
+  // Mirror the server-side maintenance that updatePage() performs:
+  // touch chapter updated_at + canonical-aware project word count recalculation.
+  try {
+    await afterPageSync(pageId)
+  } catch {
+    // Non-fatal — page content is saved; totals will correct on next full navigation.
+  }
 }
 
 // ── Flush entire queue ─────────────────────────────────────────────────────────

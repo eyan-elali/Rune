@@ -265,3 +265,37 @@ export async function clearCanonicalPage(
 
   return { error: null };
 }
+
+/**
+ * Post-sync maintenance called after syncPendingWrite successfully persists a
+ * page to Supabase. Mirrors what updatePage() does server-side: touches the
+ * parent chapter's updated_at and runs the canonical-aware project word count
+ * recalculation (which also revalidates the project and profile page caches).
+ */
+export async function afterPageSync(pageId: string): Promise<void> {
+  const { supabase, user } = await getUser();
+  if (!user) return;
+
+  const { data: page } = await supabase
+    .from("pages")
+    .select("chapter_id")
+    .eq("id", pageId)
+    .single();
+
+  if (!page) return;
+
+  await supabase
+    .from("chapters")
+    .update({ updated_at: new Date().toISOString() })
+    .eq("id", page.chapter_id);
+
+  const { data: chapter } = await supabase
+    .from("chapters")
+    .select("project_id")
+    .eq("id", page.chapter_id)
+    .single();
+
+  if (chapter) {
+    await recalculateProjectWordCount(supabase, chapter.project_id);
+  }
+}
