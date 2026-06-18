@@ -589,6 +589,205 @@ export default function LandingPage() {
 
         <SectionDivider />
 
+        {/* ── SCREEN 2: THE PROBLEM ──────────────────────────────────────── */}
+        <section
+          className="bg-[var(--bg-secondary)]"
+          style={{
+            width: '100%',
+            minHeight: 'calc(100vh - 56px)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '6rem 1.5rem',
+            borderTop: '1px solid var(--color-border)',
+            borderBottom: '1px solid var(--color-border)',
+          }}
+        >
+          <div className="relative z-20" style={{ width: '100%', maxWidth: '1100px', margin: '0 auto' }}>
+
+            {/* Eyebrow */}
+            <div
+              style={{
+                fontFamily: SANS,
+                fontSize: '10px',
+                letterSpacing: '0.26em',
+                color: 'var(--color-gold)',
+                textAlign: 'center',
+                marginBottom: '2.25rem',
+                opacity: 0.7,
+              }}
+            >
+              THE PROBLEM
+            </div>
+
+            {/* Headline */}
+            <h2
+              style={{
+                fontFamily: SERIF,
+                fontSize: 'clamp(2.2rem, 4vw, 3.6rem)',
+                fontWeight: 700,
+                color: 'var(--text-primary)',
+                textAlign: 'center',
+                lineHeight: 1.15,
+                letterSpacing: '-0.01em',
+                marginBottom: '2rem',
+              }}
+            >
+              Novels outgrow blank documents.
+            </h2>
+
+            {/* Supporting paragraph */}
+            <p
+              style={{
+                fontFamily: SANS,
+                fontSize: '16px',
+                color: 'var(--text-muted)',
+                textAlign: 'center',
+                lineHeight: 1.85,
+                maxWidth: '600px',
+                margin: '0 auto 4.5rem',
+              }}
+            >
+              A novel starts as a page. Then it becomes chapters, scenes, revisions, goals, and loose ideas. Document editors were built to hold words—not entire manuscripts.
+            </p>
+
+            {/* Divider */}
+            <div style={{ display: 'flex', alignItems: 'center', marginBottom: '4.5rem' }}>
+              <div style={{ flex: 1, height: '1px', background: 'var(--color-border)' }} />
+              <span style={{ margin: '0 16px', color: 'var(--color-gold)', fontSize: '12px', opacity: 0.45 }}>✦</span>
+              <div style={{ flex: 1, height: '1px', background: 'var(--color-border)' }} />
+            </div>
+
+            {/* Three problem columns */}
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(3, 1fr)',
+                maxWidth: '900px',
+                margin: '0 auto',
+              }}
+            >
+              {/* I — Structure disappears */}
+              <div style={{ padding: '0 3rem 0 0', borderRight: '1px solid var(--color-border)' }}>
+                <div
+                  style={{
+                    fontFamily: SERIF,
+                    fontSize: '11px',
+                    letterSpacing: '0.2em',
+                    color: 'var(--color-gold)',
+                    marginBottom: '1.25rem',
+                    opacity: 0.55,
+                  }}
+                >
+                  I.
+                </div>
+                <h3
+                  style={{
+                    fontFamily: SERIF,
+                    fontSize: '19px',
+                    fontWeight: 600,
+                    color: 'var(--text-primary)',
+                    marginBottom: '0.85rem',
+                    lineHeight: 1.3,
+                  }}
+                >
+                  Your structure disappears
+                </h3>
+                <p style={{ fontFamily: SANS, fontSize: '14px', color: 'var(--text-muted)', lineHeight: 1.8 }}>
+                  Your manuscript becomes one long scroll. You stop navigating chapters and start hunting for them. The shape of your novel lives in your memory, not your workspace.
+                </p>
+              </div>
+
+              {/* II — Momentum fades */}
+              <div style={{ padding: '0 3rem', borderRight: '1px solid var(--color-border)' }}>
+                <div
+                  style={{
+                    fontFamily: SERIF,
+                    fontSize: '11px',
+                    letterSpacing: '0.2em',
+                    color: 'var(--color-gold)',
+                    marginBottom: '1.25rem',
+                    opacity: 0.55,
+                  }}
+                >
+                  II.
+                </div>
+                <h3
+                  style={{
+                    fontFamily: SERIF,
+                    fontSize: '19px',
+                    fontWeight: 600,
+                    color: 'var(--text-primary)',
+                    marginBottom: '0.85rem',
+                    lineHeight: 1.3,
+                  }}
+                >
+                  Your momentum fades
+                </h3>
+                <p style={{ fontFamily: SANS, fontSize: '14px', color: 'var(--text-muted)', lineHeight: 1.8 }}>
+                  The document doesn&apos;t know your story. It doesn&apos;t know where you left off or what comes next. The cursor blinks until something else wins.
+                </p>
+              </div>
+
+              {/* III — Progress gets blurry */}
+              <div style={{ padding: '0 0 0 3rem' }}>
+                <div
+                  style={{
+                    fontFamily: SERIF,
+                    fontSize: '11px',
+                    letterSpacing: '0.2em',
+                    color: 'var(--color-gold)',
+                    marginBottom: '1.25rem',
+                    opacity: 0.55,
+                  }}
+                >
+                  III.
+                </div>
+                <h3
+                  style={{
+                    fontFamily: SERIF,
+                    fontSize: '19px',
+                    fontWeight: 600,
+                    color: 'var(--text-primary)',
+                    marginBottom: '0.85rem',
+                    lineHeight: 1.3,
+                  }}
+                >
+                  Your progress blurs
+                </h3>
+                <p style={{ fontFamily: SANS, fontSize: '14px', color: 'var(--text-muted)', lineHeight: 1.8 }}>
+                  You write for weeks and still feel lost. Word counts, goals, and revisions scatter across tabs and files. The manuscript is happening—somewhere.
+                </p>
+              </div>
+            </div>
+
+            {/* Bottom divider */}
+            <div style={{ display: 'flex', alignItems: 'center', margin: '4.5rem 0 3.5rem' }}>
+              <div style={{ flex: 1, height: '1px', background: 'var(--color-border)' }} />
+              <span style={{ margin: '0 16px', color: 'var(--color-gold)', fontSize: '12px', opacity: 0.45 }}>✦</span>
+              <div style={{ flex: 1, height: '1px', background: 'var(--color-border)' }} />
+            </div>
+
+            {/* Closing line */}
+            <p
+              style={{
+                fontFamily: SERIF,
+                fontStyle: 'italic',
+                fontSize: 'clamp(1.1rem, 2vw, 1.35rem)',
+                color: 'var(--text-primary)',
+                textAlign: 'center',
+                opacity: 0.75,
+              }}
+            >
+              Rune begins where the blank document stops being enough.
+            </p>
+
+          </div>
+        </section>
+
+        <SectionDivider />
+
         {/* ── SECTION 3: PROFESSIONAL NOVELIST SUITE ───────────────────── */}
         <section
           className="bg-[var(--bg-secondary)]"
