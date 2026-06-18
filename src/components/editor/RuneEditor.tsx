@@ -34,9 +34,10 @@ async function readDbSyncStatus(pageId: string): Promise<string | null> {
 
 function mapDisplayStatus(dbStatus: string | null, online: boolean): DisplaySyncStatus {
   if (!dbStatus) return 'synced'
+  if (!online) return 'offline_dirty'
   if (dbStatus === 'conflict') return 'conflict'
   if (dbStatus === 'syncing') return 'syncing'
-  return online ? 'online_dirty' : 'offline_dirty'
+  return 'online_dirty'
 }
 
 interface RuneEditorProps {
@@ -190,6 +191,7 @@ const lastSavedWordCountRef = useRef<number>(currentPage?.word_count ?? 0);
     }
 
     if (isOnlineRef.current) {
+      setSyncStatus('syncing');
       await syncPendingWrite(page.id);
       setLastSaved(new Date());
     }
@@ -248,6 +250,7 @@ const lastSavedWordCountRef = useRef<number>(currentPage?.word_count ?? 0);
         } catch (err) {
           console.error('[offline] onUpdate: per-keystroke IDB write failed:', err);
         }
+        setSyncStatus(isOnlineRef.current ? 'online_dirty' : 'offline_dirty');
       }
 
       // Debounced cloud push — fires only after the user pauses writing.
@@ -532,7 +535,7 @@ const lastSavedWordCountRef = useRef<number>(currentPage?.word_count ?? 0);
       className="pointer-events-none"
       style={{ color: "var(--color-mist)", opacity: 0.6, transition: "opacity 0.4s" }}
     >
-      ✦ Saved
+      Saved
     </span>
   )}
   {syncStatus === 'online_dirty' && (
@@ -540,7 +543,7 @@ const lastSavedWordCountRef = useRef<number>(currentPage?.word_count ?? 0);
       className="pointer-events-none"
       style={{ color: "var(--color-mist)", opacity: 0.8 }}
     >
-      Saving…
+      Saving...
     </span>
   )}
   {syncStatus === 'syncing' && (
@@ -548,7 +551,7 @@ const lastSavedWordCountRef = useRef<number>(currentPage?.word_count ?? 0);
       className="pointer-events-none"
       style={{ color: "var(--color-mist)", opacity: 0.8 }}
     >
-      Syncing…
+      Syncing...
     </span>
   )}
   {syncStatus === 'offline_dirty' && (
@@ -556,7 +559,7 @@ const lastSavedWordCountRef = useRef<number>(currentPage?.word_count ?? 0);
       className="pointer-events-none"
       style={{ color: "var(--color-gold)", opacity: 0.9 }}
     >
-      ⚡ Saved locally
+      Saved locally
     </span>
   )}
   {syncStatus === 'conflict' && (
@@ -574,7 +577,7 @@ const lastSavedWordCountRef = useRef<number>(currentPage?.word_count ?? 0);
         letterSpacing: "inherit",
       }}
     >
-      ⚠ Conflict
+      Conflict
     </button>
   )}
 </div>
