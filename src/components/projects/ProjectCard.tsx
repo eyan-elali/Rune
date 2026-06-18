@@ -184,10 +184,11 @@ export function ProjectCardSkeleton() {
 
 interface ProjectCardProps {
   project: Project;
+  wordCount?: number;
   onEdit: (project: Project) => void;
 }
 
-export function ProjectCard({ project, onEdit }: ProjectCardProps) {
+export function ProjectCard({ project, wordCount, onEdit }: ProjectCardProps) {
   const router = useRouter();
   const [deleting, setDeleting] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -251,7 +252,7 @@ export function ProjectCard({ project, onEdit }: ProjectCardProps) {
 
         <div className="mt-auto flex items-center justify-between pt-3">
           <span className="text-xs text-rune-mist/50">
-            {project.word_count.toLocaleString()} words
+            {(wordCount ?? project.word_count).toLocaleString()} words
           </span>
           <span className="text-xs text-rune-mist/40">
             {formatDate(project.updated_at)}

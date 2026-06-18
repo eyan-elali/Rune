@@ -10,9 +10,10 @@ import type { Project } from "@/lib/types";
 
 interface ProjectsGridProps {
   projects: Project[];
+  wordCounts: Record<string, number>;
 }
 
-export function ProjectsGrid({ projects }: ProjectsGridProps) {
+export function ProjectsGrid({ projects, wordCounts }: ProjectsGridProps) {
   const router = useRouter();
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Project | null>(null);
@@ -76,6 +77,7 @@ export function ProjectsGrid({ projects }: ProjectsGridProps) {
             <ProjectCard
               key={project.id}
               project={project}
+              wordCount={wordCounts[project.id] ?? project.word_count}
               onEdit={openEdit}
             />
           ))}
