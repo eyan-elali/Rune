@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import {
   Users,
-  Eye,
   Compass,
   Crown,
 } from 'lucide-react'
@@ -74,6 +73,7 @@ export default function LandingPage() {
   const [activeHeroTheme, setActiveHeroTheme] = useState<HeroThemeKey>('candlelight')
   const [billing, setBilling] = useState<'monthly' | 'annual'>('monthly')
   const [priceVisible, setPriceVisible] = useState(true)
+  const [workspaceView, setWorkspaceView] = useState<'workspace' | 'focus'>('workspace')
 
   useEffect(() => {
     document.documentElement.removeAttribute('data-theme')
@@ -788,119 +788,506 @@ export default function LandingPage() {
 
         <SectionDivider />
 
-        {/* ── SECTION 3: PROFESSIONAL NOVELIST SUITE ───────────────────── */}
+        {/* ── SCREEN 3: THE WORKSPACE REVEAL ───────────────────────────── */}
         <section
-          className="bg-[var(--bg-secondary)]"
+          className="bg-[var(--bg-primary)]"
           style={{
             width: '100%',
-            padding: '7rem 1.5rem',
+            minHeight: 'calc(100vh - 56px)',
+            padding: '6rem 3rem',
             borderTop: '1px solid var(--color-border)',
             borderBottom: '1px solid var(--color-border)',
+            display: 'flex',
+            alignItems: 'center',
           }}
         >
-          <div className="relative z-20">
-          <h2
-            style={{
-              fontFamily: SERIF,
-              fontSize: 'clamp(1.6rem, 3vw, 2.4rem)',
-              fontWeight: 600,
-              color: 'var(--text-primary)',
-              textAlign: 'center',
-              marginBottom: '1rem',
-            }}
-          >
-            Engineered for the Long-Form Novelist
-          </h2>
-          <p style={{ fontFamily: SANS, fontSize: '16px', color: 'var(--text-muted)', textAlign: 'center', marginBottom: '4rem' }}>
-            Every tool a serious author needs. Nothing a hobbyist would recognize.
-          </p>
+          <div className="relative z-20" style={{ maxWidth: '1220px', margin: '0 auto', width: '100%' }}>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1.6fr',
+                gap: '5rem',
+                alignItems: 'center',
+              }}
+            >
 
-          <div
-            className="feature-grid"
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(4, 1fr)',
-              gap: '1.5rem',
-              maxWidth: '1200px',
-              margin: '0 auto',
-            }}
-          >
-            {/* Card 1 — Heatmap */}
-            <div className="feature-card relative z-20 bg-[var(--surface-card)]" style={{ border: '1px solid var(--color-border)', borderRadius: '8px', padding: '2rem', transition: 'border-color 0.2s ease' }}>
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(5, 7px)',
-                  gridTemplateRows: 'repeat(7, 7px)',
-                  gap: '2px',
-                  marginBottom: '1.25rem',
-                }}
-                aria-hidden
-              >
-                {HEATMAP_FILLED.map((filled, i) => (
+              {/* ── Left: Copy ── */}
+              <div>
+                <div
+                  style={{
+                    fontFamily: SANS,
+                    fontSize: '10px',
+                    letterSpacing: '0.26em',
+                    color: 'var(--color-gold)',
+                    marginBottom: '2rem',
+                    opacity: 0.7,
+                  }}
+                >
+                  THE WORKSPACE
+                </div>
+
+                <h2
+                  style={{
+                    fontFamily: SERIF,
+                    fontSize: 'clamp(2rem, 3vw, 2.8rem)',
+                    fontWeight: 700,
+                    color: 'var(--text-primary)',
+                    lineHeight: 1.18,
+                    letterSpacing: '-0.01em',
+                    marginBottom: '1.5rem',
+                  }}
+                >
+                  Your novel deserves more than one endless document.
+                </h2>
+
+                <p
+                  style={{
+                    fontFamily: SANS,
+                    fontSize: '16px',
+                    color: 'var(--text-muted)',
+                    lineHeight: 1.8,
+                    marginBottom: '2.5rem',
+                    maxWidth: '380px',
+                  }}
+                >
+                  Rune organizes every manuscript into projects, chapters, and pages—so you always know where you are, what comes next, and how far you&apos;ve come.
+                </p>
+
+                <div style={{ height: '1px', background: 'var(--color-border)', marginBottom: '2.5rem', maxWidth: '380px' }} />
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                  {[
+                    {
+                      title: 'Projects',
+                      body: 'Keep every manuscript separate and organized.',
+                    },
+                    {
+                      title: 'Chapters & Pages',
+                      body: 'Navigate your story the way novels are actually written.',
+                    },
+                    {
+                      title: 'Offline & Automatic Saving',
+                      body: 'Write anywhere. Every word is protected and synchronized when you&apos;re back online.',
+                    },
+                  ].map(({ title, body }) => (
+                    <div key={title}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '0.4rem' }}>
+                        <span style={{ color: 'var(--color-gold)', fontSize: '11px', flexShrink: 0 }}>✦</span>
+                        <h3 style={{ fontFamily: SERIF, fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                          {title}
+                        </h3>
+                      </div>
+                      <p
+                        style={{ fontFamily: SANS, fontSize: '14px', color: 'var(--text-muted)', lineHeight: 1.75, paddingLeft: '21px' }}
+                        dangerouslySetInnerHTML={{ __html: body }}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* ── Right: Workspace Mockup ── */}
+              <div>
+                {/* App window frame */}
+                <div
+                  style={{
+                    borderRadius: '10px',
+                    overflow: 'hidden',
+                    border: '1px solid var(--color-border-strong)',
+                    boxShadow: '0 28px 80px rgba(0,0,0,0.14), 0 4px 20px rgba(0,0,0,0.07)',
+                    height: '468px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    background: 'var(--bg-primary)',
+                  }}
+                >
+                  {/* Window chrome */}
                   <div
-                    key={i}
                     style={{
-                      width: '7px',
-                      height: '7px',
-                      borderRadius: '1px',
-                      background: 'var(--color-gold)',
-                      opacity: filled ? 1 : 0.15,
+                      height: '28px',
+                      background: 'var(--bg-sidebar)',
+                      borderBottom: '1px solid var(--color-border)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      padding: '0 12px',
+                      gap: '6px',
+                      flexShrink: 0,
                     }}
-                  />
-                ))}
-              </div>
-              <h3 style={{ fontFamily: SERIF, fontSize: '17px', color: 'var(--text-primary)', fontWeight: 600, marginBottom: '0.5rem' }}>
-                Writing Consistency Heatmap
-              </h3>
-              <p style={{ fontFamily: SANS, fontSize: '14px', color: 'var(--text-muted)', lineHeight: 1.65 }}>
-                A GitHub-style contribution map tracks every word across every session. See your momentum at a glance. Identify your patterns. Never lose a streak again.
-              </p>
-            </div>
+                    aria-hidden
+                  >
+                    <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#ff5f57', opacity: 0.75 }} />
+                    <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#febc2e', opacity: 0.75 }} />
+                    <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#28c840', opacity: 0.75 }} />
+                  </div>
 
-            {/* Card 2 — Plot & Task Manager (no Scribe badge) */}
-            <div className="feature-card relative z-20 bg-[var(--surface-card)]" style={{ border: '1px solid var(--color-border)', borderRadius: '8px', padding: '2rem', transition: 'border-color 0.2s ease' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '1.25rem' }} aria-hidden>
-                <div style={{ height: '4px', borderRadius: '2px', background: 'var(--color-gold)', width: '24px' }} />
-                <div style={{ height: '4px', borderRadius: '2px', background: 'var(--color-gold)', width: '18px' }} />
-                <div style={{ height: '4px', borderRadius: '2px', background: 'var(--color-gold)', width: '20px' }} />
-              </div>
-              <h3 style={{ fontFamily: SERIF, fontSize: '17px', color: 'var(--text-primary)', fontWeight: 600, marginBottom: '0.5rem' }}>
-                 Task Manager
-              </h3>
-              <p style={{ fontFamily: SANS, fontSize: '14px', color: 'var(--text-muted)', lineHeight: 1.65 }}>
-              Command the entire scope of your manuscript from a centralized operational hub. Track high-level scene criteria, character arcs, and overarching plot requirements across all chapters before you step foot in the editor. Plan the work, then execute without distraction.
-              </p>
-            </div>
+                  {/* App layout */}
+                  <div style={{ flex: 1, display: 'flex', overflow: 'hidden', minHeight: 0 }}>
 
-            {/* Card 3 — Goals & Streaks */}
-            <div className="feature-card relative z-20 bg-[var(--surface-card)]" style={{ border: '1px solid var(--color-border)', borderRadius: '8px', padding: '2rem', transition: 'border-color 0.2s ease' }}>
-              <div style={{ marginBottom: '1.25rem' }} aria-hidden>
-                <svg width="40" height="40" viewBox="0 0 40 40" fill="none" aria-hidden>
-                  <path d="M 20 5 A 15 15 0 1 1 5 20" stroke="var(--color-gold)" strokeWidth="2" strokeLinecap="round" />
-                </svg>
-              </div>
-              <h3 style={{ fontFamily: SERIF, fontSize: '17px', color: 'var(--text-primary)', fontWeight: 600, marginBottom: '0.5rem' }}>
-                Manuscript Goals &amp; Daily Streaks
-              </h3>
-              <p style={{ fontFamily: SANS, fontSize: '14px', color: 'var(--text-muted)', lineHeight: 1.65 }}>
-                Set a total word count target for your manuscript. Track daily streaks. Watch the heatmap fill. The system rewards consistency — not inspiration.
-              </p>
-            </div>
+                    {/* ── Sidebar ── */}
+                    <div
+                      style={{
+                        width: workspaceView === 'focus' ? '0px' : '132px',
+                        overflow: 'hidden',
+                        flexShrink: 0,
+                        transition: 'width 0.45s cubic-bezier(0.4, 0, 0.2, 1)',
+                        background: 'var(--bg-sidebar)',
+                        borderRight: '1px solid var(--color-border)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                      }}
+                      aria-hidden
+                    >
+                      {/* Wordmark row */}
+                      <div
+                        style={{
+                          padding: '14px 14px 10px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          flexShrink: 0,
+                        }}
+                      >
+                        <span
+                          style={{
+                            fontFamily: SERIF,
+                            fontSize: '13px',
+                            letterSpacing: '0.2em',
+                            color: 'var(--color-gold)',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          Rune
+                        </span>
+                      </div>
+                      <div style={{ height: '1px', background: 'var(--color-border)', margin: '0 8px', flexShrink: 0 }} />
 
-            {/* Card 4 — Focus Mode */}
-            <div className="feature-card relative z-20 bg-[var(--surface-card)]" style={{ border: '1px solid var(--color-border)', borderRadius: '8px', padding: '2rem', transition: 'border-color 0.2s ease' }}>
-              <div style={{ marginBottom: '1.25rem' }} aria-hidden>
-                <Eye size={20} className="text-[var(--color-gold)]" />
+                      {/* User identity */}
+                      <div style={{ padding: '10px 12px 0', display: 'flex', alignItems: 'center', gap: '7px', flexShrink: 0 }}>
+                        <div
+                          style={{
+                            width: '22px',
+                            height: '22px',
+                            borderRadius: '50%',
+                            border: '1px solid var(--color-border-strong)',
+                            background: 'rgba(184, 146, 42, 0.18)',
+                            flexShrink: 0,
+                          }}
+                        />
+                        <span style={{ fontFamily: SANS, fontSize: '10px', color: 'var(--text-primary)', opacity: 0.7, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          Eleanor V.
+                        </span>
+                      </div>
+                      {/* XP bar strip */}
+                      <div style={{ height: '2px', background: 'rgba(184, 146, 42, 0.1)', margin: '8px 0 6px', flexShrink: 0 }}>
+                        <div style={{ height: '100%', width: '62%', background: 'linear-gradient(90deg, var(--color-gold-dim), var(--color-gold))' }} />
+                      </div>
+
+                      {/* Nav links */}
+                      <nav style={{ flex: 1, padding: '4px 6px', overflow: 'hidden' }}>
+                        {[
+                          { label: 'Dashboard', active: false },
+                          { label: 'Projects', active: true },
+                          { label: 'Profile & Stats', active: false },
+                          { label: 'Arena', active: false, muted: true },
+                        ].map(({ label, active, muted }) => (
+                          <div
+                            key={label}
+                            style={{
+                              padding: '6px 8px',
+                              borderRadius: '0 4px 4px 0',
+                              marginBottom: '1px',
+                              borderLeft: `2px solid ${active ? 'var(--color-gold)' : 'transparent'}`,
+                              background: active ? 'rgba(184, 146, 42, 0.1)' : 'transparent',
+                              fontFamily: SANS,
+                              fontSize: '10px',
+                              color: active ? 'var(--color-gold)' : 'var(--text-primary)',
+                              opacity: muted ? 0.35 : active ? 1 : 0.62,
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                            }}
+                          >
+                            {label}
+                          </div>
+                        ))}
+                      </nav>
+
+                      {/* Bottom nav */}
+                      <div style={{ padding: '6px 6px 8px', borderTop: '1px solid var(--color-border)', flexShrink: 0 }}>
+                        <div style={{ padding: '6px 8px', fontFamily: SANS, fontSize: '10px', color: 'var(--text-primary)', opacity: 0.38, whiteSpace: 'nowrap', overflow: 'hidden' }}>
+                          Settings
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* ── Main column ── */}
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
+
+                      {/* Header row */}
+                      <div
+                        style={{
+                          height: '36px',
+                          background: 'var(--bg-primary)',
+                          borderBottom: '1px solid var(--color-border)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: '0 14px',
+                          flexShrink: 0,
+                          opacity: workspaceView === 'focus' ? 0 : 1,
+                          transition: 'opacity 0.4s ease',
+                        }}
+                        aria-hidden
+                      >
+                        {/* Breadcrumb */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontFamily: SANS, fontSize: '9.5px', color: 'var(--text-muted)', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                          <span>Projects</span>
+                          <span style={{ opacity: 0.4, margin: '0 1px' }}>›</span>
+                          <span style={{ color: 'var(--text-primary)', opacity: 0.75 }}>The Midnight Thesis</span>
+                          <span style={{ opacity: 0.4, margin: '0 1px' }}>›</span>
+                          <span style={{ color: 'var(--text-primary)' }}>Chapter I</span>
+                        </div>
+                        {/* Focus/Game toggle */}
+                        <div
+                          style={{
+                            display: 'flex',
+                            border: '1px solid var(--color-border-strong)',
+                            borderRadius: '9999px',
+                            padding: '2px',
+                            flexShrink: 0,
+                          }}
+                        >
+                          {['Focus', 'Game'].map((m) => (
+                            <span
+                              key={m}
+                              style={{
+                                fontFamily: SANS,
+                                fontSize: '8px',
+                                padding: '2px 7px',
+                                borderRadius: '9999px',
+                                color: 'var(--text-primary)',
+                                opacity: 0.5,
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              {m}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Content row: page list + editor */}
+                      <div style={{ flex: 1, display: 'flex', overflow: 'hidden', minHeight: 0 }}>
+
+                        {/* ── Page list ── */}
+                        <div
+                          style={{
+                            width: workspaceView === 'focus' ? '0px' : '122px',
+                            overflow: 'hidden',
+                            flexShrink: 0,
+                            transition: 'width 0.45s cubic-bezier(0.4, 0, 0.2, 1)',
+                            background: 'var(--bg-sidebar)',
+                            borderRight: '1px solid var(--color-border)',
+                          }}
+                          aria-hidden
+                        >
+                          <div style={{ padding: '8px 10px 6px', borderBottom: '1px solid var(--color-border)' }}>
+                            <span style={{ fontFamily: SANS, fontSize: '8px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--color-mist)', opacity: 0.65, whiteSpace: 'nowrap' }}>
+                              Pages
+                            </span>
+                          </div>
+
+                          {/* Chapter I */}
+                          <div style={{ padding: '8px 8px 4px' }}>
+                            <div style={{ fontFamily: SANS, fontSize: '9px', color: 'var(--color-gold)', opacity: 0.85, marginBottom: '4px', letterSpacing: '0.04em', whiteSpace: 'nowrap', overflow: 'hidden', padding: '0 2px' }}>
+                              Chapter I
+                            </div>
+                            {[
+                              { label: 'The Arrival', active: true },
+                              { label: 'The Study', active: false },
+                              { label: 'First Contact', active: false },
+                            ].map(({ label, active }) => (
+                              <div
+                                key={label}
+                                style={{
+                                  padding: '5px 7px',
+                                  borderRadius: '0 3px 3px 0',
+                                  fontFamily: SANS,
+                                  fontSize: '9.5px',
+                                  color: active ? 'var(--color-gold)' : 'var(--text-primary)',
+                                  opacity: active ? 1 : 0.52,
+                                  background: active ? 'rgba(184, 146, 42, 0.1)' : 'transparent',
+                                  borderLeft: `2px solid ${active ? 'var(--color-gold)' : 'transparent'}`,
+                                  marginBottom: '1px',
+                                  whiteSpace: 'nowrap',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                }}
+                              >
+                                {label}
+                              </div>
+                            ))}
+                          </div>
+
+                          {/* Chapter II */}
+                          <div style={{ padding: '4px 8px 4px' }}>
+                            <div style={{ fontFamily: SANS, fontSize: '9px', color: 'var(--text-muted)', opacity: 0.5, marginBottom: '4px', letterSpacing: '0.04em', whiteSpace: 'nowrap', overflow: 'hidden', padding: '0 2px' }}>
+                              Chapter II
+                            </div>
+                            {['The Letter', 'The Garden', 'Midnight'].map((pg) => (
+                              <div
+                                key={pg}
+                                style={{
+                                  padding: '5px 7px',
+                                  borderRadius: '0 3px 3px 0',
+                                  fontFamily: SANS,
+                                  fontSize: '9.5px',
+                                  color: 'var(--text-primary)',
+                                  opacity: 0.38,
+                                  marginBottom: '1px',
+                                  whiteSpace: 'nowrap',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                }}
+                              >
+                                {pg}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* ── Editor surface ── */}
+                        <div
+                          style={{
+                            flex: 1,
+                            overflow: 'hidden',
+                            background: 'var(--surface-editor)',
+                            position: 'relative',
+                          }}
+                        >
+                          {/* Focus vignette overlay */}
+                          <div
+                            style={{
+                              position: 'absolute',
+                              inset: 0,
+                              background: 'radial-gradient(ellipse at 50% 48%, transparent 38%, rgba(26, 22, 20, 0.22) 100%)',
+                              pointerEvents: 'none',
+                              zIndex: 2,
+                              opacity: workspaceView === 'focus' ? 1 : 0,
+                              transition: 'opacity 0.55s ease',
+                            }}
+                            aria-hidden
+                          />
+
+                          {/* Editor content */}
+                          <div
+                            style={{
+                              padding: workspaceView === 'focus' ? '30px 44px 20px' : '18px 24px 18px',
+                              transition: 'padding 0.45s cubic-bezier(0.4, 0, 0.2, 1)',
+                              position: 'relative',
+                              zIndex: 1,
+                            }}
+                          >
+                            <div
+                              style={{
+                                fontFamily: SERIF,
+                                fontSize: '7px',
+                                letterSpacing: '0.22em',
+                                textTransform: 'uppercase',
+                                color: 'var(--color-mist)',
+                                marginBottom: '14px',
+                                opacity: 0.45,
+                              }}
+                            >
+                              CHAPTER I — THE ARRIVAL
+                            </div>
+
+                            <p style={{ fontFamily: SERIF, fontSize: '11px', lineHeight: 1.9, color: 'var(--color-ink)', marginBottom: '10px' }}>
+                              The library was already dark by the time she arrived.
+                            </p>
+                            <p style={{ fontFamily: SERIF, fontSize: '11px', lineHeight: 1.9, color: 'var(--color-ink)', marginBottom: '10px', textIndent: '18px' }}>
+                              She had taken the long road deliberately — through the courtyard rather than the stone passage — because on nights like this she needed the cold air to remind her she was still moving forward.
+                            </p>
+                            <p style={{ fontFamily: SERIF, fontSize: '11px', lineHeight: 1.9, color: 'var(--color-ink)', marginBottom: '10px', textIndent: '18px', fontStyle: 'italic' }}>
+                              &ldquo;You&apos;re late,&rdquo; said the archivist, not looking up.
+                            </p>
+                            <p style={{ fontFamily: SERIF, fontSize: '11px', lineHeight: 1.9, color: 'var(--color-ink)', textIndent: '18px' }}>
+                              She sat down at the long oak table and opened the manuscript.{' '}
+                              <span
+                                className="landing-cursor"
+                                style={{
+                                  display: 'inline-block',
+                                  width: '1.5px',
+                                  height: '11px',
+                                  background: 'var(--color-gold)',
+                                  verticalAlign: 'middle',
+                                  marginLeft: '1px',
+                                }}
+                              />
+                            </p>
+                          </div>
+
+                          {/* Word count pill */}
+                          <div
+                            style={{
+                              position: 'absolute',
+                              bottom: '10px',
+                              right: '12px',
+                              background: 'rgba(255,255,255,0.92)',
+                              border: '1px solid var(--color-border-strong)',
+                              borderRadius: '9999px',
+                              padding: '3px 10px',
+                              fontSize: '8.5px',
+                              fontFamily: SANS,
+                              color: 'var(--color-ink)',
+                              boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+                              zIndex: 3,
+                            }}
+                            aria-hidden
+                          >
+                            312 <span style={{ opacity: 0.65 }}>words</span>
+                          </div>
+                        </div>
+
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── Mode toggle tabs ── */}
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    gap: '8px',
+                    marginTop: '14px',
+                  }}
+                >
+                  {(['workspace', 'focus'] as const).map((view) => (
+                    <button
+                      key={view}
+                      onClick={() => setWorkspaceView(view)}
+                      aria-pressed={workspaceView === view}
+                      style={{
+                        background: 'transparent',
+                        border: `1px solid ${workspaceView === view ? 'var(--color-gold)' : 'var(--color-border)'}`,
+                        color: workspaceView === view ? 'var(--color-gold)' : 'var(--text-muted)',
+                        fontFamily: SANS,
+                        fontSize: '11px',
+                        letterSpacing: '0.07em',
+                        padding: '5px 20px',
+                        borderRadius: '20px',
+                        cursor: 'pointer',
+                        transition: 'border-color 0.2s ease, color 0.2s ease',
+                      }}
+                    >
+                      {view === 'workspace' ? 'Workspace' : 'Focus Mode'}
+                    </button>
+                  ))}
+                </div>
               </div>
-              <h3 style={{ fontFamily: SERIF, fontSize: '17px', color: 'var(--text-primary)', fontWeight: 600, marginBottom: '0.5rem' }}>
-                Distraction-Free Focus Mode
-              </h3>
-              <p style={{ fontFamily: SANS, fontSize: '14px', color: 'var(--text-muted)', lineHeight: 1.65 }}>
-                Strip the chrome. Unmount the sidebar. Silence the gamification. One command returns you to the full workspace — the canvas stays yours.
-              </p>
+
             </div>
-          </div>
           </div>
         </section>
 
