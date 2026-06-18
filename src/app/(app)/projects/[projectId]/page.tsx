@@ -6,6 +6,7 @@ import { ManuscriptExportButton } from "@/components/projects/ManuscriptExportBu
 import { NewDraftButton } from "@/components/projects/NewDraftButton";
 import { ChapterGoalControl } from "@/components/projects/ChapterGoalControl";
 import { canAccessFeature, type SubscriptionTier } from "@/lib/subscription";
+import { calculateProjectWordCount } from "@/lib/manuscript";
 import type { Chapter } from "@/lib/types";
 
 type ChapterWithStats = Chapter & {
@@ -69,7 +70,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
               </p>
             )}
             <p className="mt-4 text-xs text-rune-mist/40">
-              {project.word_count.toLocaleString()} words total ·{" "}
+              {calculateProjectWordCount(typedChapters).toLocaleString()} words total ·{" "}
               {typedChapters.length}{" "}
               {typedChapters.length === 1 ? "chapter" : "chapters"}
             </p>

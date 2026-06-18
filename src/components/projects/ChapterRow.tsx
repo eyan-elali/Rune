@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { GripVertical, Trash2 } from "lucide-react";
 import { updateChapter, deleteChapter, markChapterComplete } from "@/lib/actions/chapters";
+import { calculateChapterWordCount } from "@/lib/manuscript";
 import { useToastStore } from "@/store/toastStore";
 import { cn } from "@/lib/utils";
 import type { Chapter } from "@/lib/types";
@@ -30,10 +31,7 @@ export function ChapterRow({ chapter, projectId }: ChapterRowProps) {
   const navClickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const pageCount = chapter.pages?.length ?? 0;
-  const canonicalPage = chapter.pages?.find((p) => p.is_canonical);
-  const totalWords = canonicalPage
-    ? (canonicalPage.word_count ?? 0)
-    : (chapter.pages ?? []).reduce((sum, p) => sum + (p.word_count ?? 0), 0);
+  const totalWords = calculateChapterWordCount(chapter);
 
   function startEditing() {
     setIsEditing(true);

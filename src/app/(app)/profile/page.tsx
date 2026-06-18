@@ -5,6 +5,7 @@ import { XpBar } from "@/components/profile/XpBar";
 import { ContributionHeatmap } from "@/components/profile/ContributionHeatmap";
 import { getContributionHistory } from "@/lib/actions/writingStats";
 import { canAccessFeature, type SubscriptionTier } from "@/lib/subscription";
+import { calculateProjectWordCount } from "@/lib/manuscript";
 import type { GameSession } from "@/lib/types";
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -111,7 +112,7 @@ export default async function ProfilePage() {
       supabase.from("profiles").select("*").eq("id", user!.id).single(),
       supabase
         .from("projects")
-        .select("id, word_count")
+        .select("id, chapters(id, pages(id, word_count, is_canonical))")
         .eq("user_id", user!.id),
       supabase
         .from("game_sessions")
@@ -125,27 +126,16 @@ export default async function ProfilePage() {
   const canSeeHeatmap = canAccessFeature(subscriptionTier, 'heatmap');
   const contributionHistory = canSeeHeatmap ? await getContributionHistory(user!.id) : [];
 
-  const projects = rawProjects ?? [];
-  const projectIds = projects.map((p) => p.id);
-  const totalWords = projects.reduce((sum, p) => sum + (p.word_count ?? 0), 0);
-
-  // Pages count via chapters
-  let pageCount = 0;
-  if (projectIds.length > 0) {
-    const { data: chapters } = await supabase
-      .from("chapters")
-      .select("id")
-      .in("project_id", projectIds);
-
-    const chapterIds = chapters?.map((c) => c.id) ?? [];
-    if (chapterIds.length > 0) {
-      const { count } = await supabase
-        .from("pages")
-        .select("id", { count: "exact", head: true })
-        .in("chapter_id", chapterIds);
-      pageCount = count ?? 0;
-    }
-  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const projects = (rawProjects ?? []) as any[];
+  const projectIds: string[] = projects.map((p) => p.id);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const allChapters = projects.flatMap((p) => (p.chapters ?? []) as any[]);
+  const totalWords = calculateProjectWordCount(allChapters);
+  const pageCount = allChapters.reduce(
+    (sum: number, c: { pages?: unknown[] | null }) => sum + (c.pages?.length ?? 0),
+    0
+  );
 
   // Longest timed session (victory lap words excluded when meta is present)
   const { data: allSessions } = await supabase

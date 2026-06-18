@@ -1,7 +1,7 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { recalculateProjectWordCount } from "@/lib/projectWordCount";
 import type { Page } from "@/lib/types";
 
 type ActionResult<T> = { data: T; error: null } | { data: null; error: string };
@@ -12,58 +12,6 @@ async function getUser() {
     data: { user },
   } = await supabase.auth.getUser();
   return { supabase, user };
-}
-
-// For each chapter: if a canonical page exists use only its word count,
-// otherwise sum all pages. This prevents double-counting scene drafts.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function recalculateProjectWordCount(supabase: any, projectId: string) {
-  const { data: projectChapters } = await supabase
-    .from("chapters")
-    .select("id")
-    .eq("project_id", projectId);
-
-  if (!projectChapters?.length) {
-    await supabase
-      .from("projects")
-      .update({ word_count: 0 })
-      .eq("id", projectId);
-    return;
-  }
-
-  const chapterIds = projectChapters.map((c: { id: string }) => c.id);
-
-  const { data: allPages } = await supabase
-    .from("pages")
-    .select("chapter_id, word_count, is_canonical")
-    .in("chapter_id", chapterIds);
-
-  if (!allPages) return;
-
-  let totalWords = 0;
-  for (const chapId of chapterIds) {
-    const chapterPages: Array<{
-      chapter_id: string;
-      word_count: number;
-      is_canonical: boolean;
-    }> = allPages.filter(
-      (p: { chapter_id: string }) => p.chapter_id === chapId
-    );
-    const canonical = chapterPages.find((p) => p.is_canonical);
-    if (canonical) {
-      totalWords += canonical.word_count;
-    } else {
-      totalWords += chapterPages.reduce(
-        (sum, p) => sum + (p.word_count ?? 0),
-        0
-      );
-    }
-  }
-
-  await supabase
-    .from("projects")
-    .update({ word_count: totalWords })
-    .eq("id", projectId);
 }
 
 export async function getPages(
@@ -202,7 +150,6 @@ export async function updatePage(
 
   if (chapter) {
     await recalculateProjectWordCount(supabase, chapter.project_id);
-    revalidatePath(`/projects/${chapter.project_id}`);
   }
 
   return { data: page, error: null };
@@ -254,7 +201,6 @@ export async function deletePage(
 
     if (chapter) {
       await recalculateProjectWordCount(supabase, chapter.project_id);
-      revalidatePath(`/projects/${chapter.project_id}`);
     }
   }
 
@@ -289,7 +235,6 @@ export async function setCanonicalPage(
 
   if (chapter) {
     await recalculateProjectWordCount(supabase, chapter.project_id);
-    revalidatePath(`/projects/${chapter.project_id}`);
   }
 
   return { error: null };
@@ -316,7 +261,6 @@ export async function clearCanonicalPage(
 
   if (chapter) {
     await recalculateProjectWordCount(supabase, chapter.project_id);
-    revalidatePath(`/projects/${chapter.project_id}`);
   }
 
   return { error: null };
