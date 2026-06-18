@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getPages } from "@/lib/actions/pages";
 import { getChapters } from "@/lib/actions/chapters";
 import { EditorShell } from "@/components/editor/EditorShell";
-import { OfflinePageMessage } from "@/components/ui/OfflinePageMessage";
+import { OfflineEditorFallback } from "@/components/editor/OfflineEditorFallback";
 
 interface ChapterEditorPageProps {
   params: Promise<{ projectId: string; chapterId: string }>;
@@ -41,7 +41,11 @@ export default async function ChapterEditorPage({
 
   if (!chapter || !project) {
     if (isNetworkError(chapterError) || isNetworkError(projectError)) {
-      return <OfflinePageMessage />;
+      return (
+        <div className="min-h-0 h-full">
+          <OfflineEditorFallback projectId={projectId} chapterId={chapterId} />
+        </div>
+      );
     }
     notFound();
   }

@@ -12,6 +12,7 @@ import {
   setCanonicalPage,
   clearCanonicalPage,
 } from "@/lib/actions/pages";
+import { cachePage, cacheChapterMeta } from "@/lib/offline/db";
 import { useEditorStore } from "@/store/editorStore";
 import { useModeStore } from "@/store/modeStore";
 
@@ -59,6 +60,20 @@ export function EditorShell({
       setCurrentPage(projectId, chapterId, selectedPageId);
     }
   }, [selectedPageId, projectId, chapterId, setCurrentPage]);
+
+  // Cache pages and chapter metadata for offline access.
+  // Runs once on mount — data arrived from the server, so it's fresh.
+  useEffect(() => {
+    void (async () => {
+      try {
+        await cacheChapterMeta(chapter, project)
+        await Promise.all(initialPages.map((p) => cachePage(p, projectId)))
+      } catch {
+        // best-effort — never block the editor
+      }
+    })()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const currentPage = pages.find((p) => p.id === selectedPageId) ?? null;
 

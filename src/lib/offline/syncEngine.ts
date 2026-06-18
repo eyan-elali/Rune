@@ -26,7 +26,10 @@ export async function writeToPendingQueue(
       retryCount: 0,
     })
 
+    const existingCache = await db.get('page_cache', pageId)
     await db.put('page_cache', {
+      // Preserve rich view-cache metadata if already present
+      ...(existingCache ?? {}),
       id: pageId,
       content,
       wordCount,
@@ -110,7 +113,10 @@ export async function syncPendingWrite(pageId: string): Promise<void> {
 
   // Success — remove from pending, update cache with confirmed server state
   await db.delete('pending_writes', pageId)
+  const existingCacheAfterSync = await db.get('page_cache', pageId)
   await db.put('page_cache', {
+    // Preserve rich view-cache metadata if already present
+    ...(existingCacheAfterSync ?? {}),
     id: pageId,
     content: pending.content,
     wordCount: pending.wordCount,
