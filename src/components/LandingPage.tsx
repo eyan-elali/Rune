@@ -317,6 +317,146 @@ export default function LandingPage() {
             gap: 1.25rem !important;
           }
         }
+
+        /* ─── MOBILE < 768px ──────────────────────────────── */
+        @media (max-width: 767px) {
+
+          /* ── Header ── */
+          .landing-header { padding: 0 1rem !important; }
+          .landing-header-cta {
+            font-size: 12px !important;
+            padding: 6px 10px !important;
+            white-space: nowrap !important;
+          }
+
+          /* ── Hero ── */
+          .landing-hero {
+            flex-direction: column !important;
+            align-items: stretch !important;
+          }
+          .landing-hero-left {
+            width: 100% !important;
+            padding: 2rem 1.25rem 1.5rem !important;
+            align-items: center !important;
+            text-align: center !important;
+          }
+          .landing-hero-eyebrow { margin-bottom: 1.5rem !important; }
+          .landing-hero-left h1 {
+            font-size: clamp(1.95rem, 7.8vw, 2.5rem) !important;
+            text-align: center !important;
+          }
+          .landing-hero-left p {
+            max-width: 100% !important;
+            text-align: center !important;
+            font-size: 15px !important;
+            margin-bottom: 1.75rem !important;
+          }
+          .landing-hero-left .gold-btn {
+            align-self: stretch !important;
+            text-align: center !important;
+            display: block !important;
+          }
+          /* Slightly narrower hero preview so it breathes */
+          .landing-hero-right {
+            flex: none !important;
+            width: 100% !important;
+            padding: 0 2rem 2.5rem !important;
+          }
+          .landing-hero-editor-frame { height: 290px !important; }
+          .landing-hero-writing-surface {
+            padding: 1.25rem 1.5rem 1.5rem !important;
+          }
+          .landing-hero-theme-pills {
+            gap: 6px !important;
+            flex-wrap: wrap !important;
+          }
+
+          /* ── Section 2: Problem — stacked chapters, no column dividers ── */
+          .landing-problem-cols {
+            grid-template-columns: 1fr !important;
+            max-width: 100% !important;
+          }
+          .landing-problem-col-1 {
+            padding: 0 0 2.5rem !important;
+            border-right: none !important;
+            border-bottom: 1px solid var(--color-border) !important;
+            margin-bottom: 2.5rem !important;
+          }
+          .landing-problem-col-2 {
+            padding: 0 0 2.5rem !important;
+            border-right: none !important;
+            border-bottom: 1px solid var(--color-border) !important;
+            margin-bottom: 2.5rem !important;
+          }
+          .landing-problem-col-3 {
+            padding: 0 !important;
+          }
+
+          /* ── Section 3: Workspace — copy above, then full mockup ── */
+          .landing-workspace-section {
+            padding: 4rem 1.25rem !important;
+            overflow: visible !important;
+          }
+          .landing-workspace-grid {
+            grid-template-columns: 1fr !important;
+            gap: 2.5rem !important;
+          }
+          /* Clip the horizontal layout overflow from the scaled frame */
+          .landing-ws-mockup-outer {
+            overflow: hidden !important;
+            width: 100% !important;
+          }
+
+          /* ── Section 5: Long Game — stacked stat cards ── */
+          .landing-stats-row {
+            grid-template-columns: 1fr !important;
+            gap: 1rem !important;
+          }
+
+          /* ── Section 6: Trust & Unlockables — full vertical stack ── */
+          .landing-s6-grid { grid-template-columns: 1fr !important; }
+          .landing-s6-left {
+            padding-right: 0 !important;
+            padding-bottom: 3rem !important;
+            border-right: none !important;
+          }
+          .landing-s6-right {
+            border-left: none !important;
+            border-top: 1px solid var(--color-border) !important;
+            padding-left: 0 !important;
+            padding-top: 3rem !important;
+          }
+          .landing-trust-pts {
+            grid-template-columns: 1fr !important;
+            gap: 1.25rem !important;
+          }
+
+          /* ── Pricing — stacked cards, compressed vertical padding ── */
+          .pricing-grid {
+            flex-direction: column !important;
+            max-width: 420px !important;
+            margin-left: auto !important;
+            margin-right: auto !important;
+          }
+          .pricing-grid > div {
+            padding: 1.6rem !important;
+          }
+        }
+
+        /* ─── PHONES < 640px: workspace mockup scaled proportionally ─── */
+        /* Scale the entire app frame so sidebar, page list, and editor   */
+        /* are all fully visible — no cropping, no cramped columns.       */
+        @media (max-width: 639px) {
+          .landing-ws-app-frame {
+            width: 680px !important;
+            height: 468px !important;
+            transform: scale(0.49) !important;
+            transform-origin: top left !important;
+            /* Collapse the extra layout height left over after scaling:  */
+            /* -(468px × (1 − 0.49)) = -(468px × 0.51) = −239px         */
+            margin-bottom: -239px !important;
+          }
+        }
       `}</style>
 
       {/* Layer 2 — continuous gold lines over section backgrounds */}
@@ -429,6 +569,7 @@ export default function LandingPage() {
           >
             {/* Rune logo */}
             <div
+              className="landing-hero-eyebrow"
               style={{
                 fontFamily: SERIF,
                 fontSize: '12px',
@@ -509,7 +650,7 @@ export default function LandingPage() {
           >
             {/* Editor frame — application window with minimal chrome */}
             <div
-              className="relative z-20"
+              className="relative z-20 landing-hero-editor-frame"
               style={{
                 height: 'min(500px, 64vh)',
                 borderRadius: '10px',
@@ -606,6 +747,7 @@ export default function LandingPage() {
 
               {/* Writing surface */}
               <div
+                className="landing-hero-writing-surface"
                 style={{
                   flex: 1,
                   minHeight: 0,
@@ -783,6 +925,7 @@ export default function LandingPage() {
 
             {/* Theme pills — only interaction in the Hero */}
             <div
+              className="landing-hero-theme-pills"
               style={{
                 display: 'flex',
                 justifyContent: 'center',
@@ -1120,9 +1263,10 @@ export default function LandingPage() {
               </div>
 
               {/* ── Right: Workspace Mockup ── */}
-              <div>
+              <div className="landing-ws-mockup-outer">
                 {/* App window frame */}
                 <div
+                  className="landing-ws-app-frame"
                   style={{
                     borderRadius: '10px',
                     overflow: 'hidden',
