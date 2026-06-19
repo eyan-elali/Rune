@@ -2048,7 +2048,337 @@ export default function LandingPage() {
 
         <SectionDivider />
 
-        {/* ── SECTION 6: COMING SOON ───────────────────────────────────── */}
+        {/* ── SECTION 6: TRUST & MAKE RUNE YOURS ─────────────────────── */}
+        <section
+          className="bg-[var(--bg-primary)]"
+          style={{
+            width: '100%',
+            minHeight: 'calc(100vh - 56px)',
+            padding: '7rem 1.5rem',
+            borderTop: '1px solid var(--color-border)',
+            borderBottom: '1px solid var(--color-border)',
+            display: 'flex',
+            alignItems: 'center',
+          }}
+        >
+          <div className="relative z-20" style={{ maxWidth: '1200px', margin: '0 auto', width: '100%' }}>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: '1.75fr 1fr',
+              gap: '0',
+              alignItems: 'start',
+            }}>
+
+              {/* ── LEFT: Trust & Ownership (70%) ── */}
+              <div style={{ paddingRight: '5rem' }}>
+
+                <div style={{
+                  fontFamily: SANS,
+                  fontSize: '10px',
+                  letterSpacing: '0.26em',
+                  color: 'var(--color-gold)',
+                  marginBottom: '2rem',
+                  opacity: 0.7,
+                }}>
+                  TRUST & OWNERSHIP
+                </div>
+
+                <h2 style={{
+                  fontFamily: SERIF,
+                  fontSize: 'clamp(2rem, 3vw, 2.8rem)',
+                  fontWeight: 700,
+                  color: 'var(--text-primary)',
+                  lineHeight: 1.18,
+                  letterSpacing: '-0.01em',
+                  marginBottom: '1.25rem',
+                  maxWidth: '520px',
+                }}>
+                  Your manuscript should always belong to you.
+                </h2>
+
+                <p style={{
+                  fontFamily: SANS,
+                  fontSize: '15px',
+                  color: 'var(--text-muted)',
+                  lineHeight: 1.85,
+                  marginBottom: '2.75rem',
+                  maxWidth: '480px',
+                }}>
+                  Rune saves your work locally first, syncs it automatically when you&apos;re online, and keeps your manuscript exportable. Your words should never depend on a perfect connection.
+                </p>
+
+                {/* ── Trust Flow ── */}
+                <div style={{
+                  border: '1px solid var(--color-border)',
+                  borderRadius: '12px',
+                  overflow: 'hidden',
+                  marginBottom: '2.5rem',
+                  background: 'var(--bg-secondary)',
+                }}>
+                  {([
+                    { step: 'Write', badge: 'Active', color: 'var(--color-gold)' },
+                    { step: 'Saved locally', badge: 'Protected', color: 'var(--color-sage)' },
+                    { step: 'Synced automatically', badge: 'Online', color: 'var(--color-gold)' },
+                    { step: 'Available everywhere', badge: 'Synced', color: 'var(--color-sage)' },
+                    { step: 'Export anytime', badge: 'Yours', color: 'var(--color-gold)' },
+                  ] as { step: string; badge: string; color: string }[]).map(({ step, badge, color }, idx, arr) => (
+                    <div key={step}>
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '0.95rem 1.5rem',
+                        background: idx === 0 ? 'rgba(201, 168, 76, 0.04)' : 'transparent',
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          <span style={{
+                            width: '7px',
+                            height: '7px',
+                            borderRadius: '50%',
+                            background: color,
+                            flexShrink: 0,
+                            opacity: 0.75,
+                          }} aria-hidden />
+                          <span style={{
+                            fontFamily: SERIF,
+                            fontSize: '15px',
+                            color: 'var(--text-primary)',
+                            opacity: 0.88,
+                          }}>
+                            {step}
+                          </span>
+                        </div>
+                        <span style={{
+                          fontFamily: SANS,
+                          fontSize: '9px',
+                          letterSpacing: '0.14em',
+                          textTransform: 'uppercase' as const,
+                          color: color,
+                          border: `1px solid ${color}`,
+                          borderRadius: '10px',
+                          padding: '2px 10px',
+                          opacity: 0.65,
+                        }}>
+                          {badge}
+                        </span>
+                      </div>
+                      {idx < arr.length - 1 && (
+                        <div style={{
+                          padding: '0 1.5rem',
+                          height: '18px',
+                          display: 'flex',
+                          alignItems: 'center',
+                        }}>
+                          <div style={{ width: '7px', display: 'flex', justifyContent: 'center' }}>
+                            <div style={{
+                              width: '1px',
+                              height: '18px',
+                              background: 'var(--color-border-strong)',
+                              opacity: 0.5,
+                            }} />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {/* ── 3 Trust Points ── */}
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(3, 1fr)',
+                  gap: '1.5rem',
+                  marginBottom: '2.5rem',
+                }}>
+                  {[
+                    { title: 'Offline-first writing', body: 'Keep writing even when the connection drops.' },
+                    { title: 'Automatic sync', body: "Rune reconciles your local drafts when you're back online." },
+                    { title: 'Export ownership', body: 'Your manuscript stays yours to take with you.' },
+                  ].map(({ title, body }) => (
+                    <div key={title} style={{ paddingTop: '1rem', borderTop: '1px solid var(--color-border)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '0.45rem' }}>
+                        <span style={{ color: 'var(--color-gold)', fontSize: '10px' }} aria-hidden>✦</span>
+                        <h3 style={{
+                          fontFamily: SERIF,
+                          fontSize: '14px',
+                          fontWeight: 600,
+                          color: 'var(--text-primary)',
+                        }}>
+                          {title}
+                        </h3>
+                      </div>
+                      <p style={{
+                        fontFamily: SANS,
+                        fontSize: '13px',
+                        color: 'var(--text-muted)',
+                        lineHeight: 1.7,
+                      }}>
+                        {body}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+
+              </div>
+
+              {/* ── RIGHT: Make Rune Yours (30%) ── */}
+              <div style={{
+                paddingLeft: '4rem',
+                borderLeft: '1px solid var(--color-border)',
+              }}>
+
+                <div style={{
+                  fontFamily: SANS,
+                  fontSize: '10px',
+                  letterSpacing: '0.26em',
+                  color: 'var(--color-gold)',
+                  marginBottom: '1.75rem',
+                  opacity: 0.7,
+                }}>
+                  MAKE RUNE YOURS
+                </div>
+
+                <h2 style={{
+                  fontFamily: SERIF,
+                  fontSize: 'clamp(1.4rem, 2vw, 1.9rem)',
+                  fontWeight: 700,
+                  color: 'var(--text-primary)',
+                  lineHeight: 1.22,
+                  letterSpacing: '-0.01em',
+                  marginBottom: '1rem',
+                }}>
+                  A workspace that grows with you.
+                </h2>
+
+                <p style={{
+                  fontFamily: SANS,
+                  fontSize: '14px',
+                  color: 'var(--text-muted)',
+                  lineHeight: 1.8,
+                  marginBottom: '2.25rem',
+                }}>
+                  Unlock new themes, fonts, and avatars simply by writing. Progress should make your manuscript stronger—and your workspace more personal.
+                </p>
+
+                {/* 3 Unlock Tiles */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem', marginBottom: '2rem' }}>
+                  {([
+                    { title: 'Themes', body: 'Change the atmosphere of the page.', symbol: '◐' },
+                    { title: 'Fonts', body: 'Shape the voice of your workspace.', symbol: 'Aa' },
+                    { title: 'Avatars', body: 'Let your author profile evolve.', symbol: '✦' },
+                  ] as { title: string; body: string; symbol: string }[]).map(({ title, body, symbol }) => (
+                    <div key={title} style={{
+                      border: '1px solid var(--color-border)',
+                      borderRadius: '8px',
+                      padding: '1rem 1.15rem',
+                      background: 'var(--bg-secondary)',
+                      display: 'flex',
+                      gap: '1rem',
+                      alignItems: 'flex-start',
+                    }}>
+                      <div
+                        aria-hidden
+                        style={{
+                          width: '32px',
+                          height: '32px',
+                          borderRadius: '6px',
+                          border: '1px solid var(--color-border-strong)',
+                          background: 'rgba(201, 168, 76, 0.06)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0,
+                          fontFamily: SERIF,
+                          fontSize: '13px',
+                          color: 'var(--color-gold)',
+                        }}
+                      >
+                        {symbol}
+                      </div>
+                      <div>
+                        <div style={{
+                          fontFamily: SERIF,
+                          fontSize: '14px',
+                          fontWeight: 600,
+                          color: 'var(--text-primary)',
+                          marginBottom: '0.3rem',
+                        }}>
+                          {title}
+                        </div>
+                        <div style={{
+                          fontFamily: SANS,
+                          fontSize: '12.5px',
+                          color: 'var(--text-muted)',
+                          lineHeight: 1.65,
+                        }}>
+                          {body}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Earned, not bought */}
+                <div style={{
+                  padding: '1rem 1.15rem',
+                  borderRadius: '6px',
+                  background: 'rgba(201, 168, 76, 0.04)',
+                  border: '1px solid var(--color-border)',
+                }}>
+                  <p style={{
+                    fontFamily: SERIF,
+                    fontStyle: 'italic',
+                    fontSize: '13px',
+                    color: 'var(--text-muted)',
+                    lineHeight: 1.75,
+                    opacity: 0.78,
+                  }}>
+                    Unlockables are earned through writing—not purchased separately.
+                  </p>
+                </div>
+
+              </div>
+
+            </div>
+
+            {/* ── Pull Quote ── */}
+            <div style={{
+              marginTop: '3rem',
+              paddingTop: '3rem',
+              borderTop: '1px solid var(--color-border)',
+              paddingBottom: '0.5rem',
+              textAlign: 'center',
+            }}>
+              <p style={{
+                fontFamily: SERIF,
+                fontStyle: 'italic',
+                fontSize: 'clamp(1.45rem, 2.6vw, 1.85rem)',
+                color: 'var(--text-primary)',
+                lineHeight: 1.62,
+                maxWidth: '61rem',
+                margin: '0 auto 1.75rem',
+                opacity: 0.88,
+                letterSpacing: '-0.01em',
+              }}>
+                &ldquo;Rune feels like it was designed by someone who actually writes novels.&rdquo;
+              </p>
+              <div style={{
+                fontFamily: SANS,
+                fontSize: '12px',
+                color: 'var(--text-muted)',
+                letterSpacing: '0.06em',
+                opacity: 0.52,
+              }}>
+                — Early beta reader
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+        <SectionDivider />
+
+        {/* ── SECTION 7: COMING SOON ───────────────────────────────────── */}
         <section className="bg-[var(--bg-secondary)]" style={{ width: '100%', padding: '6rem 1.5rem' }}>
           <div className="relative z-20">
           <h2
