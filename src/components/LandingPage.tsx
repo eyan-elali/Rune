@@ -283,19 +283,10 @@ export default function LandingPage() {
             padding: 0 1.75rem 3rem !important;
           }
 
-          /* Problem: single column with horizontal dividers */
-          .landing-problem-cols { grid-template-columns: 1fr !important; }
-          .landing-problem-col-1 {
-            padding: 0 0 2.25rem !important;
-            border-right: none !important;
-            border-bottom: 1px solid var(--color-border) !important;
-          }
-          .landing-problem-col-2 {
-            padding: 2.25rem 0 !important;
-            border-right: none !important;
-            border-bottom: 1px solid var(--color-border) !important;
-          }
-          .landing-problem-col-3 { padding: 2.25rem 0 0 !important; }
+          /* Problem: keep three columns, tighten gutters */
+          .landing-problem-col-1 { padding: 0 1.1rem 0 0 !important; }
+          .landing-problem-col-2 { padding: 0 1.1rem !important; }
+          .landing-problem-col-3 { padding: 0 0 0 1.1rem !important; }
 
           /* Workspace: stack copy then preview */
           .landing-workspace-section { padding: 4rem 1.5rem !important; }
@@ -304,11 +295,8 @@ export default function LandingPage() {
             gap: 2.5rem !important;
           }
 
-          /* Long Game stats: single column */
-          .landing-stats-row {
-            grid-template-columns: 1fr !important;
-            gap: 0.85rem !important;
-          }
+          /* Long Game stats: keep three-column row, reduce gap */
+          .landing-stats-row { gap: 0.6rem !important; }
 
           /* Trust / Make Rune Yours: stack */
           .landing-s6-grid { grid-template-columns: 1fr !important; }
