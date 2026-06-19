@@ -431,31 +431,66 @@ export default function LandingPage() {
             gap: 1.25rem !important;
           }
 
-          /* ── Pricing — stacked cards, compressed vertical padding ── */
+          /* ── Pricing — stacked cards, iOS-card sizing ── */
           .pricing-grid {
             flex-direction: column !important;
-            max-width: 420px !important;
+            align-items: center !important;
+            max-width: 100% !important;
             margin-left: auto !important;
             margin-right: auto !important;
+            gap: 1.5rem !important;
           }
           .pricing-grid > div {
-            padding: 1.6rem !important;
+            width: min(92vw, 430px) !important;
+            flex: none !important;
+            padding: 1.5rem !important;
           }
         }
 
-        /* ─── PHONES < 640px: workspace mockup scaled proportionally ─── */
-        /* Scale the entire app frame so sidebar, page list, and editor   */
-        /* are all fully visible — no cropping, no cramped columns.       */
-        @media (max-width: 639px) {
+        /* ─── PHONES < 640px: workspace mockup — fluid, centered ─── */
+        /* Each range picks a scale that fills the available width      */
+        /* (vw − 40px) without cropping. margin-left centers the        */
+        /* visual content: calc(50% − scale×680/2).                     */
+        @media (max-width: 374px) {
+          .landing-ws-app-frame {
+            width: 680px !important;
+            height: 468px !important;
+            transform: scale(0.46) !important;
+            transform-origin: top left !important;
+            margin-left: calc(50% - 156.4px) !important;
+            margin-bottom: -253px !important;
+          }
+        }
+        @media (min-width: 375px) and (max-width: 429px) {
           .landing-ws-app-frame {
             width: 680px !important;
             height: 468px !important;
             transform: scale(0.49) !important;
             transform-origin: top left !important;
-            /* Collapse the extra layout height left over after scaling:  */
-            /* -(468px × (1 − 0.49)) = -(468px × 0.51) = −239px         */
+            margin-left: calc(50% - 166.6px) !important;
             margin-bottom: -239px !important;
           }
+        }
+        @media (min-width: 430px) and (max-width: 639px) {
+          .landing-ws-app-frame {
+            width: 680px !important;
+            height: 468px !important;
+            transform: scale(0.57) !important;
+            transform-origin: top left !important;
+            margin-left: calc(50% - 193.8px) !important;
+            margin-bottom: -201px !important;
+          }
+        }
+
+        /* ─── PHONES < 640px: hero editor prose ─── */
+        /* Show a shorter manuscript on small screens to prevent the    */
+        /* word-count pill from overlapping the body text.              */
+        @media (max-width: 639px) {
+          .landing-hero-prose-desktop { display: none !important; }
+          .landing-hero-prose-mobile  { display: block !important; }
+        }
+        @media (min-width: 640px) {
+          .landing-hero-prose-mobile  { display: none !important; }
         }
       `}</style>
 
@@ -786,7 +821,25 @@ export default function LandingPage() {
                   I couldn&apos;t focus.
                 </p>
 
+                {/* Mobile-only: shortened para 2 */}
                 <p
+                  className="landing-hero-prose-mobile"
+                  style={{
+                    fontFamily: SERIF,
+                    fontSize: '13.5px',
+                    lineHeight: 1.9,
+                    color: heroTheme.textBody,
+                    marginBottom: '1.1rem',
+                    textIndent: '2rem',
+                    transition: 'color 0.4s ease',
+                  }}
+                >
+                  Every sentence felt heavier than the last.
+                </p>
+
+                {/* Desktop-only: full para 2 */}
+                <p
+                  className="landing-hero-prose-desktop"
                   style={{
                     fontFamily: SERIF,
                     fontSize: '13.5px',
@@ -830,6 +883,7 @@ export default function LandingPage() {
                 </p>
 
                 <p
+                  className="landing-hero-prose-desktop"
                   style={{
                     fontFamily: SERIF,
                     fontSize: '13.5px',
@@ -844,6 +898,7 @@ export default function LandingPage() {
                 </p>
 
                 <p
+                  className="landing-hero-prose-desktop"
                   style={{
                     fontFamily: SERIF,
                     fontSize: '13.5px',
