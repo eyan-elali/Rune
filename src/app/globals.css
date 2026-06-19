@@ -679,6 +679,22 @@ body {
 }
 
 /* ── Landing page ───────────────────────────────────────────────── */
+
+/* Responsive foundation — shared variables for later prompts */
+:root {
+  --landing-px: 1.5rem;          /* base horizontal section padding */
+  --landing-max-w: 1220px;       /* widest content container */
+}
+
+/* Heatmap horizontal scrolling on narrow viewports */
+.landing-heatmap-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  /* hide scrollbar on desktop; revealed only when content overflows */
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-strong) transparent;
+}
+
 @keyframes landing-cursor-blink {
   0%, 49% { opacity: 1; }
   50%, 100% { opacity: 0; }

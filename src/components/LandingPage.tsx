@@ -226,7 +226,7 @@ export default function LandingPage() {
   }
 
   return (
-    <div className="relative">
+    <div className="relative" style={{ overflowX: 'hidden' }}>
 
       {/* Layer 2 — continuous gold lines over section backgrounds */}
       <div
@@ -318,7 +318,7 @@ export default function LandingPage() {
         <section
           className="bg-[var(--bg-primary)]"
           style={{
-            height: 'calc(100vh - 56px)',
+            minHeight: 'calc(100vh - 56px)',
             display: 'flex',
             alignItems: 'center',
             overflow: 'hidden',
@@ -937,6 +937,7 @@ export default function LandingPage() {
             borderBottom: '1px solid var(--color-border)',
             display: 'flex',
             alignItems: 'center',
+            overflow: 'hidden',
           }}
         >
           <div className="relative z-20" style={{ maxWidth: '1220px', margin: '0 auto', width: '100%' }}>
@@ -944,7 +945,7 @@ export default function LandingPage() {
               style={{
                 display: 'grid',
                 gridTemplateColumns: '1fr 1.6fr',
-                gap: '5rem',
+                gap: 'clamp(2.5rem, 6.5vw, 5rem)',
                 alignItems: 'center',
               }}
             >
@@ -1802,7 +1803,8 @@ export default function LandingPage() {
               </div>
 
               {/* Grid + day labels */}
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+              <div className="landing-heatmap-scroll">
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', minWidth: 'min-content' }}>
 
                 {/* Day labels column */}
                 <div style={{
@@ -1860,6 +1862,7 @@ export default function LandingPage() {
                     )
                   })}
                 </div>
+              </div>
               </div>
 
               {/* Legend */}
@@ -1958,7 +1961,7 @@ export default function LandingPage() {
               }}>
                 <div style={{
                   fontFamily: SERIF,
-                  fontSize: '52px',
+                  fontSize: 'clamp(36px, 4vw, 52px)',
                   fontWeight: 700,
                   color: 'var(--color-gold)',
                   lineHeight: 1,
@@ -2068,7 +2071,7 @@ export default function LandingPage() {
             }}>
 
               {/* ── LEFT: Trust & Ownership (70%) ── */}
-              <div style={{ paddingRight: '5rem' }}>
+              <div style={{ paddingRight: 'clamp(2rem, 6.9vw, 5rem)' }}>
 
                 <div style={{
                   fontFamily: SANS,
@@ -2221,7 +2224,7 @@ export default function LandingPage() {
 
               {/* ── RIGHT: Make Rune Yours (30%) ── */}
               <div style={{
-                paddingLeft: '4rem',
+                paddingLeft: 'clamp(1.5rem, 5.5vw, 4rem)',
                 borderLeft: '1px solid var(--color-border)',
               }}>
 
@@ -2458,7 +2461,7 @@ export default function LandingPage() {
               <div style={{ fontFamily: SERIF, fontSize: '22px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.35rem' }}>Free</div>
               <div style={{ fontFamily: SANS, fontSize: '14px', color: 'var(--text-muted)', marginBottom: '1.5rem' }}>Start your first manuscript.</div>
               <div style={{ display: 'flex', alignItems: 'baseline' }}>
-                <span style={{ fontFamily: SERIF, fontSize: '48px', fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1 }}>$0</span>
+                <span style={{ fontFamily: SERIF, fontSize: 'clamp(32px, 4vw, 48px)', fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1 }}>$0</span>
                 <span style={{ fontFamily: SANS, fontSize: '14px', color: 'var(--text-muted)', marginLeft: '4px' }}>/month</span>
               </div>
 
@@ -2545,7 +2548,7 @@ export default function LandingPage() {
 
               <div style={{ opacity: priceVisible ? 1 : 0, transition: 'opacity 0.2s ease' }}>
                 <div style={{ display: 'flex', alignItems: 'baseline' }}>
-                  <span style={{ fontFamily: SERIF, fontSize: '48px', fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1 }}>
+                  <span style={{ fontFamily: SERIF, fontSize: 'clamp(32px, 4vw, 48px)', fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1 }}>
                     {billing === 'monthly' ? '$9.99' : '$8.00'}
                   </span>
                   <span style={{ fontFamily: SANS, fontSize: '14px', color: 'var(--text-muted)', marginLeft: '4px' }}>/mo</span>
