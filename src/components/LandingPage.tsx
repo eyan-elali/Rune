@@ -1708,83 +1708,6 @@ export default function LandingPage() {
               </div>
             </div>
 
-            {/* ── Part 2: Momentum becomes visible ── */}
-            <div>
-
-              <div style={{ display: 'flex', alignItems: 'center', marginBottom: '3.5rem' }}>
-                <div style={{ flex: 1, height: '1px', background: 'var(--color-border)' }} />
-                <span style={{ margin: '0 16px', color: 'var(--color-gold)', fontSize: '12px', opacity: 0.45 }}>✦</span>
-                <div style={{ flex: 1, height: '1px', background: 'var(--color-border)' }} />
-              </div>
-
-              <h3 style={{
-                fontFamily: SERIF,
-                fontSize: 'clamp(1.6rem, 2.5vw, 2.2rem)',
-                fontWeight: 600,
-                color: 'var(--text-primary)',
-                textAlign: 'center',
-                marginBottom: '1rem',
-              }}>
-                Momentum becomes visible.
-              </h3>
-
-              <p style={{
-                fontFamily: SANS,
-                fontSize: '15px',
-                color: 'var(--text-muted)',
-                textAlign: 'center',
-                lineHeight: 1.8,
-                maxWidth: '520px',
-                margin: '0 auto 3.5rem',
-              }}>
-                Every session leaves a mark. Goals, streaks, heatmaps, and XP make consistency visible — because momentum grows when you can see it.
-              </p>
-
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(4, 1fr)',
-                gap: '1rem',
-                maxWidth: '880px',
-                margin: '0 auto',
-              }}>
-                {[
-                  { title: 'Goals', body: 'Set the target. Watch the manuscript move.' },
-                  { title: 'Streaks', body: 'Make showing up feel tangible.' },
-                  { title: 'Heatmaps', body: 'See the pattern your writing leaves behind.' },
-                  { title: 'XP', body: 'Let every session compound into progress.' },
-                ].map(({ title, body }) => (
-                  <div
-                    key={title}
-                    className="bg-[var(--surface-card)]"
-                    style={{
-                      border: '1px solid var(--color-border)',
-                      borderRadius: '8px',
-                      padding: '1.5rem',
-                    }}
-                  >
-                    <div style={{
-                      fontFamily: SERIF,
-                      fontSize: '16px',
-                      fontWeight: 600,
-                      color: 'var(--text-primary)',
-                      marginBottom: '0.5rem',
-                    }}>
-                      {title}
-                    </div>
-                    <p style={{
-                      fontFamily: SANS,
-                      fontSize: '13px',
-                      color: 'var(--text-muted)',
-                      lineHeight: 1.7,
-                    }}>
-                      {body}
-                    </p>
-                  </div>
-                ))}
-              </div>
-
-            </div>
-
           </div>
         </section>
 
@@ -1894,7 +1817,7 @@ export default function LandingPage() {
                 }}>
                   {['Mon', '', 'Wed', '', 'Fri', '', 'Sun'].map((label, i) => (
                     <div key={i} style={{
-                      height: '16px',
+                      height: '18px',
                       display: 'flex',
                       alignItems: 'center',
                       fontFamily: SANS,
@@ -1911,9 +1834,9 @@ export default function LandingPage() {
                 {/* Cells — column-major layout matches S5_HEATMAP order */}
                 <div style={{
                   display: 'grid',
-                  gridTemplateRows: 'repeat(7, 16px)',
+                  gridTemplateRows: 'repeat(7, 18px)',
                   gridAutoFlow: 'column',
-                  gridAutoColumns: '16px',
+                  gridAutoColumns: '18px',
                   gap: '4px',
                   flex: 1,
                 }}>
@@ -1965,7 +1888,7 @@ export default function LandingPage() {
             {/* Stats row */}
             <div style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(3, 1fr)',
+              gridTemplateColumns: '1.18fr 1fr 1fr',
               gap: '1rem',
               marginBottom: '5rem',
             }}>
