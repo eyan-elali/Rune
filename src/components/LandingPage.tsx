@@ -112,6 +112,12 @@ export default function LandingPage() {
   const [priceVisible, setPriceVisible] = useState(true)
   const [workspaceView, setWorkspaceView] = useState<'workspace' | 'focus'>('workspace')
   const [activePageIndex, setActivePageIndex] = useState(0)
+  const [arenaMode, setArenaMode] = useState<'battle' | 'race'>('battle')
+  const [enemyHp, setEnemyHp] = useState(62)
+  const [battleWords, setBattleWords] = useState(147)
+  const [raceSeconds, setRaceSeconds] = useState(767)
+  const [raceWords, setRaceWords] = useState(843)
+  const [breathOpacity, setBreathOpacity] = useState(1.0)
 
   useEffect(() => {
     document.documentElement.removeAttribute('data-theme')
@@ -125,6 +131,37 @@ export default function LandingPage() {
     }, 2800)
     return () => clearInterval(timer)
   }, [workspaceView])
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setBreathOpacity(prev => prev > 0.85 ? 0.78 : 1.0)
+    }, 1500)
+    return () => clearInterval(timer)
+  }, [])
+
+  useEffect(() => {
+    if (arenaMode !== 'battle') return
+    const timer = setInterval(() => {
+      setEnemyHp(prev => prev <= 28 ? 62 : prev - 1)
+      setBattleWords(prev => prev >= 600 ? 147 : prev + 2)
+    }, 2200)
+    return () => clearInterval(timer)
+  }, [arenaMode])
+
+  useEffect(() => {
+    if (arenaMode !== 'race') return
+    const timer = setInterval(() => {
+      setRaceSeconds(prev => prev <= 0 ? 767 : prev - 1)
+      setRaceWords(prev => prev >= 1100 ? 843 : prev + 1)
+    }, 1000)
+    return () => clearInterval(timer)
+  }, [arenaMode])
+
+  const formatTime = (s: number) => {
+    const m = Math.floor(s / 60)
+    const sec = s % 60
+    return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`
+  }
 
   const heroTheme = HERO_THEMES[activeHeroTheme]
 
@@ -1341,149 +1378,356 @@ export default function LandingPage() {
 
         <SectionDivider />
 
-        {/* ── SECTION 4: THE ARENA ─────────────────────────────────────── */}
-        <section className="bg-[var(--bg-primary)]" style={{ width: '100%', padding: '7rem 1.5rem' }}>
-          <div className="relative z-20">
-          <h2
-            style={{
-              fontFamily: SERIF,
-              fontSize: 'clamp(1.6rem, 3vw, 2.4rem)',
-              fontWeight: 600,
-              color: 'var(--text-primary)',
-              textAlign: 'center',
-              marginBottom: '1rem',
-            }}
-          >
-            The Arena — Why Gamify Execution?
-          </h2>
+        {/* ── SECTION 4: BUILD MOMENTUM ──────────────────────────────────── */}
+        <section
+          className="bg-[var(--bg-primary)]"
+          style={{
+            width: '100%',
+            minHeight: 'calc(100vh - 56px)',
+            padding: '7rem 1.5rem',
+            borderTop: '1px solid var(--color-border)',
+            borderBottom: '1px solid var(--color-border)',
+            display: 'flex',
+            alignItems: 'center',
+          }}
+        >
+          <div className="relative z-20" style={{ maxWidth: '1120px', margin: '0 auto', width: '100%' }}>
 
-          <p
-            style={{
-              fontFamily: SERIF,
-              fontStyle: 'italic',
-              fontSize: 'clamp(1.2rem, 2.5vw, 1.6rem)',
+            {/* Label */}
+            <div style={{
+              fontFamily: SANS,
+              fontSize: '10px',
+              letterSpacing: '0.26em',
               color: 'var(--color-gold)',
               textAlign: 'center',
-              maxWidth: '640px',
-              margin: '1rem auto 3.5rem',
-            }}
-          >
-            &ldquo;The blank page is an enemy. Defeat it with raw volume.&rdquo;
-          </p>
+              marginBottom: '2rem',
+              opacity: 0.7,
+            }}>
+              THE MOMENTUM
+            </div>
 
-          <p
-            style={{
+            {/* Headline */}
+            <h2 style={{
+              fontFamily: SERIF,
+              fontSize: 'clamp(2.2rem, 4vw, 3.6rem)',
+              fontWeight: 700,
+              color: 'var(--text-primary)',
+              textAlign: 'center',
+              lineHeight: 1.15,
+              letterSpacing: '-0.01em',
+              marginBottom: '1.5rem',
+            }}>
+              Write more by thinking less.
+            </h2>
+
+            {/* Subheading */}
+            <p style={{
               fontFamily: SANS,
               fontSize: '16px',
               color: 'var(--text-muted)',
-              lineHeight: 1.75,
-              maxWidth: '620px',
-              margin: '0 auto 4rem',
               textAlign: 'center',
-            }}
-          >
-            Most writers stall because their internal editor fires before the first draft is done. They rewrite sentence two before sentence three exists. The Arena eliminates this. Under pressure and HP stakes, the analytical brain goes quiet. Raw creative output is all that remains.
-          </p>
+              lineHeight: 1.85,
+              maxWidth: '600px',
+              margin: '0 auto 4.5rem',
+            }}>
+              Most writers don&apos;t stop because they run out of ideas. They stop because the inner editor arrives before the first draft is finished. Rune gives you systems that keep your hands moving.
+            </p>
 
-          {/* Two-column split */}
-          <div
-            className="arena-grid"
-            style={{ display: 'flex', flexDirection: 'row', gap: '2rem', maxWidth: '960px', margin: '0 auto' }}
-          >
-            {/* Battle Mode */}
-            <div className="relative z-20 bg-[var(--surface-card)]" style={{ flex: 1, border: '1px solid var(--color-border)', borderRadius: '8px', padding: '2rem' }}>
-              <span
-                style={{
-                  display: 'inline-block',
-                  fontSize: '10px',
-                  fontFamily: SANS,
-                  letterSpacing: '0.12em',
-                  color: 'var(--color-crimson)',
-                  border: '1px solid rgba(139, 46, 46, 0.4)',
-                  padding: '3px 10px',
-                  borderRadius: '10px',
-                  marginBottom: '1.25rem',
-                }}
-              >
-                BATTLE MODE
-              </span>
-              <h3 style={{ fontFamily: SERIF, fontSize: '20px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.75rem' }}>
-                Fight the Blank Page
-              </h3>
-              <p style={{ fontFamily: SANS, fontSize: '14px', color: 'var(--text-muted)', lineHeight: 1.65, marginBottom: '1.5rem' }}>
-                An enemy with an HP bar faces you across the canvas. Every word you write deals damage. Every second you stop typing, you take damage instead. No pausing to edit. No second-guessing a sentence. The only way through is through.
-              </p>
+            {/* ── Arena Demo ── */}
+            <div style={{ maxWidth: '680px', margin: '0 auto 6rem' }}>
 
-              {/* HP bar mockup */}
-              <div>
-                <div style={{ marginBottom: '12px' }}>
-                  <div style={{ fontSize: '8px', fontFamily: SANS, letterSpacing: '0.08em', color: 'var(--text-muted)', marginBottom: '4px' }}>
-                    THE BLANK PAGE
-                  </div>
-                  <div style={{ width: '100%', height: '8px', borderRadius: '4px', background: 'var(--color-border)' }}>
-                    <div style={{ width: '45%', height: '100%', background: 'linear-gradient(90deg, #6b1a1a, #8b2e2e)', borderRadius: '4px' }} />
-                  </div>
+              {/* Mode selector */}
+              <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginBottom: '1.75rem' }}>
+                {(['battle', 'race'] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    onClick={() => setArenaMode(mode)}
+                    aria-pressed={arenaMode === mode}
+                    style={{
+                      background: arenaMode === mode ? 'var(--color-gold)' : 'transparent',
+                      border: `1px solid ${arenaMode === mode ? 'var(--color-gold)' : 'var(--color-border)'}`,
+                      color: arenaMode === mode ? '#1e1a16' : 'var(--text-muted)',
+                      fontFamily: SANS,
+                      fontSize: '11px',
+                      letterSpacing: '0.1em',
+                      padding: '6px 20px',
+                      borderRadius: '20px',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      fontWeight: arenaMode === mode ? 600 : 400,
+                    }}
+                  >
+                    {mode === 'battle' ? 'Battle Mode' : 'Race Mode'}
+                  </button>
+                ))}
+              </div>
+
+              {/* Demo window */}
+              <div style={{
+                border: '1px solid var(--color-border-strong)',
+                borderRadius: '10px',
+                overflow: 'hidden',
+                background: 'var(--bg-secondary)',
+                boxShadow: '0 20px 60px rgba(0,0,0,0.18), 0 4px 16px rgba(0,0,0,0.08)',
+              }}>
+
+                {/* Window chrome */}
+                <div style={{
+                  background: 'var(--bg-sidebar)',
+                  borderBottom: '1px solid var(--color-border)',
+                  padding: '10px 18px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                }}>
+                  <span style={{ fontFamily: SERIF, fontSize: '11px', letterSpacing: '0.18em', color: 'var(--color-gold)' }}>
+                    ✦ Rune — Arena
+                  </span>
+                  <span style={{
+                    fontFamily: SANS,
+                    fontSize: '10px',
+                    letterSpacing: '0.12em',
+                    color: arenaMode === 'battle' ? 'rgba(139, 46, 46, 0.82)' : 'rgba(201, 168, 76, 0.82)',
+                    border: `1px solid ${arenaMode === 'battle' ? 'rgba(139, 46, 46, 0.28)' : 'rgba(201, 168, 76, 0.28)'}`,
+                    padding: '2px 10px',
+                    borderRadius: '10px',
+                    transition: 'all 0.3s ease',
+                  }}>
+                    {arenaMode === 'battle' ? 'BATTLE MODE' : 'RACE MODE'}
+                  </span>
                 </div>
-                <div>
-                  <div style={{ fontSize: '8px', fontFamily: SANS, letterSpacing: '0.08em', color: 'var(--color-gold)', marginBottom: '4px' }}>
-                    YOU
+
+                {/* Panels — overlapping with opacity crossfade */}
+                <div style={{ position: 'relative', minHeight: '340px' }}>
+
+                  {/* Battle Mode panel */}
+                  <div style={{
+                    position: 'absolute',
+                    top: 0, left: 0, right: 0,
+                    padding: '2.25rem 2.5rem 2rem',
+                    opacity: arenaMode === 'battle' ? 1 : 0,
+                    transition: 'opacity 0.35s ease',
+                    pointerEvents: arenaMode === 'battle' ? 'auto' : 'none',
+                  }}>
+
+                    {/* Enemy */}
+                    <div style={{ marginBottom: '1.5rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: '8px' }}>
+                        <div>
+                          <div style={{ fontFamily: SANS, fontSize: '9px', letterSpacing: '0.2em', color: 'var(--color-crimson)', opacity: 0.72, marginBottom: '3px' }}>ENEMY</div>
+                          <div style={{ fontFamily: SERIF, fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)' }}>The Blank Page</div>
+                        </div>
+                        <div style={{ fontFamily: SANS, fontSize: '11px', color: 'var(--text-muted)', opacity: 0.52, letterSpacing: '0.02em' }}>
+                          {enemyHp * 5} / 500 HP
+                        </div>
+                      </div>
+                      <div style={{ width: '100%', height: '8px', borderRadius: '4px', background: 'rgba(255,255,255,0.05)' }}>
+                        <div style={{
+                          width: `${enemyHp}%`,
+                          height: '100%',
+                          background: 'linear-gradient(90deg, #6b1a1a, #8b2e2e)',
+                          borderRadius: '4px',
+                          transition: 'width 1.4s ease',
+                        }} />
+                      </div>
+                    </div>
+
+                    {/* Divider */}
+                    <div style={{ display: 'flex', alignItems: 'center', marginBottom: '1.5rem', opacity: 0.28 }}>
+                      <div style={{ flex: 1, height: '1px', background: 'var(--color-border)' }} />
+                      <span style={{ margin: '0 12px', color: 'var(--color-gold)', fontSize: '10px' }}>✦</span>
+                      <div style={{ flex: 1, height: '1px', background: 'var(--color-border)' }} />
+                    </div>
+
+                    {/* Player */}
+                    <div style={{ marginBottom: '2rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: '8px' }}>
+                        <div>
+                          <div style={{ fontFamily: SANS, fontSize: '9px', letterSpacing: '0.2em', color: 'var(--color-gold)', opacity: 0.72, marginBottom: '3px' }}>YOU</div>
+                          <div style={{ fontFamily: SERIF, fontSize: '14px', color: 'var(--text-primary)', opacity: 0.82 }}>Writing Progress</div>
+                        </div>
+                        <div style={{ fontFamily: SANS, fontSize: '11px', color: 'var(--text-muted)', opacity: 0.52, letterSpacing: '0.02em' }}>
+                          168 / 200 HP
+                        </div>
+                      </div>
+                      <div style={{ width: '100%', height: '8px', borderRadius: '4px', background: 'rgba(255,255,255,0.05)' }}>
+                        <div style={{
+                          width: '84%',
+                          height: '100%',
+                          background: 'linear-gradient(90deg, var(--color-gold-dim), var(--color-gold))',
+                          borderRadius: '4px',
+                          opacity: breathOpacity,
+                          transition: 'opacity 1.5s ease-in-out',
+                        }} />
+                      </div>
+                    </div>
+
+                    {/* HUD bottom row */}
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      paddingTop: '1.25rem',
+                      borderTop: '1px solid var(--color-border)',
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'baseline', gap: '5px' }}>
+                        <span style={{ fontFamily: SERIF, fontSize: '22px', fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '-0.01em' }}>
+                          {battleWords}
+                        </span>
+                        <span style={{ fontFamily: SANS, fontSize: '12px', color: 'var(--text-muted)' }}>words written</span>
+                      </div>
+                      <span style={{ fontFamily: SERIF, fontStyle: 'italic', fontSize: '13px', color: 'var(--text-muted)', opacity: 0.58 }}>
+                        Keep writing.
+                      </span>
+                    </div>
+
                   </div>
-                  <div style={{ width: '100%', height: '8px', borderRadius: '4px', background: 'var(--color-border)' }}>
-                    <div style={{ width: '78%', height: '100%', background: 'linear-gradient(90deg, var(--color-gold-dim), var(--color-gold))', borderRadius: '4px' }} />
+
+                  {/* Race Mode panel */}
+                  <div style={{
+                    position: 'absolute',
+                    top: 0, left: 0, right: 0,
+                    padding: '2.25rem 2.5rem 2rem',
+                    opacity: arenaMode === 'race' ? 1 : 0,
+                    transition: 'opacity 0.35s ease',
+                    pointerEvents: arenaMode === 'race' ? 'auto' : 'none',
+                    textAlign: 'center',
+                  }}>
+
+                    <div style={{ fontFamily: SANS, fontSize: '9px', letterSpacing: '0.22em', color: 'var(--color-gold)', opacity: 0.55, marginBottom: '0.75rem' }}>
+                      TIME REMAINING
+                    </div>
+
+                    <div style={{
+                      fontFamily: SERIF,
+                      fontSize: 'clamp(3rem, 7vw, 4rem)',
+                      fontWeight: 700,
+                      color: 'var(--color-gold)',
+                      letterSpacing: '0.06em',
+                      lineHeight: 1,
+                      marginBottom: '1.75rem',
+                    }}>
+                      {formatTime(raceSeconds)}
+                    </div>
+
+                    <div style={{ marginBottom: '1.75rem' }}>
+                      <div style={{ width: '100%', height: '6px', borderRadius: '3px', background: 'rgba(255,255,255,0.05)' }}>
+                        <div style={{
+                          width: `${Math.min((raceWords / 1500) * 100, 100)}%`,
+                          height: '100%',
+                          background: 'linear-gradient(90deg, var(--color-gold-dim), var(--color-gold))',
+                          borderRadius: '3px',
+                          transition: 'width 0.9s ease',
+                        }} />
+                      </div>
+                    </div>
+
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      marginBottom: '1.5rem',
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'baseline', gap: '5px' }}>
+                        <span style={{ fontFamily: SERIF, fontSize: '22px', fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '-0.01em' }}>
+                          {raceWords.toLocaleString()}
+                        </span>
+                        <span style={{ fontFamily: SANS, fontSize: '12px', color: 'var(--text-muted)' }}>words</span>
+                      </div>
+                      <div style={{ fontFamily: SANS, fontSize: '12px', color: 'var(--text-muted)' }}>
+                        Personal best:&nbsp;<span style={{ color: 'var(--color-gold)', opacity: 0.82 }}>1,204</span>
+                      </div>
+                    </div>
+
+                    <div style={{ paddingTop: '1.25rem', borderTop: '1px solid var(--color-border)' }}>
+                      <span style={{ fontFamily: SERIF, fontStyle: 'italic', fontSize: '13px', color: 'var(--text-muted)', opacity: 0.58 }}>
+                        Only momentum matters.
+                      </span>
+                    </div>
+
                   </div>
+
                 </div>
               </div>
             </div>
 
-            {/* Race Mode */}
-            <div className="relative z-20 bg-[var(--surface-card)]" style={{ flex: 1, border: '1px solid var(--color-border)', borderRadius: '8px', padding: '2rem' }}>
-              <span
-                style={{
-                  display: 'inline-block',
-                  fontSize: '10px',
-                  fontFamily: SANS,
-                  letterSpacing: '0.12em',
-                  color: 'var(--color-gold)',
-                  border: '1px solid var(--color-border-strong)',
-                  padding: '3px 10px',
-                  borderRadius: '10px',
-                  marginBottom: '1.25rem',
-                }}
-              >
-                RACE MODE
-              </span>
-              <h3 style={{ fontFamily: SERIF, fontSize: '20px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.75rem' }}>
-                Race the Clock
+            {/* ── Part 2: Momentum becomes visible ── */}
+            <div>
+
+              <div style={{ display: 'flex', alignItems: 'center', marginBottom: '3.5rem' }}>
+                <div style={{ flex: 1, height: '1px', background: 'var(--color-border)' }} />
+                <span style={{ margin: '0 16px', color: 'var(--color-gold)', fontSize: '12px', opacity: 0.45 }}>✦</span>
+                <div style={{ flex: 1, height: '1px', background: 'var(--color-border)' }} />
+              </div>
+
+              <h3 style={{
+                fontFamily: SERIF,
+                fontSize: 'clamp(1.6rem, 2.5vw, 2.2rem)',
+                fontWeight: 600,
+                color: 'var(--text-primary)',
+                textAlign: 'center',
+                marginBottom: '1rem',
+              }}>
+                Momentum becomes visible.
               </h3>
-              <p style={{ fontFamily: SANS, fontSize: '14px', color: 'var(--text-muted)', lineHeight: 1.65, marginBottom: '1.5rem' }}>
-                Choose your duration: 5, 10, 15, or 30 minutes. Write as many words as you can before time expires. Your personal record is always visible. Every session is a chance to beat it. Consistency compounds.
+
+              <p style={{
+                fontFamily: SANS,
+                fontSize: '15px',
+                color: 'var(--text-muted)',
+                textAlign: 'center',
+                lineHeight: 1.8,
+                maxWidth: '520px',
+                margin: '0 auto 3.5rem',
+              }}>
+                Every session leaves a mark. Goals, streaks, heatmaps, and XP make consistency visible — because momentum grows when you can see it.
               </p>
 
-              {/* Timer mockup */}
-              <div style={{ textAlign: 'center' }}>
-                <div
-                  style={{
-                    fontFamily: SERIF,
-                    fontSize: '36px',
-                    fontWeight: 700,
-                    color: 'var(--color-gold)',
-                    letterSpacing: '0.05em',
-                    lineHeight: 1,
-                    marginBottom: '12px',
-                  }}
-                >
-                  12:47
-                </div>
-                <div style={{ width: '100%', height: '4px', borderRadius: '2px', background: 'var(--color-border)', marginBottom: '8px' }}>
-                  <div style={{ width: '57%', height: '100%', background: 'var(--color-gold)', borderRadius: '2px' }} />
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: '12px', fontFamily: SANS, color: 'var(--text-primary)', fontWeight: 600 }}>843 words</span>
-                  <span style={{ fontSize: '12px', fontFamily: SANS, color: 'var(--text-muted)' }}>Personal best: 1,204</span>
-                </div>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(4, 1fr)',
+                gap: '1rem',
+                maxWidth: '880px',
+                margin: '0 auto',
+              }}>
+                {[
+                  { title: 'Goals', body: 'Set the target. Watch the manuscript move.' },
+                  { title: 'Streaks', body: 'Make showing up feel tangible.' },
+                  { title: 'Heatmaps', body: 'See the pattern your writing leaves behind.' },
+                  { title: 'XP', body: 'Let every session compound into progress.' },
+                ].map(({ title, body }) => (
+                  <div
+                    key={title}
+                    className="bg-[var(--surface-card)]"
+                    style={{
+                      border: '1px solid var(--color-border)',
+                      borderRadius: '8px',
+                      padding: '1.5rem',
+                    }}
+                  >
+                    <div style={{
+                      fontFamily: SERIF,
+                      fontSize: '16px',
+                      fontWeight: 600,
+                      color: 'var(--text-primary)',
+                      marginBottom: '0.5rem',
+                    }}>
+                      {title}
+                    </div>
+                    <p style={{
+                      fontFamily: SANS,
+                      fontSize: '13px',
+                      color: 'var(--text-muted)',
+                      lineHeight: 1.7,
+                    }}>
+                      {body}
+                    </p>
+                  </div>
+                ))}
               </div>
+
             </div>
-          </div>
+
           </div>
         </section>
 
