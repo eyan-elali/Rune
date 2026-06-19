@@ -1758,6 +1758,21 @@ export default function LandingPage() {
                     </button>
                   ))}
                 </div>
+
+                <div
+                  aria-hidden
+                  style={{
+                    textAlign: 'center',
+                    marginTop: '8px',
+                    opacity: workspaceView === 'workspace' ? 0.38 : 0,
+                    transition: 'opacity 0.4s ease',
+                    pointerEvents: 'none',
+                  }}
+                >
+                  <span style={{ fontFamily: SANS, fontSize: '10px', letterSpacing: '0.1em', color: 'var(--color-mist)' }}>
+                    Try Focus Mode
+                  </span>
+                </div>
               </div>
 
             </div>
@@ -2036,6 +2051,44 @@ export default function LandingPage() {
                   </div>
 
                 </div>
+              </div>
+
+              <div
+                style={{
+                  display: 'grid',
+                  marginTop: '1.25rem',
+                }}
+              >
+                <p
+                  style={{
+                    gridArea: '1 / 1 / -1 / -1',
+                    textAlign: 'center',
+                    fontFamily: SANS,
+                    fontSize: '13px',
+                    color: 'var(--text-muted)',
+                    lineHeight: 1.7,
+                    margin: 0,
+                    opacity: arenaMode === 'battle' ? 0.65 : 0,
+                    transition: 'opacity 0.35s ease',
+                  }}
+                >
+                  Battle Mode turns drafting into a duel against hesitation—every word pushes the enemy.
+                </p>
+                <p
+                  style={{
+                    gridArea: '1 / 1 / -1 / -1',
+                    textAlign: 'center',
+                    fontFamily: SANS,
+                    fontSize: '13px',
+                    color: 'var(--text-muted)',
+                    lineHeight: 1.7,
+                    margin: 0,
+                    opacity: arenaMode === 'race' ? 0.65 : 0,
+                    transition: 'opacity 0.35s ease',
+                  }}
+                >
+                  Race Mode turns a writing session into a focused sprint, where the only goal is forward motion.
+                </p>
               </div>
             </div>
 
