@@ -69,16 +69,62 @@ const HEATMAP_FILLED = [
 const SERIF = "Georgia, 'Times New Roman', serif"
 const SANS  = 'system-ui, -apple-system, sans-serif'
 
+const DEMO_PAGES: {
+  label: string
+  wordCount: number
+  body: { text: string; indent: boolean; italic: boolean; cursor?: boolean }[]
+}[] = [
+  {
+    label: 'The Arrival',
+    wordCount: 312,
+    body: [
+      { text: 'The library was already dark by the time she arrived.', indent: false, italic: false },
+      { text: 'She had taken the long road deliberately — through the courtyard rather than the stone passage — because on nights like this she needed the cold air to remind her she was still moving forward.', indent: true, italic: false },
+      { text: '“You’re late,” said the archivist, not looking up.', indent: true, italic: true },
+      { text: 'She sat down at the long oak table and opened the manuscript.', indent: true, italic: false, cursor: true },
+    ],
+  },
+  {
+    label: 'The Letter',
+    wordCount: 247,
+    body: [
+      { text: 'The envelope had arrived without a return address.', indent: false, italic: false },
+      { text: 'She turned it over in her hands three times before breaking the seal, as though reading it would make things real in a way she wasn’t ready for.', indent: true, italic: false },
+      { text: '“If you’re reading this,” it began, “then I was wrong about the time.”', indent: true, italic: true },
+      { text: 'She folded it carefully and placed it inside the manuscript.', indent: true, italic: false, cursor: true },
+    ],
+  },
+  {
+    label: 'The Garden',
+    wordCount: 183,
+    body: [
+      { text: 'By morning the frost had retreated to the edges of the stone path.', indent: false, italic: false },
+      { text: 'She walked through it slowly, notebook in hand, the way her mother had taught her to think — without hurrying toward a conclusion.', indent: true, italic: false },
+      { text: '“Nothing is truly lost,” the old woman used to say. “Only misplaced.”', indent: true, italic: true },
+      { text: 'She was beginning to believe it.', indent: true, italic: false, cursor: true },
+    ],
+  },
+]
+
 export default function LandingPage() {
   const [activeHeroTheme, setActiveHeroTheme] = useState<HeroThemeKey>('candlelight')
   const [billing, setBilling] = useState<'monthly' | 'annual'>('monthly')
   const [priceVisible, setPriceVisible] = useState(true)
   const [workspaceView, setWorkspaceView] = useState<'workspace' | 'focus'>('workspace')
+  const [activePageIndex, setActivePageIndex] = useState(0)
 
   useEffect(() => {
     document.documentElement.removeAttribute('data-theme')
     document.documentElement.removeAttribute('data-font')
   }, [])
+
+  useEffect(() => {
+    if (workspaceView !== 'workspace') return
+    const timer = setInterval(() => {
+      setActivePageIndex(prev => (prev + 1) % DEMO_PAGES.length)
+    }, 2800)
+    return () => clearInterval(timer)
+  }, [workspaceView])
 
   const heroTheme = HERO_THEMES[activeHeroTheme]
 
@@ -901,25 +947,6 @@ export default function LandingPage() {
                     background: 'var(--bg-primary)',
                   }}
                 >
-                  {/* Window chrome */}
-                  <div
-                    style={{
-                      height: '28px',
-                      background: 'var(--bg-sidebar)',
-                      borderBottom: '1px solid var(--color-border)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      padding: '0 12px',
-                      gap: '6px',
-                      flexShrink: 0,
-                    }}
-                    aria-hidden
-                  >
-                    <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#ff5f57', opacity: 0.75 }} />
-                    <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#febc2e', opacity: 0.75 }} />
-                    <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#28c840', opacity: 0.75 }} />
-                  </div>
-
                   {/* App layout */}
                   <div style={{ flex: 1, display: 'flex', overflow: 'hidden', minHeight: 0 }}>
 
@@ -929,10 +956,11 @@ export default function LandingPage() {
                         width: workspaceView === 'focus' ? '0px' : '132px',
                         overflow: 'hidden',
                         flexShrink: 0,
-                        transition: 'width 0.5s cubic-bezier(0.16, 1, 0.3, 1)',
+                        transition: 'width 0.5s cubic-bezier(0.16, 1, 0.3, 1), border-right-color 0.45s ease',
                         transitionDelay: workspaceView === 'focus' ? '0ms' : '80ms',
                         background: 'var(--bg-sidebar)',
-                        borderRight: '1px solid var(--color-border)',
+                        borderRight: '1px solid',
+                        borderRightColor: workspaceView === 'focus' ? 'transparent' : 'var(--color-border)',
                         display: 'flex',
                         flexDirection: 'column',
                       }}
@@ -1096,49 +1124,52 @@ export default function LandingPage() {
                             width: workspaceView === 'focus' ? '0px' : '122px',
                             overflow: 'hidden',
                             flexShrink: 0,
-                            transition: 'width 0.5s cubic-bezier(0.16, 1, 0.3, 1)',
+                            transition: 'width 0.5s cubic-bezier(0.16, 1, 0.3, 1), border-right-color 0.45s ease',
                             transitionDelay: workspaceView === 'focus' ? '30ms' : '50ms',
                             background: 'var(--bg-sidebar)',
-                            borderRight: '1px solid var(--color-border)',
+                            borderRight: '1px solid',
+                            borderRightColor: workspaceView === 'focus' ? 'transparent' : 'var(--color-border)',
                             display: 'flex',
                             flexDirection: 'column',
                           }}
                           aria-hidden
                         >
-                          <div style={{ padding: '8px 10px 6px', borderBottom: '1px solid var(--color-border)', flexShrink: 0 }}>
+                          <div style={{ padding: '8px 10px 6px', borderBottom: '1px solid var(--color-border)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                             <span style={{ fontFamily: SANS, fontSize: '8px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--color-mist)', opacity: 0.65, whiteSpace: 'nowrap' }}>
                               Pages
                             </span>
+                            <span style={{ fontFamily: SANS, fontSize: '8px', color: 'var(--color-mist)', opacity: 0.4, whiteSpace: 'nowrap' }}>
+                              Chapters
+                            </span>
                           </div>
 
-                          {/* Pages — flat list, no chapter grouping */}
+                          {/* Pages — cycles through DEMO_PAGES in workspace mode */}
                           <div style={{ padding: '6px 8px', flex: 1, overflow: 'hidden' }}>
-                            {[
-                              { label: 'The Arrival', active: true },
-                              { label: 'The Study', active: false },
-                              { label: 'First Contact', active: false },
-                              { label: 'Interlude', active: false },
-                            ].map(({ label, active }) => (
-                              <div
-                                key={label}
-                                style={{
-                                  padding: '5px 7px',
-                                  borderRadius: '0 3px 3px 0',
-                                  fontFamily: SANS,
-                                  fontSize: '9.5px',
-                                  color: active ? 'var(--color-gold)' : 'var(--text-primary)',
-                                  opacity: active ? 1 : 0.52,
-                                  background: active ? 'rgba(184, 146, 42, 0.1)' : 'transparent',
-                                  borderLeft: `2px solid ${active ? 'var(--color-gold)' : 'transparent'}`,
-                                  marginBottom: '1px',
-                                  whiteSpace: 'nowrap',
-                                  overflow: 'hidden',
-                                  textOverflow: 'ellipsis',
-                                }}
-                              >
-                                {label}
-                              </div>
-                            ))}
+                            {DEMO_PAGES.map(({ label }, idx) => {
+                              const active = idx === activePageIndex
+                              return (
+                                <div
+                                  key={label}
+                                  style={{
+                                    padding: '5px 7px',
+                                    borderRadius: '0 3px 3px 0',
+                                    fontFamily: SANS,
+                                    fontSize: '9.5px',
+                                    color: active ? 'var(--color-gold)' : 'var(--text-primary)',
+                                    opacity: active ? 1 : 0.52,
+                                    background: active ? 'rgba(184, 146, 42, 0.1)' : 'transparent',
+                                    borderLeft: `2px solid ${active ? 'var(--color-gold)' : 'transparent'}`,
+                                    marginBottom: '1px',
+                                    whiteSpace: 'nowrap',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    transition: 'color 0.6s ease, opacity 0.6s ease, background 0.6s ease, border-left-color 0.6s ease',
+                                  }}
+                                >
+                                  {label}
+                                </div>
+                              )
+                            })}
                           </div>
 
                           {/* New page */}
@@ -1176,24 +1207,25 @@ export default function LandingPage() {
                           {/* Editor content */}
                           <div
                             style={{
-                              padding: workspaceView === 'focus' ? '28px 40px 20px' : '16px 22px 18px',
+                              padding: workspaceView === 'focus' ? '24px 20px 20px' : '16px 22px 18px',
                               transition: 'padding 0.55s cubic-bezier(0.16, 1, 0.3, 1)',
                               transitionDelay: workspaceView === 'focus' ? '120ms' : '0ms',
                               position: 'relative',
                               zIndex: 1,
+                              display: 'flex',
+                              justifyContent: workspaceView === 'focus' ? 'center' : 'flex-start',
                             }}
                           >
-                            {/* Page title — collapses in focus mode */}
+                            {/* Inner content — constrained width in focus mode */}
                             <div
                               style={{
-                                overflow: 'hidden',
-                                maxHeight: workspaceView === 'focus' ? '0px' : '56px',
-                                opacity: workspaceView === 'focus' ? 0 : 1,
-                                marginBottom: workspaceView === 'focus' ? '0px' : '14px',
-                                transition: 'max-height 0.45s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease, margin-bottom 0.45s ease',
-                                transitionDelay: workspaceView === 'focus' ? '0ms' : '180ms',
+                                width: '100%',
+                                maxWidth: workspaceView === 'focus' ? '320px' : '100%',
+                                transition: 'max-width 0.55s cubic-bezier(0.16, 1, 0.3, 1)',
+                                transitionDelay: workspaceView === 'focus' ? '120ms' : '0ms',
                               }}
                             >
+                              {/* Page title — always visible */}
                               <div
                                 style={{
                                   fontFamily: SERIF,
@@ -1203,36 +1235,43 @@ export default function LandingPage() {
                                   letterSpacing: '-0.01em',
                                   lineHeight: 1.3,
                                   paddingBottom: '10px',
+                                  marginBottom: '14px',
                                   borderBottom: '1px solid var(--color-border)',
                                 }}
                               >
-                                The Arrival
+                                {DEMO_PAGES[activePageIndex].label}
                               </div>
-                            </div>
 
-                            <p style={{ fontFamily: SERIF, fontSize: '11px', lineHeight: 1.9, color: 'var(--color-ink)', marginBottom: '10px' }}>
-                              The library was already dark by the time she arrived.
-                            </p>
-                            <p style={{ fontFamily: SERIF, fontSize: '11px', lineHeight: 1.9, color: 'var(--color-ink)', marginBottom: '10px', textIndent: '18px' }}>
-                              She had taken the long road deliberately — through the courtyard rather than the stone passage — because on nights like this she needed the cold air to remind her she was still moving forward.
-                            </p>
-                            <p style={{ fontFamily: SERIF, fontSize: '11px', lineHeight: 1.9, color: 'var(--color-ink)', marginBottom: '10px', textIndent: '18px', fontStyle: 'italic' }}>
-                              &ldquo;You&apos;re late,&rdquo; said the archivist, not looking up.
-                            </p>
-                            <p style={{ fontFamily: SERIF, fontSize: '11px', lineHeight: 1.9, color: 'var(--color-ink)', textIndent: '18px' }}>
-                              She sat down at the long oak table and opened the manuscript.{' '}
-                              <span
-                                className="landing-cursor"
-                                style={{
-                                  display: 'inline-block',
-                                  width: '1.5px',
-                                  height: '11px',
-                                  background: 'var(--color-gold)',
-                                  verticalAlign: 'middle',
-                                  marginLeft: '1px',
-                                }}
-                              />
-                            </p>
+                              {DEMO_PAGES[activePageIndex].body.map((line, i) => (
+                                <p
+                                  key={i}
+                                  style={{
+                                    fontFamily: SERIF,
+                                    fontSize: '11px',
+                                    lineHeight: 1.9,
+                                    color: 'var(--color-ink)',
+                                    marginBottom: i < DEMO_PAGES[activePageIndex].body.length - 1 ? '10px' : '0',
+                                    textIndent: line.indent ? '18px' : '0',
+                                    fontStyle: line.italic ? 'italic' : 'normal',
+                                  }}
+                                >
+                                  {line.text}
+                                  {line.cursor && (
+                                    <span
+                                      className="landing-cursor"
+                                      style={{
+                                        display: 'inline-block',
+                                        width: '1.5px',
+                                        height: '11px',
+                                        background: 'var(--color-gold)',
+                                        verticalAlign: 'middle',
+                                        marginLeft: '3px',
+                                      }}
+                                    />
+                                  )}
+                                </p>
+                              ))}
+                            </div>
                           </div>
 
                           {/* Word count pill */}
@@ -1253,7 +1292,7 @@ export default function LandingPage() {
                             }}
                             aria-hidden
                           >
-                            312 <span style={{ opacity: 0.65 }}>words</span>
+                            {DEMO_PAGES[activePageIndex].wordCount} <span style={{ opacity: 0.65 }}>words</span>
                           </div>
                         </div>
 

@@ -11,7 +11,6 @@ import {
   Bookmark,
   Info,
   Pencil,
-  BookOpen,
   ChevronLeft,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -421,12 +420,11 @@ export function PageList({
             <button
               type="button"
               onClick={() => setView("chapters")}
-              aria-label="Switch chapter"
-              title="Switch chapter"
-              className="rounded p-0.5 transition-colors duration-100 hover:bg-rune-gold/10"
-              style={{ color: "var(--color-mist)" }}
+              aria-label="Switch to chapters"
+              className="rounded px-1.5 py-0.5 text-[10px] leading-none tracking-wide transition-colors duration-100 hover:bg-rune-gold/10"
+              style={{ color: "var(--color-mist)", opacity: 0.65 }}
             >
-              <BookOpen size={12} aria-hidden />
+              Chapters
             </button>
           )}
         </div>
