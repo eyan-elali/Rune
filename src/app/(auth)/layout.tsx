@@ -5,8 +5,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
     <div
       className="flex min-h-screen flex-col items-center justify-center px-4 py-12"
       style={{
-        background:
-          "radial-gradient(ellipse at 50% 35%, var(--color-sepia) 0%, var(--color-ink) 72%)",
+        background: "var(--color-ink)",
       }}
     >
       {/* Wordmark */}
