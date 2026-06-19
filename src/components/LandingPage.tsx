@@ -260,7 +260,7 @@ export default function LandingPage() {
         @media (min-width: 768px) and (max-width: 899px) {
           .landing-header { padding: 0 1.25rem !important; }
 
-          /* Hero: stack copy then preview */
+          /* Hero: stack copy then preview, centered composition */
           .landing-hero {
             flex-direction: column !important;
             align-items: stretch !important;
@@ -268,6 +268,14 @@ export default function LandingPage() {
           .landing-hero-left {
             width: 100% !important;
             padding: 3rem 1.75rem 2rem !important;
+            align-items: center !important;
+            text-align: center !important;
+          }
+          .landing-hero-left p {
+            max-width: 440px !important;
+          }
+          .landing-hero-left .gold-btn {
+            align-self: center !important;
           }
           .landing-hero-right {
             flex: none !important;
