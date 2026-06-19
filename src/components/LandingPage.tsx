@@ -66,6 +66,31 @@ const HEATMAP_FILLED = [
   true,  false, true,  true,  false,
 ]
 
+// 20 weeks × 7 days = 140 cells; column-major (Mon–Sun per week, oldest→newest)
+// intensities: 0=empty, 1=dim, 2=medium, 3=bright
+const S5_HEATMAP: number[] = [
+  0,0,1,0,2,0,0, // week 0
+  0,1,0,0,1,0,1, // week 1
+  1,0,2,0,0,1,0, // week 2
+  0,1,0,1,2,0,0, // week 3
+  2,0,1,2,0,1,0, // week 4
+  0,2,1,0,2,1,2, // week 5
+  1,2,0,2,1,2,0, // week 6
+  2,1,2,0,2,2,1, // week 7
+  2,2,1,3,1,2,1, // week 8
+  1,2,3,2,2,1,2, // week 9
+  2,3,2,1,3,2,2, // week 10
+  3,2,2,3,2,3,1, // week 11
+  2,3,3,2,3,2,2, // week 12
+  3,2,3,3,2,3,2, // week 13
+  3,3,2,3,3,2,3, // week 14
+  2,3,3,3,2,3,3, // week 15
+  3,2,3,3,2,3,2, // week 16 — animated
+  3,3,2,3,3,2,3, // week 17 — animated
+  2,3,3,2,3,3,2, // week 18 — animated
+  3,3,2,3,3,2,0, // week 19 — animated (last cell = today, not yet written)
+]
+
 const SERIF = "Georgia, 'Times New Roman', serif"
 const SANS  = 'system-ui, -apple-system, sans-serif'
 
@@ -118,6 +143,10 @@ export default function LandingPage() {
   const [raceSeconds, setRaceSeconds] = useState(767)
   const [raceWords, setRaceWords] = useState(843)
   const [breathOpacity, setBreathOpacity] = useState(1.0)
+  const [heatStep, setHeatStep] = useState(112)
+  const [s5Streak, setS5Streak] = useState(14)
+  const [s5Words, setS5Words] = useState(47200)
+  const [s5XpPct, setS5XpPct] = useState(70)
 
   useEffect(() => {
     document.documentElement.removeAttribute('data-theme')
@@ -136,6 +165,34 @@ export default function LandingPage() {
     const timer = setInterval(() => {
       setBreathOpacity(prev => prev > 0.85 ? 0.78 : 1.0)
     }, 1500)
+    return () => clearInterval(timer)
+  }, [])
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setHeatStep(prev => prev >= 140 ? 112 : prev + 1)
+    }, 160)
+    return () => clearInterval(timer)
+  }, [])
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setS5Streak(prev => prev >= 21 ? 14 : prev + 1)
+    }, 3200)
+    return () => clearInterval(timer)
+  }, [])
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setS5Words(prev => prev >= 52000 ? 47200 : prev + 25)
+    }, 500)
+    return () => clearInterval(timer)
+  }, [])
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setS5XpPct(prev => prev >= 94 ? 70 : prev + 1)
+    }, 600)
     return () => clearInterval(timer)
   }, [])
 
@@ -1733,7 +1790,342 @@ export default function LandingPage() {
 
         <SectionDivider />
 
-        {/* ── SECTION 5: COMING SOON ───────────────────────────────────── */}
+        {/* ── SECTION 5: EVERY SESSION LEAVES ITS MARK ────────────────── */}
+        <section
+          className="bg-[var(--bg-secondary)]"
+          style={{
+            width: '100%',
+            minHeight: '100vh',
+            padding: '8rem 1.5rem',
+            borderTop: '1px solid var(--color-border)',
+            borderBottom: '1px solid var(--color-border)',
+            display: 'flex',
+            alignItems: 'center',
+          }}
+        >
+          <div className="relative z-20" style={{ maxWidth: '820px', margin: '0 auto', width: '100%' }}>
+
+            {/* Eyebrow */}
+            <div style={{
+              fontFamily: SANS,
+              fontSize: '10px',
+              letterSpacing: '0.26em',
+              color: 'var(--color-gold)',
+              textAlign: 'center',
+              marginBottom: '2rem',
+              opacity: 0.7,
+            }}>
+              THE LONG GAME
+            </div>
+
+            {/* Headline */}
+            <h2 style={{
+              fontFamily: SERIF,
+              fontSize: 'clamp(2.2rem, 4vw, 3.6rem)',
+              fontWeight: 700,
+              color: 'var(--text-primary)',
+              textAlign: 'center',
+              lineHeight: 1.15,
+              letterSpacing: '-0.01em',
+              marginBottom: '1.5rem',
+            }}>
+              Every session leaves its mark.
+            </h2>
+
+            {/* Supporting copy */}
+            <p style={{
+              fontFamily: SANS,
+              fontSize: '16px',
+              color: 'var(--text-muted)',
+              textAlign: 'center',
+              lineHeight: 1.85,
+              maxWidth: '520px',
+              margin: '0 auto 4rem',
+            }}>
+              Great novels aren&apos;t written in bursts of inspiration. They&apos;re written one day at a time.
+            </p>
+
+            {/* Heatmap card */}
+            <div style={{
+              border: '1px solid var(--color-border)',
+              borderRadius: '12px',
+              padding: '2rem 2rem 1.5rem',
+              background: 'var(--bg-primary)',
+              marginBottom: '1.25rem',
+            }}>
+              {/* Header row */}
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: '1.5rem',
+              }}>
+                <span style={{
+                  fontFamily: SANS,
+                  fontSize: '11px',
+                  letterSpacing: '0.18em',
+                  textTransform: 'uppercase' as const,
+                  color: 'var(--color-mist)',
+                  opacity: 0.75,
+                }}>
+                  Writing Activity
+                </span>
+                <span style={{
+                  fontFamily: SANS,
+                  fontSize: '12px',
+                  color: 'var(--text-muted)',
+                  opacity: 0.58,
+                }}>
+                  Last 20 weeks
+                </span>
+              </div>
+
+              {/* Grid + day labels */}
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+
+                {/* Day labels column */}
+                <div style={{
+                  display: 'flex',
+                  flexDirection: 'column' as const,
+                  gap: '4px',
+                  paddingTop: '1px',
+                  flexShrink: 0,
+                  width: '22px',
+                }}>
+                  {['Mon', '', 'Wed', '', 'Fri', '', 'Sun'].map((label, i) => (
+                    <div key={i} style={{
+                      height: '16px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      fontFamily: SANS,
+                      fontSize: '9px',
+                      color: 'var(--color-mist)',
+                      opacity: 0.42,
+                      userSelect: 'none' as const,
+                    }}>
+                      {label}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Cells — column-major layout matches S5_HEATMAP order */}
+                <div style={{
+                  display: 'grid',
+                  gridTemplateRows: 'repeat(7, 16px)',
+                  gridAutoFlow: 'column',
+                  gridAutoColumns: '16px',
+                  gap: '4px',
+                  flex: 1,
+                }}>
+                  {S5_HEATMAP.map((intensity, idx) => {
+                    const active = idx < heatStep
+                    const bg = !active || intensity === 0
+                      ? 'rgba(201, 168, 76, 0.07)'
+                      : intensity === 1
+                      ? 'rgba(201, 168, 76, 0.24)'
+                      : intensity === 2
+                      ? 'rgba(201, 168, 76, 0.55)'
+                      : 'rgba(201, 168, 76, 0.90)'
+                    return (
+                      <div
+                        key={idx}
+                        style={{
+                          borderRadius: '3px',
+                          background: bg,
+                          transition: 'background 0.5s ease',
+                        }}
+                        aria-hidden
+                      />
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Legend */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'flex-end',
+                gap: '4px',
+                marginTop: '1rem',
+              }}>
+                <span style={{ fontFamily: SANS, fontSize: '9px', color: 'var(--color-mist)', opacity: 0.45 }}>Less</span>
+                {([0.07, 0.24, 0.55, 0.90] as const).map((op, i) => (
+                  <div key={i} style={{
+                    width: '10px',
+                    height: '10px',
+                    borderRadius: '2px',
+                    background: `rgba(201, 168, 76, ${op})`,
+                  }} aria-hidden />
+                ))}
+                <span style={{ fontFamily: SANS, fontSize: '9px', color: 'var(--color-mist)', opacity: 0.45 }}>More</span>
+              </div>
+            </div>
+
+            {/* Stats row */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(3, 1fr)',
+              gap: '1rem',
+              marginBottom: '5rem',
+            }}>
+
+              {/* Manuscript Goal */}
+              <div style={{
+                border: '1px solid var(--color-border)',
+                borderRadius: '10px',
+                padding: '1.5rem',
+                background: 'var(--bg-primary)',
+                display: 'flex',
+                flexDirection: 'column' as const,
+                alignItems: 'center',
+                gap: '0.75rem',
+              }}>
+                <div style={{ position: 'relative', width: '80px', height: '80px', flexShrink: 0 }}>
+                  <svg width="80" height="80" viewBox="0 0 80 80" style={{ transform: 'rotate(-90deg)' }} aria-hidden>
+                    <circle cx="40" cy="40" r="32" fill="none" stroke="rgba(201, 168, 76, 0.1)" strokeWidth="5" />
+                    <circle
+                      cx="40" cy="40" r="32"
+                      fill="none"
+                      stroke="var(--color-gold)"
+                      strokeWidth="5"
+                      strokeLinecap="round"
+                      strokeDasharray="201"
+                      strokeDashoffset={201 * (1 - s5Words / 80000)}
+                      style={{ transition: 'stroke-dashoffset 1.5s ease' }}
+                    />
+                  </svg>
+                  <div style={{
+                    position: 'absolute',
+                    inset: 0,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}>
+                    <span style={{
+                      fontFamily: SERIF,
+                      fontSize: '14px',
+                      fontWeight: 700,
+                      color: 'var(--text-primary)',
+                      letterSpacing: '-0.02em',
+                    }}>
+                      {Math.round((s5Words / 80000) * 100)}%
+                    </span>
+                  </div>
+                </div>
+                <div style={{ textAlign: 'center' as const }}>
+                  <div style={{ fontFamily: SANS, fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                    {s5Words.toLocaleString()} / 80,000 words
+                  </div>
+                  <div style={{ fontFamily: SERIF, fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                    Manuscript Goal
+                  </div>
+                </div>
+              </div>
+
+              {/* Writing Streak */}
+              <div style={{
+                border: '1px solid var(--color-border)',
+                borderRadius: '10px',
+                padding: '1.5rem',
+                background: 'var(--bg-primary)',
+                display: 'flex',
+                flexDirection: 'column' as const,
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '0.4rem',
+              }}>
+                <div style={{
+                  fontFamily: SERIF,
+                  fontSize: '52px',
+                  fontWeight: 700,
+                  color: 'var(--color-gold)',
+                  lineHeight: 1,
+                  letterSpacing: '-0.02em',
+                  transition: 'all 0.4s ease',
+                }}>
+                  {s5Streak}
+                </div>
+                <div style={{ fontFamily: SANS, fontSize: '12px', color: 'var(--text-muted)', letterSpacing: '0.06em' }}>
+                  day streak
+                </div>
+                <div style={{ display: 'flex', gap: '5px', marginTop: '8px' }} aria-hidden>
+                  {[...Array(7)].map((_, i) => (
+                    <div key={i} style={{
+                      width: '7px',
+                      height: '7px',
+                      borderRadius: '50%',
+                      background: 'var(--color-gold)',
+                      opacity: i === 6 ? 0.35 : 1,
+                    }} />
+                  ))}
+                </div>
+              </div>
+
+              {/* Level / XP */}
+              <div style={{
+                border: '1px solid var(--color-border)',
+                borderRadius: '10px',
+                padding: '1.5rem',
+                background: 'var(--bg-primary)',
+                display: 'flex',
+                flexDirection: 'column' as const,
+                justifyContent: 'center',
+                gap: '0.65rem',
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                  <span style={{ fontFamily: SERIF, fontSize: '20px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                    Level 7
+                  </span>
+                  <span style={{ fontFamily: SANS, fontSize: '10px', color: 'var(--color-gold)', opacity: 0.65 }}>
+                    → Lvl 8
+                  </span>
+                </div>
+                <div style={{ width: '100%', height: '6px', borderRadius: '3px', background: 'rgba(201,168,76,0.1)' }}>
+                  <div style={{
+                    height: '100%',
+                    width: `${s5XpPct}%`,
+                    background: 'linear-gradient(90deg, var(--color-gold-dim), var(--color-gold))',
+                    borderRadius: '3px',
+                    transition: 'width 0.8s ease',
+                  }} />
+                </div>
+                <div style={{ fontFamily: SANS, fontSize: '11px', color: 'var(--text-muted)', opacity: 0.65 }}>
+                  {Math.round(s5XpPct / 100 * 5000).toLocaleString()} / 5,000 XP
+                </div>
+                <div style={{ fontFamily: SERIF, fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', marginTop: '4px' }}>
+                  Current Level / XP
+                </div>
+              </div>
+
+            </div>
+
+            {/* Divider */}
+            <div style={{ display: 'flex', alignItems: 'center', marginBottom: '3rem' }}>
+              <div style={{ flex: 1, height: '1px', background: 'var(--color-border)' }} />
+              <span style={{ margin: '0 16px', color: 'var(--color-gold)', fontSize: '12px', opacity: 0.45 }}>✦</span>
+              <div style={{ flex: 1, height: '1px', background: 'var(--color-border)' }} />
+            </div>
+
+            {/* Closing line */}
+            <p style={{
+              fontFamily: SERIF,
+              fontStyle: 'italic',
+              fontSize: 'clamp(1.05rem, 1.8vw, 1.25rem)',
+              color: 'var(--text-primary)',
+              textAlign: 'center',
+              opacity: 0.72,
+              lineHeight: 1.75,
+            }}>
+              One sentence becomes one page. One page becomes one chapter. One chapter becomes a finished novel.
+            </p>
+
+          </div>
+        </section>
+
+        <SectionDivider />
+
+        {/* ── SECTION 6: COMING SOON ───────────────────────────────────── */}
         <section className="bg-[var(--bg-secondary)]" style={{ width: '100%', padding: '6rem 1.5rem' }}>
           <div className="relative z-20">
           <h2
