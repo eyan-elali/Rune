@@ -2535,21 +2535,35 @@ export default function LandingPage() {
             borderTop: '1px solid var(--color-border)',
           }}
         >
-          <div className="relative z-20">
+          <div className="relative z-20" style={{ maxWidth: '900px', margin: '0 auto', width: '100%' }}>
+          <div
+            style={{
+              fontFamily: SANS,
+              fontSize: '10px',
+              letterSpacing: '0.26em',
+              color: 'var(--color-gold)',
+              textAlign: 'center',
+              marginBottom: '2rem',
+              opacity: 0.7,
+            }}
+          >
+            PRICING
+          </div>
           <h2
             style={{
               fontFamily: SERIF,
               fontSize: 'clamp(1.6rem, 3vw, 2.4rem)',
-              fontWeight: 600,
+              fontWeight: 700,
               color: 'var(--text-primary)',
               textAlign: 'center',
-              marginBottom: '0.75rem',
+              letterSpacing: '-0.01em',
+              marginBottom: '0.85rem',
             }}
           >
-            The Price of Absolute Craftsmanship
+            Simple pricing. Start writing for free.
           </h2>
-          <p style={{ fontFamily: SANS, fontSize: '16px', color: 'var(--text-muted)', textAlign: 'center', marginBottom: '2.5rem' }}>
-            Start free. Upgrade when you&apos;re ready to go all in.
+          <p style={{ fontFamily: SANS, fontSize: '16px', color: 'var(--text-muted)', textAlign: 'center', lineHeight: 1.75, maxWidth: '480px', margin: '0 auto 2.5rem' }}>
+            Begin your manuscript today. Upgrade only when you&apos;re ready to write without limits.
           </p>
 
           {/* Billing toggle */}
@@ -2586,7 +2600,7 @@ export default function LandingPage() {
             {/* Free */}
             <div className="relative z-20 bg-[var(--surface-card)]" style={{ flex: 1, border: '1px solid var(--color-border)', borderRadius: '8px', padding: '2rem' }}>
               <div style={{ fontFamily: SERIF, fontSize: '22px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.35rem' }}>Free</div>
-              <div style={{ fontFamily: SANS, fontSize: '14px', color: 'var(--text-muted)', marginBottom: '1.5rem' }}>Start your practice.</div>
+              <div style={{ fontFamily: SANS, fontSize: '14px', color: 'var(--text-muted)', marginBottom: '1.5rem' }}>Start your first manuscript.</div>
               <div style={{ display: 'flex', alignItems: 'baseline' }}>
                 <span style={{ fontFamily: SERIF, fontSize: '48px', fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1 }}>$0</span>
                 <span style={{ fontFamily: SANS, fontSize: '14px', color: 'var(--text-muted)', marginLeft: '4px' }}>/month</span>
@@ -2594,7 +2608,7 @@ export default function LandingPage() {
 
               <div style={{ height: '1px', background: 'var(--color-border)', margin: '1.5rem 0' }} />
 
-              {['1 active project', '20,000 word limit', 'Core text editor', 'Focus Mode', '1 Arena ticket / week'].map((f) => (
+              {['1 active project', '20,000 words', 'Core editor', 'Focus Mode', '1 Arena ticket / week'].map((f) => (
                 <div key={f} style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', marginBottom: '10px', fontSize: '14px', color: 'var(--text-primary)', lineHeight: 1.5, fontFamily: SANS }}>
                   <span style={{ color: 'var(--color-gold)', fontSize: '12px', flexShrink: 0, marginTop: '1px' }}>✦</span>
                   {f}
@@ -2628,8 +2642,21 @@ export default function LandingPage() {
                   textDecoration: 'none',
                 }}
               >
-                Get Started — Free
+                Start Free
               </Link>
+              <div
+                style={{
+                  fontFamily: SANS,
+                  fontSize: '11px',
+                  color: 'var(--text-muted)',
+                  textAlign: 'center',
+                  marginTop: '0.65rem',
+                  opacity: 0.55,
+                  letterSpacing: '0.02em',
+                }}
+              >
+                No credit card required.
+              </div>
             </div>
 
             {/* Scribe */}
@@ -2651,14 +2678,14 @@ export default function LandingPage() {
                   fontFamily: SANS,
                 }}
               >
-                MOST POPULAR
+                Best for Novelists
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontFamily: SERIF, fontSize: '22px', fontWeight: 600, color: 'var(--color-gold)', marginBottom: '0.35rem' }}>
                 <Crown size={20} className="text-[var(--color-gold)]" aria-hidden />
                 Scribe
               </div>
-              <div style={{ fontFamily: SANS, fontSize: '14px', color: 'var(--text-muted)', marginBottom: '1.5rem' }}>For writers who show up.</div>
+              <div style={{ fontFamily: SANS, fontSize: '14px', color: 'var(--text-muted)', marginBottom: '1.5rem' }}>For writers ready to go all in.</div>
 
               <div style={{ opacity: priceVisible ? 1 : 0, transition: 'opacity 0.2s ease' }}>
                 <div style={{ display: 'flex', alignItems: 'baseline' }}>
@@ -2679,10 +2706,10 @@ export default function LandingPage() {
               {[
                 'Everything in Free',
                 'Unlimited projects & words',
-                'Full Arena access — unlimited tickets',
-                'Goals, streaks & heatmap analytics',
-                'Export pages & full manuscripts (PDF)',
-                'All 34 themes, fonts & avatar insignias',
+                'Unlimited Arena access',
+                'Goals, streaks & heatmaps',
+                'All themes, fonts & avatars',
+                'PDF manuscript exports',
                 'Task manager',
                 'Priority support',
               ].map((f) => (
@@ -2714,7 +2741,7 @@ export default function LandingPage() {
                   textDecoration: 'none',
                 }}
               >
-                Unlock Access →
+                Unlock Scribe
               </Link>
             </div>
           </div>
