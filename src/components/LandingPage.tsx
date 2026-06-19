@@ -445,6 +445,43 @@ export default function LandingPage() {
             flex: none !important;
             padding: 1.5rem !important;
           }
+
+          /* ── Hero editor: tighter header on mobile ── */
+          .landing-hero-editor-header {
+            padding: 5px 10px !important;
+          }
+
+          /* ── Hero editor: smaller prose fits all text above pill ── */
+          .landing-hero-chapter-label {
+            margin-bottom: 1rem !important;
+          }
+          .landing-hero-writing-surface p {
+            font-size: 11.5px !important;
+            line-height: 1.7 !important;
+            margin-bottom: 0.65rem !important;
+          }
+
+          /* ── Heatmap: compress to fit mobile viewport, no horizontal scroll ── */
+          .landing-heatmap-scroll {
+            overflow-x: hidden !important;
+          }
+          .landing-heatmap-inner {
+            min-width: 0 !important;
+            gap: 2px !important;
+          }
+          .landing-heatmap-day-labels {
+            width: 14px !important;
+            gap: 2px !important;
+          }
+          .landing-heatmap-day-labels > div {
+            height: 9px !important;
+            font-size: 7px !important;
+          }
+          .landing-heatmap-grid {
+            grid-template-rows: repeat(7, 9px) !important;
+            grid-auto-columns: 9px !important;
+            gap: 2px !important;
+          }
         }
 
         /* ─── PHONES < 640px: workspace mockup — fluid, centered ─── */
@@ -700,6 +737,7 @@ export default function LandingPage() {
             >
               {/* App chrome bar — matches real Candlelight header: dark bg, gold wordmark, mode toggle */}
               <div
+                className="landing-hero-editor-header"
                 style={{
                   background: heroTheme.headerBg,
                   borderBottom: `1px solid ${heroTheme.border}`,
@@ -793,6 +831,7 @@ export default function LandingPage() {
               >
                 {/* Chapter label */}
                 <div
+                  className="landing-hero-chapter-label"
                   style={{
                     fontFamily: SERIF,
                     fontSize: '9px',
@@ -2097,10 +2136,10 @@ export default function LandingPage() {
 
               {/* Grid + day labels */}
               <div className="landing-heatmap-scroll">
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', minWidth: 'min-content' }}>
+              <div className="landing-heatmap-inner" style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', minWidth: 'min-content' }}>
 
                 {/* Day labels column */}
-                <div style={{
+                <div className="landing-heatmap-day-labels" style={{
                   display: 'flex',
                   flexDirection: 'column' as const,
                   gap: '4px',
@@ -2125,7 +2164,7 @@ export default function LandingPage() {
                 </div>
 
                 {/* Cells — column-major layout matches S5_HEATMAP order */}
-                <div style={{
+                <div className="landing-heatmap-grid" style={{
                   display: 'grid',
                   gridTemplateRows: 'repeat(7, 18px)',
                   gridAutoFlow: 'column',
@@ -2671,7 +2710,7 @@ export default function LandingPage() {
               letterSpacing: '0.06em',
               opacity: 0.52,
             }}>
-              — Early beta reader
+              — Early beta tester
             </div>
           </div>
         </section>
