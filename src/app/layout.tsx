@@ -3,6 +3,7 @@ import { Inter, Newsreader } from "next/font/google";
 import Script from "next/script";
 import { ThemeProvider } from "@/components/ui/ThemeProvider";
 import { ToastContainer } from "@/components/ui/Toast";
+import { MetaPixel } from "@/components/MetaPixel";
 import "@/lib/env";
 import "./globals.css";
 
@@ -51,6 +52,7 @@ export default function RootLayout({
           data-promotekit="64ee5083-c2fe-4f2a-83d5-f617165dc363"
           strategy="afterInteractive"
         />
+        <MetaPixel />
         <ThemeProvider>
           {children}
           <ToastContainer />

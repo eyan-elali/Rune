@@ -45,7 +45,12 @@ export default function SignupClient() {
       password,
       options: {
         data: { display_name: displayName },
-        emailRedirectTo: `${window.location.origin}/auth/callback?next=/dashboard`,
+        emailRedirectTo: (() => {
+          const u = new URL('/auth/callback', window.location.origin)
+          u.searchParams.set('next', '/dashboard')
+          u.searchParams.set('intent', 'signup')
+          return u.toString()
+        })(),
       },
     });
 

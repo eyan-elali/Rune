@@ -1,5 +1,4 @@
 import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
@@ -7,24 +6,27 @@ export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get('code')
   const next = searchParams.get('next') ?? '/dashboard'
+  const intent = searchParams.get('intent')
 
   if (code) {
-    const cookieStore = await cookies()
-    const redirectResponse = NextResponse.redirect(`${origin}${next}`)
+    const redirectUrl = new URL(`${origin}${next}`)
+    if (intent === 'signup') {
+      redirectUrl.searchParams.set('registered', '1')
+    }
+    const redirectResponse = NextResponse.redirect(redirectUrl.toString())
 
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
         cookies: {
-          get(name) {
-            return cookieStore.get(name)?.value
+          getAll() {
+            return request.cookies.getAll()
           },
-          set(name, value, options) {
-            redirectResponse.cookies.set({ name, value, ...options })
-          },
-          remove(name, options) {
-            redirectResponse.cookies.set({ name, value: '', ...options })
+          setAll(cookiesToSet) {
+            cookiesToSet.forEach(({ name, value, options }) => {
+              redirectResponse.cookies.set(name, value, options)
+            })
           },
         },
       }
@@ -34,6 +36,7 @@ export async function GET(request: NextRequest) {
     if (!error) {
       return redirectResponse
     }
+    console.error('[auth/callback] exchangeCodeForSession failed:', error.message)
   }
 
   return NextResponse.redirect(`${origin}/login?error=confirmation_failed`)
