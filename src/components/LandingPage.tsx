@@ -227,6 +227,101 @@ export default function LandingPage() {
 
   return (
     <div className="relative" style={{ overflowX: 'hidden' }}>
+      <style>{`
+        /* ══════════════════════════════════════════════════════
+           RUNE LANDING PAGE — TABLET RESPONSIVE
+           768px–1199px only. Desktop 1200px+ is never touched.
+        ══════════════════════════════════════════════════════ */
+
+        /* Heatmap: allow contained horizontal scroll on narrow tablets */
+        .landing-heatmap-scroll {
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
+        }
+
+        /* ─── TABLET LANDSCAPE 900px–1199px ──────────────── */
+        @media (min-width: 900px) and (max-width: 1199px) {
+          .landing-header { padding: 0 1.5rem !important; }
+
+          .landing-hero-left { padding: 0 2rem 3rem 3rem !important; }
+          .landing-hero-right { padding: 2rem 2rem 2rem 0.5rem !important; }
+
+          .landing-problem-col-1 { padding: 0 1.75rem 0 0 !important; }
+          .landing-problem-col-2 { padding: 0 1.75rem !important; }
+          .landing-problem-col-3 { padding: 0 0 0 1.75rem !important; }
+
+          .landing-workspace-section { padding: 5rem 2rem !important; }
+
+          .landing-s6-left { padding-right: 2.5rem !important; }
+          .landing-s6-right { padding-left: 1.5rem !important; }
+        }
+
+        /* ─── TABLET PORTRAIT 768px–899px ────────────────── */
+        @media (min-width: 768px) and (max-width: 899px) {
+          .landing-header { padding: 0 1.25rem !important; }
+
+          /* Hero: stack copy then preview */
+          .landing-hero {
+            flex-direction: column !important;
+            align-items: stretch !important;
+          }
+          .landing-hero-left {
+            width: 100% !important;
+            padding: 3rem 1.75rem 2rem !important;
+          }
+          .landing-hero-right {
+            flex: none !important;
+            width: 100% !important;
+            padding: 0 1.75rem 3rem !important;
+          }
+
+          /* Problem: single column with horizontal dividers */
+          .landing-problem-cols { grid-template-columns: 1fr !important; }
+          .landing-problem-col-1 {
+            padding: 0 0 2.25rem !important;
+            border-right: none !important;
+            border-bottom: 1px solid var(--color-border) !important;
+          }
+          .landing-problem-col-2 {
+            padding: 2.25rem 0 !important;
+            border-right: none !important;
+            border-bottom: 1px solid var(--color-border) !important;
+          }
+          .landing-problem-col-3 { padding: 2.25rem 0 0 !important; }
+
+          /* Workspace: stack copy then preview */
+          .landing-workspace-section { padding: 4rem 1.5rem !important; }
+          .landing-workspace-grid {
+            grid-template-columns: 1fr !important;
+            gap: 2.5rem !important;
+          }
+
+          /* Long Game stats: single column */
+          .landing-stats-row {
+            grid-template-columns: 1fr !important;
+            gap: 0.85rem !important;
+          }
+
+          /* Trust / Make Rune Yours: stack */
+          .landing-s6-grid { grid-template-columns: 1fr !important; }
+          .landing-s6-left {
+            padding-right: 0 !important;
+            padding-bottom: 3rem !important;
+          }
+          .landing-s6-right {
+            border-left: none !important;
+            border-top: 1px solid var(--color-border) !important;
+            padding-left: 0 !important;
+            padding-top: 3rem !important;
+          }
+
+          /* Trust 3-point grid: single column */
+          .landing-trust-pts {
+            grid-template-columns: 1fr !important;
+            gap: 1.25rem !important;
+          }
+        }
+      `}</style>
 
       {/* Layer 2 — continuous gold lines over section backgrounds */}
       <div
@@ -267,7 +362,7 @@ export default function LandingPage() {
 
       {/* Layer 3 — fixed header (above lines and content) */}
       <header
-          className="fixed top-0 left-0 right-0 z-50 bg-[var(--bg-primary)]"
+          className="fixed top-0 left-0 right-0 z-50 bg-[var(--bg-primary)] landing-header"
           style={{
             height: '56px',
             display: 'flex',
@@ -316,7 +411,7 @@ export default function LandingPage() {
 
         {/* ── SCREEN 1: HERO ───────────────────────────────────────────── */}
         <section
-          className="bg-[var(--bg-primary)]"
+          className="bg-[var(--bg-primary)] landing-hero"
           style={{
             minHeight: 'calc(100vh - 56px)',
             display: 'flex',
@@ -326,7 +421,7 @@ export default function LandingPage() {
         >
           {/* Left — wordmark, headline, paragraph, CTA */}
           <div
-            className="relative z-20"
+            className="relative z-20 landing-hero-left"
             style={{
               width: '44%',
               flexShrink: 0,
@@ -406,6 +501,7 @@ export default function LandingPage() {
 
           {/* Right — writing experience preview */}
           <div
+            className="landing-hero-right"
             style={{
               flex: 1,
               minWidth: 0,
@@ -799,6 +895,7 @@ export default function LandingPage() {
 
             {/* Three problem columns */}
             <div
+              className="landing-problem-cols"
               style={{
                 display: 'grid',
                 gridTemplateColumns: 'repeat(3, 1fr)',
@@ -807,7 +904,7 @@ export default function LandingPage() {
               }}
             >
               {/* I — Structure disappears */}
-              <div style={{ padding: '0 3rem 0 0', borderRight: '1px solid var(--color-border)' }}>
+              <div className="landing-problem-col-1" style={{ padding: '0 3rem 0 0', borderRight: '1px solid var(--color-border)' }}>
                 <div
                   style={{
                     fontFamily: SERIF,
@@ -838,7 +935,7 @@ export default function LandingPage() {
               </div>
 
               {/* II — Momentum fades */}
-              <div style={{ padding: '0 3rem', borderRight: '1px solid var(--color-border)' }}>
+              <div className="landing-problem-col-2" style={{ padding: '0 3rem', borderRight: '1px solid var(--color-border)' }}>
                 <div
                   style={{
                     fontFamily: SERIF,
@@ -869,7 +966,7 @@ export default function LandingPage() {
               </div>
 
               {/* III — Progress gets blurry */}
-              <div style={{ padding: '0 0 0 3rem' }}>
+              <div className="landing-problem-col-3" style={{ padding: '0 0 0 3rem' }}>
                 <div
                   style={{
                     fontFamily: SERIF,
@@ -928,7 +1025,7 @@ export default function LandingPage() {
 
         {/* ── SCREEN 3: THE WORKSPACE REVEAL ───────────────────────────── */}
         <section
-          className="bg-[var(--bg-primary)]"
+          className="bg-[var(--bg-primary)] landing-workspace-section"
           style={{
             width: '100%',
             minHeight: 'calc(100vh - 56px)',
@@ -942,6 +1039,7 @@ export default function LandingPage() {
         >
           <div className="relative z-20" style={{ maxWidth: '1220px', margin: '0 auto', width: '100%' }}>
             <div
+              className="landing-workspace-grid"
               style={{
                 display: 'grid',
                 gridTemplateColumns: '1fr 1.6fr',
@@ -1887,7 +1985,7 @@ export default function LandingPage() {
             </div>
 
             {/* Stats row */}
-            <div style={{
+            <div className="landing-stats-row" style={{
               display: 'grid',
               gridTemplateColumns: '1.18fr 1fr 1fr',
               gap: '1rem',
@@ -2063,7 +2161,7 @@ export default function LandingPage() {
           }}
         >
           <div className="relative z-20" style={{ maxWidth: '1200px', margin: '0 auto', width: '100%' }}>
-            <div style={{
+            <div className="landing-s6-grid" style={{
               display: 'grid',
               gridTemplateColumns: '1.75fr 1fr',
               gap: '0',
@@ -2071,7 +2169,7 @@ export default function LandingPage() {
             }}>
 
               {/* ── LEFT: Trust & Ownership (70%) ── */}
-              <div style={{ paddingRight: 'clamp(2rem, 6.9vw, 5rem)' }}>
+              <div className="landing-s6-left" style={{ paddingRight: 'clamp(2rem, 6.9vw, 5rem)' }}>
 
                 <div style={{
                   fontFamily: SANS,
@@ -2185,7 +2283,7 @@ export default function LandingPage() {
                 </div>
 
                 {/* ── 3 Trust Points ── */}
-                <div style={{
+                <div className="landing-trust-pts" style={{
                   display: 'grid',
                   gridTemplateColumns: 'repeat(3, 1fr)',
                   gap: '1.5rem',
@@ -2223,7 +2321,7 @@ export default function LandingPage() {
               </div>
 
               {/* ── RIGHT: Make Rune Yours (30%) ── */}
-              <div style={{
+              <div className="landing-s6-right" style={{
                 paddingLeft: 'clamp(1.5rem, 5.5vw, 4rem)',
                 borderLeft: '1px solid var(--color-border)',
               }}>
