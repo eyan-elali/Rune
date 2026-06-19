@@ -3,8 +3,6 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import {
-  Users,
-  Compass,
   Crown,
 } from 'lucide-react'
 
@@ -2341,186 +2339,44 @@ export default function LandingPage() {
 
             </div>
 
-            {/* ── Pull Quote ── */}
-            <div style={{
-              marginTop: '3rem',
-              paddingTop: '3rem',
-              borderTop: '1px solid var(--color-border)',
-              paddingBottom: '0.5rem',
-              textAlign: 'center',
-            }}>
-              <p style={{
-                fontFamily: SERIF,
-                fontStyle: 'italic',
-                fontSize: 'clamp(1.45rem, 2.6vw, 1.85rem)',
-                color: 'var(--text-primary)',
-                lineHeight: 1.62,
-                maxWidth: '61rem',
-                margin: '0 auto 1.75rem',
-                opacity: 0.88,
-                letterSpacing: '-0.01em',
-              }}>
-                &ldquo;Rune feels like it was designed by someone who actually writes novels.&rdquo;
-              </p>
-              <div style={{
-                fontFamily: SANS,
-                fontSize: '12px',
-                color: 'var(--text-muted)',
-                letterSpacing: '0.06em',
-                opacity: 0.52,
-              }}>
-                — Early beta reader
-              </div>
-            </div>
-
           </div>
         </section>
 
         <SectionDivider />
 
-        {/* ── SECTION 7: COMING SOON ───────────────────────────────────── */}
-        <section className="bg-[var(--bg-secondary)]" style={{ width: '100%', padding: '6rem 1.5rem' }}>
-          <div className="relative z-20">
-          <h2
-            style={{
+        {/* ── TESTIMONIAL ──────────────────────────────────────────────── */}
+        <section
+          className="bg-[var(--bg-secondary)]"
+          style={{
+            width: '100%',
+            padding: '3.5rem 1.5rem',
+            borderTop: '1px solid var(--color-border)',
+            borderBottom: '1px solid var(--color-border)',
+          }}
+        >
+          <div className="relative z-20" style={{ textAlign: 'center' }}>
+            <p style={{
               fontFamily: SERIF,
-              fontSize: 'clamp(1.6rem, 3vw, 2.4rem)',
-              fontWeight: 600,
+              fontStyle: 'italic',
+              fontSize: 'clamp(1.45rem, 2.6vw, 1.85rem)',
               color: 'var(--text-primary)',
-              textAlign: 'center',
-              marginBottom: '0.75rem',
-            }}
-          >
-            What&apos;s Coming to Rune
-          </h2>
-          <p
-            style={{
+              lineHeight: 1.62,
+              maxWidth: '61rem',
+              margin: '0 auto 1.75rem',
+              opacity: 0.88,
+              letterSpacing: '-0.01em',
+            }}>
+              &ldquo;Rune feels like it was designed by someone who actually writes novels.&rdquo;
+            </p>
+            <div style={{
               fontFamily: SANS,
-              fontSize: '15px',
+              fontSize: '12px',
               color: 'var(--text-muted)',
-              textAlign: 'center',
-              marginBottom: '3.5rem',
-            }}
-          >
-            Rune is being built in the open. These features are in active development.
-          </p>
-
-          <div
-            className="coming-soon-grid"
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(2, 1fr)',
-              gap: '1.5rem',
-              maxWidth: '700px',
-              margin: '0 auto',
-            }}
-          >
-            {/* Card 1 — 1v1 Live Races */}
-            <div
-              className="relative z-20 bg-[var(--surface-card)]"
-              style={{
-                border: '1px solid var(--color-border)',
-                borderRadius: '8px',
-                padding: '1.75rem',
-              }}
-            >
-              <span
-                style={{
-                  position: 'absolute',
-                  top: '12px',
-                  right: '12px',
-                  background: 'rgba(201, 168, 76, 0.1)',
-                  border: '1px solid var(--color-border-strong)',
-                  color: 'var(--color-gold)',
-                  fontSize: '9px',
-                  letterSpacing: '0.1em',
-                  fontWeight: 600,
-                  padding: '2px 8px',
-                  borderRadius: '3px',
-                  fontFamily: SANS,
-                }}
-              >
-                COMING SOON
-              </span>
-
-              <Users size={24} className="text-[var(--color-gold)] opacity-70 mb-4" aria-hidden />
-
-              <h3
-                style={{
-                  fontFamily: SERIF,
-                  fontSize: '17px',
-                  fontWeight: 600,
-                  color: 'var(--text-primary)',
-                  marginBottom: '0.5rem',
-                }}
-              >
-                1v1 Live Races
-              </h3>
-              <p
-                style={{
-                  fontFamily: SANS,
-                  fontSize: '14px',
-                  color: 'var(--text-muted)',
-                  lineHeight: 1.65,
-                }}
-              >
-                Challenge another writer to a real-time word count race. Same duration, same stakes. See who breaks first. Leaderboards, match history, and ranked seasons are all in scope.
-              </p>
+              letterSpacing: '0.06em',
+              opacity: 0.52,
+            }}>
+              — Early beta reader
             </div>
-
-            {/* Card 2 — Plotting & Story Architecture */}
-            <div
-              className="relative z-20 bg-[var(--surface-card)]"
-              style={{
-                border: '1px solid var(--color-border)',
-                borderRadius: '8px',
-                padding: '1.75rem',
-              }}
-            >
-              <span
-                style={{
-                  position: 'absolute',
-                  top: '12px',
-                  right: '12px',
-                  background: 'rgba(201, 168, 76, 0.1)',
-                  border: '1px solid var(--color-border-strong)',
-                  color: 'var(--color-gold)',
-                  fontSize: '9px',
-                  letterSpacing: '0.1em',
-                  fontWeight: 600,
-                  padding: '2px 8px',
-                  borderRadius: '3px',
-                  fontFamily: SANS,
-                }}
-              >
-                COMING SOON
-              </span>
-
-              <Compass size={24} className="text-[var(--color-gold)] opacity-70 mb-4" aria-hidden />
-
-              <h3
-                style={{
-                  fontFamily: SERIF,
-                  fontSize: '17px',
-                  fontWeight: 600,
-                  color: 'var(--text-primary)',
-                  marginBottom: '0.5rem',
-                }}
-              >
-                Plotting &amp; Story Architecture
-              </h3>
-              <p
-                style={{
-                  fontFamily: SANS,
-                  fontSize: '14px',
-                  color: 'var(--text-muted)',
-                  lineHeight: 1.65,
-                }}
-              >
-                A dedicated plotting workspace with drag-and-drop scene cards, act structure templates, character relationship maps, and timeline views. Your story&apos;s skeleton, built before a single chapter begins.
-              </p>
-            </div>
-          </div>
           </div>
         </section>
 
@@ -2750,7 +2606,133 @@ export default function LandingPage() {
 
         <SectionDivider />
 
-        {/* ── SECTION 7: FOOTER ────────────────────────────────────────── */}
+        {/* ── FINAL CTA ─────────────────────────────────────────────────── */}
+        <section
+          className="bg-[var(--bg-secondary)]"
+          style={{
+            width: '100%',
+            minHeight: '100vh',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '8rem 1.5rem',
+            borderTop: '1px solid var(--color-border)',
+            position: 'relative',
+            overflow: 'hidden',
+          }}
+        >
+          {/* Subtle radial warmth behind the text */}
+          <div
+            aria-hidden
+            style={{
+              position: 'absolute',
+              inset: 0,
+              background: 'radial-gradient(ellipse 70% 55% at 50% 50%, rgba(201, 168, 76, 0.04) 0%, transparent 72%)',
+              pointerEvents: 'none',
+            }}
+          />
+
+          <div className="relative z-20" style={{ textAlign: 'center', maxWidth: '600px', width: '100%' }}>
+
+            {/* Label */}
+            <div
+              style={{
+                fontFamily: SANS,
+                fontSize: '10px',
+                letterSpacing: '0.38em',
+                color: 'var(--color-gold)',
+                marginBottom: '3rem',
+                opacity: 0.6,
+              }}
+            >
+              BEGIN
+            </div>
+
+            {/* Ornament */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginBottom: '3.25rem',
+              }}
+              aria-hidden
+            >
+              <div style={{ width: '72px', height: '1px', background: 'var(--color-border-strong)', opacity: 0.55 }} />
+              <span style={{ margin: '0 18px', color: 'var(--color-gold)', fontSize: '14px', opacity: 0.45 }}>✦</span>
+              <div style={{ width: '72px', height: '1px', background: 'var(--color-border-strong)', opacity: 0.55 }} />
+            </div>
+
+            {/* Headline */}
+            <h2
+              style={{
+                fontFamily: SERIF,
+                fontSize: 'clamp(2.4rem, 4.5vw, 3.8rem)',
+                fontWeight: 700,
+                color: 'var(--text-primary)',
+                lineHeight: 1.18,
+                letterSpacing: '-0.01em',
+                marginBottom: '2rem',
+              }}
+            >
+              Every finished novel begins with one page.
+            </h2>
+
+            {/* Supporting copy */}
+            <p
+              style={{
+                fontFamily: SANS,
+                fontSize: '17px',
+                color: 'var(--text-muted)',
+                lineHeight: 1.85,
+                marginBottom: '3.5rem',
+                opacity: 0.78,
+              }}
+            >
+              Stop wrestling with blank documents. Write inside a workspace built to help you finish.
+            </p>
+
+            {/* Primary CTA */}
+            <Link
+              href="/signup"
+              className="gold-btn"
+              style={{
+                display: 'inline-block',
+                background: 'var(--color-gold)',
+                color: '#1e1a16',
+                fontFamily: SERIF,
+                fontSize: '14px',
+                letterSpacing: '0.09em',
+                fontWeight: 600,
+                padding: '15px 36px',
+                borderRadius: '4px',
+                border: 'none',
+                textDecoration: 'none',
+                transition: 'background 0.15s ease',
+                marginBottom: '1.1rem',
+              }}
+            >
+              Start Your Manuscript — Free
+            </Link>
+
+            {/* Reassurance */}
+            <div
+              style={{
+                fontFamily: SANS,
+                fontSize: '12px',
+                color: 'var(--text-muted)',
+                opacity: 0.45,
+                letterSpacing: '0.02em',
+              }}
+            >
+              No credit card required.
+            </div>
+
+          </div>
+        </section>
+
+        {/* ── FOOTER ───────────────────────────────────────────────────── */}
         <footer
           className="bg-[var(--bg-primary)]"
           style={{
