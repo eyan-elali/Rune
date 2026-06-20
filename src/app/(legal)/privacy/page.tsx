@@ -5,7 +5,7 @@ export const metadata: Metadata = {
   description: "Read the Privacy Policy for Rune, the gamified writing environment.",
 };
 
-const LAST_UPDATED = "May 24, 2026";
+const LAST_UPDATED = "June 20, 2026";
 
 export default function PrivacyPage() {
   return (
@@ -55,8 +55,14 @@ export default function PrivacyPage() {
             We also automatically collect certain technical information when you
             access the Service, including your IP address, browser type, operating
             system, referring URLs, and pages visited. This information is used
-            solely for operating and improving the Service and is not sold or shared
-            with third parties for marketing purposes.
+            for operating and improving the Service.
+          </p>
+          <p>
+            If you interact with our advertising campaigns, we may also receive
+            event data from Meta (such as PageView and CompleteRegistration events)
+            to help us understand how visitors reach and engage with Rune. This is
+            described further in Sections 4 and 6. Your manuscript content is never
+            included in any advertising event data.
           </p>
         </Section>
 
@@ -68,6 +74,13 @@ export default function PrivacyPage() {
             magic-link sign-ins and billing receipts.
           </p>
           <p>
+            We may also use certain account information (such as whether you
+            completed registration) to measure the performance of advertising
+            campaigns and improve the relevance of ads shown to prospective users.
+            This measurement uses aggregated signals and does not involve sharing
+            your writing content with any advertising platform.
+          </p>
+          <p>
             We do not use your writing content for any purpose other than storing and
             displaying it back to you. We will never use your User Content to train
             machine learning models, generate AI outputs, or share it with third
@@ -75,18 +88,17 @@ export default function PrivacyPage() {
           </p>
         </Section>
 
-        <Section title="3. Data Storage and Security">
+        <Section title="3. Your Writing Belongs to You">
           <p>
-            Your data is stored in a Supabase-managed PostgreSQL database with
-            row-level security enabled, ensuring that no user can access another
-            user&apos;s data through the application layer. All data is encrypted at
-            rest and in transit using industry-standard TLS encryption.
+            Your manuscripts, chapters, and pages are entirely yours. Rune claims no
+            ownership over anything you write in the Service.
           </p>
           <p>
-            While we implement reasonable administrative, technical, and physical
-            safeguards, no method of transmission over the internet is 100% secure.
-            We cannot guarantee absolute security and encourage you to use a strong,
-            unique password and to sign out of shared devices when finished.
+            We do not sell your writing. We do not share your manuscripts with
+            advertisers. We do not use your writing to train artificial intelligence
+            or machine learning models — not now, not in the future. Rune only
+            processes your writing content to provide you with the product: storing
+            it, displaying it back to you, and syncing it across your devices.
           </p>
         </Section>
 
@@ -104,24 +116,73 @@ export default function PrivacyPage() {
             Stripe&apos;s handling of your payment data is governed by their own
             privacy policy and PCI DSS compliance program.
           </p>
-        </Section>
-
-        <Section title="5. Cookies">
           <p>
-            Rune uses session cookies to maintain your authenticated state across
-            page loads. These cookies are strictly necessary for the Service to
-            function and are set by Supabase as part of the authentication flow.
-            We do not use advertising cookies, tracking pixels, or third-party
-            analytics cookies.
+            Rune is hosted on <strong style={{ color: "var(--color-parchment)" }}>Vercel</strong>, a cloud deployment platform. Vercel
+            may process request logs and infrastructure data as part of delivering
+            the Service. Vercel&apos;s data handling is governed by their own privacy
+            policy.
           </p>
           <p>
-            You may configure your browser to refuse cookies, but doing so will
-            prevent you from remaining signed in to the Service. We do not currently
-            use any non-essential cookies, so no cookie consent banner is shown.
+            Rune uses <strong style={{ color: "var(--color-parchment)" }}>Meta Pixel</strong> and related Meta business tools to measure
+            advertising performance, understand how visitors interact with our
+            website, and improve the relevance of our advertising campaigns. Meta
+            Pixel may track events such as PageView and CompleteRegistration. Rune
+            does not share manuscript content, chapter data, or writing with Meta.
+            Meta&apos;s use of this data is governed by Meta&apos;s own privacy policy.
+          </p>
+          <p>
+            We have also enabled Automatic Advanced Matching, which allows Meta to
+            use information provided during signup — such as your email address —
+            to help match website events to Meta accounts for advertising measurement
+            purposes. This is used solely for campaign analytics, not for targeting
+            ads based on what you write.
           </p>
         </Section>
 
-        <Section title="6. Your Rights">
+        <Section title="5. Data Storage and Security">
+          <p>
+            Your data is stored in a Supabase-managed PostgreSQL database with
+            row-level security enabled, ensuring that no user can access another
+            user&apos;s data through the application layer. All data is encrypted at
+            rest and in transit using industry-standard TLS encryption.
+          </p>
+          <p>
+            While we implement reasonable administrative, technical, and physical
+            safeguards, no method of transmission over the internet is 100% secure.
+            We cannot guarantee absolute security and encourage you to use a strong,
+            unique password and to sign out of shared devices when finished.
+          </p>
+        </Section>
+
+        <Section title="6. Cookies">
+          <p>
+            Rune uses two categories of cookies and similar technologies:
+          </p>
+          <p>
+            <strong style={{ color: "var(--color-parchment)" }}>Essential cookies</strong> are required for the Service to function.
+            These include authentication cookies set by Supabase to maintain your
+            signed-in session, session management tokens, and security cookies that
+            protect against unauthorized access. Disabling these cookies will
+            prevent you from remaining signed in to Rune.
+          </p>
+          <p>
+            <strong style={{ color: "var(--color-parchment)" }}>Analytics and advertising technologies</strong> include the Meta Pixel,
+            which places cookies or uses browser storage to measure advertising
+            performance and track conversion events (such as CompleteRegistration).
+            These technologies help us understand how users discover Rune and
+            improve our advertising campaigns. They are active on our marketing
+            pages and on signup and login flows.
+          </p>
+          <p>
+            You may configure your browser to refuse or delete cookies. Blocking
+            essential cookies will prevent Rune from functioning. Blocking
+            advertising cookies will limit our ability to measure campaign
+            performance but will not affect your ability to use the Service once
+            signed in.
+          </p>
+        </Section>
+
+        <Section title="7. Your Rights">
           <p>
             Depending on your location, you may have certain rights regarding your
             personal data, including the right to access the data we hold about you,
@@ -142,7 +203,7 @@ export default function PrivacyPage() {
           </p>
         </Section>
 
-        <Section title="7. Data Retention">
+        <Section title="8. Data Retention">
           <p>
             We retain your account data and writing content for as long as your
             account remains active. If you delete your account, we will permanently
@@ -158,7 +219,7 @@ export default function PrivacyPage() {
           </p>
         </Section>
 
-        <Section title="8. Children's Privacy">
+        <Section title="9. Children's Privacy">
           <p>
             The Service is not directed to children under the age of 13. We do not
             knowingly collect personal information from children under 13. If you
@@ -180,7 +241,7 @@ export default function PrivacyPage() {
           </p>
         </Section>
 
-        <Section title="9. Changes to This Policy">
+        <Section title="10. Changes to This Policy">
           <p>
             We may update this Privacy Policy from time to time to reflect changes
             in our practices or for legal, regulatory, or operational reasons. When
@@ -195,7 +256,7 @@ export default function PrivacyPage() {
           </p>
         </Section>
 
-        <Section title="10. Contact">
+        <Section title="11. Contact">
           <p>
             If you have any questions, concerns, or requests regarding this Privacy
             Policy or your personal data, please contact us at{" "}

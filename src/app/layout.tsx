@@ -21,16 +21,16 @@ const newsreader = Newsreader({
 
 export const metadata: Metadata = {
   title: {
-    default: "Rune — The Creative Forge for Serious Authors",
+    default: "Rune | Writing Workspace for Novelists",
     template: "%s | Rune",
   },
   description:
-    "A professional writing workspace with deep focus tools, manuscript tracking, and a gamified Arena mode designed to silence your internal editor and drive raw creative output.",
+    "Rune is the writing workspace built specifically for novelists. Organize chapters and scenes, build momentum, and finish your manuscript.",
   metadataBase: new URL("https://www.rune-app.com"),
   openGraph: {
-    title: "Rune — The Creative Forge for Serious Authors",
+    title: "Rune | Writing Workspace for Novelists",
     description:
-      "Stop writing in sterile office software. Command a canvas built for long-form novelists.",
+      "Rune is the writing workspace built specifically for novelists. Organize chapters and scenes, build momentum, and finish your manuscript.",
     url: "https://www.rune-app.com",
     type: "website",
   },

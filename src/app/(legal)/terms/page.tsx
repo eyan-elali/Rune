@@ -5,7 +5,7 @@ export const metadata: Metadata = {
   description: "Read the Terms of Service for Rune, the gamified writing environment.",
 };
 
-const LAST_UPDATED = "May 24, 2026";
+const LAST_UPDATED = "June 20, 2026";
 
 export default function TermsPage() {
   return (
@@ -67,6 +67,11 @@ export default function TermsPage() {
             and Battle Mode), and an XP and unlockables system.
           </p>
           <p>
+            Rune may currently be offered as a beta service. Features may change, be
+            modified, added, or discontinued as the product evolves. We will make
+            reasonable efforts to communicate significant changes to active users.
+          </p>
+          <p>
             Rune is provided &quot;as is&quot; and we reserve the right to modify,
             suspend, or discontinue any part of the Service at any time with
             reasonable notice. New features or tools added to the current Service
@@ -92,9 +97,9 @@ export default function TermsPage() {
 
         <Section title="4. Subscription and Billing">
           <p>
-            Rune offers a free tier and a paid subscription plan (&quot;Scribe&quot;).
-            Paid plans are billed on a recurring monthly or annual basis via Stripe.
-            By subscribing, you authorize Rune to charge your
+            Rune offers a free tier and paid subscription plans (&quot;Scribe&quot;
+            and &quot;Arcane&quot;). Paid plans are billed on a recurring monthly or
+            annual basis via Stripe. By subscribing, you authorize Rune to charge your
             payment method on the billing cycle selected at checkout.
           </p>
           <p>
@@ -107,18 +112,24 @@ export default function TermsPage() {
 
         <Section title="5. User Content">
           <p>
-            You retain full ownership of all writing and content you create within
-            Rune (your &quot;User Content&quot;). By using the Service, you grant Rune
-            a limited, non-exclusive, royalty-free license solely to store, display,
-            and transmit your User Content for the purpose of operating the Service
-            and no other purpose.
+            Your manuscripts, chapters, pages, and all other writing you create
+            within Rune (&quot;User Content&quot;) belong entirely to you. Rune makes
+            no claim of ownership over your writing. By using the Service, you grant
+            Rune a limited, non-exclusive, royalty-free license solely to store,
+            display, transmit, and process your User Content as necessary to operate
+            the Service — and for no other purpose.
+          </p>
+          <p>
+            Rune will never use your User Content to train or improve artificial
+            intelligence or machine learning models. Rune will never sell, license,
+            or otherwise make your writing available to third parties for AI training
+            or any other commercial purpose. Your writing is yours.
           </p>
           <p>
             You are solely responsible for your User Content and the consequences of
-            sharing or publishing it. You represent that you own or have the necessary
-            rights to your User Content and that it does not violate any third-party
-            rights or applicable laws. Rune will never use your User Content to train
-            machine learning models or for any AI-related purpose.
+            sharing or publishing it outside of Rune. You represent that you own or
+            have the necessary rights to your User Content and that it does not
+            violate any third-party rights or applicable laws.
           </p>
         </Section>
 
@@ -208,11 +219,11 @@ export default function TermsPage() {
 
         <Section title="11. Governing Law">
           <p>
-            These Terms shall be governed by and construed in accordance with the laws
-            of the jurisdiction in which Rune is incorporated, without regard to its
-            conflict of law provisions. Any disputes arising under these Terms shall
-            be subject to the exclusive jurisdiction of the courts located in that
-            jurisdiction.
+            These Terms are governed by the laws applicable to Rune&apos;s principal
+            place of business, unless otherwise required by applicable law, without
+            regard to conflict of law provisions. Any disputes arising under these
+            Terms shall be resolved in the courts of competent jurisdiction in that
+            location.
           </p>
           <p>
             If any provision of these Terms is found to be unenforceable or invalid,
@@ -248,7 +259,7 @@ export default function TermsPage() {
             >
               legal@rune.app
             </a>
-            . We aim to respond to all legal inquiries within five business days.
+            . We will make reasonable efforts to respond promptly.
           </p>
           <p>
             For general support or account questions, please reach out through your
