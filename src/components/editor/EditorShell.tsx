@@ -87,10 +87,15 @@ export function EditorShell({
       `Page ${pages.length + 1}`
     );
     if (data && !error) {
+      // Cache the new page before mounting the editor so that serverUpdatedAt
+      // is established as the conflict-detection baseline. Without this, the
+      // first keystroke creates a cache entry with no serverUpdatedAt, causing
+      // syncPendingWrite to treat the first edit as a conflict.
+      await cachePage(data, projectId);
       setPages((prev) => [...prev, data]);
       setSelectedPageId(data.id);
     }
-  }, [chapterId, pages.length]);
+  }, [chapterId, pages.length, projectId]);
 
   const handleDeletePage = useCallback(
     async (pageId: string) => {

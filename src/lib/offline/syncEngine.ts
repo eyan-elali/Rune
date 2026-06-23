@@ -71,7 +71,7 @@ export async function syncPendingWrite(pageId: string): Promise<void> {
   // Fetch current server state
   const { data: serverPage, error: fetchError } = await supabase
     .from('pages')
-    .select('updated_at, version')
+    .select('updated_at, version, word_count')
     .eq('id', pageId)
     .single()
 
@@ -89,9 +89,17 @@ export async function syncPendingWrite(pageId: string): Promise<void> {
   const cachedPage = await db.get('page_cache', pageId)
 
   const serverHasChanged = ((): boolean => {
-    // No cached server baseline — cannot determine if another device wrote.
-    // Be conservative: treat as conflict rather than risk a silent overwrite.
-    if (!cachedPage?.serverUpdatedAt) return true
+    if (!cachedPage?.serverUpdatedAt) {
+      // No cached server baseline. This happens when a page was created on this
+      // device but cachePage() was never called before the first edit — a gap
+      // that the EditorShell fix closes, but we also handle here defensively.
+      //
+      // If the server's word_count is still 0, no other device has written real
+      // content to this page. The local write is the first real edit: not a conflict.
+      // If word_count > 0, someone else has written content we haven't seen —
+      // fall back to conservative conflict to avoid a silent overwrite.
+      return (serverPage.word_count as number) > 0
+    }
 
     const serverMs = new Date(serverPage.updated_at as string).getTime()
     const cachedMs = new Date(cachedPage.serverUpdatedAt).getTime()
