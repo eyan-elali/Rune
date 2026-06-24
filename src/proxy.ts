@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PUBLIC_ROUTES = ["/", "/login", "/signup", "/auth/callback"];
+const PUBLIC_ROUTES = ["/", "/login", "/signup", "/auth/callback", "/terms", "/privacy"];
 
 function isNetworkError(err: { message?: string; status?: number } | null): boolean {
   if (!err) return false;
