@@ -1,34 +1,16 @@
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
-
-
-export const metadata: Metadata = {
-  title: "Dashboard — Rune",
-  description: "Your writing dashboard. Projects, recent work, and game stats.",
-};
 import { getPersonalBests, getCombatRecords } from "@/lib/actions/games";
 import { getGoals, getWritingStreak } from "@/lib/actions/writingStats";
 import { DashboardContent } from "./DashboardContent";
 import { canAccessFeature, type SubscriptionTier } from "@/lib/subscription";
 import type { Project } from "@/lib/types";
 import type { WritingGoal } from "@/lib/actions/writingStats";
+import type { RecentPageCard, RecentWork } from "@/components/dashboard/types";
 
-type RecentPageCard = {
-  pageId: string;
-  pageTitle: string;
-  chapterId: string;
-  chapterTitle: string;
-  projectId: string;
-  projectTitle: string;
-  wordCount: number;
-};
-
-type RecentWork = {
-  chapterId: string;
-  chapterTitle: string;
-  projectId: string;
-  projectTitle: string;
-  coverColor: string | null;
+export const metadata: Metadata = {
+  title: "Dashboard — Rune",
+  description: "Your writing dashboard. Projects, recent work, and game stats.",
 };
 
 export default async function DashboardPage() {
