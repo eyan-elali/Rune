@@ -103,26 +103,25 @@ export function ContinueWritingHero({
       >
         <div className="mb-6 flex items-start justify-between gap-4">
           <div className="min-w-0 flex-1">
-            <p
-              className="mb-3 text-xs font-semibold uppercase tracking-widest"
-              style={{ color: "var(--color-mist)" }}
-            >
-              {recentWork.projectTitle}
-            </p>
             <h3
-              className="mb-1 font-rune-serif text-3xl leading-tight"
+              className="mb-2 font-rune-serif text-3xl leading-tight"
               style={{ color: "var(--text-primary)" }}
             >
-              {recentWork.chapterTitle}
+              {recentWork.projectTitle}
             </h3>
-            {matchingPage && (
-              <p
-                className="font-rune-serif text-base"
-                style={{ color: "var(--color-mist)" }}
-              >
-                {matchingPage.pageTitle}
-              </p>
-            )}
+            <p
+              className="mb-4 font-rune-serif text-base italic"
+              style={{ color: "var(--color-mist)" }}
+            >
+              The page is waiting.
+            </p>
+            <p
+              className="text-xs font-semibold uppercase tracking-widest"
+              style={{ color: "var(--color-mist)", opacity: 0.7 }}
+            >
+              {recentWork.chapterTitle}
+              {matchingPage ? ` · ${matchingPage.pageTitle}` : ""}
+            </p>
           </div>
           <span
             className="shrink-0 select-none font-rune-serif text-2xl leading-none"
