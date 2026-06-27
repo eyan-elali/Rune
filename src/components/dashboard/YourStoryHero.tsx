@@ -1,12 +1,55 @@
 import Link from "next/link";
 import type { RecentWork, RecentPageCard } from "./types";
+import type { WritingGoal } from "@/lib/actions/writingStats";
 
 interface YourStoryHeroProps {
   recentWork: RecentWork | null;
   recentPageCard?: RecentPageCard;
+  todayWords?: number;
+  writingStreak?: { currentStreak: number; maxStreak: number };
+  goals?: WritingGoal[];
 }
 
-export function YourStoryHero({ recentWork, recentPageCard }: YourStoryHeroProps) {
+function getStoryHeroSubtitle(
+  todayWords: number,
+  streak: number,
+  goals: WritingGoal[]
+): string {
+  if (todayWords > 0) {
+    return `${todayWords} words today. Keep going.`;
+  }
+
+  const nearlyComplete = goals.some(
+    (g) =>
+      g.type === "project_total" &&
+      g.target_words > 0 &&
+      g.current_words / g.target_words >= 0.8
+  );
+  if (nearlyComplete) {
+    return "The ending is getting closer.";
+  }
+
+  if (streak > 1) {
+    return `${streak} days strong. Keep the page alive.`;
+  }
+  if (streak === 1) {
+    return "You wrote yesterday. Begin again today.";
+  }
+
+  if (todayWords === 0 && streak === 0) {
+    return "The page is waiting.";
+  }
+
+  return "Resume where you left off.";
+}
+
+export function YourStoryHero({
+  recentWork,
+  recentPageCard,
+  todayWords = 0,
+  writingStreak = { currentStreak: 0, maxStreak: 0 },
+  goals = [],
+}: YourStoryHeroProps) {
   const matchingPage =
     recentPageCard &&
     recentWork &&
@@ -110,7 +153,7 @@ export function YourStoryHero({ recentWork, recentPageCard }: YourStoryHeroProps
             className="font-rune-serif text-base italic"
             style={{ color: "var(--color-mist)" }}
           >
-            Resume where you left off.
+            {getStoryHeroSubtitle(todayWords, writingStreak.currentStreak, goals)}
           </p>
         </div>
 

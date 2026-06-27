@@ -225,6 +225,9 @@ export function DashboardContent({
         <YourStoryHero
           recentWork={recentWork}
           recentPageCard={recentPageCards[0]}
+          todayWords={todayWords}
+          writingStreak={writingStreak}
+          goals={goals}
         />
       </div>
 
