@@ -17,13 +17,6 @@ const EXPLORE_CARDS: ExploreCardData[] = [
     href: "/games",
   },
   {
-    title: "Writing Goals",
-    tagline: "Stay consistent.",
-    body: "Set meaningful manuscript goals and build momentum over time.",
-    cta: "View Goals",
-    href: "/projects",
-  },
-  {
     title: "Insights",
     tagline: "Understand your writing.",
     body: "See how your manuscript grows and discover your writing habits.",
@@ -36,7 +29,7 @@ function ExploreCard({ title, tagline, body, cta, href }: ExploreCardData) {
   return (
     <Link
       href={href}
-      className="group flex flex-col rounded-lg p-5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg"
+      className="group flex flex-1 flex-col rounded-lg p-5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg"
       style={{
         background: "var(--surface-card)",
         border: "1px solid var(--color-border)",
@@ -74,18 +67,13 @@ function ExploreCard({ title, tagline, body, cta, href }: ExploreCardData) {
 
 export function ExploreRuneSection() {
   return (
-    <section className="mb-10" aria-label="Explore Rune">
-      <h2
-        className="mb-4 text-xs font-semibold uppercase tracking-widest"
-        style={{ color: "var(--color-mist)" }}
-      >
-        Explore Rune
-      </h2>
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        {EXPLORE_CARDS.map((card) => (
-          <ExploreCard key={card.href} {...card} />
-        ))}
-      </div>
-    </section>
+    <nav
+      aria-label="Explore Rune"
+      className="flex h-full flex-col gap-6"
+    >
+      {EXPLORE_CARDS.map((card) => (
+        <ExploreCard key={card.href} {...card} />
+      ))}
+    </nav>
   );
 }
