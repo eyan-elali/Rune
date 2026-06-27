@@ -69,14 +69,16 @@ export function DashboardContent({
 }: DashboardContentProps) {
   const mode = useModeStore((s) => s.mode);
   const router = useRouter();
-  const recentProject = projects[0] ?? null;
+  // Primary project = most recently edited (same source as Your Story hero)
+  const primaryProjectId = recentWork?.projectId ?? projects[0]?.id;
+  const primaryProject = projects.find((p) => p.id === primaryProjectId) ?? null;
   const canSeeTasks = canAccessFeature(subscriptionTier, "tasks");
   const [isProgressOpen, setIsProgressOpen] = useState(false);
   const [localGoals, setLocalGoals] = useState<WritingGoal[]>(goals);
 
   // Goal form state (strip-level, shared with drawer via localGoals)
   const [isGoalFormOpen, setIsGoalFormOpen] = useState(false);
-  const [goalProjectId, setGoalProjectId] = useState<string | undefined>(recentProject?.id);
+  const [goalProjectId, setGoalProjectId] = useState<string | undefined>(primaryProject?.id);
   const [goalInput, setGoalInput] = useState("");
   const [goalSaving, setGoalSaving] = useState(false);
   const [goalError, setGoalError] = useState<string | null>(null);
@@ -105,7 +107,7 @@ export function DashboardContent({
   }
 
   function openGoalForm() {
-    const defaultId = recentProject?.id;
+    const defaultId = primaryProject?.id;
     setGoalProjectId(defaultId);
     const existingGoal = localGoals.find(
       (g) => g.type === "project_total" && g.project_id === defaultId
@@ -341,7 +343,8 @@ export function DashboardContent({
           goals={localGoals}
           tier={subscriptionTier ?? "free"}
           todayWords={todayWords}
-          primaryProjectId={recentProject?.id}
+          primaryProjectId={primaryProject?.id}
+          primaryProjectTitle={primaryProject?.title}
           onGoalAction={
             canAccessFeature(subscriptionTier ?? "free", "projectGoals")
               ? openGoalForm
@@ -519,7 +522,7 @@ export function DashboardContent({
         isOpen={isProgressOpen}
         onClose={() => setIsProgressOpen(false)}
         projects={projects}
-        initialProject={recentProject}
+        initialProject={primaryProject}
         goals={localGoals}
         initialChapters={progressChapters}
         avgWordsPerDay={avgWordsPerDay}

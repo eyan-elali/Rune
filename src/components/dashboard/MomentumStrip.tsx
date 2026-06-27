@@ -11,6 +11,7 @@ interface MomentumStripProps {
   tier: SubscriptionTier;
   todayWords: number;
   primaryProjectId?: string;
+  primaryProjectTitle?: string;
   onGoalAction?: () => void;
 }
 
@@ -23,6 +24,7 @@ export function MomentumStrip({
   tier,
   todayWords,
   primaryProjectId,
+  primaryProjectTitle,
   onGoalAction,
 }: MomentumStripProps) {
   const canAccessStreaks = canAccessFeature(tier, "streaks");
@@ -171,6 +173,7 @@ export function MomentumStrip({
               {goalPercent}%
             </p>
             <p className="mt-1 text-xs" style={{ color: "var(--color-mist)" }}>
+              {primaryProjectTitle ? `${primaryProjectTitle} · ` : ""}
               {totalGoal.current_words.toLocaleString()} /{" "}
               {totalGoal.target_words.toLocaleString()} words
             </p>
@@ -209,15 +212,22 @@ export function MomentumStrip({
             >
               No target set
             </p>
-            {onGoalAction && (
-              <button
-                onClick={onGoalAction}
-                className="mt-1 self-start text-left text-xs transition-opacity duration-150 hover:opacity-70"
-                style={{ color: "var(--color-gold-dim)" }}
-              >
-                Set goal →
-              </button>
-            )}
+            <div className="mt-1 flex items-center gap-1 text-xs">
+              {primaryProjectTitle && (
+                <span style={{ color: "var(--color-mist)" }}>
+                  {primaryProjectTitle} ·
+                </span>
+              )}
+              {onGoalAction && (
+                <button
+                  onClick={onGoalAction}
+                  className="self-start text-left transition-opacity duration-150 hover:opacity-70"
+                  style={{ color: "var(--color-gold-dim)" }}
+                >
+                  Set goal →
+                </button>
+              )}
+            </div>
           </>
         )}
       </div>

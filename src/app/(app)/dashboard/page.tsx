@@ -132,7 +132,7 @@ export default async function DashboardPage() {
       supabase
         .from("chapters")
         .select("id, title, pages(word_count, is_canonical)")
-        .eq("project_id", projects[0].id)
+        .eq("project_id", recentWork?.projectId ?? projects[0].id)
         .order("position", { ascending: true }),
       getWordsByDay(user!.id, 30),
     ]);
