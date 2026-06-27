@@ -40,7 +40,33 @@ export function MomentumStrip({
       }}
       aria-label="Writing momentum"
     >
-      {/* Words Written */}
+      {/* Today's Words — first position */}
+      <div
+        className="flex flex-col gap-1 px-6 py-5"
+        style={{
+          ...cellStyle,
+          borderTop: "2px solid rgba(201, 168, 76, 0.45)",
+        }}
+      >
+        <p
+          className="mb-1 text-xs font-semibold uppercase tracking-widest"
+          style={{ color: "var(--color-mist)" }}
+        >
+          Today
+        </p>
+        <p
+          className="font-rune-serif leading-none"
+          data-stat="today-words"
+          style={{ color: "var(--text-primary)", fontSize: "1.75rem" }}
+        >
+          {todayWords.toLocaleString()}
+        </p>
+        <p className="mt-1 text-xs" style={{ color: "var(--color-mist)" }}>
+          {todayWords > 0 ? "words written" : "Start today's session"}
+        </p>
+      </div>
+
+      {/* Total Words */}
       <div className="flex flex-col gap-1 px-6 py-5" style={cellStyle}>
         <p
           className="mb-1 text-xs font-semibold uppercase tracking-widest"
@@ -159,29 +185,6 @@ export function MomentumStrip({
             </Link>
           </>
         )}
-      </div>
-
-      {/* Today's Words */}
-      <div className="flex flex-col gap-1 px-6 py-5" style={cellStyle}>
-        <p
-          className="mb-1 text-xs font-semibold uppercase tracking-widest"
-          style={{ color: "var(--color-mist)" }}
-        >
-          Today
-        </p>
-        <p
-          className="font-rune-serif leading-none"
-          style={{
-            color:
-              todayWords > 0 ? "var(--color-gold)" : "var(--text-primary)",
-            fontSize: "1.75rem",
-          }}
-        >
-          {todayWords.toLocaleString()}
-        </p>
-        <p className="mt-1 text-xs" style={{ color: "var(--color-mist)" }}>
-          {todayWords > 0 ? "words written" : "Start today's session"}
-        </p>
       </div>
     </div>
   );
