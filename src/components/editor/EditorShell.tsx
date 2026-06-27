@@ -64,9 +64,11 @@ export function EditorShell({
   const setProfile = useProfileStore((s) => s.setProfile);
   const profile = useProfileStore((s) => s.profile);
 
-  // Acknowledgement is shown once, for ~2.8s, after first save fires.
+  // Acknowledgement shown once after reveal completes.
   const [showAck, setShowAck] = useState(false);
   const ackTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const showAckTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const revealTriggeredRef = useRef(false);
 
   // Mount/unmount: activate onboarding phase; reset on leave.
   useEffect(() => {
@@ -161,62 +163,57 @@ export function EditorShell({
     await clearCanonicalPage(chapterId);
   }, [chapterId]);
 
-  // Called by RuneEditor after the first successful save with words > 0.
+  // Called by RuneEditor when first completed word is detected in the editor.
+  // Triggers the reveal animation. Fires independently of autosave.
+  const handleFirstWordDetected = useCallback(() => {
+    if (revealTriggeredRef.current) return;
+    revealTriggeredRef.current = true;
+
+    setPhase("revealing");
+
+    // Show ack after reveal completes (~700ms), hold for 2800ms animation cycle
+    showAckTimerRef.current = setTimeout(() => {
+      setShowAck(true);
+      ackTimerRef.current = setTimeout(() => setShowAck(false), 2800);
+    }, 750);
+
+    setTimeout(() => setPhase("done"), 700);
+  }, [setPhase]);
+
+  // Called by RuneEditor after the first successful autosave with words > 0.
+  // Handles DB persistence only. Also triggers reveal as a fallback.
   const handleFirstSave = useCallback(() => {
-    // Mark in DB (fire-and-forget — reveal doesn't wait for this)
     void markFirstWordsSaved();
-    // Update local profile store immediately so subsequent navigations are correct
     if (profile) {
       setProfile({ ...profile, has_written_first_words: true });
     }
-
-    // Start the reveal sequence
-    setPhase("revealing");
-
-    // Show the one-time acknowledgement
-    setShowAck(true);
-    ackTimerRef.current = setTimeout(() => {
-      setShowAck(false);
-    }, 2900);
-
-    // Transition to done after animations complete (~650ms)
-    setTimeout(() => {
-      setPhase("done");
-    }, 700);
-  }, [profile, setPhase, setProfile]);
+    // Fallback: reveal if word detection didn't fire (edge case)
+    if (!revealTriggeredRef.current) {
+      handleFirstWordDetected();
+    }
+  }, [profile, setProfile, handleFirstWordDetected]);
 
   useEffect(() => {
-    return () => clearTimeout(ackTimerRef.current);
+    return () => {
+      clearTimeout(ackTimerRef.current);
+      clearTimeout(showAckTimerRef.current);
+    };
   }, []);
 
-  // Page list visibility during onboarding:
-  // hidden (but in DOM) while writing; fades in during reveal.
   const isOnboardingWriting = isOnboarding && phase === "writing";
   const isOnboardingRevealing = isOnboarding && phase === "revealing";
 
-  const pageListStyle: React.CSSProperties = isOnboardingWriting
-    ? { opacity: 0, pointerEvents: "none", transition: "none" }
-    : isOnboardingRevealing
-    ? { opacity: 1, transition: "opacity 0.45s ease 0.35s" }
-    : {};
+  // Page list: absent during onboarding writing phase (not invisible — absent).
+  // Fades in during reveal via CSS animation class.
+  const renderPageList = !shouldHideFocusUI && !isOnboardingWriting;
 
-  // Export toolbar visibility
-  const showExportToolbar =
-    !shouldHideFocusUI && !isOnboardingWriting;
-  const exportToolbarStyle: React.CSSProperties = isOnboardingRevealing
-    ? { opacity: 1, transition: "opacity 0.4s ease 0.3s" }
-    : isOnboardingWriting
-    ? { opacity: 0, pointerEvents: "none" }
-    : {};
-
-  // During focus mode or onboarding writing phase, hide the page list from DOM
-  // (focus mode) or make it invisible but present (onboarding — needed for animation).
-  const renderPageList = !shouldHideFocusUI;
+  // Export toolbar hidden during onboarding writing; fades in during reveal.
+  const showExportToolbar = !shouldHideFocusUI && !isOnboardingWriting;
 
   return (
     <div className="flex min-h-0 h-full overflow-hidden">
       {renderPageList && (
-        <div style={pageListStyle}>
+        <div className={isOnboardingRevealing ? "rune-panel-enter" : undefined}>
           <PageList
             pages={pages}
             selectedPageId={selectedPageId}
@@ -235,11 +232,10 @@ export function EditorShell({
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         {showExportToolbar && (
           <div
-            className="flex shrink-0 items-center justify-end px-4 py-1.5"
+            className={`flex shrink-0 items-center justify-end px-4 py-1.5${isOnboardingRevealing ? " rune-panel-enter" : ""}`}
             style={{
               borderBottom: "1px solid var(--color-border)",
               background: "var(--surface-editor)",
-              ...exportToolbarStyle,
             }}
           >
             <ExportButton page={currentPage} chapter={chapter} project={project} />
@@ -253,6 +249,7 @@ export function EditorShell({
           onRenamePage={handleRenamePage}
           isOnboarding={isOnboarding}
           onboardingProjectTitle={isOnboarding ? project.title : undefined}
+          onFirstWordDetected={isOnboarding ? handleFirstWordDetected : undefined}
           onFirstSave={isOnboarding ? handleFirstSave : undefined}
         />
       </div>

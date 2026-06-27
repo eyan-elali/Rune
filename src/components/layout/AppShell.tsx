@@ -49,7 +49,9 @@ export function AppShell({ profile, children }: AppShellProps) {
   const shouldHideUI = shouldHideFocusUI || isRaceActive || isBattleActive;
 
   const phase = useOnboardingStore((s) => s.phase);
-  const isOnboardingPhase = phase === "writing" || phase === "revealing";
+  const isOnboardingWriting = phase === "writing";
+  const isOnboardingRevealing = phase === "revealing";
+  const isOnboardingPhase = isOnboardingWriting || isOnboardingRevealing;
 
   useEffect(() => {
     modeRef.current = mode;
@@ -83,63 +85,19 @@ export function AppShell({ profile, children }: AppShellProps) {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [setMode, showToast]);
 
-  // Sidebar visibility and animation:
-  // - Onboarding writing: in DOM, width 0, clipped (no transition)
-  // - Onboarding revealing: animates to full width
-  // - Focus/race/battle: removed from DOM entirely (existing behaviour)
-  // - Normal: standard collapsible sidebar
-  const renderSidebar = isOnboardingPhase || !shouldHideUI;
+  // Sidebar: absent from DOM during onboarding writing; animates in during reveal.
+  // Focus/race/battle: also removed from DOM (existing behaviour).
+  const renderSidebar = !shouldHideUI && !isOnboardingWriting;
 
-  let sidebarStyle: React.CSSProperties;
-  if (phase === "writing") {
-    sidebarStyle = {
-      width: "0px",
-      minWidth: "0px",
-      overflow: "hidden",
-      flexShrink: 0,
-      transition: "none",
-    };
-  } else if (phase === "revealing") {
-    const targetWidth = sidebarCollapsed ? "64px" : "260px";
-    const targetMin = sidebarCollapsed ? "64px" : "200px";
-    sidebarStyle = {
-      width: targetWidth,
-      minWidth: targetMin,
-      overflow: "hidden",
-      flexShrink: 0,
-      transition: "width 0.55s cubic-bezier(0.25, 0.46, 0.45, 0.94), min-width 0.55s cubic-bezier(0.25, 0.46, 0.45, 0.94)",
-    };
-  } else {
-    sidebarStyle = {
-      width: sidebarCollapsed ? "64px" : "260px",
-      minWidth: sidebarCollapsed ? "64px" : "200px",
-      flexShrink: 0,
-      transition: "width 0.25s ease, min-width 0.25s ease",
-    };
-  }
+  const sidebarStyle: React.CSSProperties = {
+    width: sidebarCollapsed ? "64px" : "260px",
+    minWidth: sidebarCollapsed ? "64px" : "200px",
+    flexShrink: 0,
+    transition: "width 0.25s ease, min-width 0.25s ease",
+  };
 
-  // Header visibility and animation:
-  // - Onboarding writing: in DOM, invisible, no pointer events
-  // - Onboarding revealing: slides down + fades in (delayed 250ms)
-  // - Focus/race/battle: removed from DOM entirely (existing behaviour)
-  // - Normal: visible
-  const renderHeader = isOnboardingPhase || !shouldHideUI;
-
-  let headerStyle: React.CSSProperties = {};
-  if (phase === "writing") {
-    headerStyle = {
-      opacity: 0,
-      transform: "translateY(-100%)",
-      pointerEvents: "none",
-      transition: "none",
-    };
-  } else if (phase === "revealing") {
-    headerStyle = {
-      opacity: 1,
-      transform: "translateY(0)",
-      transition: "opacity 0.45s ease 0.25s, transform 0.45s ease 0.25s",
-    };
-  }
+  // Header: same logic — absent during writing, animates in during reveal.
+  const renderHeader = !shouldHideUI && !isOnboardingWriting;
 
   return (
     <div
@@ -149,8 +107,14 @@ export function AppShell({ profile, children }: AppShellProps) {
       <ThemeApplier />
       {renderSidebar && (
         <div
-          className="flex h-screen flex-col overflow-hidden"
-          style={sidebarStyle}
+          className={
+            isOnboardingRevealing
+              ? sidebarCollapsed
+                ? "rune-sidebar-enter-collapsed flex h-screen flex-col"
+                : "rune-sidebar-enter flex h-screen flex-col"
+              : "flex h-screen flex-col overflow-hidden"
+          }
+          style={isOnboardingRevealing ? {} : sidebarStyle}
         >
           <Sidebar displayName={displayName} />
         </div>
@@ -158,14 +122,14 @@ export function AppShell({ profile, children }: AppShellProps) {
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         {renderHeader && (
-          <div style={headerStyle}>
+          <div className={isOnboardingRevealing ? "rune-header-enter" : undefined}>
             <Header />
           </div>
         )}
         <main
           className="relative min-h-0 flex-1 overflow-auto"
           style={{
-            background: shouldHideUI && !isOnboardingPhase
+            background: shouldHideUI || isOnboardingPhase
               ? "var(--surface-editor)"
               : "var(--bg-primary)",
           }}

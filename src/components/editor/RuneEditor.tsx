@@ -4,7 +4,7 @@ import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import CharacterCount from "@tiptap/extension-character-count";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { cn } from "@/lib/utils";
 import { renamePage } from "@/lib/actions/pages";
@@ -50,6 +50,7 @@ interface RuneEditorProps {
   onRenamePage: (pageId: string, title: string) => void;
   isOnboarding?: boolean;
   onboardingProjectTitle?: string;
+  onFirstWordDetected?: () => void;
   onFirstSave?: () => void;
 }
 
@@ -66,6 +67,7 @@ export default function RuneEditor({
   onRenamePage,
   isOnboarding = false,
   onboardingProjectTitle,
+  onFirstWordDetected,
   onFirstSave,
 }: RuneEditorProps) {
   const { setIsSaving, setLastSaved } = useEditorStore();
@@ -100,8 +102,17 @@ export default function RuneEditor({
   const xpFlashTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
+  // Guards the one-time first-word reveal callback.
+  const hasRevealedRef = useRef(false);
+  // Stays current with the onFirstWordDetected prop inside stale closures.
+  const onFirstWordDetectedRef = useRef(onFirstWordDetected);
+  useEffect(() => { onFirstWordDetectedRef.current = onFirstWordDetected; }, [onFirstWordDetected]);
+
   // Tracks whether the one-time first-save callback has been called.
   const hasCalledFirstSaveRef = useRef(false);
+
+  // For scroll compensation when the header appears during reveal.
+  const prevPhaseRef = useRef(phase);
 
   const currentPageRef = useRef<Page | null>(currentPage);
   const onPageUpdatedRef = useRef(onPageUpdated);
@@ -134,6 +145,18 @@ export default function RuneEditor({
   useEffect(() => { isOnlineRef.current = isOnline; }, [isOnline]);
   useEffect(() => { userIdRef.current = userId; }, [userId]);
   useEffect(() => { projectIdRef.current = projectId; }, [projectId]);
+
+  // Compensate for the header appearing during reveal so the visible text doesn't shift.
+  useLayoutEffect(() => {
+    const prev = prevPhaseRef.current;
+    prevPhaseRef.current = phase;
+    if (isOnboarding && prev === "writing" && phase === "revealing") {
+      if (scrollContainerRef.current) {
+        scrollContainerRef.current.scrollTop += 52;
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase]);
 
   useEffect(() => {
     onPageUpdatedRef.current = onPageUpdated;
@@ -271,6 +294,16 @@ export default function RuneEditor({
     },
     onUpdate({ editor }) {
       if (isLoadingRef.current) return;
+
+      // Detect first completed word (≥2 non-whitespace chars followed by whitespace).
+      // Fires before the autosave debounce so the reveal starts immediately.
+      if (isOnboarding && !hasRevealedRef.current) {
+        const text = editor.getText();
+        if (/\S{2,}\s/.test(text)) {
+          hasRevealedRef.current = true;
+          onFirstWordDetectedRef.current?.();
+        }
+      }
 
       const pageNow = currentPageRef.current;
       const uidNow = userIdRef.current;
@@ -484,24 +517,10 @@ export default function RuneEditor({
     );
   }
 
-  // During onboarding writing phase: page title and chrome UI are hidden.
-  // They fade in during the revealing phase.
   const isWritingPhase = isOnboarding && phase === "writing";
   const isRevealingPhase = isOnboarding && phase === "revealing";
 
-  const titleStyle: React.CSSProperties = isWritingPhase
-    ? { opacity: 0, pointerEvents: "none", transition: "none" }
-    : isRevealingPhase
-    ? { opacity: 1, transition: "opacity 0.35s ease 0.2s" }
-    : {};
-
-  const projectTitleStyle: React.CSSProperties = isWritingPhase
-    ? { opacity: 0.55, transition: "none" }
-    : isRevealingPhase
-    ? { opacity: 0, transition: "opacity 0.25s ease" }
-    : { opacity: 0 };
-
-  // Status pill and XP flash: hidden during onboarding writing phase, fade in during reveal
+  // Status pill and XP flash: hidden during onboarding writing phase, fade in during reveal.
   const uiChromeFadeStyle: React.CSSProperties = isWritingPhase
     ? { opacity: 0, pointerEvents: "none", transition: "none" }
     : isRevealingPhase
@@ -591,62 +610,74 @@ export default function RuneEditor({
       >
         <div
           className={cn(
-            "mx-auto w-full px-6 pt-24 pb-16 min-h-[calc(100vh-9rem)]",
+            "mx-auto w-full px-6 pb-16 min-h-[calc(100vh-9rem)]",
+            !isOnboarding && "pt-24",
             wideEditor ? "max-w-5xl" : "max-w-2xl"
           )}
+          style={isOnboarding ? { paddingTop: "35vh" } : undefined}
         >
-          {/* Project title shown during onboarding, fades out on reveal */}
-          {isOnboarding && (
-            <h1
-              className="mb-10 select-none font-rune-serif text-3xl font-bold tracking-tight"
-              style={{
-                color: "var(--text-primary)",
-                pointerEvents: "none",
-                ...projectTitleStyle,
-              }}
-              aria-hidden
-            >
-              {onboardingProjectTitle}
-            </h1>
-          )}
-
-          {/* Page title input — hidden during onboarding writing phase */}
-          <input
-            id={`page-title-${currentPage.id}`}
-            type="text"
-            value={titleDraft}
-            onChange={(e) => setTitleDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                (e.target as HTMLInputElement).blur();
-              }
-              if (e.key === "Escape") {
-                e.preventDefault();
-                flushSync(() => setTitleDraft(currentPage.title));
-                (e.target as HTMLInputElement).blur();
-              }
-            }}
-            className={cn(
-              "mb-10 w-full bg-transparent font-serif outline-none ring-0 focus:outline-none",
-              "text-3xl",
-              "font-bold tracking-tight"
+          {/*
+            Title area: CSS grid stacks project title and page title in the same
+            cell so neither causes a layout shift when the other fades in/out.
+          */}
+          <div style={{ display: "grid", marginBottom: "2.5rem" }}>
+            {/* Project title: full opacity during writing, fades to 0 on reveal */}
+            {isOnboarding && phase !== "done" && (
+              <h1
+                className="select-none font-rune-serif text-3xl font-bold tracking-tight"
+                style={{
+                  gridRow: 1,
+                  gridColumn: 1,
+                  color: "var(--editor-text)",
+                  pointerEvents: "none",
+                  opacity: isWritingPhase ? 1 : 0,
+                  transition: isRevealingPhase ? "opacity 0.3s ease" : "none",
+                }}
+                aria-hidden
+              >
+                {onboardingProjectTitle}
+              </h1>
             )}
-            style={{
-              color: "var(--editor-text)",
-              borderBottom: "1px solid transparent",
-              ...titleStyle,
-            }}
-            onFocus={(e) => {
-              e.currentTarget.style.borderBottomColor = "var(--color-border-strong)";
-            }}
-            onBlur={(e) => {
-              e.currentTarget.style.borderBottomColor = "transparent";
-              void commitTitle();
-            }}
-            aria-label="Page title"
-            tabIndex={isWritingPhase ? -1 : 0}
-          />
+
+            {/* Page title input: invisible during writing, fades in on reveal */}
+            <input
+              id={`page-title-${currentPage.id}`}
+              type="text"
+              value={titleDraft}
+              onChange={(e) => setTitleDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  (e.target as HTMLInputElement).blur();
+                }
+                if (e.key === "Escape") {
+                  e.preventDefault();
+                  flushSync(() => setTitleDraft(currentPage.title));
+                  (e.target as HTMLInputElement).blur();
+                }
+              }}
+              className="w-full bg-transparent font-serif text-3xl font-bold tracking-tight outline-none ring-0 focus:outline-none"
+              style={{
+                gridRow: 1,
+                gridColumn: 1,
+                color: "var(--editor-text)",
+                borderBottom: "1px solid transparent",
+                opacity: isWritingPhase ? 0 : 1,
+                transition: isRevealingPhase ? "opacity 0.35s ease 0.2s" : "none",
+                pointerEvents: isWritingPhase ? "none" : "auto",
+              }}
+              onFocus={(e) => {
+                e.currentTarget.style.borderBottomColor = "var(--color-border-strong)";
+              }}
+              onBlur={(e) => {
+                e.currentTarget.style.borderBottomColor = "transparent";
+                void commitTitle();
+              }}
+              aria-label="Page title"
+              tabIndex={isWritingPhase ? -1 : 0}
+            />
+          </div>
+
           {editor ? <EditorContent editor={editor} /> : null}
         </div>
       </div>
