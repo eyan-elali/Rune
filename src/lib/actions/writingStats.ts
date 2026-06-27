@@ -332,15 +332,16 @@ export async function createGoal(
     }
   }
 
-  // Enforce: max 1 project_total goal per user
-  if (type === "project_total") {
+  // Enforce: max 1 project_total goal per project (not per user)
+  if (type === "project_total" && projectId) {
     const { count } = await supabase
       .from("writing_goals")
       .select("id", { count: "exact", head: true })
       .eq("user_id", user.id)
-      .eq("type", "project_total");
+      .eq("type", "project_total")
+      .eq("project_id", projectId);
     if ((count ?? 0) > 0) {
-      return { data: null, error: "You already have a manuscript goal." };
+      return { data: null, error: "This manuscript already has a goal." };
     }
   }
 

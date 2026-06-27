@@ -12,7 +12,7 @@ interface MomentumStripProps {
   todayWords: number;
   primaryProjectId?: string;
   primaryProjectTitle?: string;
-  onGoalAction?: () => void;
+  onOpenProgress?: () => void;
 }
 
 const cellStyle = { background: "var(--surface-card)" } as const;
@@ -25,7 +25,7 @@ export function MomentumStrip({
   todayWords,
   primaryProjectId,
   primaryProjectTitle,
-  onGoalAction,
+  onOpenProgress,
 }: MomentumStripProps) {
   const canAccessStreaks = canAccessFeature(tier, "streaks");
   const canAccessGoals = canAccessFeature(tier, "projectGoals");
@@ -142,95 +142,108 @@ export function MomentumStrip({
       </div>
 
       {/* Manuscript Goal */}
-      <div className="flex flex-col gap-1 px-6 py-5" style={cellStyle}>
-        <p
-          className="mb-1 text-xs font-semibold uppercase tracking-widest"
-          style={{ color: "var(--color-mist)" }}
+      {!canAccessGoals ? (
+        <div className="flex flex-col gap-1 px-6 py-5" style={cellStyle}>
+          <p
+            className="mb-1 text-xs font-semibold uppercase tracking-widest"
+            style={{ color: "var(--color-mist)" }}
+          >
+            Manuscript Goal
+          </p>
+          <p
+            className="font-rune-serif text-xl leading-none"
+            style={{ color: "var(--color-mist)", opacity: 0.4 }}
+          >
+            —
+          </p>
+          <p
+            className="mt-1 text-xs italic"
+            style={{ color: "var(--color-mist)", opacity: 0.5 }}
+          >
+            Available with Scribe
+          </p>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={onOpenProgress}
+          className="flex w-full flex-col gap-1 px-6 py-5 text-left transition-colors duration-150"
+          style={cellStyle}
+          onMouseEnter={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.background =
+              "rgba(201, 168, 76, 0.04)";
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.background =
+              "var(--surface-card)";
+          }}
+          onFocus={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.boxShadow =
+              "inset 0 0 0 2px rgba(201, 168, 76, 0.35)";
+          }}
+          onBlur={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.boxShadow = "none";
+          }}
+          aria-label={
+            totalGoal
+              ? `Manuscript goal: ${goalPercent}% complete. Open progress panel.`
+              : "No manuscript goal set. Open progress panel."
+          }
         >
-          Manuscript Goal
-        </p>
-        {!canAccessGoals ? (
-          <>
-            <p
-              className="font-rune-serif text-xl leading-none"
-              style={{ color: "var(--color-mist)", opacity: 0.4 }}
-            >
-              —
-            </p>
-            <p
-              className="mt-1 text-xs italic"
-              style={{ color: "var(--color-mist)", opacity: 0.5 }}
-            >
-              Available with Scribe
-            </p>
-          </>
-        ) : totalGoal ? (
-          <>
-            <p
-              className="font-rune-serif leading-none"
-              style={{ color: "var(--text-primary)", fontSize: "1.75rem" }}
-            >
-              {goalPercent}%
-            </p>
-            <p className="mt-1 text-xs" style={{ color: "var(--color-mist)" }}>
-              {primaryProjectTitle ? `${primaryProjectTitle} · ` : ""}
-              {totalGoal.current_words.toLocaleString()} /{" "}
-              {totalGoal.target_words.toLocaleString()} words
-            </p>
-            <div
-              className="mt-2 overflow-hidden rounded-full"
-              style={{ height: "3px", background: "rgba(201, 168, 76, 0.12)" }}
-              role="progressbar"
-              aria-valuenow={goalPercent ?? 0}
-              aria-valuemin={0}
-              aria-valuemax={100}
-            >
-              <div
-                style={{
-                  width: `${goalPercent}%`,
-                  height: "100%",
-                  background: "var(--color-gold)",
-                  opacity: 0.7,
-                }}
-              />
-            </div>
-            {onGoalAction && (
-              <button
-                onClick={onGoalAction}
-                className="mt-2 self-start text-left text-xs transition-opacity duration-150 hover:opacity-70"
-                style={{ color: "var(--color-gold-dim)" }}
+          <p
+            className="mb-1 text-xs font-semibold uppercase tracking-widest"
+            style={{ color: "var(--color-mist)" }}
+          >
+            Manuscript Goal
+          </p>
+          {totalGoal ? (
+            <>
+              <p
+                className="font-rune-serif leading-none"
+                style={{ color: "var(--text-primary)", fontSize: "1.75rem" }}
               >
-                Edit goal →
-              </button>
-            )}
-          </>
-        ) : (
-          <>
-            <p
-              className="font-rune-serif text-sm italic leading-snug"
-              style={{ color: "var(--color-mist)", opacity: 0.6 }}
-            >
-              No target set
-            </p>
-            <div className="mt-1 flex items-center gap-1 text-xs">
-              {primaryProjectTitle && (
-                <span style={{ color: "var(--color-mist)" }}>
-                  {primaryProjectTitle} ·
-                </span>
-              )}
-              {onGoalAction && (
-                <button
-                  onClick={onGoalAction}
-                  className="self-start text-left transition-opacity duration-150 hover:opacity-70"
-                  style={{ color: "var(--color-gold-dim)" }}
-                >
-                  Set goal →
-                </button>
-              )}
-            </div>
-          </>
-        )}
-      </div>
+                {goalPercent}%
+              </p>
+              <p className="mt-1 text-xs" style={{ color: "var(--color-mist)" }}>
+                {primaryProjectTitle ? `${primaryProjectTitle} · ` : ""}
+                {totalGoal.current_words.toLocaleString()} /{" "}
+                {totalGoal.target_words.toLocaleString()} words
+              </p>
+              <div
+                className="mt-2 overflow-hidden rounded-full"
+                style={{ height: "3px", background: "rgba(201, 168, 76, 0.12)" }}
+                role="progressbar"
+                aria-valuenow={goalPercent ?? 0}
+                aria-valuemin={0}
+                aria-valuemax={100}
+              >
+                <div
+                  style={{
+                    width: `${goalPercent}%`,
+                    height: "100%",
+                    background: "var(--color-gold)",
+                    opacity: 0.7,
+                  }}
+                />
+              </div>
+            </>
+          ) : (
+            <>
+              <p
+                className="font-rune-serif text-sm italic leading-snug"
+                style={{ color: "var(--color-mist)", opacity: 0.6 }}
+              >
+                No target set
+              </p>
+              <p className="mt-1 text-xs" style={{ color: "var(--color-mist)" }}>
+                {primaryProjectTitle
+                  ? `${primaryProjectTitle} · No manuscript target`
+                  : "No manuscript target"}
+              </p>
+            </>
+          )}
+        </button>
+      )}
     </div>
   );
 }
