@@ -1,4 +1,5 @@
-import Link from "next/link";
+"use client";
+
 import { canAccessFeature, type SubscriptionTier } from "@/lib/subscription";
 import type { WritingGoal } from "@/lib/actions/writingStats";
 import { TodayWordsCount } from "./TodayWordsCount";
@@ -9,6 +10,7 @@ interface MomentumStripProps {
   goals: WritingGoal[];
   tier: SubscriptionTier;
   todayWords: number;
+  onGoalAction?: () => void;
 }
 
 const cellStyle = { background: "var(--surface-card)" } as const;
@@ -19,6 +21,7 @@ export function MomentumStrip({
   goals,
   tier,
   todayWords,
+  onGoalAction,
 }: MomentumStripProps) {
   const canAccessStreaks = canAccessFeature(tier, "streaks");
   const canAccessGoals = canAccessFeature(tier, "projectGoals");
@@ -184,6 +187,15 @@ export function MomentumStrip({
                 }}
               />
             </div>
+            {onGoalAction && (
+              <button
+                onClick={onGoalAction}
+                className="mt-2 text-xs transition-opacity duration-150 hover:opacity-70"
+                style={{ color: "var(--color-gold-dim)" }}
+              >
+                Edit goal →
+              </button>
+            )}
           </>
         ) : (
           <>
@@ -193,13 +205,15 @@ export function MomentumStrip({
             >
               No target set
             </p>
-            <Link
-              href="/profile"
-              className="mt-1 text-xs transition-opacity duration-150 hover:opacity-70"
-              style={{ color: "var(--color-gold-dim)" }}
-            >
-              + Set in profile →
-            </Link>
+            {onGoalAction && (
+              <button
+                onClick={onGoalAction}
+                className="mt-1 text-xs transition-opacity duration-150 hover:opacity-70"
+                style={{ color: "var(--color-gold-dim)" }}
+              >
+                Set goal →
+              </button>
+            )}
           </>
         )}
       </div>

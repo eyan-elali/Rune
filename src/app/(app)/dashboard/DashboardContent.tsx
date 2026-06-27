@@ -15,6 +15,8 @@ import { ExploreRuneSection } from "@/components/dashboard/ExploreRuneSection";
 import { ProgressDrawer } from "@/components/dashboard/ProgressDrawer";
 import type { DashboardContentProps, CombatRecord } from "@/components/dashboard/types";
 import type { WritingGoal } from "@/lib/actions/writingStats";
+import { createGoal, updateGoal, deleteGoal } from "@/lib/actions/writingStats";
+import { useRouter } from "next/navigation";
 
 // ── Game mode constants ───────────────────────────────────────────────────────
 
@@ -66,10 +68,20 @@ export function DashboardContent({
   avgWordsPerDay = 0,
 }: DashboardContentProps) {
   const mode = useModeStore((s) => s.mode);
+  const router = useRouter();
   const recentProject = projects[0] ?? null;
   const canSeeTasks = canAccessFeature(subscriptionTier, "tasks");
   const [isProgressOpen, setIsProgressOpen] = useState(false);
   const [localGoals, setLocalGoals] = useState<WritingGoal[]>(goals);
+
+  // Goal form state (strip-level, shared with drawer via localGoals)
+  const [isGoalFormOpen, setIsGoalFormOpen] = useState(false);
+  const [goalInput, setGoalInput] = useState("");
+  const [goalSaving, setGoalSaving] = useState(false);
+  const [goalError, setGoalError] = useState<string | null>(null);
+
+  const manuscriptGoal =
+    localGoals.find((g) => g.type === "project_total") ?? null;
 
   // Sync local goals when server re-fetches (after router.refresh())
   useEffect(() => {
@@ -78,6 +90,61 @@ export function DashboardContent({
 
   function handleGoalsChange(newGoals: WritingGoal[]) {
     setLocalGoals(newGoals);
+  }
+
+  function openGoalForm() {
+    setGoalInput(manuscriptGoal ? String(manuscriptGoal.target_words) : "");
+    setGoalError(null);
+    setIsGoalFormOpen(true);
+  }
+
+  async function handleSaveGoal() {
+    const target = parseInt(goalInput, 10);
+    if (isNaN(target) || target < 100) {
+      setGoalError("Enter a valid word count (minimum 100).");
+      return;
+    }
+    setGoalSaving(true);
+    setGoalError(null);
+    try {
+      if (manuscriptGoal) {
+        const result = await updateGoal(manuscriptGoal.id, target);
+        if (result.error) { setGoalError(result.error); return; }
+        handleGoalsChange(
+          localGoals.map((g) =>
+            g.id === manuscriptGoal.id ? { ...g, target_words: target } : g
+          )
+        );
+      } else {
+        const result = await createGoal("project_total", target, recentProject?.id);
+        if (result.error) { setGoalError(result.error); return; }
+        if (result.data) {
+          handleGoalsChange([
+            ...localGoals,
+            { ...result.data, current_words: recentProject?.word_count ?? 0 },
+          ]);
+        }
+      }
+      setIsGoalFormOpen(false);
+      router.refresh();
+    } finally {
+      setGoalSaving(false);
+    }
+  }
+
+  async function handleDeleteGoal() {
+    if (!manuscriptGoal) return;
+    setGoalSaving(true);
+    setGoalError(null);
+    try {
+      const result = await deleteGoal(manuscriptGoal.id);
+      if (result.error) { setGoalError(result.error); return; }
+      handleGoalsChange(localGoals.filter((g) => g.id !== manuscriptGoal.id));
+      setIsGoalFormOpen(false);
+      router.refresh();
+    } finally {
+      setGoalSaving(false);
+    }
   }
 
 
@@ -256,8 +323,101 @@ export function DashboardContent({
           goals={localGoals}
           tier={subscriptionTier ?? "free"}
           todayWords={todayWords}
+          onGoalAction={
+            canAccessFeature(subscriptionTier ?? "free", "projectGoals")
+              ? openGoalForm
+              : undefined
+          }
         />
       </div>
+
+      {/* Inline goal form — rendered below the strip */}
+      {isGoalFormOpen && (
+        <div
+          className="mb-8 rounded-lg p-5"
+          style={{
+            background: "var(--surface-card)",
+            border: "1px solid var(--color-border-strong)",
+          }}
+        >
+          <p
+            className="mb-3 text-[10px] font-semibold uppercase tracking-widest"
+            style={{ color: "var(--color-mist)" }}
+          >
+            {manuscriptGoal ? "Edit Manuscript Goal" : "Set Manuscript Goal"}
+          </p>
+          <input
+            type="number"
+            min={100}
+            step={1000}
+            placeholder="Target word count"
+            value={goalInput}
+            onChange={(e) => {
+              setGoalInput(e.target.value);
+              setGoalError(null);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleSaveGoal();
+              if (e.key === "Escape") setIsGoalFormOpen(false);
+            }}
+            className="w-full rounded-md px-3 py-2 text-sm outline-none"
+            style={{
+              background: "var(--color-sepia)",
+              border: "1px solid var(--color-border-strong)",
+              color: "var(--text-primary)",
+              maxWidth: "280px",
+            }}
+            onFocus={(e) =>
+              ((e.currentTarget as HTMLInputElement).style.borderColor =
+                "var(--color-gold)")
+            }
+            onBlur={(e) =>
+              ((e.currentTarget as HTMLInputElement).style.borderColor =
+                "var(--color-border-strong)")
+            }
+            autoFocus
+          />
+          {goalError && (
+            <p
+              className="mt-2 text-xs"
+              style={{ color: "var(--color-crimson)" }}
+            >
+              {goalError}
+            </p>
+          )}
+          <div className="mt-3 flex items-center gap-2">
+            <button
+              onClick={handleSaveGoal}
+              disabled={goalSaving}
+              className="rounded px-3 py-1.5 text-xs font-medium transition-opacity hover:opacity-80 disabled:opacity-40"
+              style={{
+                background: "var(--color-gold)",
+                color: "var(--color-ink)",
+              }}
+            >
+              {goalSaving ? "Saving…" : "Save"}
+            </button>
+            {manuscriptGoal && (
+              <button
+                onClick={handleDeleteGoal}
+                disabled={goalSaving}
+                className="rounded px-3 py-1.5 text-xs transition-opacity hover:opacity-80 disabled:opacity-40"
+                style={{ color: "var(--color-mist)" }}
+              >
+                Remove goal
+              </button>
+            )}
+            <button
+              onClick={() => setIsGoalFormOpen(false)}
+              disabled={goalSaving}
+              className="ml-auto rounded px-3 py-1.5 text-xs transition-opacity hover:opacity-80 disabled:opacity-40"
+              style={{ color: "var(--color-mist)" }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Explore Rune */}
       <div className="mb-10">
