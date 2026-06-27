@@ -28,12 +28,13 @@ export default async function ChapterEditorPage({
   const { projectId, chapterId } = await params;
   const supabase = await createClient();
 
-  const [chapterResult, projectResult, pagesResult, chaptersResult] =
+  const [chapterResult, projectResult, pagesResult, chaptersResult, userResult] =
     await Promise.all([
       supabase.from("chapters").select("*").eq("id", chapterId).single(),
       supabase.from("projects").select("*").eq("id", projectId).single(),
       getPages(chapterId),
       getChapters(projectId),
+      supabase.auth.getUser(),
     ]);
 
   const { data: chapter, error: chapterError } = chapterResult;
@@ -50,6 +51,23 @@ export default async function ChapterEditorPage({
     notFound();
   }
 
+  // Determine first-time onboarding state.
+  // Only show the cinematic onboarding experience when we can confirm the user
+  // has not yet saved their first words. Defaults to false on any error (offline etc.)
+  const userId = userResult.data.user?.id;
+  let isOnboarding = false;
+  if (userId) {
+    const { data: profileData, error: profileError } = await supabase
+      .from("profiles")
+      .select("has_written_first_words")
+      .eq("id", userId)
+      .single();
+
+    if (!isNetworkError(profileError)) {
+      isOnboarding = profileData?.has_written_first_words === false;
+    }
+  }
+
   return (
     <div className="min-h-0 h-full">
       <EditorShell
@@ -59,6 +77,7 @@ export default async function ChapterEditorPage({
         chapter={chapter}
         project={project}
         allChapters={chaptersResult.data ?? []}
+        isOnboarding={isOnboarding}
       />
     </div>
   );

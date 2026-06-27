@@ -112,6 +112,18 @@ export async function exportUserData(): Promise<{
   };
 }
 
+export async function markFirstWordsSaved(): Promise<ActionResult> {
+  const { supabase, user } = await getAuthUser();
+  if (!user) return { error: "Not authenticated" };
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({ has_written_first_words: true })
+    .eq("id", user.id);
+
+  return { error: error?.message ?? null };
+}
+
 // Requires SUPABASE_SERVICE_ROLE_KEY in .env.local (server-only, no NEXT_PUBLIC_ prefix)
 export async function deleteAccount(): Promise<ActionResult> {
   const { user } = await getAuthUser();

@@ -22,6 +22,7 @@ export interface Profile {
   subscription_status: string | null;
   subscription_price_id: string | null;
   subscription_period_end: string | null;
+  has_written_first_words: boolean;
 }
 
 export interface XpEvent {

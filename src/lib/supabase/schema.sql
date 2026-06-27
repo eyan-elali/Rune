@@ -4,15 +4,30 @@
 
 -- ── profiles ────────────────────────────────────────────────────────
 create table if not exists public.profiles (
-  id            uuid        primary key references auth.users (id) on delete cascade,
-  username      text        unique,
-  display_name  text,
-  avatar_url    text,
-  xp            integer     not null default 0,
-  level         integer     not null default 1,
-  preferences   jsonb,
-  created_at    timestamptz not null default now()
+  id                       uuid        primary key references auth.users (id) on delete cascade,
+  username                 text        unique,
+  display_name             text,
+  avatar_url               text,
+  xp                       integer     not null default 0,
+  level                    integer     not null default 1,
+  preferences              jsonb,
+  has_written_first_words  boolean     not null default false,
+  created_at               timestamptz not null default now()
 );
+
+-- ── Migration: onboarding flag (run once on existing databases) ──────
+-- alter table public.profiles
+--   add column if not exists has_written_first_words boolean not null default false;
+--
+-- Mark existing users who have already written words as done with onboarding:
+-- update public.profiles p
+-- set has_written_first_words = true
+-- where exists (
+--   select 1 from public.projects proj
+--   join public.chapters c on c.project_id = proj.id
+--   join public.pages pg on pg.chapter_id = c.id
+--   where proj.user_id = p.id and pg.word_count > 0
+-- );
 
 -- ── projects ────────────────────────────────────────────────────────
 create table if not exists public.projects (

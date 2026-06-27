@@ -394,6 +394,34 @@ body {
   will-change: opacity, transform;
 }
 
+/* ── Onboarding acknowledgement ─────────────────────────────────── */
+@keyframes rune-onboarding-ack {
+  /* 0–14%: fade in (0→400ms of 2800ms total) */
+  0%   { opacity: 0; transform: translateX(-50%) translateY(6px); }
+  14%  { opacity: 1; transform: translateX(-50%) translateY(0); }
+  /* 14–79%: hold */
+  79%  { opacity: 1; transform: translateX(-50%) translateY(0); }
+  /* 79–100%: fade out */
+  100% { opacity: 0; transform: translateX(-50%) translateY(0); }
+}
+
+.rune-onboarding-ack {
+  position: fixed;
+  bottom: 22%;
+  left: 50%;
+  transform: translateX(-50%);
+  pointer-events: none;
+  z-index: 50;
+  font-family: Georgia, "Times New Roman", Times, serif;
+  font-style: italic;
+  font-size: 0.9rem;
+  letter-spacing: 0.04em;
+  color: var(--color-mist);
+  opacity: 0;
+  animation: rune-onboarding-ack 2800ms ease forwards;
+  white-space: nowrap;
+}
+
 /* ── Level-up animation ─────────────────────────────────────────── */
 @keyframes rune-level-up {
   0%   { transform: scale(0.4); opacity: 0; }

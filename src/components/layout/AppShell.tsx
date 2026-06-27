@@ -6,6 +6,7 @@ import { useModeStore, type Mode } from "@/store/modeStore";
 import { useGameStore } from "@/store/gameStore";
 import { useToastStore } from "@/store/toastStore";
 import { useProfileStore } from "@/store/profileStore";
+import { useOnboardingStore } from "@/store/onboardingStore";
 import { ModeToggle } from "@/components/ui/ModeToggle";
 import { ThemeApplier } from "@/components/layout/ThemeApplier";
 import { Sidebar } from "@/components/layout/Sidebar";
@@ -47,6 +48,9 @@ export function AppShell({ profile, children }: AppShellProps) {
     mode === "focus" && pathname.includes("/chapters/");
   const shouldHideUI = shouldHideFocusUI || isRaceActive || isBattleActive;
 
+  const phase = useOnboardingStore((s) => s.phase);
+  const isOnboardingPhase = phase === "writing" || phase === "revealing";
+
   useEffect(() => {
     modeRef.current = mode;
   }, [mode]);
@@ -79,31 +83,89 @@ export function AppShell({ profile, children }: AppShellProps) {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [setMode, showToast]);
 
+  // Sidebar visibility and animation:
+  // - Onboarding writing: in DOM, width 0, clipped (no transition)
+  // - Onboarding revealing: animates to full width
+  // - Focus/race/battle: removed from DOM entirely (existing behaviour)
+  // - Normal: standard collapsible sidebar
+  const renderSidebar = isOnboardingPhase || !shouldHideUI;
+
+  let sidebarStyle: React.CSSProperties;
+  if (phase === "writing") {
+    sidebarStyle = {
+      width: "0px",
+      minWidth: "0px",
+      overflow: "hidden",
+      flexShrink: 0,
+      transition: "none",
+    };
+  } else if (phase === "revealing") {
+    const targetWidth = sidebarCollapsed ? "64px" : "260px";
+    const targetMin = sidebarCollapsed ? "64px" : "200px";
+    sidebarStyle = {
+      width: targetWidth,
+      minWidth: targetMin,
+      overflow: "hidden",
+      flexShrink: 0,
+      transition: "width 0.55s cubic-bezier(0.25, 0.46, 0.45, 0.94), min-width 0.55s cubic-bezier(0.25, 0.46, 0.45, 0.94)",
+    };
+  } else {
+    sidebarStyle = {
+      width: sidebarCollapsed ? "64px" : "260px",
+      minWidth: sidebarCollapsed ? "64px" : "200px",
+      flexShrink: 0,
+      transition: "width 0.25s ease, min-width 0.25s ease",
+    };
+  }
+
+  // Header visibility and animation:
+  // - Onboarding writing: in DOM, invisible, no pointer events
+  // - Onboarding revealing: slides down + fades in (delayed 250ms)
+  // - Focus/race/battle: removed from DOM entirely (existing behaviour)
+  // - Normal: visible
+  const renderHeader = isOnboardingPhase || !shouldHideUI;
+
+  let headerStyle: React.CSSProperties = {};
+  if (phase === "writing") {
+    headerStyle = {
+      opacity: 0,
+      transform: "translateY(-100%)",
+      pointerEvents: "none",
+      transition: "none",
+    };
+  } else if (phase === "revealing") {
+    headerStyle = {
+      opacity: 1,
+      transform: "translateY(0)",
+      transition: "opacity 0.45s ease 0.25s, transform 0.45s ease 0.25s",
+    };
+  }
+
   return (
     <div
       className="flex h-screen w-full overflow-hidden"
       style={{ background: "var(--bg-sidebar)" }}
     >
       <ThemeApplier />
-      {!shouldHideUI && (
+      {renderSidebar && (
         <div
-          className="flex h-screen shrink-0 flex-col overflow-hidden"
-          style={{
-            width: sidebarCollapsed ? "64px" : "260px",
-            minWidth: sidebarCollapsed ? "64px" : "200px",
-            transition: "width 0.25s ease, min-width 0.25s ease",
-          }}
+          className="flex h-screen flex-col overflow-hidden"
+          style={sidebarStyle}
         >
           <Sidebar displayName={displayName} />
         </div>
       )}
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        {!shouldHideUI && <Header />}
+        {renderHeader && (
+          <div style={headerStyle}>
+            <Header />
+          </div>
+        )}
         <main
           className="relative min-h-0 flex-1 overflow-auto"
           style={{
-            background: shouldHideUI
+            background: shouldHideUI && !isOnboardingPhase
               ? "var(--surface-editor)"
               : "var(--bg-primary)",
           }}

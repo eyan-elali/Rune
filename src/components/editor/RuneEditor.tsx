@@ -19,6 +19,7 @@ import { useEditorStore } from "@/store/editorStore";
 import { useModeStore } from "@/store/modeStore";
 import { useProfileStore } from "@/store/profileStore";
 import { useToastStore } from "@/store/toastStore";
+import { useOnboardingStore } from "@/store/onboardingStore";
 import type { Page, UserPreferences } from "@/lib/types";
 
 type DisplaySyncStatus = 'synced' | 'online_dirty' | 'offline_dirty' | 'syncing' | 'conflict'
@@ -47,6 +48,9 @@ interface RuneEditorProps {
   currentPage: Page | null;
   onPageUpdated: (pageId: string, updates: Partial<Page>) => void;
   onRenamePage: (pageId: string, title: string) => void;
+  isOnboarding?: boolean;
+  onboardingProjectTitle?: string;
+  onFirstSave?: () => void;
 }
 
 interface ToolbarPos {
@@ -60,6 +64,9 @@ export default function RuneEditor({
   currentPage,
   onPageUpdated,
   onRenamePage,
+  isOnboarding = false,
+  onboardingProjectTitle,
+  onFirstSave,
 }: RuneEditorProps) {
   const { setIsSaving, setLastSaved } = useEditorStore();
   const showToast = useToastStore((s) => s.showToast);
@@ -69,6 +76,7 @@ export default function RuneEditor({
   const userId = useProfileStore((s) => s.profile?.id);
   const isFocusMode = useModeStore((s) => s.mode === "focus");
   const isOnline = useNetworkStore((s) => s.isOnline);
+  const phase = useOnboardingStore((s) => s.phase);
   const prefs = (rawPrefs ?? {}) as Partial<UserPreferences>;
   const fontSize = prefs.fontSize ?? 18;
   const lineHeight = prefs.lineHeight ?? 1.9;
@@ -77,8 +85,6 @@ export default function RuneEditor({
   const isFocusModeRef = useRef(isFocusMode);
 
   const [syncStatus, setSyncStatus] = useState<DisplaySyncStatus>('synced');
-  // Ref mirror so async closures (onUpdate, handleSave) read the live status without
-  // capturing stale closure values. Updated in sync with the state setter below.
   const syncStatusRef = useRef<DisplaySyncStatus>('synced');
   function setSyncStatusAndRef(s: DisplaySyncStatus) {
     syncStatusRef.current = s;
@@ -90,43 +96,36 @@ export default function RuneEditor({
   const [toolbarPos, setToolbarPos] = useState<ToolbarPos | null>(null);
   const [titleDraft, setTitleDraft] = useState(currentPage?.title ?? "");
   const [sessionInvalidated, setSessionInvalidated] = useState(false);
-  // Ephemeral XP flash — text-only HUD pulse under the word count pill.
-  // `id` retriggers the CSS animation on each increment via React key.
   const [xpFlash, setXpFlash] = useState<{ id: number; amount: number } | null>(null);
   const xpFlashTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  // Tracks whether the one-time first-save callback has been called.
+  const hasCalledFirstSaveRef = useRef(false);
 
   const currentPageRef = useRef<Page | null>(currentPage);
   const onPageUpdatedRef = useRef(onPageUpdated);
   const prevPageIdRef = useRef<string | null>(null);
   const isLoadingRef = useRef(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-const lastSavedWordCountRef = useRef<number>(currentPage?.word_count ?? 0);
+  const lastSavedWordCountRef = useRef<number>(currentPage?.word_count ?? 0);
   const pastedWordsRef = useRef(0);
   const sessionInvalidatedRef = useRef(false);
-  // One UUID per editor mount; persists for the lifetime of this component instance.
   const sessionId = useRef(crypto.randomUUID());
-  // Tracks the last word count at which XP was awarded; advances forward only.
   const lastAwardedWordCountRef = useRef<number>(currentPage?.word_count ?? 0);
-  // Refs kept in sync with props/store values so async closures always read latest.
   const isOnlineRef = useRef(isOnline);
-  const prevIsOnlineRef = useRef(isOnline); // tracks prior value to detect reconnect transitions
+  const prevIsOnlineRef = useRef(isOnline);
   const userIdRef = useRef(userId);
   const projectIdRef = useRef(projectId);
 
-  // Keep preference refs in sync without recreating the editor
   useEffect(() => {
     const delay = prefs.autoSaveDelay ?? 1500;
     autoSaveDelayRef.current = delay === 0 ? 100 : delay;
   }, [prefs.autoSaveDelay]);
 
-  // Mirror focus-mode flag into a ref so the autosave heartbeat (which
-  // runs inside the editor closure) reads the live value without forcing
-  // the editor to re-instantiate.
   useEffect(() => {
     isFocusModeRef.current = isFocusMode;
     if (isFocusMode) {
-      // Wipe any visible XP text the moment focus mode activates.
       clearTimeout(xpFlashTimerRef.current);
       setXpFlash(null);
     }
@@ -152,22 +151,14 @@ const lastSavedWordCountRef = useRef<number>(currentPage?.word_count ?? 0);
     prevIsOnlineRef.current = isOnline;
 
     if (isOnline && wasOffline) {
-      // Reconnect path: NetworkProvider's flushPendingQueue owns the actual sync.
-      // Show 'syncing' immediately for any unresolved write, then let the
-      // rune-sync-queue-updated event deliver the authoritative final status.
-      // As a safety net, also call syncPendingWrite for the current page — the
-      // two calls are idempotent (the second finds no 'pending' write and no-ops).
       void (async () => {
         const dbStatus = await readDbSyncStatus(pageId);
         if (dbStatus === 'pending' || dbStatus === 'failed') {
           setSyncStatusAndRef('syncing');
           await syncPendingWrite(pageId);
-          // Re-read after our own sync attempt; the event listener will also fire
-          // once flushPendingQueue finishes (handles the case where it ran first).
           const afterStatus = await readDbSyncStatus(pageId);
           setSyncStatusAndRef(mapDisplayStatus(afterStatus, true));
         } else if (dbStatus === 'syncing') {
-          // flushPendingQueue is mid-flight — show 'syncing' and let the event update us.
           setSyncStatusAndRef('syncing');
         } else {
           setSyncStatusAndRef(mapDisplayStatus(dbStatus, true));
@@ -180,9 +171,6 @@ const lastSavedWordCountRef = useRef<number>(currentPage?.word_count ?? 0);
     }
   }, [isOnline, currentPage?.id]);
 
-  // Re-read IDB status whenever flushPendingQueue (NetworkProvider) finishes a sync cycle.
-  // This is the authoritative resolution for the reconnect race where flushPendingQueue
-  // sets IDB to 'conflict' while RuneEditor's effect had already read 'syncing'.
   useEffect(() => {
     function handleSyncQueueUpdated() {
       const pageId = currentPageRef.current?.id;
@@ -203,9 +191,6 @@ const lastSavedWordCountRef = useRef<number>(currentPage?.word_count ?? 0);
 
     const delta = wordCount - lastSavedWordCountRef.current;
 
-    // Write to IndexedDB — survives network loss and tab close.
-    // Explicit catch here surfaces structured-clone errors and transaction locks
-    // that writeToPendingQueue's internal handler would otherwise swallow silently.
     try {
       await writeToPendingQueue(page.id, uid, content, wordCount);
     } catch (err) {
@@ -220,8 +205,6 @@ const lastSavedWordCountRef = useRef<number>(currentPage?.word_count ?? 0);
       pastedWordsRef.current = Math.max(0, pastedWordsRef.current - pastedDeduction);
       lastSavedWordCountRef.current = wordCount;
       const adjustedDelta = delta - pastedDeduction;
-      // Guard: recordWordsWritten makes live DB mutations — skip when offline
-      // so a failed tracking call never breaks the primary save stack.
       if (adjustedDelta > 0 && isOnlineRef.current) {
         void recordWordsWritten(projectIdRef.current, adjustedDelta, page.id)
           .catch(err => console.error('[offline] recordWordsWritten failed:', err));
@@ -229,7 +212,6 @@ const lastSavedWordCountRef = useRef<number>(currentPage?.word_count ?? 0);
     }
 
     if (isOnlineRef.current) {
-      // Never attempt to auto-sync a conflicted page — the user must resolve via the modal.
       const preCheckStatus = await readDbSyncStatus(page.id);
       if (preCheckStatus === 'conflict') {
         setSyncStatusAndRef('conflict');
@@ -245,8 +227,14 @@ const lastSavedWordCountRef = useRef<number>(currentPage?.word_count ?? 0);
     void readDbSyncStatus(page.id).then((dbStatus) => {
       setSyncStatusAndRef(mapDisplayStatus(dbStatus, isOnlineRef.current));
     });
+
+    // Fire the first-save callback exactly once, after a successful save with words.
+    if (isOnboarding && !hasCalledFirstSaveRef.current && wordCount > 0) {
+      hasCalledFirstSaveRef.current = true;
+      onFirstSave?.();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [isOnboarding]);
 
   const handleSaveRef = useRef(handleSave);
   useEffect(() => { handleSaveRef.current = handleSave; }, [handleSave]);
@@ -257,7 +245,7 @@ const lastSavedWordCountRef = useRef<number>(currentPage?.word_count ?? 0);
         heading: { levels: [1, 2, 3] },
       }),
       Placeholder.configure({
-        placeholder: "Begin your story...",
+        placeholder: isOnboarding ? "Begin with one sentence..." : "Begin your story...",
         emptyEditorClass: "is-editor-empty",
         emptyNodeClass: "is-empty",
         showOnlyWhenEditable: true,
@@ -278,14 +266,12 @@ const lastSavedWordCountRef = useRef<number>(currentPage?.word_count ?? 0);
             setSessionInvalidated(true);
           }
         }
-        return false; // allow normal paste insertion — content is preserved
+        return false;
       },
     },
     onUpdate({ editor }) {
       if (isLoadingRef.current) return;
 
-      // Per-keystroke: write to IndexedDB immediately, zero lag, no debounce.
-      // This is the data-safety layer — the user's words are captured on every stroke.
       const pageNow = currentPageRef.current;
       const uidNow = userIdRef.current;
       if (pageNow && uidNow) {
@@ -296,13 +282,11 @@ const lastSavedWordCountRef = useRef<number>(currentPage?.word_count ?? 0);
         } catch (err) {
           console.error('[offline] onUpdate: per-keystroke IDB write failed:', err);
         }
-        // Don't override 'conflict' on every keystroke — the user must resolve first.
         if (syncStatusRef.current !== 'conflict') {
           setSyncStatusAndRef(isOnlineRef.current ? 'online_dirty' : 'offline_dirty');
         }
       }
 
-      // Debounced cloud push — fires only after the user pauses writing.
       clearTimeout(saveTimerRef.current);
       saveTimerRef.current = setTimeout(async () => {
         if (isLoadingRef.current) return;
@@ -315,8 +299,6 @@ const lastSavedWordCountRef = useRef<number>(currentPage?.word_count ?? 0);
 
         await handleSaveRef.current(content, wordCount);
 
-        // XP heartbeat — fire after every save, additions only.
-        // Math/server pipeline always runs; HUD pulse suppressed in focus mode.
         const wordsThisIncrement = wordCount - lastAwardedWordCountRef.current;
         if (wordsThisIncrement > 0 && !sessionInvalidatedRef.current) {
           const xpGain = xpRewardForWords(wordsThisIncrement);
@@ -327,7 +309,8 @@ const lastSavedWordCountRef = useRef<number>(currentPage?.word_count ?? 0);
               if (result.data.leveledUp) {
                 setPendingLevelUp({ newLevel: result.data.newLevel, newUnlockables: result.data.newUnlockables });
               }
-              if (!isFocusModeRef.current) {
+              // Suppress XP flash during onboarding writing phase
+              if (!isFocusModeRef.current && !(isOnboarding && phase === "writing")) {
                 setXpFlash({ id: Date.now(), amount: xpGain });
                 clearTimeout(xpFlashTimerRef.current);
                 xpFlashTimerRef.current = setTimeout(() => setXpFlash(null), 2200);
@@ -356,7 +339,6 @@ const lastSavedWordCountRef = useRef<number>(currentPage?.word_count ?? 0);
       }
     },
     onBlur() {
-      // Small delay so toolbar button clicks register before hiding
       setTimeout(() => setToolbarPos(null), 150);
     },
   });
@@ -410,7 +392,6 @@ const lastSavedWordCountRef = useRef<number>(currentPage?.word_count ?? 0);
       void (async () => {
         try {
           const pending = await getPendingWrite(pageIdForDraftCheck);
-          // Guard: page may have changed while IDB was resolving
           if (currentPageRef.current?.id !== pageIdForDraftCheck) return;
           if (pending && serverUpdatedAt) {
             const serverMs = new Date(serverUpdatedAt).getTime();
@@ -422,7 +403,7 @@ const lastSavedWordCountRef = useRef<number>(currentPage?.word_count ?? 0);
             }
           }
         } catch {
-          // best-effort; fall through with server content
+          // best-effort
         } finally {
           if (currentPageRef.current?.id === pageIdForDraftCheck) {
             isLoadingRef.current = false;
@@ -434,9 +415,8 @@ const lastSavedWordCountRef = useRef<number>(currentPage?.word_count ?? 0);
         isLoadingRef.current = false;
       }, 0);
     }
-  }, [editor, currentPage?.id]); // intentionally omitting currentPage to avoid re-running on word_count updates
+  }, [editor, currentPage?.id]);
 
-  // Trailing XP sync on unmount — catches words saved but not yet awarded
   useEffect(() => {
     return () => {
       const remaining = lastSavedWordCountRef.current - lastAwardedWordCountRef.current;
@@ -454,7 +434,6 @@ const lastSavedWordCountRef = useRef<number>(currentPage?.word_count ?? 0);
   async function handleSyncNow() {
     const pageId = currentPageRef.current?.id;
     if (!pageId || isSyncingNow) return;
-    // Don't auto-sync a conflicted page — user must use the modal.
     if (syncStatusRef.current === 'conflict') {
       setConflictModalOpen(true);
       return;
@@ -505,6 +484,30 @@ const lastSavedWordCountRef = useRef<number>(currentPage?.word_count ?? 0);
     );
   }
 
+  // During onboarding writing phase: page title and chrome UI are hidden.
+  // They fade in during the revealing phase.
+  const isWritingPhase = isOnboarding && phase === "writing";
+  const isRevealingPhase = isOnboarding && phase === "revealing";
+
+  const titleStyle: React.CSSProperties = isWritingPhase
+    ? { opacity: 0, pointerEvents: "none", transition: "none" }
+    : isRevealingPhase
+    ? { opacity: 1, transition: "opacity 0.35s ease 0.2s" }
+    : {};
+
+  const projectTitleStyle: React.CSSProperties = isWritingPhase
+    ? { opacity: 0.55, transition: "none" }
+    : isRevealingPhase
+    ? { opacity: 0, transition: "opacity 0.25s ease" }
+    : { opacity: 0 };
+
+  // Status pill and XP flash: hidden during onboarding writing phase, fade in during reveal
+  const uiChromeFadeStyle: React.CSSProperties = isWritingPhase
+    ? { opacity: 0, pointerEvents: "none", transition: "none" }
+    : isRevealingPhase
+    ? { opacity: 1, transition: "opacity 0.5s ease 0.5s" }
+    : {};
+
   return (
     <div
       className="relative flex h-full flex-1 flex-col overflow-hidden"
@@ -522,7 +525,7 @@ const lastSavedWordCountRef = useRef<number>(currentPage?.word_count ?? 0);
             border: "1px solid var(--color-border-strong)",
             boxShadow: "0 4px 16px rgba(0,0,0,0.55)",
           }}
-          onMouseDown={(e) => e.preventDefault()} // prevent editor blur
+          onMouseDown={(e) => e.preventDefault()}
         >
           <FormatButton
             active={editor.isActive("bold")}
@@ -592,6 +595,22 @@ const lastSavedWordCountRef = useRef<number>(currentPage?.word_count ?? 0);
             wideEditor ? "max-w-5xl" : "max-w-2xl"
           )}
         >
+          {/* Project title shown during onboarding, fades out on reveal */}
+          {isOnboarding && (
+            <h1
+              className="mb-10 select-none font-rune-serif text-3xl font-bold tracking-tight"
+              style={{
+                color: "var(--text-primary)",
+                pointerEvents: "none",
+                ...projectTitleStyle,
+              }}
+              aria-hidden
+            >
+              {onboardingProjectTitle}
+            </h1>
+          )}
+
+          {/* Page title input — hidden during onboarding writing phase */}
           <input
             id={`page-title-${currentPage.id}`}
             type="text"
@@ -610,192 +629,194 @@ const lastSavedWordCountRef = useRef<number>(currentPage?.word_count ?? 0);
             }}
             className={cn(
               "mb-10 w-full bg-transparent font-serif outline-none ring-0 focus:outline-none",
-              // 1. Size: 4xl is the 'tiny bit bigger' step up from 3xl
               "text-3xl",
-              // 2. Weight: font-medium (500) gives it that 'thick' feel you wanted
               "font-bold tracking-tight"
-            )}          
+            )}
             style={{
               color: "var(--editor-text)",
               borderBottom: "1px solid transparent",
+              ...titleStyle,
             }}
             onFocus={(e) => {
-              e.currentTarget.style.borderBottomColor =
-                "var(--color-border-strong)";
+              e.currentTarget.style.borderBottomColor = "var(--color-border-strong)";
             }}
             onBlur={(e) => {
               e.currentTarget.style.borderBottomColor = "transparent";
               void commitTitle();
             }}
             aria-label="Page title"
+            tabIndex={isWritingPhase ? -1 : 0}
           />
           {editor ? <EditorContent editor={editor} /> : null}
         </div>
       </div>
 
+      {/* Sync status + local draft notice — hidden during onboarding writing phase */}
+      <div
+        className="fixed bottom-[4.5rem] right-7 z-40 md:bottom-[5rem] md:right-9 flex flex-col items-end gap-1"
+        style={{
+          fontSize: "11px",
+          fontFamily: "var(--font-sans)",
+          letterSpacing: "0.04em",
+          ...uiChromeFadeStyle,
+        }}
+      >
+        {showingLocalDraft ? (
+          <span style={{ color: "var(--color-mist)", opacity: 0.8, fontStyle: "italic" }}>
+            Showing latest local draft
+            {isOnline && (
+              <>
+                {" · "}
+                <button
+                  type="button"
+                  onClick={() => void handleSyncNow()}
+                  disabled={isSyncingNow}
+                  aria-label="Sync local draft to server"
+                  style={{
+                    background: "none",
+                    border: "none",
+                    cursor: isSyncingNow ? "default" : "pointer",
+                    padding: 0,
+                    font: "inherit",
+                    letterSpacing: "inherit",
+                    fontStyle: "normal",
+                    color: isSyncingNow ? "var(--color-mist)" : "var(--color-gold)",
+                    opacity: isSyncingNow ? 0.5 : 1,
+                  }}
+                >
+                  {isSyncingNow ? "Syncing…" : "Sync now"}
+                </button>
+              </>
+            )}
+          </span>
+        ) : (
+          <>
+            {syncStatus === 'synced' && (
+              <span
+                className="pointer-events-none"
+                style={{ color: "var(--color-mist)", opacity: 0.6, transition: "opacity 0.4s" }}
+              >
+                Saved
+              </span>
+            )}
+            {syncStatus === 'online_dirty' && (
+              <span
+                className="pointer-events-none"
+                style={{ color: "var(--color-mist)", opacity: 0.8 }}
+              >
+                Saving...
+              </span>
+            )}
+            {syncStatus === 'syncing' && (
+              <span
+                className="pointer-events-none"
+                style={{ color: "var(--color-mist)", opacity: 0.8 }}
+              >
+                Syncing...
+              </span>
+            )}
+            {syncStatus === 'offline_dirty' && (
+              <span
+                className="pointer-events-none"
+                style={{ color: "var(--color-gold)", opacity: 0.9 }}
+              >
+                Saved locally
+              </span>
+            )}
+            {syncStatus === 'conflict' && (
+              <button
+                type="button"
+                onClick={() => setConflictModalOpen(true)}
+                aria-label="Sync conflict — click to resolve"
+                style={{
+                  color: "var(--color-crimson)",
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  padding: 0,
+                  font: "inherit",
+                  letterSpacing: "inherit",
+                }}
+              >
+                Conflict
+              </button>
+            )}
+          </>
+        )}
+      </div>
 
-{/* Sync status + local draft notice */}
-<div
-  className="fixed bottom-[4.5rem] right-7 z-40 md:bottom-[5rem] md:right-9 flex flex-col items-end gap-1"
-  style={{ fontSize: "11px", fontFamily: "var(--font-sans)", letterSpacing: "0.04em" }}
->
-  {showingLocalDraft ? (
-    <span style={{ color: "var(--color-mist)", opacity: 0.8, fontStyle: "italic" }}>
-      Showing latest local draft
-      {isOnline && (
-        <>
-          {" · "}
-          <button
-            type="button"
-            onClick={() => void handleSyncNow()}
-            disabled={isSyncingNow}
-            aria-label="Sync local draft to server"
-            style={{
-              background: "none",
-              border: "none",
-              cursor: isSyncingNow ? "default" : "pointer",
-              padding: 0,
-              font: "inherit",
-              letterSpacing: "inherit",
-              fontStyle: "normal",
-              color: isSyncingNow ? "var(--color-mist)" : "var(--color-gold)",
-              opacity: isSyncingNow ? 0.5 : 1,
-            }}
-          >
-            {isSyncingNow ? "Syncing…" : "Sync now"}
-          </button>
-        </>
+      {/* Sync conflict resolution modal */}
+      {conflictModalOpen && currentPage && (
+        <SyncConflictModal
+          pageId={currentPage.id}
+          onKeepLocal={() => {
+            setConflictModalOpen(false);
+            setShowingLocalDraft(false);
+            setLastSaved(new Date());
+            setSyncStatusAndRef('synced');
+            showToast("Local draft kept", "success");
+          }}
+          onKeepServer={(serverContent, serverWordCount) => {
+            setConflictModalOpen(false);
+            setShowingLocalDraft(false);
+            setLastSaved(new Date());
+            setSyncStatusAndRef('synced');
+            isLoadingRef.current = true;
+            editor?.commands.setContent(serverContent);
+            clearTimeout(saveTimerRef.current);
+            isLoadingRef.current = false;
+            lastSavedWordCountRef.current = serverWordCount;
+            lastAwardedWordCountRef.current = serverWordCount;
+            onPageUpdatedRef.current(currentPage.id, {
+              content: serverContent,
+              word_count: serverWordCount,
+            });
+            showToast("Server version kept", "info");
+          }}
+          onClose={() => setConflictModalOpen(false)}
+        />
       )}
-    </span>
-  ) : (
-    <>
-      {syncStatus === 'synced' && (
-        <span
-          className="pointer-events-none"
-          style={{ color: "var(--color-mist)", opacity: 0.6, transition: "opacity 0.4s" }}
-        >
-          Saved
-        </span>
-      )}
-      {syncStatus === 'online_dirty' && (
-        <span
-          className="pointer-events-none"
-          style={{ color: "var(--color-mist)", opacity: 0.8 }}
-        >
-          Saving...
-        </span>
-      )}
-      {syncStatus === 'syncing' && (
-        <span
-          className="pointer-events-none"
-          style={{ color: "var(--color-mist)", opacity: 0.8 }}
-        >
-          Syncing...
-        </span>
-      )}
-      {syncStatus === 'offline_dirty' && (
-        <span
-          className="pointer-events-none"
-          style={{ color: "var(--color-gold)", opacity: 0.9 }}
-        >
-          Saved locally
-        </span>
-      )}
-      {syncStatus === 'conflict' && (
-        <button
-          type="button"
-          onClick={() => setConflictModalOpen(true)}
-          aria-label="Sync conflict — click to resolve"
+
+      {/* Floating Word Count Pill + XP flash — hidden during onboarding writing phase */}
+      <div
+        className="fixed bottom-6 right-6 md:bottom-8 md:right-8 z-50 flex flex-col items-end gap-1.5"
+        style={uiChromeFadeStyle}
+      >
+        <div
+          className={cn(
+            "flex items-center rounded-full shadow-xl transition-all duration-300",
+            "px-3 py-1.5 text-[10px] tracking-tight",
+            "2xl:px-4 2xl:py-1.5 2xl:text-[11px] 2xl:tracking-widest"
+          )}
+          aria-label={`${wordCount} ${wordCount === 1 ? "word" : "words"}${sessionInvalidated ? " — paste detected" : ""}`}
           style={{
-            color: "var(--color-crimson)",
-            background: "none",
-            border: "none",
-            cursor: "pointer",
-            padding: 0,
-            font: "inherit",
-            letterSpacing: "inherit",
+            background: "var(--surface-card)",
+            color: "var(--text-primary)",
+            border: "1px solid rgba(201, 168, 76, 0.4)"
           }}
         >
-          Conflict
-        </button>
-      )}
-    </>
-  )}
-</div>
+          {wordCount} <span className="ml-1 opacity-80">{wordCount === 1 ? "word" : "words"}</span>
+        </div>
 
-{/* Sync conflict resolution modal */}
-{conflictModalOpen && currentPage && (
-  <SyncConflictModal
-    pageId={currentPage.id}
-    onKeepLocal={() => {
-      setConflictModalOpen(false);
-      setShowingLocalDraft(false);
-      setLastSaved(new Date());
-      setSyncStatusAndRef('synced');
-      showToast("Local draft kept", "success");
-    }}
-    onKeepServer={(serverContent, serverWordCount) => {
-      setConflictModalOpen(false);
-      setShowingLocalDraft(false);
-      setLastSaved(new Date());
-      setSyncStatusAndRef('synced');
-      // Suppress onUpdate during the programmatic setContent so it does not create
-      // a new pending write or start a debounce cycle from the conflict resolution.
-      // Also clear any stale debounce timer left over from the user's offline typing.
-      isLoadingRef.current = true;
-      editor?.commands.setContent(serverContent);
-      clearTimeout(saveTimerRef.current);
-      isLoadingRef.current = false;
-      lastSavedWordCountRef.current = serverWordCount;
-      lastAwardedWordCountRef.current = serverWordCount;
-      onPageUpdatedRef.current(currentPage.id, {
-        content: serverContent,
-        word_count: serverWordCount,
-      });
-      showToast("Server version kept", "info");
-    }}
-    onClose={() => setConflictModalOpen(false)}
-  />
-)}
-
-{/* Floating Word Count Pill + text-only XP flash anchor */}
-<div className="fixed bottom-6 right-6 md:bottom-8 md:right-8 z-50 flex flex-col items-end gap-1.5">
-  <div
-    className={cn(
-      "flex items-center rounded-full shadow-xl transition-all duration-300",
-      "px-3 py-1.5 text-[10px] tracking-tight", // Laptop/Mobile defaults
-      "2xl:px-4 2xl:py-1.5 2xl:text-[11px] 2xl:tracking-widest" // Big monitor upgrades
-    )}
-    aria-label={`${wordCount} ${wordCount === 1 ? "word" : "words"}${sessionInvalidated ? " — paste detected" : ""}`}
-    style={{
-      background: "var(--surface-card)",
-      color: "var(--text-primary)",
-      border: "1px solid rgba(201, 168, 76, 0.4)"
-    }}
-  >
-    {wordCount} <span className="ml-1 opacity-80">{wordCount === 1 ? "word" : "words"}</span>
-  </div>
-
-  {/* Text-only XP HUD — no container, no border, fades in/out beneath the pill */}
-  <div
-    className="pointer-events-none h-3 select-none pr-1 text-right font-serif text-[11px] italic tracking-wide"
-    aria-live="polite"
-    aria-atomic="true"
-  >
-    {xpFlash && !isFocusMode && (
-      <span
-        key={xpFlash.id}
-        className="rune-xp-flash"
-        style={{ color: "var(--color-gold)" }}
-      >
-        +{xpFlash.amount} XP ✦
-      </span>
-    )}
-  </div>
-</div>
-</div>
-  ); // This closes the return (
-} // This closes the RuneEditor function
+        <div
+          className="pointer-events-none h-3 select-none pr-1 text-right font-serif text-[11px] italic tracking-wide"
+          aria-live="polite"
+          aria-atomic="true"
+        >
+          {xpFlash && !isFocusMode && (
+            <span
+              key={xpFlash.id}
+              className="rune-xp-flash"
+              style={{ color: "var(--color-gold)" }}
+            >
+              +{xpFlash.amount} XP ✦
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function FormatButton({
   active,
