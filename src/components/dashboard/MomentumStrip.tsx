@@ -10,6 +10,7 @@ interface MomentumStripProps {
   goals: WritingGoal[];
   tier: SubscriptionTier;
   todayWords: number;
+  primaryProjectId?: string;
   onGoalAction?: () => void;
 }
 
@@ -21,11 +22,14 @@ export function MomentumStrip({
   goals,
   tier,
   todayWords,
+  primaryProjectId,
   onGoalAction,
 }: MomentumStripProps) {
   const canAccessStreaks = canAccessFeature(tier, "streaks");
   const canAccessGoals = canAccessFeature(tier, "projectGoals");
-  const totalGoal = goals.find((g) => g.type === "project_total") ?? null;
+  const totalGoal = primaryProjectId
+    ? (goals.find((g) => g.type === "project_total" && g.project_id === primaryProjectId) ?? null)
+    : (goals.find((g) => g.type === "project_total") ?? null);
 
   const goalPercent =
     totalGoal && totalGoal.target_words > 0
@@ -190,7 +194,7 @@ export function MomentumStrip({
             {onGoalAction && (
               <button
                 onClick={onGoalAction}
-                className="mt-2 text-xs transition-opacity duration-150 hover:opacity-70"
+                className="mt-2 self-start text-left text-xs transition-opacity duration-150 hover:opacity-70"
                 style={{ color: "var(--color-gold-dim)" }}
               >
                 Edit goal →
@@ -208,7 +212,7 @@ export function MomentumStrip({
             {onGoalAction && (
               <button
                 onClick={onGoalAction}
-                className="mt-1 text-xs transition-opacity duration-150 hover:opacity-70"
+                className="mt-1 self-start text-left text-xs transition-opacity duration-150 hover:opacity-70"
                 style={{ color: "var(--color-gold-dim)" }}
               >
                 Set goal →
