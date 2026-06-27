@@ -21,28 +21,25 @@ export default function DashboardLoading() {
       <div className="mb-6">
         <Shimmer className="mb-3 h-3 w-20" />
         <div
-          className="rounded-lg px-10 py-10"
+          className="rounded-lg px-8 py-7"
           style={{
             background: "var(--surface-card)",
             border: "1px solid var(--color-border)",
             borderTopWidth: "3px",
           }}
         >
-          <div className="flex items-start justify-between gap-8">
-            <div className="min-w-0 flex-1">
-              <Shimmer className="mb-4 h-3 w-36" />
-              <Shimmer className="mb-4 h-12 w-80" />
-              <Shimmer className="h-5 w-44" />
-            </div>
-            <Shimmer className="h-14 w-10 shrink-0 rounded" />
+          <div className="min-w-0">
+            <Shimmer className="mb-3 h-3 w-36" />
+            <Shimmer className="mb-3 h-12 w-80" />
+            <Shimmer className="h-5 w-44" />
           </div>
           <div
-            className="my-8"
+            className="my-5"
             style={{ borderTop: "1px solid var(--color-border)" }}
           />
           <div className="flex items-center justify-between">
             <Shimmer className="h-4 w-36" />
-            <Shimmer className="h-11 w-44 rounded-md" />
+            <Shimmer className="h-11 w-28 rounded-md" />
           </div>
         </div>
       </div>

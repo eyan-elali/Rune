@@ -80,51 +80,42 @@ export function YourStoryHero({ recentWork, recentPageCard }: YourStoryHeroProps
         Your Story
       </p>
       <div
-        className="rounded-lg px-10 py-10"
+        className="rounded-lg px-8 py-7"
         style={{
           background: "var(--surface-card)",
           border: "1px solid var(--color-border)",
           borderTop: `3px solid ${accentColor}`,
         }}
       >
-        <div className="flex items-start justify-between gap-8">
-          <div className="min-w-0 flex-1">
-            {(recentWork.chapterTitle || matchingPage?.pageTitle) && (
-              <p
-                className="mb-4 text-xs font-semibold uppercase tracking-widest"
-                style={{ color: "var(--color-mist)", opacity: 0.6 }}
-              >
-                {recentWork.chapterTitle}
-                {matchingPage ? ` · ${matchingPage.pageTitle}` : ""}
-              </p>
-            )}
-            <h2
-              className="mb-4 font-rune-serif leading-tight"
-              style={{
-                color: "var(--text-primary)",
-                fontSize: "clamp(2rem, 4vw, 3rem)",
-              }}
-            >
-              {recentWork.projectTitle}
-            </h2>
+        <div className="min-w-0">
+          {(recentWork.chapterTitle || matchingPage?.pageTitle) && (
             <p
-              className="font-rune-serif text-base italic"
-              style={{ color: "var(--color-mist)" }}
+              className="mb-3 text-xs font-semibold uppercase tracking-widest"
+              style={{ color: "var(--color-mist)", opacity: 0.6 }}
             >
-              The page is waiting.
+              {recentWork.chapterTitle}
+              {matchingPage ? ` · ${matchingPage.pageTitle}` : ""}
             </p>
-          </div>
-          <span
-            className="shrink-0 select-none font-rune-serif leading-none"
-            aria-hidden
-            style={{ color: "var(--color-gold)", opacity: 0.18, fontSize: "3.5rem" }}
+          )}
+          <h2
+            className="mb-3 font-rune-serif leading-tight"
+            style={{
+              color: "var(--text-primary)",
+              fontSize: "clamp(2rem, 4vw, 3rem)",
+            }}
           >
-            §
-          </span>
+            {recentWork.projectTitle}
+          </h2>
+          <p
+            className="font-rune-serif text-base italic"
+            style={{ color: "var(--color-mist)" }}
+          >
+            Resume where you left off.
+          </p>
         </div>
 
         <div
-          className="my-8"
+          className="my-5"
           style={{ borderTop: "1px solid var(--color-border)" }}
         />
 
@@ -144,7 +135,7 @@ export function YourStoryHero({ recentWork, recentPageCard }: YourStoryHeroProps
               color: "var(--text-on-accent)",
             }}
           >
-            Continue Writing
+            Write
             <span aria-hidden>→</span>
           </Link>
         </div>

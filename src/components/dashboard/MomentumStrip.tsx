@@ -46,7 +46,7 @@ export function MomentumStrip({
           className="mb-1 text-xs font-semibold uppercase tracking-widest"
           style={{ color: "var(--color-mist)" }}
         >
-          Words Written
+          Total Words
         </p>
         <p
           className="font-rune-serif leading-none"
@@ -65,7 +65,7 @@ export function MomentumStrip({
           className="mb-1 text-xs font-semibold uppercase tracking-widest"
           style={{ color: "var(--color-mist)" }}
         >
-          Writing Streak
+          Streak
         </p>
         {canAccessStreaks ? (
           <>

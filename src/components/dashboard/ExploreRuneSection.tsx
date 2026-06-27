@@ -12,22 +12,22 @@ const EXPLORE_CARDS: ExploreCardData[] = [
   {
     title: "Arena",
     tagline: "Words become weapons.",
-    body: "Battle Writer's Block, race yourself, and turn writing into a challenge.",
-    cta: "Enter the Arena",
+    body: "Every word deals damage. Battle the blank page and turn writing into momentum.",
+    cta: "Enter the Arena →",
     href: "/games",
   },
   {
-    title: "Goals",
-    tagline: "Build momentum.",
-    body: "Set manuscript targets and keep your story moving forward.",
-    cta: "View Goals",
+    title: "Progress",
+    tagline: "See how far you've come.",
+    body: "Track milestones, manuscript progress, and the shape of your writing journey.",
+    cta: "View Progress →",
     href: "/profile",
   },
   {
     title: "Insights",
-    tagline: "Understand your writing.",
-    body: "See how your manuscript grows and discover your writing habits.",
-    cta: "View Insights",
+    tagline: "Discover your rhythm.",
+    body: "Understand when you write best and how your manuscript grows over time.",
+    cta: "View Insights →",
     href: "/profile",
   },
 ];
@@ -66,7 +66,7 @@ function ExploreCard({ title, tagline, body, cta, href }: ExploreCardData) {
         className="mt-auto pt-3 text-xs transition-colors duration-150 group-hover:text-rune-gold"
         style={{ color: "var(--color-gold-dim)" }}
       >
-        {cta} →
+        {cta}
       </p>
     </Link>
   );
