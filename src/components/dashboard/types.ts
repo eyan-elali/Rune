@@ -36,4 +36,7 @@ export interface DashboardContentProps {
   writingStreak?: { currentStreak: number; maxStreak: number };
   subscriptionTier?: SubscriptionTier;
   todayWords?: number;
+  progressChapterCount?: number;
+  progressChapterWordCounts?: number[];
+  avgWordsPerDay?: number;
 }

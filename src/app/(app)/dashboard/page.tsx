@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { getPersonalBests, getCombatRecords } from "@/lib/actions/games";
-import { getGoals, getWritingStreak, getTodayWords } from "@/lib/actions/writingStats";
+import { getGoals, getWritingStreak, getTodayWords, getWordsByDay } from "@/lib/actions/writingStats";
 import { DashboardContent } from "./DashboardContent";
 import { canAccessFeature, type SubscriptionTier } from "@/lib/subscription";
+import { calculateChapterWordCount } from "@/lib/manuscript";
 import type { Project } from "@/lib/types";
 import type { WritingGoal } from "@/lib/actions/writingStats";
 import type { RecentPageCard, RecentWork } from "@/components/dashboard/types";
@@ -122,6 +123,41 @@ export default async function DashboardPage() {
     serializedBests[k] = v;
   }
 
+  // Fetch progress drawer data (chapter shape + avg daily words)
+  let progressChapterCount = 0;
+  let progressChapterWordCounts: number[] = [];
+  let avgWordsPerDay = 0;
+
+  if (projects.length > 0) {
+    const [chapsResult, wordsByDay] = await Promise.all([
+      supabase
+        .from("chapters")
+        .select("id, pages(word_count, is_canonical)")
+        .eq("project_id", projects[0].id)
+        .order("position", { ascending: true }),
+      getWordsByDay(user!.id, 30),
+    ]);
+
+    if (chapsResult.data) {
+      type RawChapterWithPages = {
+        id: string;
+        pages: { word_count: number; is_canonical: boolean }[];
+      };
+      const rawChaps = chapsResult.data as unknown as RawChapterWithPages[];
+      progressChapterCount = rawChaps.length;
+      progressChapterWordCounts = rawChaps.map((c) =>
+        calculateChapterWordCount(c)
+      );
+    }
+
+    const activeDays = wordsByDay.filter((d) => d.words > 0);
+    if (activeDays.length >= 3) {
+      avgWordsPerDay = Math.round(
+        activeDays.reduce((sum, d) => sum + d.words, 0) / activeDays.length
+      );
+    }
+  }
+
   return (
     <DashboardContent
       displayName={displayName}
@@ -136,6 +172,9 @@ export default async function DashboardPage() {
       writingStreak={writingStreak}
       subscriptionTier={subscriptionTier}
       todayWords={todayWords}
+      progressChapterCount={progressChapterCount}
+      progressChapterWordCounts={progressChapterWordCounts}
+      avgWordsPerDay={avgWordsPerDay}
     />
   );
 }

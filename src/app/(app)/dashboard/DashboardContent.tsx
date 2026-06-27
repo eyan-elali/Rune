@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { useModeStore } from "@/store/modeStore";
 import { TaskList } from "@/components/tasks/TaskList";
@@ -11,6 +12,7 @@ import { BetaFeedbackBanner } from "@/components/dashboard/BetaFeedbackBanner";
 import { YourStoryHero } from "@/components/dashboard/YourStoryHero";
 import { MomentumStrip } from "@/components/dashboard/MomentumStrip";
 import { ExploreRuneSection } from "@/components/dashboard/ExploreRuneSection";
+import { ProgressDrawer } from "@/components/dashboard/ProgressDrawer";
 import type { DashboardContentProps, CombatRecord } from "@/components/dashboard/types";
 
 // ── Game mode constants ───────────────────────────────────────────────────────
@@ -59,10 +61,14 @@ export function DashboardContent({
   writingStreak = { currentStreak: 0, maxStreak: 0 },
   subscriptionTier = "free",
   todayWords = 0,
+  progressChapterCount = 0,
+  progressChapterWordCounts = [],
+  avgWordsPerDay = 0,
 }: DashboardContentProps) {
   const mode = useModeStore((s) => s.mode);
   const recentProject = projects[0] ?? null;
   const canSeeTasks = canAccessFeature(subscriptionTier, "tasks");
+  const [isProgressOpen, setIsProgressOpen] = useState(false);
 
   // ── Focus mode ──────────────────────────────────────────────────────────────
   if (mode === "focus") {
@@ -244,10 +250,21 @@ export function DashboardContent({
 
       {/* Explore Rune */}
       <div className="mb-10">
-        <ExploreRuneSection />
+        <ExploreRuneSection onProgressClick={() => setIsProgressOpen(true)} />
       </div>
 
       <BetaFeedbackBanner />
+
+      {/* Progress drawer */}
+      <ProgressDrawer
+        isOpen={isProgressOpen}
+        onClose={() => setIsProgressOpen(false)}
+        project={recentProject}
+        goals={goals}
+        chapterCount={progressChapterCount}
+        chapterWordCounts={progressChapterWordCounts}
+        avgWordsPerDay={avgWordsPerDay}
+      />
     </div>
   );
 }
