@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { canAccessFeature, type SubscriptionTier } from "@/lib/subscription";
 import type { WritingGoal } from "@/lib/actions/writingStats";
+import { TodayWordsCount } from "./TodayWordsCount";
 
 interface MomentumStripProps {
   totalWords: number;
@@ -59,7 +60,7 @@ export function MomentumStrip({
           data-stat="today-words"
           style={{ color: "var(--text-primary)", fontSize: "1.75rem" }}
         >
-          {todayWords.toLocaleString()}
+          <TodayWordsCount value={todayWords} />
         </p>
         <p className="mt-1 text-xs" style={{ color: "var(--color-mist)" }}>
           {todayWords > 0 ? "words written" : "Start today's session"}
@@ -167,6 +168,23 @@ export function MomentumStrip({
               {totalGoal.current_words.toLocaleString()} /{" "}
               {totalGoal.target_words.toLocaleString()} words
             </p>
+            <div
+              className="mt-2 overflow-hidden rounded-full"
+              style={{ height: "3px", background: "rgba(201, 168, 76, 0.12)" }}
+              role="progressbar"
+              aria-valuenow={goalPercent ?? 0}
+              aria-valuemin={0}
+              aria-valuemax={100}
+            >
+              <div
+                style={{
+                  width: `${goalPercent}%`,
+                  height: "100%",
+                  background: "var(--color-gold)",
+                  opacity: 0.7,
+                }}
+              />
+            </div>
           </>
         ) : (
           <>
