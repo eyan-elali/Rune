@@ -11,6 +11,7 @@ import { StatRowsCard } from "@/components/dashboard/StatRowsCard";
 import { GoalSection } from "@/components/dashboard/GoalSection";
 import { BetaFeedbackBanner } from "@/components/dashboard/BetaFeedbackBanner";
 import { ContinueWritingHero } from "@/components/dashboard/ContinueWritingHero";
+import { ExploreRuneSection } from "@/components/dashboard/ExploreRuneSection";
 import type { DashboardContentProps, CombatRecord } from "@/components/dashboard/types";
 
 // ── Game mode constants ───────────────────────────────────────────────────────
@@ -222,6 +223,8 @@ export function DashboardContent({
         recentWork={recentWork}
         recentPageCard={recentPageCards[0]}
       />
+
+      <ExploreRuneSection />
 
       <div className="mb-10">
         {canSeeTasks ? (
