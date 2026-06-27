@@ -17,6 +17,13 @@ const EXPLORE_CARDS: ExploreCardData[] = [
     href: "/games",
   },
   {
+    title: "Goals",
+    tagline: "Build momentum.",
+    body: "Set manuscript targets and keep your story moving forward.",
+    cta: "View Goals",
+    href: "/profile",
+  },
+  {
     title: "Insights",
     tagline: "Understand your writing.",
     body: "See how your manuscript grows and discover your writing habits.",
@@ -29,28 +36,28 @@ function ExploreCard({ title, tagline, body, cta, href }: ExploreCardData) {
   return (
     <Link
       href={href}
-      className="group flex flex-col rounded-lg p-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg"
+      className="group flex flex-col rounded-lg p-5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg"
       style={{
         background: "var(--surface-card)",
         border: "1px solid var(--color-border)",
-        borderLeft: "2px solid rgba(201, 168, 76, 0.35)",
+        borderLeft: "2px solid rgba(201, 168, 76, 0.3)",
       }}
       aria-label={`${title}: ${cta}`}
     >
       <h3
-        className="font-rune-serif text-lg leading-snug transition-colors duration-150 group-hover:text-rune-gold"
+        className="font-rune-serif text-base leading-snug transition-colors duration-150 group-hover:text-rune-gold"
         style={{ color: "var(--text-primary)" }}
       >
         {title}
       </h3>
       <p
-        className="mt-1 font-rune-serif text-sm italic"
-        style={{ color: "rgba(201, 168, 76, 0.65)" }}
+        className="mt-1 font-rune-serif text-xs italic"
+        style={{ color: "rgba(201, 168, 76, 0.6)" }}
       >
         {tagline}
       </p>
       <p
-        className="mt-3 font-rune-serif text-sm leading-relaxed"
+        className="mt-3 text-xs leading-relaxed"
         style={{ color: "var(--color-mist)" }}
       >
         {body}
@@ -67,13 +74,21 @@ function ExploreCard({ title, tagline, body, cta, href }: ExploreCardData) {
 
 export function ExploreRuneSection() {
   return (
-    <nav
-      aria-label="Explore Rune"
-      className="grid grid-cols-2 gap-4"
-    >
-      {EXPLORE_CARDS.map((card) => (
-        <ExploreCard key={card.href} {...card} />
-      ))}
-    </nav>
+    <section aria-label="Explore Rune">
+      <p
+        className="mb-4 text-xs font-semibold uppercase tracking-widest"
+        style={{ color: "var(--color-mist)" }}
+      >
+        Explore Rune
+      </p>
+      <nav
+        aria-label="Rune features"
+        className="grid grid-cols-1 gap-4 sm:grid-cols-3"
+      >
+        {EXPLORE_CARDS.map((card) => (
+          <ExploreCard key={card.href + card.title} {...card} />
+        ))}
+      </nav>
+    </section>
   );
 }

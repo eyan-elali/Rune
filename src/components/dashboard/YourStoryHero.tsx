@@ -1,17 +1,12 @@
-"use client";
-
 import Link from "next/link";
 import type { RecentWork, RecentPageCard } from "./types";
 
-interface ContinueWritingHeroProps {
+interface YourStoryHeroProps {
   recentWork: RecentWork | null;
   recentPageCard?: RecentPageCard;
 }
 
-export function ContinueWritingHero({
-  recentWork,
-  recentPageCard,
-}: ContinueWritingHeroProps) {
+export function YourStoryHero({ recentWork, recentPageCard }: YourStoryHeroProps) {
   const matchingPage =
     recentPageCard &&
     recentWork &&
@@ -21,51 +16,42 @@ export function ContinueWritingHero({
 
   if (!recentWork) {
     return (
-      <section aria-label="Continue Writing">
+      <section aria-label="Your Story">
         <p
           className="mb-3 text-xs font-semibold uppercase tracking-widest"
           style={{ color: "var(--color-mist)" }}
         >
-          Continue Writing
+          Your Story
         </p>
         <div
-          className="rounded-lg p-8"
+          className="rounded-lg px-10 py-12"
           style={{
             background: "var(--surface-card)",
             border: "1px solid var(--color-border)",
-            borderTop: "3px solid var(--color-gold-dim)",
           }}
         >
-          <div className="mb-6 flex items-start justify-between gap-4">
-            <div className="min-w-0 flex-1">
-              <h3
-                className="mb-2 font-rune-serif text-2xl"
-                style={{ color: "var(--text-primary)" }}
-              >
-                Your manuscript begins here.
-              </h3>
-              <p
-                className="text-sm"
-                style={{ color: "var(--color-mist)" }}
-              >
-                Create your first project to start writing.
-              </p>
-            </div>
+          <div className="flex flex-col items-start gap-6">
             <span
-              className="shrink-0 select-none font-rune-serif text-2xl leading-none"
+              className="select-none font-rune-serif leading-none"
               aria-hidden
-              style={{ color: "var(--color-gold)", opacity: 0.25 }}
+              style={{ color: "var(--color-gold)", opacity: 0.18, fontSize: "4rem" }}
             >
               §
             </span>
-          </div>
-
-          <div
-            className="mb-6"
-            style={{ borderTop: "1px solid var(--color-border)" }}
-          />
-
-          <div className="flex justify-end">
+            <div>
+              <h2
+                className="mb-3 font-rune-serif text-3xl leading-snug"
+                style={{ color: "var(--text-primary)" }}
+              >
+                Your first story begins here.
+              </h2>
+              <p
+                className="font-rune-serif text-base italic"
+                style={{ color: "var(--color-mist)" }}
+              >
+                Every novel starts with a single sentence.
+              </p>
+            </div>
             <Link
               href="/projects"
               className="inline-flex items-center gap-2 rounded-md px-6 py-3 text-sm font-medium transition-colors duration-150"
@@ -74,7 +60,7 @@ export function ContinueWritingHero({
                 color: "var(--text-on-accent)",
               }}
             >
-              Open a Project
+              Begin your manuscript
               <span aria-hidden>→</span>
             </Link>
           </div>
@@ -86,71 +72,73 @@ export function ContinueWritingHero({
   const accentColor = recentWork.coverColor ?? "var(--color-gold)";
 
   return (
-    <section aria-label="Continue Writing">
+    <section aria-label="Your Story">
       <p
         className="mb-3 text-xs font-semibold uppercase tracking-widest"
         style={{ color: "var(--color-mist)" }}
       >
-        Continue Writing
+        Your Story
       </p>
       <div
-        className="rounded-lg p-8"
+        className="rounded-lg px-10 py-10"
         style={{
           background: "var(--surface-card)",
           border: "1px solid var(--color-border)",
           borderTop: `3px solid ${accentColor}`,
         }}
       >
-        <div className="mb-6 flex items-start justify-between gap-4">
+        <div className="flex items-start justify-between gap-8">
           <div className="min-w-0 flex-1">
-            <h3
-              className="mb-2 font-rune-serif text-3xl leading-tight"
-              style={{ color: "var(--text-primary)" }}
+            {(recentWork.chapterTitle || matchingPage?.pageTitle) && (
+              <p
+                className="mb-4 text-xs font-semibold uppercase tracking-widest"
+                style={{ color: "var(--color-mist)", opacity: 0.6 }}
+              >
+                {recentWork.chapterTitle}
+                {matchingPage ? ` · ${matchingPage.pageTitle}` : ""}
+              </p>
+            )}
+            <h2
+              className="mb-4 font-rune-serif leading-tight"
+              style={{
+                color: "var(--text-primary)",
+                fontSize: "clamp(2rem, 4vw, 3rem)",
+              }}
             >
               {recentWork.projectTitle}
-            </h3>
+            </h2>
             <p
-              className="mb-4 font-rune-serif text-base italic"
+              className="font-rune-serif text-base italic"
               style={{ color: "var(--color-mist)" }}
             >
               The page is waiting.
             </p>
-            <p
-              className="text-xs font-semibold uppercase tracking-widest"
-              style={{ color: "var(--color-mist)", opacity: 0.7 }}
-            >
-              {recentWork.chapterTitle}
-              {matchingPage ? ` · ${matchingPage.pageTitle}` : ""}
-            </p>
           </div>
           <span
-            className="shrink-0 select-none font-rune-serif text-2xl leading-none"
+            className="shrink-0 select-none font-rune-serif leading-none"
             aria-hidden
-            style={{ color: "var(--color-gold)", opacity: 0.3 }}
+            style={{ color: "var(--color-gold)", opacity: 0.18, fontSize: "3.5rem" }}
           >
             §
           </span>
         </div>
 
         <div
-          className="mb-6"
+          className="my-8"
           style={{ borderTop: "1px solid var(--color-border)" }}
         />
 
         <div className="flex items-center justify-between gap-4">
           {matchingPage && matchingPage.wordCount > 0 ? (
-            <p
-              className="text-sm"
-              style={{ color: "var(--color-mist)" }}
-            >
-              {matchingPage.wordCount.toLocaleString()} words
+            <p className="text-sm" style={{ color: "var(--color-mist)" }}>
+              {matchingPage.wordCount.toLocaleString()} words in this chapter
             </p>
           ) : (
             <span />
           )}
           <Link
             href={`/projects/${recentWork.projectId}/chapters/${recentWork.chapterId}`}
-            className="inline-flex shrink-0 items-center gap-2 rounded-md px-6 py-3 text-sm font-medium transition-colors duration-150"
+            className="inline-flex shrink-0 items-center gap-2 rounded-md px-7 py-3 text-sm font-medium transition-colors duration-150"
             style={{
               background: "var(--color-gold)",
               color: "var(--text-on-accent)",

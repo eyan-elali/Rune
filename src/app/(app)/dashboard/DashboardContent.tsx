@@ -8,9 +8,9 @@ import { canAccessFeature } from "@/lib/subscription";
 import { EnemyCard, ENEMIES } from "@/components/dashboard/EnemyCard";
 import { StatRowsCard } from "@/components/dashboard/StatRowsCard";
 import { BetaFeedbackBanner } from "@/components/dashboard/BetaFeedbackBanner";
-import { ContinueWritingHero } from "@/components/dashboard/ContinueWritingHero";
+import { YourStoryHero } from "@/components/dashboard/YourStoryHero";
+import { MomentumStrip } from "@/components/dashboard/MomentumStrip";
 import { ExploreRuneSection } from "@/components/dashboard/ExploreRuneSection";
-import { ProgressPanel } from "@/components/dashboard/ProgressPanel";
 import type { DashboardContentProps, CombatRecord } from "@/components/dashboard/types";
 
 // ── Game mode constants ───────────────────────────────────────────────────────
@@ -206,6 +206,7 @@ export function DashboardContent({
   // ── Normal mode ─────────────────────────────────────────────────────────────
   return (
     <div className="mx-auto max-w-5xl px-10 py-12">
+      {/* Welcome */}
       <div className="mb-10">
         <h1
           className="font-rune-serif text-4xl"
@@ -218,23 +219,28 @@ export function DashboardContent({
         </p>
       </div>
 
-      {/* Two-column composition: left (Continue Writing + Arena/Insights) + right (Progress) */}
-      <div className="mb-10 grid grid-cols-1 items-stretch gap-6 lg:grid-cols-[3fr_2fr]">
-        <div className="flex flex-col gap-6">
-          <ContinueWritingHero
-            recentWork={recentWork}
-            recentPageCard={recentPageCards[0]}
-          />
-          <ExploreRuneSection />
-        </div>
-        <ProgressPanel
-          goals={goals ?? []}
-          writingStreak={writingStreak ?? { currentStreak: 0, maxStreak: 0 }}
+      {/* Your Story hero */}
+      <div className="mb-6">
+        <YourStoryHero
+          recentWork={recentWork}
+          recentPageCard={recentPageCards[0]}
+        />
+      </div>
+
+      {/* Momentum strip */}
+      <div className="mb-8">
+        <MomentumStrip
           totalWords={totalWords}
+          writingStreak={writingStreak ?? { currentStreak: 0, maxStreak: 0 }}
+          goals={goals ?? []}
           profile={profile}
-          projects={projects}
           tier={subscriptionTier ?? "free"}
         />
+      </div>
+
+      {/* Explore Rune */}
+      <div className="mb-10">
+        <ExploreRuneSection />
       </div>
 
       <BetaFeedbackBanner />
