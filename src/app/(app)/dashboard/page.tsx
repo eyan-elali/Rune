@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { getPersonalBests, getCombatRecords } from "@/lib/actions/games";
-import { getGoals, getWritingStreak } from "@/lib/actions/writingStats";
+import { getGoals, getWritingStreak, getTodayWords } from "@/lib/actions/writingStats";
 import { DashboardContent } from "./DashboardContent";
 import { canAccessFeature, type SubscriptionTier } from "@/lib/subscription";
 import type { Project } from "@/lib/types";
@@ -109,11 +109,12 @@ export default async function DashboardPage() {
   const canSeeGoals = canAccessFeature(subscriptionTier, 'projectGoals');
   const canSeeStreaks = canAccessFeature(subscriptionTier, 'streaks');
 
-  const [personalBests, combatRecords, goals, writingStreak] = await Promise.all([
+  const [personalBests, combatRecords, goals, writingStreak, todayWords] = await Promise.all([
     getPersonalBests(user!.id),
     getCombatRecords(user!.id),
     canSeeGoals ? getGoals(user!.id) : Promise.resolve([] as WritingGoal[]),
     canSeeStreaks ? getWritingStreak(user!.id) : Promise.resolve({ currentStreak: 0, maxStreak: 0 }),
+    getTodayWords(user!.id),
   ]);
 
   const serializedBests: Record<string, number> = {};
@@ -134,6 +135,7 @@ export default async function DashboardPage() {
       goals={goals}
       writingStreak={writingStreak}
       subscriptionTier={subscriptionTier}
+      todayWords={todayWords}
     />
   );
 }

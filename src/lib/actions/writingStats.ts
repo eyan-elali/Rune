@@ -452,6 +452,19 @@ export async function transferGameWordsToProject(
   }
 }
 
+export async function getTodayWords(userId: string): Promise<number> {
+  const supabase = await createClient();
+  const today = new Date().toISOString().slice(0, 10);
+
+  const { data } = await supabase
+    .from("writing_sessions")
+    .select("words_added")
+    .eq("user_id", userId)
+    .eq("session_date", today);
+
+  return (data ?? []).reduce((sum, row) => sum + (row.words_added ?? 0), 0);
+}
+
 export async function getUserProjects(): Promise<Project[]> {
   const { supabase, user } = await getUser();
   if (!user) return [];

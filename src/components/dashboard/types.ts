@@ -35,4 +35,5 @@ export interface DashboardContentProps {
   goals?: WritingGoal[];
   writingStreak?: { currentStreak: number; maxStreak: number };
   subscriptionTier?: SubscriptionTier;
+  todayWords?: number;
 }

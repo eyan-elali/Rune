@@ -6,8 +6,8 @@ interface MomentumStripProps {
   totalWords: number;
   writingStreak: { currentStreak: number; maxStreak: number };
   goals: WritingGoal[];
-  profile: { xp: number; level: number } | null;
   tier: SubscriptionTier;
+  todayWords: number;
 }
 
 const cellStyle = { background: "var(--surface-card)" } as const;
@@ -16,8 +16,8 @@ export function MomentumStrip({
   totalWords,
   writingStreak,
   goals,
-  profile,
   tier,
+  todayWords,
 }: MomentumStripProps) {
   const canAccessStreaks = canAccessFeature(tier, "streaks");
   const canAccessGoals = canAccessFeature(tier, "projectGoals");
@@ -161,34 +161,27 @@ export function MomentumStrip({
         )}
       </div>
 
-      {/* Level */}
+      {/* Today's Words */}
       <div className="flex flex-col gap-1 px-6 py-5" style={cellStyle}>
         <p
           className="mb-1 text-xs font-semibold uppercase tracking-widest"
           style={{ color: "var(--color-mist)" }}
         >
-          Level
+          Today
         </p>
-        {profile ? (
-          <>
-            <p
-              className="font-rune-serif leading-none"
-              style={{ color: "var(--text-primary)", fontSize: "1.75rem" }}
-            >
-              {profile.level}
-            </p>
-            <p className="mt-1 text-xs" style={{ color: "var(--color-mist)" }}>
-              {profile.xp.toLocaleString()} XP
-            </p>
-          </>
-        ) : (
-          <p
-            className="font-rune-serif text-xl leading-none"
-            style={{ color: "var(--color-mist)", opacity: 0.4 }}
-          >
-            —
-          </p>
-        )}
+        <p
+          className="font-rune-serif leading-none"
+          style={{
+            color:
+              todayWords > 0 ? "var(--color-gold)" : "var(--text-primary)",
+            fontSize: "1.75rem",
+          }}
+        >
+          {todayWords.toLocaleString()}
+        </p>
+        <p className="mt-1 text-xs" style={{ color: "var(--color-mist)" }}>
+          {todayWords > 0 ? "words written" : "Start today's session"}
+        </p>
       </div>
     </div>
   );

@@ -58,6 +58,7 @@ export function DashboardContent({
   goals = [],
   writingStreak = { currentStreak: 0, maxStreak: 0 },
   subscriptionTier = "free",
+  todayWords = 0,
 }: DashboardContentProps) {
   const mode = useModeStore((s) => s.mode);
   const recentProject = projects[0] ?? null;
@@ -233,8 +234,8 @@ export function DashboardContent({
           totalWords={totalWords}
           writingStreak={writingStreak ?? { currentStreak: 0, maxStreak: 0 }}
           goals={goals ?? []}
-          profile={profile}
           tier={subscriptionTier ?? "free"}
+          todayWords={todayWords}
         />
       </div>
 
