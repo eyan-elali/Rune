@@ -385,6 +385,23 @@ export async function deleteGoal(
   return { error: null };
 }
 
+export async function updateGoal(
+  id: string,
+  targetWords: number
+): Promise<{ error: string | null }> {
+  const { supabase, user } = await getUser();
+  if (!user) return { error: "Not authenticated" };
+
+  const { error } = await supabase
+    .from("writing_goals")
+    .update({ target_words: targetWords })
+    .eq("id", id)
+    .eq("user_id", user.id);
+
+  if (error) return { error: error.message };
+  return { error: null };
+}
+
 export async function transferGameWordsToProject(
   projectId: string,
   words: number

@@ -7,7 +7,7 @@ import { canAccessFeature, type SubscriptionTier } from "@/lib/subscription";
 import { calculateChapterWordCount } from "@/lib/manuscript";
 import type { Project } from "@/lib/types";
 import type { WritingGoal } from "@/lib/actions/writingStats";
-import type { RecentPageCard, RecentWork } from "@/components/dashboard/types";
+import type { RecentPageCard, RecentWork, DrawerChapter } from "@/components/dashboard/types";
 
 export const metadata: Metadata = {
   title: "Dashboard — Rune",
@@ -123,16 +123,15 @@ export default async function DashboardPage() {
     serializedBests[k] = v;
   }
 
-  // Fetch progress drawer data (chapter shape + avg daily words)
-  let progressChapterCount = 0;
-  let progressChapterWordCounts: number[] = [];
+  // Fetch progress drawer data (chapter shape + calendar-day writing pace)
+  let progressChapters: DrawerChapter[] = [];
   let avgWordsPerDay = 0;
 
   if (projects.length > 0) {
     const [chapsResult, wordsByDay] = await Promise.all([
       supabase
         .from("chapters")
-        .select("id, pages(word_count, is_canonical)")
+        .select("id, title, pages(word_count, is_canonical)")
         .eq("project_id", projects[0].id)
         .order("position", { ascending: true }),
       getWordsByDay(user!.id, 30),
@@ -141,20 +140,22 @@ export default async function DashboardPage() {
     if (chapsResult.data) {
       type RawChapterWithPages = {
         id: string;
+        title: string;
         pages: { word_count: number; is_canonical: boolean }[];
       };
       const rawChaps = chapsResult.data as unknown as RawChapterWithPages[];
-      progressChapterCount = rawChaps.length;
-      progressChapterWordCounts = rawChaps.map((c) =>
-        calculateChapterWordCount(c)
-      );
+      progressChapters = rawChaps.map((c) => ({
+        id: c.id,
+        title: c.title,
+        wordCount: calculateChapterWordCount(c),
+      }));
     }
 
-    const activeDays = wordsByDay.filter((d) => d.words > 0);
-    if (activeDays.length >= 3) {
-      avgWordsPerDay = Math.round(
-        activeDays.reduce((sum, d) => sum + d.words, 0) / activeDays.length
-      );
+    // Calendar-day average: total words / 30 days (includes zero-word days)
+    const activeDayCount = wordsByDay.filter((d) => d.words > 0).length;
+    if (activeDayCount >= 3) {
+      const totalWordsInPeriod = wordsByDay.reduce((sum, d) => sum + d.words, 0);
+      avgWordsPerDay = Math.round(totalWordsInPeriod / 30);
     }
   }
 
@@ -172,8 +173,7 @@ export default async function DashboardPage() {
       writingStreak={writingStreak}
       subscriptionTier={subscriptionTier}
       todayWords={todayWords}
-      progressChapterCount={progressChapterCount}
-      progressChapterWordCounts={progressChapterWordCounts}
+      progressChapters={progressChapters}
       avgWordsPerDay={avgWordsPerDay}
     />
   );

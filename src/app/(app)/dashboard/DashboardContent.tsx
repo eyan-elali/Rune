@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useModeStore } from "@/store/modeStore";
 import { TaskList } from "@/components/tasks/TaskList";
@@ -14,6 +14,7 @@ import { MomentumStrip } from "@/components/dashboard/MomentumStrip";
 import { ExploreRuneSection } from "@/components/dashboard/ExploreRuneSection";
 import { ProgressDrawer } from "@/components/dashboard/ProgressDrawer";
 import type { DashboardContentProps, CombatRecord } from "@/components/dashboard/types";
+import type { WritingGoal } from "@/lib/actions/writingStats";
 
 // ── Game mode constants ───────────────────────────────────────────────────────
 
@@ -61,14 +62,24 @@ export function DashboardContent({
   writingStreak = { currentStreak: 0, maxStreak: 0 },
   subscriptionTier = "free",
   todayWords = 0,
-  progressChapterCount = 0,
-  progressChapterWordCounts = [],
+  progressChapters = [],
   avgWordsPerDay = 0,
 }: DashboardContentProps) {
   const mode = useModeStore((s) => s.mode);
   const recentProject = projects[0] ?? null;
   const canSeeTasks = canAccessFeature(subscriptionTier, "tasks");
   const [isProgressOpen, setIsProgressOpen] = useState(false);
+  const [localGoals, setLocalGoals] = useState<WritingGoal[]>(goals);
+
+  // Sync local goals when server re-fetches (after router.refresh())
+  useEffect(() => {
+    setLocalGoals(goals);
+  }, [goals]);
+
+  function handleGoalsChange(newGoals: WritingGoal[]) {
+    setLocalGoals(newGoals);
+  }
+
 
   // ── Focus mode ──────────────────────────────────────────────────────────────
   if (mode === "focus") {
@@ -242,7 +253,7 @@ export function DashboardContent({
         <MomentumStrip
           totalWords={totalWords}
           writingStreak={writingStreak ?? { currentStreak: 0, maxStreak: 0 }}
-          goals={goals ?? []}
+          goals={localGoals}
           tier={subscriptionTier ?? "free"}
           todayWords={todayWords}
         />
@@ -259,11 +270,12 @@ export function DashboardContent({
       <ProgressDrawer
         isOpen={isProgressOpen}
         onClose={() => setIsProgressOpen(false)}
-        project={recentProject}
-        goals={goals}
-        chapterCount={progressChapterCount}
-        chapterWordCounts={progressChapterWordCounts}
+        projects={projects}
+        initialProject={recentProject}
+        goals={localGoals}
+        initialChapters={progressChapters}
         avgWordsPerDay={avgWordsPerDay}
+        onGoalsChange={handleGoalsChange}
       />
     </div>
   );

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import type { Project } from "@/lib/types";
+import { calculateChapterWordCount } from "@/lib/manuscript";
 
 type ActionResult<T> = { data: T; error: null } | { data: null; error: string };
 
@@ -269,4 +270,31 @@ export async function getProjectStats(
   }
 
   return { chapterCount: chapterIds.length, totalCanonicalWords: totalWords };
+}
+
+export async function getProjectChaptersForDrawer(
+  projectId: string
+): Promise<{ id: string; title: string; wordCount: number }[]> {
+  const { supabase, user } = await getUser();
+  if (!user) return [];
+
+  const { data } = await supabase
+    .from("chapters")
+    .select("id, title, pages(word_count, is_canonical)")
+    .eq("project_id", projectId)
+    .order("position", { ascending: true });
+
+  if (!data) return [];
+
+  type RawChapter = {
+    id: string;
+    title: string;
+    pages: { word_count: number; is_canonical: boolean }[];
+  };
+
+  return (data as unknown as RawChapter[]).map((c) => ({
+    id: c.id,
+    title: c.title,
+    wordCount: calculateChapterWordCount(c),
+  }));
 }

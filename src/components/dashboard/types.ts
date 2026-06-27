@@ -23,6 +23,12 @@ export type RecentWork = {
   coverColor: string | null;
 };
 
+export type DrawerChapter = {
+  id: string;
+  title: string;
+  wordCount: number;
+};
+
 export interface DashboardContentProps {
   displayName: string;
   projects: Project[];
@@ -36,7 +42,6 @@ export interface DashboardContentProps {
   writingStreak?: { currentStreak: number; maxStreak: number };
   subscriptionTier?: SubscriptionTier;
   todayWords?: number;
-  progressChapterCount?: number;
-  progressChapterWordCounts?: number[];
+  progressChapters?: DrawerChapter[];
   avgWordsPerDay?: number;
 }
