@@ -186,8 +186,8 @@ export function MomentumStrip({
           }}
           aria-label={
             totalGoal
-              ? `Manuscript goal: ${goalPercent}% complete. Open progress panel.`
-              : "No manuscript goal set. Open progress panel."
+              ? `Edit manuscript goal — ${goalPercent}% complete`
+              : "Set manuscript goal"
           }
         >
           <p
@@ -230,15 +230,16 @@ export function MomentumStrip({
           ) : (
             <>
               <p
-                className="font-rune-serif text-sm italic leading-snug"
-                style={{ color: "var(--color-mist)", opacity: 0.6 }}
+                className="font-rune-serif leading-none"
+                style={{ color: "var(--text-primary)", fontSize: "1.75rem" }}
               >
-                No target set
+                {primaryProjectTitle ?? "—"}
               </p>
-              <p className="mt-1 text-xs" style={{ color: "var(--color-mist)" }}>
-                {primaryProjectTitle
-                  ? `${primaryProjectTitle} · No manuscript target`
-                  : "No manuscript target"}
+              <p
+                className="mt-1 text-xs italic"
+                style={{ color: "var(--color-mist)", opacity: 0.7 }}
+              >
+                Writing freely
               </p>
             </>
           )}

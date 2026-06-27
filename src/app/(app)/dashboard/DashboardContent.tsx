@@ -71,12 +71,18 @@ export function DashboardContent({
   const primaryProject = projects.find((p) => p.id === primaryProjectId) ?? null;
   const canSeeTasks = canAccessFeature(subscriptionTier, "tasks");
   const [isProgressOpen, setIsProgressOpen] = useState(false);
+  const [progressEditGoal, setProgressEditGoal] = useState(false);
   const [localGoals, setLocalGoals] = useState<WritingGoal[]>(goals);
 
   // Sync local goals when server re-fetches (after router.refresh())
   useEffect(() => {
     setLocalGoals(goals);
   }, [goals]);
+
+  function openProgressDrawer(opts?: { editGoal?: boolean }) {
+    setProgressEditGoal(opts?.editGoal ?? false);
+    setIsProgressOpen(true);
+  }
 
   function handleGoalsChange(newGoals: WritingGoal[]) {
     setLocalGoals(newGoals);
@@ -259,13 +265,13 @@ export function DashboardContent({
           todayWords={todayWords}
           primaryProjectId={primaryProject?.id}
           primaryProjectTitle={primaryProject?.title}
-          onOpenProgress={() => setIsProgressOpen(true)}
+          onOpenProgress={() => openProgressDrawer({ editGoal: true })}
         />
       </div>
 
       {/* Explore Rune */}
       <div className="mb-10">
-        <ExploreRuneSection onProgressClick={() => setIsProgressOpen(true)} />
+        <ExploreRuneSection onProgressClick={() => openProgressDrawer()} />
       </div>
 
       <BetaFeedbackBanner />
@@ -273,13 +279,17 @@ export function DashboardContent({
       {/* Progress drawer */}
       <ProgressDrawer
         isOpen={isProgressOpen}
-        onClose={() => setIsProgressOpen(false)}
+        onClose={() => {
+          setIsProgressOpen(false);
+          setProgressEditGoal(false);
+        }}
         projects={projects}
         initialProject={primaryProject}
         goals={localGoals}
         initialChapters={progressChapters}
         avgWordsPerDay={avgWordsPerDay}
         onGoalsChange={handleGoalsChange}
+        openInEditGoalMode={progressEditGoal}
       />
     </div>
   );

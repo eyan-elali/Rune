@@ -93,6 +93,7 @@ export interface ProgressDrawerProps {
   initialChapters: DrawerChapter[];
   avgWordsPerDay: number;
   onGoalsChange: (goals: WritingGoal[]) => void;
+  openInEditGoalMode?: boolean;
 }
 
 // ── Component ──────────────────────────────────────────────────────────────────
@@ -106,6 +107,7 @@ export function ProgressDrawer({
   initialChapters,
   avgWordsPerDay,
   onGoalsChange,
+  openInEditGoalMode = false,
 }: ProgressDrawerProps) {
   const router = useRouter();
 
@@ -224,6 +226,15 @@ export function ProgressDrawer({
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [isOpen, isGoalFormOpen, isSelectorOpen, onClose]);
+
+  // Auto-open goal form when drawer is opened via the Manuscript Goal cell
+  useEffect(() => {
+    if (!isOpen || !openInEditGoalMode) return;
+    setGoalInput(manuscriptGoal ? String(manuscriptGoal.target_words) : "");
+    setGoalError(null);
+    setIsGoalFormOpen(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, openInEditGoalMode]);
 
   // Close selector on outside click
   useEffect(() => {
@@ -579,7 +590,7 @@ export function ProgressDrawer({
                     </div>
                   </div>
                 ) : (
-                  <div className="space-y-1.5">
+                  <div className="space-y-2">
                     <p
                       className="font-rune-serif text-2xl"
                       style={{ color: "var(--text-primary)" }}
@@ -592,8 +603,14 @@ export function ProgressDrawer({
                         words
                       </span>
                     </p>
-                    <p className="text-xs" style={{ color: "var(--color-mist)" }}>
-                      Set a goal to track completion.
+                    <p
+                      className="font-rune-serif text-sm italic"
+                      style={{ color: "var(--color-mist)" }}
+                    >
+                      Writing freely
+                    </p>
+                    <p className="text-xs" style={{ color: "var(--color-mist)", opacity: 0.7 }}>
+                      No word target has been set for this manuscript.
                     </p>
                   </div>
                 )}
@@ -614,6 +631,14 @@ export function ProgressDrawer({
                   >
                     {manuscriptGoal ? "Edit Goal" : "Set Manuscript Goal"}
                   </p>
+                  {!manuscriptGoal && (
+                    <p
+                      className="mb-3 text-xs italic leading-relaxed"
+                      style={{ color: "var(--color-mist)", opacity: 0.7 }}
+                    >
+                      Word goals are optional. Leave this blank if this manuscript does not need one.
+                    </p>
+                  )}
                   <input
                     type="number"
                     min={100}
