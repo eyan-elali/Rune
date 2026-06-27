@@ -266,6 +266,7 @@ const lastSavedWordCountRef = useRef<number>(currentPage?.word_count ?? 0);
       CharacterCount,
     ],
     content: currentPage?.content ?? null,
+    autofocus: "start",
     editorProps: {
       handlePaste: (_view, event) => {
         const text = event.clipboardData?.getData("text/plain") ?? "";

@@ -272,6 +272,81 @@ export async function getProjectStats(
   return { chapterCount: chapterIds.length, totalCanonicalWords: totalWords };
 }
 
+export async function createProjectWithDraft(
+  title: string,
+  coverColor?: string
+): Promise<ActionResult<{ projectId: string; chapterId: string }>> {
+  const { supabase, user } = await getUser();
+  if (!user) return { data: null, error: "Not authenticated" };
+
+  const { data: profileRow } = await supabase
+    .from("profiles")
+    .select("subscription_tier")
+    .eq("id", user.id)
+    .single();
+
+  const tier = profileRow?.subscription_tier ?? "free";
+
+  if (tier === "free") {
+    const { count } = await supabase
+      .from("projects")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id);
+
+    if ((count ?? 0) >= 1) {
+      return {
+        data: null,
+        error: Object.assign(
+          new Error("Upgrade to Scribe to create unlimited projects"),
+          { code: "UPGRADE_REQUIRED" }
+        ).message,
+      };
+    }
+  }
+
+  const { data: project, error: projectError } = await supabase
+    .from("projects")
+    .insert({
+      user_id: user.id,
+      title: title.trim(),
+      cover_color: coverColor ?? null,
+    })
+    .select()
+    .single();
+
+  if (projectError || !project) {
+    return { data: null, error: projectError?.message ?? "Failed to create project" };
+  }
+
+  const { data: chapter, error: chapterError } = await supabase
+    .from("chapters")
+    .insert({ project_id: project.id, title: "Chapter 1", position: 1 })
+    .select()
+    .single();
+
+  if (chapterError || !chapter) {
+    return { data: null, error: chapterError?.message ?? "Failed to create chapter" };
+  }
+
+  const { error: pageError } = await supabase.from("pages").insert({
+    chapter_id: chapter.id,
+    title: "Page 1",
+    content: null,
+    word_count: 0,
+    position: 0,
+    is_canonical: false,
+  });
+
+  if (pageError) {
+    return { data: null, error: pageError.message };
+  }
+
+  revalidatePath("/projects");
+  revalidatePath("/dashboard");
+
+  return { data: { projectId: project.id, chapterId: chapter.id }, error: null };
+}
+
 export async function getProjectChaptersForDrawer(
   projectId: string
 ): Promise<{ id: string; title: string; wordCount: number }[]> {
