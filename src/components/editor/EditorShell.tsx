@@ -64,10 +64,6 @@ export function EditorShell({
   const setProfile = useProfileStore((s) => s.setProfile);
   const profile = useProfileStore((s) => s.profile);
 
-  // Acknowledgement shown once after reveal completes.
-  const [showAck, setShowAck] = useState(false);
-  const ackTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const showAckTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const revealTriggeredRef = useRef(false);
 
   // Mount/unmount: activate onboarding phase; reset on leave.
@@ -171,13 +167,9 @@ export function EditorShell({
 
     setPhase("revealing");
 
-    // Show ack after reveal completes (~700ms), hold for 2800ms animation cycle
-    showAckTimerRef.current = setTimeout(() => {
-      setShowAck(true);
-      ackTimerRef.current = setTimeout(() => setShowAck(false), 2800);
-    }, 750);
-
-    setTimeout(() => setPhase("done"), 700);
+    // 1000ms: long enough for all reveal animations to complete (panel finishes ~800ms,
+    // word-count status finishes ~1000ms).
+    setTimeout(() => setPhase("done"), 1000);
   }, [setPhase]);
 
   // Called by RuneEditor after the first successful autosave with words > 0.
@@ -193,12 +185,6 @@ export function EditorShell({
     }
   }, [profile, setProfile, handleFirstWordDetected]);
 
-  useEffect(() => {
-    return () => {
-      clearTimeout(ackTimerRef.current);
-      clearTimeout(showAckTimerRef.current);
-    };
-  }, []);
 
   const isOnboardingWriting = isOnboarding && phase === "writing";
   const isOnboardingRevealing = isOnboarding && phase === "revealing";
@@ -254,12 +240,6 @@ export function EditorShell({
         />
       </div>
 
-      {/* One-time acknowledgement after first save */}
-      {showAck && (
-        <p className="rune-onboarding-ack" aria-live="polite">
-          Your story has begun.
-        </p>
-      )}
     </div>
   );
 }

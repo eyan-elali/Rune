@@ -4,7 +4,7 @@ import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import CharacterCount from "@tiptap/extension-character-count";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { cn } from "@/lib/utils";
 import { renamePage } from "@/lib/actions/pages";
@@ -111,8 +111,6 @@ export default function RuneEditor({
   // Tracks whether the one-time first-save callback has been called.
   const hasCalledFirstSaveRef = useRef(false);
 
-  // For scroll compensation when the header appears during reveal.
-  const prevPhaseRef = useRef(phase);
 
   const currentPageRef = useRef<Page | null>(currentPage);
   const onPageUpdatedRef = useRef(onPageUpdated);
@@ -146,17 +144,6 @@ export default function RuneEditor({
   useEffect(() => { userIdRef.current = userId; }, [userId]);
   useEffect(() => { projectIdRef.current = projectId; }, [projectId]);
 
-  // Compensate for the header appearing during reveal so the visible text doesn't shift.
-  useLayoutEffect(() => {
-    const prev = prevPhaseRef.current;
-    prevPhaseRef.current = phase;
-    if (isOnboarding && prev === "writing" && phase === "revealing") {
-      if (scrollContainerRef.current) {
-        scrollContainerRef.current.scrollTop += 52;
-      }
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase]);
 
   useEffect(() => {
     onPageUpdatedRef.current = onPageUpdated;
@@ -611,10 +598,19 @@ export default function RuneEditor({
         <div
           className={cn(
             "mx-auto w-full px-6 pb-16 min-h-[calc(100vh-9rem)]",
-            !isOnboarding && "pt-24",
+            !isWritingPhase && !isRevealingPhase && "pt-24",
             wideEditor ? "max-w-5xl" : "max-w-2xl"
           )}
-          style={isOnboarding ? { paddingTop: "35vh" } : undefined}
+          style={
+            isWritingPhase
+              ? { paddingTop: "35vh" }
+              : isRevealingPhase
+              ? {
+                  paddingTop: "6rem",
+                  transition: "padding-top 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94)",
+                }
+              : undefined
+          }
         >
           {/*
             Title area: CSS grid stacks project title and page title in the same
