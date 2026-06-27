@@ -109,10 +109,9 @@ export function MomentumStrip({
               {writingStreak.currentStreak}
             </p>
             <p className="mt-1 text-xs" style={{ color: "var(--color-mist)" }}>
-              {writingStreak.currentStreak === 1 ? "day" : "days"}
-              {writingStreak.maxStreak > 0
-                ? ` · best: ${writingStreak.maxStreak}`
-                : ""}
+              {writingStreak.currentStreak === 0
+                ? "Begin again today"
+                : `${writingStreak.currentStreak === 1 ? "day" : "days"}${writingStreak.maxStreak > 0 ? ` · best: ${writingStreak.maxStreak}` : ""}`}
             </p>
           </>
         ) : (
