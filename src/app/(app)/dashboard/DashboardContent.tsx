@@ -218,14 +218,15 @@ export function DashboardContent({
         </p>
       </div>
 
-      <ContinueWritingHero
-        recentWork={recentWork}
-        recentPageCard={recentPageCards[0]}
-      />
-
-      {/* Composition: Explore invitations (left) + Progress panel (right) */}
+      {/* Two-column composition: left (Continue Writing + Arena/Insights) + right (Progress) */}
       <div className="mb-10 grid grid-cols-1 items-stretch gap-6 lg:grid-cols-[3fr_2fr]">
-        <ExploreRuneSection />
+        <div className="flex flex-col gap-6">
+          <ContinueWritingHero
+            recentWork={recentWork}
+            recentPageCard={recentPageCards[0]}
+          />
+          <ExploreRuneSection />
+        </div>
         <ProgressPanel
           goals={goals ?? []}
           writingStreak={writingStreak ?? { currentStreak: 0, maxStreak: 0 }}

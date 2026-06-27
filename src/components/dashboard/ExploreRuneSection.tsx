@@ -29,7 +29,7 @@ function ExploreCard({ title, tagline, body, cta, href }: ExploreCardData) {
   return (
     <Link
       href={href}
-      className="group flex flex-1 flex-col rounded-lg p-5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg"
+      className="group flex flex-col rounded-lg p-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg"
       style={{
         background: "var(--surface-card)",
         border: "1px solid var(--color-border)",
@@ -56,7 +56,7 @@ function ExploreCard({ title, tagline, body, cta, href }: ExploreCardData) {
         {body}
       </p>
       <p
-        className="mt-auto pt-4 text-xs transition-colors duration-150 group-hover:text-rune-gold"
+        className="mt-auto pt-3 text-xs transition-colors duration-150 group-hover:text-rune-gold"
         style={{ color: "var(--color-gold-dim)" }}
       >
         {cta} →
@@ -69,7 +69,7 @@ export function ExploreRuneSection() {
   return (
     <nav
       aria-label="Explore Rune"
-      className="flex h-full flex-col gap-6"
+      className="grid grid-cols-2 gap-4"
     >
       {EXPLORE_CARDS.map((card) => (
         <ExploreCard key={card.href} {...card} />

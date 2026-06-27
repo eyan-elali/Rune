@@ -21,7 +21,7 @@ export function ContinueWritingHero({
 
   if (!recentWork) {
     return (
-      <section className="mb-10" aria-label="Continue Writing">
+      <section aria-label="Continue Writing">
         <p
           className="mb-3 text-xs font-semibold uppercase tracking-widest"
           style={{ color: "var(--color-mist)" }}
@@ -86,7 +86,7 @@ export function ContinueWritingHero({
   const accentColor = recentWork.coverColor ?? "var(--color-gold)";
 
   return (
-    <section className="mb-10" aria-label="Continue Writing">
+    <section aria-label="Continue Writing">
       <p
         className="mb-3 text-xs font-semibold uppercase tracking-widest"
         style={{ color: "var(--color-mist)" }}
