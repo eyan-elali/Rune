@@ -9,8 +9,10 @@ export async function GET(request: NextRequest) {
   const intent = searchParams.get('intent')
 
   if (code) {
-    const redirectUrl = new URL(`${origin}${next}`)
-    if (intent === 'signup') {
+    const isNewSignup = intent === 'signup'
+    const destination = isNewSignup ? '/onboarding' : next
+    const redirectUrl = new URL(`${origin}${destination}`)
+    if (isNewSignup) {
       redirectUrl.searchParams.set('registered', '1')
     }
     const redirectResponse = NextResponse.redirect(redirectUrl.toString())
