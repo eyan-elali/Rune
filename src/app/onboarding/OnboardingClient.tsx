@@ -18,6 +18,9 @@ export function OnboardingClient({ authorName }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const hasValidTitle = title.trim().length > 0;
+  const buttonActive = hasValidTitle && !loading;
+
   useEffect(() => {
     titleRef.current?.focus();
   }, []);
@@ -109,14 +112,15 @@ export function OnboardingClient({ authorName }: Props) {
                 autoComplete="off"
                 spellCheck={false}
                 className={cn(
-                  "w-full border-0 border-b-2 bg-transparent pb-3 text-center font-rune-serif text-4xl outline-none transition-colors duration-200 placeholder:opacity-20",
+                  "w-full border-0 border-b-2 bg-transparent pb-3 text-center font-rune-serif text-4xl outline-none transition-colors duration-200",
+                  "placeholder:italic placeholder:opacity-30",
                   "focus:outline-none"
                 )}
                 style={{
                   color: "var(--color-ink)",
                   borderColor: error
                     ? "var(--color-crimson)"
-                    : title
+                    : hasValidTitle
                     ? "var(--color-gold)"
                     : "var(--color-border-strong)",
                 }}
@@ -124,11 +128,16 @@ export function OnboardingClient({ authorName }: Props) {
                 aria-describedby={error ? "title-error" : undefined}
               />
 
-              {/* Author byline */}
-              {authorName && !error && (
+              {/* Author byline — fades in once typing begins */}
+              {authorName && (
                 <p
                   className="mt-5 font-rune-serif text-sm italic"
-                  style={{ color: "var(--color-mist)", opacity: 0.6 }}
+                  style={{
+                    color: "var(--color-mist)",
+                    opacity: hasValidTitle ? 0.6 : 0,
+                    transition: "opacity 200ms ease",
+                  }}
+                  aria-hidden={!hasValidTitle}
                 >
                   by {authorName}
                 </p>
@@ -149,13 +158,14 @@ export function OnboardingClient({ authorName }: Props) {
             {/* CTA */}
             <button
               type="submit"
-              disabled={loading}
-              className="w-full rounded-lg py-4 font-rune-serif text-lg font-semibold transition-all duration-150 disabled:opacity-60"
+              disabled={!buttonActive}
+              className="w-full rounded-lg py-3.5 font-rune-serif text-lg font-medium"
               style={{
-                background: loading
-                  ? "var(--color-gold-dim)"
-                  : "var(--color-gold)",
+                background: "var(--color-gold)",
                 color: "var(--color-ink)",
+                opacity: buttonActive ? 1 : 0.42,
+                transition: "opacity 175ms ease",
+                cursor: buttonActive ? "pointer" : "default",
               }}
               aria-label="Create project and begin writing"
             >
