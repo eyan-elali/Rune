@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import type { Project } from "@/lib/types";
+import type { Project, Chapter, Page } from "@/lib/types";
 import { calculateChapterWordCount } from "@/lib/manuscript";
 
 type ActionResult<T> = { data: T; error: null } | { data: null; error: string };
@@ -275,7 +275,7 @@ export async function getProjectStats(
 export async function createProjectWithDraft(
   title: string,
   coverColor?: string
-): Promise<ActionResult<{ projectId: string; chapterId: string }>> {
+): Promise<ActionResult<{ projectId: string; chapterId: string; page: Page; chapter: Chapter; project: Project }>> {
   const { supabase, user } = await getUser();
   if (!user) return { data: null, error: "Not authenticated" };
 
@@ -328,23 +328,27 @@ export async function createProjectWithDraft(
     return { data: null, error: chapterError?.message ?? "Failed to create chapter" };
   }
 
-  const { error: pageError } = await supabase.from("pages").insert({
-    chapter_id: chapter.id,
-    title: "Page 1",
-    content: null,
-    word_count: 0,
-    position: 0,
-    is_canonical: false,
-  });
+  const { data: page, error: pageError } = await supabase
+    .from("pages")
+    .insert({
+      chapter_id: chapter.id,
+      title: "Page 1",
+      content: null,
+      word_count: 0,
+      position: 0,
+      is_canonical: false,
+    })
+    .select()
+    .single();
 
-  if (pageError) {
-    return { data: null, error: pageError.message };
+  if (pageError || !page) {
+    return { data: null, error: pageError?.message ?? "Failed to create page" };
   }
 
   revalidatePath("/projects");
   revalidatePath("/dashboard");
 
-  return { data: { projectId: project.id, chapterId: chapter.id }, error: null };
+  return { data: { projectId: project.id, chapterId: chapter.id, page, chapter, project }, error: null };
 }
 
 export async function getProjectChaptersForDrawer(

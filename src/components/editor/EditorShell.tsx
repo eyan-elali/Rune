@@ -40,6 +40,7 @@ interface EditorShellProps {
   project: Project;
   allChapters: ChapterWithStats[];
   isOnboarding?: boolean;
+  onFirstSavePersisted?: () => void;
 }
 
 export function EditorShell({
@@ -50,6 +51,7 @@ export function EditorShell({
   project,
   allChapters,
   isOnboarding = false,
+  onFirstSavePersisted,
 }: EditorShellProps) {
   const [pages, setPages] = useState<Page[]>(initialPages);
   const [selectedPageId, setSelectedPageId] = useState<string | null>(
@@ -175,7 +177,11 @@ export function EditorShell({
   // Called by RuneEditor after the first successful autosave with words > 0.
   // Handles DB persistence only. Also triggers reveal as a fallback.
   const handleFirstSave = useCallback(() => {
-    void markFirstWordsSaved();
+    // Await the DB write before signalling the parent — this ensures has_written_first_words
+    // is persisted before any route transition fires, so the editor route loads correctly.
+    void markFirstWordsSaved().then(() => {
+      onFirstSavePersisted?.();
+    });
     if (profile) {
       setProfile({ ...profile, has_written_first_words: true });
     }
@@ -183,7 +189,7 @@ export function EditorShell({
     if (!revealTriggeredRef.current) {
       handleFirstWordDetected();
     }
-  }, [profile, setProfile, handleFirstWordDetected]);
+  }, [profile, setProfile, handleFirstWordDetected, onFirstSavePersisted]);
 
 
   const isOnboardingWriting = isOnboarding && phase === "writing";
