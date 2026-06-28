@@ -14,12 +14,25 @@ export default async function OnboardingPage() {
 
   if (!user) redirect("/login");
 
-  const { count } = await supabase
-    .from("projects")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", user.id);
+  const [{ count }, { data: profile }] = await Promise.all([
+    supabase
+      .from("projects")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id),
+    supabase
+      .from("profiles")
+      .select("display_name, username")
+      .eq("id", user.id)
+      .single(),
+  ]);
 
   if ((count ?? 0) > 0) redirect("/dashboard");
 
-  return <OnboardingClient />;
+  const authorName =
+    profile?.display_name ||
+    profile?.username ||
+    user.email?.split("@")[0] ||
+    null;
+
+  return <OnboardingClient authorName={authorName} />;
 }
