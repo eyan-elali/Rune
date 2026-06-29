@@ -3,7 +3,6 @@
 import { useState, useRef, useEffect, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
-import { createProjectWithDraft } from "@/lib/actions/projects";
 import { RegistrationTracker } from "@/components/RegistrationTracker";
 import { cn } from "@/lib/utils";
 import type { Page, Chapter, Project } from "@/lib/types";
@@ -28,7 +27,7 @@ interface WritingSceneData {
 }
 
 // "form"    — title entry screen (initial state)
-// "exiting" — form is fading out while the server action runs
+// "exiting" — form is fading out while the API request runs
 // "writing" — EditorShell is mounted on this page
 type Stage = "form" | "exiting" | "writing";
 
@@ -70,50 +69,40 @@ export function OnboardingClient({ authorName }: Props) {
     setError(null);
     setStage("exiting");
 
-    // Run the server action and exit animation concurrently.
-    // Promise.all ensures we wait for whichever takes longer.
-    const [result] = await Promise.all([
-      createProjectWithDraft(trimmed),
+    // Use a plain fetch (not a server action) so Next.js does NOT auto-refresh
+    // the /onboarding route after the call. A server action revalidation would
+    // cause the /onboarding server component to re-run, see count > 0, and
+    // redirect to the real editor route — making the AppShell flash before the
+    // writing scene appears.
+    const [json] = await Promise.all([
+      fetch("/api/onboarding", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: trimmed }),
+      }).then((r) => r.json()),
       new Promise<void>((resolve) => setTimeout(resolve, 300)),
     ]);
 
-    if (result.error) {
-      setError(result.error);
+    if (json.error) {
+      setError(json.error);
       setLoading(false);
       setStage("form");
       return;
     }
 
-    const { projectId, chapterId, page, chapter, project } = result.data!;
-    const url = `/projects/${projectId}/chapters/${chapterId}`;
+    const { projectId, chapterId, page, chapter, project } = json.data;
 
-    editorUrlRef.current = url;
+    editorUrlRef.current = `/projects/${projectId}/chapters/${chapterId}`;
     setWritingData({ projectId, chapterId, page, chapter, project });
-
-    // Update the URL bar immediately so the user sees the correct URL.
-    window.history.replaceState(null, "", url);
-
     setLoading(false);
+    // Stay on /onboarding — no router.replace, no history.replaceState.
+    // The URL changes only after handleFirstSavePersisted fires (first save).
     setStage("writing");
-
-    // Navigate to the real editor route immediately, inside startTransition.
-    //
-    // WHY: After a server action, Next.js App Router performs an automatic soft-refresh
-    // of the current route (/onboarding). If we stay on /onboarding, the server component
-    // re-runs, finds count > 0, and redirects to /dashboard — killing the writing scene.
-    //
-    // startTransition keeps the local writing scene visible and interactive while
-    // the real editor route loads in the background. When ready, React swaps them.
-    // Both are in isOnboarding=true / writing phase, so the swap is visually seamless.
-    hasNavigatedRef.current = true;
-    startTransition(() => {
-      router.replace(url);
-    });
   }
 
-  // Safety net: if the local editor is still mounted when the first save fires
-  // (edge case where the real route swap hasn't completed yet), trigger the navigation.
-  // hasNavigatedRef prevents a second router.replace if we already navigated above.
+  // Called by EditorShell after the first successful save with words > 0.
+  // By this point markFirstWordsSaved has already persisted the flag via API route,
+  // so the editor route's server component will load with isOnboarding = false.
   function handleFirstSavePersisted() {
     if (hasNavigatedRef.current) return;
     hasNavigatedRef.current = true;

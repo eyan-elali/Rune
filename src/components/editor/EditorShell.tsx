@@ -17,7 +17,9 @@ import { useEditorStore } from "@/store/editorStore";
 import { useModeStore } from "@/store/modeStore";
 import { useOnboardingStore } from "@/store/onboardingStore";
 import { useProfileStore } from "@/store/profileStore";
-import { markFirstWordsSaved } from "@/lib/actions/settings";
+// markFirstWordsSaved is intentionally called via API route (not server action)
+// to prevent Next.js from auto-refreshing /onboarding after the call — see
+// /api/onboarding/first-words/route.ts
 
 type ChapterWithStats = Chapter & { pages: { id: string; word_count: number }[] };
 
@@ -177,9 +179,11 @@ export function EditorShell({
   // Called by RuneEditor after the first successful autosave with words > 0.
   // Handles DB persistence only. Also triggers reveal as a fallback.
   const handleFirstSave = useCallback(() => {
-    // Await the DB write before signalling the parent — this ensures has_written_first_words
-    // is persisted before any route transition fires, so the editor route loads correctly.
-    void markFirstWordsSaved().then(() => {
+    // Use a plain fetch (not a server action) so Next.js does NOT auto-refresh
+    // /onboarding after the write. Await the write before signalling the parent
+    // so the editor route's server component sees has_written_first_words = true
+    // when it loads, ensuring isOnboarding = false from the start.
+    void fetch("/api/onboarding/first-words", { method: "POST" }).then(() => {
       onFirstSavePersisted?.();
     });
     if (profile) {
