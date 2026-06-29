@@ -47,9 +47,6 @@ interface RuneEditorProps {
   currentPage: Page | null;
   onPageUpdated: (pageId: string, updates: Partial<Page>) => void;
   onRenamePage: (pageId: string, title: string) => void;
-  isOnboarding?: boolean;
-  onboardingProjectTitle?: string;
-  onFirstSentenceSaved?: () => void;
 }
 
 interface ToolbarPos {
@@ -63,9 +60,6 @@ export default function RuneEditor({
   currentPage,
   onPageUpdated,
   onRenamePage,
-  isOnboarding = false,
-  onboardingProjectTitle,
-  onFirstSentenceSaved,
 }: RuneEditorProps) {
   const { setIsSaving, setLastSaved } = useEditorStore();
   const showToast = useToastStore((s) => s.showToast);
@@ -98,10 +92,6 @@ export default function RuneEditor({
   const xpFlashTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  // Guards the one-time first-sentence-saved callback.
-  const hasTriggeredFirstSentenceRef = useRef(false);
-  const onFirstSentenceSavedRef = useRef(onFirstSentenceSaved);
-  useEffect(() => { onFirstSentenceSavedRef.current = onFirstSentenceSaved; }, [onFirstSentenceSaved]);
 
 
   const currentPageRef = useRef<Page | null>(currentPage);
@@ -242,7 +232,7 @@ export default function RuneEditor({
         heading: { levels: [1, 2, 3] },
       }),
       Placeholder.configure({
-        placeholder: isOnboarding ? "Begin with one sentence..." : "Begin your story...",
+        placeholder: "Begin your story...",
         emptyEditorClass: "is-editor-empty",
         emptyNodeClass: "is-empty",
         showOnlyWhenEditable: true,
@@ -285,22 +275,6 @@ export default function RuneEditor({
         }
       }
 
-      // First-sentence detection for onboarding: trigger immediate save then notify parent.
-      if (isOnboarding && !hasTriggeredFirstSentenceRef.current) {
-        const text = editor.getText().trim();
-        const words = text.split(/\s+/).filter(w => w.length > 0);
-        if (words.length >= 2 && /[.!?]$/.test(text)) {
-          hasTriggeredFirstSentenceRef.current = true;
-          clearTimeout(saveTimerRef.current);
-          const content = editor.getJSON() as Record<string, unknown>;
-          const wordCount = (editor.storage.characterCount?.words?.() as number | undefined) ?? 0;
-          void handleSaveRef.current(content, wordCount).then(() => {
-            onFirstSentenceSavedRef.current?.();
-          });
-          return;
-        }
-      }
-
       clearTimeout(saveTimerRef.current);
       saveTimerRef.current = setTimeout(async () => {
         if (isLoadingRef.current) return;
@@ -323,7 +297,7 @@ export default function RuneEditor({
               if (result.data.leveledUp) {
                 setPendingLevelUp({ newLevel: result.data.newLevel, newUnlockables: result.data.newUnlockables });
               }
-              if (!isFocusModeRef.current && !isOnboarding) {
+              if (!isFocusModeRef.current) {
                 setXpFlash({ id: Date.now(), amount: xpGain });
                 clearTimeout(xpFlashTimerRef.current);
                 xpFlashTimerRef.current = setTimeout(() => setXpFlash(null), 2200);
@@ -497,10 +471,7 @@ export default function RuneEditor({
     );
   }
 
-  // Chrome (word count, sync status, XP flash) hidden during onboarding writing scene.
-  const uiChromeFadeStyle: React.CSSProperties = isOnboarding
-    ? { opacity: 0, pointerEvents: "none" }
-    : {};
+  const uiChromeFadeStyle: React.CSSProperties = {};
 
   return (
     <div
@@ -585,54 +556,41 @@ export default function RuneEditor({
       >
         <div
           className={cn(
-            "mx-auto w-full px-6 pb-16 min-h-[calc(100vh-9rem)]",
-            !isOnboarding && "pt-24",
+            "mx-auto w-full px-6 pb-16 pt-24 min-h-[calc(100vh-9rem)]",
             wideEditor ? "max-w-5xl" : "max-w-2xl"
           )}
-          style={isOnboarding ? { paddingTop: "35vh" } : undefined}
         >
           <div style={{ marginBottom: "2.5rem" }}>
-            {/* Project title — shown in place of page title during onboarding writing */}
-            {isOnboarding ? (
-              <h1
-                className="select-none font-rune-serif text-3xl font-bold tracking-tight"
-                style={{ color: "var(--editor-text)", pointerEvents: "none" }}
-                aria-hidden
-              >
-                {onboardingProjectTitle}
-              </h1>
-            ) : (
-              <input
-                id={`page-title-${currentPage.id}`}
-                type="text"
-                value={titleDraft}
-                onChange={(e) => setTitleDraft(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    (e.target as HTMLInputElement).blur();
-                  }
-                  if (e.key === "Escape") {
-                    e.preventDefault();
-                    flushSync(() => setTitleDraft(currentPage.title));
-                    (e.target as HTMLInputElement).blur();
-                  }
-                }}
-                className="w-full bg-transparent font-serif text-3xl font-bold tracking-tight outline-none ring-0 focus:outline-none"
-                style={{
-                  color: "var(--editor-text)",
-                  borderBottom: "1px solid transparent",
-                }}
-                onFocus={(e) => {
-                  e.currentTarget.style.borderBottomColor = "var(--color-border-strong)";
-                }}
-                onBlur={(e) => {
-                  e.currentTarget.style.borderBottomColor = "transparent";
-                  void commitTitle();
-                }}
-                aria-label="Page title"
-              />
-            )}
+            <input
+              id={`page-title-${currentPage.id}`}
+              type="text"
+              value={titleDraft}
+              onChange={(e) => setTitleDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  (e.target as HTMLInputElement).blur();
+                }
+                if (e.key === "Escape") {
+                  e.preventDefault();
+                  flushSync(() => setTitleDraft(currentPage.title));
+                  (e.target as HTMLInputElement).blur();
+                }
+              }}
+              className="w-full bg-transparent font-serif text-3xl font-bold tracking-tight outline-none ring-0 focus:outline-none"
+              style={{
+                color: "var(--editor-text)",
+                borderBottom: "1px solid transparent",
+              }}
+              onFocus={(e) => {
+                e.currentTarget.style.borderBottomColor = "var(--color-border-strong)";
+              }}
+              onBlur={(e) => {
+                e.currentTarget.style.borderBottomColor = "transparent";
+                void commitTitle();
+              }}
+              aria-label="Page title"
+            />
           </div>
 
           {editor ? <EditorContent editor={editor} /> : null}

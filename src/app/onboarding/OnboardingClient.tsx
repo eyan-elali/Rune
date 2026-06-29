@@ -1,35 +1,19 @@
 "use client";
 
-import { useState, useRef, useEffect, useTransition } from "react";
+import { useState, useRef, useEffect, useTransition, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import dynamic from "next/dynamic";
 import { RegistrationTracker } from "@/components/RegistrationTracker";
 import { cn } from "@/lib/utils";
-import type { Page, Chapter, Project } from "@/lib/types";
 
-// Pre-fetch the EditorShell module as soon as the user lands on /onboarding
-// so it is already cached by the time they press Begin.
-const editorShellModulePromise = import("@/components/editor/EditorShell");
+type Stage = "title" | "sentence" | "transitioning";
 
-const EditorShell = dynamic(
-  () => editorShellModulePromise.then((m) => ({ default: m.EditorShell })),
-  { ssr: false }
-);
-
-type ChapterWithStats = Chapter & { pages: { id: string; word_count: number }[] };
-
-interface WritingSceneData {
-  projectId: string;
-  chapterId: string;
-  page: Page;
-  chapter: Chapter;
-  project: Project;
-}
-
-// "form"    — title entry screen (initial state)
-// "exiting" — form is fading out while the API request runs
-// "writing" — EditorShell is mounted on this page
-type Stage = "form" | "exiting" | "writing";
+const TRANSITION_LINES = [
+  "The first sentence is the hardest.",
+  "A story exists now.",
+  "The page remembers.",
+  "Every world begins with a line.",
+  "The door is open.",
+] as const;
 
 interface Props {
   authorName: string | null;
@@ -38,129 +22,114 @@ interface Props {
 export function OnboardingClient({ authorName }: Props) {
   const router = useRouter();
   const titleRef = useRef<HTMLInputElement>(null);
+  const sentenceRef = useRef<HTMLTextAreaElement>(null);
   const [, startTransition] = useTransition();
-  const editorUrlRef = useRef<string>("");
-  const hasShownBegunRef = useRef(false);
 
   const [title, setTitle] = useState("");
+  const [firstSentence, setFirstSentence] = useState("");
+  const [stage, setStage] = useState<Stage>("title");
+  const [isExiting, setIsExiting] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [stage, setStage] = useState<Stage>("form");
-  const [writingData, setWritingData] = useState<WritingSceneData | null>(null);
-  const [showBegunMessage, setShowBegunMessage] = useState(false);
+  const [transitionLine, setTransitionLine] = useState("");
 
   const hasValidTitle = title.trim().length > 0;
-  const buttonActive = hasValidTitle && !loading;
+  const hasValidSentence = firstSentence.trim().length > 0;
+  const titleButtonActive = hasValidTitle && !loading && !isExiting;
+  const sentenceButtonActive = hasValidSentence && !loading;
 
-  // Auto-focus the title input when the form is visible.
   useEffect(() => {
-    if (stage === "form") {
-      titleRef.current?.focus();
+    titleRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    if (stage === "sentence") {
+      sentenceRef.current?.focus();
     }
   }, [stage]);
 
-  async function handleSubmit(e?: React.FormEvent) {
+  const autoResize = useCallback(() => {
+    const el = sentenceRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, []);
+
+  async function handleBegin(e?: React.FormEvent) {
     e?.preventDefault();
-    const trimmed = title.trim();
-    if (!trimmed || loading) return;
+    if (!hasValidTitle || loading || isExiting) return;
+
+    setIsExiting(true);
+    await new Promise<void>((r) => setTimeout(r, 280));
+    setIsExiting(false);
+    setStage("sentence");
+    setError(null);
+  }
+
+  async function handleEnterRune(e?: React.FormEvent) {
+    e?.preventDefault();
+    if (!hasValidSentence || loading) return;
+
+    const trimmedTitle = title.trim();
+    const trimmedSentence = firstSentence.trim();
 
     setLoading(true);
     setError(null);
-    setStage("exiting");
 
-    // Use a plain fetch (not a server action) so Next.js does NOT auto-refresh
-    // the /onboarding route after the call. A server action revalidation would
-    // cause the /onboarding server component to re-run, see count > 0, and
-    // redirect to the real editor route — making the AppShell flash before the
-    // writing scene appears.
+    const line = TRANSITION_LINES[Math.floor(Math.random() * TRANSITION_LINES.length)];
+    setTransitionLine(line);
+    setStage("transitioning");
+
     const [json] = await Promise.all([
       fetch("/api/onboarding", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: trimmed }),
+        body: JSON.stringify({ title: trimmedTitle, firstSentence: trimmedSentence }),
       }).then((r) => r.json()),
-      new Promise<void>((resolve) => setTimeout(resolve, 300)),
+      new Promise<void>((r) => setTimeout(r, 1100)),
     ]);
 
     if (json.error) {
-      setError(json.error);
       setLoading(false);
-      setStage("form");
+      setStage("sentence");
+      setError(json.error);
       return;
     }
 
-    const { projectId, chapterId, page, chapter, project } = json.data;
-
-    editorUrlRef.current = `/projects/${projectId}/chapters/${chapterId}`;
-    setWritingData({ projectId, chapterId, page, chapter, project });
-    setLoading(false);
-    // Stay on /onboarding — no router.replace, no history.replaceState.
-    // The URL changes only after handleFirstSavePersisted fires (first save).
-    setStage("writing");
+    const { projectId, chapterId } = json.data;
+    startTransition(() => {
+      router.replace(`/projects/${projectId}/chapters/${chapterId}`);
+    });
   }
 
-  // Called by EditorShell after the first sentence is saved and the flag persisted.
-  // Shows the "Your story has begun." transition, then navigates to the real editor.
-  function handleFirstSavePersisted() {
-    if (hasShownBegunRef.current) return;
-    hasShownBegunRef.current = true;
-    const url = editorUrlRef.current;
-    if (!url) return;
-    setShowBegunMessage(true);
-    setTimeout(() => {
-      startTransition(() => {
-        router.replace(url);
-      });
-    }, 2200);
-  }
-
-  const allChapters: ChapterWithStats[] = writingData
-    ? [
-        {
-          ...writingData.chapter,
-          pages: [{ id: writingData.page.id, word_count: 0 }],
-        },
-      ]
-    : [];
+  const pageExitStyle: React.CSSProperties = {
+    background: "var(--bg-primary)",
+    opacity: isExiting ? 0 : 1,
+    transform: isExiting ? "scale(0.97) translateY(-6px)" : "scale(1) translateY(0)",
+    transition: isExiting ? "opacity 280ms ease, transform 280ms ease" : "none",
+    pointerEvents: isExiting || loading ? "none" : "auto",
+  };
 
   return (
     <>
       <RegistrationTracker />
 
-      {/* ── Title page ─────────────────────────────────────────────── */}
-      {stage !== "writing" && (
+      {/* ── Title stage ─────────────────────────────────────────────── */}
+      {stage === "title" && (
         <div
           className="flex min-h-screen flex-col items-center justify-center px-6"
-          style={{
-            background: "var(--bg-primary)",
-            opacity: stage === "exiting" ? 0 : 1,
-            transform:
-              stage === "exiting"
-                ? "scale(0.97) translateY(-6px)"
-                : "scale(1) translateY(0)",
-            transition:
-              stage === "exiting"
-                ? "opacity 300ms ease, transform 300ms ease"
-                : "none",
-            pointerEvents: stage === "exiting" ? "none" : "auto",
-          }}
+          style={pageExitStyle}
         >
-          {/* Wordmark */}
           <div className="absolute left-8 top-8 select-none" aria-hidden="true">
             <span
               className="font-rune-serif text-2xl"
-              style={{
-                color: "var(--color-gold)",
-                letterSpacing: "0.3em",
-                fontStyle: "italic",
-              }}
+              style={{ color: "var(--color-gold)", letterSpacing: "0.3em", fontStyle: "italic" }}
             >
               Rune
             </span>
           </div>
 
           <div className="w-full max-w-[480px]">
-            {/* Heading block */}
             <div className="mb-20 text-center">
               <h1
                 className="font-rune-serif text-5xl font-semibold leading-tight"
@@ -176,8 +145,7 @@ export function OnboardingClient({ authorName }: Props) {
               </p>
             </div>
 
-            {/* Title page composition */}
-            <form onSubmit={handleSubmit} noValidate>
+            <form onSubmit={handleBegin} noValidate>
               <div className="mb-16 text-center">
                 <label
                   htmlFor="story-title"
@@ -206,17 +174,13 @@ export function OnboardingClient({ authorName }: Props) {
                   )}
                   style={{
                     color: "var(--color-ink)",
-                    borderColor: error
-                      ? "var(--color-crimson)"
-                      : hasValidTitle
+                    borderColor: hasValidTitle
                       ? "var(--color-gold)"
                       : "var(--color-border-strong)",
                   }}
                   aria-required="true"
-                  aria-describedby={error ? "title-error" : undefined}
                 />
 
-                {/* Author byline — fades in once typing begins */}
                 {authorName && (
                   <p
                     className="mt-5 font-rune-serif text-sm italic"
@@ -230,10 +194,109 @@ export function OnboardingClient({ authorName }: Props) {
                     by {authorName}
                   </p>
                 )}
+              </div>
+
+              <button
+                type="submit"
+                disabled={!titleButtonActive}
+                className="w-full rounded-lg py-3.5 font-rune-serif text-lg font-medium"
+                style={{
+                  background: "var(--color-gold)",
+                  color: "var(--color-ink)",
+                  opacity: titleButtonActive ? 1 : 0.42,
+                  transition: "opacity 175ms ease",
+                  cursor: titleButtonActive ? "pointer" : "default",
+                }}
+                aria-label="Continue to first sentence"
+              >
+                Begin →
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Sentence stage ───────────────────────────────────────────── */}
+      {stage === "sentence" && (
+        <div
+          className="rune-step-enter flex min-h-screen flex-col items-center justify-center px-6"
+          style={{ background: "var(--bg-primary)", pointerEvents: loading ? "none" : "auto" }}
+        >
+          <div className="absolute left-8 top-8 select-none" aria-hidden="true">
+            <span
+              className="font-rune-serif text-2xl"
+              style={{ color: "var(--color-gold)", letterSpacing: "0.3em", fontStyle: "italic" }}
+            >
+              Rune
+            </span>
+          </div>
+
+          <div className="w-full max-w-[480px]">
+            <div className="mb-20 text-center">
+              <h1
+                className="font-rune-serif text-5xl font-semibold leading-tight"
+                style={{ color: "var(--color-ink)" }}
+              >
+                Begin with one sentence.
+              </h1>
+              <p
+                className="mt-4 font-rune-serif text-xl italic"
+                style={{ color: "var(--color-mist)" }}
+              >
+                It does not have to be perfect. It only has to exist.
+              </p>
+            </div>
+
+            <form onSubmit={handleEnterRune} noValidate>
+              <div className="mb-16 text-center">
+                <label
+                  htmlFor="first-sentence"
+                  className="mb-6 block text-xs uppercase tracking-widest"
+                  style={{ color: "var(--color-mist)", opacity: 0.7 }}
+                >
+                  How does it begin?
+                </label>
+
+                <textarea
+                  ref={sentenceRef}
+                  id="first-sentence"
+                  rows={1}
+                  value={firstSentence}
+                  onChange={(e) => {
+                    setFirstSentence(e.target.value.replace(/[\r\n]/g, " "));
+                    if (error) setError(null);
+                    autoResize();
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      void handleEnterRune();
+                    }
+                  }}
+                  placeholder={`Write the first sentence of ${title.length > 35 ? title.slice(0, 35) + "…" : title}…`}
+                  autoComplete="off"
+                  spellCheck={true}
+                  className={cn(
+                    "w-full resize-none overflow-hidden border-0 border-b-2 bg-transparent pb-3 text-center font-rune-serif text-2xl outline-none transition-colors duration-200",
+                    "placeholder:italic placeholder:opacity-30",
+                    "focus:outline-none"
+                  )}
+                  style={{
+                    color: "var(--color-ink)",
+                    borderColor: error
+                      ? "var(--color-crimson)"
+                      : hasValidSentence
+                      ? "var(--color-gold)"
+                      : "var(--color-border-strong)",
+                    lineHeight: "1.6",
+                  }}
+                  aria-required="true"
+                  aria-describedby={error ? "sentence-error" : undefined}
+                />
 
                 {error && (
                   <p
-                    id="title-error"
+                    id="sentence-error"
                     role="alert"
                     className="mt-3 text-xs"
                     style={{ color: "var(--color-crimson)" }}
@@ -243,58 +306,38 @@ export function OnboardingClient({ authorName }: Props) {
                 )}
               </div>
 
-              {/* CTA */}
               <button
                 type="submit"
-                disabled={!buttonActive}
+                disabled={!sentenceButtonActive}
                 className="w-full rounded-lg py-3.5 font-rune-serif text-lg font-medium"
                 style={{
                   background: "var(--color-gold)",
                   color: "var(--color-ink)",
-                  opacity: buttonActive ? 1 : 0.42,
+                  opacity: sentenceButtonActive ? 1 : 0.42,
                   transition: "opacity 175ms ease",
-                  cursor: buttonActive ? "pointer" : "default",
+                  cursor: sentenceButtonActive ? "pointer" : "default",
                 }}
-                aria-label="Create project and begin writing"
+                aria-label="Create your manuscript and open the editor"
               >
-                {loading ? "Opening your manuscript…" : "Begin →"}
+                Enter Rune →
               </button>
             </form>
           </div>
         </div>
       )}
 
-      {/* ── Writing scene ───────────────────────────────────────────── */}
-      {stage === "writing" && writingData && (
+      {/* ── Transition overlay ───────────────────────────────────────── */}
+      {stage === "transitioning" && (
         <div
-          className="fixed inset-0 rune-onboarding-canvas-enter"
-          style={{ background: "var(--surface-editor)" }}
+          className="rune-step-enter fixed inset-0 flex items-center justify-center"
+          style={{ background: "var(--bg-primary)" }}
         >
-          <EditorShell
-            projectId={writingData.projectId}
-            chapterId={writingData.chapterId}
-            initialPages={[writingData.page]}
-            chapter={writingData.chapter}
-            project={writingData.project}
-            allChapters={allChapters}
-            isOnboarding={true}
-            onFirstSavePersisted={handleFirstSavePersisted}
-          />
-
-          {/* "Your story has begun." — fades in after first sentence saved */}
-          {showBegunMessage && (
-            <div
-              className="rune-story-begun pointer-events-none fixed inset-0 z-50 flex items-center justify-center"
-              style={{ background: "var(--surface-editor)" }}
-            >
-              <p
-                className="font-rune-serif text-2xl italic"
-                style={{ color: "var(--color-mist)" }}
-              >
-                Your story has begun.
-              </p>
-            </div>
-          )}
+          <p
+            className="font-rune-serif text-2xl italic"
+            style={{ color: "var(--color-mist)" }}
+          >
+            {transitionLine}
+          </p>
         </div>
       )}
     </>

@@ -1,36 +1,46 @@
 ---
 name: project-onboarding
-description: Onboarding implementation phases, architecture decisions, and editor embedding approach
+description: Onboarding flow — current architecture (simplified 3-stage form, no embedded editor)
 metadata:
   type: project
 ---
 
-Onboarding route is `/onboarding` (outside the `(app)` route group — no AppShell). Redirects to `/dashboard` if user already has projects.
+Onboarding is a 3-stage client-side flow entirely on `/onboarding`. No embedded editor, no AppShell, no route tricks.
 
-## Phase status
+## Current architecture (simplified 2026-06-28)
 
-- **Phase 1–4**: Complete. `createProjectWithDraft` creates project/chapter/page in one action. `onboardingStore` coordinates writing/revealing/done phases. `EditorShell` and `RuneEditor` both support `isOnboarding=true`. `has_written_first_words` DB flag persisted on first save. `markFirstWordsSaved()` server action in `src/lib/actions/settings.ts`.
-- **Phase 5**: Complete. Continuous onboarding transition — editor mounts directly on `/onboarding` page without a visible route change.
+**Stage 1 — Title:** `Welcome to Rune. / Every story begins somewhere.` heading. User types title, presses `Begin →`. Title stored in local state only — no API call. Exit animation (fade + scale 280ms) plays before advancing.
 
-## Phase 5 Architecture (implemented 2026-06-28)
+**Stage 2 — Sentence:** `Begin with one sentence. / It does not have to be perfect.` heading. Auto-growing `<textarea>` with gold border. Enter submits; newlines stripped. Autofocuses on mount. Requires at least one non-whitespace character.
 
-**Flow**: Title page (dark bg) → form fades out → writing canvas fades in on same page → user writes → PageList/ExportToolbar reveal → after first save DB is updated → `startTransition(router.replace(url))` transitions to real editor route in background.
+**Stage 3 — Transitioning:** One of 5 literary lines (random) shown for ≥1100ms while the API call runs in `Promise.all`. On success → `router.replace` to `/projects/[id]/chapters/[id]`.
 
-**Key decisions**:
-- `EditorShell` is mounted directly on `/onboarding` with all data returned from the extended `createProjectWithDraft` action.
-- `createProjectWithDraft` now returns `{ projectId, chapterId, page, chapter, project }` (extended from IDs only).
-- URL updated with `window.history.replaceState` immediately when writing scene appears.
-- `router.replace()` fires only after `markFirstWordsSaved()` resolves (ensuring `has_written_first_words = true` in DB before the real editor route SSR runs).
-- `EditorShell` has new optional prop `onFirstSavePersisted?: () => void` — called inside `handleFirstSave` after the DB write resolves.
-- `EditorShellModule` is pre-fetched at module declaration time in `OnboardingClient` so it's likely cached by the time the user presses Begin.
-- No AppShell on `/onboarding` → sidebar/header DON'T animate in on first session. PageList and ExportToolbar DO animate in (they're inside EditorShell). Sidebar/header appear normally when user reaches the real editor route (after `router.replace`).
+**CSS:** `rune-step-enter` keyframe (fade + translateY 8px → 0) applied to sentence stage and transition overlay mounts.
 
-**Files changed**:
-- `src/lib/actions/projects.ts` — extended `createProjectWithDraft` return type, page insert now uses `.select().single()`
-- `src/components/editor/EditorShell.tsx` — added `onFirstSavePersisted` prop
-- `src/app/onboarding/OnboardingClient.tsx` — stage machine: form → exiting → writing; embeds EditorShell in writing stage
-- `src/app/globals.css` — added `rune-onboarding-canvas-enter` keyframe + class
+## API route `/api/onboarding` (POST)
 
-**Why:** Goal was to eliminate the visible page transition after pressing Begin, making the experience feel like a single continuous ritual from title entry to first sentence. The router.replace after first save settles the app into the real editor route with correct state.
+Accepts `{ title, firstSentence }`. Atomically:
+1. Checks subscription tier / project count
+2. Creates project → Chapter 1 → Page 1 with Tiptap JSON content from `firstSentence`
+3. Sets `word_count` (tokens ≥ 2 chars)
+4. Updates `profiles.has_written_first_words = true`
 
-**How to apply:** If touching onboarding again, understand that the editor is live on `/onboarding` before any Next.js navigation happens. Do not add logic to `(app)/layout.tsx` that assumes users are always in AppShell when they first write.
+Returns `{ projectId, chapterId }` only.
+
+## Guard (`/onboarding/page.tsx`)
+
+Redirects to `/dashboard` if `count > 0` OR `has_written_first_words === true`. New users with no projects see the flow.
+
+## What was removed
+
+- Embedded `EditorShell` on `/onboarding`
+- `?reveal=1` query param logic
+- AppShell reveal animation
+- First-sentence detection in `RuneEditor`
+- `/api/onboarding/first-words` route
+- `isOnboarding` prop on `EditorShell` and `RuneEditor`
+- `onFirstSavePersisted` / `onFirstSentenceSaved` callbacks
+
+**Why:** The previous approach was fragile — it mounted the full editor on /onboarding, used a fetch-not-server-action workaround to prevent Next.js route refresh, and required detecting punctuation in Tiptap to trigger the transition. The new approach has zero editor complexity: the sentence is captured as plain text, saved server-side as Tiptap JSON, and the user lands in the normal editor with content already present.
+
+**How to apply:** If debugging onboarding, all logic is in `OnboardingClient.tsx` and `/api/onboarding/route.ts`. `EditorShell` and `RuneEditor` have no awareness of onboarding state.

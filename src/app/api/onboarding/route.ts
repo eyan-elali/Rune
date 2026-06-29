@@ -1,6 +1,25 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
+function sentenceToTiptapContent(sentence: string): Record<string, unknown> {
+  return {
+    type: "doc",
+    content: [
+      {
+        type: "paragraph",
+        content: [{ type: "text", text: sentence.trim() }],
+      },
+    ],
+  };
+}
+
+function countWords(text: string): number {
+  return text
+    .trim()
+    .split(/\s+/)
+    .filter((w) => w.length >= 2).length;
+}
+
 export async function POST(req: Request) {
   const supabase = await createClient();
   const {
@@ -10,7 +29,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  let body: { title?: string };
+  let body: { title?: string; firstSentence?: string };
   try {
     body = await req.json();
   } catch {
@@ -18,6 +37,8 @@ export async function POST(req: Request) {
   }
 
   const title = body.title?.trim();
+  const firstSentence = body.firstSentence?.trim() ?? "";
+
   if (!title) {
     return NextResponse.json({ error: "Title is required" }, { status: 400 });
   }
@@ -69,13 +90,18 @@ export async function POST(req: Request) {
     );
   }
 
+  const pageContent = firstSentence
+    ? sentenceToTiptapContent(firstSentence)
+    : null;
+  const wordCount = firstSentence ? countWords(firstSentence) : 0;
+
   const { data: page, error: pageError } = await supabase
     .from("pages")
     .insert({
       chapter_id: chapter.id,
       title: "Page 1",
-      content: null,
-      word_count: 0,
+      content: pageContent,
+      word_count: wordCount,
       position: 0,
       is_canonical: false,
     })
@@ -88,7 +114,12 @@ export async function POST(req: Request) {
     );
   }
 
+  await supabase
+    .from("profiles")
+    .update({ has_written_first_words: true })
+    .eq("id", user.id);
+
   return NextResponse.json({
-    data: { projectId: project.id, chapterId: chapter.id, page, chapter, project },
+    data: { projectId: project.id, chapterId: chapter.id },
   });
 }

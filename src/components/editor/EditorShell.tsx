@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { PageList } from "./PageList";
 import { ExportButton } from "./ExportButton";
@@ -15,9 +15,6 @@ import {
 import { cachePage, cacheChapterMeta } from "@/lib/offline/db";
 import { useEditorStore } from "@/store/editorStore";
 import { useModeStore } from "@/store/modeStore";
-import { useProfileStore } from "@/store/profileStore";
-// markFirstWordsSaved is called via API route (not server action) to prevent
-// Next.js from auto-refreshing /onboarding after the call.
 
 type ChapterWithStats = Chapter & { pages: { id: string; word_count: number }[] };
 
@@ -39,8 +36,6 @@ interface EditorShellProps {
   chapter: Chapter;
   project: Project;
   allChapters: ChapterWithStats[];
-  isOnboarding?: boolean;
-  onFirstSavePersisted?: () => void;
 }
 
 export function EditorShell({
@@ -50,8 +45,6 @@ export function EditorShell({
   chapter,
   project,
   allChapters,
-  isOnboarding = false,
-  onFirstSavePersisted,
 }: EditorShellProps) {
   const [pages, setPages] = useState<Page[]>(initialPages);
   const [selectedPageId, setSelectedPageId] = useState<string | null>(
@@ -61,9 +54,6 @@ export function EditorShell({
   const pathname = usePathname();
   const mode = useModeStore((s) => s.mode);
   const shouldHideFocusUI = mode === "focus" && pathname.includes("/chapters/");
-
-  const setProfile = useProfileStore((s) => s.setProfile);
-  const profile = useProfileStore((s) => s.profile);
 
   useEffect(() => {
     if (selectedPageId) {
@@ -147,29 +137,9 @@ export function EditorShell({
     await clearCanonicalPage(chapterId);
   }, [chapterId]);
 
-  // Called by RuneEditor after detecting the first sentence AND persisting content.
-  // Marks has_written_first_words in the DB, then signals parent to show the
-  // "Your story has begun." transition and navigate to the real editor.
-  const handleFirstSentenceSaved = useCallback(() => {
-    if (profile) {
-      setProfile({ ...profile, has_written_first_words: true });
-    }
-    void fetch("/api/onboarding/first-words", { method: "POST" }).then((res) => {
-      if (res.ok) {
-        onFirstSavePersisted?.();
-      }
-      // If the API call fails, do nothing — user stays on the writing scene.
-    });
-  }, [profile, setProfile, onFirstSavePersisted]);
-
-
-  // Page list and export toolbar are hidden during the onboarding writing scene.
-  const renderPageList = !shouldHideFocusUI && !isOnboarding;
-  const showExportToolbar = !shouldHideFocusUI && !isOnboarding;
-
   return (
     <div className="flex min-h-0 h-full overflow-hidden">
-      {renderPageList && (
+      {!shouldHideFocusUI && (
         <PageList
           pages={pages}
           selectedPageId={selectedPageId}
@@ -185,7 +155,7 @@ export function EditorShell({
         />
       )}
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        {showExportToolbar && (
+        {!shouldHideFocusUI && (
           <div
             className="flex shrink-0 items-center justify-end px-4 py-1.5"
             style={{
@@ -202,9 +172,6 @@ export function EditorShell({
           currentPage={currentPage}
           onPageUpdated={handlePageUpdated}
           onRenamePage={handleRenamePage}
-          isOnboarding={isOnboarding}
-          onboardingProjectTitle={isOnboarding ? project.title : undefined}
-          onFirstSentenceSaved={isOnboarding ? handleFirstSentenceSaved : undefined}
         />
       </div>
     </div>
