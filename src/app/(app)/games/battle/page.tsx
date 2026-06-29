@@ -341,7 +341,7 @@ function BattleHUD({
       `}</style>
 
       <div
-        className="flex h-full flex-col gap-5 overflow-y-auto p-6"
+        className="flex h-full flex-col gap-6 overflow-y-auto p-8"
         style={{
           background: "var(--color-sepia)",
           borderRight: "1px solid var(--color-border-strong)",
@@ -349,16 +349,22 @@ function BattleHUD({
       >
         {/* Enemy */}
         <div>
-          <div className="mb-2 flex items-center justify-between">
+          <p
+            className="mb-2 text-[9px] uppercase tracking-widest"
+            style={{ color: "var(--color-mist)", opacity: 0.45 }}
+          >
+            Enemy
+          </p>
+          <div className="mb-3 flex items-start justify-between gap-2">
             <h2
-              className="font-rune-serif text-lg leading-tight text-stone-900"
+              className="font-rune-serif text-xl leading-tight"
               style={{ color: "var(--text-primary)" }}
             >
               {enemy.name}
             </h2>
             {enemy.gimmickName && (
               <span
-                className="text-[9px] uppercase tracking-widest rounded px-1.5 py-0.5 flex-shrink-0 ml-2"
+                className="mt-0.5 text-[9px] uppercase tracking-widest rounded px-1.5 py-0.5 flex-shrink-0"
                 style={{
                   background: "rgba(139,46,46,0.15)",
                   border: "1px solid rgba(139,46,46,0.3)",
@@ -369,21 +375,26 @@ function BattleHUD({
               </span>
             )}
           </div>
-          <HpBar current={enemyHp} max={enemy.hp} variant="enemy" label="Enemy HP" />
+          <HpBar current={enemyHp} max={enemy.hp} variant="enemy" />
         </div>
 
         <div className="h-px w-full" style={{ background: "var(--color-border)" }} />
 
         {/* Player */}
         <div>
+          <p
+            className="mb-3 text-[9px] uppercase tracking-widest"
+            style={{ color: "var(--color-mist)", opacity: 0.45 }}
+          >
+            You
+          </p>
           <HpBar
             current={playerHp}
             max={PLAYER_MAX_HP}
             variant="player"
-            label="Your HP"
           />
 
-          {/* Victory lap badge or idle indicator */}
+          {/* Status */}
           {victoryAchieved ? (
             <div
               className="mt-3 flex items-center gap-2 rounded px-3 py-2"
@@ -401,7 +412,7 @@ function BattleHUD({
                 className="text-[10px] uppercase tracking-wider font-semibold"
                 style={{ color: "var(--color-gold)" }}
               >
-                ✦ Arena Secure — Flow State Active
+                Flow State Active
               </span>
             </div>
           ) : (
@@ -430,17 +441,19 @@ function BattleHUD({
                 className="battle-status-badge__text text-[10px] uppercase tracking-wider"
                 style={idleWarning ? undefined : { color: "var(--text-muted)", opacity: 1 }}
               >
-                {idleWarning ? "Idle — taking damage!" : "Keep writing…"}
+                {idleWarning ? "Idle — taking damage!" : "Keep writing."}
               </span>
             </div>
           )}
         </div>
 
-        {/* Word count — battle vs victory lap */}
-        <div className="battle-word-count rounded px-3 py-2">
+        <div className="h-px w-full" style={{ background: "var(--color-border)" }} />
+
+        {/* Word count */}
+        <div>
           <div className="flex items-baseline gap-2">
             <span
-              className="font-rune-serif text-2xl tabular-nums"
+              className="font-rune-serif text-3xl tabular-nums"
               style={{ color: "var(--text-primary)" }}
             >
               {timedWords.toLocaleString()}
@@ -449,7 +462,7 @@ function BattleHUD({
               className="text-[10px] uppercase tracking-widest"
               style={{ color: "var(--color-mist)" }}
             >
-              {victoryAchieved ? "battle" : "words"}
+              {victoryAchieved ? "battle words" : "words written"}
             </span>
           </div>
           {victoryAchieved && (
@@ -470,44 +483,40 @@ function BattleHUD({
           )}
         </div>
 
-        {/* Battle log */}
-        <div className="flex flex-1 flex-col">
-          <p
-            className="mb-2 text-[9px] uppercase tracking-widest"
-            style={{ color: "var(--color-mist)", opacity: 0.4 }}
-          >
-            Battle Log
-          </p>
+        {/* Battle log — compact */}
+        <div className="overflow-hidden">
           <BattleLog entries={battleLog} />
         </div>
 
         {/* Surrender / End Session */}
-        {victoryAchieved ? (
-          <button
-            type="button"
-            onClick={onEndSession}
-            className="w-full rounded py-2 text-[10px] uppercase tracking-wider transition-colors duration-150"
-            style={{
-              color: "var(--color-ink)",
-              background: "var(--color-gold)",
-              border: "1px solid var(--color-gold)",
-            }}
-          >
-            End Session
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={onExit}
-            className="w-full rounded py-2 text-[10px] uppercase tracking-wider transition-colors duration-150 hover:bg-[rgba(139,46,46,0.12)]"
-            style={{
-              color: "var(--color-crimson)",
-              border: "1px solid rgba(139, 46, 46, 0.28)",
-            }}
-          >
-            Surrender
-          </button>
-        )}
+        <div className="mt-auto">
+          {victoryAchieved ? (
+            <button
+              type="button"
+              onClick={onEndSession}
+              className="w-full rounded py-2.5 text-[10px] uppercase tracking-wider transition-colors duration-150"
+              style={{
+                color: "var(--color-ink)",
+                background: "var(--color-gold)",
+                border: "1px solid var(--color-gold)",
+              }}
+            >
+              End Session
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={onExit}
+              className="w-full rounded py-2.5 text-[10px] uppercase tracking-wider transition-colors duration-150 hover:bg-[rgba(139,46,46,0.12)]"
+              style={{
+                color: "var(--color-crimson)",
+                border: "1px solid rgba(139, 46, 46, 0.28)",
+              }}
+            >
+              Surrender
+            </button>
+          )}
+        </div>
       </div>
     </>
   );
@@ -1434,7 +1443,7 @@ export default function BattlePage() {
   return (
     <div className="flex h-full min-h-0">
       {/* Left: Battle HUD */}
-      <div className="w-72 flex-shrink-0 overflow-hidden xl:w-80">
+      <div className="w-80 flex-shrink-0 overflow-hidden xl:w-96">
         {selectedEnemy && (
           <BattleHUD
             enemy={selectedEnemy}
@@ -1457,22 +1466,14 @@ export default function BattlePage() {
         style={{ background: "var(--color-vellum)" }}
       >
         {pageSource.type === "existing" && pageSource.page.content && (
-          <div className="mx-auto max-w-[680px]">
+          <div className="mx-auto max-w-[720px]">
             <ContextPageHeader content={pageSource.page.content} />
           </div>
         )}
-        <div
-          className="mx-auto my-8 max-w-[680px]"
-          style={{
-            border: "1px solid var(--color-border-strong)",
-            borderRadius: "4px",
-            background: "var(--color-vellum)",
-            boxShadow:
-              "0 0 0 4px rgba(201,168,76,0.03), 0 4px 32px rgba(0,0,0,0.18)",
-          }}
-        >
+        <div className="mx-auto max-w-[720px]">
           <GameEditor
             key={gameKey}
+            placeholder="Every word deals damage."
             onWordCountChange={handleWordCount}
             onTextChange={(html) => {
               battleTextWrittenRef.current = html;

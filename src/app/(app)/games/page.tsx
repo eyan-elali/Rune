@@ -99,9 +99,9 @@ export default async function GamesPage() {
               }}
             />
 
-            <div className="p-8 flex flex-col flex-1">
+            <div className="p-9 flex flex-col flex-1">
               <div
-                className="arena-game-icon mb-5 flex h-12 w-12 items-center justify-center rounded-full text-2xl"
+                className="arena-game-icon mb-6 flex h-14 w-14 items-center justify-center rounded-full text-2xl"
                 style={{
                   background: "rgba(201, 168, 76, 0.1)",
                   border: "1px solid var(--color-border-strong)",
@@ -112,14 +112,14 @@ export default async function GamesPage() {
               </div>
 
               <h2
-                className="!mb-2 font-rune-serif text-2xl transition-colors duration-150"
+                className="!mb-2 font-rune-serif text-3xl transition-colors duration-150"
                 style={{ color: "var(--text-primary)" }}
               >
                 Race Yourself
               </h2>
               <p className="text-sm leading-relaxed mb-6" style={{ color: "var(--color-mist)" }}>
                 Choose a time limit. Write as many words as you can. Beat your
-                personal record and claim the page.
+                personal best.
               </p>
 
               <div className="mt-auto">
@@ -143,7 +143,7 @@ export default async function GamesPage() {
                   </div>
                 ) : (
                   <p className="text-xs italic" style={{ color: "var(--color-mist)", opacity: 0.5 }}>
-                    No record yet — write your first
+                    No record yet. Set your first one.
                   </p>
                 )}
               </div>
@@ -183,9 +183,9 @@ export default async function GamesPage() {
               }}
             />
 
-            <div className="p-8 flex flex-col flex-1">
+            <div className="p-9 flex flex-col flex-1">
               <div
-                className="arena-game-icon mb-5 flex h-12 w-12 items-center justify-center rounded-full text-2xl"
+                className="arena-game-icon mb-6 flex h-14 w-14 items-center justify-center rounded-full text-2xl"
                 style={{
                   background: "rgba(139, 46, 46, 0.1)",
                   border: "1px solid rgba(139, 46, 46, 0.25)",
@@ -196,14 +196,13 @@ export default async function GamesPage() {
               </div>
 
               <h2
-                className="!mb-2 font-rune-serif text-2xl transition-colors duration-150"
+                className="!mb-2 font-rune-serif text-3xl transition-colors duration-150"
                 style={{ color: "var(--text-primary)" }}
               >
                 Battle Mode
               </h2>
               <p className="text-sm leading-relaxed mb-6" style={{ color: "var(--color-mist)" }}>
-                Deal damage by typing. Take damage when idle. Defeat the enemies
-                of the blank page before your HP runs out.
+                Defeat the blank page by writing. Every word deals damage.
               </p>
 
               <div className="mt-auto">

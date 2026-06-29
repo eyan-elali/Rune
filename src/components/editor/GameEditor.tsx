@@ -9,16 +9,17 @@ import { useEffect, useRef } from "react";
 interface GameEditorProps {
   onWordCountChange: (count: number) => void;
   onTextChange?: (html: string) => void;
+  placeholder?: string;
 }
 
-export default function GameEditor({ onWordCountChange, onTextChange }: GameEditorProps) {
+export default function GameEditor({ onWordCountChange, onTextChange, placeholder }: GameEditorProps) {
   const trackedWords = useRef(0);
 
   const editor = useEditor({
     extensions: [
       StarterKit,
       Placeholder.configure({
-        placeholder: "Write anything. Every word counts...",
+        placeholder: placeholder ?? "Write anything. Every word counts...",
         emptyEditorClass: "is-editor-empty",
         emptyNodeClass: "is-empty",
         showOnlyWhenEditable: true,

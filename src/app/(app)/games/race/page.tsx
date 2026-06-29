@@ -787,7 +787,7 @@ function HUD({
 
       {/* Stats row */}
       {isVisible && (
-        <div className="hud-stats-tick flex items-center justify-between px-8 py-3">
+        <div className="hud-stats-tick flex items-center justify-between px-8 py-5">
           {/* Word counts — timed vs victory lap after sprint ends */}
           <div className={raceFinished ? undefined : "min-w-[7rem]"}>
             {raceFinished ? (
@@ -844,7 +844,7 @@ function HUD({
             <p
               className="font-rune-serif tabular-nums transition-colors duration-500"
               style={{
-                fontSize: "2.5rem",
+                fontSize: "3rem",
                 lineHeight: 1,
                 color: isLowTime ? "var(--color-crimson)" : "var(--color-gold)",
                 fontVariantNumeric: "tabular-nums",
@@ -1228,21 +1228,14 @@ export default function RaceYourselfPage() {
         style={{ background: "var(--color-vellum)" }}
       >
         {pageSource.type === "existing" && pageSource.page.content && (
-          <div className="mx-auto max-w-[720px]">
+          <div className="mx-auto max-w-[760px]">
             <ContextPageHeader content={pageSource.page.content} />
           </div>
         )}
-        <div
-          className="mx-auto my-8 max-w-[720px]"
-          style={{
-            border: "1px solid var(--color-border-strong)",
-            borderRadius: "4px",
-            background: "var(--color-vellum)",
-            boxShadow: "0 0 0 4px rgba(201,168,76,0.03), 0 4px 32px rgba(0,0,0,0.18)",
-          }}
-        >
+        <div className="mx-auto max-w-[760px]">
           <GameEditor
             key={gameKey}
+            placeholder="The clock has already started."
             onWordCountChange={updateWordCount}
             onTextChange={setTextWritten}
           />
