@@ -257,9 +257,9 @@ export function YourStoryHero({
         )}
 
         <div className="flex items-center justify-between gap-4">
-          {matchingPage && matchingPage.wordCount > 0 ? (
+          {(recentWork.chapterWordCount ?? 0) > 0 ? (
             <p className="text-sm" style={{ color: "var(--color-mist)" }}>
-              {matchingPage.wordCount.toLocaleString()} words in this chapter
+              {(recentWork.chapterWordCount ?? 0).toLocaleString()} words in this chapter
             </p>
           ) : (
             <span />

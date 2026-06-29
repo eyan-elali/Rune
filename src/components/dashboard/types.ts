@@ -18,6 +18,7 @@ export type RecentWork = {
   projectId: string;
   projectTitle: string;
   coverColor: string | null;
+  chapterWordCount: number;
 };
 
 export type DrawerChapter = {

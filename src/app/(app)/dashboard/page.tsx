@@ -85,13 +85,20 @@ export default async function DashboardPage() {
   if (projects.length > 0) {
     const { data: chapters } = await supabase
       .from("chapters")
-      .select("id, title, project_id, updated_at")
+      .select("id, title, project_id, updated_at, pages(word_count, is_canonical)")
       .in("project_id", projects.map((p) => p.id))
       .order("updated_at", { ascending: false })
       .limit(1);
 
     if (chapters && chapters.length > 0) {
-      const chap = chapters[0];
+      type RawChapterRow = {
+        id: string;
+        title: string;
+        project_id: string;
+        updated_at: string;
+        pages: { word_count: number; is_canonical: boolean }[];
+      };
+      const chap = chapters[0] as unknown as RawChapterRow;
       const proj = projects.find((p) => p.id === chap.project_id);
       if (proj) {
         recentWork = {
@@ -100,6 +107,7 @@ export default async function DashboardPage() {
           projectId: chap.project_id,
           projectTitle: proj.title,
           coverColor: proj.cover_color,
+          chapterWordCount: calculateChapterWordCount(chap),
         };
       }
     }

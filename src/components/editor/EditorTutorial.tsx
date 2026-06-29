@@ -27,8 +27,8 @@ const STEPS: Step[] = [
   },
   {
     spotlightId: "canonical-control",
-    heading: "Canonical Page",
-    copy: "Choose which page represents the current version of this chapter.",
+    heading: "Canonical Pages",
+    copy: "A chapter can have multiple drafts. Mark one page as canonical to make it the official version used for manuscript totals and exports. If none is marked, Rune uses the chapter's pages normally.",
     side: "right",
   },
   {
