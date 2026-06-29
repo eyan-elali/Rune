@@ -19,6 +19,8 @@ import { useEditorStore } from "@/store/editorStore";
 import { useModeStore } from "@/store/modeStore";
 import { useProfileStore } from "@/store/profileStore";
 import { useToastStore } from "@/store/toastStore";
+import { FREE_WORD_LIMIT } from "@/lib/subscription";
+import { createCheckoutSession } from "@/lib/actions/billing";
 import type { Page, UserPreferences } from "@/lib/types";
 
 type DisplaySyncStatus = 'synced' | 'online_dirty' | 'offline_dirty' | 'syncing' | 'conflict'
@@ -47,11 +49,18 @@ interface RuneEditorProps {
   currentPage: Page | null;
   onPageUpdated: (pageId: string, updates: Partial<Page>) => void;
   onRenamePage: (pageId: string, title: string) => void;
+  projectWordCount?: number;
 }
 
 interface ToolbarPos {
   top: number;
   left: number;
+}
+
+function getPromotekitReferral(): string {
+  if (typeof window === 'undefined') return ''
+  const referral = (window as Window & { promotekit_referral?: unknown }).promotekit_referral
+  return typeof referral === 'string' ? referral : ''
 }
 
 export default function RuneEditor({
@@ -60,6 +69,7 @@ export default function RuneEditor({
   currentPage,
   onPageUpdated,
   onRenamePage,
+  projectWordCount = 0,
 }: RuneEditorProps) {
   const { setIsSaving, setLastSaved } = useEditorStore();
   const showToast = useToastStore((s) => s.showToast);
@@ -67,6 +77,7 @@ export default function RuneEditor({
   const setStoredProfile = useProfileStore((s) => s.setProfile);
   const setPendingLevelUp = useProfileStore((s) => s.setPendingLevelUp);
   const userId = useProfileStore((s) => s.profile?.id);
+  const subscriptionTier = useProfileStore((s) => s.subscriptionTier);
   const isFocusMode = useModeStore((s) => s.mode === "focus");
   const isOnline = useNetworkStore((s) => s.isOnline);
   const prefs = (rawPrefs ?? {}) as Partial<UserPreferences>;
@@ -85,12 +96,15 @@ export default function RuneEditor({
   const [showingLocalDraft, setShowingLocalDraft] = useState(false);
   const [isSyncingNow, setIsSyncingNow] = useState(false);
   const [conflictModalOpen, setConflictModalOpen] = useState(false);
+  const [wordLimitModalOpen, setWordLimitModalOpen] = useState(false);
+  const [upgradePending, setUpgradePending] = useState(false);
   const [toolbarPos, setToolbarPos] = useState<ToolbarPos | null>(null);
   const [titleDraft, setTitleDraft] = useState(currentPage?.title ?? "");
   const [sessionInvalidated, setSessionInvalidated] = useState(false);
   const [xpFlash, setXpFlash] = useState<{ id: number; amount: number } | null>(null);
   const xpFlashTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const projectWordCountRef = useRef(projectWordCount);
 
 
 
@@ -108,6 +122,7 @@ export default function RuneEditor({
   const prevIsOnlineRef = useRef(isOnline);
   const userIdRef = useRef(userId);
   const projectIdRef = useRef(projectId);
+  const subscriptionTierRef = useRef(subscriptionTier);
 
   useEffect(() => {
     const delay = prefs.autoSaveDelay ?? 1500;
@@ -125,6 +140,8 @@ export default function RuneEditor({
   useEffect(() => { isOnlineRef.current = isOnline; }, [isOnline]);
   useEffect(() => { userIdRef.current = userId; }, [userId]);
   useEffect(() => { projectIdRef.current = projectId; }, [projectId]);
+  useEffect(() => { subscriptionTierRef.current = subscriptionTier; }, [subscriptionTier]);
+  useEffect(() => { projectWordCountRef.current = projectWordCount; }, [projectWordCount]);
 
 
   useEffect(() => {
@@ -182,6 +199,16 @@ export default function RuneEditor({
     if (!page || !uid) return;
 
     const delta = wordCount - lastSavedWordCountRef.current;
+
+    // Free-tier word limit check — only block growth, never block edits/deletions
+    if (subscriptionTierRef.current === 'free' && delta > 0) {
+      const otherPageWords = projectWordCountRef.current - (lastSavedWordCountRef.current);
+      if (otherPageWords + wordCount > FREE_WORD_LIMIT) {
+        setWordLimitModalOpen(true);
+        setIsSaving(false);
+        return;
+      }
+    }
 
     try {
       await writeToPendingQueue(page.id, uid, content, wordCount);
@@ -728,6 +755,81 @@ export default function RuneEditor({
           }}
           onClose={() => setConflictModalOpen(false)}
         />
+      )}
+
+      {/* Free-tier word limit modal */}
+      {wordLimitModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: 'rgba(0,0,0,0.6)' }}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="word-limit-heading"
+        >
+          <div
+            className="relative w-full max-w-md rounded-xl px-8 py-10 text-center shadow-2xl"
+            style={{ background: 'var(--surface-card)', border: '1px solid var(--color-border-strong)' }}
+          >
+            <div
+              className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full"
+              style={{ background: 'rgba(201,168,76,0.1)', border: '1px solid rgba(201,168,76,0.35)' }}
+              aria-hidden
+            >
+              <span className="text-2xl">✦</span>
+            </div>
+            <h2
+              id="word-limit-heading"
+              className="mb-3 font-rune-serif text-2xl"
+              style={{ color: 'var(--text-primary)' }}
+            >
+              You&rsquo;ve reached {FREE_WORD_LIMIT.toLocaleString()} words.
+            </h2>
+            <p
+              className="mb-2 text-sm leading-relaxed"
+              style={{ color: 'var(--color-mist)' }}
+            >
+              Upgrade to Scribe to continue writing this manuscript with unlimited words.
+            </p>
+            <p
+              className="mb-8 text-sm leading-relaxed"
+              style={{ color: 'var(--color-mist)' }}
+            >
+              Your manuscript is always yours, and you can export it anytime.
+            </p>
+            <div className="flex flex-col gap-3">
+              <button
+                type="button"
+                disabled={upgradePending}
+                onClick={() => {
+                  setUpgradePending(true);
+                  void createCheckoutSession('scribe', 'monthly', getPromotekitReferral()).then(({ url }) => {
+                    if (url) window.location.href = url;
+                    else setUpgradePending(false);
+                  });
+                }}
+                className="w-full rounded-lg px-5 py-3 text-sm font-medium transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rune-gold"
+                style={{ background: 'var(--color-gold)', color: 'var(--color-ink)' }}
+              >
+                {upgradePending ? 'Loading…' : 'Upgrade to Scribe'}
+              </button>
+              <a
+                href={`/projects/${projectId}`}
+                className="w-full rounded-lg border px-5 py-3 text-sm font-medium transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rune-gold"
+                style={{ borderColor: 'var(--color-border-strong)', color: 'var(--text-primary)' }}
+              >
+                Export Manuscript
+              </a>
+              <button
+                type="button"
+                onClick={() => setWordLimitModalOpen(false)}
+                className="w-full px-5 py-2 text-sm transition-opacity hover:opacity-70 focus-visible:outline-none"
+                style={{ color: 'var(--color-mist)' }}
+              >
+                Maybe Later
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Floating Word Count Pill + XP flash — hidden during onboarding */}

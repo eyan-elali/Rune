@@ -1,18 +1,22 @@
 export type SubscriptionTier = 'free' | 'scribe'
 
+export const FREE_WORD_LIMIT = 15_000
+
 export const FEATURE_GATES = {
-  unlimitedProjects:   ['scribe'],
-  goals:               ['scribe'],
-  streaks:             ['scribe'],
-  export:              ['scribe'],
-  focusMode:           ['free', 'scribe'],
-  gameMode:            ['free', 'scribe'],
-  unlockables:         ['scribe'],
-  unlimitedArena: ['scribe'],
-  heatmap:             ['scribe'],
-  avgWordsWidget:      ['scribe'],
-  projectGoals:        ['scribe'],
-  chapterGoals:        ['scribe'],
+  // Scale gates — scribe only
+  unlimitedProjects: ['scribe'],
+  unlimitedArena:    ['scribe'],
+  premiumUnlockables: ['scribe'],
+  // Writing features — available to all
+  goals:          ['free', 'scribe'],
+  streaks:        ['free', 'scribe'],
+  export:         ['free', 'scribe'],
+  focusMode:      ['free', 'scribe'],
+  gameMode:       ['free', 'scribe'],
+  heatmap:        ['free', 'scribe'],
+  avgWordsWidget: ['free', 'scribe'],
+  projectGoals:   ['free', 'scribe'],
+  chapterGoals:   ['free', 'scribe'],
 } as const satisfies Record<string, readonly SubscriptionTier[]>
 
 export function canAccessFeature(

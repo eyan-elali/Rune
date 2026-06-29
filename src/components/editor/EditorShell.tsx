@@ -180,6 +180,7 @@ export function EditorShell({
           currentPage={currentPage}
           onPageUpdated={handlePageUpdated}
           onRenamePage={handleRenamePage}
+          projectWordCount={project.word_count ?? 0}
         />
       </div>
     </div>

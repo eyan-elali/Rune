@@ -20,28 +20,27 @@ function formatUsd(amount: number): string {
 
 const TIER_FEATURES = {
   free: [
-    { label: '1 project', included: true },
-    { label: '20,000 word limit', included: true },
-    { label: 'Basic editor', included: true },
+    { label: '1 manuscript', included: true },
+    { label: 'Up to 15,000 words', included: true },
+    { label: 'All writing tools', included: true },
+    { label: 'Goals & Progress', included: true },
+    { label: 'Notes', included: true },
+    { label: 'Profile & Stats', included: true },
+    { label: 'Export', included: true },
     { label: 'Focus Mode', included: true },
-    { label: 'Limited Arena access (1 entry / week)', included: true },
-    { label: 'Limited cosmetics', included: true },
-    { label: 'Goals & streaks', included: false },
-    { label: 'Export pages & manuscripts', included: false },
+    { label: '1 Arena ticket / week', included: true },
   ],
   scribe: [
     { label: 'Everything in Free', included: true },
-    { label: 'Unlimited projects & words', included: true },
-    { label: 'Goals & streaks', included: true },
-    { label: 'Writing heatmap & stats', included: true },
-    { label: 'Export pages & manuscripts (PDF)', included: true },
-    { label: 'Full collection — all 34 cosmetics, current & future', included: true },
-    { label: 'Full access to the Arena (unlimited battles & races)', included: true },
+    { label: 'Unlimited manuscripts', included: true },
+    { label: 'Unlimited words', included: true },
+    { label: 'Unlimited Arena access', included: true },
+    { label: 'All unlockables', included: true },
   ],
 }
 
 function featureLabelNeedsNowrap(label: string): boolean {
-  return /word limit|Arena access|Full access to the Arena/i.test(label)
+  return /Arena ticket|Arena access/i.test(label)
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────

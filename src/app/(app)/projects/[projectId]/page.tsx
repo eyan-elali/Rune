@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { ChapterList } from "@/components/projects/ChapterList";
 import { ProjectHeader } from "@/components/projects/ProjectHeader";
-import { canAccessFeature, type SubscriptionTier } from "@/lib/subscription";
+import type { SubscriptionTier } from "@/lib/subscription";
 import { calculateProjectWordCount } from "@/lib/manuscript";
 import type { Chapter } from "@/lib/types";
 
@@ -37,7 +37,6 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
   if (!project) notFound();
 
   const subscriptionTier = (profileTier?.subscription_tier ?? "free") as SubscriptionTier;
-  const canSeeChapterGoals = canAccessFeature(subscriptionTier, "chapterGoals");
 
   const typedChapters = (chapters ?? []) as ChapterWithStats[];
   const completedCount = typedChapters.filter((c) => c.is_completed).length;
@@ -48,7 +47,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
       <ProjectHeader
         project={project}
         subscriptionTier={subscriptionTier}
-        canSeeChapterGoals={canSeeChapterGoals}
+        canSeeChapterGoals={true}
         completedCount={completedCount}
         wordCount={wordCount}
         totalChapters={typedChapters.length}

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { Lock } from "lucide-react";
 import { ChapterGoalControl } from "./ChapterGoalControl";
 import { RevisionNotesButton } from "./RevisionNotesButton";
 import { NewDraftButton } from "./NewDraftButton";
@@ -9,12 +8,11 @@ import { ManuscriptExportButton } from "./ManuscriptExportButton";
 import { PageGuide, type GuideStep } from "@/components/ui/PageGuide";
 import { GuideButton } from "@/components/ui/GuideButton";
 import type { Project } from "@/lib/types";
-import type { SubscriptionTier } from "@/lib/subscription";
 
 interface ProjectHeaderProps {
   project: Project;
-  subscriptionTier: SubscriptionTier;
-  canSeeChapterGoals: boolean;
+  subscriptionTier?: string;
+  canSeeChapterGoals?: boolean;
   completedCount: number;
   wordCount: number;
   totalChapters: number;
@@ -61,8 +59,6 @@ const STEPS: GuideStep[] = [
 
 export function ProjectHeader({
   project,
-  subscriptionTier,
-  canSeeChapterGoals,
   completedCount,
   wordCount,
   totalChapters,
@@ -100,29 +96,12 @@ export function ProjectHeader({
           </p>
         </div>
         <div className="flex items-start gap-4">
-          {canSeeChapterGoals ? (
-            <div data-guide="project-chapter-goal">
-              <ChapterGoalControl
-                project={project}
-                completedCount={completedCount}
-              />
-            </div>
-          ) : (
-            <div
-              className="flex items-center gap-1.5 text-xs"
-              style={{ color: "var(--color-mist)" }}
-              aria-label="Chapter goals locked — Scribe &amp; above"
-            >
-              <Lock
-                size={13}
-                aria-hidden
-                style={{ color: "var(--color-mist)", opacity: 0.6 }}
-              />
-              <span style={{ opacity: 0.7 }}>
-                Chapter goals — Scribe &amp; above
-              </span>
-            </div>
-          )}
+          <div data-guide="project-chapter-goal">
+            <ChapterGoalControl
+              project={project}
+              completedCount={completedCount}
+            />
+          </div>
           <div className="flex items-center gap-2">
             <div data-guide="project-notes">
               <RevisionNotesButton

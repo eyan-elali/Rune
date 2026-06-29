@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { recalculateProjectWordCount } from "@/lib/projectWordCount";
+import { FREE_WORD_LIMIT } from "@/lib/subscription";
 import type { Page } from "@/lib/types";
 
 type ActionResult<T> = { data: T; error: null } | { data: null; error: string };
@@ -87,7 +88,8 @@ export async function updatePage(
       .eq("id", id)
       .single();
 
-    if (currentPage) {
+    if (currentPage && wordCount > (currentPage.word_count ?? 0)) {
+      // Only enforce limit when words are being added (not on edits or deletions)
       const { data: chapter } = await supabase
         .from("chapters")
         .select("project_id")
@@ -112,11 +114,10 @@ export async function updatePage(
             .filter((p: { id: string }) => p.id !== id)
             .reduce((s: number, p: { word_count: number }) => s + (p.word_count ?? 0), 0);
 
-          if (totalExcludingCurrent + wordCount > 20000) {
+          if (totalExcludingCurrent + wordCount > FREE_WORD_LIMIT) {
             return {
               data: null,
-              error:
-                "You've reached the 20,000 word limit. Upgrade to Scribe for unlimited writing.",
+              error: "FREE_WORD_LIMIT_REACHED",
             };
           }
         }

@@ -2,10 +2,9 @@ import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { getGoals, getWritingStreak, getTodayWords, getWordsByDay } from "@/lib/actions/writingStats";
 import { DashboardContent } from "./DashboardContent";
-import { canAccessFeature, type SubscriptionTier } from "@/lib/subscription";
+import type { SubscriptionTier } from "@/lib/subscription";
 import { calculateChapterWordCount } from "@/lib/manuscript";
 import type { Project, ProjectNote, UserPreferences } from "@/lib/types";
-import type { WritingGoal } from "@/lib/actions/writingStats";
 import type { RecentPageCard, RecentWork, DrawerChapter } from "@/components/dashboard/types";
 
 export const metadata: Metadata = {
@@ -114,14 +113,12 @@ export default async function DashboardPage() {
   }
 
   const subscriptionTier = ((profile as { subscription_tier?: string | null } | null)?.subscription_tier ?? 'free') as SubscriptionTier;
-  const canSeeGoals = canAccessFeature(subscriptionTier, 'projectGoals');
-  const canSeeStreaks = canAccessFeature(subscriptionTier, 'streaks');
 
   const primaryProjectId = recentWork?.projectId ?? projects[0]?.id ?? null;
 
   const [goals, writingStreak, todayWords, pinnedNoteResult] = await Promise.all([
-    canSeeGoals ? getGoals(user!.id) : Promise.resolve([] as WritingGoal[]),
-    canSeeStreaks ? getWritingStreak(user!.id) : Promise.resolve({ currentStreak: 0, maxStreak: 0 }),
+    getGoals(user!.id),
+    getWritingStreak(user!.id),
     getTodayWords(user!.id),
     primaryProjectId
       ? supabase

@@ -2852,15 +2852,9 @@ export default function LandingPage() {
 
               <div style={{ height: '1px', background: 'var(--color-border)', margin: '1.5rem 0' }} />
 
-              {['1 active project', '20,000 words', 'Core editor', 'Focus Mode', '1 Arena ticket / week'].map((f) => (
+              {['1 manuscript', 'Up to 15,000 words', 'All writing tools', 'Goals & Progress', 'Notes', 'Profile & Stats', 'Export', 'Focus Mode', '1 Arena ticket / week'].map((f) => (
                 <div key={f} style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', marginBottom: '10px', fontSize: '14px', color: 'var(--text-primary)', lineHeight: 1.5, fontFamily: SANS }}>
                   <span style={{ color: 'var(--color-gold)', fontSize: '12px', flexShrink: 0, marginTop: '1px' }}>✦</span>
-                  {f}
-                </div>
-              ))}
-              {['Goals & streak tracking', 'Export to PDF', 'Arena unlimited access'].map((f) => (
-                <div key={f} style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', marginBottom: '10px', fontSize: '14px', color: 'var(--text-muted)', lineHeight: 1.5, fontFamily: SANS }}>
-                  <span style={{ color: 'var(--text-muted)', fontSize: '12px', flexShrink: 0, marginTop: '1px' }}>—</span>
                   {f}
                 </div>
               ))}
@@ -2949,12 +2943,9 @@ export default function LandingPage() {
 
               {[
                 'Everything in Free',
-                'Unlimited projects & words',
+                'Unlimited manuscripts & words',
                 'Unlimited Arena access',
-                'Goals, streaks & heatmaps',
-                'All themes, fonts & avatars',
-                'PDF manuscript exports',
-                'Revision Notes',
+                'All unlockables',
                 'Priority support',
               ].map((f) => (
                 <div key={f} style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', marginBottom: '10px', fontSize: '14px', color: 'var(--text-primary)', lineHeight: 1.5, fontFamily: SANS }}>

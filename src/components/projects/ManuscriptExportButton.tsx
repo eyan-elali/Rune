@@ -1,53 +1,19 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { BookDown, Info, Lock } from "lucide-react";
+import { useState } from "react";
+import { BookDown, Info } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { exportProjectAsPdf } from "@/lib/export/projectExport";
 import { useToastStore } from "@/store/toastStore";
-import { useProfileStore } from "@/store/profileStore";
-import { canAccessFeature } from "@/lib/subscription";
-import { createCheckoutSession } from "@/lib/actions/billing";
 import type { Project, Chapter, Page } from "@/lib/types";
 
 interface Props {
   project: Project;
 }
 
-function getPromotekitReferral(): string {
-  if (typeof window === "undefined") return "";
-  const referral = (window as Window & { promotekit_referral?: unknown }).promotekit_referral;
-  return typeof referral === "string" ? referral : "";
-}
-
 export function ManuscriptExportButton({ project }: Props) {
   const [loading, setLoading] = useState(false);
-  const [upgradePending, startUpgradeTransition] = useTransition();
   const showToast = useToastStore((s) => s.showToast);
-  const subscriptionTier = useProfileStore((s) => s.subscriptionTier);
-  const canExport = canAccessFeature(subscriptionTier, "export");
-
-  if (!canExport) {
-    return (
-      <button
-        type="button"
-        onClick={() => {
-          startUpgradeTransition(async () => {
-            const referralId = getPromotekitReferral();
-            const { url, error } = await createCheckoutSession("scribe", "monthly", referralId);
-            if (url && !error) window.location.href = url;
-          });
-        }}
-        disabled={upgradePending}
-        title="Upgrade to Scribe to export your manuscript"
-        className="inline-flex items-center gap-1.5 rounded border px-3 py-1.5 text-xs font-medium opacity-50 transition-opacity hover:opacity-70 cursor-not-allowed"
-        style={{ borderColor: "var(--color-border-strong)", color: "var(--color-mist)", background: "transparent" }}
-      >
-        <Lock size={14} />
-        Export Manuscript
-      </button>
-    );
-  }
 
   async function handleExport() {
     setLoading(true);

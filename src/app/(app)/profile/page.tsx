@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { Lock } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { XpBar } from "@/components/profile/XpBar";
 import { ContributionHeatmap } from "@/components/profile/ContributionHeatmap";
@@ -9,7 +8,7 @@ import {
   getWritingStreak,
 } from "@/lib/actions/writingStats";
 import { getUserUnlockables } from "@/lib/actions/unlockables";
-import { canAccessFeature, type SubscriptionTier } from "@/lib/subscription";
+import type { SubscriptionTier } from "@/lib/subscription";
 import { calculateProjectWordCount } from "@/lib/manuscript";
 import { UNLOCKABLES, type Unlockable } from "@/lib/unlockables";
 import { ProfileGuideMount } from "./ProfileGuideMount";
@@ -179,10 +178,7 @@ export default async function ProfilePage() {
   const subscriptionTier = (
     profile?.subscription_tier ?? "free"
   ) as SubscriptionTier;
-  const canSeeHeatmap = canAccessFeature(subscriptionTier, "heatmap");
-  const contributionHistory = canSeeHeatmap
-    ? await getContributionHistory(user!.id)
-    : [];
+  const contributionHistory = await getContributionHistory(user!.id);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const projects = (rawProjects ?? []) as any[];
@@ -308,34 +304,9 @@ export default async function ProfilePage() {
         </Card>
 
         {/* Heatmap panel */}
-        <Card className="relative p-5" dataGuide="profile-heatmap">
+        <Card className="p-5" dataGuide="profile-heatmap">
           <CardLabel>Writing Activity</CardLabel>
           <ContributionHeatmap data={contributionHistory} />
-          {!canSeeHeatmap && (
-            <div
-              className="absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-lg"
-              style={{ background: "rgba(0,0,0,0.45)" }}
-            >
-              <Lock
-                size={18}
-                style={{ color: "var(--color-gold)" }}
-                aria-hidden
-              />
-              <p
-                className="text-xs font-semibold"
-                style={{ color: "var(--color-parchment)" }}
-              >
-                Heatmap — Scribe &amp; above
-              </p>
-              <Link
-                href="/settings?tab=billing"
-                className="text-xs transition-opacity hover:opacity-70"
-                style={{ color: "var(--color-gold)" }}
-              >
-                Unlock
-              </Link>
-            </div>
-          )}
         </Card>
       </div>
 
