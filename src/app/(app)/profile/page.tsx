@@ -3,17 +3,29 @@ import { Lock } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { XpBar } from "@/components/profile/XpBar";
 import { ContributionHeatmap } from "@/components/profile/ContributionHeatmap";
-import { getContributionHistory } from "@/lib/actions/writingStats";
+import { AvatarGlyph } from "@/components/profile/UserAvatar";
+import {
+  getContributionHistory,
+  getWritingStreak,
+} from "@/lib/actions/writingStats";
+import { getUserUnlockables } from "@/lib/actions/unlockables";
 import { canAccessFeature, type SubscriptionTier } from "@/lib/subscription";
 import { calculateProjectWordCount } from "@/lib/manuscript";
+import { UNLOCKABLES, type Unlockable } from "@/lib/unlockables";
 import type { GameSession } from "@/lib/types";
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function formatMemberSince(iso: string) {
+  return new Date(iso).toLocaleDateString("en-US", {
     year: "numeric",
     month: "long",
-    day: "numeric",
   });
 }
 
@@ -22,17 +34,6 @@ function formatDuration(seconds: number | null): string {
   const m = Math.floor(seconds / 60);
   const s = seconds % 60;
   return m > 0 ? `${m}m ${s}s` : `${s}s`;
-}
-
-function favoriteTime(sessions: Pick<GameSession, "created_at">[]): string {
-  if (!sessions.length) return "—";
-  const hours = sessions.map((s) => new Date(s.created_at).getHours());
-  const morning = hours.filter((h) => h >= 5 && h < 12).length;
-  const afternoon = hours.filter((h) => h >= 12 && h < 18).length;
-  const evening = hours.filter((h) => h >= 18 || h < 5).length;
-  if (morning >= afternoon && morning >= evening) return "Morning";
-  if (afternoon >= morning && afternoon >= evening) return "Afternoon";
-  return "Evening";
 }
 
 type SessionMeta = {
@@ -46,7 +47,7 @@ type SessionMeta = {
 const ENEMY_DISPLAY: Record<string, string> = {
   "blank-page": "The Blank Page",
   "writers-block": "Writer's Block",
-  "deadline": "The Deadline",
+  deadline: "The Deadline",
 };
 
 const MODE_LABELS: Record<string, string> = {
@@ -56,47 +57,76 @@ const MODE_LABELS: Record<string, string> = {
   "1v1": "1v1 Race",
 };
 
-function getModeDisplay(mode: string): string {
-  if (mode === "battle") return "⚔️ Battle";
-  if (mode === "race" || mode === "race_yourself") {
-    return `🏁 ${MODE_LABELS[mode] ?? "Race"}`;
-  }
-  return MODE_LABELS[mode] ?? mode;
-}
-
-// ── Stat card ──────────────────────────────────────────────────────────────
-function StatCard({
+// ── Stat block ─────────────────────────────────────────────────────────────
+function StatBlock({
   label,
   value,
   sub,
+  size = "md",
 }: {
   label: string;
   value: string;
   sub?: string;
+  size?: "lg" | "md" | "sm";
 }) {
+  const numClass =
+    size === "lg" ? "text-2xl" : size === "md" ? "text-xl" : "text-lg";
+
   return (
-    <div
-      className="flex flex-col gap-1 rounded-lg p-5"
-      style={{
-        background: "var(--color-sepia)",
-        border: "1px solid var(--color-border)",
-      }}
-    >
+    <div className="flex min-w-0 flex-col">
       <p
-        className="text-2xl font-rune-serif"
+        className={`font-rune-serif ${numClass} leading-tight`}
         style={{ color: "var(--text-primary)" }}
       >
         {value}
       </p>
-      <p className="text-xs" style={{ color: "var(--color-mist)" }}>
+      <p className="mt-1 text-xs" style={{ color: "var(--color-mist)" }}>
         {label}
       </p>
       {sub && (
-        <p className="text-xs" style={{ color: "var(--color-mist)", opacity: 0.5 }}>
+        <p
+          className="mt-0.5 truncate text-xs"
+          style={{ color: "var(--color-mist)", opacity: 0.45 }}
+        >
           {sub}
         </p>
       )}
     </div>
+  );
+}
+
+// ── Card shell ─────────────────────────────────────────────────────────────
+function Card({
+  children,
+  className = "",
+  style,
+}: {
+  children: React.ReactNode;
+  className?: string;
+  style?: React.CSSProperties;
+}) {
+  return (
+    <div
+      className={`rounded-lg ${className}`}
+      style={{
+        background: "var(--color-sepia)",
+        border: "1px solid var(--color-border)",
+        ...style,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+function CardLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <p
+      className="mb-4 text-xs font-semibold uppercase tracking-widest"
+      style={{ color: "var(--color-mist)" }}
+    >
+      {children}
+    </p>
   );
 }
 
@@ -107,96 +137,142 @@ export default async function ProfilePage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const [{ data: profile }, { data: rawProjects }, { data: recentSessions }] =
-    await Promise.all([
-      supabase.from("profiles").select("*").eq("id", user!.id).single(),
-      supabase
-        .from("projects")
-        .select("id, chapters(id, pages(id, word_count, is_canonical))")
-        .eq("user_id", user!.id),
-      supabase
-        .from("game_sessions")
-        .select("id, mode, words_written, xp_earned, duration_seconds, completed, created_at, enemy_type, meta")
-        .eq("user_id", user!.id)
-        .order("created_at", { ascending: false })
-        .limit(5),
-    ]);
+  const [
+    { data: profile },
+    { data: rawProjects },
+    { data: recentSessions },
+    { currentStreak, maxStreak },
+    userUnlockables,
+    { data: allWritingSessions },
+    { data: allSessions },
+  ] = await Promise.all([
+    supabase.from("profiles").select("*").eq("id", user!.id).single(),
+    supabase
+      .from("projects")
+      .select("id, title, chapters(id, pages(id, word_count, is_canonical))")
+      .eq("user_id", user!.id),
+    supabase
+      .from("game_sessions")
+      .select(
+        "id, mode, words_written, xp_earned, duration_seconds, completed, created_at, enemy_type, meta"
+      )
+      .eq("user_id", user!.id)
+      .order("created_at", { ascending: false })
+      .limit(3),
+    getWritingStreak(user!.id),
+    getUserUnlockables(user!.id),
+    supabase
+      .from("writing_sessions")
+      .select("session_date, words_added")
+      .eq("user_id", user!.id),
+    supabase
+      .from("game_sessions")
+      .select("words_written, meta")
+      .eq("user_id", user!.id),
+  ]);
 
-  const subscriptionTier = (profile?.subscription_tier ?? 'free') as SubscriptionTier;
-  const canSeeHeatmap = canAccessFeature(subscriptionTier, 'heatmap');
-  const contributionHistory = canSeeHeatmap ? await getContributionHistory(user!.id) : [];
+  const subscriptionTier = (
+    profile?.subscription_tier ?? "free"
+  ) as SubscriptionTier;
+  const canSeeHeatmap = canAccessFeature(subscriptionTier, "heatmap");
+  const contributionHistory = canSeeHeatmap
+    ? await getContributionHistory(user!.id)
+    : [];
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const projects = (rawProjects ?? []) as any[];
-  const projectIds: string[] = projects.map((p) => p.id);
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const allChapters = projects.flatMap((p) => (p.chapters ?? []) as any[]);
-  const totalWords = calculateProjectWordCount(allChapters);
-  const pageCount = allChapters.reduce(
-    (sum: number, c: { pages?: unknown[] | null }) => sum + (c.pages?.length ?? 0),
+  const projectWordCounts = projects.map((p: any) => ({
+    title: (p.title as string) ?? "Untitled",
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    words: calculateProjectWordCount((p.chapters ?? []) as any[]),
+  }));
+
+  const totalWords = projectWordCounts.reduce(
+    (sum: number, p: { words: number }) => sum + p.words,
     0
   );
 
-  // Longest timed session (victory lap words excluded when meta is present)
-  const { data: allSessions } = await supabase
-    .from("game_sessions")
-    .select("words_written, meta")
-    .eq("user_id", user!.id);
+  const longestProject = projectWordCounts.reduce(
+    (
+      best: { title: string; words: number },
+      p: { title: string; words: number }
+    ) => (p.words > best.words ? p : best),
+    { title: "", words: 0 }
+  );
 
-  let longestTimedWords = 0;
-  for (const session of allSessions ?? []) {
-    const meta = session.meta as SessionMeta | null;
-    const timed =
-      typeof meta?.sprint_words === "number"
-        ? meta.sprint_words
-        : session.words_written;
-    if (timed > longestTimedWords) longestTimedWords = timed;
+  // Biggest writing day
+  const dayTotals = new Map<string, number>();
+  for (const row of allWritingSessions ?? []) {
+    dayTotals.set(
+      row.session_date,
+      (dayTotals.get(row.session_date) ?? 0) + (row.words_added ?? 0)
+    );
   }
+  const biggestDay =
+    dayTotals.size > 0 ? Math.max(...Array.from(dayTotals.values())) : 0;
 
+  // Arena session stats
+  const totalSessions = (allSessions ?? []).length;
+  const totalGameWords = (allSessions ?? []).reduce(
+    (sum: number, s: { words_written: number }) =>
+      sum + (s.words_written ?? 0),
+    0
+  );
+  const avgWordsPerSession =
+    totalSessions > 0 ? Math.round(totalGameWords / totalSessions) : 0;
+  const estimatedPages = Math.floor(totalWords / 250);
+
+  // Identity
   const xp = profile?.xp ?? 0;
   const level = profile?.level ?? 1;
-  const initial = (profile?.display_name ?? user?.email ?? "W")
-    .trim()
-    .charAt(0)
-    .toUpperCase();
   const displayName =
-    profile?.display_name ??
-    user?.email?.split("@")[0] ??
-    "Writer";
+    profile?.display_name ?? user?.email?.split("@")[0] ?? "Writer";
+  const preferences =
+    (profile?.preferences as Record<string, unknown> | null) ?? {};
+  const activeAvatarId =
+    (preferences.activeAvatar as string | undefined) ?? "quill";
+
+  // Unlockables preview
+  const unlockedIdSet = new Set(userUnlockables.map((u) => u.unlockable_id));
+  const alwaysFreeItems = UNLOCKABLES.filter((u) => u.requirement === null);
+  const earnedItems = UNLOCKABLES.filter(
+    (u) => u.requirement !== null && unlockedIdSet.has(u.id)
+  );
+  const unlockedCount = alwaysFreeItems.length + earnedItems.length;
+
+  const recentlyEarnedItems = [...userUnlockables]
+    .reverse()
+    .slice(0, 5)
+    .map((u) => UNLOCKABLES.find((r) => r.id === u.unlockable_id))
+    .filter(Boolean) as Unlockable[];
+
+  const previewItems =
+    recentlyEarnedItems.length > 0
+      ? recentlyEarnedItems
+      : alwaysFreeItems.slice(0, 4);
+
+  const lockedPreviewCount = Math.min(
+    2,
+    Math.max(0, UNLOCKABLES.length - unlockedCount)
+  );
 
   return (
-    <div className="mx-auto max-w-3xl px-8 py-12">
-      {/* ── Identity card ───────────────────────────────────────────── */}
-      <section
-        className="mb-8 flex items-center gap-6 rounded-lg p-6"
-        style={{
-          background: "var(--color-sepia)",
-          border: "1px solid var(--color-border)",
-        }}
-        aria-label="Identity"
-      >
-        {/* Avatar */}
-        {profile?.avatar_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={profile.avatar_url}
-            alt={displayName}
-            className="h-16 w-16 shrink-0 rounded-full object-cover"
-          />
-        ) : (
-          <div
-            className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full text-2xl font-semibold"
-            style={{
-              background: "rgba(201, 168, 76, 0.15)",
-              color: "var(--color-gold)",
-              border: "1px solid rgba(201, 168, 76, 0.3)",
-            }}
-            aria-hidden
-          >
-            {initial}
-          </div>
-        )}
+    <div className="mx-auto max-w-4xl px-8 py-10">
 
+      {/* ── Identity ───────────────────────────────────────────────── */}
+      <div className="mb-6 flex items-center gap-4">
+        <div
+          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full"
+          style={{
+            background: "rgba(201, 168, 76, 0.12)",
+            border: "1px solid rgba(201, 168, 76, 0.25)",
+          }}
+          aria-hidden
+        >
+          <AvatarGlyph id={activeAvatarId} size={22} />
+        </div>
         <div className="min-w-0">
           <h1
             className="font-rune-serif text-2xl leading-tight"
@@ -204,161 +280,257 @@ export default async function ProfilePage() {
           >
             {displayName}
           </h1>
-          {profile?.username && (
-            <p className="mt-0.5 text-sm" style={{ color: "var(--color-mist)" }}>
-              @{profile.username}
-            </p>
-          )}
-          <p className="mt-1.5 text-xs" style={{ color: "var(--color-mist)", opacity: 0.6 }}>
-            Member since {profile?.created_at ? formatDate(profile.created_at) : "—"}
+          <p
+            className="mt-1 text-xs"
+            style={{ color: "var(--color-mist)", opacity: 0.65 }}
+          >
+            Writer since{" "}
+            {profile?.created_at
+              ? formatMemberSince(profile.created_at)
+              : "—"}{" "}
+            · Level {level}
           </p>
         </div>
-      </section>
-
-      {/* ── Level & XP ──────────────────────────────────────────────── */}
-      <section
-        className="mb-8 rounded-lg p-6"
-        style={{
-          background: "var(--color-sepia)",
-          border: "1px solid var(--color-border)",
-        }}
-        aria-label="Level and XP"
-      >
-        <h2
-          className="!mb-5 text-xs font-semibold uppercase tracking-widest"
-          style={{ color: "var(--color-mist)" }}
-        >
-          Progress
-        </h2>
-        <XpBar xp={xp} level={level} />
-      </section>
-
-      {/* ── Writing stats ────────────────────────────────────────────── */}
-      <section className="mb-8" aria-label="Writing stats">
-        <h2
-          className="!mb-4 text-xs font-semibold uppercase tracking-widest"
-          style={{ color: "var(--color-mist)" }}
-        >
-          Writing Stats
-        </h2>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          <StatCard
-            label="Total words written"
-            value={totalWords.toLocaleString()}
-          />
-          <StatCard
-            label="Projects"
-            value={projects.length.toLocaleString()}
-          />
-          <StatCard
-            label="Pages"
-            value={pageCount.toLocaleString()}
-          />
-          <StatCard
-            label="Longest session"
-            value={
-              longestTimedWords > 0
-                ? `${longestTimedWords.toLocaleString()} timed words`
-                : "—"
-            }
-          />
-          <StatCard
-            label="Favorite time to write"
-            value={favoriteTime(recentSessions ?? [])}
-          />
-          <StatCard
-            label="Total XP earned"
-            value={xp.toLocaleString()}
-            sub={`Level ${level}`}
-          />
-        </div>
-      </section>
-
-      {/* ── Contribution Heatmap ─────────────────────────────────────── */}
-      <section
-        className="relative mb-8 rounded-lg p-6"
-        style={{
-          background: "var(--color-sepia)",
-          border: "1px solid var(--color-border)",
-        }}
-        aria-label="Writing activity heatmap"
-      >
-        <h2
-          className="!mb-5 text-xs font-semibold uppercase tracking-widest"
-          style={{ color: "var(--color-mist)" }}
-        >
-          Writing Activity
-        </h2>
-        <ContributionHeatmap data={contributionHistory} />
-        {!canSeeHeatmap && (
-          <div
-            className="absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-lg"
-            style={{ background: "rgba(0,0,0,0.45)" }}
-          >
-            <Lock size={20} style={{ color: "var(--color-gold)" }} aria-hidden />
-            <p className="text-xs font-semibold" style={{ color: "var(--color-parchment)" }}>
-              Heatmap — Scribe &amp; above
-            </p>
-            <Link
-              href="/settings?tab=billing"
-              className="text-xs transition-opacity hover:opacity-70"
-              style={{ color: "var(--color-gold)" }}
-            >
-              Unlock
-            </Link>
-          </div>
-        )}
-      </section>
-
-      {/* ── Unlockables link ────────────────────────────────────────── */}
-      <div className="mb-8">
-        <Link
-          href="/profile/unlockables"
-          className="flex items-center justify-between rounded-lg p-5 transition-colors duration-150"
-          style={{
-            background: "var(--color-sepia)",
-            border: "1px solid var(--color-border)",
-          }}
-        >
-          <div>
-            <p
-              className="text-sm font-semibold"
-              style={{ color: "var(--text-primary)" }}
-            >
-              Unlockables Gallery
-            </p>
-            <p className="mt-0.5 text-xs" style={{ color: "var(--color-mist)" }}>
-              Themes, avatars, and rewards earned through writing
-            </p>
-          </div>
-          <span style={{ color: "var(--color-gold)" }} aria-hidden>
-            →
-          </span>
-        </Link>
       </div>
 
-      {/* ── Recent activity ──────────────────────────────────────────── */}
-      <section aria-label="Recent activity">
-        <h2
-          className="!mb-4 text-xs font-semibold uppercase tracking-widest"
-          style={{ color: "var(--color-mist)" }}
-        >
-          Recent Sessions
-        </h2>
+      {/* ── Row 1: XP card + Heatmap ───────────────────────────────── */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[220px_1fr]">
 
-        {recentSessions && recentSessions.length > 0 ? (
-          <div
-            className="rounded-lg overflow-hidden"
-            style={{
-              background: "var(--color-sepia)",
-              border: "1px solid var(--color-border)",
-            }}
+        {/* XP panel */}
+        <Card className="p-5">
+          <XpBar xp={xp} level={level} hero />
+        </Card>
+
+        {/* Heatmap panel */}
+        <Card className="relative p-5">
+          <CardLabel>Writing Activity</CardLabel>
+          <ContributionHeatmap data={contributionHistory} />
+          {!canSeeHeatmap && (
+            <div
+              className="absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-lg"
+              style={{ background: "rgba(0,0,0,0.45)" }}
+            >
+              <Lock
+                size={18}
+                style={{ color: "var(--color-gold)" }}
+                aria-hidden
+              />
+              <p
+                className="text-xs font-semibold"
+                style={{ color: "var(--color-parchment)" }}
+              >
+                Heatmap — Scribe &amp; above
+              </p>
+              <Link
+                href="/settings?tab=billing"
+                className="text-xs transition-opacity hover:opacity-70"
+                style={{ color: "var(--color-gold)" }}
+              >
+                Unlock
+              </Link>
+            </div>
+          )}
+        </Card>
+      </div>
+
+      {/* ── Row 2: Stats + Unlockables ─────────────────────────────── */}
+      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[2fr_1fr]">
+
+        {/* Writing stats */}
+        <Card className="p-5" aria-label="Writing statistics">
+          <CardLabel>Writing</CardLabel>
+          <div className="grid grid-cols-2 gap-x-6 gap-y-5 sm:grid-cols-3">
+            <StatBlock
+              size="lg"
+              label="Total Words"
+              value={totalWords > 0 ? totalWords.toLocaleString() : "—"}
+            />
+            <StatBlock
+              size="lg"
+              label="Current Streak"
+              value={
+                currentStreak > 0
+                  ? `${currentStreak} ${currentStreak === 1 ? "day" : "days"}`
+                  : "—"
+              }
+            />
+            <StatBlock
+              size="lg"
+              label="Best Streak"
+              value={
+                maxStreak > 0
+                  ? `${maxStreak} ${maxStreak === 1 ? "day" : "days"}`
+                  : "—"
+              }
+            />
+            <StatBlock
+              size="md"
+              label="Total Projects"
+              value={
+                projects.length > 0 ? projects.length.toLocaleString() : "—"
+              }
+            />
+            <StatBlock
+              size="md"
+              label="Longest Manuscript"
+              value={
+                longestProject.words > 0
+                  ? longestProject.words.toLocaleString()
+                  : "—"
+              }
+              sub={longestProject.words > 0 ? longestProject.title : undefined}
+            />
+            <StatBlock
+              size="md"
+              label="Biggest Writing Day"
+              value={
+                biggestDay > 0 ? biggestDay.toLocaleString() + " words" : "—"
+              }
+            />
+            <StatBlock
+              size="sm"
+              label="Arena Sessions"
+              value={totalSessions > 0 ? totalSessions.toLocaleString() : "—"}
+            />
+            <StatBlock
+              size="sm"
+              label="Avg Words / Session"
+              value={
+                avgWordsPerSession > 0
+                  ? avgWordsPerSession.toLocaleString()
+                  : "—"
+              }
+            />
+            <StatBlock
+              size="sm"
+              label="Est. Pages Written"
+              value={
+                estimatedPages > 0 ? estimatedPages.toLocaleString() : "—"
+              }
+              sub={estimatedPages > 0 ? "at 250 words/page" : undefined}
+            />
+          </div>
+        </Card>
+
+        {/* Unlockables panel */}
+        <Card className="flex flex-col p-5" aria-label="Unlockables">
+          <div className="mb-4 flex items-baseline justify-between">
+            <p
+              className="text-xs font-semibold uppercase tracking-widest"
+              style={{ color: "var(--color-mist)" }}
+            >
+              Unlockables
+            </p>
+            <span className="text-xs" style={{ color: "var(--color-mist)" }}>
+              {unlockedCount} of {UNLOCKABLES.length}
+            </span>
+          </div>
+
+          <p
+            className="mb-4 text-xs leading-relaxed"
+            style={{ color: "var(--color-mist)", opacity: 0.7 }}
           >
+            Themes, fonts, and avatars earned through writing milestones.
+          </p>
+
+          {/* Glyph strip */}
+          <div className="mb-5 flex flex-wrap gap-2">
+            {previewItems.map((item) => (
+              <div
+                key={item.id}
+                title={item.name}
+                className="flex h-9 w-9 items-center justify-center rounded-full"
+                style={{
+                  background: "rgba(201, 168, 76, 0.12)",
+                  border: "1px solid rgba(201, 168, 76, 0.28)",
+                }}
+                aria-label={item.name}
+              >
+                {item.type === "avatar" ? (
+                  <AvatarGlyph id={item.id} size={14} />
+                ) : item.type === "theme" ? (
+                  <span
+                    style={{ color: "var(--color-gold)", fontSize: "11px" }}
+                    aria-hidden
+                  >
+                    ✦
+                  </span>
+                ) : (
+                  <span
+                    className="font-rune-serif"
+                    style={{ color: "var(--color-gold)", fontSize: "11px" }}
+                    aria-hidden
+                  >
+                    Aa
+                  </span>
+                )}
+              </div>
+            ))}
+            {Array.from({ length: lockedPreviewCount }).map((_, i) => (
+              <div
+                key={`locked-${i}`}
+                className="flex h-9 w-9 items-center justify-center rounded-full"
+                style={{
+                  background: "rgba(107, 101, 96, 0.08)",
+                  border: "1px solid rgba(107, 101, 96, 0.18)",
+                }}
+                aria-hidden
+              >
+                <span
+                  style={{
+                    color: "var(--color-mist)",
+                    opacity: 0.3,
+                    fontSize: "12px",
+                  }}
+                >
+                  ◌
+                </span>
+              </div>
+            ))}
+          </div>
+
+          <Link
+            href="/profile/unlockables"
+            className="mt-auto inline-flex items-center gap-1 text-xs transition-opacity hover:opacity-70"
+            style={{ color: "var(--color-gold)" }}
+          >
+            View gallery <span aria-hidden>→</span>
+          </Link>
+        </Card>
+      </div>
+
+      {/* ── Row 3: Recent Sessions ──────────────────────────────────── */}
+      <div className="mt-4">
+        <Card className="overflow-hidden" aria-label="Recent arena sessions">
+          {/* Card header */}
+          <div
+            className="flex items-center justify-between px-5 py-4"
+            style={{ borderBottom: "1px solid var(--color-border)" }}
+          >
+            <p
+              className="text-xs font-semibold uppercase tracking-widest"
+              style={{ color: "var(--color-mist)" }}
+            >
+              Recent Sessions
+            </p>
+            {totalSessions > 3 && (
+              <Link
+                href="/games"
+                className="text-xs transition-opacity hover:opacity-70"
+                style={{ color: "var(--color-gold)" }}
+              >
+                View all →
+              </Link>
+            )}
+          </div>
+
+          {recentSessions && recentSessions.length > 0 ? (
             <ul role="list">
               {(recentSessions as GameSession[]).map((session, i) => {
                 const meta = session.meta as SessionMeta | null;
                 const isBattle = session.mode === "battle";
-                const isRace = session.mode === "race" || session.mode === "race_yourself";
+                const isRace =
+                  session.mode === "race" || session.mode === "race_yourself";
                 const outcome = meta?.outcome;
                 const enemyName =
                   meta?.enemy_name ??
@@ -366,26 +538,35 @@ export default async function ProfilePage() {
                     ? (ENEMY_DISPLAY[session.enemy_type] ?? session.enemy_type)
                     : null);
                 const isPb = meta?.is_pb;
+                const wordsDisplay =
+                  typeof meta?.sprint_words === "number"
+                    ? meta.sprint_words
+                    : session.words_written;
 
                 return (
                   <li
                     key={session.id}
-                    className="flex items-center justify-between gap-4 px-5 py-3.5"
+                    className="flex items-center justify-between gap-4 px-5 py-3"
                     style={{
-                      borderTop: i > 0 ? "1px solid var(--color-border)" : undefined,
+                      borderTop:
+                        i > 0 ? "1px solid var(--color-border)" : undefined,
                     }}
                   >
+                    {/* Left: mode + context */}
                     <div className="min-w-0">
-                      <div className="flex flex-wrap items-baseline gap-x-2">
-                        <p
-                          className="truncate text-sm font-rune-serif"
+                      <div className="flex flex-wrap items-baseline gap-x-1.5">
+                        <span
+                          className="font-rune-serif text-sm"
                           style={{ color: "var(--text-primary)" }}
                         >
-                          {getModeDisplay(session.mode)}
-                        </p>
+                          {MODE_LABELS[session.mode] ?? session.mode}
+                        </span>
                         {isBattle && enemyName && (
-                          <span className="text-xs" style={{ color: "var(--color-mist)" }}>
-                            vs {enemyName}
+                          <span
+                            className="text-xs"
+                            style={{ color: "var(--color-mist)" }}
+                          >
+                            · {enemyName}
                             {outcome && (
                               <span
                                 className="ml-1"
@@ -396,86 +577,56 @@ export default async function ProfilePage() {
                                       : "var(--color-crimson)",
                                 }}
                               >
-                                •{" "}
-                                {outcome === "victory" ? "Won" : "Defeated"}
+                                ({outcome === "victory" ? "Won" : "Defeated"})
                               </span>
                             )}
                           </span>
                         )}
-                      </div>
-                      <p className="text-xs" style={{ color: "var(--color-mist)" }}>
-                        {formatDate(session.created_at)}
                         {isRace && isPb && (
                           <span
-                            className="ml-2 font-rune-serif"
+                            className="text-xs font-rune-serif"
                             style={{ color: "var(--color-gold)" }}
                           >
-                            ✦ Personal Best
+                            · Personal Best
                           </span>
                         )}
+                      </div>
+                      <p
+                        className="text-xs"
+                        style={{ color: "var(--color-mist)", opacity: 0.65 }}
+                      >
+                        {formatDate(session.created_at)}
                       </p>
                     </div>
+
+                    {/* Right: words + XP */}
                     <div className="flex shrink-0 items-center gap-5 text-right">
                       <div>
-                        {typeof meta?.sprint_words === "number" ? (
-                          <>
-                            <p
-                              className="text-sm font-rune-serif tabular-nums"
-                              style={{ color: "var(--text-primary)" }}
-                            >
-                              {meta.sprint_words.toLocaleString()}
-                            </p>
-                            <p className="text-xs" style={{ color: "var(--color-mist)" }}>
-                              timed
-                            </p>
-                            {(meta.lap_words ?? 0) > 0 && (
-                              <>
-                                <p
-                                  className="mt-1 text-sm font-rune-serif tabular-nums"
-                                  style={{ color: "var(--color-gold)" }}
-                                >
-                                  {(meta.lap_words ?? 0).toLocaleString()}
-                                </p>
-                                <p
-                                  className="text-xs"
-                                  style={{ color: "var(--color-mist)", opacity: 0.7 }}
-                                >
-                                  lap
-                                </p>
-                              </>
-                            )}
-                          </>
-                        ) : (
-                          <>
-                            <p
-                              className="text-sm font-rune-serif"
-                              style={{ color: "var(--text-primary)" }}
-                            >
-                              {session.words_written.toLocaleString()}
-                            </p>
-                            <p className="text-xs" style={{ color: "var(--color-mist)" }}>
-                              words
-                            </p>
-                          </>
-                        )}
+                        <p
+                          className="font-rune-serif text-sm tabular-nums"
+                          style={{ color: "var(--text-primary)" }}
+                        >
+                          {wordsDisplay.toLocaleString()}
+                        </p>
+                        <p
+                          className="text-xs"
+                          style={{ color: "var(--color-mist)" }}
+                        >
+                          words
+                        </p>
                       </div>
                       <div>
                         <p
-                          className="text-sm font-rune-serif"
+                          className="font-rune-serif text-sm"
                           style={{ color: "var(--color-gold)" }}
                         >
                           +{session.xp_earned}
                         </p>
-                        <p className="text-xs" style={{ color: "var(--color-mist)" }}>
+                        <p
+                          className="text-xs"
+                          style={{ color: "var(--color-mist)" }}
+                        >
                           XP
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-sm" style={{ color: "var(--color-mist)" }}>
-                          {formatDuration(session.duration_seconds)}
-                        </p>
-                        <p className="text-xs" style={{ color: "var(--color-mist)" }}>
-                          duration
                         </p>
                       </div>
                     </div>
@@ -483,21 +634,25 @@ export default async function ProfilePage() {
                 );
               })}
             </ul>
-          </div>
-        ) : (
-          <div
-            className="rounded-lg px-6 py-10 text-center"
-            style={{
-              background: "var(--color-sepia)",
-              border: "1px dashed var(--color-border-strong)",
-            }}
-          >
-            <p className="font-rune-serif text-sm" style={{ color: "var(--text-primary)", opacity: 0.55 }}>
-              No game sessions yet.
-            </p>
-          </div>
-        )}
-      </section>
+          ) : (
+            <div className="px-5 py-8 text-center">
+              <p
+                className="font-rune-serif text-sm"
+                style={{ color: "var(--text-primary)", opacity: 0.5 }}
+              >
+                No arena sessions yet.
+              </p>
+              <Link
+                href="/games"
+                className="mt-2 inline-block text-xs transition-opacity hover:opacity-70"
+                style={{ color: "var(--color-gold)" }}
+              >
+                Visit the Arena →
+              </Link>
+            </div>
+          )}
+        </Card>
+      </div>
     </div>
   );
 }
