@@ -246,7 +246,7 @@ export default function RuneEditor({
       handlePaste: (_view, event) => {
         const text = event.clipboardData?.getData("text/plain") ?? "";
         const wc = text.split(/\s+/).filter((t) => t.length >= 2).length;
-        if (wc > 0) {
+        if (wc >= 1000) {
           pastedWordsRef.current += wc;
           if (!sessionInvalidatedRef.current) {
             sessionInvalidatedRef.current = true;

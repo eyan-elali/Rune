@@ -24,18 +24,18 @@ export function XpBar({ xp, level, hero = false }: XpBarProps) {
     return (
       <div className="flex flex-col">
         <p
-          className="text-xs font-semibold uppercase tracking-widest"
+          className="font-rune-serif leading-none"
+          style={{ fontSize: "6rem", color: "var(--color-gold)" }}
+        >
+          {level}
+        </p>
+        <p
+          className="mt-1 text-xs font-semibold uppercase tracking-widest"
           style={{ color: "var(--color-mist)" }}
         >
           Level
         </p>
-        <p
-          className="mt-1 font-rune-serif leading-none"
-          style={{ fontSize: "4rem", color: "var(--color-gold)" }}
-        >
-          {level}
-        </p>
-        <p className="mt-3 text-sm" style={{ color: "var(--color-mist)" }}>
+        <p className="mt-4 text-sm" style={{ color: "var(--color-mist)" }}>
           {current.toLocaleString()} XP
         </p>
         <div className="mt-3 w-full">
