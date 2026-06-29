@@ -65,6 +65,7 @@ export function ModeToggle() {
         type="button"
         onClick={handleFocusClick}
         aria-pressed={isFocus}
+        data-tutorial-id="focus-mode-btn"
         className={cn(
           "relative z-10 rounded-full px-3.5 py-1 font-rune-sans transition-colors duration-150",
           isFocus ? "text-rune-ink" : "text-rune-mist hover:text-rune-gold"

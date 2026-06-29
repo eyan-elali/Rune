@@ -5,6 +5,7 @@ import { useState, useCallback, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { PageList } from "./PageList";
 import { ExportButton } from "./ExportButton";
+import { EditorTutorial } from "./EditorTutorial";
 import type { Page, Chapter, Project } from "@/lib/types";
 import {
   createPage,
@@ -36,6 +37,7 @@ interface EditorShellProps {
   chapter: Chapter;
   project: Project;
   allChapters: ChapterWithStats[];
+  showTutorial?: boolean;
 }
 
 export function EditorShell({
@@ -45,6 +47,7 @@ export function EditorShell({
   chapter,
   project,
   allChapters,
+  showTutorial = false,
 }: EditorShellProps) {
   const [pages, setPages] = useState<Page[]>(initialPages);
   const [selectedPageId, setSelectedPageId] = useState<string | null>(
@@ -139,6 +142,7 @@ export function EditorShell({
 
   return (
     <div className="flex min-h-0 h-full overflow-hidden">
+      <EditorTutorial active={showTutorial} />
       {!shouldHideFocusUI && (
         <PageList
           pages={pages}

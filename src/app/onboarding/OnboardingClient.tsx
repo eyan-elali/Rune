@@ -98,7 +98,7 @@ export function OnboardingClient({ authorName }: Props) {
 
     const { projectId, chapterId } = json.data;
     startTransition(() => {
-      router.replace(`/projects/${projectId}/chapters/${chapterId}`);
+      router.replace(`/projects/${projectId}/chapters/${chapterId}?tutorial=editor`);
     });
   }
 

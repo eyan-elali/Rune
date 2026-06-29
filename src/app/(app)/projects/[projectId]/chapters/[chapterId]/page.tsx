@@ -7,6 +7,7 @@ import { OfflineEditorFallback } from "@/components/editor/OfflineEditorFallback
 
 interface ChapterEditorPageProps {
   params: Promise<{ projectId: string; chapterId: string }>;
+  searchParams: Promise<{ tutorial?: string }>;
 }
 
 function isNetworkError(err: { message?: string; status?: number; code?: string } | null): boolean {
@@ -24,8 +25,11 @@ function isNetworkError(err: { message?: string; status?: number; code?: string 
 
 export default async function ChapterEditorPage({
   params,
+  searchParams,
 }: ChapterEditorPageProps) {
   const { projectId, chapterId } = await params;
+  const { tutorial } = await searchParams;
+  const showTutorial = tutorial === "editor";
   const supabase = await createClient();
 
   const [chapterResult, projectResult, pagesResult, chaptersResult] =
@@ -59,6 +63,7 @@ export default async function ChapterEditorPage({
         chapter={chapter}
         project={project}
         allChapters={chaptersResult.data ?? []}
+        showTutorial={showTutorial}
       />
     </div>
   );

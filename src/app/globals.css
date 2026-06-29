@@ -403,6 +403,20 @@ body {
   animation: rune-step-enter 350ms cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
 }
 
+/* ── Editor tutorial ─────────────────────────────────────────────── */
+/* Force page-menu (···) button visible during canonical tutorial step */
+html[data-tutorial-step="2"] [data-tutorial-id="page-menu-btn"] {
+  opacity: 1 !important;
+}
+
+@keyframes rune-tutorial-rise {
+  from { opacity: 0; transform: translateX(-50%) translateY(8px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+.rune-tutorial-rise {
+  animation: rune-tutorial-rise 300ms cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}
+
 
 /* ── Level-up animation ─────────────────────────────────────────── */
 @keyframes rune-level-up {

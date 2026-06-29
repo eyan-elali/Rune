@@ -65,6 +65,7 @@ export function PageListSkeleton() {
 interface PageMenuProps {
   page: Page;
   totalPages: number;
+  isFirst?: boolean;
   onRename: () => void;
   onDelete: () => void;
   onSetCanonical: () => void;
@@ -74,6 +75,7 @@ interface PageMenuProps {
 function PageMenu({
   page,
   totalPages,
+  isFirst,
   onRename,
   onDelete,
   onSetCanonical,
@@ -122,6 +124,7 @@ function PageMenu({
         onClick={handleOpen}
         aria-label={`Options for ${page.title}`}
         aria-expanded={open}
+        data-tutorial-id={isFirst ? "page-menu-btn" : undefined}
         className="shrink-0 rounded p-0.5 opacity-0 transition-opacity duration-100 hover:bg-rune-gold/15 group-hover:opacity-100"
         style={{ color: "var(--color-mist)" }}
       >
@@ -399,6 +402,7 @@ export function PageList({
 
   return (
     <aside
+      data-tutorial-id="pages-sidebar"
       className="flex h-full min-h-0 w-[15%] min-w-[160px] max-w-[240px] shrink-0 flex-col"
       style={{
         background: "var(--bg-sidebar)",
@@ -421,6 +425,7 @@ export function PageList({
               type="button"
               onClick={() => setView("chapters")}
               aria-label="Switch to chapters"
+              data-tutorial-id="chapter-switch-btn"
               className="rounded px-1.5 py-0.5 text-[10px] leading-none tracking-wide transition-colors duration-100 hover:bg-rune-gold/10"
               style={{ color: "var(--color-mist)", opacity: 0.65 }}
             >
@@ -467,7 +472,7 @@ export function PageList({
           role="list"
           aria-label="Chapter pages"
         >
-          {pages.map((page) => {
+          {pages.map((page, index) => {
             const isSelected = selectedPageId === page.id;
             const isEditing = editingId === page.id;
             // When any page in this chapter is canonical, non-canonical pages are visually muted
@@ -559,6 +564,7 @@ export function PageList({
                       <PageMenu
                         page={page}
                         totalPages={pages.length}
+                        isFirst={index === 0}
                         onRename={() => {
                           setEditingId(page.id);
                           setEditingTitle(page.title);

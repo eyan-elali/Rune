@@ -42,6 +42,7 @@ export function ExportButton({ page, chapter, project }: ExportButtonProps) {
         }}
         disabled={upgradePending}
         aria-label="Export page (upgrade required)"
+        data-tutorial-id="export-btn"
         className={cn(
           "inline-flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-medium",
           "transition-all duration-150 border focus-visible:outline-none",
@@ -76,6 +77,7 @@ export function ExportButton({ page, chapter, project }: ExportButtonProps) {
       onClick={handleExport}
       disabled={!page || loading}
       aria-label="Export page as PDF"
+      data-tutorial-id="export-btn"
       className={cn(
         "inline-flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-medium",
         "transition-all duration-150",

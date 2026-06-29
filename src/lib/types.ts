@@ -6,6 +6,7 @@ export interface UserPreferences {
   activeTheme: string;
   activeAvatar: string;
   activeFont: string;
+  has_completed_editor_tutorial?: boolean;
 }
 
 export interface Profile {
