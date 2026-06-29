@@ -211,10 +211,14 @@ export function EditorTutorial({ active }: Props) {
       transform: "translateY(-50%)",
     };
   } else {
+    const vw = window.innerWidth;
+    const MARGIN = 8;
+    const MAX_W = 420;
+    const centerX = sLeft + sW / 2;
+    const left = Math.max(MARGIN, Math.min(centerX - MAX_W / 2, vw - MAX_W - MARGIN));
     tooltipPos = {
       top: `${sBottom + TOOLTIP_GAP}px`,
-      left: `${sLeft + sW / 2}px`,
-      transform: "translateX(-50%)",
+      left: `${left}px`,
     };
   }
 
