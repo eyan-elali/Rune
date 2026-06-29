@@ -8,12 +8,75 @@ import { updatePreferences, getRecentEditorChapter } from "@/lib/actions/setting
 
 type Stage = "modal" | "help-card" | "dismissed";
 
+const RELEASE_SECTIONS = [
+  {
+    title: "Free Plan",
+    items: [
+      "Goals are now free",
+      "Notes are now free",
+      "Progress tracking is now free",
+      "Stats & Heatmap are now free",
+      "Export is now free",
+      "Focus Mode is now free",
+      "The Free plan now includes the complete Rune writing experience",
+    ],
+  },
+  {
+    title: "Writing",
+    items: [
+      "New onboarding experience",
+      "First-sentence introduction",
+      "Guided editor tutorial",
+      "Focus Mode improvements",
+    ],
+  },
+  {
+    title: "Organization",
+    items: [
+      "Progress drawer",
+      "Goals for projects and chapters",
+      "Revision Notes",
+      "Pinned Today's Focus",
+      "Canonical Pages improvements",
+    ],
+  },
+  {
+    title: "Profile",
+    items: [
+      "Completely redesigned statistics",
+      "Better heatmap",
+      "Writing records",
+      "Unlockables",
+    ],
+  },
+  {
+    title: "Arena",
+    items: [
+      "Refined Race Yourself",
+      "Improved Battle Mode",
+      "Better writing environments",
+    ],
+  },
+  {
+    title: "Everywhere",
+    items: [
+      "Page Guides on major pages",
+      "Cleaner navigation",
+      "Faster onboarding",
+      "Better offline writing",
+      "Improved saving & syncing",
+      "Numerous bug fixes and polish",
+    ],
+  },
+];
+
 export function UpdateNotice() {
   const router = useRouter();
   const setPreferences = useProfileStore((s) => s.setPreferences);
   const [stage, setStage] = useState<Stage>("modal");
   const [loading, setLoading] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [showNotes, setShowNotes] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -135,8 +198,10 @@ export function UpdateNotice() {
           left: "50%",
           transform: "translate(-50%, -50%)",
           zIndex: 202,
-          width: "420px",
+          width: "460px",
           maxWidth: "calc(100vw - 32px)",
+          maxHeight: "calc(100vh - 64px)",
+          overflowY: "auto",
           background: "var(--color-sepia)",
           border: "1px solid var(--color-border-strong)",
           borderRadius: "10px",
@@ -148,17 +213,20 @@ export function UpdateNotice() {
           className="font-rune-serif text-2xl"
           style={{ color: "var(--text-primary)", marginBottom: "12px" }}
         >
-          Rune has changed.
+          Welcome back to Rune.
         </p>
         <p
           className="font-rune-serif text-sm leading-relaxed"
           style={{ color: "var(--color-mist)", marginBottom: "28px" }}
         >
-          We&apos;ve rebuilt onboarding, added page guides, and improved the
-          writing experience. You can take a short editor guide now, or skip it
-          and keep writing.
+          We&apos;ve made major improvements since your last visit. Rune now
+          includes a new and improved dashboard, a guided onboarding experience,
+          page guides, redesigned progress and stats, and a much more generous
+          Free plan — with goals, notes, exports, stats, and more available to
+          everyone.
         </p>
-        <div style={{ display: "flex", gap: "16px", alignItems: "center" }}>
+
+        <div style={{ display: "flex", gap: "16px", alignItems: "center", marginBottom: "20px" }}>
           <button
             type="button"
             onClick={handleShowMe}
@@ -195,6 +263,95 @@ export function UpdateNotice() {
             Skip
           </button>
         </div>
+
+        <button
+          type="button"
+          onClick={() => setShowNotes((v) => !v)}
+          className="font-rune-serif text-sm transition-opacity duration-150"
+          style={{
+            color: "var(--color-gold)",
+            opacity: 0.8,
+            cursor: "pointer",
+            background: "none",
+            border: "none",
+            padding: 0,
+          }}
+          onMouseEnter={(e) => {
+            (e.currentTarget as HTMLElement).style.opacity = "1";
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLElement).style.opacity = "0.8";
+          }}
+        >
+          {showNotes ? "Hide release notes" : "View everything that's new"}
+        </button>
+
+        {showNotes && (
+          <div
+            style={{
+              marginTop: "24px",
+              paddingTop: "24px",
+              borderTop: "1px solid var(--color-border)",
+            }}
+          >
+            {RELEASE_SECTIONS.map((section) => (
+              <div key={section.title} style={{ marginBottom: "20px" }}>
+                <p
+                  className="font-rune-serif text-xs font-semibold uppercase tracking-widest"
+                  style={{
+                    color: "var(--color-gold)",
+                    marginBottom: "8px",
+                    letterSpacing: "0.12em",
+                  }}
+                >
+                  {section.title}
+                </p>
+                <ul style={{ margin: 0, padding: 0, listStyle: "none" }}>
+                  {section.items.map((item) => (
+                    <li
+                      key={item}
+                      className="font-rune-serif text-sm"
+                      style={{
+                        color: "var(--color-mist)",
+                        lineHeight: "1.7",
+                        paddingLeft: "12px",
+                        position: "relative",
+                      }}
+                    >
+                      <span
+                        aria-hidden
+                        style={{
+                          position: "absolute",
+                          left: 0,
+                          top: "0.55em",
+                          width: "4px",
+                          height: "4px",
+                          borderRadius: "50%",
+                          background: "var(--color-gold)",
+                          opacity: 0.5,
+                          display: "block",
+                        }}
+                      />
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+
+            <p
+              className="font-rune-serif text-sm"
+              style={{
+                color: "var(--color-mist)",
+                opacity: 0.7,
+                marginTop: "8px",
+                fontStyle: "italic",
+              }}
+            >
+              This is only the beginning. Thank you for helping shape Rune.
+            </p>
+          </div>
+        )}
       </div>
     </>,
     document.body
