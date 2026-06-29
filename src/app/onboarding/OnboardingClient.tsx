@@ -41,6 +41,9 @@ export function OnboardingClient({ authorName }: Props) {
   const titleRef = useRef<HTMLInputElement>(null);
   const [, startTransition] = useTransition();
   const editorUrlRef = useRef<string>("");
+  // Once we've started the real route navigation, prevent a second call from
+  // handleFirstSavePersisted (which fires later, after first save).
+  const hasNavigatedRef = useRef(false);
 
   const [title, setTitle] = useState("");
   const [loading, setLoading] = useState(false);
@@ -87,19 +90,33 @@ export function OnboardingClient({ authorName }: Props) {
     editorUrlRef.current = url;
     setWritingData({ projectId, chapterId, page, chapter, project });
 
-    // Update the URL bar immediately — no Next.js navigation, just history.
-    // When router.replace fires later (after first save), the URL is already correct.
+    // Update the URL bar immediately so the user sees the correct URL.
     window.history.replaceState(null, "", url);
 
     setLoading(false);
     setStage("writing");
+
+    // Navigate to the real editor route immediately, inside startTransition.
+    //
+    // WHY: After a server action, Next.js App Router performs an automatic soft-refresh
+    // of the current route (/onboarding). If we stay on /onboarding, the server component
+    // re-runs, finds count > 0, and redirects to /dashboard — killing the writing scene.
+    //
+    // startTransition keeps the local writing scene visible and interactive while
+    // the real editor route loads in the background. When ready, React swaps them.
+    // Both are in isOnboarding=true / writing phase, so the swap is visually seamless.
+    hasNavigatedRef.current = true;
+    startTransition(() => {
+      router.replace(url);
+    });
   }
 
-  // Called by EditorShell after the first successful autosave has been persisted
-  // to the DB (has_written_first_words = true). We transition to the real editor
-  // route in the background — startTransition keeps the current UI visible and
-  // interactive until the new route is fully ready.
+  // Safety net: if the local editor is still mounted when the first save fires
+  // (edge case where the real route swap hasn't completed yet), trigger the navigation.
+  // hasNavigatedRef prevents a second router.replace if we already navigated above.
   function handleFirstSavePersisted() {
+    if (hasNavigatedRef.current) return;
+    hasNavigatedRef.current = true;
     const url = editorUrlRef.current;
     if (!url) return;
     startTransition(() => {

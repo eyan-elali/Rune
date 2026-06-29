@@ -21,12 +21,46 @@ export default async function OnboardingPage() {
       .eq("user_id", user.id),
     supabase
       .from("profiles")
-      .select("display_name, username")
+      .select("display_name, username, has_written_first_words")
       .eq("id", user.id)
       .single(),
   ]);
 
-  if ((count ?? 0) > 0) redirect("/dashboard");
+  if ((count ?? 0) > 0) {
+    // Returning writer who has already written their first words → dashboard.
+    // `!== false` catches true, null, and undefined — all mean "not actively onboarding".
+    if (profile?.has_written_first_words !== false) {
+      redirect("/dashboard");
+    }
+
+    // User has a project but has_written_first_words is still false.
+    // This happens when they refresh during onboarding before the first save.
+    // Redirect them to their existing project's editor so they continue rather than
+    // creating a second project.
+    const { data: firstProject } = await supabase
+      .from("projects")
+      .select("id")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .single();
+
+    if (firstProject) {
+      const { data: firstChapter } = await supabase
+        .from("chapters")
+        .select("id")
+        .eq("project_id", firstProject.id)
+        .order("position", { ascending: true })
+        .limit(1)
+        .single();
+
+      if (firstChapter) {
+        redirect(`/projects/${firstProject.id}/chapters/${firstChapter.id}`);
+      }
+    }
+
+    redirect("/dashboard");
+  }
 
   const authorName =
     profile?.display_name ||
