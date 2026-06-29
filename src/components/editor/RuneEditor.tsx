@@ -100,7 +100,6 @@ export default function RuneEditor({
   const [upgradePending, setUpgradePending] = useState(false);
   const [toolbarPos, setToolbarPos] = useState<ToolbarPos | null>(null);
   const [titleDraft, setTitleDraft] = useState(currentPage?.title ?? "");
-  const [sessionInvalidated, setSessionInvalidated] = useState(false);
   const [xpFlash, setXpFlash] = useState<{ id: number; amount: number } | null>(null);
   const xpFlashTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -115,7 +114,7 @@ export default function RuneEditor({
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const lastSavedWordCountRef = useRef<number>(currentPage?.word_count ?? 0);
   const pastedWordsRef = useRef(0);
-  const sessionInvalidatedRef = useRef(false);
+  const wordLimitBlockedRef = useRef(false);
   const sessionId = useRef(crypto.randomUUID());
   const lastAwardedWordCountRef = useRef<number>(currentPage?.word_count ?? 0);
   const isOnlineRef = useRef(isOnline);
@@ -193,6 +192,16 @@ export default function RuneEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Show the word-limit modal when the offline sync engine blocks a write that
+  // would push a free-tier project over 15k words.
+  useEffect(() => {
+    function handleWordLimitBlocked() {
+      setWordLimitModalOpen(true);
+    }
+    window.addEventListener('rune-word-limit-blocked', handleWordLimitBlocked);
+    return () => window.removeEventListener('rune-word-limit-blocked', handleWordLimitBlocked);
+  }, []);
+
   const handleSave = useCallback(async (content: Record<string, unknown>, wordCount: number) => {
     const page = currentPageRef.current;
     const uid = userIdRef.current;
@@ -204,11 +213,14 @@ export default function RuneEditor({
     if (subscriptionTierRef.current === 'free' && delta > 0) {
       const otherPageWords = projectWordCountRef.current - (lastSavedWordCountRef.current);
       if (otherPageWords + wordCount > FREE_WORD_LIMIT) {
+        wordLimitBlockedRef.current = true;
         setWordLimitModalOpen(true);
         setIsSaving(false);
         return;
       }
     }
+    // Save is proceeding — clear any previous limit block
+    wordLimitBlockedRef.current = false;
 
     try {
       await writeToPendingQueue(page.id, uid, content, wordCount);
@@ -280,12 +292,10 @@ export default function RuneEditor({
       handlePaste: (_view, event) => {
         const text = event.clipboardData?.getData("text/plain") ?? "";
         const wc = text.split(/\s+/).filter((t) => t.length >= 2).length;
-        if (wc >= 1000) {
+        // Track all pasted words so they can be deducted from XP and writing
+        // stats credits. Pasted words still count toward manuscript word count.
+        if (wc > 0) {
           pastedWordsRef.current += wc;
-          if (!sessionInvalidatedRef.current) {
-            sessionInvalidatedRef.current = true;
-            setSessionInvalidated(true);
-          }
         }
         return false;
       },
@@ -293,17 +303,29 @@ export default function RuneEditor({
     onUpdate({ editor }) {
       if (isLoadingRef.current) return;
 
-      // Per-keystroke IDB write (best-effort, always runs first)
+      // Per-keystroke IDB write (best-effort). Skipped for free users when the
+      // current word count would push the project over the limit — prevents
+      // over-limit content from reaching the offline queue and syncing to the
+      // server after a "Maybe Later" dismissal or on reconnect.
       const pageNow = currentPageRef.current;
       const uidNow = userIdRef.current;
       if (pageNow && uidNow) {
         const contentNow = editor.getJSON() as Record<string, unknown>;
         const wcNow = (editor.storage.characterCount?.words?.() as number | undefined) ?? 0;
-        try {
-          void writeToPendingQueue(pageNow.id, uidNow, contentNow, wcNow);
-        } catch (err) {
-          console.error('[offline] onUpdate: per-keystroke IDB write failed:', err);
+
+        const isOverLimit =
+          subscriptionTierRef.current === 'free' &&
+          wcNow > lastSavedWordCountRef.current &&
+          projectWordCountRef.current - lastSavedWordCountRef.current + wcNow > FREE_WORD_LIMIT;
+
+        if (!isOverLimit) {
+          try {
+            void writeToPendingQueue(pageNow.id, uidNow, contentNow, wcNow);
+          } catch (err) {
+            console.error('[offline] onUpdate: per-keystroke IDB write failed:', err);
+          }
         }
+
         if (syncStatusRef.current !== 'conflict') {
           setSyncStatusAndRef(isOnlineRef.current ? 'online_dirty' : 'offline_dirty');
         }
@@ -319,25 +341,40 @@ export default function RuneEditor({
         const wordCount =
           (editor.storage.characterCount?.words?.() as number | undefined) ?? 0;
 
+        // Snapshot paste count before handleSave consumes it, so XP can apply
+        // the same deduction independently of the writing-stats deduction.
+        const rawDelta = wordCount - lastSavedWordCountRef.current;
+        const pastedThisCycle =
+          rawDelta > 0 ? Math.min(pastedWordsRef.current, rawDelta) : 0;
+
         await handleSaveRef.current(content, wordCount);
 
-        const wordsThisIncrement = wordCount - lastAwardedWordCountRef.current;
-        if (wordsThisIncrement > 0 && !sessionInvalidatedRef.current) {
-          const xpGain = xpRewardForWords(wordsThisIncrement);
+        // Only award XP when the save was not blocked by the word limit.
+        if (!wordLimitBlockedRef.current) {
+          const wordsThisIncrement = wordCount - lastAwardedWordCountRef.current;
+          // Always advance the XP baseline to avoid double-counting on the next
+          // save cycle, even when xpDelta is 0 (all-paste increment).
           lastAwardedWordCountRef.current = wordCount;
-          void awardProjectXp(xpGain, { mode: "project" }, sessionId.current).then((result) => {
-            if (result.data) {
-              setStoredProfile(result.data);
-              if (result.data.leveledUp) {
-                setPendingLevelUp({ newLevel: result.data.newLevel, newUnlockables: result.data.newUnlockables });
-              }
-              if (!isFocusModeRef.current) {
-                setXpFlash({ id: Date.now(), amount: xpGain });
-                clearTimeout(xpFlashTimerRef.current);
-                xpFlashTimerRef.current = setTimeout(() => setXpFlash(null), 2200);
-              }
+          if (wordsThisIncrement > 0) {
+            const xpDeduction = Math.min(pastedThisCycle, wordsThisIncrement);
+            const xpDelta = wordsThisIncrement - xpDeduction;
+            if (xpDelta > 0) {
+              const xpGain = xpRewardForWords(xpDelta);
+              void awardProjectXp(xpGain, { mode: "project" }, sessionId.current).then((result) => {
+                if (result.data) {
+                  setStoredProfile(result.data);
+                  if (result.data.leveledUp) {
+                    setPendingLevelUp({ newLevel: result.data.newLevel, newUnlockables: result.data.newUnlockables });
+                  }
+                  if (!isFocusModeRef.current) {
+                    setXpFlash({ id: Date.now(), amount: xpGain });
+                    clearTimeout(xpFlashTimerRef.current);
+                    xpFlashTimerRef.current = setTimeout(() => setXpFlash(null), 2200);
+                  }
+                }
+              });
             }
-          });
+          }
         }
       }, Math.max(autoSaveDelayRef.current, 2500));
     },
@@ -394,8 +431,7 @@ export default function RuneEditor({
     lastSavedWordCountRef.current = currentPage?.word_count ?? 0;
     lastAwardedWordCountRef.current = currentPage?.word_count ?? 0;
     pastedWordsRef.current = 0;
-    sessionInvalidatedRef.current = false;
-    setSessionInvalidated(false);
+    wordLimitBlockedRef.current = false;
 
     isLoadingRef.current = true;
     editor.commands.setContent(currentPage?.content ?? null);
@@ -440,9 +476,16 @@ export default function RuneEditor({
 
   useEffect(() => {
     return () => {
+      // Award XP for words that were saved but whose debounce hadn't fired yet
+      // (e.g., tab closed mid-session). Deduct any unconsumed paste words so
+      // pasted content doesn't earn XP on unmount either.
       const remaining = lastSavedWordCountRef.current - lastAwardedWordCountRef.current;
-      if (remaining > 0 && !sessionInvalidatedRef.current) {
-        void awardProjectXp(xpRewardForWords(remaining), { mode: "project" }, sessionId.current);
+      if (remaining > 0) {
+        const pastedDeduction = Math.min(pastedWordsRef.current, remaining);
+        const xpDelta = remaining - pastedDeduction;
+        if (xpDelta > 0) {
+          void awardProjectXp(xpRewardForWords(xpDelta), { mode: "project" }, sessionId.current);
+        }
       }
       clearTimeout(xpFlashTimerRef.current);
     };
@@ -843,7 +886,7 @@ export default function RuneEditor({
             "px-3 py-1.5 text-[10px] tracking-tight",
             "2xl:px-4 2xl:py-1.5 2xl:text-[11px] 2xl:tracking-widest"
           )}
-          aria-label={`${wordCount} ${wordCount === 1 ? "word" : "words"}${sessionInvalidated ? " — paste detected" : ""}`}
+          aria-label={`${wordCount} ${wordCount === 1 ? "word" : "words"}`}
           style={{
             background: "var(--surface-card)",
             color: "var(--text-primary)",

@@ -268,6 +268,103 @@ export async function clearCanonicalPage(
 }
 
 /**
+ * Server-side word limit check + version-guarded page update for the offline
+ * sync path. Called instead of a raw Supabase update so that free-tier limits
+ * are enforced even when the save originates from the offline queue.
+ *
+ * Returns a discriminated union so the caller can handle each case without
+ * needing to inspect raw DB error codes.
+ */
+export async function syncPageWithLimitCheck(
+  id: string,
+  content: Record<string, unknown>,
+  wordCount: number,
+  serverVersion: number
+): Promise<
+  | { status: "ok"; updated_at: string; version: number }
+  | { status: "word_limit_blocked" }
+  | { status: "version_mismatch" }
+  | { status: "error"; error: string }
+> {
+  const { supabase, user } = await getUser();
+  if (!user) return { status: "error", error: "Not authenticated" };
+
+  const { data: profileRow } = await supabase
+    .from("profiles")
+    .select("subscription_tier")
+    .eq("id", user.id)
+    .single();
+
+  const tier = profileRow?.subscription_tier ?? "free";
+
+  if (tier === "free") {
+    const { data: currentPage } = await supabase
+      .from("pages")
+      .select("chapter_id, word_count")
+      .eq("id", id)
+      .single();
+
+    if (currentPage && wordCount > (currentPage.word_count ?? 0)) {
+      const { data: chapter } = await supabase
+        .from("chapters")
+        .select("project_id")
+        .eq("id", currentPage.chapter_id)
+        .single();
+
+      if (chapter) {
+        const { data: projectChapters } = await supabase
+          .from("chapters")
+          .select("id")
+          .eq("project_id", chapter.project_id);
+
+        const chapterIds = (projectChapters ?? []).map(
+          (c: { id: string }) => c.id
+        );
+
+        if (chapterIds.length > 0) {
+          const { data: allPages } = await supabase
+            .from("pages")
+            .select("id, word_count")
+            .in("chapter_id", chapterIds);
+
+          const totalExcludingCurrent = (allPages ?? [])
+            .filter((p: { id: string }) => p.id !== id)
+            .reduce(
+              (s: number, p: { word_count: number }) =>
+                s + (p.word_count ?? 0),
+              0
+            );
+
+          if (totalExcludingCurrent + wordCount > FREE_WORD_LIMIT) {
+            return { status: "word_limit_blocked" };
+          }
+        }
+      }
+    }
+  }
+
+  const { data: updated, error: updateError } = await supabase
+    .from("pages")
+    .update({
+      content,
+      word_count: wordCount,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id)
+    .eq("version", serverVersion)
+    .select("id, updated_at, version");
+
+  if (updateError) return { status: "error", error: updateError.message };
+  if (!updated || updated.length === 0) return { status: "version_mismatch" };
+
+  return {
+    status: "ok",
+    updated_at: (updated[0].updated_at as string) ?? new Date().toISOString(),
+    version: updated[0].version as number,
+  };
+}
+
+/**
  * Post-sync maintenance called after syncPendingWrite successfully persists a
  * page to Supabase. Mirrors what updatePage() does server-side: touches the
  * parent chapter's updated_at and runs the canonical-aware project word count

@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/client'
 import { getOfflineDB, evictOldCacheEntries } from '@/lib/offline/db'
 import { createGameSession } from '@/lib/actions/games'
 import { awardProjectXp } from '@/lib/actions/xp'
-import { afterPageSync } from '@/lib/actions/pages'
+import { afterPageSync, syncPageWithLimitCheck } from '@/lib/actions/pages'
 import { recordWordsWritten } from '@/lib/actions/writingStats'
 
 // ── Write queue ───────────────────────────────────────────────────────────────
@@ -124,25 +124,32 @@ export async function syncPendingWrite(pageId: string): Promise<void> {
 
   const serverVersion = serverPage.version as number
 
-  const { data: updated, error: updateError } = await supabase
-    .from('pages')
-    .update({
-      content: pending.content,
-      word_count: pending.wordCount,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', pageId)
-    .eq('version', serverVersion)
-    .select('id, updated_at, version')
+  // Server action enforces free-tier word limit + version guard in one call.
+  const syncResult = await syncPageWithLimitCheck(
+    pageId,
+    pending.content,
+    pending.wordCount,
+    serverVersion
+  )
 
-  if (updateError) {
+  if (syncResult.status === 'word_limit_blocked') {
+    // Content stays in IDB as 'pending' so it is not lost.
+    // The editor listens for this event and shows the upgrade modal.
+    await db.put('pending_writes', { ...pending, syncStatus: 'pending' })
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('rune-word-limit-blocked'))
+    }
+    return
+  }
+
+  if (syncResult.status === 'error') {
     // Network or DB error — leave as pending for next reconnect
     await db.put('pending_writes', { ...pending, syncStatus: 'pending' })
     return
   }
 
-  if (!updated || updated.length === 0) {
-    // Version mismatch — another write won; schedule one retry
+  if (syncResult.status === 'version_mismatch') {
+    // Another write won — schedule one retry
     const nextRetry = pending.retryCount + 1
     await db.put('pending_writes', {
       ...pending,
@@ -153,7 +160,8 @@ export async function syncPendingWrite(pageId: string): Promise<void> {
     return
   }
 
-  // Success — remove from pending, update cache with confirmed server state
+  // syncResult.status === 'ok'
+  // Remove from pending, update cache with confirmed server state
   await db.delete('pending_writes', pageId)
   const existingCacheAfterSync = await db.get('page_cache', pageId)
   await db.put('page_cache', {
@@ -162,8 +170,8 @@ export async function syncPendingWrite(pageId: string): Promise<void> {
     id: pageId,
     content: pending.content,
     wordCount: pending.wordCount,
-    serverUpdatedAt: (updated[0].updated_at as string) ?? new Date().toISOString(),
-    serverVersion: updated[0].version as number | undefined,
+    serverUpdatedAt: syncResult.updated_at,
+    serverVersion: syncResult.version,
     cachedAt: Date.now(),
   })
 
