@@ -3,7 +3,6 @@
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
-import { ModeToggle } from "@/components/ui/ModeToggle";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -77,7 +76,6 @@ export function Header() {
         </ol>
       </nav>
 
-      <ModeToggle />
     </header>
   );
 }

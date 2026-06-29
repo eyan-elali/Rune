@@ -7,6 +7,7 @@ export interface UserPreferences {
   activeAvatar: string;
   activeFont: string;
   has_completed_editor_tutorial?: boolean;
+  hideArena?: boolean;
 }
 
 export interface Profile {
@@ -43,6 +44,7 @@ export interface Project {
   cover_color: string | null;
   word_count: number;
   chapter_goal?: number | null;
+  is_pinned?: boolean;
   created_at: string;
   updated_at: string;
 }

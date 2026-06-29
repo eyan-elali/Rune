@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { PageList } from "./PageList";
 import { ExportButton } from "./ExportButton";
 import { EditorTutorial } from "./EditorTutorial";
+import { ModeToggle } from "@/components/ui/ModeToggle";
 import type { Page, Chapter, Project } from "@/lib/types";
 import {
   createPage,
@@ -161,12 +162,13 @@ export function EditorShell({
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         {!shouldHideFocusUI && (
           <div
-            className="flex shrink-0 items-center justify-end px-4 py-1.5"
+            className="flex shrink-0 items-center justify-between px-4 py-1.5"
             style={{
               borderBottom: "1px solid var(--color-border)",
               background: "var(--surface-editor)",
             }}
           >
+            <ModeToggle />
             <ExportButton page={currentPage} chapter={chapter} project={project} />
           </div>
         )}

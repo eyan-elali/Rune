@@ -1077,6 +1077,12 @@ export default function BattlePage() {
   const profile = useProfileStore((s) => s.profile);
   const subscriptionTier = useProfileStore((s) => s.subscriptionTier);
 
+  useEffect(() => {
+    const prefs = (profile?.preferences ?? {}) as Record<string, unknown>;
+    if (prefs.hideArena === true) router.replace("/dashboard");
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile]);
+
   // Phase
   const [phase, setPhase] = useState<BattlePhase>("enemy-select");
   const [selectedEnemy, setSelectedEnemy] = useState<EnemyDef | null>(null);

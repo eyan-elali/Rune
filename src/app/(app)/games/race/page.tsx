@@ -955,6 +955,12 @@ export default function RaceYourselfPage() {
   const profile = useProfileStore((s) => s.profile);
   const subscriptionTier = useProfileStore((s) => s.subscriptionTier);
 
+  useEffect(() => {
+    const prefs = (profile?.preferences ?? {}) as Record<string, unknown>;
+    if (prefs.hideArena === true) router.replace("/dashboard");
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile]);
+
   const {
     gameState,
     selectedDuration,

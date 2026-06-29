@@ -184,6 +184,35 @@ function Card({ children, danger }: { children: React.ReactNode; danger?: boolea
 
 // ─── Account Tab ──────────────────────────────────────────────────────────────
 
+function FeaturesCard() {
+  const storeProfile = useProfileStore((s) => s.profile);
+  const setPreferences = useProfileStore((s) => s.setPreferences);
+  const prefs = (storeProfile?.preferences ?? {}) as Partial<UserPreferences>;
+  const hideArena = prefs.hideArena === true;
+
+  async function handleToggle(value: boolean) {
+    setPreferences({ hideArena: value });
+    await updatePreferences({ hideArena: value });
+  }
+
+  return (
+    <Card>
+      <SectionTitle>Features</SectionTitle>
+      <SettingRow
+        label="Show Arena"
+        description="Display the Arena in the sidebar and dashboard. Disable to hide game mode from the app."
+        last
+      >
+        <Toggle
+          checked={!hideArena}
+          onChange={(v) => handleToggle(!v)}
+          label="Show Arena"
+        />
+      </SettingRow>
+    </Card>
+  );
+}
+
 function AccountTab({
   profile,
   email,
@@ -295,6 +324,7 @@ function AccountTab({
 
   return (
     <div className="flex flex-col gap-4">
+      <FeaturesCard />
       <Card>
         <SectionTitle>Identity</SectionTitle>
         <div className="mt-5 flex flex-col gap-4">

@@ -75,10 +75,11 @@ function ExploreCard({ title, tagline, body, cta, href, onClick }: ExploreCardDa
 
 interface ExploreRuneSectionProps {
   onProgressClick?: () => void;
+  hideArena?: boolean;
 }
 
-export function ExploreRuneSection({ onProgressClick }: ExploreRuneSectionProps) {
-  const cards: ExploreCardData[] = [
+export function ExploreRuneSection({ onProgressClick, hideArena = false }: ExploreRuneSectionProps) {
+  const allCards: ExploreCardData[] = [
     {
       title: "Arena",
       tagline: "Words become weapons.",
@@ -102,6 +103,8 @@ export function ExploreRuneSection({ onProgressClick }: ExploreRuneSectionProps)
       href: "/profile",
     },
   ];
+
+  const cards = hideArena ? allCards.filter((c) => c.title !== "Arena") : allCards;
 
   return (
     <section aria-label="Explore Rune">

@@ -15,9 +15,8 @@ import { useUIStore } from "@/store/uiStore";
 import type { ReactNode } from "react";
 import type { Profile } from "@/lib/types";
 
-const MODE_TOAST: Record<Mode, string> = {
+const MODE_TOAST: Partial<Record<Mode, string>> = {
   focus: "Focus Mode",
-  game: "Game Mode",
   normal: "Normal Mode",
 };
 
@@ -64,14 +63,14 @@ export function AppShell({ profile, children }: AppShellProps) {
         e.preventDefault();
         const next: Mode = modeRef.current === "focus" ? "normal" : "focus";
         setMode(next);
-        showToast(MODE_TOAST[next], "info");
+        showToast(MODE_TOAST[next] ?? "Normal Mode", "info");
         return;
       }
 
       if (e.key === "Escape" && modeRef.current === "focus") {
         e.preventDefault();
         setMode("normal");
-        showToast(MODE_TOAST.normal, "info");
+        showToast(MODE_TOAST.normal ?? "Normal Mode", "info");
       }
     }
 

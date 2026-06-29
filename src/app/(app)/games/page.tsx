@@ -1,6 +1,8 @@
+import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { GameModeGate } from "./GameModeGate";
+import type { UserPreferences } from "@/lib/types";
 
 async function getBestRaceSession(userId: string) {
   const supabase = await createClient();
@@ -39,12 +41,15 @@ export default async function GamesPage() {
     user
       ? supabase
           .from("profiles")
-          .select("subscription_tier")
+          .select("subscription_tier, preferences")
           .eq("id", user.id)
           .single()
           .then(({ data }) => data)
       : null,
   ]);
+
+  const prefs = ((profileRow as { preferences?: Record<string, unknown> | null } | null)?.preferences ?? {}) as Partial<UserPreferences>;
+  if (prefs.hideArena === true) redirect("/dashboard");
 
   const tier = (profileRow?.subscription_tier ?? "free") as string;
   const canPlayGames = ["free", "scribe"].includes(tier);

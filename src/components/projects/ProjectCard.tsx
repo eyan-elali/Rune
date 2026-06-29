@@ -3,8 +3,8 @@
 import { useRef, useState, useEffect, useLayoutEffect } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { MoreVertical, Pencil, Trash2 } from "lucide-react";
-import { deleteProject } from "@/lib/actions/projects";
+import { MoreVertical, Pencil, Trash2, Pin, PinOff } from "lucide-react";
+import { deleteProject, toggleProjectPin } from "@/lib/actions/projects";
 import { cn } from "@/lib/utils";
 import type { Project } from "@/lib/types";
 
@@ -23,11 +23,15 @@ function KebabMenu({
   onOpenChange,
   onEdit,
   onDelete,
+  onPin,
+  isPinned,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onEdit: () => void;
   onDelete: () => void;
+  onPin: () => void;
+  isPinned: boolean;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -87,6 +91,19 @@ function KebabMenu({
           borderColor: "var(--color-border-strong)",
         }}
       >
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onOpenChange(false);
+            onPin();
+          }}
+          className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-sm transition-colors hover:bg-rune-gold/10"
+          style={{ color: "var(--text-primary)" }}
+        >
+          {isPinned ? <PinOff size={13} /> : <Pin size={13} />}
+          {isPinned ? "Unpin" : "Pin"}
+        </button>
         <button
           type="button"
           onClick={(e) => {
@@ -192,11 +209,17 @@ export function ProjectCard({ project, wordCount, onEdit }: ProjectCardProps) {
   const router = useRouter();
   const [deleting, setDeleting] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const isPinned = project.is_pinned === true;
 
   async function handleDelete() {
     if (!confirm(`Delete "${project.title}"? This cannot be undone.`)) return;
     setDeleting(true);
     await deleteProject(project.id);
+    router.refresh();
+  }
+
+  async function handlePin() {
+    await toggleProjectPin(project.id, !isPinned);
     router.refresh();
   }
 
@@ -228,18 +251,30 @@ export function ProjectCard({ project, wordCount, onEdit }: ProjectCardProps) {
 
       <div className="flex flex-1 flex-col gap-2 p-5">
         <div className="flex items-start justify-between gap-2">
-          <h3
-            className="font-rune-serif text-base leading-snug transition-colors duration-150 group-hover:text-rune-gold line-clamp-2"
-            style={{ color: "var(--text-primary)" }}
-          >
-            {project.title}
-          </h3>
+          <div className="flex min-w-0 items-start gap-1.5">
+            {isPinned && (
+              <Pin
+                size={11}
+                className="mt-1 shrink-0"
+                style={{ color: "var(--color-gold)", opacity: 0.7 }}
+                aria-label="Pinned"
+              />
+            )}
+            <h3
+              className="font-rune-serif text-base leading-snug transition-colors duration-150 group-hover:text-rune-gold line-clamp-2"
+              style={{ color: "var(--text-primary)" }}
+            >
+              {project.title}
+            </h3>
+          </div>
           <div onClick={(e) => e.stopPropagation()}>
             <KebabMenu
               open={menuOpen}
               onOpenChange={setMenuOpen}
               onEdit={() => onEdit(project)}
               onDelete={handleDelete}
+              onPin={handlePin}
+              isPinned={isPinned}
             />
           </div>
         </div>

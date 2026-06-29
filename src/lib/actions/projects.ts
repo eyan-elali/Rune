@@ -23,6 +23,7 @@ export async function getProjects(): Promise<ActionResult<Project[]>> {
     .from("projects")
     .select("*")
     .eq("user_id", user.id)
+    .order("is_pinned", { ascending: false })
     .order("updated_at", { ascending: false });
 
   if (error) return { data: null, error: error.message };
@@ -218,6 +219,24 @@ export async function duplicateProject(
   revalidatePath("/projects");
   // No XP awarded for duplication — only manual typing earns progression.
   return { data: { ...newProject, word_count: totalWords }, error: null };
+}
+
+export async function toggleProjectPin(
+  id: string,
+  isPinned: boolean
+): Promise<{ error: string | null }> {
+  const { supabase, user } = await getUser();
+  if (!user) return { error: "Not authenticated" };
+
+  const { error } = await supabase
+    .from("projects")
+    .update({ is_pinned: isPinned })
+    .eq("id", id)
+    .eq("user_id", user.id);
+
+  if (error) return { error: error.message };
+  revalidatePath("/projects");
+  return { error: null };
 }
 
 export async function deleteProject(id: string): Promise<{ error: string | null }> {

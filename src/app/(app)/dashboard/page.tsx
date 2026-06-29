@@ -1,11 +1,10 @@
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
-import { getPersonalBests, getCombatRecords } from "@/lib/actions/games";
 import { getGoals, getWritingStreak, getTodayWords, getWordsByDay } from "@/lib/actions/writingStats";
 import { DashboardContent } from "./DashboardContent";
 import { canAccessFeature, type SubscriptionTier } from "@/lib/subscription";
 import { calculateChapterWordCount } from "@/lib/manuscript";
-import type { Project, ProjectNote } from "@/lib/types";
+import type { Project, ProjectNote, UserPreferences } from "@/lib/types";
 import type { WritingGoal } from "@/lib/actions/writingStats";
 import type { RecentPageCard, RecentWork, DrawerChapter } from "@/components/dashboard/types";
 
@@ -23,7 +22,7 @@ export default async function DashboardPage() {
   const [{ data: profile }, { data: rawProjects }] = await Promise.all([
     supabase
       .from("profiles")
-      .select("display_name, xp, level, subscription_tier")
+      .select("display_name, xp, level, subscription_tier, preferences")
       .eq("id", user!.id)
       .single(),
     supabase
@@ -112,9 +111,7 @@ export default async function DashboardPage() {
 
   const primaryProjectId = recentWork?.projectId ?? projects[0]?.id ?? null;
 
-  const [personalBests, combatRecords, goals, writingStreak, todayWords, pinnedNoteResult] = await Promise.all([
-    getPersonalBests(user!.id),
-    getCombatRecords(user!.id),
+  const [goals, writingStreak, todayWords, pinnedNoteResult] = await Promise.all([
     canSeeGoals ? getGoals(user!.id) : Promise.resolve([] as WritingGoal[]),
     canSeeStreaks ? getWritingStreak(user!.id) : Promise.resolve({ currentStreak: 0, maxStreak: 0 }),
     getTodayWords(user!.id),
@@ -133,10 +130,8 @@ export default async function DashboardPage() {
 
   const pinnedNote = (pinnedNoteResult.data as ProjectNote | null) ?? null;
 
-  const serializedBests: Record<string, number> = {};
-  for (const [k, v] of Object.entries(personalBests)) {
-    serializedBests[k] = v;
-  }
+  const prefs = ((profile as { preferences?: Record<string, unknown> | null } | null)?.preferences ?? {}) as Partial<UserPreferences>;
+  const hideArena = prefs.hideArena === true;
 
   // Fetch progress drawer data (chapter shape + calendar-day writing pace)
   let progressChapters: DrawerChapter[] = [];
@@ -182,8 +177,6 @@ export default async function DashboardPage() {
       recentWork={recentWork}
       recentPageCards={recentPageCards}
       profile={profile ?? null}
-      personalBests={serializedBests}
-      combatRecords={combatRecords}
       goals={goals}
       writingStreak={writingStreak}
       subscriptionTier={subscriptionTier}
@@ -191,6 +184,7 @@ export default async function DashboardPage() {
       progressChapters={progressChapters}
       avgWordsPerDay={avgWordsPerDay}
       pinnedNote={pinnedNote}
+      hideArena={hideArena}
     />
   );
 }
