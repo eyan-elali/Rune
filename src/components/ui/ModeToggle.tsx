@@ -2,11 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useModeStore } from "@/store/modeStore";
-import { useToastStore } from "@/store/toastStore";
 
 export function ModeToggle() {
   const { mode, setMode } = useModeStore();
-  const showToast = useToastStore((s) => s.showToast);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -20,9 +18,7 @@ export function ModeToggle() {
   const isFocus = mode === "focus";
 
   function handleClick() {
-    const next = isFocus ? "normal" : "focus";
-    setMode(next);
-    showToast(next === "focus" ? "Focus Mode" : "Normal Mode", "info");
+    setMode(isFocus ? "normal" : "focus");
   }
 
   return (

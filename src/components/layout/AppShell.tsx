@@ -4,7 +4,6 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useModeStore, type Mode } from "@/store/modeStore";
 import { useGameStore } from "@/store/gameStore";
-import { useToastStore } from "@/store/toastStore";
 import { useProfileStore } from "@/store/profileStore";
 import { ModeToggle } from "@/components/ui/ModeToggle";
 import { ThemeApplier } from "@/components/layout/ThemeApplier";
@@ -15,11 +14,6 @@ import { useUIStore } from "@/store/uiStore";
 import type { ReactNode } from "react";
 import type { Profile } from "@/lib/types";
 
-const MODE_TOAST: Partial<Record<Mode, string>> = {
-  focus: "Focus Mode",
-  normal: "Normal Mode",
-};
-
 interface AppShellProps {
   profile: Profile | null;
   children: ReactNode;
@@ -28,7 +22,6 @@ interface AppShellProps {
 export function AppShell({ profile, children }: AppShellProps) {
   const pathname = usePathname();
   const { mode, setMode } = useModeStore();
-  const showToast = useToastStore((s) => s.showToast);
   const setProfile = useProfileStore((s) => s.setProfile);
   const [hotzoneActive, setHotzoneActive] = useState(false);
   const modeRef = useRef<Mode>(mode);
@@ -61,22 +54,19 @@ export function AppShell({ profile, children }: AppShellProps) {
 
       if (isCmdShiftF) {
         e.preventDefault();
-        const next: Mode = modeRef.current === "focus" ? "normal" : "focus";
-        setMode(next);
-        showToast(MODE_TOAST[next] ?? "Normal Mode", "info");
+        setMode(modeRef.current === "focus" ? "normal" : "focus");
         return;
       }
 
       if (e.key === "Escape" && modeRef.current === "focus") {
         e.preventDefault();
         setMode("normal");
-        showToast(MODE_TOAST.normal ?? "Normal Mode", "info");
       }
     }
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [setMode, showToast]);
+  }, [setMode]);
 
   const renderSidebar = !shouldHideUI;
   const renderHeader = !shouldHideUI;
