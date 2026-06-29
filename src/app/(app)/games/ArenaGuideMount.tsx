@@ -18,10 +18,9 @@ const STEPS: GuideStep[] = [
     side: "bottom",
   },
   {
-    target: "sidebar-settings",
     heading: "Hide Arena",
     copy: "If you do not want Arena in Rune, you can hide it from Settings.",
-    side: "right",
+    side: "center",
   },
 ];
 

@@ -18,13 +18,24 @@ interface PageGuideProps {
   onStepChange?: (stepIndex: number) => void;
 }
 
+interface MeasuredRect {
+  top: number;
+  bottom: number;
+  left: number;
+  right: number;
+}
+
 const PAD = 10;
 const TOOLTIP_GAP = 14;
 const OVERLAY_BG = "rgba(26,22,20,0.72)";
+const MAX_W = 400;
+const MARGIN = 8;
+const TOOLTIP_H = 160;
 
 export function PageGuide({ steps, isOpen, onClose, onStepChange }: PageGuideProps) {
   const [step, setStep] = useState(0);
-  const [rect, setRect] = useState<DOMRect | null>(null);
+  const [rect, setRect] = useState<MeasuredRect | null>(null);
+  const [highlightRadius, setHighlightRadius] = useState("8px");
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -58,9 +69,35 @@ export function PageGuide({ steps, isOpen, onClose, onStepChange }: PageGuidePro
     const delay = currentStep.measureDelay ?? 80;
     const target = currentStep.target;
 
+    // Scroll the target into view immediately so the delayed measure reads a stable position
+    const targetEl = document.querySelector<HTMLElement>(`[data-guide="${target}"]`);
+    if (targetEl) {
+      targetEl.scrollIntoView({ behavior: "instant" as ScrollBehavior, block: "nearest" });
+    }
+
     function measure() {
       const el = document.querySelector<HTMLElement>(`[data-guide="${target}"]`);
-      setRect(el ? el.getBoundingClientRect() : null);
+      if (!el) {
+        setRect(null);
+        setHighlightRadius("8px");
+        return;
+      }
+
+      const raw = el.getBoundingClientRect();
+      const vh = window.innerHeight;
+      const vw = window.innerWidth;
+
+      // Clip rect to viewport so the spotlight never extends off-screen
+      setRect({
+        top: Math.max(0, raw.top),
+        bottom: Math.min(vh, raw.bottom),
+        left: Math.max(0, raw.left),
+        right: Math.min(vw, raw.right),
+      });
+
+      // Match highlight border radius to the target element
+      const br = window.getComputedStyle(el).borderRadius;
+      setHighlightRadius(br && br !== "0px" ? br : "8px");
     }
 
     const t = setTimeout(measure, delay);
@@ -116,8 +153,6 @@ export function PageGuide({ steps, isOpen, onClose, onStepChange }: PageGuidePro
     pointerEvents: "auto",
   };
 
-  const MARGIN = 8;
-  const MAX_W = 400;
   let tooltipPos: React.CSSProperties;
 
   if (!rect || currentStep.side === "center") {
@@ -136,16 +171,33 @@ export function PageGuide({ steps, isOpen, onClose, onStepChange }: PageGuidePro
     const vw = window.innerWidth;
     const vh = window.innerHeight;
     const top = Math.max(MARGIN, Math.min(sTop + sH / 2, vh - 120));
-    tooltipPos = {
-      top: `${top}px`,
-      right: `${vw - sLeft + TOOLTIP_GAP}px`,
-      transform: "translateY(-50%)",
-    };
+    // If there isn't enough horizontal room to the left, center instead
+    const spaceOnLeft = sLeft - TOOLTIP_GAP;
+    if (spaceOnLeft < MAX_W + MARGIN) {
+      tooltipPos = { top: "50%", left: "50%", transform: "translate(-50%, -50%)" };
+    } else {
+      tooltipPos = {
+        top: `${top}px`,
+        right: `${vw - sLeft + TOOLTIP_GAP}px`,
+        transform: "translateY(-50%)",
+      };
+    }
   } else {
+    // bottom (default) — flip above when the tooltip would clip off-screen
     const vw = window.innerWidth;
+    const vh = window.innerHeight;
     const centerX = sLeft + sW / 2;
     const left = Math.max(MARGIN, Math.min(centerX - MAX_W / 2, vw - MAX_W - MARGIN));
-    tooltipPos = { top: `${sBottom + TOOLTIP_GAP}px`, left: `${left}px` };
+    const wouldClipBottom = sBottom + TOOLTIP_GAP + TOOLTIP_H > vh;
+    const canFlipAbove = sTop - TOOLTIP_GAP - TOOLTIP_H >= MARGIN;
+    if (wouldClipBottom && canFlipAbove) {
+      tooltipPos = { bottom: `${vh - sTop + TOOLTIP_GAP}px`, left: `${left}px` };
+    } else if (wouldClipBottom) {
+      // No room above or below — center
+      tooltipPos = { top: "50%", left: "50%", transform: "translate(-50%, -50%)" };
+    } else {
+      tooltipPos = { top: `${sBottom + TOOLTIP_GAP}px`, left: `${left}px` };
+    }
   }
 
   const isLastStep = step >= steps.length - 1;
@@ -180,7 +232,7 @@ export function PageGuide({ steps, isOpen, onClose, onStepChange }: PageGuidePro
             width: `${sW}px`,
             height: `${sH}px`,
             border: "1.5px solid rgba(201,168,76,0.65)",
-            borderRadius: "6px",
+            borderRadius: highlightRadius,
             boxShadow: "0 0 0 1px rgba(201,168,76,0.10), 0 0 20px rgba(201,168,76,0.16)",
             zIndex: 201,
             pointerEvents: "none",
