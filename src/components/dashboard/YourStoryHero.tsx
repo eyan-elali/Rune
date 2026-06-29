@@ -266,11 +266,7 @@ export function YourStoryHero({
           )}
           <Link
             href={`/projects/${recentWork.projectId}/chapters/${recentWork.chapterId}`}
-            className="inline-flex shrink-0 items-center gap-2 rounded-md px-7 py-3 text-sm font-medium transition-colors duration-150"
-            style={{
-              background: "var(--color-gold)",
-              color: "var(--text-on-accent)",
-            }}
+            className="rune-btn-primary inline-flex shrink-0 items-center gap-2 rounded-md px-7 py-3 text-sm font-medium focus-visible:outline-none"
           >
             Write
             <span aria-hidden>→</span>

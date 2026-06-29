@@ -4,6 +4,7 @@ import { useState } from "react";
 import { X } from "lucide-react";
 import { createGoal } from "@/lib/actions/writingStats";
 import { useToastStore } from "@/store/toastStore";
+import { Button } from "@/components/ui/Button";
 import type { Project } from "@/lib/types";
 
 interface AddGoalModalProps {
@@ -157,24 +158,24 @@ export function AddGoalModal({
         </div>
 
         <div className="flex gap-3">
-          <button
+          <Button
+            type="button"
+            variant="ghost"
             onClick={onClose}
-            className="flex-1 rounded-md px-4 py-2 text-sm font-medium transition-colors"
-            style={{
-              border: "1px solid var(--color-border)",
-              color: "var(--color-mist)",
-            }}
+            className="flex-1"
           >
             Cancel
-          </button>
-          <button
+          </Button>
+          <Button
+            type="button"
+            variant="primary"
             onClick={handleSave}
             disabled={saveDisabled}
-            className="flex-1 rounded-md px-4 py-2 text-sm font-medium transition-opacity disabled:opacity-40"
-            style={{ background: "var(--color-gold)", color: "var(--color-ink)" }}
+            loading={saving}
+            className="flex-1"
           >
             {saving ? "Saving…" : "Create Goal"}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

@@ -697,6 +697,55 @@ body {
   --editor-text:        var(--color-ink);
 }
 
+/* ── Primary button — outlined gold, warm fill, smooth transitions ─ */
+
+/*
+  All color-mix() declarations are preceded by an rgba() fallback for
+  browsers that don't support color-mix(), and to guarantee visibility in
+  the light (parchment) theme where --color-border-strong is near-invisible.
+  The ::after sheen animation was removed — the translateY lift on hover
+  caused the element to briefly leave then re-enter the hover zone, making
+  the keyframe animation restart on every micro mouse-movement (visual flash).
+  Pure CSS transitions on the base element are smooth and glitch-free.
+*/
+.rune-btn-primary {
+  border: 1px solid rgba(184, 146, 42, 0.6);
+  border-color: color-mix(in srgb, var(--color-gold, #c9a84c) 70%, transparent);
+  background-color: rgba(184, 146, 42, 0.08);
+  background-color: color-mix(in srgb, var(--color-gold, #c9a84c) 9%, transparent);
+  color: var(--text-primary, #1e1a16);
+  transition: border-color 0.2s ease, background-color 0.2s ease,
+              transform 0.15s ease, box-shadow 0.2s ease;
+}
+
+.rune-btn-primary:hover {
+  border-color: rgba(184, 146, 42, 0.95);
+  border-color: var(--color-gold, #c9a84c);
+  background-color: rgba(184, 146, 42, 0.15);
+  background-color: color-mix(in srgb, var(--color-gold, #c9a84c) 16%, transparent);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(184, 146, 42, 0.14);
+}
+
+.rune-btn-primary:active {
+  transform: translateY(0);
+  background-color: rgba(184, 146, 42, 0.2);
+  background-color: color-mix(in srgb, var(--color-gold, #c9a84c) 21%, transparent);
+  box-shadow: none;
+}
+
+.rune-btn-primary:focus-visible {
+  outline: 2px solid rgba(184, 146, 42, 0.65);
+  outline: 2px solid color-mix(in srgb, var(--color-gold, #c9a84c) 75%, transparent);
+  outline-offset: 2px;
+}
+
+/* Auth pages use a dark ink background but `:root` light-theme variables
+   (no ThemeApplier, no data-theme on html). Override text so it reads on dark. */
+.auth-shell .rune-btn-primary {
+  color: var(--color-parchment, #faf7f2);
+}
+
 /* ── Landing page ───────────────────────────────────────────────── */
 
 /* Responsive foundation — shared variables for later prompts */

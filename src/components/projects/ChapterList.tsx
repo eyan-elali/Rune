@@ -56,10 +56,10 @@ export function ChapterList({ chapters, projectId }: ChapterListProps) {
 
       <div className="mt-2">
         <Button
-          variant="ghost"
+          variant="primary"
           onClick={handleAddChapter}
           loading={adding}
-          className="gap-1.5 text-sm"
+          className="gap-1.5"
         >
           <Plus size={14} aria-hidden="true" />
           Add Chapter

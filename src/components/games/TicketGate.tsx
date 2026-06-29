@@ -6,6 +6,7 @@ import { useProfileStore } from '@/store/profileStore'
 import { getWeeklyTicketUsage, consumeGameTicket } from '@/lib/actions/billing'
 import { createCheckoutSession } from '@/lib/actions/billing'
 import { getGameTicketsAllowed } from '@/lib/subscription'
+import { Button } from '@/components/ui/Button'
 
 interface TicketGateProps {
   children: React.ReactNode
@@ -106,25 +107,19 @@ export function TicketGate({ children, onTicketConsumed }: TicketGateProps) {
         </p>
 
         <div className="flex flex-col items-center gap-3 sm:flex-row">
-          <button
+          <Button
             onClick={handleUpgrade}
             disabled={upgradePending}
-            className="rounded-lg px-8 py-3 text-sm font-medium transition-opacity duration-150 hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rune-gold"
-            style={{ background: 'var(--color-gold)', color: 'var(--color-ink)' }}
+            loading={upgradePending}
+            variant="primary"
+            className="px-8 py-3"
           >
-            {upgradePending ? 'Loading…' : 'Upgrade to Scribe'}
-          </button>
+            Upgrade to Scribe
+          </Button>
           <Link href="/games">
-            <button
-              className="rounded-lg px-8 py-3 text-sm font-medium transition-opacity duration-150 hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rune-gold"
-              style={{
-                background: 'transparent',
-                border: '1px solid var(--color-border-strong)',
-                color: 'var(--color-mist)',
-              }}
-            >
+            <Button variant="ghost">
               Return to Hub
-            </button>
+            </Button>
           </Link>
         </div>
       </div>
@@ -174,13 +169,9 @@ function TicketPrompt({
         Free includes one Arena entry per week. Entries reset every Monday.
       </p>
 
-      <button
-        onClick={onPlay}
-        className="rounded-lg px-10 py-3 text-sm font-medium transition-opacity duration-150 hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rune-gold"
-        style={{ background: 'var(--color-gold)', color: 'var(--color-ink)' }}
-      >
+      <Button onClick={onPlay} variant="primary" className="px-10 py-3">
         Enter the Arena
-      </button>
+      </Button>
     </div>
   )
 }

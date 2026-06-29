@@ -19,15 +19,27 @@ export function Button({
   return (
     <button
       className={cn(
-        "inline-flex items-center justify-center gap-2 rounded px-4 py-2 text-sm font-medium",
-        "transition-colors duration-150",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rune-gold focus-visible:ring-offset-1 focus-visible:ring-offset-rune-ink",
-        "disabled:pointer-events-none disabled:opacity-50",
-        variant === "primary" && "bg-rune-gold text-rune-ink hover:bg-rune-gold-dim",
-        variant === "ghost" &&
-          "border border-rune-gold text-rune-gold hover:bg-rune-gold/10",
-        variant === "danger" &&
-          "bg-rune-crimson text-rune-parchment hover:opacity-90",
+        "inline-flex items-center justify-center gap-2 rounded-md text-sm font-medium",
+        "focus-visible:outline-none",
+        "disabled:pointer-events-none disabled:opacity-40",
+        variant === "primary" && [
+          "rune-btn-primary",
+          "px-6 py-2.5",
+        ],
+        variant === "ghost" && [
+          "border border-rune-gold/50 text-rune-gold",
+          "px-4 py-2",
+          "transition-colors duration-150",
+          "hover:border-rune-gold hover:bg-rune-gold/10",
+          "focus-visible:ring-2 focus-visible:ring-rune-gold/50 focus-visible:ring-offset-1",
+        ],
+        variant === "danger" && [
+          "bg-rune-crimson text-rune-parchment",
+          "px-4 py-2",
+          "transition-colors duration-150",
+          "hover:opacity-90",
+          "focus-visible:ring-2 focus-visible:ring-rune-crimson/40 focus-visible:ring-offset-1",
+        ],
         className
       )}
       disabled={disabled || loading}
