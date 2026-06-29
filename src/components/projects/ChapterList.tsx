@@ -39,7 +39,7 @@ export function ChapterList({ chapters, projectId }: ChapterListProps) {
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4" data-guide="project-chapters">
       {chapters.length === 0 ? (
         <p className="py-6 text-center text-sm text-rune-mist/50">
           No chapters yet. Add one to start writing.

@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { GameModeGate } from "./GameModeGate";
+import { ArenaGuideMount } from "./ArenaGuideMount";
 import type { UserPreferences } from "@/lib/types";
 
 async function getBestRaceSession(userId: string) {
@@ -57,7 +58,10 @@ export default async function GamesPage() {
   return (
     <div className="mx-auto max-w-4xl px-8 py-12">
       {/* Header */}
-      <div className="text-center mb-2">
+      <div className="relative text-center mb-2">
+        <div className="absolute right-0 top-0">
+          <ArenaGuideMount />
+        </div>
         <p
           className="text-xs uppercase tracking-[0.3em] mb-3"
           style={{ color: "var(--color-mist)" }}
@@ -86,6 +90,7 @@ export default async function GamesPage() {
           {/* Race Yourself — active */}
           <Link
             href="/games/race"
+            data-guide="arena-race"
             className="group relative flex flex-col rounded-lg overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl"
             style={{
               background: "var(--color-sepia)",
@@ -171,6 +176,7 @@ export default async function GamesPage() {
           {/* Battle Mode — active */}
           <Link
             href="/games/battle"
+            data-guide="arena-battle"
             className="group relative flex flex-col rounded-lg overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl"
             style={{
               background: "var(--color-sepia)",

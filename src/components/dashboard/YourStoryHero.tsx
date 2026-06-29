@@ -184,7 +184,7 @@ export function YourStoryHero({
   const accentColor = recentWork.coverColor ?? "var(--color-gold)";
 
   return (
-    <section aria-label="Your Story">
+    <section aria-label="Your Story" data-guide="dashboard-your-story">
       <p
         className="mb-3 text-xs font-semibold uppercase tracking-widest"
         style={{ color: "var(--color-mist)" }}

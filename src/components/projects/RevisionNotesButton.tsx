@@ -16,9 +16,11 @@ import type { ProjectNote } from "@/lib/types";
 
 interface Props {
   projectId: string;
+  externalOpen?: boolean;
+  onExternalClose?: () => void;
 }
 
-export function RevisionNotesButton({ projectId }: Props) {
+export function RevisionNotesButton({ projectId, externalOpen, onExternalClose }: Props) {
   const [isOpen, setIsOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
 
@@ -26,12 +28,15 @@ export function RevisionNotesButton({ projectId }: Props) {
     setMounted(true);
   }, []);
 
+  const effectiveOpen = isOpen || externalOpen === true;
+
   function open() {
     setIsOpen(true);
   }
 
   function close() {
     setIsOpen(false);
+    onExternalClose?.();
   }
 
   return (
@@ -64,7 +69,7 @@ export function RevisionNotesButton({ projectId }: Props) {
         createPortal(
           <RevisionNotesDrawer
             projectId={projectId}
-            isOpen={isOpen}
+            isOpen={effectiveOpen}
             onClose={close}
           />,
           document.body
@@ -210,6 +215,7 @@ function RevisionNotesDrawer({ projectId, isOpen, onClose }: DrawerProps) {
         role="dialog"
         aria-modal="true"
         aria-label="Revision Notes"
+        data-guide="project-notes-drawer"
         className="fixed right-0 top-0 z-50 flex h-full w-full max-w-[400px] flex-col overflow-hidden transition-transform duration-300"
         style={{
           background: "var(--surface-card)",

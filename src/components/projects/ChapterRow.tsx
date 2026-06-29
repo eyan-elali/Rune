@@ -161,6 +161,7 @@ export function ChapterRow({ chapter, projectId }: ChapterRowProps) {
         type="button"
         aria-label={isCompleted ? "Mark chapter incomplete" : "Mark chapter complete"}
         onClick={handleToggleComplete}
+        data-guide="project-completed"
         className="shrink-0 whitespace-nowrap text-xs transition-colors duration-150"
         style={{ color: isCompleted ? "var(--color-gold)" : "var(--color-mist)" }}
       >

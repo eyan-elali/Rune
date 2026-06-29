@@ -49,6 +49,7 @@ export function MomentumStrip({
         border: "1px solid var(--color-border)",
       }}
       aria-label="Writing momentum"
+      data-guide="dashboard-momentum"
     >
       {/* Today's Words — first position */}
       <div

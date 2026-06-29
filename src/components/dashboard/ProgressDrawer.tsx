@@ -348,6 +348,7 @@ export function ProgressDrawer({
         role="dialog"
         aria-modal="true"
         aria-label="Manuscript Progress"
+        data-guide="dashboard-progress-drawer"
         className="fixed right-0 top-0 z-50 flex h-full w-full max-w-[420px] flex-col overflow-y-auto transition-transform duration-300"
         style={{
           background: "var(--surface-card)",

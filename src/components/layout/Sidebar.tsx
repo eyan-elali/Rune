@@ -38,17 +38,20 @@ function NavLink({
   icon: Icon,
   active,
   collapsed,
+  dataGuide,
 }: {
   href: string;
   label: string;
   icon: React.ElementType;
   active: boolean;
   collapsed: boolean;
+  dataGuide?: string;
 }) {
   return (
     <Link
       href={href}
       title={collapsed ? label : undefined}
+      data-guide={dataGuide}
       className={cn(
         "flex items-center rounded-r-md border-l-2 py-2.5 text-sm transition-colors duration-150",
         collapsed ? "justify-center px-0" : "gap-3 px-3",
@@ -293,6 +296,7 @@ export function Sidebar({ displayName }: SidebarProps) {
             icon={Settings}
             collapsed={sidebarCollapsed}
             active={pathname === "/settings"}
+            dataGuide="sidebar-settings"
           />
           <button
             type="button"

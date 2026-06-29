@@ -6,8 +6,44 @@ import { YourStoryHero } from "@/components/dashboard/YourStoryHero";
 import { MomentumStrip } from "@/components/dashboard/MomentumStrip";
 import { ExploreRuneSection } from "@/components/dashboard/ExploreRuneSection";
 import { ProgressDrawer } from "@/components/dashboard/ProgressDrawer";
+import { PageGuide, type GuideStep } from "@/components/ui/PageGuide";
+import { GuideButton } from "@/components/ui/GuideButton";
 import type { DashboardContentProps } from "@/components/dashboard/types";
 import type { WritingGoal } from "@/lib/actions/writingStats";
+
+const DASHBOARD_GUIDE_STEPS: GuideStep[] = [
+  {
+    target: "dashboard-your-story",
+    heading: "Your Story",
+    copy: "This shows the manuscript you were last working on. Click Write to return to it.",
+    side: "bottom",
+  },
+  {
+    target: "dashboard-momentum",
+    heading: "Momentum Strip",
+    copy: "These numbers show today's writing, total words, streak, and your manuscript goal.",
+    side: "bottom",
+  },
+  {
+    target: "dashboard-explore",
+    heading: "Explore Rune",
+    copy: "Use these cards to open Arena, Progress, or Insights.",
+    side: "bottom",
+  },
+  {
+    target: "dashboard-progress",
+    heading: "Progress",
+    copy: "Progress shows how your current manuscript is coming together.",
+    side: "bottom",
+  },
+  {
+    target: "dashboard-progress-drawer",
+    heading: "Progress Drawer",
+    copy: "The Progress drawer shows manuscript progress, milestones, chapter shape, and goal details.",
+    side: "left",
+    measureDelay: 400,
+  },
+];
 
 
 export function DashboardContent({
@@ -31,6 +67,8 @@ export function DashboardContent({
   const [isProgressOpen, setIsProgressOpen] = useState(false);
   const [progressEditGoal, setProgressEditGoal] = useState(false);
   const [localGoals, setLocalGoals] = useState<WritingGoal[]>(goals);
+  const [guideOpen, setGuideOpen] = useState(false);
+  const [guideOpenedProgress, setGuideOpenedProgress] = useState(false);
 
   useEffect(() => {
     setLocalGoals(goals);
@@ -45,16 +83,39 @@ export function DashboardContent({
     setLocalGoals(newGoals);
   }
 
+  function handleGuideStepChange(stepIndex: number) {
+    if (stepIndex === 4) {
+      setGuideOpenedProgress(true);
+      setIsProgressOpen(true);
+    } else if (guideOpenedProgress) {
+      setIsProgressOpen(false);
+      setGuideOpenedProgress(false);
+    }
+  }
+
+  function handleGuideClose() {
+    setGuideOpen(false);
+    if (guideOpenedProgress) {
+      setIsProgressOpen(false);
+      setGuideOpenedProgress(false);
+    }
+  }
+
   return (
     <div className="mx-auto max-w-5xl px-10 py-12">
       {/* Welcome */}
       <div className="mb-10">
-        <h1
-          className="font-rune-serif text-4xl"
-          style={{ color: "var(--text-primary)" }}
-        >
-          Welcome back, {displayName}.
-        </h1>
+        <div className="flex items-start justify-between gap-3">
+          <h1
+            className="font-rune-serif text-4xl"
+            style={{ color: "var(--text-primary)" }}
+          >
+            Welcome back, {displayName}.
+          </h1>
+          <div className="mt-2 shrink-0">
+            <GuideButton onClick={() => setGuideOpen(true)} />
+          </div>
+        </div>
         <p className="mt-2 font-rune-serif text-lg text-rune-mist">
           The page is waiting.
         </p>
@@ -95,6 +156,13 @@ export function DashboardContent({
       </div>
 
       <BetaFeedbackBanner />
+
+      <PageGuide
+        steps={DASHBOARD_GUIDE_STEPS}
+        isOpen={guideOpen}
+        onClose={handleGuideClose}
+        onStepChange={handleGuideStepChange}
+      />
 
       {/* Progress drawer */}
       <ProgressDrawer

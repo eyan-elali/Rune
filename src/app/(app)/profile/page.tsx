@@ -12,6 +12,7 @@ import { getUserUnlockables } from "@/lib/actions/unlockables";
 import { canAccessFeature, type SubscriptionTier } from "@/lib/subscription";
 import { calculateProjectWordCount } from "@/lib/manuscript";
 import { UNLOCKABLES, type Unlockable } from "@/lib/unlockables";
+import { ProfileGuideMount } from "./ProfileGuideMount";
 import type { GameSession } from "@/lib/types";
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -100,14 +101,17 @@ function Card({
   children,
   className = "",
   style,
+  dataGuide,
 }: {
   children: React.ReactNode;
   className?: string;
   style?: React.CSSProperties;
+  dataGuide?: string;
 }) {
   return (
     <div
       className={`rounded-lg ${className}`}
+      data-guide={dataGuide}
       style={{
         background: "var(--color-sepia)",
         border: "1px solid var(--color-border)",
@@ -273,7 +277,7 @@ export default async function ProfilePage() {
         >
           <AvatarGlyph id={activeAvatarId} size={22} />
         </div>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <h1
             className="font-rune-serif text-2xl leading-tight"
             style={{ color: "var(--text-primary)" }}
@@ -291,18 +295,19 @@ export default async function ProfilePage() {
             · Level {level}
           </p>
         </div>
+        <ProfileGuideMount />
       </div>
 
       {/* ── Row 1: XP card + Heatmap ───────────────────────────────── */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[220px_1fr]">
 
         {/* XP panel */}
-        <Card className="p-5">
+        <Card className="p-5" dataGuide="profile-xp">
           <XpBar xp={xp} level={level} hero />
         </Card>
 
         {/* Heatmap panel */}
-        <Card className="relative p-5">
+        <Card className="relative p-5" dataGuide="profile-heatmap">
           <CardLabel>Writing Activity</CardLabel>
           <ContributionHeatmap data={contributionHistory} />
           {!canSeeHeatmap && (
@@ -337,7 +342,7 @@ export default async function ProfilePage() {
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[2fr_1fr]">
 
         {/* Writing stats */}
-        <Card className="p-5" aria-label="Writing statistics">
+        <Card className="p-5" aria-label="Writing statistics" dataGuide="profile-stats">
           <CardLabel>Writing</CardLabel>
           <div className="grid grid-cols-2 gap-x-6 gap-y-5 sm:grid-cols-3">
             <StatBlock
@@ -413,7 +418,7 @@ export default async function ProfilePage() {
         </Card>
 
         {/* Unlockables panel */}
-        <Card className="flex flex-col p-5" aria-label="Unlockables">
+        <Card className="flex flex-col p-5" aria-label="Unlockables" dataGuide="profile-unlockables">
           <div className="mb-4 flex items-baseline justify-between">
             <p
               className="text-xs font-semibold uppercase tracking-widest"

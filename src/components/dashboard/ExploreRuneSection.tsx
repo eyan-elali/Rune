@@ -9,6 +9,7 @@ interface ExploreCardData {
   cta: string;
   href: string;
   onClick?: () => void;
+  dataGuide?: string;
 }
 
 const cardBaseStyle = {
@@ -17,7 +18,7 @@ const cardBaseStyle = {
   borderLeft: "2px solid rgba(201, 168, 76, 0.3)",
 } as const;
 
-function ExploreCard({ title, tagline, body, cta, href, onClick }: ExploreCardData) {
+function ExploreCard({ title, tagline, body, cta, href, onClick, dataGuide }: ExploreCardData) {
   const inner = (
     <>
       <h3
@@ -55,6 +56,7 @@ function ExploreCard({ title, tagline, body, cta, href, onClick }: ExploreCardDa
         className="group flex w-full flex-col rounded-lg p-5 text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg"
         style={cardBaseStyle}
         aria-label={`${title}: ${cta}`}
+        data-guide={dataGuide}
       >
         {inner}
       </button>
@@ -67,6 +69,7 @@ function ExploreCard({ title, tagline, body, cta, href, onClick }: ExploreCardDa
       className="group flex flex-col rounded-lg p-5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg"
       style={cardBaseStyle}
       aria-label={`${title}: ${cta}`}
+      data-guide={dataGuide}
     >
       {inner}
     </Link>
@@ -94,6 +97,7 @@ export function ExploreRuneSection({ onProgressClick, hideArena = false }: Explo
       cta: "View Progress →",
       href: "/profile",
       onClick: onProgressClick,
+      dataGuide: "dashboard-progress",
     },
     {
       title: "Insights",
@@ -107,7 +111,7 @@ export function ExploreRuneSection({ onProgressClick, hideArena = false }: Explo
   const cards = hideArena ? allCards.filter((c) => c.title !== "Arena") : allCards;
 
   return (
-    <section aria-label="Explore Rune">
+    <section aria-label="Explore Rune" data-guide="dashboard-explore">
       <p
         className="mb-4 text-xs font-semibold uppercase tracking-widest"
         style={{ color: "var(--color-mist)" }}
@@ -116,7 +120,7 @@ export function ExploreRuneSection({ onProgressClick, hideArena = false }: Explo
       </p>
       <nav
         aria-label="Rune features"
-        className="grid grid-cols-1 gap-4 sm:grid-cols-3"
+        className={`grid grid-cols-1 gap-4 ${cards.length === 2 ? "sm:grid-cols-2" : "sm:grid-cols-3"}`}
       >
         {cards.map((card) => (
           <ExploreCard key={card.title} {...card} />

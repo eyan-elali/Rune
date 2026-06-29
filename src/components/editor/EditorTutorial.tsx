@@ -59,6 +59,7 @@ export function EditorTutorial({ active }: Props) {
 
   const [running, setRunning] = useState(false);
   const [done, setDone] = useState(false);
+  const [showHelpCard, setShowHelpCard] = useState(false);
   const [step, setStep] = useState(0);
   const [rect, setRect] = useState<DOMRect | null>(null);
   const [mounted, setMounted] = useState(false);
@@ -86,14 +87,25 @@ export function EditorTutorial({ active }: Props) {
     await updatePreferences({ has_completed_editor_tutorial: true });
   }, [setPreferences]);
 
-  const handleComplete = useCallback(async () => {
+  const handleComplete = useCallback(() => {
+    setRunning(false);
+    setStep(0);
+    setRect(null);
+    setShowHelpCard(true);
+  }, []);
+
+  const handleSkip = useCallback(() => {
+    setRunning(false);
+    setStep(0);
+    setRect(null);
+    setShowHelpCard(true);
+  }, []);
+
+  const handleHelpCardDismiss = useCallback(async () => {
+    setShowHelpCard(false);
     await markComplete();
     setDone(true);
     setTimeout(() => setDone(false), 2600);
-  }, [markComplete]);
-
-  const handleSkip = useCallback(async () => {
-    await markComplete();
   }, [markComplete]);
 
   const advance = useCallback(() => {
@@ -142,7 +154,57 @@ export function EditorTutorial({ active }: Props) {
     };
   }, [running, step, currentStep]);
 
-  if (!mounted || (!running && !done)) return null;
+  if (!mounted || (!running && !done && !showHelpCard)) return null;
+
+  // ── Help card (shown after complete or skip) ─────────────────────────────────
+
+  if (showHelpCard) {
+    return createPortal(
+      <>
+        <div aria-hidden style={{ position: "fixed", inset: 0, background: "rgba(26,22,20,0.72)", zIndex: 199, pointerEvents: "none" }} />
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Guide help reminder"
+          style={{
+            position: "fixed",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            zIndex: 202,
+            width: "360px",
+            background: "var(--color-sepia)",
+            border: "1px solid var(--color-border-strong)",
+            borderRadius: "10px",
+            padding: "28px 24px",
+            boxShadow: "0 8px 32px rgba(0,0,0,0.45)",
+          }}
+        >
+          <p
+            className="font-rune-serif text-xl"
+            style={{ color: "var(--text-primary)", marginBottom: "10px" }}
+          >
+            Need help later?
+          </p>
+          <p
+            className="font-rune-serif text-sm leading-relaxed"
+            style={{ color: "var(--color-mist)", marginBottom: "22px" }}
+          >
+            Many pages in Rune have a small <strong style={{ color: "var(--color-gold)" }}>?</strong> button. Click it anytime to replay a short guide for that page.
+          </p>
+          <button
+            type="button"
+            onClick={handleHelpCardDismiss}
+            className="text-sm font-medium transition-opacity duration-150 hover:opacity-70"
+            style={{ color: "var(--color-gold)", cursor: "pointer" }}
+          >
+            Got it
+          </button>
+        </div>
+      </>,
+      document.body
+    );
+  }
 
   // ── Done state ───────────────────────────────────────────────────────────────
 
