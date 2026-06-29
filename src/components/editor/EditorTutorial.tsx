@@ -7,6 +7,7 @@ import { updatePreferences } from "@/lib/actions/settings";
 
 interface Step {
   spotlightId: string;
+  heading: string;
   copy: string;
   side: "right" | "bottom";
 }
@@ -14,27 +15,32 @@ interface Step {
 const STEPS: Step[] = [
   {
     spotlightId: "pages-sidebar",
-    copy: "Pages live here. Your manuscript is built one page at a time.",
+    heading: "Pages",
+    copy: "Each page is a place to write. Create as many as you need for a chapter.",
     side: "right",
   },
   {
     spotlightId: "chapter-switch-btn",
-    copy: "This switch lets you move between chapters without leaving the editor.",
+    heading: "Quick Chapter Switch",
+    copy: "Switch between chapters without leaving the editor.",
     side: "right",
   },
   {
     spotlightId: "canonical-control",
-    copy: "Canonical pages decide which draft counts toward your manuscript.",
+    heading: "Canonical Page",
+    copy: "Choose which page represents the current version of this chapter.",
     side: "right",
   },
   {
     spotlightId: "focus-mode-btn",
-    copy: "Focus Mode hides everything except the page.",
+    heading: "Focus Mode",
+    copy: "Hide the interface so you can focus only on your writing.",
     side: "bottom",
   },
   {
     spotlightId: "export-btn",
-    copy: "Export your pages from here when you're ready.",
+    heading: "Export",
+    copy: "Export your manuscript whenever you're ready.",
     side: "bottom",
   },
 ];
@@ -183,7 +189,9 @@ export function EditorTutorial({ active }: Props) {
   const tooltipBase: React.CSSProperties = {
     position: "fixed",
     zIndex: 202,
-    maxWidth: "260px",
+    minWidth: "340px",
+    maxWidth: "420px",
+    width: "max-content",
     background: "var(--color-sepia)",
     border: "1px solid var(--color-border-strong)",
     borderRadius: "8px",
@@ -276,6 +284,12 @@ export function EditorTutorial({ active }: Props) {
        * interceptor's advance handler.
        */}
       <div style={{ ...tooltipBase, ...tooltipPos }}>
+        <p
+          className="font-rune-serif text-xs font-medium"
+          style={{ color: "var(--color-gold)", marginBottom: "4px", letterSpacing: "0.04em", textTransform: "uppercase" }}
+        >
+          {currentStep.heading}
+        </p>
         <p
           className="font-rune-serif text-sm leading-relaxed"
           style={{ color: "var(--text-primary)", marginBottom: "14px" }}
