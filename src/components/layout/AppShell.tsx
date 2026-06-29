@@ -6,7 +6,6 @@ import { useModeStore, type Mode } from "@/store/modeStore";
 import { useGameStore } from "@/store/gameStore";
 import { useToastStore } from "@/store/toastStore";
 import { useProfileStore } from "@/store/profileStore";
-import { useOnboardingStore } from "@/store/onboardingStore";
 import { ModeToggle } from "@/components/ui/ModeToggle";
 import { ThemeApplier } from "@/components/layout/ThemeApplier";
 import { Sidebar } from "@/components/layout/Sidebar";
@@ -48,11 +47,6 @@ export function AppShell({ profile, children }: AppShellProps) {
     mode === "focus" && pathname.includes("/chapters/");
   const shouldHideUI = shouldHideFocusUI || isRaceActive || isBattleActive;
 
-  const phase = useOnboardingStore((s) => s.phase);
-  const isOnboardingWriting = phase === "writing";
-  const isOnboardingRevealing = phase === "revealing";
-  const isOnboardingPhase = isOnboardingWriting || isOnboardingRevealing;
-
   useEffect(() => {
     modeRef.current = mode;
   }, [mode]);
@@ -85,9 +79,8 @@ export function AppShell({ profile, children }: AppShellProps) {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [setMode, showToast]);
 
-  // Sidebar: absent from DOM during onboarding writing; animates in during reveal.
-  // Focus/race/battle: also removed from DOM (existing behaviour).
-  const renderSidebar = !shouldHideUI && !isOnboardingWriting;
+  const renderSidebar = !shouldHideUI;
+  const renderHeader = !shouldHideUI;
 
   const sidebarStyle: React.CSSProperties = {
     width: sidebarCollapsed ? "64px" : "260px",
@@ -96,9 +89,6 @@ export function AppShell({ profile, children }: AppShellProps) {
     transition: "width 0.25s ease, min-width 0.25s ease",
   };
 
-  // Header: same logic — absent during writing, animates in during reveal.
-  const renderHeader = !shouldHideUI && !isOnboardingWriting;
-
   return (
     <div
       className="flex h-screen w-full overflow-hidden"
@@ -106,32 +96,17 @@ export function AppShell({ profile, children }: AppShellProps) {
     >
       <ThemeApplier />
       {renderSidebar && (
-        <div
-          className={
-            isOnboardingRevealing
-              ? sidebarCollapsed
-                ? "rune-sidebar-enter-collapsed flex h-screen flex-col"
-                : "rune-sidebar-enter flex h-screen flex-col"
-              : "flex h-screen flex-col overflow-hidden"
-          }
-          style={isOnboardingRevealing ? {} : sidebarStyle}
-        >
+        <div className="flex h-screen flex-col overflow-hidden" style={sidebarStyle}>
           <Sidebar displayName={displayName} />
         </div>
       )}
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        {renderHeader && (
-          <div className={isOnboardingRevealing ? "rune-header-enter" : undefined}>
-            <Header />
-          </div>
-        )}
+        {renderHeader && <Header />}
         <main
           className="relative min-h-0 flex-1 overflow-auto"
           style={{
-            background: shouldHideUI || isOnboardingPhase
-              ? "var(--surface-editor)"
-              : "var(--bg-primary)",
+            background: shouldHideUI ? "var(--surface-editor)" : "var(--bg-primary)",
           }}
         >
           {children}

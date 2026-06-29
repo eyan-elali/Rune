@@ -40,15 +40,14 @@ export function OnboardingClient({ authorName }: Props) {
   const titleRef = useRef<HTMLInputElement>(null);
   const [, startTransition] = useTransition();
   const editorUrlRef = useRef<string>("");
-  // Once we've started the real route navigation, prevent a second call from
-  // handleFirstSavePersisted (which fires later, after first save).
-  const hasNavigatedRef = useRef(false);
+  const hasShownBegunRef = useRef(false);
 
   const [title, setTitle] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [stage, setStage] = useState<Stage>("form");
   const [writingData, setWritingData] = useState<WritingSceneData | null>(null);
+  const [showBegunMessage, setShowBegunMessage] = useState(false);
 
   const hasValidTitle = title.trim().length > 0;
   const buttonActive = hasValidTitle && !loading;
@@ -100,17 +99,19 @@ export function OnboardingClient({ authorName }: Props) {
     setStage("writing");
   }
 
-  // Called by EditorShell after the first successful save with words > 0.
-  // By this point markFirstWordsSaved has already persisted the flag via API route,
-  // so the editor route's server component will load with isOnboarding = false.
+  // Called by EditorShell after the first sentence is saved and the flag persisted.
+  // Shows the "Your story has begun." transition, then navigates to the real editor.
   function handleFirstSavePersisted() {
-    if (hasNavigatedRef.current) return;
-    hasNavigatedRef.current = true;
+    if (hasShownBegunRef.current) return;
+    hasShownBegunRef.current = true;
     const url = editorUrlRef.current;
     if (!url) return;
-    startTransition(() => {
-      router.replace(url);
-    });
+    setShowBegunMessage(true);
+    setTimeout(() => {
+      startTransition(() => {
+        router.replace(url);
+      });
+    }, 2200);
   }
 
   const allChapters: ChapterWithStats[] = writingData
@@ -279,6 +280,21 @@ export function OnboardingClient({ authorName }: Props) {
             isOnboarding={true}
             onFirstSavePersisted={handleFirstSavePersisted}
           />
+
+          {/* "Your story has begun." — fades in after first sentence saved */}
+          {showBegunMessage && (
+            <div
+              className="rune-story-begun pointer-events-none fixed inset-0 z-50 flex items-center justify-center"
+              style={{ background: "var(--surface-editor)" }}
+            >
+              <p
+                className="font-rune-serif text-2xl italic"
+                style={{ color: "var(--color-mist)" }}
+              >
+                Your story has begun.
+              </p>
+            </div>
+          )}
         </div>
       )}
     </>

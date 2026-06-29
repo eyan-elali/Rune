@@ -15,11 +15,9 @@ import {
 import { cachePage, cacheChapterMeta } from "@/lib/offline/db";
 import { useEditorStore } from "@/store/editorStore";
 import { useModeStore } from "@/store/modeStore";
-import { useOnboardingStore } from "@/store/onboardingStore";
 import { useProfileStore } from "@/store/profileStore";
-// markFirstWordsSaved is intentionally called via API route (not server action)
-// to prevent Next.js from auto-refreshing /onboarding after the call — see
-// /api/onboarding/first-words/route.ts
+// markFirstWordsSaved is called via API route (not server action) to prevent
+// Next.js from auto-refreshing /onboarding after the call.
 
 type ChapterWithStats = Chapter & { pages: { id: string; word_count: number }[] };
 
@@ -64,22 +62,8 @@ export function EditorShell({
   const mode = useModeStore((s) => s.mode);
   const shouldHideFocusUI = mode === "focus" && pathname.includes("/chapters/");
 
-  const { phase, setPhase } = useOnboardingStore();
   const setProfile = useProfileStore((s) => s.setProfile);
   const profile = useProfileStore((s) => s.profile);
-
-  const revealTriggeredRef = useRef(false);
-
-  // Mount/unmount: activate onboarding phase; reset on leave.
-  useEffect(() => {
-    if (isOnboarding) {
-      setPhase("writing");
-    }
-    return () => {
-      setPhase("done");
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   useEffect(() => {
     if (selectedPageId) {
@@ -163,72 +147,47 @@ export function EditorShell({
     await clearCanonicalPage(chapterId);
   }, [chapterId]);
 
-  // Called by RuneEditor when first completed word is detected in the editor.
-  // Triggers the reveal animation. Fires independently of autosave.
-  const handleFirstWordDetected = useCallback(() => {
-    if (revealTriggeredRef.current) return;
-    revealTriggeredRef.current = true;
-
-    setPhase("revealing");
-
-    // 1000ms: long enough for all reveal animations to complete (panel finishes ~800ms,
-    // word-count status finishes ~1000ms).
-    setTimeout(() => setPhase("done"), 1000);
-  }, [setPhase]);
-
-  // Called by RuneEditor after the first successful autosave with words > 0.
-  // Handles DB persistence only. Also triggers reveal as a fallback.
-  const handleFirstSave = useCallback(() => {
-    // Use a plain fetch (not a server action) so Next.js does NOT auto-refresh
-    // /onboarding after the write. Await the write before signalling the parent
-    // so the editor route's server component sees has_written_first_words = true
-    // when it loads, ensuring isOnboarding = false from the start.
-    void fetch("/api/onboarding/first-words", { method: "POST" }).then(() => {
-      onFirstSavePersisted?.();
-    });
+  // Called by RuneEditor after detecting the first sentence AND persisting content.
+  // Marks has_written_first_words in the DB, then signals parent to show the
+  // "Your story has begun." transition and navigate to the real editor.
+  const handleFirstSentenceSaved = useCallback(() => {
     if (profile) {
       setProfile({ ...profile, has_written_first_words: true });
     }
-    // Fallback: reveal if word detection didn't fire (edge case)
-    if (!revealTriggeredRef.current) {
-      handleFirstWordDetected();
-    }
-  }, [profile, setProfile, handleFirstWordDetected, onFirstSavePersisted]);
+    void fetch("/api/onboarding/first-words", { method: "POST" }).then((res) => {
+      if (res.ok) {
+        onFirstSavePersisted?.();
+      }
+      // If the API call fails, do nothing — user stays on the writing scene.
+    });
+  }, [profile, setProfile, onFirstSavePersisted]);
 
 
-  const isOnboardingWriting = isOnboarding && phase === "writing";
-  const isOnboardingRevealing = isOnboarding && phase === "revealing";
-
-  // Page list: absent during onboarding writing phase (not invisible — absent).
-  // Fades in during reveal via CSS animation class.
-  const renderPageList = !shouldHideFocusUI && !isOnboardingWriting;
-
-  // Export toolbar hidden during onboarding writing; fades in during reveal.
-  const showExportToolbar = !shouldHideFocusUI && !isOnboardingWriting;
+  // Page list and export toolbar are hidden during the onboarding writing scene.
+  const renderPageList = !shouldHideFocusUI && !isOnboarding;
+  const showExportToolbar = !shouldHideFocusUI && !isOnboarding;
 
   return (
     <div className="flex min-h-0 h-full overflow-hidden">
       {renderPageList && (
-        <div className={isOnboardingRevealing ? "rune-panel-enter" : undefined}>
-          <PageList
-            pages={pages}
-            selectedPageId={selectedPageId}
-            onSelectPage={handleSelectPage}
-            onAddPage={handleAddPage}
-            onDeletePage={handleDeletePage}
-            onRenamePage={handleRenamePage}
-            onSetCanonical={handleSetCanonical}
-            onClearCanonical={handleClearCanonical}
-            allChapters={allChapters}
-            currentChapterId={chapterId}
-            projectId={projectId}
-          />
-        </div>
+        <PageList
+          pages={pages}
+          selectedPageId={selectedPageId}
+          onSelectPage={handleSelectPage}
+          onAddPage={handleAddPage}
+          onDeletePage={handleDeletePage}
+          onRenamePage={handleRenamePage}
+          onSetCanonical={handleSetCanonical}
+          onClearCanonical={handleClearCanonical}
+          allChapters={allChapters}
+          currentChapterId={chapterId}
+          projectId={projectId}
+        />
       )}
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         {showExportToolbar && (
           <div
-            className={`flex shrink-0 items-center justify-end px-4 py-1.5${isOnboardingRevealing ? " rune-panel-enter" : ""}`}
+            className="flex shrink-0 items-center justify-end px-4 py-1.5"
             style={{
               borderBottom: "1px solid var(--color-border)",
               background: "var(--surface-editor)",
@@ -245,11 +204,9 @@ export function EditorShell({
           onRenamePage={handleRenamePage}
           isOnboarding={isOnboarding}
           onboardingProjectTitle={isOnboarding ? project.title : undefined}
-          onFirstWordDetected={isOnboarding ? handleFirstWordDetected : undefined}
-          onFirstSave={isOnboarding ? handleFirstSave : undefined}
+          onFirstSentenceSaved={isOnboarding ? handleFirstSentenceSaved : undefined}
         />
       </div>
-
     </div>
   );
 }

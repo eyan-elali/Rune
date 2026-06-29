@@ -19,7 +19,6 @@ import { useEditorStore } from "@/store/editorStore";
 import { useModeStore } from "@/store/modeStore";
 import { useProfileStore } from "@/store/profileStore";
 import { useToastStore } from "@/store/toastStore";
-import { useOnboardingStore } from "@/store/onboardingStore";
 import type { Page, UserPreferences } from "@/lib/types";
 
 type DisplaySyncStatus = 'synced' | 'online_dirty' | 'offline_dirty' | 'syncing' | 'conflict'
@@ -50,8 +49,7 @@ interface RuneEditorProps {
   onRenamePage: (pageId: string, title: string) => void;
   isOnboarding?: boolean;
   onboardingProjectTitle?: string;
-  onFirstWordDetected?: () => void;
-  onFirstSave?: () => void;
+  onFirstSentenceSaved?: () => void;
 }
 
 interface ToolbarPos {
@@ -67,8 +65,7 @@ export default function RuneEditor({
   onRenamePage,
   isOnboarding = false,
   onboardingProjectTitle,
-  onFirstWordDetected,
-  onFirstSave,
+  onFirstSentenceSaved,
 }: RuneEditorProps) {
   const { setIsSaving, setLastSaved } = useEditorStore();
   const showToast = useToastStore((s) => s.showToast);
@@ -78,7 +75,6 @@ export default function RuneEditor({
   const userId = useProfileStore((s) => s.profile?.id);
   const isFocusMode = useModeStore((s) => s.mode === "focus");
   const isOnline = useNetworkStore((s) => s.isOnline);
-  const phase = useOnboardingStore((s) => s.phase);
   const prefs = (rawPrefs ?? {}) as Partial<UserPreferences>;
   const fontSize = prefs.fontSize ?? 18;
   const lineHeight = prefs.lineHeight ?? 1.9;
@@ -102,14 +98,10 @@ export default function RuneEditor({
   const xpFlashTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  // Guards the one-time first-word reveal callback.
-  const hasRevealedRef = useRef(false);
-  // Stays current with the onFirstWordDetected prop inside stale closures.
-  const onFirstWordDetectedRef = useRef(onFirstWordDetected);
-  useEffect(() => { onFirstWordDetectedRef.current = onFirstWordDetected; }, [onFirstWordDetected]);
-
-  // Tracks whether the one-time first-save callback has been called.
-  const hasCalledFirstSaveRef = useRef(false);
+  // Guards the one-time first-sentence-saved callback.
+  const hasTriggeredFirstSentenceRef = useRef(false);
+  const onFirstSentenceSavedRef = useRef(onFirstSentenceSaved);
+  useEffect(() => { onFirstSentenceSavedRef.current = onFirstSentenceSaved; }, [onFirstSentenceSaved]);
 
 
   const currentPageRef = useRef<Page | null>(currentPage);
@@ -238,13 +230,8 @@ export default function RuneEditor({
       setSyncStatusAndRef(mapDisplayStatus(dbStatus, isOnlineRef.current));
     });
 
-    // Fire the first-save callback exactly once, after a successful save with words.
-    if (isOnboarding && !hasCalledFirstSaveRef.current && wordCount > 0) {
-      hasCalledFirstSaveRef.current = true;
-      onFirstSave?.();
-    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOnboarding]);
+  }, []);
 
   const handleSaveRef = useRef(handleSave);
   useEffect(() => { handleSaveRef.current = handleSave; }, [handleSave]);
@@ -282,16 +269,7 @@ export default function RuneEditor({
     onUpdate({ editor }) {
       if (isLoadingRef.current) return;
 
-      // Detect first completed word (≥2 non-whitespace chars followed by whitespace).
-      // Fires before the autosave debounce so the reveal starts immediately.
-      if (isOnboarding && !hasRevealedRef.current) {
-        const text = editor.getText();
-        if (/\S{2,}\s/.test(text)) {
-          hasRevealedRef.current = true;
-          onFirstWordDetectedRef.current?.();
-        }
-      }
-
+      // Per-keystroke IDB write (best-effort, always runs first)
       const pageNow = currentPageRef.current;
       const uidNow = userIdRef.current;
       if (pageNow && uidNow) {
@@ -304,6 +282,22 @@ export default function RuneEditor({
         }
         if (syncStatusRef.current !== 'conflict') {
           setSyncStatusAndRef(isOnlineRef.current ? 'online_dirty' : 'offline_dirty');
+        }
+      }
+
+      // First-sentence detection for onboarding: trigger immediate save then notify parent.
+      if (isOnboarding && !hasTriggeredFirstSentenceRef.current) {
+        const text = editor.getText().trim();
+        const words = text.split(/\s+/).filter(w => w.length > 0);
+        if (words.length >= 2 && /[.!?]$/.test(text)) {
+          hasTriggeredFirstSentenceRef.current = true;
+          clearTimeout(saveTimerRef.current);
+          const content = editor.getJSON() as Record<string, unknown>;
+          const wordCount = (editor.storage.characterCount?.words?.() as number | undefined) ?? 0;
+          void handleSaveRef.current(content, wordCount).then(() => {
+            onFirstSentenceSavedRef.current?.();
+          });
+          return;
         }
       }
 
@@ -329,8 +323,7 @@ export default function RuneEditor({
               if (result.data.leveledUp) {
                 setPendingLevelUp({ newLevel: result.data.newLevel, newUnlockables: result.data.newUnlockables });
               }
-              // Suppress XP flash during onboarding writing phase
-              if (!isFocusModeRef.current && !(isOnboarding && phase === "writing")) {
+              if (!isFocusModeRef.current && !isOnboarding) {
                 setXpFlash({ id: Date.now(), amount: xpGain });
                 clearTimeout(xpFlashTimerRef.current);
                 xpFlashTimerRef.current = setTimeout(() => setXpFlash(null), 2200);
@@ -504,14 +497,9 @@ export default function RuneEditor({
     );
   }
 
-  const isWritingPhase = isOnboarding && phase === "writing";
-  const isRevealingPhase = isOnboarding && phase === "revealing";
-
-  // Status pill and XP flash: hidden during onboarding writing phase, fade in during reveal.
-  const uiChromeFadeStyle: React.CSSProperties = isWritingPhase
-    ? { opacity: 0, pointerEvents: "none", transition: "none" }
-    : isRevealingPhase
-    ? { opacity: 1, transition: "opacity 0.5s ease 0.5s" }
+  // Chrome (word count, sync status, XP flash) hidden during onboarding writing scene.
+  const uiChromeFadeStyle: React.CSSProperties = isOnboarding
+    ? { opacity: 0, pointerEvents: "none" }
     : {};
 
   return (
@@ -598,87 +586,60 @@ export default function RuneEditor({
         <div
           className={cn(
             "mx-auto w-full px-6 pb-16 min-h-[calc(100vh-9rem)]",
-            !isWritingPhase && !isRevealingPhase && "pt-24",
+            !isOnboarding && "pt-24",
             wideEditor ? "max-w-5xl" : "max-w-2xl"
           )}
-          style={
-            isWritingPhase
-              ? { paddingTop: "35vh" }
-              : isRevealingPhase
-              ? {
-                  paddingTop: "6rem",
-                  transition: "padding-top 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94)",
-                }
-              : undefined
-          }
+          style={isOnboarding ? { paddingTop: "35vh" } : undefined}
         >
-          {/*
-            Title area: CSS grid stacks project title and page title in the same
-            cell so neither causes a layout shift when the other fades in/out.
-          */}
-          <div style={{ display: "grid", marginBottom: "2.5rem" }}>
-            {/* Project title: full opacity during writing, fades to 0 on reveal */}
-            {isOnboarding && phase !== "done" && (
+          <div style={{ marginBottom: "2.5rem" }}>
+            {/* Project title — shown in place of page title during onboarding writing */}
+            {isOnboarding ? (
               <h1
                 className="select-none font-rune-serif text-3xl font-bold tracking-tight"
-                style={{
-                  gridRow: 1,
-                  gridColumn: 1,
-                  color: "var(--editor-text)",
-                  pointerEvents: "none",
-                  opacity: isWritingPhase ? 1 : 0,
-                  transition: isRevealingPhase ? "opacity 0.3s ease" : "none",
-                }}
+                style={{ color: "var(--editor-text)", pointerEvents: "none" }}
                 aria-hidden
               >
                 {onboardingProjectTitle}
               </h1>
+            ) : (
+              <input
+                id={`page-title-${currentPage.id}`}
+                type="text"
+                value={titleDraft}
+                onChange={(e) => setTitleDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    (e.target as HTMLInputElement).blur();
+                  }
+                  if (e.key === "Escape") {
+                    e.preventDefault();
+                    flushSync(() => setTitleDraft(currentPage.title));
+                    (e.target as HTMLInputElement).blur();
+                  }
+                }}
+                className="w-full bg-transparent font-serif text-3xl font-bold tracking-tight outline-none ring-0 focus:outline-none"
+                style={{
+                  color: "var(--editor-text)",
+                  borderBottom: "1px solid transparent",
+                }}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderBottomColor = "var(--color-border-strong)";
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderBottomColor = "transparent";
+                  void commitTitle();
+                }}
+                aria-label="Page title"
+              />
             )}
-
-            {/* Page title input: invisible during writing, fades in on reveal */}
-            <input
-              id={`page-title-${currentPage.id}`}
-              type="text"
-              value={titleDraft}
-              onChange={(e) => setTitleDraft(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  (e.target as HTMLInputElement).blur();
-                }
-                if (e.key === "Escape") {
-                  e.preventDefault();
-                  flushSync(() => setTitleDraft(currentPage.title));
-                  (e.target as HTMLInputElement).blur();
-                }
-              }}
-              className="w-full bg-transparent font-serif text-3xl font-bold tracking-tight outline-none ring-0 focus:outline-none"
-              style={{
-                gridRow: 1,
-                gridColumn: 1,
-                color: "var(--editor-text)",
-                borderBottom: "1px solid transparent",
-                opacity: isWritingPhase ? 0 : 1,
-                transition: isRevealingPhase ? "opacity 0.35s ease 0.2s" : "none",
-                pointerEvents: isWritingPhase ? "none" : "auto",
-              }}
-              onFocus={(e) => {
-                e.currentTarget.style.borderBottomColor = "var(--color-border-strong)";
-              }}
-              onBlur={(e) => {
-                e.currentTarget.style.borderBottomColor = "transparent";
-                void commitTitle();
-              }}
-              aria-label="Page title"
-              tabIndex={isWritingPhase ? -1 : 0}
-            />
           </div>
 
           {editor ? <EditorContent editor={editor} /> : null}
         </div>
       </div>
 
-      {/* Sync status + local draft notice — hidden during onboarding writing phase */}
+      {/* Sync status + local draft notice — hidden during onboarding */}
       <div
         className="fixed bottom-[4.5rem] right-7 z-40 md:bottom-[5rem] md:right-9 flex flex-col items-end gap-1"
         style={{
@@ -804,7 +765,7 @@ export default function RuneEditor({
         />
       )}
 
-      {/* Floating Word Count Pill + XP flash — hidden during onboarding writing phase */}
+      {/* Floating Word Count Pill + XP flash — hidden during onboarding */}
       <div
         className="fixed bottom-6 right-6 md:bottom-8 md:right-8 z-50 flex flex-col items-end gap-1.5"
         style={uiChromeFadeStyle}
