@@ -39,6 +39,7 @@ interface EditorShellProps {
   project: Project;
   allChapters: ChapterWithStats[];
   showTutorial?: boolean;
+  forceTutorial?: boolean;
 }
 
 export function EditorShell({
@@ -49,6 +50,7 @@ export function EditorShell({
   project,
   allChapters,
   showTutorial = false,
+  forceTutorial = false,
 }: EditorShellProps) {
   const [pages, setPages] = useState<Page[]>(initialPages);
   const [selectedPageId, setSelectedPageId] = useState<string | null>(
@@ -143,7 +145,7 @@ export function EditorShell({
 
   return (
     <div className="flex min-h-0 h-full overflow-hidden">
-      <EditorTutorial active={showTutorial} />
+      <EditorTutorial active={showTutorial} forceRun={forceTutorial} />
       {!shouldHideFocusUI && (
         <PageList
           pages={pages}

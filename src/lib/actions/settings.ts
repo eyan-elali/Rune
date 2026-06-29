@@ -112,6 +112,33 @@ export async function exportUserData(): Promise<{
   };
 }
 
+export async function getRecentEditorChapter(): Promise<{
+  projectId: string;
+  chapterId: string;
+} | null> {
+  const { supabase, user } = await getAuthUser();
+  if (!user) return null;
+
+  const { data: projects } = await supabase
+    .from("projects")
+    .select("id")
+    .eq("user_id", user.id);
+
+  const projectIds = (projects ?? []).map((p: { id: string }) => p.id);
+  if (!projectIds.length) return null;
+
+  const { data: chapters } = await supabase
+    .from("chapters")
+    .select("id, project_id")
+    .in("project_id", projectIds)
+    .order("updated_at", { ascending: false })
+    .limit(1);
+
+  const chapter = chapters?.[0];
+  if (!chapter) return null;
+  return { projectId: chapter.project_id, chapterId: chapter.id };
+}
+
 export async function markFirstWordsSaved(): Promise<ActionResult> {
   const { supabase, user } = await getAuthUser();
   if (!user) return { error: "Not authenticated" };

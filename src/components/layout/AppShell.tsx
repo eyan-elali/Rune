@@ -10,16 +10,18 @@ import { ThemeApplier } from "@/components/layout/ThemeApplier";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { LevelUpModal } from "@/components/ui/LevelUpModal";
+import { UpdateNotice } from "@/components/ui/UpdateNotice";
 import { useUIStore } from "@/store/uiStore";
 import type { ReactNode } from "react";
 import type { Profile } from "@/lib/types";
 
 interface AppShellProps {
   profile: Profile | null;
+  showUpdateNotice?: boolean;
   children: ReactNode;
 }
 
-export function AppShell({ profile, children }: AppShellProps) {
+export function AppShell({ profile, showUpdateNotice = false, children }: AppShellProps) {
   const pathname = usePathname();
   const { mode, setMode } = useModeStore();
   const setProfile = useProfileStore((s) => s.setProfile);
@@ -103,6 +105,7 @@ export function AppShell({ profile, children }: AppShellProps) {
       </div>
 
       <LevelUpModal />
+      {showUpdateNotice && <UpdateNotice />}
 
       {shouldHideFocusUI && (
         <>

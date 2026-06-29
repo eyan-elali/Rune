@@ -45,7 +45,7 @@ export async function POST(req: Request) {
 
   const { data: profileRow } = await supabase
     .from("profiles")
-    .select("subscription_tier")
+    .select("subscription_tier, preferences")
     .eq("id", user.id)
     .single();
 
@@ -114,9 +114,13 @@ export async function POST(req: Request) {
     );
   }
 
+  const currentPrefs = (profileRow?.preferences as Record<string, unknown>) ?? {};
   await supabase
     .from("profiles")
-    .update({ has_written_first_words: true })
+    .update({
+      has_written_first_words: true,
+      preferences: { ...currentPrefs, has_seen_guides_update_notice: true },
+    })
     .eq("id", user.id);
 
   return NextResponse.json({

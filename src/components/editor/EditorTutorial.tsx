@@ -51,9 +51,10 @@ const OVERLAY_BG = "rgba(26,22,20,0.72)";
 
 interface Props {
   active: boolean;
+  forceRun?: boolean;
 }
 
-export function EditorTutorial({ active }: Props) {
+export function EditorTutorial({ active, forceRun = false }: Props) {
   const profile = useProfileStore((s) => s.profile);
   const setPreferences = useProfileStore((s) => s.setPreferences);
 
@@ -74,10 +75,10 @@ export function EditorTutorial({ active }: Props) {
   );
 
   useEffect(() => {
-    if (!active || alreadyCompleted || !mounted) return;
+    if (!active || (!forceRun && alreadyCompleted) || !mounted) return;
     const t = setTimeout(() => setRunning(true), 800);
     return () => clearTimeout(t);
-  }, [active, alreadyCompleted, mounted]);
+  }, [active, forceRun, alreadyCompleted, mounted]);
 
   const markComplete = useCallback(async () => {
     setRunning(false);

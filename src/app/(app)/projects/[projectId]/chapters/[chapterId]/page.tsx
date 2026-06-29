@@ -29,7 +29,8 @@ export default async function ChapterEditorPage({
 }: ChapterEditorPageProps) {
   const { projectId, chapterId } = await params;
   const { tutorial } = await searchParams;
-  const showTutorial = tutorial === "editor";
+  const showTutorial = tutorial === "editor" || tutorial === "returning";
+  const forceTutorial = tutorial === "returning";
   const supabase = await createClient();
 
   const [chapterResult, projectResult, pagesResult, chaptersResult] =
@@ -64,6 +65,7 @@ export default async function ChapterEditorPage({
         project={project}
         allChapters={chaptersResult.data ?? []}
         showTutorial={showTutorial}
+        forceTutorial={forceTutorial}
       />
     </div>
   );

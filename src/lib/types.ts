@@ -7,6 +7,7 @@ export interface UserPreferences {
   activeAvatar: string;
   activeFont: string;
   has_completed_editor_tutorial?: boolean;
+  has_seen_guides_update_notice?: boolean;
   hideArena?: boolean;
 }
 

@@ -49,11 +49,25 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
         .single()
     : { data: null };
 
+  // Determine if this returning user should see the one-time update notice.
+  let showUpdateNotice = false;
+  if (effectiveUser && profile) {
+    const prefs = (profile.preferences as Record<string, unknown>) ?? {};
+    const hasSeenNotice = prefs.has_seen_guides_update_notice === true;
+    if (!hasSeenNotice) {
+      const { count } = await supabase
+        .from("projects")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", effectiveUser.id);
+      showUpdateNotice = (count ?? 0) > 0;
+    }
+  }
+
   return (
     <>
       <NetworkProvider />
       <RegistrationTracker />
-      <AppShell profile={profile as Profile | null}>
+      <AppShell profile={profile as Profile | null} showUpdateNotice={showUpdateNotice}>
         {children}
       </AppShell>
     </>
