@@ -36,13 +36,6 @@ const DASHBOARD_GUIDE_STEPS: GuideStep[] = [
     copy: "Progress shows how your current manuscript is coming together.",
     side: "bottom",
   },
-  {
-    target: "dashboard-progress-drawer",
-    heading: "Progress Drawer",
-    copy: "The Progress drawer shows manuscript progress, milestones, chapter shape, and goal details.",
-    side: "left",
-    measureDelay: 400,
-  },
 ];
 
 
@@ -68,7 +61,6 @@ export function DashboardContent({
   const [progressEditGoal, setProgressEditGoal] = useState(false);
   const [localGoals, setLocalGoals] = useState<WritingGoal[]>(goals);
   const [guideOpen, setGuideOpen] = useState(false);
-  const [guideOpenedProgress, setGuideOpenedProgress] = useState(false);
 
   useEffect(() => {
     setLocalGoals(goals);
@@ -81,24 +73,6 @@ export function DashboardContent({
 
   function handleGoalsChange(newGoals: WritingGoal[]) {
     setLocalGoals(newGoals);
-  }
-
-  function handleGuideStepChange(stepIndex: number) {
-    if (stepIndex === 4) {
-      setGuideOpenedProgress(true);
-      setIsProgressOpen(true);
-    } else if (guideOpenedProgress) {
-      setIsProgressOpen(false);
-      setGuideOpenedProgress(false);
-    }
-  }
-
-  function handleGuideClose() {
-    setGuideOpen(false);
-    if (guideOpenedProgress) {
-      setIsProgressOpen(false);
-      setGuideOpenedProgress(false);
-    }
   }
 
   return (
@@ -160,8 +134,7 @@ export function DashboardContent({
       <PageGuide
         steps={DASHBOARD_GUIDE_STEPS}
         isOpen={guideOpen}
-        onClose={handleGuideClose}
-        onStepChange={handleGuideStepChange}
+        onClose={() => setGuideOpen(false)}
       />
 
       {/* Progress drawer */}
@@ -178,6 +151,7 @@ export function DashboardContent({
         avgWordsPerDay={avgWordsPerDay}
         onGoalsChange={handleGoalsChange}
         openInEditGoalMode={progressEditGoal}
+        guideActive={guideOpen}
       />
     </div>
   );

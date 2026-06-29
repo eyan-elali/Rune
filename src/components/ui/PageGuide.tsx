@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 
 export interface GuideStep {
@@ -32,11 +32,19 @@ const MAX_W = 400;
 const MARGIN = 8;
 const TOOLTIP_H = 160;
 
+function getTranslateX(el: HTMLElement): number {
+  const t = window.getComputedStyle(el).transform;
+  if (!t || t === "none") return 0;
+  const match = t.match(/matrix\([^,]+,[^,]+,[^,]+,[^,]+,\s*([-\d.]+)/);
+  return match ? Math.abs(parseFloat(match[1])) : 0;
+}
+
 export function PageGuide({ steps, isOpen, onClose, onStepChange }: PageGuideProps) {
   const [step, setStep] = useState(0);
   const [rect, setRect] = useState<MeasuredRect | null>(null);
   const [highlightRadius, setHighlightRadius] = useState("8px");
   const [mounted, setMounted] = useState(false);
+  const cleanupRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -46,7 +54,6 @@ export function PageGuide({ steps, isOpen, onClose, onStepChange }: PageGuidePro
     if (isOpen) setStep(0);
   }, [isOpen]);
 
-  // Notify parent of step changes
   useEffect(() => {
     if (!isOpen) return;
     onStepChange?.(step);
@@ -55,8 +62,12 @@ export function PageGuide({ steps, isOpen, onClose, onStepChange }: PageGuidePro
 
   const currentStep = steps[step];
 
-  // Measure target element
+  // Measure target element — waits for CSS slide-in animation to complete
   useEffect(() => {
+    // Cancel any in-flight listeners from the previous step
+    cleanupRef.current?.();
+    cleanupRef.current = null;
+
     if (!isOpen || !currentStep) {
       setRect(null);
       return;
@@ -66,45 +77,79 @@ export function PageGuide({ steps, isOpen, onClose, onStepChange }: PageGuidePro
       return;
     }
 
-    const delay = currentStep.measureDelay ?? 80;
     const target = currentStep.target;
+    const initialDelay = currentStep.measureDelay ?? 80;
+    let cancelled = false;
 
-    // Scroll the target into view immediately so the delayed measure reads a stable position
-    const targetEl = document.querySelector<HTMLElement>(`[data-guide="${target}"]`);
-    if (targetEl) {
-      targetEl.scrollIntoView({ behavior: "instant" as ScrollBehavior, block: "nearest" });
-    }
-
-    function measure() {
-      const el = document.querySelector<HTMLElement>(`[data-guide="${target}"]`);
-      if (!el) {
-        setRect(null);
-        setHighlightRadius("8px");
-        return;
-      }
-
+    function commit(el: HTMLElement) {
+      if (cancelled) return;
       const raw = el.getBoundingClientRect();
       const vh = window.innerHeight;
       const vw = window.innerWidth;
-
-      // Clip rect to viewport so the spotlight never extends off-screen
+      // Clip to viewport so spotlight never overflows (handles tall chapter lists, etc.)
       setRect({
         top: Math.max(0, raw.top),
         bottom: Math.min(vh, raw.bottom),
         left: Math.max(0, raw.left),
         right: Math.min(vw, raw.right),
       });
-
-      // Match highlight border radius to the target element
       const br = window.getComputedStyle(el).borderRadius;
       setHighlightRadius(br && br !== "0px" ? br : "8px");
     }
 
-    const t = setTimeout(measure, delay);
-    window.addEventListener("resize", measure);
+    // After the initial delay, check whether the element is still mid-transition.
+    // If it is, wait for transitionend rather than measuring a partially-animated rect.
+    const initTimer = setTimeout(() => {
+      if (cancelled) return;
+      const found = document.querySelector<HTMLElement>(`[data-guide="${target}"]`);
+      if (!found) { setRect(null); return; }
+      const el: HTMLElement = found;
+
+      if (getTranslateX(el) > 2) {
+        // Slide animation is in progress — wait for it to finish
+        let settled = false;
+        let fallback: ReturnType<typeof setTimeout>;
+
+        function onEnd(e: TransitionEvent) {
+          if (e.propertyName !== "transform" || settled) return;
+          settled = true;
+          clearTimeout(fallback);
+          el.removeEventListener("transitionend", onEnd);
+          commit(el);
+        }
+
+        el.addEventListener("transitionend", onEnd);
+
+        // Belt-and-suspenders: measure even if transitionend never fires
+        fallback = setTimeout(() => {
+          if (settled) return;
+          settled = true;
+          el.removeEventListener("transitionend", onEnd);
+          commit(el);
+        }, 700);
+
+        cleanupRef.current = () => {
+          settled = true;
+          clearTimeout(fallback);
+          el.removeEventListener("transitionend", onEnd);
+        };
+      } else {
+        commit(el);
+      }
+    }, initialDelay);
+
+    function onResize() {
+      const el = document.querySelector<HTMLElement>(`[data-guide="${target}"]`);
+      if (el) commit(el);
+    }
+    window.addEventListener("resize", onResize);
+
     return () => {
-      clearTimeout(t);
-      window.removeEventListener("resize", measure);
+      cancelled = true;
+      clearTimeout(initTimer);
+      cleanupRef.current?.();
+      cleanupRef.current = null;
+      window.removeEventListener("resize", onResize);
     };
   }, [isOpen, step, currentStep]);
 
@@ -171,7 +216,6 @@ export function PageGuide({ steps, isOpen, onClose, onStepChange }: PageGuidePro
     const vw = window.innerWidth;
     const vh = window.innerHeight;
     const top = Math.max(MARGIN, Math.min(sTop + sH / 2, vh - 120));
-    // If there isn't enough horizontal room to the left, center instead
     const spaceOnLeft = sLeft - TOOLTIP_GAP;
     if (spaceOnLeft < MAX_W + MARGIN) {
       tooltipPos = { top: "50%", left: "50%", transform: "translate(-50%, -50%)" };
@@ -183,7 +227,7 @@ export function PageGuide({ steps, isOpen, onClose, onStepChange }: PageGuidePro
       };
     }
   } else {
-    // bottom (default) — flip above when the tooltip would clip off-screen
+    // bottom — flip above if tooltip would clip off-screen
     const vw = window.innerWidth;
     const vh = window.innerHeight;
     const centerX = sLeft + sW / 2;
@@ -193,7 +237,6 @@ export function PageGuide({ steps, isOpen, onClose, onStepChange }: PageGuidePro
     if (wouldClipBottom && canFlipAbove) {
       tooltipPos = { bottom: `${vh - sTop + TOOLTIP_GAP}px`, left: `${left}px` };
     } else if (wouldClipBottom) {
-      // No room above or below — center
       tooltipPos = { top: "50%", left: "50%", transform: "translate(-50%, -50%)" };
     } else {
       tooltipPos = { top: `${sBottom + TOOLTIP_GAP}px`, left: `${left}px` };

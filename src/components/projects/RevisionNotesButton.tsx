@@ -18,9 +18,10 @@ interface Props {
   projectId: string;
   externalOpen?: boolean;
   onExternalClose?: () => void;
+  guideActive?: boolean;
 }
 
-export function RevisionNotesButton({ projectId, externalOpen, onExternalClose }: Props) {
+export function RevisionNotesButton({ projectId, externalOpen, onExternalClose, guideActive = false }: Props) {
   const [isOpen, setIsOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
 
@@ -71,6 +72,7 @@ export function RevisionNotesButton({ projectId, externalOpen, onExternalClose }
             projectId={projectId}
             isOpen={effectiveOpen}
             onClose={close}
+            guideActive={guideActive}
           />,
           document.body
         )}
@@ -84,9 +86,10 @@ interface DrawerProps {
   projectId: string;
   isOpen: boolean;
   onClose: () => void;
+  guideActive?: boolean;
 }
 
-function RevisionNotesDrawer({ projectId, isOpen, onClose }: DrawerProps) {
+function RevisionNotesDrawer({ projectId, isOpen, onClose, guideActive = false }: DrawerProps) {
   const [notes, setNotes] = useState<ProjectNote[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [newContent, setNewContent] = useState("");
@@ -204,8 +207,8 @@ function RevisionNotesDrawer({ projectId, isOpen, onClose }: DrawerProps) {
         className="fixed inset-0 z-40 transition-opacity duration-300"
         style={{
           background: "var(--color-ink)",
-          opacity: isOpen ? 0.22 : 0,
-          pointerEvents: isOpen ? "auto" : "none",
+          opacity: isOpen && !guideActive ? 0.22 : 0,
+          pointerEvents: isOpen && !guideActive ? "auto" : "none",
         }}
         onClick={onClose}
       />

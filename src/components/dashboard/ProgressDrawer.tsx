@@ -94,6 +94,7 @@ export interface ProgressDrawerProps {
   avgWordsPerDay: number;
   onGoalsChange: (goals: WritingGoal[]) => void;
   openInEditGoalMode?: boolean;
+  guideActive?: boolean;
 }
 
 // ── Component ──────────────────────────────────────────────────────────────────
@@ -108,6 +109,7 @@ export function ProgressDrawer({
   avgWordsPerDay,
   onGoalsChange,
   openInEditGoalMode = false,
+  guideActive = false,
 }: ProgressDrawerProps) {
   const router = useRouter();
 
@@ -337,8 +339,8 @@ export function ProgressDrawer({
         className="fixed inset-0 z-40 transition-opacity duration-300"
         style={{
           background: "var(--color-ink)",
-          opacity: isOpen ? 0.22 : 0,
-          pointerEvents: isOpen ? "auto" : "none",
+          opacity: isOpen && !guideActive ? 0.22 : 0,
+          pointerEvents: isOpen && !guideActive ? "auto" : "none",
         }}
         onClick={onClose}
       />

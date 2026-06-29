@@ -46,13 +46,6 @@ const STEPS: GuideStep[] = [
     side: "bottom",
   },
   {
-    target: "project-notes-drawer",
-    heading: "Notes Drawer",
-    copy: "Use the Notes drawer to add revision notes, check them off, and pin one as Today's Focus.",
-    side: "left",
-    measureDelay: 400,
-  },
-  {
     target: "project-new-draft",
     heading: "New Draft",
     copy: "New Draft duplicates this project so you can revise separately without changing the original.",
@@ -75,26 +68,6 @@ export function ProjectHeader({
   totalChapters,
 }: ProjectHeaderProps) {
   const [guideOpen, setGuideOpen] = useState(false);
-  const [notesOpen, setNotesOpen] = useState(false);
-  const [guideOpenedNotes, setGuideOpenedNotes] = useState(false);
-
-  function handleStepChange(stepIndex: number) {
-    if (stepIndex === 4) {
-      setNotesOpen(true);
-      setGuideOpenedNotes(true);
-    } else if (guideOpenedNotes) {
-      setNotesOpen(false);
-      setGuideOpenedNotes(false);
-    }
-  }
-
-  function handleGuideClose() {
-    setGuideOpen(false);
-    if (guideOpenedNotes) {
-      setNotesOpen(false);
-      setGuideOpenedNotes(false);
-    }
-  }
 
   return (
     <div className="mb-8">
@@ -154,8 +127,6 @@ export function ProjectHeader({
             <div data-guide="project-notes">
               <RevisionNotesButton
                 projectId={project.id}
-                externalOpen={notesOpen}
-                onExternalClose={() => setNotesOpen(false)}
               />
             </div>
             <div data-guide="project-new-draft">
@@ -174,8 +145,7 @@ export function ProjectHeader({
       <PageGuide
         steps={STEPS}
         isOpen={guideOpen}
-        onClose={handleGuideClose}
-        onStepChange={handleStepChange}
+        onClose={() => setGuideOpen(false)}
       />
     </div>
   );
