@@ -6,7 +6,7 @@ import Placeholder from "@tiptap/extension-placeholder";
 import CharacterCount from "@tiptap/extension-character-count";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
-import { cn } from "@/lib/utils";
+import { cn, getLocalDateString } from "@/lib/utils";
 import { renamePage } from "@/lib/actions/pages";
 import { recordWordsWritten } from "@/lib/actions/writingStats";
 import { writeToPendingQueue, syncPendingWrite } from "@/lib/offline/syncEngine";
@@ -199,7 +199,7 @@ export default function RuneEditor({
       const adjustedDelta = delta - pastedDeduction;
       if (adjustedDelta > 0) {
         if (isOnlineRef.current) {
-          void recordWordsWritten(projectIdRef.current, adjustedDelta, page.id)
+          void recordWordsWritten(projectIdRef.current, adjustedDelta, page.id, getLocalDateString())
             .catch(err => console.error('[offline] recordWordsWritten failed:', err));
         } else {
           // Queue a writing credit to be applied once we reconnect.

@@ -19,8 +19,8 @@ export async function recordWordsWritten(
   projectId: string | null,
   wordsAdded: number,
   pageId: string | null = null,
-  // sessionDate allows offline credits to use the original write date (YYYY-MM-DD UTC).
-  // Defaults to today when called from the live editor.
+  // sessionDate must be a YYYY-MM-DD local-calendar date supplied by the client.
+  // Falls back to UTC date only when called outside a browser context.
   sessionDate?: string
 ): Promise<void> {
   if (wordsAdded <= 0) return;
@@ -80,7 +80,7 @@ export async function getWordsByDay(
   const supabase = await createClient();
 
   const since = new Date();
-  since.setDate(since.getDate() - (days - 1));
+  since.setUTCDate(since.getUTCDate() - (days - 1));
   const sinceStr = since.toISOString().slice(0, 10);
 
   const { data } = await supabase
@@ -101,7 +101,7 @@ export async function getWordsByDay(
   const result: { date: string; words: number }[] = [];
   for (let i = 0; i < days; i++) {
     const d = new Date();
-    d.setDate(d.getDate() - (days - 1 - i));
+    d.setUTCDate(d.getUTCDate() - (days - 1 - i));
     const dateStr = d.toISOString().slice(0, 10);
     result.push({ date: dateStr, words: byDate.get(dateStr) ?? 0 });
   }
@@ -111,14 +111,17 @@ export async function getWordsByDay(
 
 // ── Writing Streak ─────────────────────────────────────────────────────────────
 
-function computeStreaks(dates: string[]): { currentStreak: number; maxStreak: number } {
+function computeStreaks(
+  dates: string[],
+  localDate?: string
+): { currentStreak: number; maxStreak: number } {
   if (dates.length === 0) return { currentStreak: 0, maxStreak: 0 };
 
-  const nowUTC = new Date();
-  const todayStr = nowUTC.toISOString().slice(0, 10);
-  const yesterdayUTC = new Date(nowUTC);
-  yesterdayUTC.setUTCDate(yesterdayUTC.getUTCDate() - 1);
-  const yesterdayStr = yesterdayUTC.toISOString().slice(0, 10);
+  // Use the client-supplied local date when available so the "today" anchor
+  // reflects the user's calendar day, not the server's UTC day.
+  const todayStr = localDate ?? new Date().toISOString().slice(0, 10);
+  const todayMs = new Date(todayStr + "T00:00:00Z").getTime();
+  const yesterdayStr = new Date(todayMs - 86400000).toISOString().slice(0, 10);
 
   // Compute max streak over entire history
   let maxStreak = 1;
@@ -157,7 +160,8 @@ function computeStreaks(dates: string[]): { currentStreak: number; maxStreak: nu
 }
 
 export async function getWritingStreak(
-  userId: string
+  userId: string,
+  localDate?: string
 ): Promise<{ currentStreak: number; maxStreak: number }> {
   const supabase = await createClient();
 
@@ -171,7 +175,7 @@ export async function getWritingStreak(
   if (!data || data.length === 0) return { currentStreak: 0, maxStreak: 0 };
 
   const uniqueDates = [...new Set(data.map((r) => r.session_date as string))].sort();
-  return computeStreaks(uniqueDates);
+  return computeStreaks(uniqueDates, localDate);
 }
 
 // ── Contribution History ───────────────────────────────────────────────────────
@@ -408,12 +412,13 @@ export async function updateGoal(
 
 export async function transferGameWordsToProject(
   projectId: string,
-  words: number
+  words: number,
+  localDate?: string
 ): Promise<void> {
   const { supabase, user } = await getUser();
   if (!user) throw new Error("Not authenticated");
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localDate ?? new Date().toISOString().slice(0, 10);
 
   try {
     // 1. Subtract from the anonymous game bucket (project_id IS NULL), clamp to 0
@@ -473,9 +478,9 @@ export async function transferGameWordsToProject(
   }
 }
 
-export async function getTodayWords(userId: string): Promise<number> {
+export async function getTodayWords(userId: string, localDate?: string): Promise<number> {
   const supabase = await createClient();
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localDate ?? new Date().toISOString().slice(0, 10);
 
   const { data } = await supabase
     .from("writing_sessions")

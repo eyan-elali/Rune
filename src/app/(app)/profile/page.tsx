@@ -13,6 +13,7 @@ import { canAccessFeature, type SubscriptionTier } from "@/lib/subscription";
 import { calculateProjectWordCount } from "@/lib/manuscript";
 import { UNLOCKABLES, type Unlockable } from "@/lib/unlockables";
 import { ProfileGuideMount } from "./ProfileGuideMount";
+import { ProfileStreakClient } from "@/components/profile/ProfileStreakClient";
 import type { GameSession } from "@/lib/types";
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -350,23 +351,9 @@ export default async function ProfilePage() {
               label="Total Words"
               value={totalWords > 0 ? totalWords.toLocaleString() : "—"}
             />
-            <StatBlock
-              size="lg"
-              label="Current Streak"
-              value={
-                currentStreak > 0
-                  ? `${currentStreak} ${currentStreak === 1 ? "day" : "days"}`
-                  : "—"
-              }
-            />
-            <StatBlock
-              size="lg"
-              label="Best Streak"
-              value={
-                maxStreak > 0
-                  ? `${maxStreak} ${maxStreak === 1 ? "day" : "days"}`
-                  : "—"
-              }
+            <ProfileStreakClient
+              initialCurrentStreak={currentStreak}
+              initialMaxStreak={maxStreak}
             />
             <StatBlock
               size="md"

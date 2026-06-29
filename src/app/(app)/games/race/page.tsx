@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
-import { cn } from "@/lib/utils";
+import { cn, getLocalDateString } from "@/lib/utils";
 import { TicketGate } from "@/components/games/TicketGate";
 import { useGameStore } from "@/store/gameStore";
 import { useProfileStore } from "@/store/profileStore";
@@ -258,7 +258,7 @@ function SaveToProject({
     if (result.error) { setAppendError(result.error); setAppendStep("error"); return; }
     if (!sessionInvalidated) {
       await import("@/lib/actions/writingStats").then((m) =>
-        m.transferGameWordsToProject(pageSource.project.id, words)
+        m.transferGameWordsToProject(pageSource.project.id, words, getLocalDateString())
       );
     }
     setAppendStep("saved");
@@ -342,7 +342,7 @@ function SaveToProject({
     }
     // Transfer words to project stats unless session was invalidated by anti-cheat
     if (!sessionInvalidated) {
-      await transferGameWordsToProject(selectedProject.id, words);
+      await transferGameWordsToProject(selectedProject.id, words, getLocalDateString());
     }
     setSavedChapterName(chapter.title);
     setStep("saved");
@@ -1104,7 +1104,7 @@ export default function RaceYourselfPage() {
             ...(sessionIsValid ? {} : { invalidated: true }),
           }
         ),
-        recordWordsWritten(null, finalWords),
+        recordWordsWritten(null, finalWords, null, getLocalDateString()),
       ]).then(([xpResult]) => {
         setIsSaving(false);
         if (xpResult.data) {

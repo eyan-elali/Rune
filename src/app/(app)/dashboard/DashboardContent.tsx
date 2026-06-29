@@ -10,6 +10,9 @@ import { PageGuide, type GuideStep } from "@/components/ui/PageGuide";
 import { GuideButton } from "@/components/ui/GuideButton";
 import type { DashboardContentProps } from "@/components/dashboard/types";
 import type { WritingGoal } from "@/lib/actions/writingStats";
+import { getTodayWords, getWritingStreak } from "@/lib/actions/writingStats";
+import { getLocalDateString } from "@/lib/utils";
+import { useProfileStore } from "@/store/profileStore";
 
 const DASHBOARD_GUIDE_STEPS: GuideStep[] = [
   {
@@ -61,10 +64,30 @@ export function DashboardContent({
   const [progressEditGoal, setProgressEditGoal] = useState(false);
   const [localGoals, setLocalGoals] = useState<WritingGoal[]>(goals);
   const [guideOpen, setGuideOpen] = useState(false);
+  const [localTodayWords, setLocalTodayWords] = useState(todayWords);
+  const [localStreak, setLocalStreak] = useState(writingStreak);
+  const userId = useProfileStore((s) => s.profile?.id);
 
   useEffect(() => {
     setLocalGoals(goals);
   }, [goals]);
+
+  // Re-fetch today's words and streak using the browser's local date.
+  // The server-rendered initial values use UTC, which can be a different
+  // calendar day for users writing in the evening in UTC-offset timezones.
+  useEffect(() => {
+    if (!userId) return;
+    const localDate = getLocalDateString();
+    const utcDate = new Date().toISOString().slice(0, 10);
+    if (localDate === utcDate) return; // same calendar day, no correction needed
+    void Promise.all([
+      getTodayWords(userId, localDate),
+      getWritingStreak(userId, localDate),
+    ]).then(([words, streak]) => {
+      setLocalTodayWords(words);
+      setLocalStreak(streak);
+    });
+  }, [userId]);
 
   function openProgressDrawer(opts?: { editGoal?: boolean }) {
     setProgressEditGoal(opts?.editGoal ?? false);
@@ -100,8 +123,8 @@ export function DashboardContent({
         <YourStoryHero
           recentWork={recentWork}
           recentPageCard={recentPageCards[0]}
-          todayWords={todayWords}
-          writingStreak={writingStreak}
+          todayWords={localTodayWords}
+          writingStreak={localStreak}
           goals={goals}
           pinnedNote={pinnedNote}
         />
@@ -111,10 +134,10 @@ export function DashboardContent({
       <div className="mb-8">
         <MomentumStrip
           totalWords={totalWords}
-          writingStreak={writingStreak ?? { currentStreak: 0, maxStreak: 0 }}
+          writingStreak={localStreak ?? { currentStreak: 0, maxStreak: 0 }}
           goals={localGoals}
           tier={subscriptionTier ?? "free"}
-          todayWords={todayWords}
+          todayWords={localTodayWords}
           primaryProjectId={primaryProject?.id}
           primaryProjectTitle={primaryProject?.title}
           onOpenProgress={() => openProgressDrawer({ editGoal: true })}

@@ -1,5 +1,6 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb'
 import type { Chapter, Page, Project } from '@/lib/types'
+import { getLocalDateString } from '@/lib/utils'
 
 interface RuneOfflineDB extends DBSchema {
   pending_writes: {
@@ -23,7 +24,7 @@ interface RuneOfflineDB extends DBSchema {
       pageId: string
       projectId: string | null
       wordsAdded: number
-      sessionDate: string // YYYY-MM-DD (UTC) when words were written
+      sessionDate: string // YYYY-MM-DD (local browser time) when words were written
     }
   }
   page_cache: {
@@ -308,7 +309,7 @@ export async function storeOfflineWritingCredit(
       pageId,
       projectId,
       wordsAdded,
-      sessionDate: new Date().toISOString().slice(0, 10),
+      sessionDate: getLocalDateString(),
     })
   } catch (err) {
     console.error('[offline] storeOfflineWritingCredit failed:', err)

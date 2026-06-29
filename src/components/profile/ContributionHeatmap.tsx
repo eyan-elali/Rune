@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { getLocalDateString } from "@/lib/utils";
 
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
@@ -64,7 +65,7 @@ export function ContributionHeatmap({ data }: ContributionHeatmapProps) {
   for (let i = 0; i < numColumns * 7; i++) {
     const d = new Date(gridStart);
     d.setDate(gridStart.getDate() + i);
-    const dateStr = d.toISOString().slice(0, 10);
+    const dateStr = getLocalDateString(d);
     const outside = d < startDate || d > today;
     cells.push({ date: dateStr, count: countMap.get(dateStr) ?? 0, outside });
   }

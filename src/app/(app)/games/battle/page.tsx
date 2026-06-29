@@ -22,6 +22,7 @@ import { useGameStore } from "@/store/gameStore";
 import { useProfileStore } from "@/store/profileStore";
 import { useToastStore } from "@/store/toastStore";
 import type { Project, Chapter } from "@/lib/types";
+import { getLocalDateString } from "@/lib/utils";
 
 const GameEditor = dynamic(() => import("@/components/editor/GameEditor"), {
   ssr: false,
@@ -562,7 +563,7 @@ function SaveToProject({
     if (result.error) { setAppendError(result.error); setAppendStep("error"); return; }
     if (!sessionInvalidated) {
       await import("@/lib/actions/writingStats").then((m) =>
-        m.transferGameWordsToProject(pageSource.project.id, words)
+        m.transferGameWordsToProject(pageSource.project.id, words, getLocalDateString())
       );
     }
     setAppendStep("saved");
@@ -646,7 +647,7 @@ function SaveToProject({
     }
     // Transfer words to project stats unless session was invalidated by anti-cheat
     if (!sessionInvalidated) {
-      await transferGameWordsToProject(selectedProject.id, words);
+      await transferGameWordsToProject(selectedProject.id, words, getLocalDateString());
     }
     setSavedChapterName(chapter.title);
     setStep("saved");
@@ -1220,7 +1221,7 @@ export default function BattlePage() {
                 data: null,
                 error: null,
               }),
-          recordWordsWritten(null, totalWords),
+          recordWordsWritten(null, totalWords, null, getLocalDateString()),
         ]).then(([, xpResult]) => {
           setIsSaving(false);
           if (xpResult.data) {
