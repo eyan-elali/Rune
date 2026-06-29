@@ -115,6 +115,9 @@ export default function RuneEditor({
   const lastSavedWordCountRef = useRef<number>(currentPage?.word_count ?? 0);
   const pastedWordsRef = useRef(0);
   const wordLimitBlockedRef = useRef(false);
+  // Tracks live editor word count between saves so handleTextInput / handleKeyDown
+  // can gate input before a character appears, not just at the next debounce cycle.
+  const currentWordCountRef = useRef<number>(currentPage?.word_count ?? 0);
   const sessionId = useRef(crypto.randomUUID());
   const lastAwardedWordCountRef = useRef<number>(currentPage?.word_count ?? 0);
   const isOnlineRef = useRef(isOnline);
@@ -289,19 +292,68 @@ export default function RuneEditor({
     content: currentPage?.content ?? null,
     autofocus: "start",
     editorProps: {
+      // ── Free-tier word-limit input guards ───────────────────────────────────
+      // These run BEFORE ProseMirror applies the transaction, so the character
+      // never appears in the editor at all. Returning `true` from any handler
+      // signals to ProseMirror "I handled this — skip default behaviour."
+      //
+      // Helper: true when the current project total is at or above the limit
+      // for free users. Uses refs so all handlers always read live values.
+
+      handleTextInput: (_view, _from, _to, _text) => {
+        if (subscriptionTierRef.current !== 'free') return false;
+        const otherPageWords =
+          projectWordCountRef.current - lastSavedWordCountRef.current;
+        if (otherPageWords + currentWordCountRef.current >= FREE_WORD_LIMIT) {
+          setWordLimitModalOpen(true);
+          return true; // block the insertion
+        }
+        return false;
+      },
+
+      handleKeyDown: (_view, event) => {
+        // Only intercept Enter — everything else (arrows, backspace, delete,
+        // Ctrl/Cmd shortcuts) must continue to work normally.
+        if (event.key !== 'Enter') return false;
+        if (subscriptionTierRef.current !== 'free') return false;
+        const otherPageWords =
+          projectWordCountRef.current - lastSavedWordCountRef.current;
+        if (otherPageWords + currentWordCountRef.current >= FREE_WORD_LIMIT) {
+          setWordLimitModalOpen(true);
+          return true; // block the new paragraph
+        }
+        return false;
+      },
+
       handlePaste: (_view, event) => {
+        // At the limit, block paste before any content reaches the document.
+        if (subscriptionTierRef.current === 'free') {
+          const otherPageWords =
+            projectWordCountRef.current - lastSavedWordCountRef.current;
+          if (otherPageWords + currentWordCountRef.current >= FREE_WORD_LIMIT) {
+            setWordLimitModalOpen(true);
+            return true; // block paste
+          }
+        }
+        // Under limit (or Scribe): track pasted word count so it can be
+        // deducted from XP / writing-stats credits. Pasted words still count
+        // toward the manuscript word total.
         const text = event.clipboardData?.getData("text/plain") ?? "";
         const wc = text.split(/\s+/).filter((t) => t.length >= 2).length;
-        // Track all pasted words so they can be deducted from XP and writing
-        // stats credits. Pasted words still count toward manuscript word count.
         if (wc > 0) {
           pastedWordsRef.current += wc;
         }
         return false;
       },
+
     },
     onUpdate({ editor }) {
       if (isLoadingRef.current) return;
+
+      // Keep the live word count ref in sync so editorProps handlers always have
+      // a fresh value without computing it inside every keypress handler.
+      currentWordCountRef.current =
+        (editor.storage.characterCount?.words?.() as number | undefined) ?? 0;
 
       // Per-keystroke IDB write (best-effort). Skipped for free users when the
       // current word count would push the project over the limit — prevents
@@ -430,6 +482,7 @@ export default function RuneEditor({
     currentPageRef.current = currentPage ?? null;
     lastSavedWordCountRef.current = currentPage?.word_count ?? 0;
     lastAwardedWordCountRef.current = currentPage?.word_count ?? 0;
+    currentWordCountRef.current = currentPage?.word_count ?? 0;
     pastedWordsRef.current = 0;
     wordLimitBlockedRef.current = false;
 
