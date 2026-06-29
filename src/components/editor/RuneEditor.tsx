@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 import { renamePage } from "@/lib/actions/pages";
 import { recordWordsWritten } from "@/lib/actions/writingStats";
 import { writeToPendingQueue, syncPendingWrite } from "@/lib/offline/syncEngine";
-import { getOfflineDB, getPendingWrite } from "@/lib/offline/db";
+import { getOfflineDB, getPendingWrite, storeOfflineWritingCredit } from "@/lib/offline/db";
 import { SyncConflictModal } from "./SyncConflictModal";
 import { useNetworkStore } from "@/store/networkStore";
 import { awardProjectXp } from "@/lib/actions/xp";
@@ -197,9 +197,16 @@ export default function RuneEditor({
       pastedWordsRef.current = Math.max(0, pastedWordsRef.current - pastedDeduction);
       lastSavedWordCountRef.current = wordCount;
       const adjustedDelta = delta - pastedDeduction;
-      if (adjustedDelta > 0 && isOnlineRef.current) {
-        void recordWordsWritten(projectIdRef.current, adjustedDelta, page.id)
-          .catch(err => console.error('[offline] recordWordsWritten failed:', err));
+      if (adjustedDelta > 0) {
+        if (isOnlineRef.current) {
+          void recordWordsWritten(projectIdRef.current, adjustedDelta, page.id)
+            .catch(err => console.error('[offline] recordWordsWritten failed:', err));
+        } else {
+          // Queue a writing credit to be applied once we reconnect.
+          // The paste deduction is already factored into adjustedDelta.
+          void storeOfflineWritingCredit(projectIdRef.current, page.id, adjustedDelta)
+            .catch(err => console.error('[offline] storeOfflineWritingCredit failed:', err));
+        }
       }
     }
 

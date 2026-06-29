@@ -14,6 +14,18 @@ interface RuneOfflineDB extends DBSchema {
       retryCount: number
     }
   }
+  // Writing credits accumulated while offline — flushed to writing_sessions on reconnect.
+  // One entry per save event (UUID key). Aggregated at flush time to minimise server calls.
+  pending_writing_credits: {
+    key: string // UUID
+    value: {
+      id: string
+      pageId: string
+      projectId: string | null
+      wordsAdded: number
+      sessionDate: string // YYYY-MM-DD (UTC) when words were written
+    }
+  }
   page_cache: {
     key: string // pageId
     value: {
@@ -71,7 +83,7 @@ let dbInstance: IDBPDatabase<RuneOfflineDB> | null = null
 export async function getOfflineDB(): Promise<IDBPDatabase<RuneOfflineDB>> {
   if (dbInstance) return dbInstance
 
-  dbInstance = await openDB<RuneOfflineDB>('rune-offline', 2, {
+  dbInstance = await openDB<RuneOfflineDB>('rune-offline', 3, {
     upgrade(db) {
       if (!db.objectStoreNames.contains('pending_writes')) {
         db.createObjectStore('pending_writes', { keyPath: 'id' })
@@ -84,6 +96,9 @@ export async function getOfflineDB(): Promise<IDBPDatabase<RuneOfflineDB>> {
       }
       if (!db.objectStoreNames.contains('chapter_meta')) {
         db.createObjectStore('chapter_meta', { keyPath: 'id' })
+      }
+      if (!db.objectStoreNames.contains('pending_writing_credits')) {
+        db.createObjectStore('pending_writing_credits', { keyPath: 'id' })
       }
     },
   })
@@ -272,6 +287,31 @@ export async function getOfflineStorageSummary(): Promise<{
     return { pending, conflicts, cached: allCached.length }
   } catch {
     return { pending: 0, conflicts: 0, cached: 0 }
+  }
+}
+
+/**
+ * Queues a writing-session credit to be applied once the device is back online.
+ * Called instead of recordWordsWritten() when the editor detects it is offline.
+ * wordsAdded must already be paste-deducted (the editor handles that before calling).
+ */
+export async function storeOfflineWritingCredit(
+  projectId: string | null,
+  pageId: string,
+  wordsAdded: number
+): Promise<void> {
+  if (wordsAdded <= 0) return
+  try {
+    const db = await getOfflineDB()
+    await db.put('pending_writing_credits', {
+      id: crypto.randomUUID(),
+      pageId,
+      projectId,
+      wordsAdded,
+      sessionDate: new Date().toISOString().slice(0, 10),
+    })
+  } catch (err) {
+    console.error('[offline] storeOfflineWritingCredit failed:', err)
   }
 }
 

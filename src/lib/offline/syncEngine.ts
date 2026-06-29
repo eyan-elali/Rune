@@ -3,6 +3,7 @@ import { getOfflineDB, evictOldCacheEntries } from '@/lib/offline/db'
 import { createGameSession } from '@/lib/actions/games'
 import { awardProjectXp } from '@/lib/actions/xp'
 import { afterPageSync } from '@/lib/actions/pages'
+import { recordWordsWritten } from '@/lib/actions/writingStats'
 
 // ── Write queue ───────────────────────────────────────────────────────────────
 
@@ -213,7 +214,67 @@ export async function flushPendingQueue(): Promise<{
     _flushing = false
   }
 
+  // Apply any writing credits accumulated during offline sessions.
+  // Runs after content sync so credits land in the same flush cycle as the save.
+  await flushOfflineWritingCredits()
+
   return { synced, failed, conflicts }
+}
+
+// ── Offline writing credits ────────────────────────────────────────────────────
+
+/**
+ * Applies pending_writing_credits to the writing_sessions table.
+ *
+ * Entries are grouped by (projectId, pageId, sessionDate) so a full offline
+ * session collapses into one server call per group rather than one per save event.
+ * Each entry is deleted after a successful server write, preventing double-counting
+ * on retries. Entries created during this flush (new UUID keys) are untouched and
+ * will be processed on the next flush.
+ */
+export async function flushOfflineWritingCredits(): Promise<void> {
+  try {
+    const db = await getOfflineDB()
+    const all = await db.getAll('pending_writing_credits')
+    if (all.length === 0) return
+
+    // Snapshot the IDs present at flush start — only these will be deleted.
+    // Any entries written after this point (new UUID keys) are left for next flush.
+    const snapshotIds = new Set(all.map((e) => e.id))
+
+    // Group by (projectId, pageId, sessionDate) → one server call per group
+    type GroupKey = string
+    const groups = new Map<GroupKey, typeof all>()
+    for (const entry of all) {
+      const key = `${entry.projectId ?? ''}:${entry.pageId}:${entry.sessionDate}`
+      const group = groups.get(key) ?? []
+      group.push(entry)
+      groups.set(key, group)
+    }
+
+    for (const entries of groups.values()) {
+      const { projectId, pageId, sessionDate } = entries[0]
+      const totalWords = entries.reduce((sum, e) => sum + e.wordsAdded, 0)
+      if (totalWords <= 0) {
+        for (const e of entries) await db.delete('pending_writing_credits', e.id)
+        continue
+      }
+
+      try {
+        await recordWordsWritten(projectId, totalWords, pageId, sessionDate)
+        // Only delete entries that were part of this flush's snapshot
+        for (const e of entries) {
+          if (snapshotIds.has(e.id)) {
+            await db.delete('pending_writing_credits', e.id)
+          }
+        }
+      } catch {
+        // Leave entries in IDB — will be retried on the next flush
+      }
+    }
+  } catch {
+    // Best-effort — content sync is already done; stats can catch up later
+  }
 }
 
 // ── Game session sync ──────────────────────────────────────────────────────────

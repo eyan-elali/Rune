@@ -18,14 +18,17 @@ async function getUser() {
 export async function recordWordsWritten(
   projectId: string | null,
   wordsAdded: number,
-  pageId: string | null = null
+  pageId: string | null = null,
+  // sessionDate allows offline credits to use the original write date (YYYY-MM-DD UTC).
+  // Defaults to today when called from the live editor.
+  sessionDate?: string
 ): Promise<void> {
   if (wordsAdded <= 0) return;
 
   const { supabase, user } = await getUser();
   if (!user) return;
 
-  const today = new Date().toISOString().slice(0, 10);
+  const date = sessionDate ?? new Date().toISOString().slice(0, 10);
 
   // When a pageId is specified, skip the RPC and go straight to a page-keyed upsert.
   // The RPC doesn't know about page_id, so letting it run would update the wrong row.
@@ -33,7 +36,7 @@ export async function recordWordsWritten(
     const { error } = await supabase.rpc("increment_writing_session", {
       p_user_id: user.id,
       p_project_id: projectId,
-      p_session_date: today,
+      p_session_date: date,
       p_words: wordsAdded,
     });
     if (!error) return;
@@ -44,7 +47,7 @@ export async function recordWordsWritten(
     .from("writing_sessions")
     .select("id, words_added")
     .eq("user_id", user.id)
-    .eq("session_date", today);
+    .eq("session_date", date);
 
   const { data: existing } = await (
     pageId !== null
@@ -64,7 +67,7 @@ export async function recordWordsWritten(
       user_id: user.id,
       project_id: projectId,
       page_id: pageId,
-      session_date: today,
+      session_date: date,
       words_added: wordsAdded,
     });
   }
