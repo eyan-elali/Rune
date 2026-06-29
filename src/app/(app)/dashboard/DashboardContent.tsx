@@ -3,9 +3,6 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useModeStore } from "@/store/modeStore";
-import { TaskList } from "@/components/tasks/TaskList";
-import { UpgradeTeaser } from "@/components/billing/UpgradeTeaser";
-import { canAccessFeature } from "@/lib/subscription";
 import { EnemyCard, ENEMIES } from "@/components/dashboard/EnemyCard";
 import { StatRowsCard } from "@/components/dashboard/StatRowsCard";
 import { BetaFeedbackBanner } from "@/components/dashboard/BetaFeedbackBanner";
@@ -64,12 +61,12 @@ export function DashboardContent({
   todayWords = 0,
   progressChapters = [],
   avgWordsPerDay = 0,
+  pinnedNote = null,
 }: DashboardContentProps) {
   const mode = useModeStore((s) => s.mode);
   // Primary project = most recently edited (same source as Your Story hero)
   const primaryProjectId = recentWork?.projectId ?? projects[0]?.id;
   const primaryProject = projects.find((p) => p.id === primaryProjectId) ?? null;
-  const canSeeTasks = canAccessFeature(subscriptionTier, "tasks");
   const [isProgressOpen, setIsProgressOpen] = useState(false);
   const [progressEditGoal, setProgressEditGoal] = useState(false);
   const [localGoals, setLocalGoals] = useState<WritingGoal[]>(goals);
@@ -92,17 +89,12 @@ export function DashboardContent({
   if (mode === "focus") {
     return (
       <div className="flex min-h-screen items-center justify-center px-6 py-12">
-        <div className="w-full max-w-[480px]">
-          {canSeeTasks ? (
-            <TaskList />
-          ) : (
-            <UpgradeTeaser
-              feature="Task Manager"
-              description="Organize your writing with a personal task list."
-              tier="scribe"
-            />
-          )}
-        </div>
+        <p
+          className="font-rune-serif text-base italic"
+          style={{ color: "var(--color-mist)" }}
+        >
+          Open your manuscript to begin.
+        </p>
       </div>
     );
   }
@@ -121,18 +113,6 @@ export function DashboardContent({
           <p className="mt-2 font-rune-serif text-lg text-rune-mist">
             Words are weapons. Use them.
           </p>
-        </div>
-
-        <div className="mb-8">
-          {canSeeTasks ? (
-            <TaskList />
-          ) : (
-            <UpgradeTeaser
-              feature="Task Manager"
-              description="Organize your writing with a personal task list."
-              tier="scribe"
-            />
-          )}
         </div>
 
         {/* Row 1 — Enemies */}
@@ -252,6 +232,7 @@ export function DashboardContent({
           todayWords={todayWords}
           writingStreak={writingStreak}
           goals={goals}
+          pinnedNote={pinnedNote}
         />
       </div>
 

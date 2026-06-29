@@ -5,7 +5,7 @@ import { getGoals, getWritingStreak, getTodayWords, getWordsByDay } from "@/lib/
 import { DashboardContent } from "./DashboardContent";
 import { canAccessFeature, type SubscriptionTier } from "@/lib/subscription";
 import { calculateChapterWordCount } from "@/lib/manuscript";
-import type { Project } from "@/lib/types";
+import type { Project, ProjectNote } from "@/lib/types";
 import type { WritingGoal } from "@/lib/actions/writingStats";
 import type { RecentPageCard, RecentWork, DrawerChapter } from "@/components/dashboard/types";
 
@@ -110,13 +110,28 @@ export default async function DashboardPage() {
   const canSeeGoals = canAccessFeature(subscriptionTier, 'projectGoals');
   const canSeeStreaks = canAccessFeature(subscriptionTier, 'streaks');
 
-  const [personalBests, combatRecords, goals, writingStreak, todayWords] = await Promise.all([
+  const primaryProjectId = recentWork?.projectId ?? projects[0]?.id ?? null;
+
+  const [personalBests, combatRecords, goals, writingStreak, todayWords, pinnedNoteResult] = await Promise.all([
     getPersonalBests(user!.id),
     getCombatRecords(user!.id),
     canSeeGoals ? getGoals(user!.id) : Promise.resolve([] as WritingGoal[]),
     canSeeStreaks ? getWritingStreak(user!.id) : Promise.resolve({ currentStreak: 0, maxStreak: 0 }),
     getTodayWords(user!.id),
+    primaryProjectId
+      ? supabase
+          .from("project_notes")
+          .select("*")
+          .eq("project_id", primaryProjectId)
+          .eq("user_id", user!.id)
+          .eq("is_pinned", true)
+          .eq("is_completed", false)
+          .limit(1)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
   ]);
+
+  const pinnedNote = (pinnedNoteResult.data as ProjectNote | null) ?? null;
 
   const serializedBests: Record<string, number> = {};
   for (const [k, v] of Object.entries(personalBests)) {
@@ -175,6 +190,7 @@ export default async function DashboardPage() {
       todayWords={todayWords}
       progressChapters={progressChapters}
       avgWordsPerDay={avgWordsPerDay}
+      pinnedNote={pinnedNote}
     />
   );
 }

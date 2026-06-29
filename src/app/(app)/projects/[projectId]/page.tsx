@@ -5,6 +5,7 @@ import { ChapterList } from "@/components/projects/ChapterList";
 import { ManuscriptExportButton } from "@/components/projects/ManuscriptExportButton";
 import { NewDraftButton } from "@/components/projects/NewDraftButton";
 import { ChapterGoalControl } from "@/components/projects/ChapterGoalControl";
+import { RevisionNotesButton } from "@/components/projects/RevisionNotesButton";
 import { canAccessFeature, type SubscriptionTier } from "@/lib/subscription";
 import { calculateProjectWordCount } from "@/lib/manuscript";
 import type { Chapter } from "@/lib/types";
@@ -89,6 +90,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
               </div>
             )}
             <div className="flex items-center gap-2">
+              <RevisionNotesButton projectId={project.id} />
               <NewDraftButton projectId={project.id} projectTitle={project.title} />
               <ManuscriptExportButton project={project} />
             </div>

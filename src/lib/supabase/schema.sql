@@ -259,33 +259,44 @@ create policy "user_unlockables: insert own"
   on public.user_unlockables for insert
   with check (auth.uid() = user_id);
 
--- ── tasks ────────────────────────────────────────────────────────────
-create table if not exists public.tasks (
-  id          uuid        primary key default gen_random_uuid(),
-  user_id     uuid        not null references public.profiles (id) on delete cascade,
-  text        text        not null,
-  completed   boolean     not null default false,
-  due_date    date,
-  created_at  timestamptz not null default now()
+-- ── project_notes ────────────────────────────────────────────────────
+create table if not exists public.project_notes (
+  id            uuid        primary key default gen_random_uuid(),
+  user_id       uuid        not null references public.profiles (id) on delete cascade,
+  project_id    uuid        not null references public.projects (id) on delete cascade,
+  content       text        not null,
+  is_completed  boolean     not null default false,
+  is_pinned     boolean     not null default false,
+  created_at    timestamptz not null default now(),
+  completed_at  timestamptz,
+  updated_at    timestamptz not null default now()
 );
 
-alter table public.tasks enable row level security;
+alter table public.project_notes enable row level security;
 
-create policy "tasks: select own"
-  on public.tasks for select
+create policy "project_notes: select own"
+  on public.project_notes for select
   using (auth.uid() = user_id);
 
-create policy "tasks: insert own"
-  on public.tasks for insert
+create policy "project_notes: insert own"
+  on public.project_notes for insert
   with check (auth.uid() = user_id);
 
-create policy "tasks: update own"
-  on public.tasks for update
+create policy "project_notes: update own"
+  on public.project_notes for update
   using (auth.uid() = user_id);
 
-create policy "tasks: delete own"
-  on public.tasks for delete
+create policy "project_notes: delete own"
+  on public.project_notes for delete
   using (auth.uid() = user_id);
+
+-- ── Migration: add project_notes (run once on existing databases) ────
+-- create table if not exists public.project_notes ( ... see above ... );
+-- alter table public.project_notes enable row level security;
+-- (create policies as above)
+--
+-- ── Migration: drop legacy tasks table (run once on existing databases) ─
+-- drop table if exists public.tasks cascade;
 
 -- ═══════════════════════════════════════════════════════════════════
 --  Auto-create profile on signup
@@ -303,13 +314,6 @@ begin
     new.raw_user_meta_data ->> 'display_name',
     new.raw_user_meta_data ->> 'avatar_url'
   );
-
-  insert into public.tasks (user_id, text) values
-    (new.id, 'Create your first writing project'),
-    (new.id, 'Launch a session in The Arena (Toggle Game Mode)'),
-    (new.id, 'Write distraction-free in Focus Mode'),
-    (new.id, 'Set a core manuscript page to Canonical'),
-    (new.id, 'Customize your editor view settings');
 
   return new;
 end;

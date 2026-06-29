@@ -69,13 +69,16 @@ export interface Page {
   updated_at: string;
 }
 
-export interface Task {
+export interface ProjectNote {
   id: string;
   user_id: string;
-  text: string;
-  completed: boolean;
-  due_date: string | null; // YYYY-MM-DD plain string
+  project_id: string;
+  content: string;
+  is_completed: boolean;
+  is_pinned: boolean;
   created_at: string;
+  completed_at: string | null;
+  updated_at: string;
 }
 
 export interface GameSession {

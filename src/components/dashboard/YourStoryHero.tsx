@@ -7,6 +7,7 @@ import { createProjectWithDraft } from "@/lib/actions/projects";
 import { Button } from "@/components/ui/Button";
 import type { RecentWork, RecentPageCard } from "./types";
 import type { WritingGoal } from "@/lib/actions/writingStats";
+import type { ProjectNote } from "@/lib/types";
 
 interface YourStoryHeroProps {
   recentWork: RecentWork | null;
@@ -14,6 +15,7 @@ interface YourStoryHeroProps {
   todayWords?: number;
   writingStreak?: { currentStreak: number; maxStreak: number };
   goals?: WritingGoal[];
+  pinnedNote?: ProjectNote | null;
 }
 
 function NewUserHero() {
@@ -166,6 +168,7 @@ export function YourStoryHero({
   todayWords = 0,
   writingStreak = { currentStreak: 0, maxStreak: 0 },
   goals = [],
+  pinnedNote = null,
 }: YourStoryHeroProps) {
   const matchingPage =
     recentPageCard &&
@@ -223,10 +226,35 @@ export function YourStoryHero({
           </p>
         </div>
 
-        <div
-          className="my-5"
-          style={{ borderTop: "1px solid var(--color-border)" }}
-        />
+        {pinnedNote && (
+          <div
+            className="my-5 rounded-md px-4 py-3"
+            style={{
+              background: "rgba(201,168,76,0.06)",
+              border: "1px solid rgba(201,168,76,0.18)",
+            }}
+          >
+            <p
+              className="mb-1 text-[10px] font-semibold uppercase tracking-widest"
+              style={{ color: "var(--color-gold)" }}
+            >
+              Today&apos;s Focus
+            </p>
+            <p
+              className="font-rune-serif text-sm italic leading-snug"
+              style={{ color: "var(--text-primary)" }}
+            >
+              {pinnedNote.content}
+            </p>
+          </div>
+        )}
+
+        {!pinnedNote && (
+          <div
+            className="my-5"
+            style={{ borderTop: "1px solid var(--color-border)" }}
+          />
+        )}
 
         <div className="flex items-center justify-between gap-4">
           {matchingPage && matchingPage.wordCount > 0 ? (

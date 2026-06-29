@@ -9,7 +9,6 @@ export const FEATURE_GATES = {
   gameMode:            ['free', 'scribe'],
   unlockables:         ['scribe'],
   unlimitedArena: ['scribe'],
-  tasks:               ['scribe'],
   heatmap:             ['scribe'],
   avgWordsWidget:      ['scribe'],
   projectGoals:        ['scribe'],

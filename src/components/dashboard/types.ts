@@ -1,4 +1,4 @@
-import type { Project } from "@/lib/types";
+import type { Project, ProjectNote } from "@/lib/types";
 import type { WritingGoal } from "@/lib/actions/writingStats";
 import type { CombatRecord } from "@/lib/actions/games";
 
@@ -44,4 +44,5 @@ export interface DashboardContentProps {
   todayWords?: number;
   progressChapters?: DrawerChapter[];
   avgWordsPerDay?: number;
+  pinnedNote?: ProjectNote | null;
 }

@@ -2954,7 +2954,7 @@ export default function LandingPage() {
                 'Goals, streaks & heatmaps',
                 'All themes, fonts & avatars',
                 'PDF manuscript exports',
-                'Task manager',
+                'Revision Notes',
                 'Priority support',
               ].map((f) => (
                 <div key={f} style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', marginBottom: '10px', fontSize: '14px', color: 'var(--text-primary)', lineHeight: 1.5, fontFamily: SANS }}>
