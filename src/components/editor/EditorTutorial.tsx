@@ -28,7 +28,7 @@ const STEPS: Step[] = [
   {
     spotlightId: "canonical-control",
     heading: "Canonical Pages",
-    copy: "A chapter can have multiple drafts. Mark one page as canonical to make it the official version used for manuscript totals and exports. If none is marked, Rune uses the chapter's pages normally.",
+    copy: "A chapter can have multiple drafts. Mark one page as canonical to make it the official version used for manuscript totals and exports. If none are marked, Rune uses the chapter's pages normally.",
     side: "right",
   },
   {
@@ -52,9 +52,10 @@ const OVERLAY_BG = "rgba(26,22,20,0.72)";
 interface Props {
   active: boolean;
   forceRun?: boolean;
+  replayTrigger?: number;
 }
 
-export function EditorTutorial({ active, forceRun = false }: Props) {
+export function EditorTutorial({ active, forceRun = false, replayTrigger = 0 }: Props) {
   const profile = useProfileStore((s) => s.profile);
   const setPreferences = useProfileStore((s) => s.setPreferences);
 
@@ -79,6 +80,18 @@ export function EditorTutorial({ active, forceRun = false }: Props) {
     const t = setTimeout(() => setRunning(true), 800);
     return () => clearTimeout(t);
   }, [active, forceRun, alreadyCompleted, mounted]);
+
+  // Manual replay triggered by the Guide button
+  useEffect(() => {
+    if (!replayTrigger || !mounted) return;
+    setRunning(false);
+    setShowHelpCard(false);
+    setDone(false);
+    setStep(0);
+    setRect(null);
+    const t = setTimeout(() => setRunning(true), 50);
+    return () => clearTimeout(t);
+  }, [replayTrigger, mounted]);
 
   const markComplete = useCallback(async () => {
     setRunning(false);

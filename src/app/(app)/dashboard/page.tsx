@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getGoals, getWritingStreak, getTodayWords, getWordsByDay } from "@/lib/actions/writingStats";
 import { DashboardContent } from "./DashboardContent";
@@ -34,6 +35,11 @@ export default async function DashboardPage() {
   const displayName =
     profile?.display_name ?? user?.email?.split("@")[0] ?? "Writer";
   const projects = (rawProjects as Project[] | null) ?? [];
+
+  if (projects.length === 0) {
+    redirect("/onboarding");
+  }
+
   const totalWords = projects.reduce((sum, p) => sum + (p.word_count ?? 0), 0);
 
   let recentPageCards: RecentPageCard[] = [];

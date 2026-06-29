@@ -7,6 +7,7 @@ import { PageList } from "./PageList";
 import { ExportButton } from "./ExportButton";
 import { EditorTutorial } from "./EditorTutorial";
 import { ModeToggle } from "@/components/ui/ModeToggle";
+import { GuideButton } from "@/components/ui/GuideButton";
 import type { Page, Chapter, Project } from "@/lib/types";
 import {
   createPage,
@@ -56,6 +57,7 @@ export function EditorShell({
   const [selectedPageId, setSelectedPageId] = useState<string | null>(
     initialPages[0]?.id ?? null
   );
+  const [guideTriggerCount, setGuideTriggerCount] = useState(0);
   const setCurrentPage = useEditorStore((s) => s.setCurrentPage);
   const pathname = usePathname();
   const mode = useModeStore((s) => s.mode);
@@ -145,7 +147,7 @@ export function EditorShell({
 
   return (
     <div className="flex min-h-0 h-full overflow-hidden">
-      <EditorTutorial active={showTutorial} forceRun={forceTutorial} />
+      <EditorTutorial active={showTutorial} forceRun={forceTutorial} replayTrigger={guideTriggerCount} />
       {!shouldHideFocusUI && (
         <PageList
           pages={pages}
@@ -171,7 +173,10 @@ export function EditorShell({
             }}
           >
             <ModeToggle />
-            <ExportButton page={currentPage} chapter={chapter} project={project} />
+            <div className="flex items-center gap-2">
+              <GuideButton onClick={() => setGuideTriggerCount((c) => c + 1)} />
+              <ExportButton page={currentPage} chapter={chapter} project={project} />
+            </div>
           </div>
         )}
         <RuneEditor

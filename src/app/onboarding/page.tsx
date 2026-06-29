@@ -26,8 +26,8 @@ export default async function OnboardingPage() {
       .single(),
   ]);
 
-  // Any user who already has a project or has written first words belongs in the app.
-  if ((count ?? 0) > 0 || profile?.has_written_first_words) {
+  // Users with existing projects belong in the app, not onboarding.
+  if ((count ?? 0) > 0) {
     redirect("/dashboard");
   }
 
