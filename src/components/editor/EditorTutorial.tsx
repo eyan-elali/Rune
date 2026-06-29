@@ -1,49 +1,40 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useProfileStore } from "@/store/profileStore";
-import { useModeStore } from "@/store/modeStore";
 import { updatePreferences } from "@/lib/actions/settings";
 
 interface Step {
   spotlightId: string;
-  listenerId: string | null;
   copy: string;
   side: "right" | "bottom";
-  forceMenuVisible?: boolean;
 }
 
 const STEPS: Step[] = [
   {
     spotlightId: "pages-sidebar",
-    listenerId: "pages-sidebar",
     copy: "Pages live here. Your manuscript is built one page at a time.",
     side: "right",
   },
   {
     spotlightId: "chapter-switch-btn",
-    listenerId: "chapter-switch-btn",
-    copy: "Move between chapters without leaving the editor.",
+    copy: "This switch lets you move between chapters without leaving the editor.",
     side: "right",
   },
   {
-    spotlightId: "pages-sidebar",
-    listenerId: "page-menu-btn",
-    copy: "Mark the page that counts toward your manuscript.",
+    spotlightId: "canonical-control",
+    copy: "Canonical pages decide which draft counts toward your manuscript.",
     side: "right",
-    forceMenuVisible: true,
   },
   {
     spotlightId: "focus-mode-btn",
-    listenerId: null,
-    copy: "When you want only the page, enter Focus Mode.",
+    copy: "Focus Mode hides everything except the page.",
     side: "bottom",
   },
   {
     spotlightId: "export-btn",
-    listenerId: "export-btn",
-    copy: "When you're ready, export your pages from here.",
+    copy: "Export your pages from here when you're ready.",
     side: "bottom",
   },
 ];
@@ -59,18 +50,12 @@ interface Props {
 export function EditorTutorial({ active }: Props) {
   const profile = useProfileStore((s) => s.profile);
   const setPreferences = useProfileStore((s) => s.setPreferences);
-  const setMode = useModeStore((s) => s.setMode);
 
   const [running, setRunning] = useState(false);
   const [done, setDone] = useState(false);
   const [step, setStep] = useState(0);
   const [rect, setRect] = useState<DOMRect | null>(null);
   const [mounted, setMounted] = useState(false);
-
-  const stepRef = useRef(step);
-  stepRef.current = step;
-  const runningRef = useRef(running);
-  runningRef.current = running;
 
   useEffect(() => {
     setMounted(true);
@@ -91,7 +76,6 @@ export function EditorTutorial({ active }: Props) {
     setRunning(false);
     setStep(0);
     setRect(null);
-    delete document.documentElement.dataset.tutorialStep;
     setPreferences({ has_completed_editor_tutorial: true });
     await updatePreferences({ has_completed_editor_tutorial: true });
   }, [setPreferences]);
@@ -106,21 +90,34 @@ export function EditorTutorial({ active }: Props) {
     await markComplete();
   }, [markComplete]);
 
-  // Expose current step index on <html> for CSS overrides (e.g. force page-menu visible)
-  useEffect(() => {
-    if (running) {
-      document.documentElement.dataset.tutorialStep = String(step);
+  const advance = useCallback(() => {
+    if (step >= STEPS.length - 1) {
+      handleComplete();
     } else {
-      delete document.documentElement.dataset.tutorialStep;
+      setStep((s) => s + 1);
     }
-    return () => {
-      delete document.documentElement.dataset.tutorialStep;
-    };
-  }, [running, step]);
+  }, [step, handleComplete]);
+
+  // Keyboard: Enter/Space advance, Escape skip
+  useEffect(() => {
+    if (!running) return;
+
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        advance();
+      } else if (e.key === "Escape") {
+        handleSkip();
+      }
+    }
+
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [running, advance, handleSkip]);
 
   const currentStep = STEPS[step];
 
-  // Measure spotlight target rect
+  // Measure spotlight target after each step change
   useEffect(() => {
     if (!running || !currentStep) return;
 
@@ -128,11 +125,7 @@ export function EditorTutorial({ active }: Props) {
       const el = document.querySelector<HTMLElement>(
         `[data-tutorial-id="${currentStep.spotlightId}"]`
       );
-      if (el) {
-        setRect(el.getBoundingClientRect());
-      } else {
-        setRect(null);
-      }
+      setRect(el ? el.getBoundingClientRect() : null);
     }
 
     const t = setTimeout(measure, 60);
@@ -143,47 +136,7 @@ export function EditorTutorial({ active }: Props) {
     };
   }, [running, step, currentStep]);
 
-  // Click listener for all steps except focus-mode (step 3)
-  useEffect(() => {
-    if (!running || !currentStep || currentStep.listenerId === null) return;
-
-    const el = document.querySelector<HTMLElement>(
-      `[data-tutorial-id="${currentStep.listenerId}"]`
-    );
-    if (!el) return;
-
-    function handleClick() {
-      if (stepRef.current >= STEPS.length - 1) {
-        handleComplete();
-      } else {
-        setStep((s) => s + 1);
-      }
-    }
-
-    el.addEventListener("click", handleClick, { once: true });
-    return () => el.removeEventListener("click", handleClick);
-  }, [running, step, currentStep, handleComplete]);
-
-  // Focus Mode step: subscribe to mode store instead of a click listener
-  useEffect(() => {
-    if (!running || step !== 3) return;
-
-    const unsub = useModeStore.subscribe((state) => {
-      if (state.mode === "focus") {
-        unsub();
-        // Brief pause so the user sees focus mode, then restore and show export step
-        setTimeout(() => {
-          setMode("normal");
-          setStep(4);
-        }, 650);
-      }
-    });
-
-    return unsub;
-  }, [running, step, setMode]);
-
-  if (!mounted) return null;
-  if (!running && !done) return null;
+  if (!mounted || (!running && !done)) return null;
 
   // ── Done state ───────────────────────────────────────────────────────────────
 
@@ -216,14 +169,12 @@ export function EditorTutorial({ active }: Props) {
     );
   }
 
-  if (!rect) return null;
-
   // ── Spotlight geometry ───────────────────────────────────────────────────────
 
-  const sTop = rect.top - PAD;
-  const sLeft = rect.left - PAD;
-  const sRight = rect.right + PAD;
-  const sBottom = rect.bottom + PAD;
+  const sTop = rect ? rect.top - PAD : 0;
+  const sLeft = rect ? rect.left - PAD : 0;
+  const sRight = rect ? rect.right + PAD : 0;
+  const sBottom = rect ? rect.bottom + PAD : 0;
   const sW = sRight - sLeft;
   const sH = sBottom - sTop;
 
@@ -241,94 +192,89 @@ export function EditorTutorial({ active }: Props) {
     pointerEvents: "auto",
   };
 
-  const tooltipPos: React.CSSProperties =
-    currentStep.side === "right"
-      ? {
-          top: `${sTop + sH / 2}px`,
-          left: `${sRight + TOOLTIP_GAP}px`,
-          transform: "translateY(-50%)",
-        }
-      : {
-          top: `${sBottom + TOOLTIP_GAP}px`,
-          left: `${sLeft + sW / 2}px`,
-          transform: "translateX(-50%)",
-        };
+  let tooltipPos: React.CSSProperties;
+  if (!rect) {
+    // No target found — center-bottom fallback
+    tooltipPos = { bottom: "60px", left: "50%", transform: "translateX(-50%)" };
+  } else if (currentStep.side === "right") {
+    tooltipPos = {
+      top: `${sTop + sH / 2}px`,
+      left: `${sRight + TOOLTIP_GAP}px`,
+      transform: "translateY(-50%)",
+    };
+  } else {
+    tooltipPos = {
+      top: `${sBottom + TOOLTIP_GAP}px`,
+      left: `${sLeft + sW / 2}px`,
+      transform: "translateX(-50%)",
+    };
+  }
+
+  const isLastStep = step >= STEPS.length - 1;
 
   return createPortal(
     <div role="region" aria-label="Editor tutorial">
-      {/* Four-panel dark overlay — leaves spotlight hole uncovered */}
+      {/*
+       * ── Visual darkening panels (z-index 199, pointer-events: none) ──────────
+       * Four panels leave a rectangular spotlight hole so the target remains
+       * visible. These panels do NOT intercept clicks — that is handled by the
+       * transparent interceptor below.
+       */}
+      {rect ? (
+        <>
+          <div aria-hidden style={{ position: "fixed", top: 0, left: 0, right: 0, height: `${sTop}px`, background: OVERLAY_BG, zIndex: 199, pointerEvents: "none" }} />
+          <div aria-hidden style={{ position: "fixed", top: `${sBottom}px`, left: 0, right: 0, bottom: 0, background: OVERLAY_BG, zIndex: 199, pointerEvents: "none" }} />
+          <div aria-hidden style={{ position: "fixed", top: `${sTop}px`, left: 0, width: `${sLeft}px`, height: `${sH}px`, background: OVERLAY_BG, zIndex: 199, pointerEvents: "none" }} />
+          <div aria-hidden style={{ position: "fixed", top: `${sTop}px`, left: `${sRight}px`, right: 0, height: `${sH}px`, background: OVERLAY_BG, zIndex: 199, pointerEvents: "none" }} />
+        </>
+      ) : (
+        // Target not in DOM — full-screen dark fallback
+        <div aria-hidden style={{ position: "fixed", inset: 0, background: OVERLAY_BG, zIndex: 199, pointerEvents: "none" }} />
+      )}
+
+      {/*
+       * ── Transparent full-screen click interceptor (z-index 200) ─────────────
+       * Sits above the visual panels AND above all app UI elements (which have
+       * no explicit z-index). Every pointer event is captured here; nothing
+       * reaches the underlying controls. Clicking anywhere advances the step.
+       */}
       <div
+        onClick={advance}
         aria-hidden
         style={{
           position: "fixed",
-          top: 0,
-          left: 0,
-          right: 0,
-          height: `${sTop}px`,
-          background: OVERLAY_BG,
+          inset: 0,
           zIndex: 200,
-          pointerEvents: "none",
-        }}
-      />
-      <div
-        aria-hidden
-        style={{
-          position: "fixed",
-          top: `${sBottom}px`,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: OVERLAY_BG,
-          zIndex: 200,
-          pointerEvents: "none",
-        }}
-      />
-      <div
-        aria-hidden
-        style={{
-          position: "fixed",
-          top: `${sTop}px`,
-          left: 0,
-          width: `${sLeft}px`,
-          height: `${sH}px`,
-          background: OVERLAY_BG,
-          zIndex: 200,
-          pointerEvents: "none",
-        }}
-      />
-      <div
-        aria-hidden
-        style={{
-          position: "fixed",
-          top: `${sTop}px`,
-          left: `${sRight}px`,
-          right: 0,
-          height: `${sH}px`,
-          background: OVERLAY_BG,
-          zIndex: 200,
-          pointerEvents: "none",
+          cursor: "pointer",
+          background: "transparent",
         }}
       />
 
-      {/* Gold ring around spotlight */}
-      <div
-        aria-hidden
-        style={{
-          position: "fixed",
-          top: `${sTop}px`,
-          left: `${sLeft}px`,
-          width: `${sW}px`,
-          height: `${sH}px`,
-          border: "1.5px solid rgba(201,168,76,0.6)",
-          borderRadius: "6px",
-          boxShadow:
-            "0 0 0 1px rgba(201,168,76,0.10), 0 0 20px rgba(201,168,76,0.16)",
-          zIndex: 201,
-          pointerEvents: "none",
-        }}
-      />
+      {/* ── Gold spotlight ring (z-index 201, pointer-events: none) ─────────── */}
+      {rect && (
+        <div
+          aria-hidden
+          style={{
+            position: "fixed",
+            top: `${sTop}px`,
+            left: `${sLeft}px`,
+            width: `${sW}px`,
+            height: `${sH}px`,
+            border: "1.5px solid rgba(201,168,76,0.65)",
+            borderRadius: "6px",
+            boxShadow: "0 0 0 1px rgba(201,168,76,0.10), 0 0 20px rgba(201,168,76,0.16)",
+            zIndex: 201,
+            pointerEvents: "none",
+          }}
+        />
+      )}
 
-      {/* Tooltip card */}
+      {/*
+       * ── Tooltip card (z-index 202, pointer-events: auto) ────────────────────
+       * Sits above the interceptor. Skip and Next buttons receive clicks
+       * normally; Skip uses stopPropagation so it does not also trigger the
+       * interceptor's advance handler.
+       */}
       <div style={{ ...tooltipBase, ...tooltipPos }}>
         <p
           className="font-rune-serif text-sm leading-relaxed"
@@ -341,28 +287,51 @@ export function EditorTutorial({ active }: Props) {
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
+            gap: "12px",
           }}
         >
           <span
             className="text-xs tabular-nums"
-            style={{ color: "var(--color-mist)", opacity: 0.55 }}
+            style={{ color: "var(--color-mist)", opacity: 0.5 }}
           >
             {step + 1} / {STEPS.length}
           </span>
-          <button
-            type="button"
-            onClick={handleSkip}
-            className="text-xs transition-opacity duration-150"
-            style={{ color: "var(--color-mist)", opacity: 0.5, cursor: "pointer" }}
-            onMouseEnter={(e) =>
-              ((e.currentTarget as HTMLElement).style.opacity = "0.9")
-            }
-            onMouseLeave={(e) =>
-              ((e.currentTarget as HTMLElement).style.opacity = "0.5")
-            }
-          >
-            Skip
-          </button>
+          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleSkip();
+              }}
+              className="text-xs transition-opacity duration-150"
+              style={{ color: "var(--color-mist)", opacity: 0.5, cursor: "pointer" }}
+              onMouseEnter={(e) =>
+                ((e.currentTarget as HTMLElement).style.opacity = "0.9")
+              }
+              onMouseLeave={(e) =>
+                ((e.currentTarget as HTMLElement).style.opacity = "0.5")
+              }
+            >
+              Skip
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                advance();
+              }}
+              className="text-xs font-medium transition-opacity duration-150"
+              style={{ color: "var(--color-gold)", cursor: "pointer" }}
+              onMouseEnter={(e) =>
+                ((e.currentTarget as HTMLElement).style.opacity = "0.7")
+              }
+              onMouseLeave={(e) =>
+                ((e.currentTarget as HTMLElement).style.opacity = "1")
+              }
+            >
+              {isLastStep ? "Done" : "Next →"}
+            </button>
+          </div>
         </div>
       </div>
     </div>,

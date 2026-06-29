@@ -65,7 +65,6 @@ export function PageListSkeleton() {
 interface PageMenuProps {
   page: Page;
   totalPages: number;
-  isFirst?: boolean;
   onRename: () => void;
   onDelete: () => void;
   onSetCanonical: () => void;
@@ -75,7 +74,6 @@ interface PageMenuProps {
 function PageMenu({
   page,
   totalPages,
-  isFirst,
   onRename,
   onDelete,
   onSetCanonical,
@@ -124,7 +122,6 @@ function PageMenu({
         onClick={handleOpen}
         aria-label={`Options for ${page.title}`}
         aria-expanded={open}
-        data-tutorial-id={isFirst ? "page-menu-btn" : undefined}
         className="shrink-0 rounded p-0.5 opacity-0 transition-opacity duration-100 hover:bg-rune-gold/15 group-hover:opacity-100"
         style={{ color: "var(--color-mist)" }}
       >
@@ -481,6 +478,7 @@ export function PageList({
             return (
               <li key={page.id} className="shrink-0">
                 <div
+                  data-tutorial-id={index === 0 ? "canonical-control" : undefined}
                   className={cn(
                     "group relative mx-2 flex w-[calc(100%-1rem)] cursor-pointer select-none flex-col px-3 py-1.5 transition-all duration-200 rounded-md",
                     isSelected
@@ -564,7 +562,6 @@ export function PageList({
                       <PageMenu
                         page={page}
                         totalPages={pages.length}
-                        isFirst={index === 0}
                         onRename={() => {
                           setEditingId(page.id);
                           setEditingTitle(page.title);

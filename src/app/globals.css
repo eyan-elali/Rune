@@ -404,11 +404,6 @@ body {
 }
 
 /* ── Editor tutorial ─────────────────────────────────────────────── */
-/* Force page-menu (···) button visible during canonical tutorial step */
-html[data-tutorial-step="2"] [data-tutorial-id="page-menu-btn"] {
-  opacity: 1 !important;
-}
-
 @keyframes rune-tutorial-rise {
   from { opacity: 0; transform: translateX(-50%) translateY(8px); }
   to   { opacity: 1; transform: translateX(-50%) translateY(0); }
