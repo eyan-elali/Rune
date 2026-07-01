@@ -308,11 +308,22 @@ language plpgsql
 security definer set search_path = public
 as $$
 begin
-  insert into public.profiles (id, display_name, avatar_url)
-  values (
+  insert into public.profiles (
+    id,
+    display_name,
+    avatar_url,
+    xp,
+    level,
+    has_written_first_words,
+    subscription_tier
+  ) values (
     new.id,
     new.raw_user_meta_data ->> 'display_name',
-    new.raw_user_meta_data ->> 'avatar_url'
+    new.raw_user_meta_data ->> 'avatar_url',
+    0,
+    1,
+    false,
+    'free'
   );
 
   return new;
