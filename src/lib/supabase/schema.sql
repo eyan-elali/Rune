@@ -298,6 +298,40 @@ create policy "project_notes: delete own"
 -- ── Migration: drop legacy tasks table (run once on existing databases) ─
 -- drop table if exists public.tasks cascade;
 
+-- ── deleted_accounts ────────────────────────────────────────────────
+-- Admin-only audit log. RLS is enabled but no user-facing policies exist,
+-- so only the service role key can read or write rows. Regular users never
+-- touch this table. Records persist forever after the originating auth user
+-- is deleted. Use the Supabase Table Editor (service role) to view them.
+create table if not exists public.deleted_accounts (
+  id                uuid        primary key default gen_random_uuid(),
+  original_user_id  uuid        not null,
+  email             text,
+  username          text,
+  display_name      text,
+  xp                integer,
+  level             integer,
+  subscription_tier text,
+  deleted_at        timestamptz not null default now()
+);
+
+alter table public.deleted_accounts enable row level security;
+-- No policies — only the service-role key (never exposed to clients) can access.
+
+-- ── Migration: add deleted_accounts (run once on existing databases) ─
+-- create table if not exists public.deleted_accounts (
+--   id                uuid        primary key default gen_random_uuid(),
+--   original_user_id  uuid        not null,
+--   email             text,
+--   username          text,
+--   display_name      text,
+--   xp                integer,
+--   level             integer,
+--   subscription_tier text,
+--   deleted_at        timestamptz not null default now()
+-- );
+-- alter table public.deleted_accounts enable row level security;
+
 -- ═══════════════════════════════════════════════════════════════════
 --  Auto-create profile on signup
 -- ═══════════════════════════════════════════════════════════════════

@@ -153,7 +153,7 @@ export async function markFirstWordsSaved(): Promise<ActionResult> {
 
 // Requires SUPABASE_SERVICE_ROLE_KEY in .env.local (server-only, no NEXT_PUBLIC_ prefix)
 export async function deleteAccount(): Promise<ActionResult> {
-  const { user } = await getAuthUser();
+  const { supabase, user } = await getAuthUser();
   if (!user) return { error: "Not authenticated" };
 
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -167,6 +167,23 @@ export async function deleteAccount(): Promise<ActionResult> {
     serviceRoleKey,
     { auth: { autoRefreshToken: false, persistSession: false } }
   );
+
+  // Snapshot the profile before the cascade wipes everything
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("username, display_name, xp, level, subscription_tier")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  await admin.from("deleted_accounts").insert({
+    original_user_id: user.id,
+    email: user.email ?? null,
+    username: profile?.username ?? null,
+    display_name: profile?.display_name ?? null,
+    xp: profile?.xp ?? null,
+    level: profile?.level ?? null,
+    subscription_tier: profile?.subscription_tier ?? null,
+  });
 
   const { error } = await admin.auth.admin.deleteUser(user.id);
   return { error: error?.message ?? null };
