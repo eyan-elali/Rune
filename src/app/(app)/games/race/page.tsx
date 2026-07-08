@@ -24,6 +24,7 @@ import { getWeeklyTicketUsage } from "@/lib/actions/billing";
 import { getProjects } from "@/lib/actions/projects";
 import { getChapters } from "@/lib/actions/chapters";
 import { xpRewardForWords } from "@/lib/xp";
+import { unlockToastMessage } from "@/lib/unlockables";
 import { getGameTicketsAllowed } from "@/lib/subscription";
 import type { Project, Chapter } from "@/lib/types";
 
@@ -1114,6 +1115,11 @@ export default function RaceYourselfPage() {
               newLevel: xpResult.data.newLevel,
               newUnlockables: xpResult.data.newUnlockables,
             });
+          } else if (xpResult.data.newUnlockables.length > 0) {
+            useToastStore.getState().showToast(
+              unlockToastMessage(xpResult.data.newUnlockables),
+              "success"
+            );
           }
         }
       });

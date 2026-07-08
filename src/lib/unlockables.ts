@@ -87,3 +87,12 @@ export function requirementLabel(req: Unlockable['requirement']): string {
       return 'Unlock The Void theme first'
   }
 }
+
+/** Build a toast message for unlockables granted outside a level-up (word/xp/streak milestones, etc). */
+export function unlockToastMessage(ids: string[]): string {
+  const names = ids
+    .map((id) => UNLOCKABLES.find((u) => u.id === id)?.name)
+    .filter((n): n is string => Boolean(n))
+  if (names.length === 0) return ''
+  return `Unlocked: ${names.join(', ')}`
+}

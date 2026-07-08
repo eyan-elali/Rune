@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { UNLOCKABLES } from "@/lib/unlockables";
+import { getWritingStreak } from "@/lib/actions/writingStats";
 
 export type UserUnlockable = {
   unlockable_id: string;
@@ -62,6 +63,7 @@ export async function checkAndGrantUnlockables(userId: string): Promise<string[]
     { data: raceSessions },
     { data: alreadyUnlocked },
     { data: writingSessions },
+    { maxStreak },
   ] = await Promise.all([
     supabase
       .from("profiles")
@@ -89,6 +91,7 @@ export async function checkAndGrantUnlockables(userId: string): Promise<string[]
     // (see recordWordsWritten / storeOfflineWritingCredit), unlike projects.word_count
     // which counts pasted content toward the manuscript total.
     supabase.from("writing_sessions").select("words_added").eq("user_id", user.id),
+    getWritingStreak(user.id),
   ]);
 
   const currentLevel = profile?.level ?? 1;
@@ -133,7 +136,9 @@ export async function checkAndGrantUnlockables(userId: string): Promise<string[]
     else if (type === 'battles_won') qualifies = battleWins >= Number(value);
     else if (type === 'race_30min') qualifies = hasThirtyMinRace;
     else if (type === 'xp') qualifies = xp >= Number(value);
-    else if (type === 'streak') qualifies = false; // streak column not yet in schema
+    // Best-ever streak, not the current one — a streak avatar earned once
+    // should not require the streak to still be active at check time.
+    else if (type === 'streak') qualifies = maxStreak >= Number(value);
     else if (type === 'theme_unlocked') qualifies = unlockedIds.has(value as string);
 
     if (qualifies) toGrant.push(unlockable.id);

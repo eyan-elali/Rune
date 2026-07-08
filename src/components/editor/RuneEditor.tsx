@@ -15,6 +15,7 @@ import { SyncConflictModal } from "./SyncConflictModal";
 import { useNetworkStore } from "@/store/networkStore";
 import { awardProjectXp } from "@/lib/actions/xp";
 import { xpRewardForWords } from "@/lib/xp";
+import { unlockToastMessage } from "@/lib/unlockables";
 import { useEditorStore } from "@/store/editorStore";
 import { useModeStore } from "@/store/modeStore";
 import { useProfileStore } from "@/store/profileStore";
@@ -429,6 +430,8 @@ export default function RuneEditor({
                   setStoredProfile(result.data);
                   if (result.data.leveledUp) {
                     setPendingLevelUp({ newLevel: result.data.newLevel, newUnlockables: result.data.newUnlockables });
+                  } else if (result.data.newUnlockables.length > 0) {
+                    showToast(unlockToastMessage(result.data.newUnlockables), "success");
                   }
                   if (!isFocusModeRef.current) {
                     setXpFlash({ id: Date.now(), amount: xpGain });

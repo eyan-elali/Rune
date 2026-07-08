@@ -576,6 +576,7 @@ function EditorTab() {
 function AppearanceTab({ unlockedIds }: { unlockedIds: Set<string> }) {
   const storeProfile = useProfileStore((s) => s.profile);
   const setPreferences = useProfileStore((s) => s.setPreferences);
+  const subscriptionTier = useProfileStore((s) => s.subscriptionTier);
   const prefs = (storeProfile?.preferences ?? {}) as Partial<UserPreferences>;
 
   const activeTheme = resolveThemeId(prefs.activeTheme);
@@ -589,6 +590,16 @@ function AppearanceTab({ unlockedIds }: { unlockedIds: Set<string> }) {
   function isItemUnlocked(id: string) {
     const item = UNLOCKABLES.find((u) => u.id === id);
     return item?.requirement === null || unlockedIds.has(id);
+  }
+
+  // True when Scribe (not the metric requirement) is the actual blocker —
+  // otherwise a Scribe-tier item the user has already leveled/written into
+  // would misleadingly show "Reach Level X" instead of "Requires Scribe".
+  function isItemTierGated(id: string) {
+    const item = UNLOCKABLES.find((u) => u.id === id);
+    return (
+      !!item && item.tier === "scribe" && subscriptionTier !== "scribe" && !unlockedIds.has(id)
+    );
   }
 
   async function selectTheme(id: string) {
@@ -676,6 +687,8 @@ function AppearanceTab({ unlockedIds }: { unlockedIds: Set<string> }) {
                 >
                   {unlocked
                     ? theme.description
+                    : isItemTierGated(theme.id)
+                    ? "Requires Scribe subscription"
                     : requirementLabel(theme.requirement)}
                 </p>
               </button>
@@ -686,6 +699,9 @@ function AppearanceTab({ unlockedIds }: { unlockedIds: Set<string> }) {
 
       <Card>
         <SectionTitle>Font Pack</SectionTitle>
+        <p className="mt-1 text-xs" style={{ color: "var(--color-mist)" }}>
+          Applies to your manuscript editor text only.
+        </p>
         <div className="mt-4 grid grid-cols-2 gap-3">
           {fonts.map((font) => {
             const unlocked = isItemUnlocked(font.id);
@@ -737,6 +753,8 @@ function AppearanceTab({ unlockedIds }: { unlockedIds: Set<string> }) {
                 >
                   {unlocked
                     ? font.description
+                    : isItemTierGated(font.id)
+                    ? "Requires Scribe subscription"
                     : requirementLabel(font.requirement)}
                 </p>
               </button>

@@ -17,6 +17,7 @@ import { recordWordsWritten, transferGameWordsToProject } from "@/lib/actions/wr
 import { getProjects } from "@/lib/actions/projects";
 import { getChapters } from "@/lib/actions/chapters";
 import { xpRewardForWords } from "@/lib/xp";
+import { unlockToastMessage } from "@/lib/unlockables";
 import { getGameTicketsAllowed } from "@/lib/subscription";
 import { useGameStore } from "@/store/gameStore";
 import { useProfileStore } from "@/store/profileStore";
@@ -1233,6 +1234,11 @@ export default function BattlePage() {
                 newLevel: xpResult.data.newLevel,
                 newUnlockables: xpResult.data.newUnlockables,
               });
+            } else if (xpResult.data.newUnlockables.length > 0) {
+              useToastStore.getState().showToast(
+                unlockToastMessage(xpResult.data.newUnlockables),
+                "success"
+              );
             }
           }
         });

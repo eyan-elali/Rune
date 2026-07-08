@@ -130,20 +130,27 @@ function UnlockableCard({
 
 function Section({
   title,
+  description,
   children,
 }: {
   title: string;
+  description?: string;
   children: React.ReactNode;
 }) {
   return (
     <section className="mb-10" aria-label={title}>
       <h2
-        className="!mb-4 text-xs font-semibold uppercase tracking-widest"
+        className="!mb-1 text-xs font-semibold uppercase tracking-widest"
         style={{ color: "var(--color-mist)" }}
       >
         {title}
       </h2>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {description && (
+        <p className="!mb-4 text-xs" style={{ color: "var(--color-mist)", opacity: 0.75 }}>
+          {description}
+        </p>
+      )}
+      <div className={`grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 ${description ? "" : "mt-4"}`}>
         {children}
       </div>
     </section>
@@ -156,8 +163,11 @@ export default async function UnlockablesPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const [reconciledUnlockables, userUnlockables, profileRow] = await Promise.all([
-    checkAndGrantUnlockables(user!.id),
+  // Must resolve before the read below — otherwise a grant written here can
+  // race the getUserUnlockables SELECT and be missed on this very page load.
+  const reconciledUnlockables = await checkAndGrantUnlockables(user!.id);
+
+  const [userUnlockables, profileRow] = await Promise.all([
     getUserUnlockables(user!.id),
     supabase
       .from("profiles")
@@ -172,14 +182,17 @@ export default async function UnlockablesPage() {
   const unlockedMap = new Map(
     userUnlockables.map((u) => [u.unlockable_id, u.unlocked_at])
   );
+  // getUserUnlockables reads unlocked_at from the row it inserted, but as a
+  // defensive fallback also stamp any freshly granted id that somehow isn't
+  // reflected yet, so it doesn't render as still-locked on this load.
+  const nowIso = new Date().toISOString();
+  for (const id of reconciledUnlockables) {
+    if (!unlockedMap.has(id)) unlockedMap.set(id, nowIso);
+  }
 
   const themes = UNLOCKABLES.filter((u) => u.type === "theme");
   const fonts = UNLOCKABLES.filter((u) => u.type === "font");
   const avatars = UNLOCKABLES.filter((u) => u.type === "avatar");
-
-  console.log("[UnlockablesPage] static registry IDs:", UNLOCKABLES.map((u) => u.id));
-  console.log("[UnlockablesPage] reconciled grants:", reconciledUnlockables);
-  console.log("[UnlockablesPage] user unlockables:", userUnlockables);
 
   return (
     <div className="mx-auto max-w-4xl px-8 py-12">
@@ -206,7 +219,7 @@ export default async function UnlockablesPage() {
         ))}
       </Section>
 
-      <Section title="Font Packs">
+      <Section title="Font Packs" description="Applies to your manuscript editor text only.">
         {fonts.map((item) => (
           <UnlockableCard
             key={item.id}
