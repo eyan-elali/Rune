@@ -131,14 +131,41 @@ export async function evictOldCacheEntries(): Promise<void> {
     const db = await getOfflineDB()
     const allCached = await db.getAll('page_cache')
     if (allCached.length <= 20) return
-    const toDelete = allCached
+
+    // Never evict the cache entry for a page that still has an unsynced local
+    // write — it holds serverUpdatedAt/serverVersion, the baseline syncPendingWrite()
+    // uses to detect conflicts. Losing it forces the "no cached baseline" fallback,
+    // which conservatively (and falsely) flags any page with existing content as
+    // a conflict on its next sync.
+    const allPending = await db.getAll('pending_writes')
+    const pendingIds = new Set(allPending.map((w) => w.id))
+    const evictionCandidates = allCached
+      .filter((e) => !pendingIds.has(e.id))
       .sort((a, b) => a.cachedAt - b.cachedAt)
-      .slice(0, allCached.length - 20)
+    const toDelete = evictionCandidates.slice(0, Math.max(0, allCached.length - 20))
     for (const entry of toDelete) {
       await db.delete('page_cache', entry.id)
     }
   } catch {
     // Silent fail — cache eviction is best-effort
+  }
+}
+
+/**
+ * Returns the last confirmed server `updated_at` for a page, as recorded by the
+ * sync engine on its most recent successful write. This is the authoritative
+ * baseline for "does the server have something newer than my local draft?"
+ * checks — unlike a `Page.updated_at` prop threaded through React state, it is
+ * always refreshed the moment a sync succeeds, regardless of whether the
+ * component holding that prop re-renders.
+ */
+export async function getCachedServerUpdatedAt(pageId: string): Promise<string | null> {
+  try {
+    const db = await getOfflineDB()
+    const entry = await db.get('page_cache', pageId)
+    return entry?.serverUpdatedAt ?? null
+  } catch {
+    return null
   }
 }
 

@@ -10,7 +10,7 @@ import { cn, getLocalDateString } from "@/lib/utils";
 import { renamePage } from "@/lib/actions/pages";
 import { recordWordsWritten } from "@/lib/actions/writingStats";
 import { writeToPendingQueue, syncPendingWrite } from "@/lib/offline/syncEngine";
-import { getOfflineDB, getPendingWrite, storeOfflineWritingCredit } from "@/lib/offline/db";
+import { getOfflineDB, getPendingWrite, storeOfflineWritingCredit, getCachedServerUpdatedAt } from "@/lib/offline/db";
 import { SyncConflictModal } from "./SyncConflictModal";
 import { useNetworkStore } from "@/store/networkStore";
 import { awardProjectXp } from "@/lib/actions/xp";
@@ -267,6 +267,12 @@ export default function RuneEditor({
     setIsSaving(false);
     void readDbSyncStatus(page.id).then((dbStatus) => {
       setSyncStatusAndRef(mapDisplayStatus(dbStatus, isOnlineRef.current));
+      // Once nothing is left pending in IDB, this page is fully synced — clear
+      // any lingering "Showing latest local draft" banner from a prior recovery.
+      // Previously this only cleared via the explicit "Sync now" button, so a
+      // normal autosave that resolved the same condition left a stale prompt
+      // telling the user to sync content that had already synced.
+      if (!dbStatus) setShowingLocalDraft(false);
     });
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -388,6 +394,12 @@ export default function RuneEditor({
         if (isLoadingRef.current) return;
         const page = currentPageRef.current;
         if (!page) return;
+        // Guard against a debounce timer that outlives the editor (e.g. the
+        // component unmounts before the timer fires). Tiptap's destroy() wipes
+        // `editor.storage` to `{}`, so reading word count here would silently
+        // save word_count: 0 while getJSON() still returns real content —
+        // corrupting the stored word count without the user deleting anything.
+        if (!editor || editor.isDestroyed) return;
 
         const content = editor.getJSON() as Record<string, unknown>;
         const wordCount =
@@ -496,20 +508,32 @@ export default function RuneEditor({
     setShowingLocalDraft(false);
 
     const pageIdForDraftCheck = newPageId;
-    const serverUpdatedAt = currentPage?.updated_at;
+    const propServerUpdatedAt = currentPage?.updated_at;
 
     if (pageIdForDraftCheck) {
       void (async () => {
         try {
           const pending = await getPendingWrite(pageIdForDraftCheck);
           if (currentPageRef.current?.id !== pageIdForDraftCheck) return;
-          if (pending && serverUpdatedAt) {
-            const serverMs = new Date(serverUpdatedAt).getTime();
-            if (pending.localUpdatedAt > serverMs) {
-              editor.commands.setContent(pending.content);
-              lastSavedWordCountRef.current = pending.wordCount;
-              lastAwardedWordCountRef.current = pending.wordCount;
-              setShowingLocalDraft(true);
+          if (pending) {
+            // Prefer the IDB page_cache baseline over the `currentPage.updated_at`
+            // prop. The prop is a snapshot from whenever this Page object was last
+            // merged into EditorShell's state, and handlePageUpdated() never
+            // refreshes updated_at after a background sync — so comparing a fresh
+            // IDB localUpdatedAt against that stale prop produces false "showing
+            // local draft" prompts for a page that has already synced cleanly.
+            // page_cache.serverUpdatedAt is written by the sync engine on every
+            // confirmed save and is always current.
+            const serverUpdatedAt =
+              (await getCachedServerUpdatedAt(pageIdForDraftCheck)) ?? propServerUpdatedAt;
+            if (serverUpdatedAt) {
+              const serverMs = new Date(serverUpdatedAt).getTime();
+              if (pending.localUpdatedAt > serverMs) {
+                editor.commands.setContent(pending.content);
+                lastSavedWordCountRef.current = pending.wordCount;
+                lastAwardedWordCountRef.current = pending.wordCount;
+                setShowingLocalDraft(true);
+              }
             }
           }
         } catch {
@@ -541,9 +565,31 @@ export default function RuneEditor({
         }
       }
       clearTimeout(xpFlashTimerRef.current);
+
+      // Flush a still-pending debounced save before the editor is destroyed.
+      // React runs cleanup functions in reverse declaration order, and useEditor
+      // is declared above this effect, so `editor` is still live here — this
+      // runs BEFORE Tiptap's own unmount cleanup tears it down. If we didn't
+      // clear the timer, it would fire later against a destroyed editor: Tiptap
+      // resets `editor.storage` to `{}` on destroy, so `characterCount.words()`
+      // would read as 0 while `getJSON()` still returned the real document —
+      // silently saving word_count: 0 over real content with no user deletion.
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current);
+        const page = currentPageRef.current;
+        const uid = userIdRef.current;
+        if (editor && !editor.isDestroyed && page && uid) {
+          const content = editor.getJSON() as Record<string, unknown>;
+          const wordCount =
+            (editor.storage.characterCount?.words?.() as number | undefined) ?? 0;
+          void writeToPendingQueue(page.id, uid, content, wordCount).then(() => {
+            if (isOnlineRef.current) void syncPendingWrite(page.id);
+          });
+        }
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [editor]);
 
   const wordCount =
     (editor?.storage.characterCount?.words?.() as number | undefined) ?? 0;
