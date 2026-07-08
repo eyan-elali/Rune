@@ -27,9 +27,9 @@ export interface Unlockable {
 export const UNLOCKABLES: Unlockable[] = [
   // ── Themes (12) ──────────────────────────────────────────────────────────────
   { id: 'parchment',          name: 'Parchment',          type: 'theme', tier: 'free',   description: 'Warm whites and antique gold.',                                    requirement: null },
-  { id: 'manuscript',         name: 'Manuscript',         type: 'theme', tier: 'free',   description: 'Warm paper and charcoal ink. No gold — just the page.',           requirement: { type: 'words_written', value: 2000 } },
   { id: 'candlelight',        name: 'Candlelight',        type: 'theme', tier: 'free',   description: 'Deep sepia and amber. Write by firelight.',                       requirement: null },
   { id: 'fog',                name: 'London Fog',         type: 'theme', tier: 'free',   description: 'Cool grays and muted slate. Quiet and austere.',                  requirement: { type: 'xp', value: 200 } },
+  { id: 'manuscript',         name: 'Manuscript',         type: 'theme', tier: 'free',   description: 'Warm paper and charcoal ink. No gold — just the page.',           requirement: { type: 'words_written', value: 2000 } },
   { id: 'midnight-library',   name: 'Midnight Library',   type: 'theme', tier: 'scribe', description: 'Deep navy and silver. The library after hours.',                  requirement: { type: 'level', value: 5 } },
   { id: 'crimson-ink',        name: 'Crimson Ink',        type: 'theme', tier: 'scribe', description: 'Dark reds and bone white. Dramatic and intense.',                 requirement: { type: 'level', value: 15 } },
   { id: 'forest-scriptorium', name: 'Forest Scriptorium', type: 'theme', tier: 'scribe', description: 'Deep greens and bark brown. Grounded and focused.',              requirement: { type: 'words', value: 10000 } },
