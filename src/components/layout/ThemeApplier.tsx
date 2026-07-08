@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useProfileStore } from "@/store/profileStore";
-import { DEFAULT_THEME_ID, resolveThemeId } from "@/lib/themes";
+import { resolveThemeId } from "@/lib/themes";
 
 export function ThemeApplier() {
   const preferences = useProfileStore((s) => s.profile?.preferences) as
@@ -17,12 +17,12 @@ export function ThemeApplier() {
     (preferences?.activeFont as string | undefined) ?? "";
 
   useEffect(() => {
-    const root = document.documentElement;
-    if (activeTheme === DEFAULT_THEME_ID) {
-      root.removeAttribute("data-theme");
-    } else {
-      root.setAttribute("data-theme", activeTheme);
-    }
+    // Always set the attribute explicitly rather than stripping it for the
+    // "default" theme. The old shortcut (remove attribute → fall through to
+    // bare `:root`) only worked because `:root` happened to hold Parchment's
+    // palette, which was also DEFAULT_THEME_ID — reassigning the default to
+    // any other theme would silently render the wrong colors otherwise.
+    document.documentElement.setAttribute("data-theme", activeTheme);
   }, [activeTheme]);
 
   useEffect(() => {

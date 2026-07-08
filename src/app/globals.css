@@ -264,6 +264,41 @@ body {
   border: 1px solid var(--color-border-strong);
 }
 
+/* Manuscript — light theme, same contrast needs as parchment/fog */
+[data-theme="manuscript"] .battle-status-badge--writing {
+  background: rgba(30, 28, 24, 0.04);
+  border: 1px solid var(--color-border-strong);
+}
+
+[data-theme="manuscript"] .battle-status-badge--writing .battle-status-badge__dot {
+  background: var(--color-gold-dim);
+  opacity: 1;
+}
+
+[data-theme="manuscript"] .battle-status-badge--writing .battle-status-badge__text {
+  color: var(--color-ink);
+  opacity: 1;
+}
+
+[data-theme="manuscript"] .battle-status-badge--idle {
+  background: rgba(122, 58, 58, 0.1);
+  border: 1px solid rgba(122, 58, 58, 0.35);
+}
+
+[data-theme="manuscript"] .battle-status-badge--idle .battle-status-badge__dot {
+  background: var(--color-crimson);
+}
+
+[data-theme="manuscript"] .battle-status-badge--idle .battle-status-badge__text {
+  color: var(--color-crimson);
+  opacity: 1;
+}
+
+[data-theme="manuscript"] .battle-word-count {
+  background: rgba(60, 58, 54, 0.06);
+  border: 1px solid var(--color-border-strong);
+}
+
 /* ── Tiptap / ProseMirror ───────────────────────────────────────── */
 .ProseMirror {
   font-family: var(--font-editor-family);
@@ -539,6 +574,39 @@ body {
   background: rgba(45, 50, 68, 0.1) !important;
   border-color: rgba(45, 50, 68, 0.35) !important;
   filter: saturate(0) contrast(1.2);
+}
+
+/* ── Preview theme: Manuscript (neutral light, no gold) ──────────── */
+[data-theme="manuscript"] {
+  --color-ink:          #1f1e1c;
+  --color-parchment:    #f8f6f2;
+  --color-vellum:       #efece6;
+  --color-sepia:        #e8e5dd;
+  --color-gold:         #3d3d3d;
+  --color-gold-dim:     #232323;
+  --color-mist:         #6f6a63;
+  --color-border:       rgba(50, 46, 40, 0.14);
+  --color-border-strong: rgba(50, 46, 40, 0.3);
+  --color-shadow:       rgba(30, 28, 24, 0.09);
+
+  --bg-primary:         #f8f6f2;
+  --bg-secondary:       var(--color-vellum);
+  --bg-sidebar:         var(--color-sepia);
+  --surface-card:       #ffffff;
+  --surface-editor:     #ffffff;
+  --text-primary:       var(--color-ink);
+  --text-muted:         var(--color-mist);
+  --text-on-accent:     #ffffff;
+  --editor-text:        var(--color-ink);
+}
+
+/* Manuscript: neutralize the hardcoded gold-tinted arena icon background
+   (same fix as Ivory Tower — that background is a literal rgba(gold), not a
+   var, wherever the Arena hub renders game icons). */
+[data-theme="manuscript"] .arena-game-icon {
+  background: rgba(40, 38, 34, 0.06) !important;
+  border-color: var(--color-border-strong) !important;
+  filter: saturate(0) contrast(1.1);
 }
 
 /* ── Unlockable theme: London Fog (cool light) ──────────────────── */

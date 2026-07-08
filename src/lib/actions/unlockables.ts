@@ -61,6 +61,7 @@ export async function checkAndGrantUnlockables(userId: string): Promise<string[]
     { data: battleSessions },
     { data: raceSessions },
     { data: alreadyUnlocked },
+    { data: writingSessions },
   ] = await Promise.all([
     supabase
       .from("profiles")
@@ -84,6 +85,10 @@ export async function checkAndGrantUnlockables(userId: string): Promise<string[]
       .from("user_unlockables")
       .select("unlockable_id")
       .eq("user_id", user.id),
+    // Real words typed — paste/import deductions already applied at write time
+    // (see recordWordsWritten / storeOfflineWritingCredit), unlike projects.word_count
+    // which counts pasted content toward the manuscript total.
+    supabase.from("writing_sessions").select("words_added").eq("user_id", user.id),
   ]);
 
   const currentLevel = profile?.level ?? 1;
@@ -92,6 +97,10 @@ export async function checkAndGrantUnlockables(userId: string): Promise<string[]
 
   const totalWords = (projects ?? []).reduce(
     (sum, p) => sum + (p.word_count ?? 0),
+    0
+  );
+  const totalWordsWritten = (writingSessions ?? []).reduce(
+    (sum, s) => sum + (s.words_added ?? 0),
     0
   );
   const battleWins = (battleSessions ?? []).filter((s) => {
@@ -120,6 +129,7 @@ export async function checkAndGrantUnlockables(userId: string): Promise<string[]
 
     if (type === 'level') qualifies = currentLevel >= Number(value);
     else if (type === 'words') qualifies = totalWords >= Number(value);
+    else if (type === 'words_written') qualifies = totalWordsWritten >= Number(value);
     else if (type === 'battles_won') qualifies = battleWins >= Number(value);
     else if (type === 'race_30min') qualifies = hasThirtyMinRace;
     else if (type === 'xp') qualifies = xp >= Number(value);

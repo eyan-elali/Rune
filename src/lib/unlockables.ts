@@ -2,7 +2,8 @@ export type UnlockableType = 'theme' | 'avatar' | 'font'
 
 export type RequirementType =
   | 'level'
-  | 'words'
+  | 'words' // raw manuscript total (projects.word_count) — includes pasted/imported words
+  | 'words_written' // real words typed (writing_sessions.words_added) — paste-deducted
   | 'battles_won'
   | 'race_30min'
   | 'xp'
@@ -25,7 +26,8 @@ export interface Unlockable {
 
 export const UNLOCKABLES: Unlockable[] = [
   // ── Themes (12) ──────────────────────────────────────────────────────────────
-  { id: 'parchment',          name: 'Parchment',          type: 'theme', tier: 'free',   description: 'Warm whites and antique gold. The default.',                      requirement: null },
+  { id: 'parchment',          name: 'Parchment',          type: 'theme', tier: 'free',   description: 'Warm whites and antique gold.',                                    requirement: null },
+  { id: 'manuscript',         name: 'Manuscript',         type: 'theme', tier: 'free',   description: 'Warm paper and charcoal ink. No gold — just the page.',           requirement: { type: 'words_written', value: 2000 } },
   { id: 'candlelight',        name: 'Candlelight',        type: 'theme', tier: 'free',   description: 'Deep sepia and amber. Write by firelight.',                       requirement: null },
   { id: 'fog',                name: 'London Fog',         type: 'theme', tier: 'free',   description: 'Cool grays and muted slate. Quiet and austere.',                  requirement: { type: 'xp', value: 200 } },
   { id: 'midnight-library',   name: 'Midnight Library',   type: 'theme', tier: 'scribe', description: 'Deep navy and silver. The library after hours.',                  requirement: { type: 'level', value: 5 } },
@@ -71,6 +73,7 @@ export function requirementLabel(req: Unlockable['requirement']): string {
     case 'level':
       return `Reach Level ${req.value}`
     case 'words':
+    case 'words_written':
       return `Write ${Number(req.value).toLocaleString()} words`
     case 'battles_won':
       return `Win ${req.value} ${Number(req.value) === 1 ? 'battle' : 'battles'}`

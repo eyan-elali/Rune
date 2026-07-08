@@ -1,6 +1,7 @@
 /** Canonical unlockable theme IDs — keep in sync with UNLOCKABLES themes in unlockables.ts */
 export const THEME_IDS = [
   "parchment",
+  "manuscript",
   "candlelight",
   "fog",
   "midnight-library",

@@ -24,7 +24,7 @@ import { createClient } from "@/lib/supabase/client";
 import { PricingTable } from "@/components/billing/PricingTable";
 import type { Profile, UserPreferences } from "@/lib/types";
 import type { SubscriptionTier } from "@/lib/subscription";
-import { resolveThemeId } from "@/lib/themes";
+import { resolveThemeId, DEFAULT_THEME_ID } from "@/lib/themes";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -651,7 +651,7 @@ function AppearanceTab({ unlockedIds }: { unlockedIds: Set<string> }) {
                   >
                     ✓
                   </span>
-                ) : theme.id === "parchment" ? (
+                ) : theme.id === DEFAULT_THEME_ID ? (
                   <span
                     className="absolute right-3 top-3 rounded px-1.5 py-0.5 text-[10px] uppercase tracking-widest"
                     style={{
