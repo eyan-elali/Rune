@@ -19,20 +19,25 @@ export function ActivationFunnel({
   const maxCount = Math.max(1, ...data.steps.map((s) => s.count));
 
   return (
-    <PulseCard className="p-6">
-      <PulseCardLabel>Activation Funnel</PulseCardLabel>
-      <p className="mb-4 -mt-1 text-xs leading-relaxed" style={{ color: "var(--color-mist)", opacity: 0.65 }}>
-        Activation metrics include tracked signups only. Historical users may not have complete
-        event timelines.
-        {trackingStartDate && ` Activation tracking began ${fmtDate(trackingStartDate)}.`}
-      </p>
+    <PulseCard tier="primary" className="p-7">
+      <PulseCardLabel emphasis>Activation Funnel</PulseCardLabel>
+      <div className="mb-5 -mt-1 space-y-0.5">
+        <p className="text-xs leading-relaxed" style={{ color: "var(--color-mist)", opacity: 0.7 }}>
+          Tracked signup cohort. Historical users may not have complete activation data.
+        </p>
+        {trackingStartDate && (
+          <p className="text-[11px]" style={{ color: "var(--color-mist)", opacity: 0.45 }}>
+            Tracking began {fmtDate(trackingStartDate)}.
+          </p>
+        )}
+      </div>
 
       {data.cohortSize === 0 ? (
         <p className="py-6 text-center text-sm" style={{ color: "var(--color-mist)" }}>
           No tracked signups in this range yet.
         </p>
       ) : (
-        <div className="space-y-2.5">
+        <div className="space-y-3">
           {data.steps.map((step) => {
             const isBottleneck = data.bottleneck?.toLabel === step.label;
             const widthPercent = Math.max(2, Math.round((step.count / maxCount) * 100));
@@ -41,7 +46,7 @@ export function ActivationFunnel({
               <button
                 key={step.key}
                 onClick={() => openFunnelDrilldown(step.key, step.label)}
-                className="group flex w-full items-center gap-4 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-rune-gold/5"
+                className="group flex w-full items-center gap-4 rounded-md px-2 py-2 text-left transition-colors hover:bg-rune-gold/5"
               >
                 <span
                   className="w-40 shrink-0 truncate text-sm"
@@ -67,13 +72,13 @@ export function ActivationFunnel({
                 <span className="w-16 shrink-0 text-right font-rune-serif text-sm tabular-nums" style={{ color: "var(--text-primary)" }}>
                   {step.count.toLocaleString()}
                 </span>
-                <span className="w-14 shrink-0 text-right text-xs tabular-nums" style={{ color: "var(--color-mist)" }}>
+                <span className="w-14 shrink-0 text-right text-[11px] tabular-nums" style={{ color: "var(--color-mist)", opacity: 0.55 }}>
                   {step.percentOfFirst}%
                 </span>
                 {step.exceedsPrevious ? (
                   <span
                     className="w-20 shrink-0 text-right text-[10px] leading-tight"
-                    style={{ color: "var(--color-mist)", opacity: 0.75 }}
+                    style={{ color: "var(--color-mist)", opacity: 0.6 }}
                     title="Some users have this event without the preceding tracked event — a tracking gap, not a funnel gain."
                   >
                     tracking gap
@@ -81,8 +86,8 @@ export function ActivationFunnel({
                 ) : (
                   step.dropFromPrevious !== null && (
                     <span
-                      className="w-20 shrink-0 text-right text-xs tabular-nums"
-                      style={{ color: isBottleneck ? "var(--color-crimson)" : "var(--color-mist)", opacity: isBottleneck ? 1 : 0.7 }}
+                      className="w-20 shrink-0 text-right text-[11px] tabular-nums"
+                      style={{ color: isBottleneck ? "var(--color-crimson)" : "var(--color-mist)", opacity: isBottleneck ? 1 : 0.55 }}
                     >
                       −{step.dropFromPrevious}%
                     </span>
@@ -95,9 +100,11 @@ export function ActivationFunnel({
       )}
 
       {data.bottleneck && (
-        <p className="mt-4 text-xs leading-relaxed" style={{ color: "var(--color-mist)" }}>
-          Bottleneck: <span style={{ color: "var(--color-crimson)" }}>{data.bottleneck.fromLabel} → {data.bottleneck.toLabel}</span> loses {data.bottleneck.dropPercent}% of writers.
-        </p>
+        <div className="mt-5 border-t pt-3" style={{ borderColor: "var(--color-border)" }}>
+          <p className="text-xs leading-relaxed" style={{ color: "var(--color-mist)" }}>
+            Bottleneck: <span style={{ color: "var(--color-crimson)" }}>{data.bottleneck.fromLabel} → {data.bottleneck.toLabel}</span> loses {data.bottleneck.dropPercent}% of writers.
+          </p>
+        </div>
       )}
     </PulseCard>
   );

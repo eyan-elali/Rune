@@ -23,8 +23,8 @@ export function CampaignPerformance({ data }: { data: CampaignRow[] }) {
       </p>
 
       {data.length === 0 ? (
-        <p className="text-sm" style={{ color: "var(--color-mist)" }}>
-          No attributed signups in this range yet.
+        <p className="py-8 text-center text-sm" style={{ color: "var(--color-mist)" }}>
+          No attributed campaign signups in this range yet.
         </p>
       ) : (
         <div className="overflow-x-auto">

@@ -21,7 +21,7 @@ function briefSentence(data: DailyBriefData): string {
 
 export function DailyBrief({ data }: { data: DailyBriefData }) {
   return (
-    <PulseCard className="p-6">
+    <PulseCard tier="elevated" className="p-6">
       <div className="mb-3 flex items-baseline justify-between">
         <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--color-mist)" }}>
           Daily Brief
@@ -31,23 +31,25 @@ export function DailyBrief({ data }: { data: DailyBriefData }) {
         </p>
       </div>
 
-      <p className="font-rune-serif text-lg leading-relaxed" style={{ color: "var(--text-primary)" }}>
+      <p className="font-rune-serif text-xl leading-relaxed" style={{ color: "var(--text-primary)" }}>
         {briefSentence(data)}
       </p>
 
       {data.activationCohortSize === 0 ? (
-        <p className="mt-3 text-sm leading-relaxed" style={{ color: "var(--color-mist)" }}>
+        <p className="mt-4 text-sm leading-relaxed" style={{ color: "var(--color-mist)" }}>
           Not enough tracked activation data yet.
         </p>
       ) : (
         data.bottleneck && (
-          <p className="mt-3 text-sm leading-relaxed" style={{ color: "var(--color-mist)" }}>
-            Biggest activation drop-off (last 30 days):{" "}
-            <span style={{ color: "var(--color-gold)" }}>
-              {data.bottleneck.fromLabel} → {data.bottleneck.toLabel}
-            </span>{" "}
-            — {data.bottleneck.dropPercent}% of writers fall off here.
-          </p>
+          <div className="mt-4 border-t pt-3" style={{ borderColor: "var(--color-border)" }}>
+            <p className="text-sm leading-relaxed" style={{ color: "var(--color-mist)" }}>
+              Biggest activation drop-off (last 30 days):{" "}
+              <span style={{ color: "var(--color-gold)" }}>
+                {data.bottleneck.fromLabel} → {data.bottleneck.toLabel}
+              </span>{" "}
+              — {data.bottleneck.dropPercent}% of writers fall off here.
+            </p>
+          </div>
         )
       )}
     </PulseCard>

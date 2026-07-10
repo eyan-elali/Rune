@@ -59,9 +59,12 @@ export default async function PulsePage({ searchParams }: PulsePageProps) {
     <PulseDrawerProvider range={range}>
       <div className="mx-auto max-w-7xl px-8 py-10">
         {/* Header */}
-        <div className="mb-6 flex items-center justify-between">
+        <div className="mb-8 flex items-center justify-between">
           <div>
-            <h1 className="font-rune-serif text-2xl leading-tight" style={{ color: "var(--text-primary)" }}>
+            <h1
+              className="font-rune-serif text-[1.7rem] leading-tight tracking-tight"
+              style={{ color: "var(--text-primary)" }}
+            >
               Pulse
             </h1>
             <p className="mt-1 text-xs" style={{ color: "var(--color-mist)", opacity: 0.65 }}>
@@ -75,23 +78,23 @@ export default async function PulsePage({ searchParams }: PulsePageProps) {
         <DailyBrief data={dailyBrief} />
 
         {/* Heartbeat */}
-        <div className="mt-4">
+        <div className="mt-5">
           <Heartbeat data={heartbeat} />
         </div>
 
         {/* Activation Funnel — hero */}
-        <div className="mt-4">
+        <div className="mt-5">
           <ActivationFunnel data={funnel} trackingStartDate={trackingStartDate} />
         </div>
 
         {/* Writer Progress + Campaign Performance */}
-        <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-2">
           <WriterProgress data={writerProgress} />
           <CampaignPerformance data={campaigns} />
         </div>
 
         {/* Recent Writers + Open Questions */}
-        <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[3fr_2fr]">
+        <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-[3fr_2fr]">
           <RecentWriters initialWriters={recentWriters} />
           <OpenQuestions initialNotes={notes} />
         </div>

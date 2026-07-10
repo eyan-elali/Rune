@@ -46,7 +46,7 @@ export function OpenQuestions({ initialNotes }: { initialNotes: FounderNote[] })
     <PulseCard className="flex flex-col p-6">
       <PulseCardLabel>Open Questions</PulseCardLabel>
 
-      <div className="mb-4 flex items-start gap-2">
+      <div className="mb-5 flex items-start gap-2 border-b pb-5" style={{ borderColor: "var(--color-border)" }}>
         <textarea
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
