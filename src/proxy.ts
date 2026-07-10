@@ -1,7 +1,42 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import {
+  ATTRIBUTION_COOKIE_NAME,
+  ATTRIBUTION_COOKIE_MAX_AGE_SECONDS,
+  parseAttributionFromSearchParams,
+  hasMeaningfulAttribution,
+  serializeAttributionCookie,
+  deserializeAttributionCookie,
+  normalizeLandingPath,
+} from "@/lib/attribution";
 
 const PUBLIC_ROUTES = ["/", "/login", "/signup", "/auth/callback", "/terms", "/privacy"];
+
+// First-touch capture: only runs on public entry routes, only when no
+// first-touch cookie already exists, and only when this visit actually
+// carries recognized attribution params — an untagged visit never
+// overwrites (or races to set) a cookie.
+function captureFirstTouchAttribution(request: NextRequest, response: NextResponse) {
+  const existing = deserializeAttributionCookie(request.cookies.get(ATTRIBUTION_COOKIE_NAME)?.value);
+  if (existing) return;
+
+  const fields = parseAttributionFromSearchParams(request.nextUrl.searchParams);
+  if (!hasMeaningfulAttribution(fields)) return;
+
+  const touch = {
+    ...fields,
+    landing_path: normalizeLandingPath(request.nextUrl.pathname),
+    captured_at: new Date().toISOString(),
+  };
+
+  response.cookies.set(ATTRIBUTION_COOKIE_NAME, serializeAttributionCookie(touch), {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: ATTRIBUTION_COOKIE_MAX_AGE_SECONDS,
+  });
+}
 
 function isNetworkError(err: { message?: string; status?: number } | null): boolean {
   if (!err) return false;
@@ -70,6 +105,10 @@ export async function proxy(request: NextRequest) {
     const loginUrl = request.nextUrl.clone();
     loginUrl.pathname = "/login";
     return NextResponse.redirect(loginUrl);
+  }
+
+  if (isPublic) {
+    captureFirstTouchAttribution(request, supabaseResponse);
   }
 
   return supabaseResponse;
