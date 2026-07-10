@@ -17,6 +17,10 @@ export function CampaignPerformance({ data }: { data: CampaignRow[] }) {
   return (
     <PulseCard className="p-6">
       <PulseCardLabel>Campaign Performance</PulseCardLabel>
+      <p className="mb-4 -mt-1 text-xs leading-relaxed" style={{ color: "var(--color-mist)", opacity: 0.65 }}>
+        Signups are counted in the selected range. First saves, 2nd-day return, and subscribers
+        are counted whenever they happen, even after the range ends.
+      </p>
 
       {data.length === 0 ? (
         <p className="text-sm" style={{ color: "var(--color-mist)" }}>

@@ -91,6 +91,44 @@ async function countDistinctUsersForEvent(
   return new Set((data ?? []).map((r) => r.user_id).filter(Boolean)).size;
 }
 
+// ── Signup cohorts ───────────────────────────────────────────────────────
+// Tracked activation metrics (the funnel, campaign conversion) must all be
+// anchored on the same population: users with a recorded signup_completed
+// event. Historical profiles that predate first-party analytics never fire
+// this event, so they're correctly excluded rather than silently mixed in
+// with `profiles.created_at` — see CLAUDE.md-adjacent Pulse correction notes.
+
+async function getUserIdsForEventInRange(
+  client: ServiceClient,
+  eventName: AnalyticsEventName,
+  since: string | null,
+  until: string | null = null
+): Promise<string[]> {
+  let q = client.from("analytics_events").select("user_id").eq("event_name", eventName);
+  if (since) q = q.gte("created_at", since);
+  if (until) q = q.lt("created_at", until);
+  const { data } = await q;
+  return Array.from(new Set((data ?? []).map((r) => r.user_id as string).filter(Boolean)));
+}
+
+// Counts how many members of a fixed cohort have ever reached `eventName`,
+// with no time bound on the event itself — a signup inside the selected
+// range whose first save happens after the range ends still counts for
+// that signup's cohort.
+async function countCohortUsersForEvent(
+  client: ServiceClient,
+  eventName: AnalyticsEventName,
+  cohort: string[]
+): Promise<number> {
+  if (cohort.length === 0) return 0;
+  const { data } = await client
+    .from("analytics_events")
+    .select("user_id")
+    .eq("event_name", eventName)
+    .in("user_id", cohort);
+  return new Set((data ?? []).map((r) => r.user_id as string)).size;
+}
+
 // ── Daily Brief ──────────────────────────────────────────────────────────
 
 export interface DailyBrief {
@@ -101,6 +139,10 @@ export interface DailyBrief {
   secondWritingDays: number;
   subscriptions: number;
   bottleneck: FunnelBottleneck | null;
+  // Size of the trailing-30-day signup_completed cohort behind `bottleneck`.
+  // 0 means there isn't enough tracked activation data to name a bottleneck
+  // yet — distinct from "the funnel has no drop-off".
+  activationCohortSize: number;
 }
 
 export async function getDailyBrief(): Promise<DailyBrief> {
@@ -129,6 +171,7 @@ export async function getDailyBrief(): Promise<DailyBrief> {
     secondWritingDays,
     subscriptions,
     bottleneck: funnel.bottleneck,
+    activationCohortSize: funnel.cohortSize,
   };
 }
 
@@ -174,10 +217,14 @@ export interface FunnelBottleneck {
 export interface FunnelResult {
   steps: FunnelStep[];
   bottleneck: FunnelBottleneck | null;
+  // Size of the signup_completed cohort the funnel is anchored on. 0 means
+  // there's nothing tracked to show — callers should render a calm empty
+  // state rather than a funnel full of misleading 0%s.
+  cohortSize: number;
 }
 
-const FUNNEL_DEFS: { key: string; label: string; eventName: AnalyticsEventName | null }[] = [
-  { key: "signup", label: "Signup", eventName: null },
+const FUNNEL_DEFS: { key: string; label: string; eventName: AnalyticsEventName }[] = [
+  { key: "signup", label: "Signup", eventName: "signup_completed" },
   { key: "email_verified", label: "Email Verified", eventName: "email_verified" },
   { key: "onboarding_started", label: "Onboarding Started", eventName: "onboarding_started" },
   { key: "project_created", label: "Project Created", eventName: "project_created" },
@@ -186,20 +233,42 @@ const FUNNEL_DEFS: { key: string; label: string; eventName: AnalyticsEventName |
   { key: "first_save", label: "First Save", eventName: "first_save" },
 ];
 
+// Cohort-consistent activation funnel: the population is anchored on users
+// with a signup_completed event inside [since, until), and every later
+// stage counts only members of that same cohort — regardless of when they
+// reached the later event. This intentionally excludes historical profiles
+// that predate analytics (they have no signup_completed event) rather than
+// mixing them with profiles.created_at as the old denominator did.
 async function getActivationFunnelInternal(
   client: ServiceClient,
   since: string | null,
   until: string | null
 ): Promise<FunnelResult> {
-  const counts = await Promise.all(
-    FUNNEL_DEFS.map((step) =>
-      step.eventName === null
-        ? countProfilesInWindow(client, since, until)
-        : countDistinctUsersForEvent(client, step.eventName, since, until)
-    )
-  );
+  const cohort = await getUserIdsForEventInRange(client, "signup_completed", since, until);
+  const cohortSize = cohort.length;
 
-  const first = counts[0] || 0;
+  if (cohortSize === 0) {
+    return { steps: [], bottleneck: null, cohortSize: 0 };
+  }
+
+  const laterCounts = await Promise.all(
+    FUNNEL_DEFS.slice(1).map((def) => countCohortUsersForEvent(client, def.eventName, cohort))
+  );
+  const rawCounts = [cohortSize, ...laterCounts];
+
+  // Counts must never increase down the funnel. Event data can be out of
+  // order (e.g. a first_save recorded without an onboarding_completed for
+  // the same user), so clamp defensively rather than let the UI imply
+  // writers gained a step back.
+  const counts: number[] = [];
+  let ceiling = Infinity;
+  for (const c of rawCounts) {
+    const clamped = Math.min(c, ceiling);
+    counts.push(clamped);
+    ceiling = clamped;
+  }
+
+  const first = counts[0];
   const steps: FunnelStep[] = FUNNEL_DEFS.map((def, i) => {
     const count = counts[i];
     const prev = i > 0 ? counts[i - 1] : null;
@@ -222,12 +291,67 @@ async function getActivationFunnelInternal(
     }
   }
 
-  return { steps, bottleneck };
+  return { steps, bottleneck, cohortSize };
 }
 
 export async function getActivationFunnel(range: PulseTimeRange): Promise<FunnelResult> {
   const client = await requireAdminService();
   return getActivationFunnelInternal(client, rangeSince(range), null);
+}
+
+// Drilldown for a single funnel stage — must return exactly the members
+// counted at that stage (the signup cohort, filtered to those who reached
+// the stage's event with no time bound), so the list a founder opens always
+// matches the number they clicked.
+export async function getActivationFunnelDrilldownUsers(
+  stepKey: string,
+  range: PulseTimeRange
+): Promise<DrilldownUser[]> {
+  const client = await requireAdminService();
+  const since = rangeSince(range);
+  const def = FUNNEL_DEFS.find((d) => d.key === stepKey);
+  if (!def) return [];
+
+  const cohort = await getUserIdsForEventInRange(client, "signup_completed", since, null);
+  if (cohort.length === 0) return [];
+
+  let q = client
+    .from("analytics_events")
+    .select("user_id, created_at")
+    .eq("event_name", def.eventName)
+    .in("user_id", cohort);
+  // The signup stage's own event is naturally bounded by the selected
+  // range already (that's how the cohort was built); later stages are
+  // intentionally left unbounded so a first save after the range's end
+  // still shows up under its signup cohort.
+  if (def.key === "signup" && since) q = q.gte("created_at", since);
+  const { data } = await q;
+
+  const eventAtByUser = new Map<string, string>();
+  for (const row of data ?? []) {
+    const uid = row.user_id as string;
+    const existing = eventAtByUser.get(uid);
+    if (!existing || (row.created_at as string) < existing) {
+      eventAtByUser.set(uid, row.created_at as string);
+    }
+  }
+
+  return hydrateDrilldownUsers(client, Array.from(eventAtByUser.keys()), eventAtByUser);
+}
+
+// Earliest recorded signup_completed event — used only to caption the
+// funnel with when tracked activation data begins. No new schema; just the
+// min of an already-indexed column.
+export async function getActivationTrackingStartDate(): Promise<string | null> {
+  const client = await requireAdminService();
+  const { data } = await client
+    .from("analytics_events")
+    .select("created_at")
+    .eq("event_name", "signup_completed")
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  return (data?.created_at as string) ?? null;
 }
 
 // ── Writer Progress ──────────────────────────────────────────────────────
@@ -275,10 +399,11 @@ async function getCampaignCohort(
   range: PulseTimeRange
 ): Promise<{ userIds: string[]; campaignByUser: Map<string, string> }> {
   const since = rangeSince(range);
-  let q = client.from("profiles").select("id, created_at");
-  if (since) q = q.gte("created_at", since);
-  const { data: profiles } = await q;
-  const userIds = (profiles ?? []).map((p) => p.id as string);
+  // Cohort-consistent with the activation funnel: a campaign's signups are
+  // users with a tracked signup_completed event in range, not every profile
+  // created in range. A historically attributed user with no tracked signup
+  // event is correctly absent here — their journey can't be reconstructed.
+  const userIds = await getUserIdsForEventInRange(client, "signup_completed", since, null);
 
   const campaignByUser = new Map<string, string>();
   if (userIds.length > 0) {

@@ -35,14 +35,20 @@ export function DailyBrief({ data }: { data: DailyBriefData }) {
         {briefSentence(data)}
       </p>
 
-      {data.bottleneck && (
+      {data.activationCohortSize === 0 ? (
         <p className="mt-3 text-sm leading-relaxed" style={{ color: "var(--color-mist)" }}>
-          Biggest activation drop-off (last 30 days):{" "}
-          <span style={{ color: "var(--color-gold)" }}>
-            {data.bottleneck.fromLabel} → {data.bottleneck.toLabel}
-          </span>{" "}
-          — {data.bottleneck.dropPercent}% of writers fall off here.
+          Not enough tracked activation data yet.
         </p>
+      ) : (
+        data.bottleneck && (
+          <p className="mt-3 text-sm leading-relaxed" style={{ color: "var(--color-mist)" }}>
+            Biggest activation drop-off (last 30 days):{" "}
+            <span style={{ color: "var(--color-gold)" }}>
+              {data.bottleneck.fromLabel} → {data.bottleneck.toLabel}
+            </span>{" "}
+            — {data.bottleneck.dropPercent}% of writers fall off here.
+          </p>
+        )
       )}
     </PulseCard>
   );

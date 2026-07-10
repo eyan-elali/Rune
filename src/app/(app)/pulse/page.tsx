@@ -1,6 +1,7 @@
 import { requireAdmin } from "@/lib/actions/admin";
 import {
   getActivationFunnel,
+  getActivationTrackingStartDate,
   getCampaignPerformance,
   getDailyBrief,
   getHeartbeat,
@@ -34,16 +35,25 @@ export default async function PulsePage({ searchParams }: PulsePageProps) {
   const { range: rawRange } = await searchParams;
   const range = normalizeRange(rawRange);
 
-  const [dailyBrief, heartbeat, funnel, writerProgress, campaigns, recentWriters, notes] =
-    await Promise.all([
-      getDailyBrief(),
-      getHeartbeat(range),
-      getActivationFunnel(range),
-      getWriterProgress(range),
-      getCampaignPerformance(range),
-      searchRecentWriters("", range),
-      listFounderNotes(),
-    ]);
+  const [
+    dailyBrief,
+    heartbeat,
+    funnel,
+    trackingStartDate,
+    writerProgress,
+    campaigns,
+    recentWriters,
+    notes,
+  ] = await Promise.all([
+    getDailyBrief(),
+    getHeartbeat(range),
+    getActivationFunnel(range),
+    getActivationTrackingStartDate(),
+    getWriterProgress(range),
+    getCampaignPerformance(range),
+    searchRecentWriters("", range),
+    listFounderNotes(),
+  ]);
 
   return (
     <PulseDrawerProvider range={range}>
@@ -71,7 +81,7 @@ export default async function PulsePage({ searchParams }: PulsePageProps) {
 
         {/* Activation Funnel — hero */}
         <div className="mt-4">
-          <ActivationFunnel data={funnel} />
+          <ActivationFunnel data={funnel} trackingStartDate={trackingStartDate} />
         </div>
 
         {/* Writer Progress + Campaign Performance */}

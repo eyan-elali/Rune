@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import {
+  getActivationFunnelDrilldownUsers,
   getCampaignDrilldownUsers,
   getDrilldownUsers,
   getUserDrawerData,
@@ -30,6 +31,7 @@ type DrawerState =
 interface PulseDrawerContextValue {
   range: PulseTimeRange;
   openDrilldown: (kind: DrilldownKind, title: string) => void;
+  openFunnelDrilldown: (stepKey: string, title: string) => void;
   openCampaignDrilldown: (campaign: string, metric: CampaignMetric, title: string) => void;
   openUser: (userId: string) => void;
 }
@@ -111,6 +113,20 @@ export function PulseDrawerProvider({
     [range]
   );
 
+  // Distinct from openDrilldown: the funnel's counts are cohort-consistent
+  // (a signup cohort, checked against a later event with no time bound), so
+  // its drilldown must use the matching cohort-aware query — otherwise the
+  // list a founder opens wouldn't match the number they clicked.
+  const openFunnelDrilldown = useCallback(
+    (stepKey: string, title: string) => {
+      setState({ mode: "list", title, loading: true, users: [] });
+      getActivationFunnelDrilldownUsers(stepKey, range)
+        .then((users) => setState({ mode: "list", title, loading: false, users }))
+        .catch(() => setState({ mode: "list", title, loading: false, users: [] }));
+    },
+    [range]
+  );
+
   const openCampaignDrilldown = useCallback(
     (campaign: string, metric: CampaignMetric, title: string) => {
       setState({ mode: "list", title, loading: true, users: [] });
@@ -165,7 +181,9 @@ export function PulseDrawerProvider({
   const isOpen = state.mode !== "closed";
 
   return (
-    <PulseDrawerContext.Provider value={{ range, openDrilldown, openCampaignDrilldown, openUser }}>
+    <PulseDrawerContext.Provider
+      value={{ range, openDrilldown, openFunnelDrilldown, openCampaignDrilldown, openUser }}
+    >
       {children}
 
       {/* Overlay */}
