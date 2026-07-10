@@ -70,13 +70,23 @@ export function ActivationFunnel({
                 <span className="w-14 shrink-0 text-right text-xs tabular-nums" style={{ color: "var(--color-mist)" }}>
                   {step.percentOfFirst}%
                 </span>
-                {step.dropFromPrevious !== null && (
+                {step.exceedsPrevious ? (
                   <span
-                    className="w-20 shrink-0 text-right text-xs tabular-nums"
-                    style={{ color: isBottleneck ? "var(--color-crimson)" : "var(--color-mist)", opacity: isBottleneck ? 1 : 0.7 }}
+                    className="w-20 shrink-0 text-right text-[10px] leading-tight"
+                    style={{ color: "var(--color-mist)", opacity: 0.75 }}
+                    title="Some users have this event without the preceding tracked event — a tracking gap, not a funnel gain."
                   >
-                    −{step.dropFromPrevious}%
+                    tracking gap
                   </span>
+                ) : (
+                  step.dropFromPrevious !== null && (
+                    <span
+                      className="w-20 shrink-0 text-right text-xs tabular-nums"
+                      style={{ color: isBottleneck ? "var(--color-crimson)" : "var(--color-mist)", opacity: isBottleneck ? 1 : 0.7 }}
+                    >
+                      −{step.dropFromPrevious}%
+                    </span>
+                  )
                 )}
               </button>
             );

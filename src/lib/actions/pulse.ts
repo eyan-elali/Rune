@@ -206,6 +206,12 @@ export interface FunnelStep {
   count: number;
   percentOfFirst: number;
   dropFromPrevious: number | null;
+  // True when this stage's raw count exceeds the preceding stage's — e.g.
+  // some users have first_save recorded without an onboarding_completed
+  // event for the same user. This is a tracking gap, not a real funnel
+  // gain, so counts are shown as-is (never altered) and no drop/conversion
+  // percentage is computed for this transition.
+  exceedsPrevious: boolean;
 }
 
 export interface FunnelBottleneck {
@@ -254,32 +260,32 @@ async function getActivationFunnelInternal(
   const laterCounts = await Promise.all(
     FUNNEL_DEFS.slice(1).map((def) => countCohortUsersForEvent(client, def.eventName, cohort))
   );
-  const rawCounts = [cohortSize, ...laterCounts];
-
-  // Counts must never increase down the funnel. Event data can be out of
-  // order (e.g. a first_save recorded without an onboarding_completed for
-  // the same user), so clamp defensively rather than let the UI imply
-  // writers gained a step back.
-  const counts: number[] = [];
-  let ceiling = Infinity;
-  for (const c of rawCounts) {
-    const clamped = Math.min(c, ceiling);
-    counts.push(clamped);
-    ceiling = clamped;
-  }
+  // Raw cohort counts, shown as-is. Incomplete historical instrumentation
+  // can make a later stage exceed the one before it (e.g. a first_save
+  // recorded without an onboarding_completed event for the same user) —
+  // that's a real gap in tracking coverage, not a funnel gain, so it's
+  // surfaced via `exceedsPrevious` rather than hidden by clamping counts.
+  const counts = [cohortSize, ...laterCounts];
 
   const first = counts[0];
   const steps: FunnelStep[] = FUNNEL_DEFS.map((def, i) => {
     const count = counts[i];
     const prev = i > 0 ? counts[i - 1] : null;
+    const exceedsPrevious = prev !== null && count > prev;
     const dropFromPrevious =
-      prev !== null && prev > 0 ? Math.round((1 - count / prev) * 1000) / 10 : null;
+      prev !== null && prev > 0 && !exceedsPrevious
+        ? Math.round((1 - count / prev) * 1000) / 10
+        : null;
     return {
       key: def.key,
       label: def.label,
       count,
-      percentOfFirst: first > 0 ? Math.round((count / first) * 1000) / 10 : 0,
+      // Capped at 100 — a later stage's count is always bounded by the
+      // cohort itself, but this guards the display against ever reading
+      // as a >100% conversion if that invariant is ever violated.
+      percentOfFirst: first > 0 ? Math.min(100, Math.round((count / first) * 1000) / 10) : 0,
       dropFromPrevious,
+      exceedsPrevious,
     };
   });
 

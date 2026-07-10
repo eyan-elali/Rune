@@ -15,6 +15,9 @@ export function WriterProgress({ data }: { data: WriterProgressItem[] }) {
   return (
     <PulseCard className="p-6">
       <PulseCardLabel>Writer Progress</PulseCardLabel>
+      <p className="mb-4 -mt-1 text-xs leading-relaxed" style={{ color: "var(--color-mist)", opacity: 0.65 }}>
+        Writers who reached each word milestone in the selected range.
+      </p>
       <div className="space-y-2.5">
         {data.map((item) => {
           const widthPercent = Math.max(2, Math.round((item.count / maxCount) * 100));
