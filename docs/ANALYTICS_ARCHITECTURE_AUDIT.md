@@ -483,3 +483,14 @@ Rune needs a reliable definition of "Nth writing session." Four candidates were 
 **Decisions needing founder approval:** migration-file convention going forward (§14.1), admin-access mechanism (§14.2), analytics-row retention after account deletion (§14.3), Meta Advanced Matching's real on/off state (§14.4).
 
 **Confirmation:** no runtime behavior was changed. Only `docs/ANALYTICS_ARCHITECTURE_AUDIT.md` was created; `git diff` shows no other files touched.
+
+---
+
+## Phase 1 Addendum — Implementation Decisions That Differed From §7/§10
+
+Phase 1 (infrastructure only — `analytics_events`, `acquisition_attribution`, `src/lib/actions/analytics.ts`, event typing) is implemented. Two decisions came out simpler than the recommendation above; recorded here per the phase's instruction to update this doc only where implementation diverged.
+
+1. **No `record_analytics_event()` RPC.** §7 proposed a `SECURITY DEFINER` RPC modeled on `increment_game_ticket()`. Implemented instead as a plain service-role insert in `recordAnalyticsEvent()` (`src/lib/actions/analytics.ts`), using the same inline-service-role-client pattern already shipped in `deleteAccount()` (`src/lib/actions/settings.ts`). `analytics_events` has zero RLS policies either way, so the RPC's only real justification would have been the partial-unique-index conflict target below — once that was simplified away, a normal helper was sufficient and matches the codebase's existing "ad hoc service-role client" precedent more closely than introducing a new RPC pattern would have.
+2. **One non-partial unique index instead of two partial ones.** §7 proposed `(user_id, event_name) where dedupe_key is null` plus `(user_id, event_name, dedupe_key) where dedupe_key is not null`. Postgres requires an explicit `WHERE` clause on the `ON CONFLICT` target to match a partial index, which PostgREST's `upsert(..., { onConflict })` cannot express — that would have forced the RPC in decision 1. Instead, `recordAnalyticsEvent()` always supplies a `dedupe_key` (a fixed `"once"` sentinel when the caller omits one for a true one-time milestone, or a caller-supplied value for repeatable events), so a single non-partial `unique index on (user_id, event_name, dedupe_key)` covers both cases and works with a plain `.upsert(..., { ignoreDuplicates: true })`. The `dedupe_key` column itself stays nullable at the schema level as specified; the helper is what guarantees it's always populated in practice.
+
+Everything else — table shape, both tables' zero-policy RLS pattern, the two read-path indexes, the event taxonomy, the cascade-delete decision for `analytics_events.user_id` (confirmed with the founder during this phase, resolving §14 decision 3) — matches the recommendation as written.

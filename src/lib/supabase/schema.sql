@@ -332,6 +332,100 @@ alter table public.deleted_accounts enable row level security;
 -- );
 -- alter table public.deleted_accounts enable row level security;
 
+-- ── analytics_events ─────────────────────────────────────────────────
+-- First-party product analytics. RLS is enabled but no user-facing policies
+-- exist, so only the service-role key can read or write rows — same pattern
+-- as deleted_accounts. All writes go through recordAnalyticsEvent() in
+-- src/lib/actions/analytics.ts, which always supplies a dedupe_key (see the
+-- unique index below), so a plain upsert with ignoreDuplicates is enough —
+-- no SECURITY DEFINER RPC is needed for this table.
+create table if not exists public.analytics_events (
+  id           uuid        primary key default gen_random_uuid(),
+  user_id      uuid        references public.profiles (id) on delete cascade,
+  event_name   text        not null,
+  project_id   uuid        references public.projects (id) on delete cascade,
+  local_date   date,
+  metadata     jsonb,
+  dedupe_key   text,
+  created_at   timestamptz not null default now()
+);
+
+alter table public.analytics_events enable row level security;
+-- No policies — only the service-role key (never exposed to clients) can access.
+
+-- User timelines: "everything that happened for this user, in order"
+create index if not exists analytics_events_user_created_idx
+  on public.analytics_events (user_id, created_at);
+
+-- Funnel queries: "how many users hit event X, and when"
+create index if not exists analytics_events_name_created_idx
+  on public.analytics_events (event_name, created_at);
+
+-- Deduplication (one-time milestones and repeatable-but-idempotent events).
+-- recordAnalyticsEvent() always populates dedupe_key — either a caller-
+-- supplied value (e.g. a local_date, or "session_2") for events that
+-- legitimately repeat, or a fixed sentinel for true one-time milestones —
+-- so a single non-partial unique index covers both cases.
+create unique index if not exists analytics_events_dedupe_idx
+  on public.analytics_events (user_id, event_name, dedupe_key);
+
+-- ── Migration: add analytics_events (run once on existing databases) ─
+-- create table if not exists public.analytics_events (
+--   id           uuid        primary key default gen_random_uuid(),
+--   user_id      uuid        references public.profiles (id) on delete cascade,
+--   event_name   text        not null,
+--   project_id   uuid        references public.projects (id) on delete cascade,
+--   local_date   date,
+--   metadata     jsonb,
+--   dedupe_key   text,
+--   created_at   timestamptz not null default now()
+-- );
+-- alter table public.analytics_events enable row level security;
+-- create index if not exists analytics_events_user_created_idx
+--   on public.analytics_events (user_id, created_at);
+-- create index if not exists analytics_events_name_created_idx
+--   on public.analytics_events (event_name, created_at);
+-- create unique index if not exists analytics_events_dedupe_idx
+--   on public.analytics_events (user_id, event_name, dedupe_key);
+
+-- ── acquisition_attribution ──────────────────────────────────────────
+-- First-touch UTM/campaign attribution. One row per user, written once at
+-- signup and never overwritten. Schema only for now — no capture logic
+-- exists yet; a later phase will read a landing-page cookie and insert here
+-- with `on conflict (user_id) do nothing` for first-touch-wins semantics.
+create table if not exists public.acquisition_attribution (
+  id           uuid        primary key default gen_random_uuid(),
+  user_id      uuid        not null unique references public.profiles (id) on delete cascade,
+  source       text,
+  medium       text,
+  campaign     text,
+  content      text,
+  term         text,
+  fbclid       text,
+  landing_path text,
+  captured_at  timestamptz,
+  created_at   timestamptz not null default now()
+);
+
+alter table public.acquisition_attribution enable row level security;
+-- No policies — only the service-role key (never exposed to clients) can access.
+
+-- ── Migration: add acquisition_attribution (run once on existing databases) ─
+-- create table if not exists public.acquisition_attribution (
+--   id           uuid        primary key default gen_random_uuid(),
+--   user_id      uuid        not null unique references public.profiles (id) on delete cascade,
+--   source       text,
+--   medium       text,
+--   campaign     text,
+--   content      text,
+--   term         text,
+--   fbclid       text,
+--   landing_path text,
+--   captured_at  timestamptz,
+--   created_at   timestamptz not null default now()
+-- );
+-- alter table public.acquisition_attribution enable row level security;
+
 -- ═══════════════════════════════════════════════════════════════════
 --  Auto-create profile on signup
 -- ═══════════════════════════════════════════════════════════════════

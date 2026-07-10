@@ -96,3 +96,28 @@ export interface GameSession {
   created_at: string;
   meta: Record<string, unknown> | null;
 }
+
+export interface AnalyticsEvent {
+  id: string;
+  user_id: string | null;
+  event_name: string;
+  project_id: string | null;
+  local_date: string | null;
+  metadata: Record<string, unknown> | null;
+  dedupe_key: string | null;
+  created_at: string;
+}
+
+export interface AcquisitionAttribution {
+  id: string;
+  user_id: string;
+  source: string | null;
+  medium: string | null;
+  campaign: string | null;
+  content: string | null;
+  term: string | null;
+  fbclid: string | null;
+  landing_path: string | null;
+  captured_at: string | null;
+  created_at: string;
+}
