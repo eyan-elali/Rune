@@ -12,6 +12,7 @@ import {
   Swords,
   ChevronLeft,
   ChevronRight,
+  Activity,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useProfileStore } from "@/store/profileStore";
@@ -290,6 +291,15 @@ export function Sidebar({ displayName }: SidebarProps) {
           aria-hidden
         />
         <div className={cn("pb-4 pt-3", sidebarCollapsed ? "px-0" : "px-2")}>
+          {profile?.is_admin && (
+            <NavLink
+              href="/pulse"
+              label="Pulse"
+              icon={Activity}
+              collapsed={sidebarCollapsed}
+              active={pathname === "/pulse"}
+            />
+          )}
           <NavLink
             href="/settings"
             label="Settings"

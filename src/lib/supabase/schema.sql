@@ -12,6 +12,7 @@ create table if not exists public.profiles (
   level                    integer     not null default 1,
   preferences              jsonb,
   has_written_first_words  boolean     not null default false,
+  is_admin                 boolean     not null default false,
   created_at               timestamptz not null default now()
 );
 
@@ -28,6 +29,13 @@ create table if not exists public.profiles (
 --   join public.pages pg on pg.chapter_id = c.id
 --   where proj.user_id = p.id and pg.word_count > 0
 -- );
+
+-- ── Migration: admin access, for Pulse (run once on existing databases) ─
+-- alter table public.profiles
+--   add column if not exists is_admin boolean not null default false;
+--
+-- Grant yourself access (run manually, once, in the Supabase SQL editor):
+-- update public.profiles set is_admin = true where id = '<your-user-id>';
 
 -- ── projects ────────────────────────────────────────────────────────
 create table if not exists public.projects (
@@ -111,6 +119,48 @@ create policy "profiles: select own"
 create policy "profiles: update own"
   on public.profiles for update
   using (auth.uid() = id);
+
+-- Guard against privilege escalation: the "update own" policy above has no
+-- WITH CHECK restricting which columns change, so without this trigger any
+-- authenticated user could grant themselves admin access with a direct
+-- PostgREST PATCH request. Only requests carrying an 'authenticated' JWT
+-- role are blocked from changing is_admin — manual grants via the Supabase
+-- SQL editor (no JWT, auth.role() is null) and service-role writes both
+-- pass through untouched.
+create or replace function public.protect_is_admin()
+returns trigger
+language plpgsql
+security definer set search_path = public
+as $$
+begin
+  if auth.role() = 'authenticated' and new.is_admin is distinct from old.is_admin then
+    new.is_admin := old.is_admin;
+  end if;
+  return new;
+end;
+$$;
+
+create trigger profiles_protect_is_admin
+  before update on public.profiles
+  for each row execute function public.protect_is_admin();
+
+-- ── Migration: protect is_admin from self-escalation (run once on existing databases) ─
+-- create or replace function public.protect_is_admin()
+-- returns trigger
+-- language plpgsql
+-- security definer set search_path = public
+-- as $$
+-- begin
+--   if auth.role() = 'authenticated' and new.is_admin is distinct from old.is_admin then
+--     new.is_admin := old.is_admin;
+--   end if;
+--   return new;
+-- end;
+-- $$;
+-- drop trigger if exists profiles_protect_is_admin on public.profiles;
+-- create trigger profiles_protect_is_admin
+--   before update on public.profiles
+--   for each row execute function public.protect_is_admin();
 
 -- projects: users manaehage only their own projects
 create policy "projects: select own"
@@ -425,6 +475,32 @@ alter table public.acquisition_attribution enable row level security;
 --   created_at   timestamptz not null default now()
 -- );
 -- alter table public.acquisition_attribution enable row level security;
+
+-- ── founder_notes ───────────────────────────────────────────────────
+-- Pulse's "Open Questions" panel — lightweight, manually-written product
+-- hypotheses (e.g. "Is onboarding too long?"). Admin-only, same zero-policy
+-- RLS pattern as deleted_accounts/analytics_events. Not tied to a specific
+-- writer's account, so no cascade-delete relationship to profiles.
+create table if not exists public.founder_notes (
+  id         uuid        primary key default gen_random_uuid(),
+  author_id  uuid        references public.profiles (id) on delete set null,
+  content    text        not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.founder_notes enable row level security;
+-- No policies — only the service-role key (never exposed to clients) can access.
+
+-- ── Migration: add founder_notes (run once on existing databases) ────
+-- create table if not exists public.founder_notes (
+--   id         uuid        primary key default gen_random_uuid(),
+--   author_id  uuid        references public.profiles (id) on delete set null,
+--   content    text        not null,
+--   created_at timestamptz not null default now(),
+--   updated_at timestamptz not null default now()
+-- );
+-- alter table public.founder_notes enable row level security;
 
 -- ═══════════════════════════════════════════════════════════════════
 --  Auto-create profile on signup

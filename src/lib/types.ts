@@ -26,6 +26,7 @@ export interface Profile {
   subscription_price_id: string | null;
   subscription_period_end: string | null;
   has_written_first_words: boolean;
+  is_admin: boolean;
 }
 
 export interface XpEvent {
@@ -120,4 +121,12 @@ export interface AcquisitionAttribution {
   landing_path: string | null;
   captured_at: string | null;
   created_at: string;
+}
+
+export interface FounderNote {
+  id: string;
+  author_id: string | null;
+  content: string;
+  created_at: string;
+  updated_at: string;
 }

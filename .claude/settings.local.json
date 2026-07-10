@@ -13,7 +13,11 @@
       "Bash(curl -s -o /dev/null -w \"login=%{http_code}\\\\n\" http://localhost:3000/login)",
       "Bash(curl -s -o /dev/null -w \"signup=%{http_code}\\\\n\" http://localhost:3000/signup)",
       "Bash(curl -s -o /dev/null -w \"onboarding\\(no session\\)=%{http_code}\\\\n\" http://localhost:3000/onboarding)",
-      "Bash(curl -s -o /dev/null -w \"callback\\(no code\\)=%{http_code}\\\\n\" http://localhost:3000/auth/callback)"
+      "Bash(curl -s -o /dev/null -w \"callback\\(no code\\)=%{http_code}\\\\n\" http://localhost:3000/auth/callback)",
+      "Bash(lsof -ti:3000)",
+      "Bash(xargs kill -9)",
+      "Bash(disown)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code} %{redirect_url}\\\\n\" http://localhost:3000/pulse)"
     ]
   }
 }
