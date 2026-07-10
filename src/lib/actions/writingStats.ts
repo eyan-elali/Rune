@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import type { Project } from "@/lib/types";
+import { recordAnalyticsEvent } from "@/lib/actions/analytics";
 
 type ActionResult<T> = { data: T; error: null } | { data: null; error: string };
 
@@ -14,6 +15,36 @@ async function getUser() {
 }
 
 // ── Writing Sessions ──────────────────────────────────────────────────────────
+
+// Fires second_writing_day / third_writing_day once a user has written on
+// that many distinct local calendar days — same distinct-session_date
+// definition getWritingStreak() already uses, just counting all-time distinct
+// days instead of a consecutive run. recordAnalyticsEvent's dedupe index
+// makes this safe to re-check on every call; exact equality means it stops
+// querying entirely once a user has passed their third writing day. Never
+// throws — a failure here must not affect the writing-credit write above it.
+async function checkWritingDayMilestones(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string
+): Promise<void> {
+  try {
+    const { data } = await supabase
+      .from("writing_sessions")
+      .select("session_date")
+      .eq("user_id", userId)
+      .gt("words_added", 0);
+
+    const distinctDays = new Set((data ?? []).map((r) => r.session_date as string)).size;
+
+    if (distinctDays === 2) {
+      await recordAnalyticsEvent({ userId, eventName: "second_writing_day" });
+    } else if (distinctDays === 3) {
+      await recordAnalyticsEvent({ userId, eventName: "third_writing_day" });
+    }
+  } catch {
+    // Analytics must never interrupt writing.
+  }
+}
 
 export async function recordWordsWritten(
   projectId: string | null,
@@ -39,7 +70,10 @@ export async function recordWordsWritten(
       p_session_date: date,
       p_words: wordsAdded,
     });
-    if (!error) return;
+    if (!error) {
+      await checkWritingDayMilestones(supabase, user.id);
+      return;
+    }
   }
 
   // Manual upsert — match by page_id when provided, otherwise by project_id
@@ -71,6 +105,8 @@ export async function recordWordsWritten(
       words_added: wordsAdded,
     });
   }
+
+  await checkWritingDayMilestones(supabase, user.id);
 }
 
 export async function getWordsByDay(

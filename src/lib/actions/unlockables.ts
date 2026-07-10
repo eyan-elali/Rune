@@ -3,6 +3,17 @@
 import { createClient } from "@/lib/supabase/server";
 import { UNLOCKABLES } from "@/lib/unlockables";
 import { getWritingStreak } from "@/lib/actions/writingStats";
+import { recordAnalyticsEvent } from "@/lib/actions/analytics";
+import type { AnalyticsEventName } from "@/lib/analyticsEvents";
+
+const WORD_MILESTONES: { threshold: number; eventName: AnalyticsEventName }[] = [
+  { threshold: 100, eventName: "reached_100_words" },
+  { threshold: 500, eventName: "reached_500_words" },
+  { threshold: 2000, eventName: "reached_2000_words" },
+  { threshold: 5000, eventName: "reached_5000_words" },
+  { threshold: 10000, eventName: "reached_10000_words" },
+  { threshold: 15000, eventName: "reached_15000_words" },
+];
 
 export type UserUnlockable = {
   unlockable_id: string;
@@ -106,6 +117,20 @@ export async function checkAndGrantUnlockables(userId: string): Promise<string[]
     (sum, s) => sum + (s.words_added ?? 0),
     0
   );
+
+  // Fire-once word-count milestones for analytics. Reuses the same real-word
+  // total (writing_sessions.words_added) used for the words_written unlockable
+  // check above — never projects.word_count, which includes pasted content.
+  // recordAnalyticsEvent's dedupe index makes repeat attempts a no-op, so this
+  // can safely re-check on every call (including reconciliation after offline
+  // sync) without ever emitting a duplicate event. Failures never affect
+  // unlockable granting below.
+  await Promise.allSettled(
+    WORD_MILESTONES.filter((m) => totalWordsWritten >= m.threshold).map((m) =>
+      recordAnalyticsEvent({ userId: user.id, eventName: m.eventName })
+    )
+  );
+
   const battleWins = (battleSessions ?? []).filter((s) => {
     const meta = s.meta as { outcome?: string } | null;
     return meta?.outcome === "victory";

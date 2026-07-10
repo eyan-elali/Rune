@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { stripe } from '@/lib/stripe/client'
 import { PRICE_IDS } from '@/lib/stripe/config'
+import { recordAnalyticsEvent } from '@/lib/actions/analytics'
 import type Stripe from 'stripe'
 
 function createServiceClient() {
@@ -88,6 +89,17 @@ export async function POST(request: NextRequest) {
         subscription_id: subscriptionId,
         tier,
         price_id: priceId,
+      })
+
+      // Dedupe on the Stripe event id so a webhook retry (Stripe redelivers
+      // on any non-2xx response) can never double-record this analytics
+      // event, even though upsertSubscriptionEvent above has no such guard.
+      await recordAnalyticsEvent({
+        userId,
+        eventName: 'subscription_started',
+        dedupeKey: event.id,
+      }).catch(() => {
+        // Analytics must never fail webhook processing.
       })
       break
     }

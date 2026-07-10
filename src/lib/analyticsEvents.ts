@@ -16,15 +16,15 @@ export type AnalyticsEventName =
   | "first_save"
   | "first_sync_completed"
   // Writing milestones (real words — writing_sessions.words_added, never projects.word_count)
-  | "words_100"
-  | "words_500"
-  | "words_2000"
-  | "words_5000"
-  | "words_10000"
-  | "words_15000"
-  // Retention
-  | "second_writing_session"
-  | "third_writing_session"
+  | "reached_100_words"
+  | "reached_500_words"
+  | "reached_2000_words"
+  | "reached_5000_words"
+  | "reached_10000_words"
+  | "reached_15000_words"
+  // Retention (distinct local calendar days with real writing, not sessions/opens)
+  | "second_writing_day"
+  | "third_writing_day"
   // Feature use
   | "export_completed"
   | "arena_session_completed"
