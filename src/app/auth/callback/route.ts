@@ -37,12 +37,21 @@ async function persistFirstTouchAttribution(
 // Never throws — a failure here must not block the onboarding redirect.
 async function recordEmailVerifiedEvent(userId: string) {
   try {
-    const { error } = await recordAnalyticsEvent({ userId, eventName: 'email_verified' })
+    const { error, code } = await recordAnalyticsEvent({ userId, eventName: 'email_verified' })
     if (error) {
-      console.error('[auth/callback] recordAnalyticsEvent(email_verified) failed:', error)
+      console.error('[auth/callback] email_verified insert failed', {
+        eventName: 'email_verified',
+        userIdResolved: true,
+        dbErrorCode: code ?? null,
+        dbErrorMessage: error,
+      })
     }
   } catch (err) {
-    console.error('[auth/callback] email_verified analytics threw:', err)
+    console.error('[auth/callback] email_verified insert threw', {
+      eventName: 'email_verified',
+      userIdResolved: true,
+      error: err instanceof Error ? err.message : String(err),
+    })
   }
 }
 
@@ -78,13 +87,18 @@ export async function GET(request: NextRequest) {
       }
     )
 
-    const { error } = await supabase.auth.exchangeCodeForSession(code)
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code)
     if (!error) {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        await recordEmailVerifiedEvent(user.id)
-        await persistFirstTouchAttribution(request, redirectResponse, user.id)
-      }
+      // Use the user returned directly by the exchange rather than a
+      // follow-up getUser() call. exchangeCodeForSession's success branch
+      // guarantees a non-null user (see AuthTokenResponse), whereas a
+      // separate getUser() call is an independent network round-trip that
+      // can return a null user without an error — which previously caused
+      // this block to be silently skipped while the redirect still fired,
+      // so email_verified went unrecorded with no error logged anywhere.
+      const user = data.user
+      await recordEmailVerifiedEvent(user.id)
+      await persistFirstTouchAttribution(request, redirectResponse, user.id)
       return redirectResponse
     }
     console.error('[auth/callback] exchangeCodeForSession failed:', error.message)

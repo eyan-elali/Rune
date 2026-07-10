@@ -45,7 +45,7 @@ export interface RecordAnalyticsEventInput {
 
 export async function recordAnalyticsEvent(
   input: RecordAnalyticsEventInput
-): Promise<{ error: string | null }> {
+): Promise<{ error: string | null; code?: string }> {
   const admin = await getServiceClient();
   if (!admin) {
     return { error: "Analytics is not configured (missing SUPABASE_SERVICE_ROLE_KEY)." };
@@ -65,7 +65,7 @@ export async function recordAnalyticsEvent(
       { onConflict: "user_id,event_name,dedupe_key", ignoreDuplicates: true }
     );
 
-  if (error) return { error: error.message };
+  if (error) return { error: error.message, code: error.code };
   return { error: null };
 }
 
