@@ -7,6 +7,7 @@ export type AnalyticsEventName =
   | "signup_completed"
   | "email_verified"
   | "onboarding_started"
+  | "onboarding_completed"
   // Writing activation
   | "project_created"
   | "first_sentence_written"

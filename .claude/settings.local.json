@@ -9,7 +9,11 @@
       "Bash(npm ls *)",
       "Bash(git -C /Users/eyanelali/rune show --stat c3b7687)",
       "Bash(git -C /Users/eyanelali/rune diff c3b7687^ c3b7687 -- \"src/proxy.ts\" \"src/middleware.ts\")",
-      "Bash(git *)"
+      "Bash(git *)",
+      "Bash(curl -s -o /dev/null -w \"login=%{http_code}\\\\n\" http://localhost:3000/login)",
+      "Bash(curl -s -o /dev/null -w \"signup=%{http_code}\\\\n\" http://localhost:3000/signup)",
+      "Bash(curl -s -o /dev/null -w \"onboarding\\(no session\\)=%{http_code}\\\\n\" http://localhost:3000/onboarding)",
+      "Bash(curl -s -o /dev/null -w \"callback\\(no code\\)=%{http_code}\\\\n\" http://localhost:3000/auth/callback)"
     ]
   }
 }

@@ -1,5 +1,18 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { recordAnalyticsEvent, type RecordAnalyticsEventInput } from "@/lib/actions/analytics";
+
+// Best-effort — analytics must never block onboarding completion.
+async function safeRecordEvent(input: RecordAnalyticsEventInput) {
+  try {
+    const { error } = await recordAnalyticsEvent(input);
+    if (error) {
+      console.error(`[api/onboarding] recordAnalyticsEvent(${input.eventName}) failed:`, error);
+    }
+  } catch (err) {
+    console.error(`[api/onboarding] analytics event ${input.eventName} threw:`, err);
+  }
+}
 
 function sentenceToTiptapContent(sentence: string): Record<string, unknown> {
   return {
@@ -122,6 +135,32 @@ export async function POST(req: Request) {
       preferences: { ...currentPrefs, has_seen_guides_update_notice: true },
     })
     .eq("id", user.id);
+
+  // Project, chapter, and page all persisted successfully above — this is the
+  // authoritative completion point for onboarding's data model, and the
+  // client unconditionally navigates to the editor immediately after this
+  // response, so recording completion here (rather than waiting for the
+  // editor to mount client-side) captures the same moment with a server-
+  // verified user id instead of a client-asserted one.
+  await safeRecordEvent({
+    userId: user.id,
+    eventName: "project_created",
+    projectId: project.id,
+    dedupeKey: project.id,
+  });
+  if (wordCount > 0) {
+    await safeRecordEvent({
+      userId: user.id,
+      eventName: "first_sentence_written",
+      projectId: project.id,
+      metadata: { wordCount, characterCount: firstSentence.length },
+    });
+  }
+  await safeRecordEvent({
+    userId: user.id,
+    eventName: "onboarding_completed",
+    projectId: project.id,
+  });
 
   return NextResponse.json({
     data: { projectId: project.id, chapterId: chapter.id },

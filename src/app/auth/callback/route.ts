@@ -3,25 +3,23 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { ATTRIBUTION_COOKIE_NAME, deserializeAttributionCookie } from '@/lib/attribution'
 import { recordFirstTouchAttribution } from '@/lib/actions/attribution'
+import { recordAnalyticsEvent } from '@/lib/actions/analytics'
 
-// Best-effort: reads the first-touch cookie, resolves the just-verified user
-// server-side, and persists the attribution row. Never throws — a failure
-// here must not block email verification or the onboarding redirect. Only
-// clears the cookie once persistence is confirmed, so a failure leaves it in
-// place for a later retry-safe attempt (the upsert is idempotent either way).
+// Best-effort: reads the first-touch cookie and persists the attribution row
+// for the just-verified user. Never throws — a failure here must not block
+// email verification or the onboarding redirect. Only clears the cookie once
+// persistence is confirmed, so a failure leaves it in place for a later
+// retry-safe attempt (the upsert is idempotent either way).
 async function persistFirstTouchAttribution(
   request: NextRequest,
   redirectResponse: NextResponse,
-  supabase: ReturnType<typeof createServerClient>
+  userId: string
 ) {
   try {
     const touch = deserializeAttributionCookie(request.cookies.get(ATTRIBUTION_COOKIE_NAME)?.value)
     if (!touch) return
 
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-
-    const { error } = await recordFirstTouchAttribution(user.id, touch)
+    const { error } = await recordFirstTouchAttribution(userId, touch)
     if (error) {
       console.error('[auth/callback] recordFirstTouchAttribution failed:', error)
       return
@@ -30,6 +28,21 @@ async function persistFirstTouchAttribution(
     redirectResponse.cookies.delete(ATTRIBUTION_COOKIE_NAME)
   } catch (err) {
     console.error('[auth/callback] attribution persistence threw:', err)
+  }
+}
+
+// Best-effort: records email_verified for the just-verified user. Fires only
+// after exchangeCodeForSession has already succeeded, so this always
+// represents a real, authenticated session — never a client-asserted userId.
+// Never throws — a failure here must not block the onboarding redirect.
+async function recordEmailVerifiedEvent(userId: string) {
+  try {
+    const { error } = await recordAnalyticsEvent({ userId, eventName: 'email_verified' })
+    if (error) {
+      console.error('[auth/callback] recordAnalyticsEvent(email_verified) failed:', error)
+    }
+  } catch (err) {
+    console.error('[auth/callback] email_verified analytics threw:', err)
   }
 }
 
@@ -67,7 +80,11 @@ export async function GET(request: NextRequest) {
 
     const { error } = await supabase.auth.exchangeCodeForSession(code)
     if (!error) {
-      await persistFirstTouchAttribution(request, redirectResponse, supabase)
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        await recordEmailVerifiedEvent(user.id)
+        await persistFirstTouchAttribution(request, redirectResponse, user.id)
+      }
       return redirectResponse
     }
     console.error('[auth/callback] exchangeCodeForSession failed:', error.message)

@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { recalculateProjectWordCount } from "@/lib/projectWordCount";
 import { FREE_WORD_LIMIT } from "@/lib/subscription";
+import { recordAnalyticsEvent } from "@/lib/actions/analytics";
 import type { Page } from "@/lib/types";
 
 type ActionResult<T> = { data: T; error: null } | { data: null; error: string };
@@ -356,6 +357,25 @@ export async function syncPageWithLimitCheck(
 
   if (updateError) return { status: "error", error: updateError.message };
   if (!updated || updated.length === 0) return { status: "version_mismatch" };
+
+  // Best-effort — analytics must never block a successful save from returning.
+  // This is the authoritative persistence point for the live editor's autosave
+  // path (both the immediate online save and the reconnect/flush-queue path
+  // both call this function). No "was word_count previously 0" check is
+  // needed: the event's dedupe key is scoped once-per-user, so only the very
+  // first call that reaches this branch for a given user ever writes a row —
+  // every later save is a no-op at the database level.
+  try {
+    const { error: analyticsError } = await recordAnalyticsEvent({
+      userId: user.id,
+      eventName: "first_save",
+    });
+    if (analyticsError) {
+      console.error("[pages] recordAnalyticsEvent(first_save) failed:", analyticsError);
+    }
+  } catch (err) {
+    console.error("[pages] first_save analytics threw:", err);
+  }
 
   return {
     status: "ok",

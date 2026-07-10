@@ -5,6 +5,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { recordSignupCompletedEvent } from "@/lib/actions/analytics";
 
 interface FieldErrors {
   password?: string;
@@ -40,7 +41,7 @@ export default function SignupClient() {
     setLoading(true);
 
     const supabase = createClient();
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -57,6 +58,13 @@ export default function SignupClient() {
     if (error) {
       setError(error.message);
     } else {
+      // Best-effort, fire-and-forget — analytics must never block or fail signup.
+      // No server-side hook exists for this event: signUp() talks directly to
+      // Supabase's REST API, and no session exists yet (email confirmation is
+      // required) for a server component/action to derive identity from instead.
+      if (data.user) {
+        void recordSignupCompletedEvent(data.user.id).catch(() => {});
+      }
       setConfirmed(true);
     }
     setLoading(false);

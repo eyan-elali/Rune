@@ -68,3 +68,31 @@ export async function recordAnalyticsEvent(
   if (error) return { error: error.message };
   return { error: null };
 }
+
+// Narrow, client-callable server action for the one event in this taxonomy
+// that has no server-side completion point to hook into: supabase.auth.signUp()
+// talks directly to Supabase's REST API, and — because email confirmation is
+// required — no session exists yet for a server component/action to derive
+// identity from. This function is deliberately scoped to write only
+// "signup_completed" for a userId it has independently verified corresponds
+// to a real profiles row, so a compromised/malicious client cannot use it to
+// forge arbitrary events or attribute events to a different user's account.
+// It must never be widened into a general-purpose "record any event for any
+// user" entry point — recordAnalyticsEvent() above stays server-only for that.
+export async function recordSignupCompletedEvent(
+  userId: string
+): Promise<{ error: string | null }> {
+  const admin = await getServiceClient();
+  if (!admin) {
+    return { error: "Analytics is not configured (missing SUPABASE_SERVICE_ROLE_KEY)." };
+  }
+
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("id")
+    .eq("id", userId)
+    .maybeSingle();
+  if (!profile) return { error: null };
+
+  return recordAnalyticsEvent({ userId, eventName: "signup_completed" });
+}
