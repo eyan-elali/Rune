@@ -2,7 +2,6 @@
 
 import { useState, useRef, useEffect, useTransition, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { RegistrationTracker } from "@/components/RegistrationTracker";
 import { cn } from "@/lib/utils";
 
 type Stage = "title" | "sentence" | "transitioning";
@@ -112,8 +111,6 @@ export function OnboardingClient({ authorName }: Props) {
 
   return (
     <>
-      <RegistrationTracker />
-
       {/* ── Title stage ─────────────────────────────────────────────── */}
       {stage === "title" && (
         <div

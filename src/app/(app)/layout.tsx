@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { AppShell } from "@/components/layout/AppShell";
+import { SupportedDeviceGate } from "@/components/layout/SupportedDeviceGate";
 import NetworkProvider from "@/components/providers/NetworkProvider";
 import { RegistrationTracker } from "@/components/RegistrationTracker";
 import type { ReactNode } from "react";
@@ -40,36 +41,38 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
     redirect("/login");
   }
 
-  // Skip profile fetch when offline — it will fail anyway and AppShell handles null.
-  const { data: profile } = effectiveUser
-    ? await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", effectiveUser.id)
-        .single()
-    : { data: null };
+  // Skip these fetches when offline — they will fail anyway and AppShell handles null.
+  // Project count is fetched (not manuscript content, just a head count) once here
+  // and reused both for the update notice and to distinguish a new/onboarding
+  // account from a returning one for the phone waiting-room copy.
+  const [{ data: profile }, { count: projectCount }] = effectiveUser
+    ? await Promise.all([
+        supabase.from("profiles").select("*").eq("id", effectiveUser.id).single(),
+        supabase
+          .from("projects")
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", effectiveUser.id),
+      ])
+    : [{ data: null }, { count: null }];
 
-  // Determine if this returning user should see the one-time update notice.
   let showUpdateNotice = false;
-  if (effectiveUser && profile) {
+  if (profile) {
     const prefs = (profile.preferences as Record<string, unknown>) ?? {};
     const hasSeenNotice = prefs.has_seen_guides_update_notice === true;
-    if (!hasSeenNotice) {
-      const { count } = await supabase
-        .from("projects")
-        .select("id", { count: "exact", head: true })
-        .eq("user_id", effectiveUser.id);
-      showUpdateNotice = (count ?? 0) > 0;
-    }
+    showUpdateNotice = !hasSeenNotice && (projectCount ?? 0) > 0;
   }
+
+  const gateVariant = (projectCount ?? 0) > 0 ? "returning" : "new";
 
   return (
     <>
       <NetworkProvider />
       <RegistrationTracker />
-      <AppShell profile={profile as Profile | null} showUpdateNotice={showUpdateNotice}>
-        {children}
-      </AppShell>
+      <SupportedDeviceGate variant={gateVariant}>
+        <AppShell profile={profile as Profile | null} showUpdateNotice={showUpdateNotice}>
+          {children}
+        </AppShell>
+      </SupportedDeviceGate>
     </>
   );
 }

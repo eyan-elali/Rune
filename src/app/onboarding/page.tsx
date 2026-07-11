@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { recordAnalyticsEvent } from "@/lib/actions/analytics";
+import { RegistrationTracker } from "@/components/RegistrationTracker";
+import { SupportedDeviceGate } from "@/components/layout/SupportedDeviceGate";
 import { OnboardingClient } from "./OnboardingClient";
 
 export const metadata = {
@@ -48,5 +50,14 @@ export default async function OnboardingPage() {
     user.email?.split("@")[0] ||
     null;
 
-  return <OnboardingClient authorName={authorName} />;
+  return (
+    <>
+      {/* Rendered outside the device gate so signup attribution fires
+          regardless of whether the phone waiting room is shown. */}
+      <RegistrationTracker />
+      <SupportedDeviceGate variant="new">
+        <OnboardingClient authorName={authorName} />
+      </SupportedDeviceGate>
+    </>
+  );
 }
