@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { recordAnalyticsEvent } from "@/lib/actions/analytics";
 import { RegistrationTracker } from "@/components/RegistrationTracker";
 import { SupportedDeviceGate } from "@/components/layout/SupportedDeviceGate";
+import { isPenNameMissing } from "@/lib/penName";
 import { OnboardingClient } from "./OnboardingClient";
 
 export const metadata = {
@@ -17,7 +18,7 @@ export default async function OnboardingPage() {
 
   if (!user) redirect("/login");
 
-  const [{ count }, { data: profile }] = await Promise.all([
+  const [{ count }, { data: profile, error: profileError }] = await Promise.all([
     supabase
       .from("projects")
       .select("id", { count: "exact", head: true })
@@ -28,6 +29,13 @@ export default async function OnboardingPage() {
       .eq("id", user.id)
       .single(),
   ]);
+
+  // Every account needs a chosen pen name before entering the writing
+  // experience. Only redirect on a confirmed, successful lookup — a failed
+  // fetch falls through rather than risking a redirect loop.
+  if (!profileError && isPenNameMissing(profile?.display_name)) {
+    redirect("/complete-profile");
+  }
 
   // Users with existing projects belong in the app, not onboarding.
   if ((count ?? 0) > 0) {

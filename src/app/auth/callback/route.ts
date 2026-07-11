@@ -4,6 +4,7 @@ import type { NextRequest } from 'next/server'
 import { ATTRIBUTION_COOKIE_NAME, deserializeAttributionCookie } from '@/lib/attribution'
 import { recordFirstTouchAttribution } from '@/lib/actions/attribution'
 import { recordAnalyticsEvent } from '@/lib/actions/analytics'
+import { isPenNameMissing } from '@/lib/penName'
 
 // Best-effort: reads the first-touch cookie and persists the attribution row
 // for the just-verified user. Never throws — a failure here must not block
@@ -63,12 +64,14 @@ export async function GET(request: NextRequest) {
 
   if (code) {
     const isNewSignup = intent === 'signup'
-    const destination = isNewSignup ? '/onboarding' : next
-    const redirectUrl = new URL(`${origin}${destination}`)
-    if (isNewSignup) {
-      redirectUrl.searchParams.set('registered', '1')
-    }
-    const redirectResponse = NextResponse.redirect(redirectUrl.toString())
+    const baseDestination = isNewSignup ? '/onboarding' : next
+    // Placeholder response used only as the cookie sink for the Supabase
+    // client below (setAll writes session cookies onto it, and the
+    // attribution helper deletes its cookie from it). The real destination
+    // is only known after the exchange succeeds and the profile is
+    // checked, so the actual redirect is issued further down, carrying
+    // these same cookies over.
+    const redirectResponse = NextResponse.redirect(`${origin}${baseDestination}`)
 
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -99,7 +102,28 @@ export async function GET(request: NextRequest) {
       const user = data.user
       await recordEmailVerifiedEvent(user.id)
       await persistFirstTouchAttribution(request, redirectResponse, user.id)
-      return redirectResponse
+
+      // Every account needs a chosen pen name before entering the writing
+      // experience. Only override the destination on a confirmed,
+      // successful lookup — a failed fetch falls through to the original
+      // destination rather than risking a redirect loop.
+      let destination = baseDestination
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('display_name')
+        .eq('id', user.id)
+        .maybeSingle()
+      if (!profileError && isPenNameMissing(profile?.display_name)) {
+        destination = '/complete-profile'
+      }
+
+      const finalUrl = new URL(`${origin}${destination}`)
+      if (isNewSignup) {
+        finalUrl.searchParams.set('registered', '1')
+      }
+      const finalResponse = NextResponse.redirect(finalUrl.toString())
+      redirectResponse.cookies.getAll().forEach((cookie) => finalResponse.cookies.set(cookie))
+      return finalResponse
     }
     console.error('[auth/callback] exchangeCodeForSession failed:', error.message)
   }

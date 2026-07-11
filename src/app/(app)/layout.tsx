@@ -4,6 +4,7 @@ import { AppShell } from "@/components/layout/AppShell";
 import { SupportedDeviceGate } from "@/components/layout/SupportedDeviceGate";
 import NetworkProvider from "@/components/providers/NetworkProvider";
 import { RegistrationTracker } from "@/components/RegistrationTracker";
+import { isPenNameMissing } from "@/lib/penName";
 import type { ReactNode } from "react";
 import type { Profile } from "@/lib/types";
 
@@ -45,7 +46,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   // Project count is fetched (not manuscript content, just a head count) once here
   // and reused both for the update notice and to distinguish a new/onboarding
   // account from a returning one for the phone waiting-room copy.
-  const [{ data: profile }, { count: projectCount }] = effectiveUser
+  const [{ data: profile, error: profileError }, { count: projectCount }] = effectiveUser
     ? await Promise.all([
         supabase.from("profiles").select("*").eq("id", effectiveUser.id).single(),
         supabase
@@ -53,7 +54,15 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
           .select("id", { count: "exact", head: true })
           .eq("user_id", effectiveUser.id),
       ])
-    : [{ data: null }, { count: null }];
+    : [{ data: null, error: null }, { count: null }];
+
+  // Every account needs a chosen pen name before entering the writing
+  // experience. Only redirect on a confirmed, successful lookup — a failed
+  // fetch (e.g. offline) falls through rather than risking a redirect loop
+  // or blocking offline access to a profile we simply couldn't read.
+  if (!profileError && profile && isPenNameMissing(profile.display_name)) {
+    redirect("/complete-profile");
+  }
 
   let showUpdateNotice = false;
   if (profile) {

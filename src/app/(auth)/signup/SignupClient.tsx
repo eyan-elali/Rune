@@ -6,8 +6,10 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { recordSignupCompletedEvent } from "@/lib/actions/analytics";
+import { getPenNameValidationError, normalizePenName } from "@/lib/penName";
 
 interface FieldErrors {
+  displayName?: string;
   password?: string;
   confirmPassword?: string;
 }
@@ -27,6 +29,10 @@ export default function SignupClient() {
     setError(null);
 
     const errors: FieldErrors = {};
+    const penNameError = getPenNameValidationError(displayName);
+    if (penNameError) {
+      errors.displayName = penNameError;
+    }
     if (password.length < 8) {
       errors.password = "Password must be at least 8 characters.";
     }
@@ -40,12 +46,13 @@ export default function SignupClient() {
     setFieldErrors({});
     setLoading(true);
 
+    const normalizedDisplayName = normalizePenName(displayName);
     const supabase = createClient();
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        data: { display_name: displayName },
+        data: { display_name: normalizedDisplayName },
         emailRedirectTo: (() => {
           const u = new URL('/auth/callback', window.location.origin)
           u.searchParams.set('next', '/dashboard')
@@ -116,14 +123,16 @@ export default function SignupClient() {
 
         <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
           <Input
-            label="Display Name"
+            label="Pen Name"
             type="text"
             id="signup-display-name"
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
             autoComplete="name"
             required
+            maxLength={40}
             placeholder="Your pen name"
+            error={fieldErrors.displayName}
             authContrast
           />
           <Input
