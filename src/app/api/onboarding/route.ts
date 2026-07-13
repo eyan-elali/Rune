@@ -2,6 +2,14 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { recordAnalyticsEvent, type RecordAnalyticsEventInput } from "@/lib/actions/analytics";
 
+// The only two themes every account has unlocked. Onboarding never shows
+// (or trusts the client to send) anything beyond these — validated again
+// here since the request body is client-controlled.
+const FREE_ONBOARDING_THEMES = new Set(["parchment", "candlelight"]);
+const DEFAULT_ONBOARDING_THEME = "parchment";
+
+const LETTER_MAX_LENGTH = 2000;
+
 // Best-effort — analytics must never block onboarding completion.
 async function safeRecordEvent(input: RecordAnalyticsEventInput) {
   try {
@@ -42,7 +50,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  let body: { title?: string; firstSentence?: string };
+  let body: { title?: string; firstSentence?: string; theme?: string; letter?: string };
   try {
     body = await req.json();
   } catch {
@@ -51,6 +59,10 @@ export async function POST(req: Request) {
 
   const title = body.title?.trim();
   const firstSentence = body.firstSentence?.trim() ?? "";
+  const theme = FREE_ONBOARDING_THEMES.has(body.theme ?? "")
+    ? (body.theme as string)
+    : DEFAULT_ONBOARDING_THEME;
+  const letter = (body.letter?.trim() ?? "").slice(0, LETTER_MAX_LENGTH);
 
   if (!title) {
     return NextResponse.json({ error: "Title is required" }, { status: 400 });
@@ -91,12 +103,16 @@ export async function POST(req: Request) {
     );
   }
 
+  // From here on, any failure rolls back the project (cascades chapter +
+  // page) so a retry starts clean instead of leaving an orphaned,
+  // chapterless project the writer can never reach.
   const { data: chapter, error: chapterError } = await supabase
     .from("chapters")
     .insert({ project_id: project.id, title: "Chapter 1", position: 1 })
     .select()
     .single();
   if (chapterError || !chapter) {
+    await supabase.from("projects").delete().eq("id", project.id);
     return NextResponse.json(
       { error: chapterError?.message ?? "Failed to create chapter" },
       { status: 500 }
@@ -121,20 +137,35 @@ export async function POST(req: Request) {
     .select()
     .single();
   if (pageError || !page) {
+    await supabase.from("projects").delete().eq("id", project.id);
     return NextResponse.json(
       { error: pageError?.message ?? "Failed to create page" },
       { status: 500 }
     );
   }
 
+  // The manuscript itself (project/chapter/page) is now safely persisted.
+  // Theme preference and the future letter are secondary — best-effort
+  // from here so a hiccup in either never throws away the writer's project.
   const currentPrefs = (profileRow?.preferences as Record<string, unknown>) ?? {};
   await supabase
     .from("profiles")
     .update({
       has_written_first_words: true,
-      preferences: { ...currentPrefs, has_seen_guides_update_notice: true },
+      preferences: { ...currentPrefs, activeTheme: theme, has_seen_guides_update_notice: true },
     })
     .eq("id", user.id);
+
+  if (letter) {
+    const { error: letterError } = await supabase.from("future_letters").insert({
+      user_id: user.id,
+      project_id: project.id,
+      content: letter,
+    });
+    if (letterError) {
+      console.error("[api/onboarding] Failed to save future letter:", letterError.message);
+    }
+  }
 
   // Project, chapter, and page all persisted successfully above — this is the
   // authoritative completion point for onboarding's data model, and the

@@ -6,6 +6,12 @@ import { SupportedDeviceGate } from "@/components/layout/SupportedDeviceGate";
 import { isPenNameMissing } from "@/lib/penName";
 import { OnboardingClient } from "./OnboardingClient";
 
+// The only two themes every account has unlocked — the sole valid seeds
+// for onboarding's writing-space selection. Anything else (locked themes,
+// or no preference yet) falls back to Parchment.
+const FREE_ONBOARDING_THEMES = new Set(["parchment", "candlelight"]);
+const DEFAULT_ONBOARDING_THEME = "parchment";
+
 export const metadata = {
   title: "Begin Your Story | Rune",
 };
@@ -25,7 +31,7 @@ export default async function OnboardingPage() {
       .eq("user_id", user.id),
     supabase
       .from("profiles")
-      .select("display_name, username, has_written_first_words")
+      .select("display_name, username, has_written_first_words, preferences")
       .eq("id", user.id)
       .single(),
   ]);
@@ -58,13 +64,19 @@ export default async function OnboardingPage() {
     user.email?.split("@")[0] ||
     null;
 
+  const storedTheme = (profile?.preferences as Record<string, unknown> | null)
+    ?.activeTheme as string | undefined;
+  const initialTheme = FREE_ONBOARDING_THEMES.has(storedTheme ?? "")
+    ? (storedTheme as string)
+    : DEFAULT_ONBOARDING_THEME;
+
   return (
     <>
       {/* Rendered outside the device gate so signup attribution fires
           regardless of whether the phone waiting room is shown. */}
       <RegistrationTracker />
       <SupportedDeviceGate variant="new">
-        <OnboardingClient authorName={authorName} />
+        <OnboardingClient authorName={authorName} initialTheme={initialTheme} />
       </SupportedDeviceGate>
     </>
   );

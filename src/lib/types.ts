@@ -123,6 +123,16 @@ export interface AcquisitionAttribution {
   created_at: string;
 }
 
+export interface FutureLetter {
+  id: string;
+  user_id: string;
+  project_id: string;
+  content: string;
+  created_at: string;
+  reveal_at: string;
+  revealed_at: string | null;
+}
+
 export interface FounderNote {
   id: string;
   author_id: string | null;
