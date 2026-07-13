@@ -41,6 +41,15 @@ const RESUMABLE_STAGES: ReadonlySet<Stage> = new Set([
   "letter-entry",
 ]);
 
+// Back navigation always lands on an editable stage, skipping over the
+// auto-advancing interludes rather than momentarily replaying them.
+const PREVIOUS_INTERACTIVE_STAGE: Partial<Record<Stage, Stage>> = {
+  sentence: "title",
+  theme: "sentence",
+  "letter-invite": "theme",
+  "letter-entry": "letter-invite",
+};
+
 interface Draft {
   stage: Stage;
   title: string;
@@ -78,6 +87,20 @@ function Wordmark() {
   );
 }
 
+function BackButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label="Go back to the previous step"
+      className="absolute left-8 top-20 text-xs uppercase tracking-widest outline-none focus-visible:underline"
+      style={{ color: "var(--onboarding-muted)" }}
+    >
+      ← Back
+    </button>
+  );
+}
+
 interface InterludeProps {
   eyebrow?: string;
   heading: string;
@@ -88,10 +111,10 @@ interface InterludeProps {
 }
 
 // Shared shell for the four non-interactive "turning a page" beats. Reads
-// briefly, then advances on its own — or immediately on click/Enter/Space
-// so no one is stuck waiting on a timer.
+// briefly, then advances on its own — or immediately on click/Enter/Space,
+// no button required.
 function Interlude({ eyebrow, heading, supporting, footnote, durationMs = 1900, onContinue }: InterludeProps) {
-  const continueRef = useRef<HTMLButtonElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const firedRef = useRef(false);
 
   const fire = useCallback(() => {
@@ -101,51 +124,50 @@ function Interlude({ eyebrow, heading, supporting, footnote, durationMs = 1900, 
   }, [onContinue]);
 
   useEffect(() => {
-    continueRef.current?.focus();
+    containerRef.current?.focus();
     const timer = setTimeout(fire, durationMs);
     return () => clearTimeout(timer);
   }, [fire, durationMs]);
 
   return (
     <div
-      className="rune-step-enter flex min-h-screen cursor-pointer flex-col items-center justify-center px-6 text-center"
-      style={{ background: "var(--bg-primary)" }}
+      ref={containerRef}
+      tabIndex={-1}
       onClick={fire}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          fire();
+        }
+      }}
+      className="rune-step-enter flex min-h-screen cursor-pointer flex-col items-center justify-center px-6 text-center outline-none"
+      style={{ background: "var(--bg-primary)" }}
     >
       <div className="w-full max-w-[480px]">
         {eyebrow && (
           <p
             className="mb-6 text-xs uppercase tracking-widest"
-            style={{ color: "var(--color-mist)", opacity: 0.7 }}
+            style={{ color: "var(--onboarding-muted)", opacity: 0.7 }}
           >
             {eyebrow}
           </p>
         )}
-        <p className="font-rune-serif text-3xl italic leading-snug" style={{ color: "var(--color-ink)" }}>
+        <p className="font-rune-serif text-3xl italic leading-snug" style={{ color: "var(--text-primary)" }}>
           {heading}
         </p>
         {supporting && (
-          <p className="mt-4 font-rune-serif text-base" style={{ color: "var(--color-mist)" }}>
+          <p className="mt-4 font-rune-serif text-base" style={{ color: "var(--onboarding-muted)" }}>
             {supporting}
           </p>
         )}
         {footnote && (
-          <p className="mt-3 font-rune-serif text-sm italic" style={{ color: "var(--color-mist)", opacity: 0.8 }}>
+          <p
+            className="mt-3 font-rune-serif text-sm italic"
+            style={{ color: "var(--onboarding-muted)", opacity: 0.8 }}
+          >
             {footnote}
           </p>
         )}
-        <button
-          ref={continueRef}
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            fire();
-          }}
-          className="mt-14 text-xs uppercase tracking-widest outline-none focus-visible:underline"
-          style={{ color: "var(--color-mist)", opacity: 0.5 }}
-        >
-          Continue
-        </button>
       </div>
     </div>
   );
@@ -184,7 +206,7 @@ function ThemeOption({ id, name, description, active, onSelect }: ThemeOptionPro
       <p className="font-rune-serif text-base font-semibold" style={{ color: "var(--text-primary)" }}>
         {name}
       </p>
-      <p className="mt-1.5 text-sm leading-relaxed" style={{ color: "var(--color-mist)" }}>
+      <p className="mt-1.5 text-sm leading-relaxed" style={{ color: "var(--onboarding-muted)" }}>
         {description}
       </p>
     </button>
@@ -297,6 +319,11 @@ export function OnboardingClient({ authorName, initialTheme }: Props) {
     el.style.height = `${el.scrollHeight}px`;
   }, []);
 
+  function handleBack() {
+    const prev = PREVIOUS_INTERACTIVE_STAGE[stage];
+    if (prev) setStage(prev);
+  }
+
   async function handleTitleSubmit(e?: React.FormEvent) {
     e?.preventDefault();
     if (!hasValidTitle || isExiting) return;
@@ -404,7 +431,7 @@ export function OnboardingClient({ authorName, initialTheme }: Props) {
   };
 
   return (
-    <>
+    <div className="rune-onboarding">
       {/* ── Stage 1 — Name the story ─────────────────────────────────── */}
       {stage === "title" && (
         <div className="flex min-h-screen flex-col items-center justify-center px-6" style={pageExitStyle}>
@@ -414,13 +441,13 @@ export function OnboardingClient({ authorName, initialTheme }: Props) {
             <div className="mb-20 text-center">
               <p
                 className="mb-4 text-xs uppercase tracking-widest"
-                style={{ color: "var(--color-mist)", opacity: 0.7 }}
+                style={{ color: "var(--onboarding-muted)", opacity: 0.7 }}
               >
                 Welcome to Rune
               </p>
               <h1
                 className="font-rune-serif text-5xl font-semibold leading-tight"
-                style={{ color: "var(--color-ink)" }}
+                style={{ color: "var(--text-primary)" }}
               >
                 Every story begins somewhere.
               </h1>
@@ -431,7 +458,7 @@ export function OnboardingClient({ authorName, initialTheme }: Props) {
                 <label
                   htmlFor="story-title"
                   className="mb-6 block text-xs uppercase tracking-widest"
-                  style={{ color: "var(--color-mist)", opacity: 0.7 }}
+                  style={{ color: "var(--onboarding-muted)", opacity: 0.7 }}
                 >
                   What is your story called?
                 </label>
@@ -451,7 +478,7 @@ export function OnboardingClient({ authorName, initialTheme }: Props) {
                     "focus:outline-none"
                   )}
                   style={{
-                    color: "var(--color-ink)",
+                    color: "var(--text-primary)",
                     borderColor: hasValidTitle ? "var(--color-gold)" : "var(--color-border-strong)",
                   }}
                   aria-required="true"
@@ -461,7 +488,7 @@ export function OnboardingClient({ authorName, initialTheme }: Props) {
                   <p
                     className="mt-5 font-rune-serif text-sm italic"
                     style={{
-                      color: "var(--color-mist)",
+                      color: "var(--onboarding-muted)",
                       opacity: hasValidTitle ? 0.6 : 0,
                       transition: "opacity 200ms ease",
                     }}
@@ -508,25 +535,26 @@ export function OnboardingClient({ authorName, initialTheme }: Props) {
           style={{ background: "var(--bg-primary)" }}
         >
           <Wordmark />
+          <BackButton onClick={handleBack} />
 
           <div className="w-full max-w-[480px]">
             <div className="mb-16 text-center">
               <p
                 className="mb-4 text-xs uppercase tracking-widest"
-                style={{ color: "var(--color-mist)", opacity: 0.7 }}
+                style={{ color: "var(--onboarding-muted)", opacity: 0.7 }}
               >
                 The First Line
               </p>
               <h1
                 className="font-rune-serif text-4xl font-semibold leading-tight"
-                style={{ color: "var(--color-ink)" }}
+                style={{ color: "var(--text-primary)" }}
               >
                 The first sentence is often the hardest.
               </h1>
-              <p className="mt-4 font-rune-serif text-lg italic" style={{ color: "var(--color-mist)" }}>
+              <p className="mt-4 font-rune-serif text-lg italic" style={{ color: "var(--onboarding-muted)" }}>
                 Once it is behind you, the rest becomes easier.
               </p>
-              <p className="mt-2 font-rune-serif text-lg italic" style={{ color: "var(--color-mist)" }}>
+              <p className="mt-2 font-rune-serif text-lg italic" style={{ color: "var(--onboarding-muted)" }}>
                 It does not need to be perfect. It only needs to exist.
               </p>
             </div>
@@ -536,7 +564,7 @@ export function OnboardingClient({ authorName, initialTheme }: Props) {
                 <label
                   htmlFor="first-sentence"
                   className="mb-6 block text-xs uppercase tracking-widest"
-                  style={{ color: "var(--color-mist)", opacity: 0.7 }}
+                  style={{ color: "var(--onboarding-muted)", opacity: 0.7 }}
                 >
                   How does it begin?
                 </label>
@@ -567,7 +595,7 @@ export function OnboardingClient({ authorName, initialTheme }: Props) {
                     "focus:outline-none"
                   )}
                   style={{
-                    color: "var(--color-ink)",
+                    color: "var(--text-primary)",
                     borderColor: hasValidSentence ? "var(--color-gold)" : "var(--color-border-strong)",
                     lineHeight: "1.6",
                   }}
@@ -588,7 +616,7 @@ export function OnboardingClient({ authorName, initialTheme }: Props) {
                   type="button"
                   onClick={handleSentenceSkip}
                   className="block w-full text-center font-rune-serif text-base italic"
-                  style={{ color: "var(--color-mist)", opacity: 0.7 }}
+                  style={{ color: "var(--onboarding-muted)", opacity: 0.7 }}
                 >
                   I&rsquo;ll write it later
                 </button>
@@ -614,12 +642,13 @@ export function OnboardingClient({ authorName, initialTheme }: Props) {
           style={{ background: "var(--bg-primary)" }}
         >
           <Wordmark />
+          <BackButton onClick={handleBack} />
 
           <div className="w-full max-w-[520px]">
             <div className="mb-12 text-center">
               <p
                 className="mb-4 text-xs uppercase tracking-widest"
-                style={{ color: "var(--color-mist)", opacity: 0.7 }}
+                style={{ color: "var(--onboarding-muted)", opacity: 0.7 }}
               >
                 Your Writing Space
               </p>
@@ -627,7 +656,7 @@ export function OnboardingClient({ authorName, initialTheme }: Props) {
                 ref={themeHeadingRef}
                 tabIndex={-1}
                 className="font-rune-serif text-4xl font-semibold leading-tight outline-none"
-                style={{ color: "var(--color-ink)" }}
+                style={{ color: "var(--text-primary)" }}
               >
                 Where will this story be written?
               </h1>
@@ -650,7 +679,10 @@ export function OnboardingClient({ authorName, initialTheme }: Props) {
               />
             </div>
 
-            <p className="mb-10 text-center text-sm italic" style={{ color: "var(--color-mist)", opacity: 0.8 }}>
+            <p
+              className="mb-10 text-center text-sm italic"
+              style={{ color: "var(--onboarding-muted)", opacity: 0.8 }}
+            >
               More writing spaces reveal themselves as you continue writing.
             </p>
 
@@ -667,11 +699,14 @@ export function OnboardingClient({ authorName, initialTheme }: Props) {
       )}
 
       {/* ── Interlude 3 — Authorship and AI ──────────────────────────── */}
+      {/* Held longer than the other interludes — this commitment matters
+          more than a page-turn beat, so it gets more time to land. */}
       {stage === "interlude-authorship" && (
         <Interlude
           heading="Your words remain your own."
           supporting="Rune will never use AI to write, rewrite, or complete your story."
           footnote="Your voice belongs to you."
+          durationMs={3400}
           onContinue={() => setStage("letter-invite")}
         />
       )}
@@ -683,11 +718,12 @@ export function OnboardingClient({ authorName, initialTheme }: Props) {
           style={{ background: "var(--bg-primary)" }}
         >
           <Wordmark />
+          <BackButton onClick={handleBack} />
 
           <div className="w-full max-w-[480px] text-center">
             <p
               className="mb-4 text-xs uppercase tracking-widest"
-              style={{ color: "var(--color-mist)", opacity: 0.7 }}
+              style={{ color: "var(--onboarding-muted)", opacity: 0.7 }}
             >
               Before You Begin
             </p>
@@ -695,18 +731,16 @@ export function OnboardingClient({ authorName, initialTheme }: Props) {
               ref={letterInviteHeadingRef}
               tabIndex={-1}
               className="font-rune-serif text-4xl font-semibold leading-tight outline-none"
-              style={{ color: "var(--color-ink)" }}
+              style={{ color: "var(--text-primary)" }}
             >
               A letter to the writer you&rsquo;ll become.
             </h1>
-            <p className="mt-6 font-rune-serif text-lg italic" style={{ color: "var(--color-mist)" }}>
-              Starting a novel is an act of optimism.
-            </p>
-            <p className="mt-2 font-rune-serif text-lg italic" style={{ color: "var(--color-mist)" }}>
-              You are choosing to create something that does not exist yet.
-            </p>
-            <p className="mt-2 font-rune-serif text-lg italic" style={{ color: "var(--color-mist)" }}>
-              Leave a few words for the person who will one day finish it.
+            <p
+              className="mt-6 font-rune-serif text-lg italic leading-relaxed"
+              style={{ color: "var(--text-primary)" }}
+            >
+              Starting a novel is an act of optimism. You are choosing to create something that does not exist
+              yet. Leave a few words for the person who will one day finish it.
             </p>
 
             <button
@@ -721,7 +755,7 @@ export function OnboardingClient({ authorName, initialTheme }: Props) {
               type="button"
               onClick={handleSkipLetterInvite}
               className="mt-4 block w-full text-center font-rune-serif text-base italic"
-              style={{ color: "var(--color-mist)", opacity: 0.7 }}
+              style={{ color: "var(--onboarding-muted)", opacity: 0.7 }}
             >
               Skip
             </button>
@@ -736,16 +770,17 @@ export function OnboardingClient({ authorName, initialTheme }: Props) {
           style={{ background: "var(--bg-primary)" }}
         >
           <Wordmark />
+          <BackButton onClick={handleBack} />
 
           <div className="w-full max-w-[560px]">
             <div className="mb-8 text-center">
               <h1
                 className="font-rune-serif text-3xl font-semibold leading-tight"
-                style={{ color: "var(--color-ink)" }}
+                style={{ color: "var(--text-primary)" }}
               >
                 What would you like your future self to remember?
               </h1>
-              <p className="mt-3 font-rune-serif text-base italic" style={{ color: "var(--color-mist)" }}>
+              <p className="mt-3 font-rune-serif text-base italic" style={{ color: "var(--onboarding-muted)" }}>
                 Why are you beginning this story today?
               </p>
             </div>
@@ -767,12 +802,12 @@ export function OnboardingClient({ authorName, initialTheme }: Props) {
                   "placeholder:italic placeholder:opacity-40"
                 )}
                 style={{
-                  color: "var(--color-ink)",
+                  color: "var(--text-primary)",
                   background: "var(--surface-card)",
                   borderColor: hasValidLetter ? "var(--color-gold)" : "var(--color-border)",
                 }}
               />
-              <p className="mt-2 text-right text-xs" style={{ color: "var(--color-mist)", opacity: 0.6 }}>
+              <p className="mt-2 text-right text-xs" style={{ color: "var(--onboarding-muted)", opacity: 0.6 }}>
                 {letterContent.length}/{LETTER_MAX_LENGTH}
               </p>
 
@@ -793,14 +828,14 @@ export function OnboardingClient({ authorName, initialTheme }: Props) {
                 type="button"
                 onClick={handleSkipLetterEntry}
                 className="mt-4 block w-full text-center font-rune-serif text-base italic"
-                style={{ color: "var(--color-mist)", opacity: 0.7 }}
+                style={{ color: "var(--onboarding-muted)", opacity: 0.7 }}
               >
                 Skip
               </button>
 
               <p
                 className="mt-6 text-center font-rune-serif text-sm italic"
-                style={{ color: "var(--color-mist)", opacity: 0.7 }}
+                style={{ color: "var(--onboarding-muted)", opacity: 0.7 }}
               >
                 One day, Rune will return this to you.
               </p>
@@ -820,11 +855,11 @@ export function OnboardingClient({ authorName, initialTheme }: Props) {
               ref={arrivalHeadingRef}
               tabIndex={-1}
               className="font-rune-serif text-3xl italic outline-none"
-              style={{ color: "var(--color-ink)" }}
+              style={{ color: "var(--text-primary)" }}
             >
               Your desk is ready.
             </h1>
-            <p className="mt-4 font-rune-serif text-base" style={{ color: "var(--color-mist)" }}>
+            <p className="mt-4 font-rune-serif text-base" style={{ color: "var(--onboarding-muted)" }}>
               Now begin.
             </p>
 
@@ -846,6 +881,6 @@ export function OnboardingClient({ authorName, initialTheme }: Props) {
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }

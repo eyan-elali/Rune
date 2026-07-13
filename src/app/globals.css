@@ -444,6 +444,18 @@ body {
   }
 }
 
+/* Onboarding secondary text. --text-muted (= --color-mist) is tuned for
+   light surfaces and reads too dark against Candlelight's near-black
+   background, so onboarding gets its own muted tone that only diverges
+   from the shared token on that one theme. */
+.rune-onboarding {
+  --onboarding-muted: var(--text-muted);
+}
+
+[data-theme="candlelight"] .rune-onboarding {
+  --onboarding-muted: rgba(245, 240, 232, 0.64);
+}
+
 /* ── Editor tutorial ─────────────────────────────────────────────── */
 @keyframes rune-tutorial-rise {
   from { opacity: 0; transform: translateX(-50%) translateY(8px); }
