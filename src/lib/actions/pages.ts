@@ -303,7 +303,8 @@ export async function syncPageWithLimitCheck(
   id: string,
   content: Record<string, unknown>,
   wordCount: number,
-  serverVersion: number
+  serverVersion: number,
+  savePath: "online" | "offline_sync" = "online"
 ): Promise<
   | { status: "ok"; updated_at: string; version: number }
   | { status: "word_limit_blocked" }
@@ -389,15 +390,28 @@ export async function syncPageWithLimitCheck(
   // first call that reaches this branch for a given user ever writes a row —
   // every later save is a no-op at the database level.
   try {
-    const { error: analyticsError } = await recordAnalyticsEvent({
+    const { error: analyticsError, code } = await recordAnalyticsEvent({
       userId: user.id,
       eventName: "first_save",
     });
     if (analyticsError) {
-      console.error("[pages] recordAnalyticsEvent(first_save) failed:", analyticsError);
+      // Safe diagnostic context only — never log manuscript content, page
+      // content, project titles, emails, or auth tokens.
+      console.error("[analytics] first_save insert failed:", {
+        eventName: "first_save",
+        userIdResolved: true,
+        savePath,
+        code,
+        message: analyticsError,
+      });
     }
   } catch (err) {
-    console.error("[pages] first_save analytics threw:", err);
+    console.error("[analytics] first_save insert threw:", {
+      eventName: "first_save",
+      userIdResolved: true,
+      savePath,
+      message: err instanceof Error ? err.message : String(err),
+    });
   }
 
   return {

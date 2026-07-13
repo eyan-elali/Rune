@@ -198,9 +198,18 @@ export async function cachePage(page: Page, projectId: string): Promise<void> {
     const existing = await db.get('page_cache', page.id)
 
     if (pending && existing) {
-      // User has unsaved local edits — preserve content, update metadata only
+      // User has unsaved local edits — preserve content, update metadata only.
+      // Still backfill serverUpdatedAt if this cache entry never had one (e.g. a
+      // page created with server-side content — like the onboarding opening
+      // sentence — whose first local keystroke raced ahead of this cache-priming
+      // call and created the page_cache row via writeToPendingQueue, which never
+      // sets serverUpdatedAt). Without this, the baseline stays permanently unset,
+      // so the page's first real sync misreads its own non-zero word_count as
+      // another device's unseen edit and gets stuck in a false conflict forever.
+      // Never overwrite an already-established baseline — only fill a gap.
       await db.put('page_cache', {
         ...existing,
+        serverUpdatedAt: existing.serverUpdatedAt ?? page.updated_at,
         chapter_id: page.chapter_id,
         project_id: projectId,
         title: page.title,

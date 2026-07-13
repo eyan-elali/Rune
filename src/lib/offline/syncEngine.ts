@@ -54,7 +54,10 @@ export async function writeToPendingQueue(
 
 // ── Individual page sync ───────────────────────────────────────────────────────
 
-export async function syncPendingWrite(pageId: string): Promise<void> {
+export async function syncPendingWrite(
+  pageId: string,
+  savePath: 'online' | 'offline_sync' = 'online'
+): Promise<void> {
   const db = await getOfflineDB()
   const pending = await db.get('pending_writes', pageId)
   if (!pending) return
@@ -125,11 +128,15 @@ export async function syncPendingWrite(pageId: string): Promise<void> {
   const serverVersion = serverPage.version as number
 
   // Server action enforces free-tier word limit + version guard in one call.
+  // savePath is passed through only for analytics failure-diagnostics
+  // (see recordAnalyticsEvent(first_save) below) — it has no effect on sync
+  // behavior itself.
   const syncResult = await syncPageWithLimitCheck(
     pageId,
     pending.content,
     pending.wordCount,
-    serverVersion
+    serverVersion,
+    savePath
   )
 
   if (syncResult.status === 'word_limit_blocked') {
@@ -156,7 +163,7 @@ export async function syncPendingWrite(pageId: string): Promise<void> {
       syncStatus: 'pending',
       retryCount: nextRetry,
     })
-    setTimeout(() => void syncPendingWrite(pageId), 2000)
+    setTimeout(() => void syncPendingWrite(pageId, savePath), 2000)
     return
   }
 
@@ -206,7 +213,7 @@ export async function flushPendingQueue(): Promise<{
     const pending = all.filter((w) => w.syncStatus === 'pending')
 
     for (const write of pending) {
-      await syncPendingWrite(write.id)
+      await syncPendingWrite(write.id, 'offline_sync')
       const after = await db.get('pending_writes', write.id)
       if (!after) {
         synced++
