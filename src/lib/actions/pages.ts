@@ -157,6 +157,29 @@ export async function updatePage(
   return { data: page, error: null };
 }
 
+export async function reorderPages(
+  chapterId: string,
+  orderedPageIds: string[]
+): Promise<{ error: string | null }> {
+  const { supabase, user } = await getUser();
+  if (!user) return { error: "Not authenticated" };
+
+  const results = await Promise.all(
+    orderedPageIds.map((id, index) =>
+      supabase
+        .from("pages")
+        .update({ position: index, updated_at: new Date().toISOString() })
+        .eq("id", id)
+        .eq("chapter_id", chapterId) // guard against cross-chapter drift
+    )
+  );
+
+  const failed = results.find((r) => r.error);
+  if (failed?.error) return { error: failed.error.message };
+
+  return { error: null };
+}
+
 export async function renamePage(
   id: string,
   title: string

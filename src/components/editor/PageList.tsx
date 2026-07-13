@@ -12,6 +12,7 @@ import {
   Info,
   Pencil,
   ChevronLeft,
+  GripVertical,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Page, Chapter } from "@/lib/types";
@@ -240,6 +241,7 @@ interface PageListProps {
   onRenamePage: (pageId: string, title: string) => void;
   onSetCanonical: (pageId: string) => void;
   onClearCanonical: () => void;
+  onReorderPages: (orderedPageIds: string[]) => void;
   allChapters: ChapterWithStats[];
   currentChapterId: string;
   projectId: string;
@@ -254,6 +256,7 @@ export function PageList({
   onRenamePage,
   onSetCanonical,
   onClearCanonical,
+  onReorderPages,
   allChapters,
   currentChapterId,
   projectId,
@@ -261,10 +264,54 @@ export function PageList({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
   const [view, setView] = useState<"pages" | "chapters">("pages");
+  const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
   const hasCanonical = pages.some((p) => p.is_canonical);
+
+  function handleDragStart(e: React.DragEvent, pageId: string) {
+    setDraggedId(pageId);
+    e.dataTransfer.effectAllowed = "move";
+  }
+
+  function handleDragOver(e: React.DragEvent, pageId: string) {
+    e.preventDefault();
+    if (!draggedId || draggedId === pageId) return;
+    e.dataTransfer.dropEffect = "move";
+    if (dragOverId !== pageId) setDragOverId(pageId);
+  }
+
+  function handleDrop(e: React.DragEvent, pageId: string) {
+    e.preventDefault();
+    if (!draggedId || draggedId === pageId) {
+      setDraggedId(null);
+      setDragOverId(null);
+      return;
+    }
+
+    const fromIndex = pages.findIndex((p) => p.id === draggedId);
+    const toIndex = pages.findIndex((p) => p.id === pageId);
+    if (fromIndex === -1 || toIndex === -1) {
+      setDraggedId(null);
+      setDragOverId(null);
+      return;
+    }
+
+    const reordered = pages.map((p) => p.id);
+    reordered.splice(fromIndex, 1);
+    reordered.splice(toIndex, 0, draggedId);
+
+    setDraggedId(null);
+    setDragOverId(null);
+    onReorderPages(reordered);
+  }
+
+  function handleDragEnd() {
+    setDraggedId(null);
+    setDragOverId(null);
+  }
 
   function startEditing(page: Page, e: React.MouseEvent) {
     e.stopPropagation();
@@ -479,12 +526,23 @@ export function PageList({
               <li key={page.id} className="shrink-0">
                 <div
                   data-tutorial-id={index === 0 ? "canonical-control" : undefined}
+                  draggable={!isEditing}
+                  onDragStart={(e) => handleDragStart(e, page.id)}
+                  onDragOver={(e) => handleDragOver(e, page.id)}
+                  onDrop={(e) => handleDrop(e, page.id)}
+                  onDragEnd={handleDragEnd}
                   className={cn(
                     "group relative mx-2 flex w-[calc(100%-1rem)] cursor-pointer select-none flex-col px-3 py-1.5 transition-all duration-200 rounded-md",
                     isSelected
                       ? "bg-rune-gold/15 shadow-sm"
-                      : "hover:bg-rune-gold/5"
+                      : "hover:bg-rune-gold/5",
+                    draggedId === page.id && "opacity-40"
                   )}
+                  style={
+                    dragOverId === page.id && draggedId !== page.id
+                      ? { boxShadow: "inset 0 2px 0 0 var(--color-gold)" }
+                      : undefined
+                  }
                   onClick={() => {
                     if (!isEditing) onSelectPage(page.id);
                   }}
@@ -500,6 +558,14 @@ export function PageList({
                 >
                   {/* Title row */}
                   <div className="flex items-center gap-2">
+                    <span
+                      className="shrink-0 cursor-grab text-rune-mist/20 opacity-0 transition-opacity duration-100 group-hover:opacity-100 active:cursor-grabbing"
+                      title="Drag to reorder"
+                      aria-hidden="true"
+                    >
+                      <GripVertical size={12} />
+                    </span>
+
                     {page.is_canonical ? (
                       <span
                         title="This page is the word count source for this chapter"

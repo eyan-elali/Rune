@@ -14,10 +14,12 @@ import {
   deletePage,
   setCanonicalPage,
   clearCanonicalPage,
+  reorderPages,
 } from "@/lib/actions/pages";
 import { cachePage, cacheChapterMeta } from "@/lib/offline/db";
 import { useEditorStore } from "@/store/editorStore";
 import { useModeStore } from "@/store/modeStore";
+import { useToastStore } from "@/store/toastStore";
 
 type ChapterWithStats = Chapter & { pages: { id: string; word_count: number }[] };
 
@@ -59,6 +61,7 @@ export function EditorShell({
   );
   const [guideTriggerCount, setGuideTriggerCount] = useState(0);
   const setCurrentPage = useEditorStore((s) => s.setCurrentPage);
+  const showToast = useToastStore((s) => s.showToast);
   const pathname = usePathname();
   const mode = useModeStore((s) => s.mode);
   const shouldHideFocusUI = mode === "focus" && pathname.includes("/chapters/");
@@ -145,6 +148,35 @@ export function EditorShell({
     await clearCanonicalPage(chapterId);
   }, [chapterId]);
 
+  const handleReorderPages = useCallback(
+    async (orderedPageIds: string[]) => {
+      const previous = pages;
+      const reordered = orderedPageIds
+        .map((id, index) => {
+          const page = previous.find((p) => p.id === id);
+          return page ? { ...page, position: index } : null;
+        })
+        .filter((p): p is Page => p !== null);
+
+      setPages(reordered);
+
+      const { error } = await reorderPages(chapterId, orderedPageIds);
+      if (error) {
+        setPages(previous);
+        showToast(
+          "Couldn't reorder pages — try again when you're back online.",
+          "error"
+        );
+        return;
+      }
+
+      // Keep the offline cache's position values in sync so the offline
+      // page list (sorted by position) stays correct.
+      await Promise.all(reordered.map((p) => cachePage(p, projectId)));
+    },
+    [pages, chapterId, projectId, showToast]
+  );
+
   return (
     <div className="flex min-h-0 h-full overflow-hidden">
       <EditorTutorial active={showTutorial} forceRun={forceTutorial} replayTrigger={guideTriggerCount} />
@@ -158,6 +190,7 @@ export function EditorShell({
           onRenamePage={handleRenamePage}
           onSetCanonical={handleSetCanonical}
           onClearCanonical={handleClearCanonical}
+          onReorderPages={handleReorderPages}
           allChapters={allChapters}
           currentChapterId={chapterId}
           projectId={projectId}
