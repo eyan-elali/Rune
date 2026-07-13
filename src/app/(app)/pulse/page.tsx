@@ -5,6 +5,7 @@ import {
   getCampaignPerformance,
   getDailyBrief,
   getHeartbeat,
+  getOnboardingInsights,
   getWriterProgress,
   listFounderNotes,
   searchRecentWriters,
@@ -15,6 +16,7 @@ import { TimeRangeSelector } from "@/components/pulse/TimeRangeSelector";
 import { DailyBrief } from "@/components/pulse/sections/DailyBrief";
 import { Heartbeat } from "@/components/pulse/sections/Heartbeat";
 import { ActivationFunnel } from "@/components/pulse/sections/ActivationFunnel";
+import { OnboardingInsights } from "@/components/pulse/sections/OnboardingInsights";
 import { WriterProgress } from "@/components/pulse/sections/WriterProgress";
 import { CampaignPerformance } from "@/components/pulse/sections/CampaignPerformance";
 import { RecentWriters } from "@/components/pulse/sections/RecentWriters";
@@ -40,6 +42,7 @@ export default async function PulsePage({ searchParams }: PulsePageProps) {
     heartbeat,
     funnel,
     trackingStartDate,
+    onboardingInsights,
     writerProgress,
     campaigns,
     recentWriters,
@@ -49,6 +52,7 @@ export default async function PulsePage({ searchParams }: PulsePageProps) {
     getHeartbeat(range),
     getActivationFunnel(range),
     getActivationTrackingStartDate(),
+    getOnboardingInsights(range),
     getWriterProgress(range),
     getCampaignPerformance(range),
     searchRecentWriters("", range),
@@ -85,6 +89,11 @@ export default async function PulsePage({ searchParams }: PulsePageProps) {
         {/* Activation Funnel — hero */}
         <div className="mt-5">
           <ActivationFunnel data={funnel} trackingStartDate={trackingStartDate} />
+        </div>
+
+        {/* Onboarding Insights */}
+        <div className="mt-5">
+          <OnboardingInsights data={onboardingInsights} />
         </div>
 
         {/* Writer Progress + Campaign Performance */}

@@ -187,10 +187,17 @@ export async function POST(req: Request) {
       metadata: { wordCount, characterCount: firstSentence.length },
     });
   }
+  // Metadata is limited to two booleans describing onboarding *behavior*,
+  // never manuscript content — no letter text, title, first sentence, theme,
+  // pen name, or AI-related content ever gets written to analytics_events.
   await safeRecordEvent({
     userId: user.id,
     eventName: "onboarding_completed",
     projectId: project.id,
+    metadata: {
+      firstSentenceSkipped: wordCount === 0,
+      letterWritten: Boolean(letter),
+    },
   });
 
   return NextResponse.json({

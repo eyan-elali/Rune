@@ -360,6 +360,75 @@ export async function getActivationTrackingStartDate(): Promise<string | null> {
   return (data?.created_at as string) ?? null;
 }
 
+// ── Onboarding Insights ──────────────────────────────────────────────────
+// Behavioral detail on top of the onboarding_completed milestone — not a new
+// funnel stage. Sourced entirely from the two booleans the onboarding API
+// route attaches to that event's metadata (see src/app/api/onboarding/route.ts):
+// firstSentenceSkipped and letterWritten. Rows recorded before that metadata
+// existed are simply excluded from the percentages (no backfill, no guess).
+
+export interface OnboardingInsights {
+  // Every onboarding_completed row in range, regardless of metadata.
+  totalCompleted: number;
+  // Subset of totalCompleted carrying the two-boolean metadata — the actual
+  // denominator for the percentages below.
+  coveredCount: number;
+  firstSentenceWrittenPercent: number;
+  firstSentenceSkippedPercent: number;
+  letterWrittenPercent: number;
+  letterSkippedPercent: number;
+  // True when some onboarding_completed rows in range predate the metadata —
+  // callers should show a quiet coverage notice in that case.
+  hasIncompleteCoverage: boolean;
+}
+
+function hasOnboardingInsightsMetadata(
+  metadata: unknown
+): metadata is { firstSentenceSkipped: boolean; letterWritten: boolean } {
+  if (!metadata || typeof metadata !== "object") return false;
+  const m = metadata as Record<string, unknown>;
+  return typeof m.firstSentenceSkipped === "boolean" && typeof m.letterWritten === "boolean";
+}
+
+export async function getOnboardingInsights(range: PulseTimeRange): Promise<OnboardingInsights> {
+  const client = await requireAdminService();
+  const since = rangeSince(range);
+
+  // Single query: metadata is only ever selected for onboarding_completed
+  // rows already scoped to the requested range, never scanned table-wide.
+  let q = client.from("analytics_events").select("metadata").eq("event_name", "onboarding_completed");
+  if (since) q = q.gte("created_at", since);
+  const { data } = await q;
+  const rows = data ?? [];
+
+  let firstSentenceWritten = 0;
+  let firstSentenceSkipped = 0;
+  let letterWritten = 0;
+  let letterSkipped = 0;
+  let coveredCount = 0;
+
+  for (const row of rows) {
+    if (!hasOnboardingInsightsMetadata(row.metadata)) continue;
+    coveredCount++;
+    if (row.metadata.firstSentenceSkipped) firstSentenceSkipped++;
+    else firstSentenceWritten++;
+    if (row.metadata.letterWritten) letterWritten++;
+    else letterSkipped++;
+  }
+
+  const pct = (n: number) => (coveredCount > 0 ? Math.round((n / coveredCount) * 1000) / 10 : 0);
+
+  return {
+    totalCompleted: rows.length,
+    coveredCount,
+    firstSentenceWrittenPercent: pct(firstSentenceWritten),
+    firstSentenceSkippedPercent: pct(firstSentenceSkipped),
+    letterWrittenPercent: pct(letterWritten),
+    letterSkippedPercent: pct(letterSkipped),
+    hasIncompleteCoverage: rows.length > coveredCount,
+  };
+}
+
 // ── Writer Progress ──────────────────────────────────────────────────────
 
 export interface WriterProgressItem {
