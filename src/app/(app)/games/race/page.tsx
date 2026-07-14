@@ -11,22 +11,16 @@ import { useGameStore } from "@/store/gameStore";
 import { useProfileStore } from "@/store/profileStore";
 import { useToastStore } from "@/store/toastStore";
 import { awardXp } from "@/lib/actions/xp";
-import {
-  appendSprintToProject,
-  appendToExistingPage,
-  createGameSession,
-  getPersonalBests,
-} from "@/lib/actions/games";
+import { createGameSession, getPersonalBests } from "@/lib/actions/games";
 import { PageSourceSelector, type PageSource } from "@/components/games/PageSourceSelector";
 import { ContextPageHeader } from "@/components/games/ContextPageHeader";
-import { recordWordsWritten, transferGameWordsToProject } from "@/lib/actions/writingStats";
+import { SaveToProject } from "@/components/games/SaveToProject";
+import { ExitGameModal } from "@/components/games/ExitGameModal";
+import { recordWordsWritten } from "@/lib/actions/writingStats";
 import { getWeeklyTicketUsage } from "@/lib/actions/billing";
-import { getProjects } from "@/lib/actions/projects";
-import { getChapters } from "@/lib/actions/chapters";
 import { xpRewardForWords } from "@/lib/xp";
 import { unlockToastMessage } from "@/lib/unlockables";
 import { getGameTicketsAllowed } from "@/lib/subscription";
-import type { Project, Chapter } from "@/lib/types";
 
 const GameEditor = dynamic(() => import("@/components/editor/GameEditor"), {
   ssr: false,
@@ -215,322 +209,6 @@ function SetupState({
         </div>
       </div>
     </div>
-  );
-}
-
-// ── Save-to-Project flow ──────────────────────────────────────────────────────
-
-type SaveStep =
-  | "idle"
-  | "loading"
-  | "pick-project"
-  | "pick-chapter"
-  | "saving"
-  | "saved"
-  | "error";
-
-function SaveToProject({
-  words,
-  textWritten,
-  sessionInvalidated = false,
-  pageSource,
-}: {
-  words: number;
-  textWritten: string;
-  sessionInvalidated?: boolean;
-  pageSource?: PageSource;
-}) {
-  const [step, setStep] = useState<SaveStep>("idle");
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [chapters, setChapters] = useState<Chapter[]>([]);
-  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
-  const [savedChapterName, setSavedChapterName] = useState("");
-  const [errorMsg, setErrorMsg] = useState("");
-  const [appendStep, setAppendStep] = useState<"idle" | "saving" | "saved" | "error">("idle");
-  const [appendError, setAppendError] = useState("");
-
-  if (words === 0) return null;
-
-  // ── Existing page append flow ───────────────────────────────────────────────
-  async function handleAppend() {
-    if (pageSource?.type !== "existing") return;
-    setAppendStep("saving");
-    const result = await appendToExistingPage(pageSource.page.id, textWritten, words);
-    if (result.error) { setAppendError(result.error); setAppendStep("error"); return; }
-    if (!sessionInvalidated) {
-      await import("@/lib/actions/writingStats").then((m) =>
-        m.transferGameWordsToProject(pageSource.project.id, words, getLocalDateString())
-      );
-    }
-    setAppendStep("saved");
-  }
-
-  if (pageSource?.type === "existing") {
-    const { page, project } = pageSource;
-    if (appendStep === "saved") {
-      return (
-        <div className="mt-4 rounded-lg px-5 py-3 text-center text-sm"
-          style={{ background: "rgba(74, 103, 65, 0.15)", border: "1px solid rgba(74, 103, 65, 0.3)", color: "var(--color-sage)" }}>
-          ✓ &nbsp;Appended to &ldquo;{page.title}&rdquo;
-        </div>
-      );
-    }
-    if (appendStep === "saving") {
-      return <Button variant="ghost" loading disabled className="mt-4">Saving…</Button>;
-    }
-    if (appendStep === "error") {
-      return (
-        <div className="mt-4 text-center">
-          <p className="mb-2 text-xs" style={{ color: "var(--color-crimson)" }}>{appendError}</p>
-          <button type="button" className="text-xs underline" style={{ color: "var(--color-mist)" }}
-            onClick={() => { setAppendStep("idle"); setAppendError(""); }}>Try again</button>
-        </div>
-      );
-    }
-    return (
-      <div className="mt-4 text-center">
-        <p className="mb-2 text-xs" style={{ color: "var(--color-mist)" }}>
-          Append to:{" "}
-          <span className="font-rune-serif" style={{ color: "var(--color-gold)" }}>{page.title}</span>
-          {" · "}
-          <span style={{ opacity: 0.6 }}>{project.title}</span>
-        </p>
-        <Button variant="ghost" className="mt-1" onClick={handleAppend}>
-          Append to Page
-        </Button>
-      </div>
-    );
-  }
-
-  async function handleOpenProjects() {
-    setStep("loading");
-    const result = await getProjects();
-    if (result.error || !result.data) {
-      setErrorMsg(result.error ?? "Failed to load projects");
-      setStep("error");
-      return;
-    }
-    setProjects(result.data);
-    setStep("pick-project");
-  }
-
-  async function handleSelectProject(project: Project) {
-    setSelectedProject(project);
-    setStep("loading");
-    const result = await getChapters(project.id);
-    if (result.error || !result.data) {
-      setErrorMsg(result.error ?? "Failed to load chapters");
-      setStep("error");
-      return;
-    }
-    setChapters(result.data);
-    setStep("pick-chapter");
-  }
-
-  async function handleSelectChapter(chapter: Chapter) {
-    if (!selectedProject) return;
-    setStep("saving");
-    const result = await appendSprintToProject(
-      selectedProject.id,
-      chapter.id,
-      words,
-      textWritten
-    );
-    if (result.error) {
-      setErrorMsg(result.error);
-      setStep("error");
-      return;
-    }
-    // Transfer words to project stats unless session was invalidated by anti-cheat
-    if (!sessionInvalidated) {
-      await transferGameWordsToProject(selectedProject.id, words, getLocalDateString());
-    }
-    setSavedChapterName(chapter.title);
-    setStep("saved");
-  }
-
-  // Saved confirmation
-  if (step === "saved") {
-    return (
-      <div
-        className="mt-4 rounded-lg px-5 py-3 text-center text-sm"
-        style={{
-          background: "rgba(74, 103, 65, 0.15)",
-          border: "1px solid rgba(74, 103, 65, 0.3)",
-          color: "var(--color-sage)",
-        }}
-      >
-        ✓ &nbsp;Saved to &ldquo;{savedChapterName}&rdquo;
-      </div>
-    );
-  }
-
-  // Saving spinner
-  if (step === "saving") {
-    return (
-      <Button variant="ghost" loading disabled className="mt-4">
-        Saving…
-      </Button>
-    );
-  }
-
-  // Error state
-  if (step === "error") {
-    return (
-      <div className="mt-4 text-center">
-        <p className="mb-2 text-xs" style={{ color: "var(--color-crimson)" }}>
-          {errorMsg}
-        </p>
-        <button
-          type="button"
-          className="text-xs underline"
-          style={{ color: "var(--color-mist)" }}
-          onClick={() => { setStep("idle"); setErrorMsg(""); }}
-        >
-          Try again
-        </button>
-      </div>
-    );
-  }
-
-  // Loading
-  if (step === "loading") {
-    return (
-      <Button variant="ghost" loading disabled className="mt-4">
-        Loading…
-      </Button>
-    );
-  }
-
-  // Project picker
-  if (step === "pick-project") {
-    return (
-      <div className="mt-4 w-full max-w-xs">
-        <p
-          className="mb-2 text-center text-[10px] uppercase tracking-widest"
-          style={{ color: "var(--color-mist)" }}
-        >
-          Pick a project
-        </p>
-        <div
-          className="max-h-48 overflow-y-auto rounded-lg"
-          style={{
-            background: "var(--color-sepia)",
-            border: "1px solid var(--color-border-strong)",
-          }}
-        >
-          {projects.length === 0 ? (
-            <p
-              className="px-4 py-3 text-center text-sm"
-              style={{ color: "var(--color-mist)" }}
-            >
-              No projects yet
-            </p>
-          ) : (
-            <ul role="list">
-              {projects.map((project, i) => (
-                <li key={project.id}>
-                  <button
-                    type="button"
-                    onClick={() => handleSelectProject(project)}
-                    className="w-full px-4 py-3 text-left text-sm transition-colors duration-100 hover:bg-rune-gold/10"
-                    style={{
-                      color: "var(--text-primary)",
-                      borderTop: i > 0 ? "1px solid var(--color-border)" : undefined,
-                    }}
-                  >
-                    <span className="font-rune-serif">{project.title}</span>
-                    <span
-                      className="ml-2 text-xs"
-                      style={{ color: "var(--color-mist)" }}
-                    >
-                      {project.word_count.toLocaleString()} words
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-        <button
-          type="button"
-          className="mt-2 w-full text-center text-xs"
-          style={{ color: "var(--color-mist)", opacity: 0.6 }}
-          onClick={() => setStep("idle")}
-        >
-          Cancel
-        </button>
-      </div>
-    );
-  }
-
-  // Chapter picker
-  if (step === "pick-chapter") {
-    return (
-      <div className="mt-4 w-full max-w-xs">
-        <p
-          className="mb-1 text-center text-[10px] uppercase tracking-widest"
-          style={{ color: "var(--color-mist)" }}
-        >
-          Pick a chapter
-        </p>
-        <p
-          className="mb-2 text-center text-xs font-rune-serif"
-          style={{ color: "var(--color-gold)" }}
-        >
-          {selectedProject?.title}
-        </p>
-        <div
-          className="max-h-48 overflow-y-auto rounded-lg"
-          style={{
-            background: "var(--color-sepia)",
-            border: "1px solid var(--color-border-strong)",
-          }}
-        >
-          {chapters.length === 0 ? (
-            <p
-              className="px-4 py-3 text-center text-sm"
-              style={{ color: "var(--color-mist)" }}
-            >
-              No chapters in this project
-            </p>
-          ) : (
-            <ul role="list">
-              {chapters.map((chapter, i) => (
-                <li key={chapter.id}>
-                  <button
-                    type="button"
-                    onClick={() => handleSelectChapter(chapter)}
-                    className="w-full px-4 py-3 text-left text-sm transition-colors duration-100 hover:bg-rune-gold/10"
-                    style={{
-                      color: "var(--text-primary)",
-                      borderTop: i > 0 ? "1px solid var(--color-border)" : undefined,
-                    }}
-                  >
-                    <span className="font-rune-serif">{chapter.title}</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-        <button
-          type="button"
-          className="mt-2 w-full text-center text-xs"
-          style={{ color: "var(--color-mist)", opacity: 0.6 }}
-          onClick={() => { setStep("pick-project"); setChapters([]); }}
-        >
-          ← Back to projects
-        </button>
-      </div>
-    );
-  }
-
-  // Idle — show button
-  return (
-    <Button variant="ghost" className="mt-4" onClick={handleOpenProjects}>
-      Save to Project
-    </Button>
   );
 }
 
@@ -986,6 +664,7 @@ export default function RaceYourselfPage() {
   const [sessionValid, setSessionValid] = useState(true);
   const [ticketConsumed, setTicketConsumed] = useState(false);
   const [canRaceAgain, setCanRaceAgain] = useState(true);
+  const [showExitModal, setShowExitModal] = useState(false);
 
   // Refs for split-XP tracking across effect boundaries
   const wordsAtFinishRef = useRef(0);
@@ -1163,7 +842,16 @@ export default function RaceYourselfPage() {
   }, [canRaceAgain, resetToSetup]);
 
   const handleExit = useCallback(() => {
-    if (!confirm("Exit the race? Your current progress will not be saved.")) return;
+    if (wordsWritten === 0) {
+      resetToSetup();
+      router.push("/games");
+      return;
+    }
+    setShowExitModal(true);
+  }, [wordsWritten, resetToSetup, router]);
+
+  const handleLeaveArena = useCallback(() => {
+    setShowExitModal(false);
     resetToSetup();
     router.push("/games");
   }, [resetToSetup, router]);
@@ -1253,6 +941,17 @@ export default function RaceYourselfPage() {
           />
         </div>
       </div>
+
+      {showExitModal && (
+        <ExitGameModal
+          title="Leave the Race?"
+          words={wordsWritten}
+          textWritten={textWritten}
+          pageSource={pageSource}
+          onKeepGoing={() => setShowExitModal(false)}
+          onLeave={handleLeaveArena}
+        />
+      )}
     </div>
   );
 }
