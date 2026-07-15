@@ -75,7 +75,10 @@ export default async function OnboardingPage() {
       {/* Rendered outside the device gate so signup attribution fires
           regardless of whether the phone waiting room is shown. */}
       <RegistrationTracker />
-      <SupportedDeviceGate variant="new">
+      <SupportedDeviceGate
+        variant="new"
+        preferences={profile?.preferences as Record<string, unknown> | null}
+      >
         <OnboardingClient authorName={authorName} initialTheme={initialTheme} />
       </SupportedDeviceGate>
     </>

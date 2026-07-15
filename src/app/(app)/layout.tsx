@@ -77,7 +77,10 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
     <>
       <NetworkProvider />
       <RegistrationTracker />
-      <SupportedDeviceGate variant={gateVariant}>
+      <SupportedDeviceGate
+        variant={gateVariant}
+        preferences={profile?.preferences as Record<string, unknown> | null}
+      >
         <AppShell profile={profile as Profile | null} showUpdateNotice={showUpdateNotice}>
           {children}
         </AppShell>

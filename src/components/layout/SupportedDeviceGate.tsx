@@ -16,6 +16,7 @@ const SUPPORTED_DEVICE_QUERY = "(min-width: 768px)";
 interface SupportedDeviceGateProps {
   children: ReactNode;
   variant: WaitingRoomVariant;
+  preferences?: Record<string, unknown> | null;
 }
 
 // Gates authenticated app content behind a phone-width check. Renders
@@ -24,7 +25,7 @@ interface SupportedDeviceGateProps {
 // glimpses onboarding, the dashboard, or the editor before the gate
 // resolves, and children are never mounted at all when gated — heavy
 // client experiences like the Tiptap editor simply never initialize.
-export function SupportedDeviceGate({ children, variant }: SupportedDeviceGateProps) {
+export function SupportedDeviceGate({ children, variant, preferences }: SupportedDeviceGateProps) {
   const [isSupported, setIsSupported] = useState<boolean | null>(null);
 
   useIsomorphicLayoutEffect(() => {
@@ -57,7 +58,9 @@ export function SupportedDeviceGate({ children, variant }: SupportedDeviceGatePr
   }
 
   if (!isSupported) {
-    return <PhoneWaitingRoom variant={variant} />;
+    const initialSentAt =
+      (preferences?.mobile_desktop_email_sent_at as string | undefined) ?? null;
+    return <PhoneWaitingRoom variant={variant} initialEmailSentAt={initialSentAt} />;
   }
 
   return <>{children}</>;

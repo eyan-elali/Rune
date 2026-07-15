@@ -589,7 +589,7 @@ Valid words are defined as whitespace-separated tokens of at least 2 characters.
 
 - **1v1 Race:** Supabase Realtime channels. The `game_sessions` table schema should be compatible with a `room_id` column being added later.
 - **Subscription enforcement:** Game ticket counts live on `profiles`. The subscription tier check will wrap around game session creation in `src/lib/actions/games.ts` — leave a `// TODO: check tier` comment where the guard will go.
-- **Mobile:** Layout is desktop-first for MVP. Do not add mobile-breaking code (avoid fixed pixel widths outside of the sidebar and editor column).
+- **Mobile:** Layout is desktop-first for MVP. Do not add mobile-breaking code (avoid fixed pixel widths outside of the sidebar and editor column). Rune's full onboarding occurs on desktop or supported tablet only. Unsupported phones show the waiting room (`PhoneWaitingRoom`) after authentication, verification, and required profile completion — it helps the writer continue on a larger screen. No project, first sentence, writing-space choice, or future letter is created on the phone. The full editor and protected application remain unavailable on unsupported phones. When the writer later opens Rune on a supported device, normal onboarding begins. Do not build mobile onboarding unless a future explicit product decision reverses this.
 
 ---
 

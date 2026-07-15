@@ -29,6 +29,9 @@ export type AnalyticsEventName =
   | "export_completed"
   | "arena_session_completed"
   | "revision_note_created"
+  // Phone waiting room (mobile -> desktop activation)
+  | "phone_waiting_room_viewed"
+  | "desktop_link_requested"
   // Revenue and lifecycle
   | "subscription_started"
   | "subscription_cancelled"

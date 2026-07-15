@@ -456,6 +456,16 @@ body {
   --onboarding-muted: rgba(245, 240, 232, 0.64);
 }
 
+/* Phone waiting room shares onboarding's muted-text fix — same near-black
+   Candlelight background, same problem with --text-muted reading too dark. */
+.rune-waiting-room {
+  --onboarding-muted: var(--text-muted);
+}
+
+[data-theme="candlelight"] .rune-waiting-room {
+  --onboarding-muted: rgba(245, 240, 232, 0.64);
+}
+
 /* ── Editor tutorial ─────────────────────────────────────────────── */
 @keyframes rune-tutorial-rise {
   from { opacity: 0; transform: translateX(-50%) translateY(8px); }
