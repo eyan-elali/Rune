@@ -2,7 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { recalculateProjectWordCount } from "@/lib/projectWordCount";
-import { FREE_WORD_LIMIT } from "@/lib/subscription";
+import { resolveFreeWordLimit, type PricingCohort } from "@/lib/pricing";
 import { recordAnalyticsEvent } from "@/lib/actions/analytics";
 import type { Page } from "@/lib/types";
 
@@ -14,6 +14,69 @@ async function getUser() {
     data: { user },
   } = await supabase.auth.getUser();
   return { supabase, user };
+}
+
+/**
+ * Canonical, server-authoritative free-tier word-limit check, shared by every
+ * write path that can add words to a project's stored manuscript (editor
+ * saves, offline sync, Arena "Save to Project", onboarding's first page).
+ * Scribe subscribers (subscription_tier === 'scribe', the app's sole
+ * canonical "is paid" test — see canAccessFeature in src/lib/subscription.ts)
+ * are always unrestricted. Free users are limited per-project according to
+ * their pricing_cohort (legacy_15k vs starter_2k, resolved from
+ * user_pricing_entitlements — a missing row defensively defaults to the
+ * tighter starter_2k rather than the more generous legacy_15k).
+ *
+ * excludePageId should be null when the page doesn't exist yet (a brand new
+ * page being created), or the id of the page being replaced/appended to so
+ * its own prior word count isn't double-counted.
+ */
+export async function checkFreeWordLimit(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  projectId: string,
+  excludePageId: string | null,
+  candidateWordCount: number
+): Promise<{ blocked: boolean; limit: number }> {
+  const { data: profileRow } = await supabase
+    .from("profiles")
+    .select("subscription_tier")
+    .eq("id", userId)
+    .single();
+
+  if ((profileRow?.subscription_tier ?? "free") !== "free") {
+    return { blocked: false, limit: Infinity };
+  }
+
+  const { data: entitlement } = await supabase
+    .from("user_pricing_entitlements")
+    .select("pricing_cohort")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  const cohort = (entitlement?.pricing_cohort as PricingCohort | undefined) ?? "starter_2k";
+  const limit = resolveFreeWordLimit(cohort);
+
+  const { data: projectChapters } = await supabase
+    .from("chapters")
+    .select("id")
+    .eq("project_id", projectId);
+
+  const chapterIds = (projectChapters ?? []).map((c: { id: string }) => c.id);
+  if (chapterIds.length === 0) {
+    return { blocked: candidateWordCount > limit, limit };
+  }
+
+  const { data: allPages } = await supabase
+    .from("pages")
+    .select("id, word_count")
+    .in("chapter_id", chapterIds);
+
+  const totalExcludingCurrent = (allPages ?? [])
+    .filter((p: { id: string }) => p.id !== excludePageId)
+    .reduce((s: number, p: { word_count: number }) => s + (p.word_count ?? 0), 0);
+
+  return { blocked: totalExcludingCurrent + candidateWordCount > limit, limit };
 }
 
 export async function getPages(
@@ -98,29 +161,19 @@ export async function updatePage(
         .single();
 
       if (chapter) {
-        const { data: projectChapters } = await supabase
-          .from("chapters")
-          .select("id")
-          .eq("project_id", chapter.project_id);
+        const { blocked } = await checkFreeWordLimit(
+          supabase,
+          user.id,
+          chapter.project_id,
+          id,
+          wordCount
+        );
 
-        const chapterIds = (projectChapters ?? []).map((c: { id: string }) => c.id);
-
-        if (chapterIds.length > 0) {
-          const { data: allPages } = await supabase
-            .from("pages")
-            .select("id, word_count")
-            .in("chapter_id", chapterIds);
-
-          const totalExcludingCurrent = (allPages ?? [])
-            .filter((p: { id: string }) => p.id !== id)
-            .reduce((s: number, p: { word_count: number }) => s + (p.word_count ?? 0), 0);
-
-          if (totalExcludingCurrent + wordCount > FREE_WORD_LIMIT) {
-            return {
-              data: null,
-              error: "FREE_WORD_LIMIT_REACHED",
-            };
-          }
+        if (blocked) {
+          return {
+            data: null,
+            error: "FREE_WORD_LIMIT_REACHED",
+          };
         }
       }
     }
@@ -337,32 +390,16 @@ export async function syncPageWithLimitCheck(
         .single();
 
       if (chapter) {
-        const { data: projectChapters } = await supabase
-          .from("chapters")
-          .select("id")
-          .eq("project_id", chapter.project_id);
-
-        const chapterIds = (projectChapters ?? []).map(
-          (c: { id: string }) => c.id
+        const { blocked } = await checkFreeWordLimit(
+          supabase,
+          user.id,
+          chapter.project_id,
+          id,
+          wordCount
         );
 
-        if (chapterIds.length > 0) {
-          const { data: allPages } = await supabase
-            .from("pages")
-            .select("id, word_count")
-            .in("chapter_id", chapterIds);
-
-          const totalExcludingCurrent = (allPages ?? [])
-            .filter((p: { id: string }) => p.id !== id)
-            .reduce(
-              (s: number, p: { word_count: number }) =>
-                s + (p.word_count ?? 0),
-              0
-            );
-
-          if (totalExcludingCurrent + wordCount > FREE_WORD_LIMIT) {
-            return { status: "word_limit_blocked" };
-          }
+        if (blocked) {
+          return { status: "word_limit_blocked" };
         }
       }
     }

@@ -20,7 +20,7 @@ import { useEditorStore } from "@/store/editorStore";
 import { useModeStore } from "@/store/modeStore";
 import { useProfileStore } from "@/store/profileStore";
 import { useToastStore } from "@/store/toastStore";
-import { FREE_WORD_LIMIT } from "@/lib/subscription";
+import { WORD_LIMITS } from "@/lib/pricing";
 import { createCheckoutSession } from "@/lib/actions/billing";
 import type { Page, UserPreferences } from "@/lib/types";
 
@@ -79,6 +79,11 @@ export default function RuneEditor({
   const setPendingLevelUp = useProfileStore((s) => s.setPendingLevelUp);
   const userId = useProfileStore((s) => s.profile?.id);
   const subscriptionTier = useProfileStore((s) => s.subscriptionTier);
+  const pricingCohort = useProfileStore((s) => s.pricingCohort);
+  // Client-side value is UX-only — the server (updatePage/syncPageWithLimitCheck)
+  // always re-derives tier + cohort independently and is the actual authority.
+  const wordLimit =
+    subscriptionTier === "scribe" ? Infinity : WORD_LIMITS[pricingCohort ?? "starter_2k"];
   const isFocusMode = useModeStore((s) => s.mode === "focus");
   const isOnline = useNetworkStore((s) => s.isOnline);
   const prefs = (rawPrefs ?? {}) as Partial<UserPreferences>;
@@ -126,6 +131,7 @@ export default function RuneEditor({
   const userIdRef = useRef(userId);
   const projectIdRef = useRef(projectId);
   const subscriptionTierRef = useRef(subscriptionTier);
+  const wordLimitRef = useRef(wordLimit);
 
   useEffect(() => {
     const delay = prefs.autoSaveDelay ?? 1500;
@@ -144,6 +150,7 @@ export default function RuneEditor({
   useEffect(() => { userIdRef.current = userId; }, [userId]);
   useEffect(() => { projectIdRef.current = projectId; }, [projectId]);
   useEffect(() => { subscriptionTierRef.current = subscriptionTier; }, [subscriptionTier]);
+  useEffect(() => { wordLimitRef.current = wordLimit; }, [wordLimit]);
   useEffect(() => { projectWordCountRef.current = projectWordCount; }, [projectWordCount]);
 
 
@@ -216,7 +223,7 @@ export default function RuneEditor({
     // Free-tier word limit check — only block growth, never block edits/deletions
     if (subscriptionTierRef.current === 'free' && delta > 0) {
       const otherPageWords = projectWordCountRef.current - (lastSavedWordCountRef.current);
-      if (otherPageWords + wordCount > FREE_WORD_LIMIT) {
+      if (otherPageWords + wordCount > wordLimitRef.current) {
         wordLimitBlockedRef.current = true;
         setWordLimitModalOpen(true);
         setIsSaving(false);
@@ -311,7 +318,7 @@ export default function RuneEditor({
         if (subscriptionTierRef.current !== 'free') return false;
         const otherPageWords =
           projectWordCountRef.current - lastSavedWordCountRef.current;
-        if (otherPageWords + currentWordCountRef.current >= FREE_WORD_LIMIT) {
+        if (otherPageWords + currentWordCountRef.current >= wordLimitRef.current) {
           setWordLimitModalOpen(true);
           return true; // block the insertion
         }
@@ -325,7 +332,7 @@ export default function RuneEditor({
         if (subscriptionTierRef.current !== 'free') return false;
         const otherPageWords =
           projectWordCountRef.current - lastSavedWordCountRef.current;
-        if (otherPageWords + currentWordCountRef.current >= FREE_WORD_LIMIT) {
+        if (otherPageWords + currentWordCountRef.current >= wordLimitRef.current) {
           setWordLimitModalOpen(true);
           return true; // block the new paragraph
         }
@@ -337,7 +344,7 @@ export default function RuneEditor({
         if (subscriptionTierRef.current === 'free') {
           const otherPageWords =
             projectWordCountRef.current - lastSavedWordCountRef.current;
-          if (otherPageWords + currentWordCountRef.current >= FREE_WORD_LIMIT) {
+          if (otherPageWords + currentWordCountRef.current >= wordLimitRef.current) {
             setWordLimitModalOpen(true);
             return true; // block paste
           }
@@ -375,7 +382,7 @@ export default function RuneEditor({
         const isOverLimit =
           subscriptionTierRef.current === 'free' &&
           wcNow > lastSavedWordCountRef.current &&
-          projectWordCountRef.current - lastSavedWordCountRef.current + wcNow > FREE_WORD_LIMIT;
+          projectWordCountRef.current - lastSavedWordCountRef.current + wcNow > wordLimitRef.current;
 
         if (!isOverLimit) {
           try {
@@ -927,7 +934,7 @@ export default function RuneEditor({
               className="mb-3 font-rune-serif text-2xl"
               style={{ color: 'var(--text-primary)' }}
             >
-              You&rsquo;ve reached {FREE_WORD_LIMIT.toLocaleString()} words.
+              You&rsquo;ve reached {wordLimit.toLocaleString()} words.
             </h2>
             <p
               className="mb-2 text-sm leading-relaxed"

@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { stripe } from '@/lib/stripe/client'
 import { PRICE_IDS } from '@/lib/stripe/config'
 import type { BillingPeriod, PaidTier } from '@/lib/stripe/config'
+import { getOrCreateStripeCustomerId } from '@/lib/actions/billing'
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL!
 
@@ -29,25 +30,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL(`/login?next=${next}`, APP_URL))
   }
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('stripe_customer_id')
-    .eq('id', user.id)
-    .single()
-
-  let customerId = (profile as { stripe_customer_id: string | null } | null)
-    ?.stripe_customer_id ?? null
-
-  if (!customerId) {
-    const customer = await stripe.customers.create({
-      email: user.email,
-      metadata: { supabase_user_id: user.id },
-    })
-    customerId = customer.id
-    await supabase
-      .from('profiles')
-      .update({ stripe_customer_id: customerId })
-      .eq('id', user.id)
+  const { customerId, error: customerError } = await getOrCreateStripeCustomerId(supabase, user)
+  if (customerError || !customerId) {
+    return NextResponse.redirect(new URL('/settings', APP_URL))
   }
 
   const priceId = PRICE_IDS[plan as PaidTier][billing as BillingPeriod]

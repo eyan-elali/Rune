@@ -1,7 +1,5 @@
 export type SubscriptionTier = 'free' | 'scribe'
 
-export const FREE_WORD_LIMIT = 15_000
-
 export const FEATURE_GATES = {
   // Scale gates — scribe only
   unlimitedProjects: ['scribe'],

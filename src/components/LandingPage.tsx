@@ -2806,8 +2806,11 @@ export default function LandingPage() {
           >
             Simple pricing. Start writing for free.
           </h2>
-          <p style={{ fontFamily: SANS, fontSize: '16px', color: 'var(--text-muted)', textAlign: 'center', lineHeight: 1.75, maxWidth: '480px', margin: '0 auto 2.5rem' }}>
+          <p style={{ fontFamily: SANS, fontSize: '16px', color: 'var(--text-muted)', textAlign: 'center', lineHeight: 1.75, maxWidth: '480px', margin: '0 auto 0.75rem' }}>
             Begin your manuscript today. Upgrade only when you&apos;re ready to write without limits.
+          </p>
+          <p style={{ fontFamily: SANS, fontSize: '14px', color: 'var(--text-muted)', textAlign: 'center', lineHeight: 1.6, maxWidth: '480px', margin: '0 auto 2.5rem', opacity: 0.85 }}>
+            Write your first 2,000 words free. No card required.
           </p>
 
           {/* Billing toggle */}
@@ -2852,7 +2855,7 @@ export default function LandingPage() {
 
               <div style={{ height: '1px', background: 'var(--color-border)', margin: '1.5rem 0' }} />
 
-              {['1 manuscript', 'Up to 15,000 words', 'All writing tools', 'Goals & Progress', 'Notes', 'Profile & Stats', 'Export', 'Focus Mode', '1 Arena ticket / week'].map((f) => (
+              {['1 manuscript', 'Up to 2,000 words', 'All writing tools', 'Goals & Progress', 'Notes', 'Profile & Stats', 'Export', 'Focus Mode', '1 Arena ticket / week'].map((f) => (
                 <div key={f} style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', marginBottom: '10px', fontSize: '14px', color: 'var(--text-primary)', lineHeight: 1.5, fontFamily: SANS }}>
                   <span style={{ color: 'var(--color-gold)', fontSize: '12px', flexShrink: 0, marginTop: '1px' }}>✦</span>
                   {f}

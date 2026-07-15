@@ -1,605 +1,1062 @@
 # CLAUDE.md — Rune
 
-> This file is the source of truth for Claude Code when building Rune. Read it in full before every session. It describes what Rune is, how it is built, and the conventions that must be followed consistently across all prompts.
-
----
-##Always do first
--**Invoke the 'frontend-design' skill** before writing any frontend code, every session, no exceptions.
-
-## What Is Rune?
-
-Rune is a **web-based, gamified text editor for writers**. It is a Mac-first, local-first application built with Next.js and deployed to the web. Its aesthetic is **Dark Academia**: warm browns, antique gold, serif type, candlelight — the feeling of writing in a library at midnight.
-
-Rune solves a specific problem: writers struggle to sit down and produce a first draft. Rune gamifies that act. Once a draft exists, Rune's distraction-free tools help them shape it.
-
-### Modes
-- `normal` — default. Full UI. No special behavior.
-- `focus` — Sidebar, Header, and PageList unmounted entirely. Editor is fullscreen.
-  Exit: Escape key, or hover top-right corner to reveal the ModeToggle.
-- `game` — game HUD active (built in Prompts 10–11).
-
-modeStore default: 'normal'
-Toggle: two-button pill (Focus | Game). Clicking the active button returns to 'normal'.
-ModeToggle is a shared component at src/components/ui/ModeToggle.tsx — used in Header (normal/game) and the Focus hotzone.
-
-| Mode           | Purpose                              | Philosophy                        |
-| -------------- | ------------------------------------ | --------------------------------- |
-| **Focus Mode** | Distraction-free writing and editing | No gamification. Clean. Silent.   |
-| **Game Mode**  | Gamified drafting via competition    | Words = actions. Time = pressure. |
-
-### Three Games (MVP scope)
-
-1. **Race Yourself** — Beat your personal word-count record within a time limit.
-2. **Battle Mode** — Deal damage by typing. Take damage when idle. Defeat enemies to win.
-3. **1v1 Race** — Compete against another user in real time. *(Post-MVP, architecture should not block this.)*
-
-### Monetization
-
-| Tier            | Projects  | Game Tickets/Week             | Price  |
-| --------------- | --------- | ----------------------------- | ------ |
-| Free            | 1         | 1                             | $0     |
-| Scribe (Tier 1) | Unlimited | 3                             | $5/mo  |
-| Arcane (Tier 2) | Unlimited | Unlimited + early multiplayer | $12/mo |
+> This file is the product and engineering source of truth for Claude Code when working on Rune.
+>
+> Read it before making changes. Then inspect the actual code, migrations, and current branch before assuming a feature is already implemented.
+>
+> Product decisions in this file are intentional. Implementation details may lag behind them. When the code and this file differ, report the difference before changing architecture or behavior.
 
 ---
 
-## Rune Product Philosophy & Positioning
+## 1. What Rune Is
 
-Rune is not a generic writing app. Rune is the writing workspace built specifically for novelists.
+Rune is a **writing companion and manuscript workspace built for novelists**.
 
-The core promise is not "better documents." The core promise is helping authors finish manuscripts.
+It gives fiction writers a calm place to:
 
-Every product, design, and marketing decision should reinforce this idea:
+- write,
+- organize a manuscript,
+- see meaningful progress,
+- return consistently,
+- and finish a story.
 
-> Rune is the workspace serious fiction writers graduate to when a blank document is no longer enough.
+Rune is not primarily a generic document editor, productivity app, note-taking tool, or game.
 
-### Primary Audience
+Its identity is:
 
-Rune is for people writing long-form fiction and books, especially novelists.
+- literary,
+- calm,
+- premium,
+- intentional,
+- quietly motivating,
+- influenced by dark academia without being trapped by it.
+
+A useful positioning line is:
+
+> **A home for writing novels.**
+
+A useful supporting line is:
+
+> **A writing companion built for novelists. Write, organize, and finish your story.**
+
+### The central promise
+
+Rune should help writers cross the distance between wanting to write a novel and actually finishing one.
+
+The product should make the writer feel:
+
+- their story matters,
+- their manuscript is safe,
+- beginning is possible,
+- returning is natural,
+- progress is visible,
+- their words remain their own.
+
+---
+
+## 2. Product Philosophy
+
+### The manuscript comes first
+
+The most important product rule is:
+
+> **Protect the manuscript before optimizing anything else.**
+
+When choosing between implementations, prefer the one that:
+
+1. protects manuscript integrity,
+2. preserves reliable saving and recovery,
+3. reduces writing friction,
+4. increases the chance the writer returns,
+5. preserves calm focus,
+6. avoids feature creep and unnecessary architecture.
+
+Never trade saving reliability for animation, novelty, or polish.
+
+### Rune is not a blank document
+
+General document tools treat a novel as a file.
+
+Rune treats a novel as a manuscript made of:
+
+- projects,
+- chapters,
+- pages,
+- canonical pages,
+- revision notes,
+- goals,
+- progress,
+- writing sessions,
+- and a long-term relationship between the writer and the work.
+
+Do not copy competitors mechanically. Use comparisons only to clarify Rune’s purpose.
+
+### Gamification is supportive, not the identity
+
+Rune contains progression and Arena experiences, but Rune should never feel like a childish game, a neon gamer product, or a habit app wearing a literary skin.
+
+Gamification exists to help defeat the blank page and create momentum.
+
+It must remain:
+
+- optional,
+- restrained,
+- understandable,
+- secondary to the manuscript.
+
+### AI and authorship
+
+Rune’s product principle is explicit:
+
+> **Rune will never use AI to write, rewrite, or complete a writer’s story.**
+
+Do not:
+
+- add AI-generated prose,
+- add AI completion to the editor,
+- add AI rewriting,
+- send manuscript text, first sentences, private letters, or revision notes to AI services,
+- imply that Rune will replace the writer’s voice.
+
+The approved onboarding language is:
+
+> **Your words remain your own.**  
+> Rune will never use AI to write, rewrite, or complete your story.
+
+This promise is specifically about the writer’s manuscript and creative writing experience. Do not broaden it into claims about every internal business process unless that has been explicitly decided.
+
+---
+
+## 3. Audience and Positioning
+
+### Primary audience
+
+Rune is built first for people writing long-form fiction, especially novelists.
 
 Do not position Rune primarily for:
-- bloggers
-- students
-- journalists
-- marketers
-- note-taking
-- general productivity
 
-Those users may still find value, but the product should speak first to authors building manuscripts.
+- bloggers,
+- students,
+- journalists,
+- marketers,
+- general note-taking,
+- generic productivity,
+- business documentation.
 
-### Core Enemy
+Those users may still find value, but the product and copy should speak first to novelists building manuscripts.
 
-Rune's enemy is not another app. Rune's enemy is the blank document.
+### Core transformation
 
-Most writing tools treat a novel like one long file. Rune treats a novel like a living manuscript system made of projects, chapters, pages, drafts, goals, progress, and momentum.
+Users are not buying isolated features. They are moving:
 
-When writing marketing copy or product UI, make this contrast clear:
+- from scattered writing to a structured manuscript,
+- from avoidance to a first sentence,
+- from inconsistent effort to visible momentum,
+- from an endless document to chapters and pages,
+- from fragile browser writing to offline-resilient manuscript work,
+- from an unfinished idea to a completed story.
 
-- Google Docs, Word, and Notion are document tools.
-- Rune is manuscript software for finishing books.
+### Product pillars
 
-### Core Transformation
+Use these pillars to organize product decisions and marketing.
 
-Users do not buy "features." They buy the transformation:
+#### Write
 
-- from scattered drafts to a structured manuscript
-- from staring at a blank page to building momentum
-- from inconsistent writing to visible progress
-- from fragile browser writing to offline-safe manuscript work
-- from one endless document to a professional author workspace
+- literary editor,
+- Focus Mode,
+- manuscript fonts,
+- themes,
+- autosave,
+- offline resilience,
+- safe background sync.
 
-Features should be presented as proof of this transformation.
+#### Organize
 
-### Four Pillars
+- projects,
+- chapters,
+- pages,
+- canonical pages,
+- revision notes,
+- manuscript structure,
+- export.
 
-Use these four pillars to organize product thinking and landing-page messaging:
+#### Return
 
-1. Write
-   - beautiful editor
-   - Focus Mode
-   - themes
-   - offline writing
-   - autosave/sync reliability
+- Today’s Focus,
+- streaks,
+- writing history,
+- goals,
+- progress,
+- gentle prompts,
+- clear next actions.
 
-2. Organize
-   - projects
-   - chapters
-   - pages
-   - canonical pages
-   - task manager
-   - manuscript structure
+#### Finish
 
-3. Stay in Motion
-   - Arena
-   - Battle Mode
-   - Race Mode
-   - goals
-   - heatmaps
-   - streaks
-   - XP and progression
+- manuscript totals,
+- project progress,
+- milestones,
+- revision support,
+- exports,
+- completion-oriented statistics.
 
-4. Finish
-   - manuscript word counts
-   - project progress
-   - exports
-   - stats
-   - completion tracking
+Arena and progression support these pillars. They are not a separate reason for Rune to exist.
 
-Everything should ultimately point toward finishing the manuscript.
+---
 
-### Marketing Voice
+## 4. Brand Voice
 
-Rune's marketing should be clear before it is poetic.
-
-The landing page must communicate within seconds:
-- Rune is software for writing novels.
-- Rune replaces blank document tools for long-form fiction.
-- Rune helps authors organize, write, stay consistent, and finish.
-
-Avoid copy that is beautiful but vague.
-
-Prefer concrete language:
-- "writing workspace built for novelists"
-- "manuscript workspace"
-- "chapters, pages, goals, and progress"
-- "write offline"
-- "finish your novel"
-
-Use poetic language only after the product value is unmistakable.
-
-### Tone
+### Product tone
 
 Rune should feel:
-- premium
-- calm
-- literary
-- serious
-- focused
-- elegant
-- quietly motivating
+
+- premium,
+- calm,
+- literary,
+- serious,
+- warm,
+- focused,
+- elegant,
+- quietly encouraging.
 
 Rune should not feel:
-- generic SaaS
-- childish
-- neon gamer
-- productivity-bro
-- AI-hype-driven
-- cluttered
-- loud
 
-Even when describing gamified features, do not make the product sound like a toy. Arena is a serious tool for defeating the blank page and building drafting momentum.
+- generic SaaS,
+- childish,
+- loud,
+- cluttered,
+- neon,
+- productivity-bro,
+- manipulative,
+- AI-hype-driven,
+- overly cute,
+- self-important.
 
-### Landing Page Principle
+### Copy principles
 
-The landing page should sell the transformation, not just the interface.
+Clarity comes before poetry.
 
-Design can communicate beauty. Copy must communicate why Rune matters.
+A new visitor should understand quickly that Rune is for writing novels.
 
-A visitor from Meta ads should understand this journey:
+Prefer concrete language such as:
 
-1. Rune is for writing novels.
-2. Rune is different from Google Docs or Word.
-3. Rune gives structure, focus, offline safety, and momentum.
-4. Rune can help me finish my manuscript.
-5. I should start for free.
+- “A home for writing novels.”
+- “A writing companion built for novelists.”
+- “Write, organize, and finish your story.”
+- “Chapters, pages, goals, and progress.”
+- “Your words remain your own.”
+- “Your desk is ready.”
 
-Whenever writing landing-page or product copy, ask:
+Poetic language is appropriate when it deepens an already clear experience. It should not conceal meaning.
 
-> "Does this make Rune clearer, or merely more decorative?"
+Before approving copy, ask:
 
-If it only sounds beautiful but does not improve understanding, simplify it.
+> Does this make Rune clearer or more emotionally meaningful, or is it merely decorative?
 
-### Product Decision Rule
+### Emotional design
 
-When deciding between two implementations, prefer the one that:
-- protects manuscript integrity
-- reduces writing friction
-- increases author momentum
-- preserves calm focus
-- reinforces Rune's identity as manuscript software for novelists
+Rune may create ritual, recognition, and atmosphere.
 
----
+It must not use:
 
-## Tech Stack
+- fake urgency,
+- guilt,
+- pressure,
+- streak anxiety,
+- manipulative scarcity,
+- forced celebration,
+- excessive animation.
 
-| Layer          | Technology                           | Notes                                            |
-| -------------- | ------------------------------------ | ------------------------------------------------ |
-| Framework      | Next.js 14 (App Router)              | TypeScript, `src/` directory, `@/*` import alias |
-| Styling        | Tailwind CSS + CSS custom properties | No UI libraries. All components are bespoke.     |
-| Rich text      | Tiptap (React)                       | StarterKit, Placeholder, CharacterCount          |
-| State          | Zustand                              | Multiple focused stores                          |
-| Backend / Auth | Supabase                             | Auth, Postgres DB, RLS, Realtime (future)        |
-| Deployment     | Vercel                               | Edge middleware for auth                         |
-
-### Key Package Versions (do not upgrade without reason)
-- `next`: 14.x
-- `@supabase/supabase-js` + `@supabase/ssr`: latest stable
-- `@tiptap/react` + `@tiptap/pm` + `@tiptap/starter-kit`: latest stable
-- `zustand`: latest stable
-- `next-themes`: latest stable
+The writer should feel seen, not managed.
 
 ---
 
-## Project Structure
+## 5. Design Principles
 
-```
-rune/
-├── src/
-│   ├── app/
-│   │   ├── (auth)/               # Login, signup — public routes
-│   │   │   ├── layout.tsx
-│   │   │   ├── login/page.tsx
-│   │   │   └── signup/page.tsx
-│   │   ├── (app)/                # Protected routes — requires session
-│   │   │   ├── layout.tsx        # App shell: sidebar + header
-│   │   │   ├── dashboard/page.tsx
-│   │   │   ├── projects/
-│   │   │   │   ├── page.tsx
-│   │   │   │   └── [projectId]/
-│   │   │   │       ├── page.tsx
-│   │   │   │       └── chapters/[chapterId]/page.tsx
-│   │   │   ├── games/
-│   │   │   │   ├── page.tsx      # The Arena hub
-│   │   │   │   ├── race/page.tsx
-│   │   │   │   └── battle/page.tsx
-│   │   │   ├── profile/
-│   │   │   │   ├── page.tsx
-│   │   │   │   └── unlockables/page.tsx
-│   │   │   └── settings/page.tsx
-│   │   ├── auth/callback/route.ts
-│   │   ├── page.tsx              # Landing page (public)
-│   │   ├── layout.tsx            # Root layout with ThemeProvider
-│   │   ├── globals.css
-│   │   ├── loading.tsx
-│   │   └── error.tsx
-│   ├── components/
-│   │   ├── ui/                   # Primitive UI components
-│   │   │   ├── Button.tsx
-│   │   │   ├── Input.tsx
-│   │   │   ├── Toast.tsx
-│   │   │   ├── ThemeProvider.tsx
-│   │   │   └── LevelUpModal.tsx
-│   │   ├── layout/
-│   │   │   ├── Sidebar.tsx
-│   │   │   └── Header.tsx
-│   │   ├── editor/
-│   │   │   ├── RuneEditor.tsx
-│   │   │   ├── PageList.tsx
-│   │   │   └── FocusToolbar.tsx
-│   │   ├── projects/
-│   │   │   ├── ProjectCard.tsx
-│   │   │   ├── NewProjectModal.tsx
-│   │   │   └── ChapterRow.tsx
-│   │   ├── games/
-│   │   │   ├── HpBar.tsx
-│   │   │   └── BattleLog.tsx
-│   │   └── profile/
-│   │       └── XpBar.tsx
-│   ├── lib/
-│   │   ├── supabase/
-│   │   │   ├── client.ts         # Browser client (createBrowserClient)
-│   │   │   ├── server.ts         # Server client (createServerClient + cookies)
-│   │   │   └── schema.sql        # Full DB schema — run manually in Supabase
-│   │   ├── actions/              # Server actions ("use server")
-│   │   │   ├── projects.ts
-│   │   │   ├── chapters.ts
-│   │   │   ├── pages.ts
-│   │   │   ├── games.ts
-│   │   │   ├── xp.ts
-│   │   │   ├── unlockables.ts
-│   │   │   └── settings.ts
-│   │   ├── types.ts              # TypeScript interfaces for all DB tables
-│   │   ├── utils.ts              # cn() helper (clsx + tailwind-merge)
-│   │   ├── xp.ts                 # Pure XP math functions (no DB calls)
-│   │   ├── unlockables.ts        # Static registry of themes and avatars
-│   │   └── env.ts                # Env var validation on startup
-│   ├── store/
-│   │   ├── modeStore.ts          # 'focus' | 'game'
-│   │   ├── editorStore.ts        # currentPageId, isSaving, lastSaved
-│   │   ├── profileStore.ts       # profile data, preferences
-│   │   ├── gameStore.ts          # game state machine, word counts
-│   │   └── toastStore.ts         # showToast(message, type)
-│   └── middleware.ts             # Supabase session refresh + route protection
-├── CLAUDE.md                     # ← this file
-├── DEPLOYMENT.md
-├── .env.local
-├── tailwind.config.ts
-└── next.config.ts
-```
+Rune’s visual language is literary and premium, with dark-academia influence.
+
+The current product includes multiple themes. Do not reduce Rune to one fixed dark palette.
+
+### Approved design direction
+
+Use:
+
+- serif type for manuscript text, headings, wordmarks, and emotional moments,
+- sans-serif type for controls, metadata, and dense interface text,
+- generous whitespace,
+- restrained borders,
+- subtle depth,
+- theme-aware semantic tokens,
+- strong hierarchy,
+- purposeful transitions.
+
+Avoid:
+
+- card grids as the default solution,
+- boxes around every section,
+- excessive outlines,
+- dense dashboards,
+- decorative copy that pushes important content below the fold,
+- generic SaaS gradients,
+- neon game styling,
+- arbitrary hardcoded colors.
+
+### Containment rule
+
+Use the lightest container that clearly communicates structure.
+
+A section does not automatically need a card.
+
+Cards are appropriate when they represent a distinct object or action. They should not be used merely to fill space.
+
+### Theme system
+
+The codebase, theme registry, and CSS variables are the source of truth for exact colors and tokens.
+
+Do not copy stale color values from this file into implementation.
+
+Current product decisions include:
+
+- **Parchment** is the default writing space.
+- **Candlelight** is available to all writers.
+- Additional themes are unlocked through writing and progression.
+- Theme selection should persist.
+- Unlocking a theme must not automatically switch the active theme.
+- Editor/manuscript font unlocks apply to manuscript writing, not the entire application UI.
+
+When changing theme-aware UI:
+
+- use existing semantic variables,
+- test every supported theme touched by the change,
+- verify contrast in both Parchment and Candlelight,
+- do not hardcode light text that breaks light themes or gray text that disappears on dark themes.
 
 ---
 
-## Design System
+## 6. Current Product Areas
 
-### Dark Academia Palette
+Rune’s main experiences are:
 
-```css
---color-ink:          #1a1614   /* near-black — primary text */
---color-parchment:    #f5f0e8   /* warm off-white — light bg */
---color-vellum:       #ede8db   /* slightly darker warm — secondary bg */
---color-sepia:        #2c2420   /* dark warm brown — sidebar bg */
---color-gold:         #c9a84c   /* muted antique gold — primary accent */
---color-gold-dim:     #8a6f2e   /* darker gold — hover states */
---color-crimson:      #8b2e2e   /* deep red — danger / enemy */
---color-sage:         #4a6741   /* muted green — success */
---color-mist:         #6b6560   /* warm gray — muted text */
---color-border:       rgba(201, 168, 76, 0.2)
---color-border-strong: rgba(201, 168, 76, 0.4)
-```
+### Dashboard
 
-**Dark mode is default.** Themes are class-based via `next-themes`. The `data-theme` attribute on `<html>` controls unlockable theme variants.
+A calm return point centered on the writer’s current manuscript.
 
-### Typography
+Current concepts include:
 
-- **Serif** (`rune.serif`): editor body, headings, wordmarks, large display text
-- **Sans** (`rune.sans`): UI chrome, labels, small metadata
+- Your Story hero,
+- Continue Writing action,
+- Today’s Focus,
+- Today’s Words,
+- total manuscript words,
+- streak,
+- manuscript goal,
+- project progress,
+- a compact path into supporting tools.
 
-### Unlockable Themes
+The Dashboard should answer:
 
-| ID                 | Name             | Unlock Condition          |
-| ------------------ | ---------------- | ------------------------- |
-| `candlelight`      | Candlelight      | Default — always unlocked |
-| `midnight-library` | Midnight Library | Level 3                   |
-| `crimson-ink`      | Crimson Ink      | Level 5                   |
-| `ivory-tower`      | The Ivory Tower  | Level 10                  |
+> What am I writing, where did I leave off, and what should I do next?
 
-Theme CSS overrides live in `globals.css` under `[data-theme="midnight-library"] { ... }`.
+Do not turn it into an analytics wall or a grid of equally weighted cards.
 
----
+### Editor
 
-## Database Schema
+The editor is the core of Rune.
 
-All tables have Row Level Security enabled. Users can only read and write their own rows.
+It includes:
 
-### Tables
+- TipTap manuscript editing,
+- chapters and pages,
+- canonical pages,
+- reliable saving,
+- offline support,
+- export,
+- Focus Mode,
+- theme and manuscript-font preferences.
 
-| Table              | Key Columns                                                                                |
-| ------------------ | ------------------------------------------------------------------------------------------ |
-| `profiles`         | id (refs auth.users), username, display\_name, avatar\_url, xp, level, preferences (jsonb) |
-| `projects`         | id, user\_id, title, description, cover\_color, word\_count                                |
-| `chapters`         | id, project\_id, title, position                                                           |
-| `pages`            | id, chapter\_id, title, content (jsonb), word\_count, position                             |
-| `game_sessions`    | id, user\_id, mode, words\_written, duration\_seconds, xp\_earned, completed, enemy\_type  |
-| `xp_events`        | id, user\_id, amount, reason, created\_at                                                  |
-| `user_unlockables` | user\_id, unlockable\_id, unlocked\_at                                                     |
+The editor should remain calm and manuscript-first.
 
-A **Postgres trigger** auto-creates a `profiles` row when `auth.users` receives a new record.
+### Chapters and manuscript organization
 
-> **Important:** Claude Code cannot connect to Supabase directly. The `schema.sql` file is generated and must be run manually in the Supabase SQL editor. Do not attempt live DB queries during build prompts.
+Writers organize work through projects, chapters, pages, and canonical-page behavior.
 
----
+Do not change counting, deletion, export, canonical-page, or chapter-order behavior casually. These systems affect manuscript integrity and totals.
 
-## State Management (Zustand Stores)
+### Progress
 
-| Store          | Key State                                    | Notes                                     |
-| -------------- | -------------------------------------------- | ----------------------------------------- |
-| `modeStore`    | `mode: 'focus' \| 'game'`                    | Toggled from Header; persists in session  |
-| `editorStore`  | `currentPageId`, `isSaving`, `lastSaved`     | Updated by RuneEditor on every save       |
-| `profileStore` | `profile`, `preferences`                     | Hydrated at layout level from server      |
-| `gameStore`    | `gameState`, `wordsWritten`, `personalBests` | Local to game session; resets on new game |
-| `toastStore`   | `showToast(message, type)`                   | Global toast system                       |
+Progress should communicate movement toward a finished manuscript, not create pressure for constant output.
 
----
+### Profile
 
-## Routing & Auth
+Profile represents writer growth and long-term progress.
 
-- **Public routes:** `/`, `/login`, `/signup`, `/auth/callback`
-- **Protected routes:** `/app/*` — redirect to `/login` if no Supabase session
-- Middleware runs on every request to refresh the session token.
-- Supabase SSR: browser client in client components, server client in server components and actions.
+Current concepts include:
 
-Route prefix: All routes inside src/app/(app)/ resolve without the /app prefix in the URL. The (app) folder is a Next.js route group  -- it is invisble in the broswer. 
-Always use /dashboard , /projects , /games , /progile , /settings , -- never /app/dashboard , /app/projects , etc.
+- level,
+- unlockables,
+- heatmap,
+- total words,
+- current and best streak,
+- projects,
+- sessions,
+- manuscript records,
+- estimated pages.
 
----
+Keep the hierarchy compact. Level may be prominent; statistics should not overwhelm the page.
 
-## XP & Progression System
+### Arena
 
-### XP Math (pure functions in `src/lib/xp.ts`)
+Arena contains optional writing experiences such as:
 
-```typescript
-xpForLevel(level)          // level * level * 100
-levelFromXp(xp)            // inverse of above
-xpProgressInCurrentLevel(xp) // { current, required, percent }
-xpRewardForWords(wordCount)  // 1 XP per 10 words, min 5 XP
-```
+- Race Yourself,
+- Battle Mode.
 
-### XP Multipliers by Game Mode
+Arena is separate from the normal editor experience.
 
-| Mode          | Multiplier            |
-| ------------- | --------------------- |
-| Race Yourself | 1× base               |
-| Battle (Win)  | 1.5×                  |
-| Battle (Loss) | 0.5× (partial credit) |
+There is no global “Game Mode” that should take over the application shell.
 
-### Level-Up Flow
+Do not reintroduce a global normal/focus/game mode system.
 
-1. `awardXp()` runs → compares level before and after.
-2. If level increased → set `profileStore.pendingLevelUp`.
-3. `LevelUpModal` detects this → displays animated level-up screen.
-4. `checkAndGrantUnlockables()` runs at the end of every `awardXp()` call.
+### Settings
+
+Settings manages account, appearance, manuscript preferences, subscription, and account deletion.
+
+Do not place experimental or founder-only pricing in ordinary Settings unless a task explicitly requires it.
+
+### Pulse
+
+Pulse is the private founder analytics dashboard.
+
+It is admin-gated and exists to answer practical product questions about:
+
+- acquisition,
+- activation,
+- progression,
+- retention signals,
+- subscriptions,
+- recent writers.
+
+Pulse is not a user-facing feature.
+
+Do not weaken its admin protection or expose private writer content.
 
 ---
 
-## Editor Architecture
+## 7. Onboarding
 
-### RuneEditor (Tiptap)
+Rune onboarding is an emotional journey, not a generic setup wizard.
 
-- **Extensions:** StarterKit, Placeholder, CharacterCount
-- **StarterKit nodes:** H1, H2, H3, bold, italic, bullet list, ordered list, blockquote, horizontal rule
-- **Max width:** 680px centered, generous line-height (1.9), 18px serif
-- **Auto-save:** debounce 1500ms → `updatePage()` → saves content (Tiptap JSON) + word count
-- **Game mode prop:** disables paste, tracks additions-only word count (never subtract on delete)
-- **SSR:** All Tiptap imports must be wrapped in `next/dynamic` with `ssr: false`
+### Approved onboarding journey
 
-### Focus Mode Behavior
+The approved stages are:
 
-When `modeStore.mode === 'focus'`:
-- Page list panel removed from DOM (not just hidden)
-- App header hidden
-- `FocusToolbar` appears (fixed top-center, auto-hides after 3s idle)
-- Vignette overlay applied (CSS radial gradient, `pointer-events: none`)
-- `Cmd+Shift+F` toggles mode; fires a Toast notification
+1. Story title
+2. Recognition interlude
+3. Optional first sentence
+4. Momentum interlude
+5. Writing-space choice
+6. Explicit authorship and AI interlude
+7. Invitation to write a letter to the writer’s future self
+8. Optional private letter
+9. Final arrival
+10. Authoritative project, chapter, and page creation
+11. Editor tutorial on a supported device
 
----
+### Emotional purpose
 
-## Game Mode Architecture
+The onboarding should make the writer feel:
 
-### Race Yourself — State Machine
+- starting a novel is significant,
+- they have already taken a real step,
+- perfection is not required,
+- Rune respects their authorship,
+- they have a place to return to.
 
-```
-idle → active → results → idle
-```
+Approved ideas and language include:
 
-- **Active state:** countdown timer (MM:SS), words written (additions only), HUD pulses every 10s
-- **Results state:** WPM calculated, personal best checked, XP awarded, `game_sessions` record saved
+- “It has a name now.”
+- “The first sentence is often the hardest.”
+- “It does not need to be perfect. It only needs to exist.”
+- “Stories are not finished in a day. They are finished one page at a time.”
+- “Your words remain your own.”
+- “Your desk is ready.”
 
-### Battle Mode — State Machine
+### First sentence
 
-```
-enemy-select → active → results → idle
-```
+The first sentence is optional.
 
-**Game Logic (all client-side):**
-- 5 words written = 10 damage to enemy
-- 5 seconds idle = player takes 5 HP/s damage
-- Player starts at 200 HP
-- Enemy HP reaches 0 → Victory
-- Player HP reaches 0 → Defeat
+If skipped:
 
-**Enemies:**
+- create a valid empty first page,
+- do not record `first_sentence_written`,
+- do not shame the writer,
+- do not create fake content.
 
-| Name           | HP   | Gimmick                     |
-| -------------- | ---- | --------------------------- |
-| The Blank Page | 500  | None                        |
-| Writer's Block | 800  | Heals 50 HP every 60s       |
-| The Deadline   | 1200 | Player takes 2× idle damage |
+If written:
 
----
+- preserve the writer’s exact text,
+- use canonical word-count behavior,
+- never include the text in analytics.
 
-## Unlockables Registry
+### Writing-space choice
 
-Defined as a **static hardcoded array** in `src/lib/unlockables.ts` — not stored in the DB (only which ones a user has earned is stored).
+Onboarding offers:
 
-Shape:
-```typescript
-{
-  id: string
-  name: string
-  type: 'theme' | 'avatar'
-  description: string
-  requirement: { type: 'level' | 'total_words' | 'battle_wins' | 'race_duration', value: number }
-}
-```
+- Parchment,
+- Candlelight.
 
-### Profile Avatars
+Selecting a writing space should immediately retheme the entire onboarding experience and persist into the editor.
 
-| ID              | Name          | Unlock Condition       |
-| --------------- | ------------- | ---------------------- |
-| `quill`         | Quill         | Default                |
-| `skull-roses`   | Skull & Roses | 10,000 total words     |
-| `crescent-moon` | Crescent Moon | 5 battle wins          |
-| `ouroboros`     | Ouroboros     | Level 7                |
-| `hourglass`     | Hourglass     | Complete a 30-min race |
+Do not duplicate theme definitions inside onboarding.
 
----
+### Future letter
 
-## Component Conventions
+The future letter is optional and private.
 
-### Do's
-- All UI components are built from scratch using Tailwind + CSS variables. **No external UI libraries** (no shadcn, no Radix, no Headless UI).
-- Use `cn()` from `@/lib/utils` for conditional class merging.
-- Every interactive element must have proper ARIA attributes and label associations.
-- Client components that use hooks must have `"use client"` at the top.
-- Server actions must have `"use server"` at the top.
-- Game components and Tiptap editor must use `next/dynamic` with `ssr: false`.
+It may be stored with a future reveal date, but the reveal experience is a separate feature unless explicitly requested.
 
-### Don'ts
-- Do not use `localStorage` or `sessionStorage` — Supabase handles auth state; Zustand handles UI state.
-- Do not make DB calls inside client components directly — use server actions.
-- Do not lift the Tiptap editor into SSR context.
-- Do not hardcode colors — always use CSS custom properties (`var(--color-gold)`).
-- Do not skip debouncing on auto-save.
+Never place the letter’s contents in:
 
-### Primitive Components (`src/components/ui/`)
+- analytics,
+- Pulse,
+- logs,
+- Meta,
+- AI systems,
+- public UI.
 
-**Button variants:** `primary` (gold bg, dark text) | `ghost` (transparent, gold border) | `danger` (crimson). Accepts `loading?: boolean`.
+### Creation architecture
 
-**Input:** full-width, serif font option, gold focus ring, warm tint bg, error state.
+Do not create the manuscript incrementally across onboarding screens.
 
-**Toast:** bottom-center, fade in 0.2s, hold 2s, fade out. Managed by `toastStore`.
+Use one authoritative final server operation to create the initial:
 
----
+- project,
+- chapter,
+- page,
+- optional first sentence,
+- selected theme,
+- optional future letter.
 
-## Settings & User Preferences
+Avoid duplicate projects and route/save race conditions.
 
-Preferences are stored as a JSONB column on `profiles`. They include:
-- `fontSize`: 16–22 (px)
-- `lineHeight`: 1.7 | 1.9 | 2.2
-- `autoSaveDelay`: 0 | 1000 | 3000 (ms)
-- `typewriterMode`: boolean
-- `activeTheme`: string (unlockable theme ID)
-- `activeAvatar`: string (unlockable avatar ID)
+Do not resurrect older cinematic AppShell transition architecture.
 
-Preferences are applied dynamically as CSS custom properties on the editor element via `profileStore`.
+### Mobile onboarding and device handoff
+
+Approved product behavior:
+
+- authentication and required profile completion remain accessible on phones,
+- new users may complete onboarding on a phone,
+- mobile onboarding should use a purpose-built mobile presentation rather than a compressed desktop layout,
+- desktop onboarding should remain visually unchanged when mobile presentation work is done,
+- after successful phone onboarding, show the phone waiting room,
+- the full editor and application remain desktop/supported-tablet experiences,
+- a mobile-onboarded writer’s first supported-device visit should go directly to the initial editor exactly once,
+- the editor tutorial remains pending until that supported-device entry.
+
+This cross-device state must be durable and server-backed.
+
+Do not rely on browser storage as the source of truth.
 
 ---
 
-## Environment Variables
+## 8. Pricing and Entitlements
 
-```bash
-NEXT_PUBLIC_SUPABASE_URL=       # Supabase project URL
-NEXT_PUBLIC_SUPABASE_ANON_KEY=  # Supabase anon/public key
-```
+### Approved pricing direction
 
-`src/lib/env.ts` validates these on startup and throws a descriptive error if missing.
+The approved model is:
+
+#### New writers
+
+- one free manuscript,
+- first **2,000 real manuscript words free**,
+- no card required,
+- Scribe required to continue adding words after the limit.
+
+#### Existing writers
+
+Users who existed before the pricing migration retain:
+
+- one free manuscript,
+- their original **15,000-word allowance**.
+
+This legacy allowance must be durable and explicit. Do not infer it repeatedly from account creation dates.
+
+#### Scribe
+
+- standard monthly price: **$9.99/month**,
+- active Scribe writers retain the existing paid entitlements in code.
+
+Do not change other tier entitlements unless a task explicitly asks.
+
+### Founding Scribe offer
+
+Eligible legacy writers receive one in-app offer:
+
+- **$6.99/month**,
+- shown only in the one-time returning-user pricing notice,
+- not emailed,
+- not shown publicly,
+- not shown in ordinary Settings or standard paywalls,
+- retained while the original subscription remains continuously active,
+- unavailable again after decline, successful claim, or later cancellation.
+
+The returning-user notice must clearly state:
+
+- new writers receive 2,000 free words,
+- the legacy writer keeps 15,000 free words,
+- nothing is being taken away,
+- the founder price is a one-time opportunity,
+- keeping the free allowance is a respected choice.
+
+### Entitlement principles
+
+- The server is authoritative.
+- Users must not be able to modify their pricing cohort.
+- Client-provided Stripe Price IDs must not be trusted.
+- Reading and export must remain available above a free limit.
+- Never delete, truncate, hide, or corrupt a manuscript because a subscription ends.
+- Above-limit free users may be prevented from adding words according to existing enforcement behavior.
+- Word-limit resolution must be centralized.
+- Pricing cohorts should be explicit, such as `legacy_15k` and `starter_2k`.
+
+These decisions may be pending implementation. Inspect the branch before assuming the schema, Stripe Price, notice, or enforcement changes already exist.
 
 ---
 
-## Build Sequence Reference
+## 9. Analytics and Privacy
 
-The project is built across 14 sequential prompts. Each prompt builds on the last. **Do not skip steps or combine prompts.**
+Rune uses first-party analytics to understand the product funnel.
 
-| Prompt | What It Builds                                                          |
-| ------ | ----------------------------------------------------------------------- |
-| 1      | Next.js scaffold, dependencies, `cn()` util                             |
-| 2      | Design system: CSS tokens, Tailwind config, ThemeProvider               |
-| 3      | Supabase clients, middleware, DB schema SQL, TypeScript types           |
-| 4      | Auth pages (login, signup), auth callback, Button + Input components    |
-| 5      | App shell: sidebar, header, mode toggle, dashboard placeholder          |
-| 6      | Project management: project cards, chapter list, CRUD actions           |
-| 7      | Core text editor: Tiptap, page list, auto-save, word count              |
-| 8      | Focus mode: FocusToolbar, vignette, keyboard shortcut, Toast, Dashboard |
-| 9      | XP system, level math, Profile page, XpBar, profileStore                |
-| 10     | Game Mode — Race Yourself                                               |
-| 11     | Game Mode — Battle Mode                                                 |
-| 12     | Unlockables gallery, LevelUpModal, theme application                    |
-| 13     | Settings page: Account, Editor, Appearance, Danger Zone tabs            |
-| 14     | Landing page, loading/error states, SEO, deployment prep                |
+Core event names include:
+
+- `signup_completed`
+- `email_verified`
+- `onboarding_started`
+- `project_created`
+- `first_sentence_written`
+- `onboarding_completed`
+- `first_save`
+- `second_session`
+- `third_session`
+- `reached_100_words`
+- `reached_500_words`
+- `reached_1000_words`
+- `reached_2000_words`
+- `reached_5000_words`
+- `reached_10000_words`
+- `reached_15000_words`
+- `second_writing_day`
+- `third_writing_day`
+- `export_used`
+- `arena_played`
+- `note_created`
+- `subscription_started`
+- `account_deleted`
+
+Before adding or renaming events, inspect the typed analytics registry and Pulse queries.
+
+Event names and semantics are contracts. Do not casually rename them.
+
+### Funnel rules
+
+Pulse uses cohort-consistent funnel logic anchored to signup events.
+
+Do not mix historical totals into clean acquisition cohorts.
+
+If a stage becomes optional, do not leave it as a mandatory linear funnel stage without addressing the resulting interpretation.
+
+### Onboarding metadata
+
+Approved non-sensitive onboarding completion metadata may include:
+
+- whether the first sentence was skipped,
+- whether a future letter was written.
+
+Never store:
+
+- first-sentence text,
+- future-letter text,
+- project title,
+- manuscript text,
+- pen name,
+- private notes,
+- payment information
+
+inside analytics metadata.
+
+### Attribution
+
+Preserve first-touch attribution behavior and existing UTM/fbclid capture.
+
+Do not change attribution semantics while working on unrelated features.
+
+### Pulse privacy
+
+Pulse may show operational writer information needed by the founder, but it must never expose manuscript prose, private letters, or sensitive writing content.
 
 ---
 
-## Anti-Cheating Notes (for Game Mode)
+## 10. Technical Foundation
 
-Valid words are defined as whitespace-separated tokens of at least 2 characters. Word count during games tracks **additions only** — the running total never decreases when the user deletes text. Paste is disabled during game sessions. This logic lives in the Tiptap editor when the `gameMode` prop is `true`.
+### Current stack
+
+- Next.js **16**
+- App Router
+- TypeScript
+- Supabase Auth and Postgres
+- Row Level Security
+- server actions and route handlers
+- TipTap
+- Zustand where appropriate
+- IndexedDB for offline resilience
+- Stripe
+- CSS variables and theme classes
+- Vercel deployment
+
+Do not downgrade the framework or recreate patterns from the original Next.js 14 scaffold.
+
+Before changing dependencies, inspect `package.json` and the current lockfile.
+
+Do not upgrade packages merely because a newer version exists.
+
+### Routes
+
+Folders in parentheses are route groups and do not appear in URLs.
+
+Use actual route paths such as:
+
+- `/dashboard`
+- `/projects`
+- `/games`
+- `/profile`
+- `/settings`
+- `/pulse`
+
+Never invent `/app/...` URL prefixes for the `(app)` route group.
+
+Inspect the current route tree rather than relying on an old static project map.
+
+### Authentication and profile completion
+
+Preserve the current order of:
+
+- authentication,
+- email verification,
+- required profile completion,
+- onboarding eligibility,
+- device gating,
+- protected application access.
+
+Avoid redirect loops.
+
+Do not bypass pen-name completion or phone waiting-room rules.
+
+### Database
+
+The database has expanded beyond the original MVP schema.
+
+The current migrations and canonical schema are the source of truth.
+
+Do not assume the only tables are the original profiles/projects/chapters/pages/game tables.
+
+When schema changes are required:
+
+- create a committed migration,
+- update the canonical schema if the repository maintains one,
+- include RLS,
+- include indexes and constraints where needed,
+- provide exact rollout instructions,
+- do not modify production directly,
+- do not expose service-role credentials.
+
+### Environment variables
+
+Inspect the existing environment validation and example files.
+
+Do not assume Supabase variables are the only required values.
+
+Never hardcode:
+
+- Stripe Price IDs,
+- secrets,
+- service-role keys,
+- admin credentials,
+- production URLs.
+
+### Source of truth
+
+Prefer:
+
+- one canonical word-count helper,
+- one canonical entitlement resolver,
+- one canonical theme registry,
+- one typed analytics event registry,
+- one authoritative server creation path,
+- one durable tutorial/onboarding state.
+
+Avoid duplicated constants and parallel implementations.
 
 ---
 
-## Post-MVP Considerations (do not build now, but do not block)
+## 11. Saving, Offline Work, and Word Counting
 
-- **1v1 Race:** Supabase Realtime channels. The `game_sessions` table schema should be compatible with a `room_id` column being added later.
-- **Subscription enforcement:** Game ticket counts live on `profiles`. The subscription tier check will wrap around game session creation in `src/lib/actions/games.ts` — leave a `// TODO: check tier` comment where the guard will go.
-- **Mobile:** Layout is desktop-first for MVP. Do not add mobile-breaking code (avoid fixed pixel widths outside of the sidebar and editor column). Rune's full onboarding occurs on desktop or supported tablet only. Unsupported phones show the waiting room (`PhoneWaitingRoom`) after authentication, verification, and required profile completion — it helps the writer continue on a larger screen. No project, first sentence, writing-space choice, or future letter is created on the phone. The full editor and protected application remain unavailable on unsupported phones. When the writer later opens Rune on a supported device, normal onboarding begins. Do not build mobile onboarding unless a future explicit product decision reverses this.
+Saving reliability is one of Rune’s highest-risk systems.
+
+### Saving principles
+
+Preserve:
+
+- debounced editor saves,
+- local baseline behavior,
+- IndexedDB offline storage,
+- background synchronization,
+- silent retry where appropriate,
+- safe handling of zero-word resets,
+- canonical server reconciliation,
+- deletion and recalculation behavior.
+
+Do not change autosave or offline sync as collateral work in an unrelated prompt.
+
+### Word-count principles
+
+Rune has multiple word concepts:
+
+- manuscript totals,
+- Today’s Words,
+- XP-eligible words,
+- free-tier allowance,
+- pasted/imported words,
+- game-session words,
+- milestones.
+
+Do not assume they all use the same inclusion rules.
+
+Current product decisions include:
+
+- pasted/imported writing contributes to manuscript totals and export,
+- pasted/imported writing does not contribute to XP, Today’s Words, or unlockables,
+- free-tier enforcement must preserve the current definition of countable manuscript words unless explicitly changed,
+- server enforcement is authoritative.
+
+When fixing a count discrepancy, trace every source rather than patching one display.
 
 ---
 
-## Checklist Before Each Prompt
+## 12. Focus Mode and Arena
 
-Before executing any prompt, confirm:
+### Focus Mode
 
-- [ ] `npm run dev` runs without error from the previous step
-- [ ] `.env.local` has real Supabase values (required from Prompt 4 onward)
-- [ ] If Prompt 3 just completed: schema.sql has been run in Supabase SQL editor
-- [ ] No TypeScript errors in existing files (`npx tsc --noEmit`)
+Focus Mode belongs to the editor.
 
-If something breaks, report the full error before continuing.
+It should remove distractions and preserve a clean writing environment.
+
+Do not reintroduce a global application mode toggle that treats normal, focus, and game as equivalent shell states.
+
+Inspect the current editor implementation before changing:
+
+- sidebar behavior,
+- page/chapter navigation,
+- toolbar behavior,
+- keyboard shortcuts,
+- focus escape behavior.
+
+### Arena
+
+Arena is a separate optional area for writing games.
+
+Current games include:
+
+- Race Yourself,
+- Battle Mode.
+
+Preserve current game logic unless the task explicitly concerns Arena.
+
+Do not let Arena styling or mechanics leak into the normal editor or onboarding.
+
+---
+
+## 13. Unlockables and Progression
+
+Rune includes unlockable:
+
+- themes,
+- avatars,
+- manuscript fonts.
+
+The static unlockable registry and grant logic in the current code are authoritative.
+
+Do not rely on the original four-theme/five-avatar MVP list.
+
+Current decisions include:
+
+- Parchment and Candlelight are available early,
+- Manuscript is a neutral early font unlock,
+- premium and progression-based unlockables remain part of Scribe/engagement design,
+- fonts affect manuscript writing, not the entire UI,
+- unlock persistence and grant logic must remain reliable,
+- unlocking an item should not silently change the active selection.
+
+When modifying unlockables:
+
+- audit every registry item,
+- audit grant conditions,
+- audit persistence,
+- audit toasts,
+- audit profile/settings display,
+- verify existing users do not lose valid unlocks.
+
+---
+
+## 14. Engineering Conventions
+
+### General
+
+- Read existing code before proposing architecture.
+- Prefer focused changes over broad rewrites.
+- Reuse existing helpers and components.
+- Keep business logic server-authoritative.
+- Use TypeScript types rather than untyped metadata.
+- Preserve current route and data semantics unless the task explicitly changes them.
+- Report uncertainty rather than inventing schema or behavior.
+
+### UI
+
+- Use existing bespoke components and CSS variables.
+- Do not introduce a UI library without explicit approval.
+- Use semantic theme tokens.
+- Support keyboard navigation and screen readers.
+- Respect reduced-motion preferences.
+- Test Parchment and Candlelight when touching shared UI.
+- Do not rely on hover for required mobile interactions.
+
+### Client and server
+
+- Client components using hooks require `"use client"`.
+- Server actions require `"use server"`.
+- Use the established Supabase client for each environment.
+- Do not expose secrets to the browser.
+- Do not make sensitive entitlement decisions from client state.
+- Do not trust arbitrary IDs or price values supplied by the client.
+
+### Editor
+
+- Preserve TipTap JSON compatibility.
+- Do not move editor rendering into an unsafe SSR path.
+- Use the established editor loading strategy in the current code.
+- Do not bypass save debouncing or offline safeguards.
+- Never log manuscript content.
+
+### Browser storage
+
+Do not use `localStorage` or `sessionStorage` as the authoritative source for:
+
+- authentication,
+- onboarding completion,
+- tutorial completion,
+- pricing cohort,
+- founder-offer eligibility,
+- subscription state,
+- cross-device state.
+
+Temporary UI recovery may use existing browser storage patterns when a task explicitly permits it, but durable state must live server-side.
+
+---
+
+## 15. Scope Control
+
+Do not add speculative systems because they may be useful later.
+
+Examples:
+
+- do not build a broad notification framework for one notice,
+- do not build an AI layer,
+- do not build a general onboarding engine,
+- do not build full mobile editor support,
+- do not build future-letter resurfacing unless requested,
+- do not build 1v1 multiplayer unless requested,
+- do not redesign Pulse during an unrelated analytics change,
+- do not refactor the saving system during a visual task.
+
+When a prompt identifies a deferred feature, preserve a clean path for it without implementing it prematurely.
+
+---
+
+## 16. Required Verification
+
+For meaningful changes, run the relevant subset of:
+
+- `npx tsc --noEmit`
+- targeted ESLint
+- `npm run build`
+- relevant automated tests
+- `git diff`
+
+Also perform focused manual verification for the affected flow.
+
+For database or Stripe changes, provide:
+
+- exact migration files,
+- required environment variables,
+- safe rollout order,
+- production smoke-test steps,
+- known race windows or compatibility risks.
+
+For visual changes, verify:
+
+- desktop,
+- supported tablet where relevant,
+- phone where relevant,
+- Parchment,
+- Candlelight,
+- keyboard access,
+- reduced motion,
+- contrast.
+
+For editor changes, verify:
+
+- typing,
+- paste,
+- autosave,
+- refresh,
+- offline behavior where relevant,
+- word counts,
+- export,
+- no manuscript loss.
+
+---
+
+## 17. Before Every Task
+
+Before coding:
+
+1. Read this file.
+2. Inspect the actual implementation and current branch.
+3. Identify whether the requested product decision is already implemented, partially implemented, or pending.
+4. State the smallest safe plan.
+5. Call out any conflict between the prompt, this file, and current code.
+6. Preserve manuscript integrity and existing user trust.
+7. Avoid unrelated changes.
+
+After coding:
+
+1. Report files changed.
+2. Report behavior changed.
+3. Report behavior intentionally left unchanged.
+4. Report migrations and environment variables.
+5. Report verification results.
+6. Report unresolved risks honestly.
+
+---
+
+## 18. Non-Negotiables
+
+- A writer’s manuscript must never be trapped, deleted, or corrupted by pricing changes.
+- Reading and export remain available above free limits.
+- Manuscript content must never appear in analytics or logs.
+- Rune must not use AI to write, rewrite, or complete a writer’s story.
+- Saving reliability outranks animation and polish.
+- Desktop onboarding must not be degraded while building a separate mobile presentation.
+- Existing users must not lose the allowance they were originally promised.
+- Server-side state controls subscriptions, pricing cohorts, and founder eligibility.
+- Do not create duplicate projects during onboarding or retries.
+- Do not add features merely because they are technically possible.

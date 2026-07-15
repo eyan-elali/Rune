@@ -11,20 +11,31 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { LevelUpModal } from "@/components/ui/LevelUpModal";
 import { UpdateNotice } from "@/components/ui/UpdateNotice";
+import { PricingNotice } from "@/components/ui/PricingNotice";
 import { useUIStore } from "@/store/uiStore";
 import type { ReactNode } from "react";
 import type { Profile } from "@/lib/types";
+import type { PricingCohort } from "@/lib/pricing";
 
 interface AppShellProps {
   profile: Profile | null;
   showUpdateNotice?: boolean;
+  showPricingNotice?: boolean;
+  pricingCohort?: PricingCohort | null;
   children: ReactNode;
 }
 
-export function AppShell({ profile, showUpdateNotice = false, children }: AppShellProps) {
+export function AppShell({
+  profile,
+  showUpdateNotice = false,
+  showPricingNotice = false,
+  pricingCohort = null,
+  children,
+}: AppShellProps) {
   const pathname = usePathname();
   const { mode, setMode } = useModeStore();
   const setProfile = useProfileStore((s) => s.setProfile);
+  const setPricingCohort = useProfileStore((s) => s.setPricingCohort);
   const [hotzoneActive, setHotzoneActive] = useState(false);
   const modeRef = useRef<Mode>(mode);
 
@@ -48,6 +59,10 @@ export function AppShell({ profile, showUpdateNotice = false, children }: AppShe
   useLayoutEffect(() => {
     if (profile) setProfile(profile);
   }, [profile, setProfile]);
+
+  useLayoutEffect(() => {
+    setPricingCohort(pricingCohort);
+  }, [pricingCohort, setPricingCohort]);
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -105,6 +120,7 @@ export function AppShell({ profile, showUpdateNotice = false, children }: AppShe
       </div>
 
       <LevelUpModal />
+      {showPricingNotice && <PricingNotice />}
       {showUpdateNotice && <UpdateNotice />}
 
       {shouldHideFocusUI && (

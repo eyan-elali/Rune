@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { recordAnalyticsEvent, type RecordAnalyticsEventInput } from "@/lib/actions/analytics";
+import { checkFreeWordLimit } from "@/lib/actions/pages";
 
 // The only two themes every account has unlocked. Onboarding never shows
 // (or trusts the client to send) anything beyond these — validated again
@@ -123,6 +124,26 @@ export async function POST(req: Request) {
     ? sentenceToTiptapContent(firstSentence)
     : null;
   const wordCount = firstSentence ? countWords(firstSentence) : 0;
+
+  if (wordCount > 0) {
+    const { blocked, limit } = await checkFreeWordLimit(
+      supabase,
+      user.id,
+      project.id,
+      null,
+      wordCount
+    );
+    if (blocked) {
+      await supabase.from("projects").delete().eq("id", project.id);
+      return NextResponse.json(
+        {
+          error: `Your first sentence is longer than your ${limit.toLocaleString()}-word free allowance.`,
+          code: "FREE_WORD_LIMIT_REACHED",
+        },
+        { status: 403 }
+      );
+    }
+  }
 
   const { data: page, error: pageError } = await supabase
     .from("pages")

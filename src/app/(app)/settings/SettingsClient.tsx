@@ -34,6 +34,8 @@ export interface SettingsClientProps {
   profile: Profile | null;
   email: string;
   unlockedIds: Set<string>;
+  freeWordLimit: number;
+  currentScribePrice: number | null;
 }
 
 // ─── Shared primitives ────────────────────────────────────────────────────────
@@ -1167,7 +1169,17 @@ function DangerTab() {
 
 // ─── Billing Tab ──────────────────────────────────────────────────────────────
 
-function BillingTab({ subscriptionTier, profile }: { subscriptionTier: SubscriptionTier; profile: Profile | null }) {
+function BillingTab({
+  subscriptionTier,
+  profile,
+  freeWordLimit,
+  currentScribePrice,
+}: {
+  subscriptionTier: SubscriptionTier;
+  profile: Profile | null;
+  freeWordLimit: number;
+  currentScribePrice: number | null;
+}) {
   const [isPending, startTransition] = useTransition();
 
   const tierLabels: Record<SubscriptionTier, string> = {
@@ -1257,7 +1269,12 @@ function BillingTab({ subscriptionTier, profile }: { subscriptionTier: Subscript
         <p className="mb-6 text-xs uppercase tracking-widest" style={{ color: "var(--color-mist)" }}>
           Plans
         </p>
-        <PricingTable currentTier={subscriptionTier} isLoggedIn={true} />
+        <PricingTable
+          currentTier={subscriptionTier}
+          isLoggedIn={true}
+          freeWordLimit={freeWordLimit}
+          currentScribePrice={currentScribePrice}
+        />
       </div>
     </div>
   );
@@ -1278,6 +1295,8 @@ export function SettingsClient({
   profile,
   email,
   unlockedIds,
+  freeWordLimit,
+  currentScribePrice,
 }: SettingsClientProps) {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -1390,7 +1409,12 @@ export function SettingsClient({
         aria-labelledby="tab-billing"
         hidden={activeTab !== "billing"}
       >
-        <BillingTab subscriptionTier={subscriptionTier} profile={profile} />
+        <BillingTab
+          subscriptionTier={subscriptionTier}
+          profile={profile}
+          freeWordLimit={freeWordLimit}
+          currentScribePrice={currentScribePrice}
+        />
       </div>
       <div
         id="panel-sync"

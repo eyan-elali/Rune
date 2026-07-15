@@ -162,6 +162,77 @@ create trigger profiles_protect_is_admin
 --   before update on public.profiles
 --   for each row execute function public.protect_is_admin();
 
+-- Guard against privilege escalation on billing columns: same gap as above —
+-- "update own" has no WITH CHECK, so without this trigger any authenticated
+-- user could PATCH subscription_tier to 'scribe', or point stripe_customer_id
+-- at an arbitrary Stripe customer, directly. stripe_customer_id is now
+-- protected: its write path moved to service-role code in
+-- getOrCreateStripeCustomerId (src/lib/actions/billing.ts), so there is no
+-- longer any legitimate reason for an authenticated client to write it.
+-- Added by migration 009.
+create or replace function public.protect_billing_columns()
+returns trigger
+language plpgsql
+security definer set search_path = public
+as $$
+begin
+  if auth.role() = 'authenticated' then
+    if new.subscription_tier is distinct from old.subscription_tier then
+      new.subscription_tier := old.subscription_tier;
+    end if;
+    if new.subscription_status is distinct from old.subscription_status then
+      new.subscription_status := old.subscription_status;
+    end if;
+    if new.subscription_price_id is distinct from old.subscription_price_id then
+      new.subscription_price_id := old.subscription_price_id;
+    end if;
+    if new.subscription_period_end is distinct from old.subscription_period_end then
+      new.subscription_period_end := old.subscription_period_end;
+    end if;
+    if new.stripe_customer_id is distinct from old.stripe_customer_id then
+      new.stripe_customer_id := old.stripe_customer_id;
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+create trigger profiles_protect_billing_columns
+  before update on public.profiles
+  for each row execute function public.protect_billing_columns();
+
+-- ── Migration: protect billing columns from self-escalation (run once on existing databases, migration 009) ─
+-- create or replace function public.protect_billing_columns()
+-- returns trigger
+-- language plpgsql
+-- security definer set search_path = public
+-- as $$
+-- begin
+--   if auth.role() = 'authenticated' then
+--     if new.subscription_tier is distinct from old.subscription_tier then
+--       new.subscription_tier := old.subscription_tier;
+--     end if;
+--     if new.subscription_status is distinct from old.subscription_status then
+--       new.subscription_status := old.subscription_status;
+--     end if;
+--     if new.subscription_price_id is distinct from old.subscription_price_id then
+--       new.subscription_price_id := old.subscription_price_id;
+--     end if;
+--     if new.subscription_period_end is distinct from old.subscription_period_end then
+--       new.subscription_period_end := old.subscription_period_end;
+--     end if;
+--     if new.stripe_customer_id is distinct from old.stripe_customer_id then
+--       new.stripe_customer_id := old.stripe_customer_id;
+--     end if;
+--   end if;
+--   return new;
+-- end;
+-- $$;
+-- drop trigger if exists profiles_protect_billing_columns on public.profiles;
+-- create trigger profiles_protect_billing_columns
+--   before update on public.profiles
+--   for each row execute function public.protect_billing_columns();
+
 -- projects: users manaehage only their own projects
 create policy "projects: select own"
   on public.projects for select
@@ -537,6 +608,52 @@ alter table public.founder_notes enable row level security;
 -- );
 -- alter table public.founder_notes enable row level security;
 
+-- ── user_pricing_entitlements ────────────────────────────────────────
+-- Trusted, server-only pricing/word-limit entitlement. Deliberately a
+-- separate table rather than columns on `profiles` (see the RLS note above
+-- protect_billing_columns) — there is NO insert/update/delete policy for
+-- authenticated users at all, so it can't be self-escalated by construction.
+-- All writes go through service-role server actions (src/lib/actions/pricing.ts)
+-- or the Stripe webhook. Added by migration 009.
+create table if not exists public.user_pricing_entitlements (
+  user_id                     uuid        primary key references public.profiles(id) on delete cascade,
+  pricing_cohort              text        not null default 'starter_2k' check (pricing_cohort in ('legacy_15k','starter_2k')),
+  pricing_notice_resolved_at  timestamptz,
+  founder_offer_status        text        not null default 'not_offered' check (founder_offer_status in ('not_offered','eligible','claimed','declined')),
+  founder_offer_claimed_at    timestamptz,
+  created_at                  timestamptz not null default now(),
+  updated_at                  timestamptz not null default now()
+);
+
+create index if not exists user_pricing_entitlements_cohort_idx
+  on public.user_pricing_entitlements (pricing_cohort);
+
+alter table public.user_pricing_entitlements enable row level security;
+
+create policy "user_pricing_entitlements: select own"
+  on public.user_pricing_entitlements for select
+  using (auth.uid() = user_id);
+
+create or replace function public.touch_pricing_entitlement_updated_at()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
+
+create trigger user_pricing_entitlements_touch_updated_at
+  before update on public.user_pricing_entitlements
+  for each row execute function public.touch_pricing_entitlement_updated_at();
+
+-- ── Migration: add user_pricing_entitlements + backfill + protect_billing_columns (run once on existing databases, migration 009) ─
+-- See src/lib/supabase/migrations/009_pricing_cohorts.sql for the full,
+-- ordered script (table creation, trigger replacement, legacy backfill,
+-- starter_2k repair pass, protect_billing_columns) — run that file directly
+-- in the Supabase SQL editor rather than reassembling it from this comment.
+
 -- ═══════════════════════════════════════════════════════════════════
 --  Auto-create profile on signup
 -- ═══════════════════════════════════════════════════════════════════
@@ -563,6 +680,16 @@ begin
     1,
     false,
     'free'
+  );
+
+  insert into public.user_pricing_entitlements (
+    user_id,
+    pricing_cohort,
+    founder_offer_status
+  ) values (
+    new.id,
+    'starter_2k',
+    'not_offered'
   );
 
   return new;

@@ -14,7 +14,18 @@ function createServiceClient() {
   )
 }
 
+function isFoundingPriceId(priceId: string): boolean {
+  return !!process.env.STRIPE_FOUNDING_MONTHLY_PRICE_ID && priceId === process.env.STRIPE_FOUNDING_MONTHLY_PRICE_ID
+}
+
 function tierFromPriceId(priceId: string): string {
+  // The founding price is deliberately kept out of PRICE_IDS (see
+  // src/lib/actions/pricing.ts) so it can never be selected by a client-
+  // supplied tier/plan. It must still resolve to 'scribe' here, otherwise a
+  // founding subscriber's `customer.subscription.updated` event (which
+  // Stripe fires for many non-plan-change reasons) would silently downgrade
+  // them to 'free'.
+  if (isFoundingPriceId(priceId)) return 'scribe'
   for (const [tier, periods] of Object.entries(PRICE_IDS)) {
     if ((Object.values(periods) as string[]).includes(priceId)) return tier
   }
@@ -71,6 +82,7 @@ export async function POST(request: NextRequest) {
       const subscription = await stripe.subscriptions.retrieve(subscriptionId)
       const firstItem = subscription.items.data[0]
       const priceId = firstItem?.price.id ?? ''
+      const isFounding = isFoundingPriceId(priceId)
       const tier =
         session.metadata?.tier ?? tierFromPriceId(priceId) ?? 'scribe'
       const periodEnd = firstItem?.current_period_end
@@ -91,12 +103,26 @@ export async function POST(request: NextRequest) {
         price_id: priceId,
       })
 
+      if (isFounding) {
+        // pricing_cohort is never written here — it stays legacy_15k, set
+        // once at migration time and otherwise immutable.
+        await supabase.from('user_pricing_entitlements').update({
+          founder_offer_status: 'claimed',
+          founder_offer_claimed_at: new Date().toISOString(),
+        }).eq('user_id', userId).is('founder_offer_claimed_at', null)
+
+        await supabase.from('user_pricing_entitlements').update({
+          pricing_notice_resolved_at: new Date().toISOString(),
+        }).eq('user_id', userId).is('pricing_notice_resolved_at', null)
+      }
+
       // Dedupe on the Stripe event id so a webhook retry (Stripe redelivers
       // on any non-2xx response) can never double-record this analytics
       // event, even though upsertSubscriptionEvent above has no such guard.
       await recordAnalyticsEvent({
         userId,
         eventName: 'subscription_started',
+        metadata: isFounding ? { plan: 'founding_monthly' } : undefined,
         dedupeKey: event.id,
       }).catch(() => {
         // Analytics must never fail webhook processing.

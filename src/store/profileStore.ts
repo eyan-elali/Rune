@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import type { Profile, UserPreferences } from "@/lib/types";
 import type { SubscriptionTier } from "@/lib/subscription";
+import type { PricingCohort } from "@/lib/pricing";
 
 export type PendingLevelUp = {
   newLevel: number;
@@ -11,8 +12,10 @@ interface ProfileState {
   profile: Profile | null;
   subscriptionTier: SubscriptionTier;
   subscriptionStatus: string;
+  pricingCohort: PricingCohort | null;
   pendingLevelUp: PendingLevelUp | null;
   setProfile: (profile: Profile) => void;
+  setPricingCohort: (cohort: PricingCohort | null) => void;
   updateXp: (xp: number, level: number) => void;
   setPreferences: (preferences: Partial<UserPreferences>) => void;
   setPendingLevelUp: (data: PendingLevelUp) => void;
@@ -29,6 +32,7 @@ export const useProfileStore = create<ProfileState>((set) => ({
   profile: null,
   subscriptionTier: 'free',
   subscriptionStatus: 'inactive',
+  pricingCohort: null,
   pendingLevelUp: null,
   setProfile: (profile) =>
     set({
@@ -36,6 +40,7 @@ export const useProfileStore = create<ProfileState>((set) => ({
       subscriptionTier: tierFromProfile(profile),
       subscriptionStatus: profile.subscription_status ?? 'inactive',
     }),
+  setPricingCohort: (cohort) => set({ pricingCohort: cohort }),
   updateXp: (xp, level) =>
     set((s) =>
       s.profile ? { profile: { ...s.profile, xp, level } } : {}

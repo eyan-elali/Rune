@@ -17,11 +17,16 @@ function formatUsd(amount: number): string {
 }
 
 // ─── Feature list per tier ────────────────────────────────────────────────────
+// Default free-word limit for public/logged-out contexts (new-user offer).
+// A signed-in user's actual allowance (2,000 starter or 15,000 grandfathered
+// legacy) is passed in via the freeWordLimit prop — see resolveFreeWordLimit
+// in src/lib/pricing.ts, the single source of truth for these numbers.
+const DEFAULT_PUBLIC_FREE_WORD_LIMIT = 2000
 
-const TIER_FEATURES = {
-  free: [
+function getFreeFeatures(freeWordLimit: number) {
+  return [
     { label: '1 manuscript', included: true },
-    { label: 'Up to 15,000 words', included: true },
+    { label: `Up to ${freeWordLimit.toLocaleString()} words`, included: true },
     { label: 'All writing tools', included: true },
     { label: 'Goals & Progress', included: true },
     { label: 'Notes', included: true },
@@ -29,15 +34,16 @@ const TIER_FEATURES = {
     { label: 'Export', included: true },
     { label: 'Focus Mode', included: true },
     { label: '1 Arena ticket / week', included: true },
-  ],
-  scribe: [
-    { label: 'Everything in Free', included: true },
-    { label: 'Unlimited manuscripts', included: true },
-    { label: 'Unlimited words', included: true },
-    { label: 'Unlimited Arena access', included: true },
-    { label: 'All unlockables', included: true },
-  ],
+  ]
 }
+
+const SCRIBE_FEATURES = [
+  { label: 'Everything in Free', included: true },
+  { label: 'Unlimited manuscripts', included: true },
+  { label: 'Unlimited words', included: true },
+  { label: 'Unlimited Arena access', included: true },
+  { label: 'All unlockables', included: true },
+]
 
 function featureLabelNeedsNowrap(label: string): boolean {
   return /Arena ticket|Arena access/i.test(label)
@@ -48,6 +54,16 @@ function featureLabelNeedsNowrap(label: string): boolean {
 interface PricingTableProps {
   currentTier?: SubscriptionTier
   isLoggedIn?: boolean
+  /** Signed-in user's actual free-tier allowance; defaults to the public new-user offer. */
+  freeWordLimit?: number
+  /**
+   * The price the signed-in user is actually currently paying for Scribe
+   * (e.g. 6.99 for a Founding Scribe subscriber), if different from the
+   * standard price. Only affects the "Current Plan" display — never the
+   * public/logged-out pricing shown to everyone else. Derived server-side
+   * from trusted subscription_price_id data, never from a historical flag.
+   */
+  currentScribePrice?: number | null
 }
 
 type TierPrice = { monthly: number; annualPerMonth: number; annualTotal: number } | null
@@ -254,6 +270,7 @@ function TierCard({
   currentTier,
   isLoggedIn,
   isFeatured,
+  currentPriceOverride,
 }: {
   tier: SubscriptionTier
   name: string
@@ -264,12 +281,21 @@ function TierCard({
   currentTier: SubscriptionTier
   isLoggedIn: boolean
   isFeatured: boolean
+  currentPriceOverride?: number | null
 }) {
-  const effectivePrice = price
-    ? billingPeriod === 'monthly'
-      ? price.monthly
-      : price.annualPerMonth
-    : 0
+  const isCurrentPlan = tier === currentTier
+  // A signed-in user's own current plan always reflects what they're actually
+  // paying (e.g. a Founding Scribe subscriber's $6.99), never the standard
+  // rate — the billing-period toggle doesn't apply to "what you already pay".
+  const effectivePrice =
+    isCurrentPlan && currentPriceOverride != null
+      ? currentPriceOverride
+      : price
+      ? billingPeriod === 'monthly'
+        ? price.monthly
+        : price.annualPerMonth
+      : 0
+  const showAnnualNote = billingPeriod === 'annual' && price && !(isCurrentPlan && currentPriceOverride != null)
   const colors = tierTextColors(isFeatured)
   const isFree = tier === 'free'
 
@@ -328,15 +354,15 @@ function TierCard({
         )}
       </div>
 
-      {billingPeriod === 'annual' && price && (
+      {showAnnualNote && (
         <p
           className="mb-6 text-xs"
           style={{ color: colors.annualNote, opacity: isFeatured ? 1 : 0.7 }}
         >
-          Billed annually at {formatUsd(price.annualTotal)}/yr
+          Billed annually at {formatUsd((price as NonNullable<TierPrice>).annualTotal)}/yr
         </p>
       )}
-      {!(billingPeriod === 'annual' && price) && <div className="mb-6" />}
+      {!showAnnualNote && <div className="mb-6" />}
 
       <ul className="mb-8 flex-1 space-y-2.5">
         {features.map((f) => (
@@ -377,7 +403,12 @@ function TierCard({
 
 // ─── PricingTable ─────────────────────────────────────────────────────────────
 
-export function PricingTable({ currentTier = 'free', isLoggedIn = false }: PricingTableProps) {
+export function PricingTable({
+  currentTier = 'free',
+  isLoggedIn = false,
+  freeWordLimit = DEFAULT_PUBLIC_FREE_WORD_LIMIT,
+  currentScribePrice = null,
+}: PricingTableProps) {
   const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'annual'>('monthly')
 
   const tiers: {
@@ -403,6 +434,11 @@ export function PricingTable({ currentTier = 'free', isLoggedIn = false }: Prici
     },
   ]
 
+  const featuresByTier: Record<SubscriptionTier, { label: string; included: boolean }[]> = {
+    free: getFreeFeatures(freeWordLimit),
+    scribe: SCRIBE_FEATURES,
+  }
+
   return (
     <div className="mx-auto w-full max-w-4xl">
       <div className="mb-10 flex flex-wrap items-center justify-center gap-4">
@@ -425,11 +461,12 @@ export function PricingTable({ currentTier = 'free', isLoggedIn = false }: Prici
             name={t.name}
             tagline={t.tagline}
             price={t.price}
-            features={TIER_FEATURES[t.id]}
+            features={featuresByTier[t.id]}
             billingPeriod={billingPeriod}
             currentTier={currentTier}
             isLoggedIn={isLoggedIn}
             isFeatured={t.featured}
+            currentPriceOverride={t.id === 'scribe' ? currentScribePrice : null}
           />
         ))}
       </div>

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { checkFreeWordLimit } from "@/lib/actions/pages";
 
 type ActionResult<T> = { data: T; error: null } | { data: null; error: string };
 
@@ -93,6 +94,20 @@ export async function appendSprintToProject(
     return { data: null, error: "Chapter not found in this project" };
   }
 
+  const { blocked, limit } = await checkFreeWordLimit(
+    supabase,
+    user.id,
+    projectId,
+    null,
+    wordCount
+  );
+  if (blocked) {
+    return {
+      data: null,
+      error: `This would put the project over your ${limit.toLocaleString()}-word free limit. Upgrade to Scribe to keep writing.`,
+    };
+  }
+
   // Find next position
   const { data: existing } = await supabase
     .from("pages")
@@ -162,6 +177,30 @@ export async function appendToExistingPage(
 
   if (fetchError || !page) return { data: null, error: "Page not found" };
 
+  const { data: existingChapter } = await supabase
+    .from("chapters")
+    .select("project_id")
+    .eq("id", page.chapter_id)
+    .single();
+
+  const newWordCount = (page.word_count ?? 0) + additionalWordCount;
+
+  if (existingChapter) {
+    const { blocked, limit } = await checkFreeWordLimit(
+      supabase,
+      user.id,
+      existingChapter.project_id,
+      pageId,
+      newWordCount
+    );
+    if (blocked) {
+      return {
+        data: null,
+        error: `This would put the project over your ${limit.toLocaleString()}-word free limit. Upgrade to Scribe to keep writing.`,
+      };
+    }
+  }
+
   const newDoc = htmlToTiptapDoc(html);
   const existingNodes =
     (page.content as { type: string; content?: unknown[] } | null)?.content ?? [];
@@ -171,8 +210,6 @@ export async function appendToExistingPage(
     type: "doc",
     content: [...existingNodes, { type: "horizontalRule" }, ...newNodes],
   };
-
-  const newWordCount = (page.word_count ?? 0) + additionalWordCount;
 
   const { data: updated, error: updateError } = await supabase
     .from("pages")

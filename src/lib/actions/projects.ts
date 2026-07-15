@@ -106,6 +106,28 @@ export async function duplicateProject(
   const { supabase, user } = await getUser();
   if (!user) return { data: null, error: "Not authenticated" };
 
+  const { data: profileRow } = await supabase
+    .from("profiles")
+    .select("subscription_tier")
+    .eq("id", user.id)
+    .single();
+
+  const tier = profileRow?.subscription_tier ?? "free";
+
+  if (tier === "free") {
+    const { count } = await supabase
+      .from("projects")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id);
+
+    if ((count ?? 0) >= 1) {
+      return {
+        data: null,
+        error: "Upgrade to Scribe to create unlimited projects",
+      };
+    }
+  }
+
   // Fetch original project
   const { data: original, error: projErr } = await supabase
     .from("projects")

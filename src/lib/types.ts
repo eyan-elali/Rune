@@ -1,3 +1,5 @@
+import type { PricingCohort } from "./pricing";
+
 export interface UserPreferences {
   fontSize: number;
   lineHeight: number;
@@ -137,6 +139,18 @@ export interface FounderNote {
   id: string;
   author_id: string | null;
   content: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export type FounderOfferStatus = "not_offered" | "eligible" | "claimed" | "declined";
+
+export interface PricingEntitlement {
+  user_id: string;
+  pricing_cohort: PricingCohort;
+  pricing_notice_resolved_at: string | null;
+  founder_offer_status: FounderOfferStatus;
+  founder_offer_claimed_at: string | null;
   created_at: string;
   updated_at: string;
 }

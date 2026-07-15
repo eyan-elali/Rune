@@ -46,15 +46,21 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   // Project count is fetched (not manuscript content, just a head count) once here
   // and reused both for the update notice and to distinguish a new/onboarding
   // account from a returning one for the phone waiting-room copy.
-  const [{ data: profile, error: profileError }, { count: projectCount }] = effectiveUser
-    ? await Promise.all([
-        supabase.from("profiles").select("*").eq("id", effectiveUser.id).single(),
-        supabase
-          .from("projects")
-          .select("id", { count: "exact", head: true })
-          .eq("user_id", effectiveUser.id),
-      ])
-    : [{ data: null, error: null }, { count: null }];
+  const [{ data: profile, error: profileError }, { count: projectCount }, { data: entitlement }] =
+    effectiveUser
+      ? await Promise.all([
+          supabase.from("profiles").select("*").eq("id", effectiveUser.id).single(),
+          supabase
+            .from("projects")
+            .select("id", { count: "exact", head: true })
+            .eq("user_id", effectiveUser.id),
+          supabase
+            .from("user_pricing_entitlements")
+            .select("pricing_cohort, pricing_notice_resolved_at, founder_offer_status")
+            .eq("user_id", effectiveUser.id)
+            .maybeSingle(),
+        ])
+      : [{ data: null, error: null }, { count: null }, { data: null }];
 
   // Every account needs a chosen pen name before entering the writing
   // experience. Only redirect on a confirmed, successful lookup — a failed
@@ -64,12 +70,25 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
     redirect("/complete-profile");
   }
 
+  // Pricing notice: one-time announcement for eligible legacy free users
+  // about the new starter_2k allowance + private founding-price offer.
+  // Takes priority over the returning-user update notice (deferred to a
+  // later app entry) rather than stacking two modals.
+  const showPricingNotice =
+    !!profile &&
+    entitlement?.pricing_cohort === "legacy_15k" &&
+    (profile.has_written_first_words || (projectCount ?? 0) > 0) &&
+    profile.subscription_tier !== "scribe" &&
+    !entitlement?.pricing_notice_resolved_at &&
+    entitlement?.founder_offer_status === "eligible";
+
   let showUpdateNotice = false;
   if (profile) {
     const prefs = (profile.preferences as Record<string, unknown>) ?? {};
     const hasSeenNotice = prefs.has_seen_guides_update_notice === true;
     showUpdateNotice = !hasSeenNotice && (projectCount ?? 0) > 0;
   }
+  if (showPricingNotice) showUpdateNotice = false;
 
   const gateVariant = (projectCount ?? 0) > 0 ? "returning" : "new";
 
@@ -81,7 +100,12 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
         variant={gateVariant}
         preferences={profile?.preferences as Record<string, unknown> | null}
       >
-        <AppShell profile={profile as Profile | null} showUpdateNotice={showUpdateNotice}>
+        <AppShell
+          profile={profile as Profile | null}
+          showUpdateNotice={showUpdateNotice}
+          showPricingNotice={showPricingNotice}
+          pricingCohort={entitlement?.pricing_cohort ?? null}
+        >
           {children}
         </AppShell>
       </SupportedDeviceGate>
