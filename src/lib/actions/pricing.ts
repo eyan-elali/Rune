@@ -8,6 +8,7 @@
 // state (profiles.subscription_tier, user_pricing_entitlements) rather than
 // trusting anything passed in.
 
+import { randomUUID } from "crypto";
 import { createClient } from "@/lib/supabase/server";
 import { stripe } from "@/lib/stripe/client";
 import { getOrCreateStripeCustomerId } from "@/lib/actions/billing";
@@ -121,6 +122,19 @@ export async function createFoundingCheckoutSession(): Promise<{
       return { url: null, error: "You already have an active subscription." };
     }
 
+    // One key per checkout ATTEMPT, not one permanent key per user. A key
+    // that never changes (e.g. `founding_checkout_${user.id}`) makes Stripe
+    // replay the exact same response for every future call forever — once
+    // the original session completed or expired, every subsequent click
+    // would keep getting that same dead session back, with no way to ever
+    // start a new one. The random component scopes the key to a single
+    // logical request (still safe against an in-flight retry of that same
+    // request duplicating the session), while a genuinely new click always
+    // gets a fresh key and therefore a fresh session. Preventing duplicate
+    // *subscriptions* is the job of the tier/entitlement/subscriptions.list
+    // guards above and re-checked on every call — not this key.
+    const attemptId = randomUUID();
+
     const session = await stripe.checkout.sessions.create(
       {
         mode: "subscription",
@@ -142,10 +156,7 @@ export async function createFoundingCheckoutSession(): Promise<{
         },
         allow_promotion_codes: false,
       },
-      // Closes the double-tab/double-submit race: rapid duplicate calls with
-      // identical params replay the same Checkout Session instead of Stripe
-      // creating a second one.
-      { idempotencyKey: `founding_checkout_${user.id}` }
+      { idempotencyKey: `founding_checkout_${user.id}_${attemptId}` }
     );
 
     return { url: session.url, error: null };

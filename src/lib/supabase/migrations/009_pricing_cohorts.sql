@@ -41,6 +41,15 @@ create policy "user_pricing_entitlements: select own"
 -- Deliberately NO insert/update/delete policy for authenticated users here.
 -- All writes happen through service-role server actions (src/lib/actions/pricing.ts)
 -- or the Stripe webhook (src/app/api/webhooks/stripe/route.ts).
+--
+-- No explicit GRANT/REVOKE statements are added here: this repo's existing
+-- convention (schema.sql, all of migrations 001-008) relies entirely on RLS
+-- + policies for access control and never issues table-level GRANT/REVOKE —
+-- Supabase's default schema-level grants to anon/authenticated/service_role
+-- are left as-is everywhere else, with RLS as the sole gate. Adding explicit
+-- per-table privileges here would introduce a pattern not used anywhere
+-- else in the schema; flagging this as a deliberate omission rather than an
+-- oversight — see the accompanying chat response for the reasoning.
 
 create or replace function public.touch_pricing_entitlement_updated_at()
 returns trigger
@@ -59,12 +68,18 @@ create trigger user_pricing_entitlements_touch_updated_at
 
 -- Step 2: make new signups authoritative BEFORE backfilling existing users,
 -- so any signup that lands during this migration gets starter_2k immediately
--- rather than depending on statement ordering for correctness (see the repair
--- pass in Step 4, which is the actual guarantee).
+-- rather than depending on statement ordering for correctness (see the
+-- repair pass and hard-guarantee assertion at the end of this file).
+--
+-- search_path = '' (not `= public`): every object this function touches is
+-- schema-qualified below (public.profiles, public.user_pricing_entitlements),
+-- so an empty search path can't be hijacked by an object created in a
+-- schema that would otherwise resolve first — pg_catalog is still always
+-- implicitly searched by Postgres regardless, so built-ins are unaffected.
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
-security definer set search_path = public
+security definer set search_path = ''
 as $$
 begin
   insert into public.profiles (
@@ -126,19 +141,7 @@ select
 from public.profiles p
 on conflict (user_id) do nothing;
 
--- Step 4: repair pass. This is the actual coverage guarantee, not just
--- ordering: run last, right before commit, so under READ COMMITTED it takes
--- a fresh snapshot including any profile committed by a concurrent signup
--- during this migration (e.g. one that raced in and used the OLD trigger
--- before Step 2 committed). Any profile still missing an entitlement row
--- after Step 3 gets the safe, tighter starter_2k default rather than being
--- left absent.
-insert into public.user_pricing_entitlements (user_id, pricing_cohort, founder_offer_status)
-select p.id, 'starter_2k', 'not_offered'
-from public.profiles p
-on conflict (user_id) do nothing;
-
--- Step 5: close a pre-existing privilege-escalation gap on `profiles`.
+-- Step 4: close a pre-existing privilege-escalation gap on `profiles`.
 -- "profiles: update own" (schema.sql) has no WITH CHECK, so an authenticated
 -- user's own PostgREST client could otherwise PATCH subscription_tier/status/
 -- price_id/period_end/stripe_customer_id directly and self-grant Scribe
@@ -150,10 +153,13 @@ on conflict (user_id) do nothing;
 -- checkout/route.ts — that write path has been moved to service-role code,
 -- see getOrCreateStripeCustomerId in src/lib/actions/billing.ts, so there is
 -- no longer any legitimate reason for an authenticated client to write it).
+--
+-- search_path = '' for the same reason as handle_new_user() above — the only
+-- non-pg_catalog reference here, auth.role(), is already schema-qualified.
 create or replace function public.protect_billing_columns()
 returns trigger
 language plpgsql
-security definer set search_path = public
+security definer set search_path = ''
 as $$
 begin
   if auth.role() = 'authenticated' then
@@ -181,3 +187,42 @@ drop trigger if exists profiles_protect_billing_columns on public.profiles;
 create trigger profiles_protect_billing_columns
   before update on public.profiles
   for each row execute function public.protect_billing_columns();
+
+-- Step 5: repair pass. This narrows — it does not by itself mathematically
+-- eliminate — the migration-window race where a signup could land between
+-- the trigger replacement in Step 2 and this statement's own snapshot:
+-- running it last, immediately before commit, means it sees any profile
+-- committed up to that point, including one that raced in and used the OLD
+-- trigger. Any profile still missing an entitlement row after Step 3 gets
+-- the safe, tighter starter_2k default rather than being left absent. The
+-- hard guarantee is Step 6 below, not this statement: Step 6 aborts the
+-- entire migration if any gap remains, rather than assuming this pass alone
+-- closed it.
+insert into public.user_pricing_entitlements (user_id, pricing_cohort, founder_offer_status)
+select p.id, 'starter_2k', 'not_offered'
+from public.profiles p
+on conflict (user_id) do nothing;
+
+-- Step 6: hard guarantee. If any public.profiles row still lacks a
+-- public.user_pricing_entitlements row at this point — a bug in the steps
+-- above, not merely an unlucky timing window — abort the entire migration
+-- (this raise rolls back everything in the same transaction) rather than
+-- silently leaving accounts unclassified, which the app would otherwise
+-- paper over by defaulting a missing row to starter_2k at read time.
+do $$
+declare
+  missing_count integer;
+begin
+  select count(*)
+    into missing_count
+  from public.profiles p
+  left join public.user_pricing_entitlements upe on upe.user_id = p.id
+  where upe.user_id is null;
+
+  if missing_count > 0 then
+    raise exception
+      'Migration 009 aborted: % public.profiles row(s) have no matching public.user_pricing_entitlements row',
+      missing_count;
+  end if;
+end;
+$$;

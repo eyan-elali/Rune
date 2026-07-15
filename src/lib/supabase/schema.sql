@@ -173,7 +173,7 @@ create trigger profiles_protect_is_admin
 create or replace function public.protect_billing_columns()
 returns trigger
 language plpgsql
-security definer set search_path = public
+security definer set search_path = ''
 as $$
 begin
   if auth.role() = 'authenticated' then
@@ -205,7 +205,7 @@ create trigger profiles_protect_billing_columns
 -- create or replace function public.protect_billing_columns()
 -- returns trigger
 -- language plpgsql
--- security definer set search_path = public
+-- security definer set search_path = ''
 -- as $$
 -- begin
 --   if auth.role() = 'authenticated' then
@@ -651,8 +651,10 @@ create trigger user_pricing_entitlements_touch_updated_at
 -- ── Migration: add user_pricing_entitlements + backfill + protect_billing_columns (run once on existing databases, migration 009) ─
 -- See src/lib/supabase/migrations/009_pricing_cohorts.sql for the full,
 -- ordered script (table creation, trigger replacement, legacy backfill,
--- starter_2k repair pass, protect_billing_columns) — run that file directly
--- in the Supabase SQL editor rather than reassembling it from this comment.
+-- protect_billing_columns, starter_2k repair pass, and a final assertion
+-- that aborts the whole migration if any profile is left unclassified) —
+-- run that file directly in the Supabase SQL editor rather than
+-- reassembling it from this comment.
 
 -- ═══════════════════════════════════════════════════════════════════
 --  Auto-create profile on signup
@@ -661,7 +663,7 @@ create trigger user_pricing_entitlements_touch_updated_at
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
-security definer set search_path = public
+security definer set search_path = ''
 as $$
 begin
   insert into public.profiles (
