@@ -56,7 +56,13 @@ export async function writeToPendingQueue(
 
 export async function syncPendingWrite(
   pageId: string,
-  savePath: 'online' | 'offline_sync' = 'online'
+  savePath: 'online' | 'offline_sync' = 'online',
+  // The word count this caller last confirmed the server holds for this page —
+  // passed only by the actively-open editor tab, which tracks it privately in
+  // memory (never in IndexedDB, which every tab of the origin shares). See the
+  // comment at its use below for why this is the one signal that safely
+  // detects a sibling tab's save.
+  expectedWordCount?: number
 ): Promise<void> {
   const db = await getOfflineDB()
   const pending = await db.get('pending_writes', pageId)
@@ -84,41 +90,66 @@ export async function syncPendingWrite(
     return
   }
 
-  // Conflict detection: compare server's current state against the cached server
-  // snapshot (page_cache.serverUpdatedAt) — NOT against the local edit timestamp.
+  // Conflict detection.
   //
-  // localUpdatedAt is a browser clock value and unreliable for cross-device comparison.
-  // serverUpdatedAt in the cache is the server's own updated_at from the last time
-  // this device fetched the page — the correct baseline to detect concurrent edits.
+  // When expectedWordCount is provided (the actively-open editor tab for this
+  // page), compare it directly against the server's live word_count. This is
+  // deliberately NOT a version/updated_at comparison: pages.version and
+  // updated_at are bumped by the same DB trigger on *any* update to the row —
+  // including a title rename (renamePage) or a canonical-page toggle
+  // (setCanonicalPage/clearCanonicalPage) — neither of which touches
+  // content. Comparing those would flag a conflict for e.g. renaming a page
+  // while a content autosave is in flight, on a single tab, with no second
+  // writer involved. word_count is only ever written by the content-save
+  // path, so it's the one cheap signal that's actually scoped to content.
+  //
+  // expectedWordCount lives only in that tab's own memory (a ref, set on
+  // page load and advanced only after *this* tab's own confirmed sync) —
+  // never in IndexedDB. That matters because page_cache is a single row
+  // shared by every tab of the browser origin: the instant any tab
+  // completes a sync, it overwrites page_cache.serverUpdatedAt/serverVersion
+  // for every other tab too, silently erasing the only evidence a sibling
+  // tab had diverged. Comparing against the shared cache (the fallback
+  // below) can therefore never detect a second tab's save — only a private,
+  // in-memory baseline can.
+  //
+  // Without an active editor for this page (e.g. the background queue flush
+  // reconciling a page that isn't currently open), there's no per-session
+  // baseline to compare against — fall back to the previous cache-based
+  // heuristic, unchanged.
   const cachedPage = await db.get('page_cache', pageId)
 
-  const serverHasChanged = ((): boolean => {
-    if (!cachedPage?.serverUpdatedAt) {
-      // No cached server baseline. This happens when a page was created on this
-      // device but cachePage() was never called before the first edit — a gap
-      // that the EditorShell fix closes, but we also handle here defensively.
-      //
-      // If the server's word_count is still 0, no other device has written real
-      // content to this page. The local write is the first real edit: not a conflict.
-      // If word_count > 0, someone else has written content we haven't seen —
-      // fall back to conservative conflict to avoid a silent overwrite.
-      return (serverPage.word_count as number) > 0
-    }
+  const serverHasChanged = expectedWordCount !== undefined
+    ? (serverPage.word_count as number) !== expectedWordCount
+    : ((): boolean => {
+        if (!cachedPage?.serverUpdatedAt) {
+          // No cached server baseline. This happens when a page was created on
+          // this device but cachePage() was never called before the first edit —
+          // a gap that the EditorShell fix closes, but we also handle here
+          // defensively.
+          //
+          // If the server's word_count is still 0, no other device has written
+          // real content to this page. The local write is the first real edit:
+          // not a conflict. If word_count > 0, someone else has written content
+          // we haven't seen — fall back to conservative conflict to avoid a
+          // silent overwrite.
+          return (serverPage.word_count as number) > 0
+        }
 
-    const serverMs = new Date(serverPage.updated_at as string).getTime()
-    const cachedMs = new Date(cachedPage.serverUpdatedAt).getTime()
+        const serverMs = new Date(serverPage.updated_at as string).getTime()
+        const cachedMs = new Date(cachedPage.serverUpdatedAt).getTime()
 
-    // Primary signal: server updated_at advanced past our cached snapshot
-    if (serverMs > cachedMs) return true
+        // Primary signal: server updated_at advanced past our cached snapshot
+        if (serverMs > cachedMs) return true
 
-    // Secondary signal: version number advanced (if we have a cached baseline)
-    if (
-      cachedPage.serverVersion !== undefined &&
-      (serverPage.version as number) > cachedPage.serverVersion
-    ) return true
+        // Secondary signal: version number advanced (if we have a cached baseline)
+        if (
+          cachedPage.serverVersion !== undefined &&
+          (serverPage.version as number) > cachedPage.serverVersion
+        ) return true
 
-    return false
-  })()
+        return false
+      })()
 
   if (serverHasChanged) {
     await db.put('pending_writes', { ...pending, syncStatus: 'conflict' })

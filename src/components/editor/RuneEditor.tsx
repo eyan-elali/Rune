@@ -129,6 +129,15 @@ export default function RuneEditor({
   const isLoadingRef = useRef(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const lastSavedWordCountRef = useRef<number>(currentPage?.word_count ?? 0);
+  // The word count this tab last confirmed the server actually holds for the
+  // current page — set on page load/switch and advanced only after this
+  // tab's own sync is confirmed successful (never optimistically, and never
+  // via IndexedDB, which every tab of the browser shares). Passed to
+  // syncPendingWrite as the private conflict-detection baseline so a sibling
+  // tab's save can't silently erase evidence of divergence the way the
+  // shared IndexedDB cache does. See syncEngine.ts for why word_count
+  // specifically (not version/updated_at, which unrelated updates also bump).
+  const expectedServerWordCountRef = useRef<number>(currentPage?.word_count ?? 0);
   // Net word-count delta contributed by transactions classified as directly typed
   // (see onTransaction below). Paste, drop, and undo/redo never add to this — so
   // it can't retroactively "absorb" pasted words on a later save or keystroke.
@@ -186,10 +195,14 @@ export default function RuneEditor({
       void (async () => {
         const dbStatus = await readDbSyncStatus(pageId);
         if (dbStatus === 'pending' || dbStatus === 'failed') {
+          const pendingBefore = await getPendingWrite(pageId);
           setSyncStatusAndRef('syncing');
-          await syncPendingWrite(pageId);
+          await syncPendingWrite(pageId, 'online', expectedServerWordCountRef.current);
           const afterStatus = await readDbSyncStatus(pageId);
           setSyncStatusAndRef(mapDisplayStatus(afterStatus, true));
+          if (!afterStatus && pendingBefore) {
+            expectedServerWordCountRef.current = pendingBefore.wordCount;
+          }
         } else if (dbStatus === 'syncing') {
           setSyncStatusAndRef('syncing');
         } else {
@@ -280,13 +293,19 @@ export default function RuneEditor({
         return;
       }
       setSyncStatusAndRef('syncing');
-      await syncPendingWrite(page.id);
+      await syncPendingWrite(page.id, 'online', expectedServerWordCountRef.current);
       setLastSaved(new Date());
     }
 
     setIsSaving(false);
     void readDbSyncStatus(page.id).then((dbStatus) => {
       setSyncStatusAndRef(mapDisplayStatus(dbStatus, isOnlineRef.current));
+      if (!dbStatus) {
+        // Confirmed synced — advance this tab's private baseline to what the
+        // server now actually holds, so the next save's conflict check
+        // compares against reality instead of the pre-edit word count.
+        expectedServerWordCountRef.current = wordCount;
+      }
     });
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -522,12 +541,16 @@ export default function RuneEditor({
       const wordCount =
         (editor.storage.characterCount?.words?.() as number | undefined) ?? 0;
       const uid = userIdRef.current;
+      // Captured synchronously, before the ref is reassigned below for the
+      // new page — reading the ref lazily inside the async block below would
+      // race the synchronous reset that happens later in this same effect.
+      const prevExpectedWordCount = expectedServerWordCountRef.current;
       if (uid) {
         void (async () => {
           await writeToPendingQueue(prevPageId, uid, content, wordCount);
           onPageUpdatedRef.current(prevPageId, { content, word_count: wordCount });
           if (isOnlineRef.current) {
-            void syncPendingWrite(prevPageId);
+            void syncPendingWrite(prevPageId, 'online', prevExpectedWordCount);
           }
         })();
       }
@@ -536,6 +559,7 @@ export default function RuneEditor({
     prevPageIdRef.current = newPageId;
     currentPageRef.current = currentPage ?? null;
     lastSavedWordCountRef.current = currentPage?.word_count ?? 0;
+    expectedServerWordCountRef.current = currentPage?.word_count ?? 0;
     currentWordCountRef.current = currentPage?.word_count ?? 0;
     pendingEligibleWordsRef.current = 0;
     wordLimitBlockedRef.current = false;
@@ -548,6 +572,10 @@ export default function RuneEditor({
       0;
 
     const pageIdForDraftCheck = newPageId;
+    // Captured synchronously alongside the reset above — safe to read later
+    // inside the async block even if another page switch reassigns the ref
+    // in the meantime.
+    const expectedWordCountForDraftCheck = expectedServerWordCountRef.current;
 
     if (pageIdForDraftCheck) {
       void (async () => {
@@ -572,12 +600,15 @@ export default function RuneEditor({
             // in the single-tab-online case, just autosave finishing its job.
             if (pending.syncStatus !== 'conflict' && isOnlineRef.current) {
               setSyncStatusAndRef('syncing');
-              await syncPendingWrite(pageIdForDraftCheck);
+              await syncPendingWrite(pageIdForDraftCheck, 'online', expectedWordCountForDraftCheck);
             }
 
             if (currentPageRef.current?.id === pageIdForDraftCheck) {
               const afterStatus = await readDbSyncStatus(pageIdForDraftCheck);
               setSyncStatusAndRef(mapDisplayStatus(afterStatus, isOnlineRef.current));
+              if (!afterStatus) {
+                expectedServerWordCountRef.current = pending.wordCount;
+              }
             }
           }
         } catch {
@@ -615,8 +646,9 @@ export default function RuneEditor({
           const content = editor.getJSON() as Record<string, unknown>;
           const wordCount =
             (editor.storage.characterCount?.words?.() as number | undefined) ?? 0;
+          const expectedWordCountAtUnmount = expectedServerWordCountRef.current;
           void writeToPendingQueue(page.id, uid, content, wordCount).then(() => {
-            if (isOnlineRef.current) void syncPendingWrite(page.id);
+            if (isOnlineRef.current) void syncPendingWrite(page.id, 'online', expectedWordCountAtUnmount);
           });
         }
       }
@@ -850,6 +882,10 @@ export default function RuneEditor({
             setConflictModalOpen(false);
             setLastSaved(new Date());
             setSyncStatusAndRef('synced');
+            // forceWriteLocalContent just persisted this tab's local draft as-is —
+            // the server now holds exactly what lastSavedWordCountRef already
+            // reflects (set when the draft was restored/last edited).
+            expectedServerWordCountRef.current = lastSavedWordCountRef.current;
             showToast("Local draft kept", "success");
           }}
           onKeepServer={(serverContent, serverWordCount) => {
@@ -861,6 +897,7 @@ export default function RuneEditor({
             clearTimeout(saveTimerRef.current);
             isLoadingRef.current = false;
             lastSavedWordCountRef.current = serverWordCount;
+            expectedServerWordCountRef.current = serverWordCount;
             // Discard any pending eligible words from the local edits being
             // replaced — they no longer exist in the kept (server) content.
             pendingEligibleWordsRef.current = 0;
