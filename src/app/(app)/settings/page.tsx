@@ -4,7 +4,11 @@ import {
   checkAndGrantUnlockables,
   getUserUnlockables,
 } from "@/lib/actions/unlockables";
-import { resolveFreeWordLimit, type PricingCohort } from "@/lib/pricing";
+import {
+  resolveFreeWordLimit,
+  resolveActiveScribeBilling,
+  type PricingCohort,
+} from "@/lib/pricing";
 import { PRICE_IDS } from "@/lib/stripe/config";
 import { SettingsClient } from "./SettingsClient";
 import type { Profile } from "@/lib/types";
@@ -34,22 +38,17 @@ export default async function SettingsPage() {
   const cohort = (entitlement?.pricing_cohort as PricingCohort | undefined) ?? "starter_2k";
   const freeWordLimit = resolveFreeWordLimit(cohort);
 
-  // Trusted "what are they actually paying" derivation — never from the
-  // historical founder_offer_status flag, which persists after cancellation.
-  // Only meaningful when subscription_tier === 'scribe' (the canonical
-  // entitled-subscriber test); server-only price id comparison so the raw
-  // founding price id is never shipped to the client.
-  let currentScribePrice: number | null = null;
-  if (profile?.subscription_tier === "scribe") {
-    const priceId = profile.subscription_price_id;
-    if (priceId && priceId === process.env.STRIPE_FOUNDING_MONTHLY_PRICE_ID) {
-      currentScribePrice = 6.99;
-    } else if (priceId === PRICE_IDS.scribe.annual) {
-      currentScribePrice = 8;
-    } else {
-      currentScribePrice = 9.99;
-    }
-  }
+  // Trusted "what are they actually paying, on what cadence" derivation —
+  // never from the historical founder_offer_status flag, which persists
+  // after cancellation. Server-only price id comparison so the raw founding
+  // price id is never shipped to the client.
+  const { interval: activeBillingInterval, price: currentScribePrice } =
+    resolveActiveScribeBilling(
+      profile?.subscription_tier,
+      profile?.subscription_price_id,
+      process.env.STRIPE_FOUNDING_MONTHLY_PRICE_ID,
+      PRICE_IDS.scribe.annual
+    );
 
   return (
     <SettingsClient
@@ -58,6 +57,7 @@ export default async function SettingsPage() {
       unlockedIds={unlockedIds}
       freeWordLimit={freeWordLimit}
       currentScribePrice={currentScribePrice}
+      activeBillingInterval={activeBillingInterval}
     />
   );
 }

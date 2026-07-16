@@ -24,6 +24,7 @@ import { createClient } from "@/lib/supabase/client";
 import { PricingTable } from "@/components/billing/PricingTable";
 import type { Profile, UserPreferences } from "@/lib/types";
 import type { SubscriptionTier } from "@/lib/subscription";
+import type { ActiveBillingInterval } from "@/lib/pricing";
 import { resolveThemeId, DEFAULT_THEME_ID } from "@/lib/themes";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -36,6 +37,7 @@ export interface SettingsClientProps {
   unlockedIds: Set<string>;
   freeWordLimit: number;
   currentScribePrice: number | null;
+  activeBillingInterval: ActiveBillingInterval;
 }
 
 // ─── Shared primitives ────────────────────────────────────────────────────────
@@ -1174,11 +1176,13 @@ function BillingTab({
   profile,
   freeWordLimit,
   currentScribePrice,
+  activeBillingInterval,
 }: {
   subscriptionTier: SubscriptionTier;
   profile: Profile | null;
   freeWordLimit: number;
   currentScribePrice: number | null;
+  activeBillingInterval: ActiveBillingInterval;
 }) {
   const [isPending, startTransition] = useTransition();
 
@@ -1277,6 +1281,7 @@ function BillingTab({
           isLoggedIn={true}
           freeWordLimit={freeWordLimit}
           currentScribePrice={currentScribePrice}
+          activeBillingInterval={activeBillingInterval}
         />
       </div>
     </div>
@@ -1300,6 +1305,7 @@ export function SettingsClient({
   unlockedIds,
   freeWordLimit,
   currentScribePrice,
+  activeBillingInterval,
 }: SettingsClientProps) {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -1421,6 +1427,7 @@ export function SettingsClient({
           profile={profile}
           freeWordLimit={freeWordLimit}
           currentScribePrice={currentScribePrice}
+          activeBillingInterval={activeBillingInterval}
         />
       </div>
       <div

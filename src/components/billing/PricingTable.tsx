@@ -3,8 +3,16 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
-import { createCheckoutSession, createPortalSession } from '@/lib/actions/billing'
+import {
+  createCheckoutSession,
+  createPortalSession,
+  changeScribeBillingInterval,
+} from '@/lib/actions/billing'
 import type { SubscriptionTier } from '@/lib/subscription'
+import {
+  billingIntervalMatchesSelection,
+  type ActiveBillingInterval,
+} from '@/lib/pricing'
 
 // ─── Prices (USD) ─────────────────────────────────────────────────────────────
 
@@ -64,6 +72,14 @@ interface PricingTableProps {
    * from trusted subscription_price_id data, never from a historical flag.
    */
   currentScribePrice?: number | null
+  /**
+   * The cadence the signed-in user's Scribe subscription actually bills on,
+   * derived server-side from subscription_price_id (resolveActiveScribeBilling
+   * in src/lib/pricing.ts). Drives which toggle position shows "Current
+   * Plan" vs. a "Change to ..." action — never inferred from the toggle
+   * itself, client state, or founder_offer_status.
+   */
+  activeBillingInterval?: ActiveBillingInterval
 }
 
 type TierPrice = { monthly: number; annualPerMonth: number; annualTotal: number } | null
@@ -113,6 +129,77 @@ function PillToggle<T extends string>({
   )
 }
 
+// ─── Founding-plan forfeiture confirmation ────────────────────────────────────
+// Only ever shown for the one path that actually forfeits an irreversible
+// price: a Founding Scribe subscriber changing to annual. Never shown for
+// ordinary standard monthly/annual subscribers.
+
+function LeaveFoundingPlanDialog({
+  isPending,
+  onConfirm,
+  onCancel,
+}: {
+  isPending: boolean
+  onConfirm: () => void
+  onCancel: () => void
+}) {
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="leave-founding-plan-heading"
+      className="fixed inset-0 z-50 flex items-center justify-center px-6"
+      style={{ background: 'rgba(10, 8, 6, 0.88)' }}
+      onClick={onCancel}
+    >
+      <div
+        className="w-full max-w-sm rounded-lg px-8 py-8 text-center"
+        style={{
+          background: 'var(--color-sepia)',
+          border: '1px solid var(--color-border-strong)',
+          boxShadow: '0 12px 48px rgba(0, 0, 0, 0.5)',
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2
+          id="leave-founding-plan-heading"
+          className="font-rune-serif text-xl"
+          style={{ color: 'var(--text-primary)' }}
+        >
+          Leave your founding plan?
+        </h2>
+        <p className="mt-3 text-sm leading-relaxed" style={{ color: 'var(--color-mist)' }}>
+          Changing plans will end your $6.99/month founding price. It cannot be restored later.
+        </p>
+        <div className="mt-7 flex flex-col gap-3">
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={isPending}
+            className="rounded-lg px-5 py-2.5 text-sm font-medium transition-opacity duration-150 hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rune-gold"
+            style={{ background: 'var(--color-gold)', color: 'var(--text-on-accent)' }}
+          >
+            {isPending ? 'Updating…' : 'Change to annual'}
+          </button>
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={isPending}
+            className="rounded-lg px-5 py-2.5 text-sm font-medium transition-opacity duration-150 hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rune-gold"
+            style={{
+              background: 'transparent',
+              border: '1px solid var(--color-border-strong)',
+              color: 'var(--text-primary)',
+            }}
+          >
+            Keep founding plan
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── CTA Button ───────────────────────────────────────────────────────────────
 
 function CtaButton({
@@ -121,17 +208,53 @@ function CtaButton({
   isLoggedIn,
   billingPeriod,
   isFeatured,
+  activeBillingInterval,
 }: {
   tier: SubscriptionTier
   currentTier: SubscriptionTier
   isLoggedIn: boolean
   billingPeriod: 'monthly' | 'annual'
   isFeatured: boolean
+  activeBillingInterval: ActiveBillingInterval
 }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
+  const [showForfeitConfirm, setShowForfeitConfirm] = useState(false)
+  const [changeError, setChangeError] = useState<string | null>(null)
 
-  const isCurrentPlan = tier === currentTier
+  const sameTier = tier === currentTier
+  // For the Scribe card specifically, "current plan" also requires the
+  // toggle to match the interval the user is actually billed on — a
+  // founding subscriber only ever matches the monthly position, since
+  // there's no founding annual price. Free has no interval concept, so
+  // sameTier alone is enough there (unchanged from before).
+  const isCurrentPlan =
+    sameTier &&
+    (tier !== 'scribe' || billingIntervalMatchesSelection(activeBillingInterval, billingPeriod))
+
+  const isLeavingFoundingPlan = activeBillingInterval === 'founding_monthly'
+
+  function runIntervalChange() {
+    setChangeError(null)
+    startTransition(async () => {
+      const res = await changeScribeBillingInterval(billingPeriod)
+      if (res?.error) {
+        setChangeError(res.error)
+        return
+      }
+      setShowForfeitConfirm(false)
+      router.refresh()
+    })
+  }
+
+  function handleIntervalChange() {
+    if (isPending) return
+    if (isLeavingFoundingPlan) {
+      setShowForfeitConfirm(true)
+      return
+    }
+    runIntervalChange()
+  }
 
   function handleUpgrade() {
     if (tier === 'free') {
@@ -191,6 +314,52 @@ function CtaButton({
       >
         Current Plan
       </button>
+    )
+  }
+
+  if (sameTier && tier === 'scribe') {
+    // Same tier, but the toggle is previewing the interval the user isn't
+    // currently billed on — an explicit, interval-specific plan change.
+    // Never routed through Checkout (would risk a second subscription) or
+    // the Portal (plan-switching support there isn't verifiable from this
+    // repo — see changeScribeBillingInterval in src/lib/actions/billing.ts).
+    const label = billingPeriod === 'annual' ? 'Change to annual' : 'Change to monthly'
+    return (
+      <>
+        <button
+          onClick={handleIntervalChange}
+          disabled={isPending}
+          className="w-full rounded-lg px-5 py-2.5 text-sm font-medium transition-all duration-150 hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rune-gold"
+          style={{
+            background: isFeatured ? 'var(--color-ink)' : 'var(--color-gold)',
+            color: isFeatured ? 'var(--color-parchment)' : 'var(--text-on-accent)',
+          }}
+        >
+          {isPending ? 'Updating…' : label}
+        </button>
+        <p
+          className="mt-2 text-center text-[11px]"
+          style={{
+            color: isFeatured
+              ? 'color-mix(in srgb, var(--text-on-accent) 60%, transparent)'
+              : 'var(--text-muted)',
+          }}
+        >
+          Applies immediately — billing is prorated automatically.
+        </p>
+        {changeError && (
+          <p className="mt-2 text-center text-xs" style={{ color: 'var(--color-crimson)' }}>
+            {changeError}
+          </p>
+        )}
+        {showForfeitConfirm && (
+          <LeaveFoundingPlanDialog
+            isPending={isPending}
+            onConfirm={runIntervalChange}
+            onCancel={() => setShowForfeitConfirm(false)}
+          />
+        )}
+      </>
     )
   }
 
@@ -286,6 +455,7 @@ function TierCard({
   isLoggedIn,
   isFeatured,
   currentPriceOverride,
+  activeBillingInterval,
 }: {
   tier: SubscriptionTier
   name: string
@@ -297,20 +467,26 @@ function TierCard({
   isLoggedIn: boolean
   isFeatured: boolean
   currentPriceOverride?: number | null
+  activeBillingInterval: ActiveBillingInterval
 }) {
   const isCurrentPlan = tier === currentTier
-  // A signed-in user's own current plan always reflects what they're actually
-  // paying (e.g. a Founding Scribe subscriber's $6.99), never the standard
-  // rate — the billing-period toggle doesn't apply to "what you already pay".
+  // A signed-in Scribe subscriber's real price (e.g. a Founding Scribe's
+  // $6.99) only applies while the toggle is actually previewing the interval
+  // they're billed on — otherwise the toggle is being used to preview the
+  // *other* interval's standard price, which must always be able to move.
+  const isPreviewingActiveInterval =
+    isCurrentPlan &&
+    (tier !== 'scribe' || billingIntervalMatchesSelection(activeBillingInterval, billingPeriod))
   const effectivePrice =
-    isCurrentPlan && currentPriceOverride != null
+    isPreviewingActiveInterval && currentPriceOverride != null
       ? currentPriceOverride
       : price
       ? billingPeriod === 'monthly'
         ? price.monthly
         : price.annualPerMonth
       : 0
-  const showAnnualNote = billingPeriod === 'annual' && price && !(isCurrentPlan && currentPriceOverride != null)
+  const showAnnualNote =
+    billingPeriod === 'annual' && price && !(isPreviewingActiveInterval && currentPriceOverride != null)
   const colors = tierTextColors(isFeatured)
   const isFree = tier === 'free'
 
@@ -414,6 +590,7 @@ function TierCard({
         isLoggedIn={isLoggedIn}
         billingPeriod={billingPeriod}
         isFeatured={isFeatured}
+        activeBillingInterval={activeBillingInterval}
       />
     </div>
   )
@@ -421,13 +598,23 @@ function TierCard({
 
 // ─── PricingTable ─────────────────────────────────────────────────────────────
 
+function initialToggleForInterval(interval: ActiveBillingInterval): 'monthly' | 'annual' {
+  // A founding subscriber is billed monthly, so both null (no subscription)
+  // and 'founding_monthly' land on the monthly position — only a real
+  // standard-annual subscriber should open on Annual.
+  return interval === 'annual' ? 'annual' : 'monthly'
+}
+
 export function PricingTable({
   currentTier = 'free',
   isLoggedIn = false,
   freeWordLimit = DEFAULT_PUBLIC_FREE_WORD_LIMIT,
   currentScribePrice = null,
+  activeBillingInterval = null,
 }: PricingTableProps) {
-  const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'annual'>('monthly')
+  const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'annual'>(() =>
+    initialToggleForInterval(activeBillingInterval)
+  )
 
   const tiers: {
     id: SubscriptionTier
@@ -485,6 +672,7 @@ export function PricingTable({
             isLoggedIn={isLoggedIn}
             isFeatured={t.featured}
             currentPriceOverride={t.id === 'scribe' ? currentScribePrice : null}
+            activeBillingInterval={activeBillingInterval}
           />
         ))}
       </div>

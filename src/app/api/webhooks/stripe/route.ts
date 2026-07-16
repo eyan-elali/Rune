@@ -142,9 +142,15 @@ export async function POST(request: NextRequest) {
         ? new Date(firstItem.current_period_end * 1000).toISOString()
         : null
 
+      // subscription_price_id must be kept current here too, not just in
+      // checkout.session.completed — otherwise any later plan change (via
+      // the Billing Portal, the Stripe Dashboard, or changeScribeBillingInterval
+      // in src/lib/actions/billing.ts) leaves the trusted price/interval
+      // derivation in settings/page.tsx reading a stale price id.
       await supabase.from('profiles').update({
         subscription_tier: tier,
         subscription_status: subscription.status,
+        subscription_price_id: priceId,
         subscription_period_end: periodEnd,
       }).eq('id', userId)
 

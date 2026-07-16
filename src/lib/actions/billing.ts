@@ -219,6 +219,104 @@ export async function createPortalSession(): Promise<{
   return { url: session.url, error: null }
 }
 
+/**
+ * Switch an active Scribe subscriber between the standard monthly and
+ * annual Prices. Deliberately a direct `stripe.subscriptions.update()`
+ * rather than the Billing Portal — this repo doesn't pass a `configuration`
+ * to `billingPortal.sessions.create()`, so whether the account's default
+ * portal config even supports plan switching is Dashboard state this code
+ * can't see or safely assume. Never accepts a raw Price ID from the client:
+ * `targetInterval` is only ever 'monthly' | 'annual' and is mapped through
+ * the trusted PRICE_IDS.scribe table below.
+ *
+ * Immediate change with Stripe's default proration (`create_prorations`):
+ * entitlement flips right away, and the prorated adjustment is applied to
+ * the customer's next invoice — there is no separate Stripe-hosted
+ * confirmation step for the user to review it first, since this bypasses
+ * the Portal/Checkout entirely.
+ */
+export async function changeScribeBillingInterval(
+  targetInterval: BillingPeriod
+): Promise<{ error: string | null }> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  const { data: profile, error: profileError } = await supabase
+    .from('profiles')
+    .select('subscription_tier, stripe_customer_id')
+    .eq('id', user.id)
+    .single()
+
+  if (profileError) return { error: profileError.message }
+  if (profile?.subscription_tier !== 'scribe') {
+    return { error: 'No active Scribe subscription found.' }
+  }
+
+  const customerId = profile.stripe_customer_id as string | null
+  if (!customerId) return { error: 'No billing account found' }
+
+  const ownership = await verifyStripeCustomerOwnership(customerId, user.id)
+  if (ownership.status === 'error') return { error: RETRYABLE_BILLING_ERROR }
+  if (ownership.status === 'replace') return { error: 'No billing account found' }
+
+  const targetPriceId = PRICE_IDS.scribe[targetInterval]
+
+  let subscriptions: Stripe.ApiList<Stripe.Subscription>
+  try {
+    subscriptions = await stripe.subscriptions.list({ customer: customerId, limit: 10 })
+  } catch {
+    return { error: RETRYABLE_BILLING_ERROR }
+  }
+
+  // Same "ignore dead subscriptions" filter used in
+  // createFoundingCheckoutSession (src/lib/actions/pricing.ts).
+  const subscription = subscriptions.data.find(
+    (s) => s.status !== 'canceled' && s.status !== 'incomplete_expired'
+  )
+  const item = subscription?.items.data[0]
+  if (!subscription || !item) return { error: 'No active Scribe subscription found.' }
+
+  if (item.price.id === targetPriceId) {
+    return { error: `You are already on the ${targetInterval} plan.` }
+  }
+
+  let updated: Stripe.Subscription
+  try {
+    updated = await stripe.subscriptions.update(subscription.id, {
+      items: [{ id: item.id, price: targetPriceId }],
+      proration_behavior: 'create_prorations',
+    })
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : RETRYABLE_BILLING_ERROR }
+  }
+
+  // Write the confirmed result immediately rather than waiting on the async
+  // customer.subscription.updated webhook — profiles' billing columns are
+  // protected from authenticated writes (migration 009), so this goes
+  // through the same service-role path as the rest of this file. Not
+  // optimistic: `updated` is Stripe's own confirmation of the change that
+  // already happened.
+  const admin = await getServiceClient()
+  if (admin) {
+    const updatedItem = updated.items.data[0]
+    await admin
+      .from('profiles')
+      .update({
+        subscription_price_id: updatedItem?.price.id ?? targetPriceId,
+        subscription_status: updated.status,
+        subscription_period_end: updatedItem?.current_period_end
+          ? new Date(updatedItem.current_period_end * 1000).toISOString()
+          : null,
+      })
+      .eq('id', user.id)
+  }
+
+  return { error: null }
+}
+
 export async function getWeeklyTicketUsage(userId: string): Promise<number> {
   const supabase = await createClient()
   const weekStart = getWeekStart()
