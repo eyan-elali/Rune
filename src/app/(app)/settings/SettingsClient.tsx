@@ -29,7 +29,7 @@ import { resolveThemeId, DEFAULT_THEME_ID } from "@/lib/themes";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type Tab = "account" | "editor" | "appearance" | "billing" | "sync" | "danger";
+type Tab = "account" | "editor" | "appearance" | "billing" | "sync" | "data";
 
 export interface SettingsClientProps {
   profile: Profile | null;
@@ -188,20 +188,26 @@ function Card({ children, danger }: { children: React.ReactNode; danger?: boolea
 
 // ─── Account Tab ──────────────────────────────────────────────────────────────
 
-function FeaturesCard() {
+function InterfaceCard() {
   const storeProfile = useProfileStore((s) => s.profile);
   const setPreferences = useProfileStore((s) => s.setPreferences);
+  const showToast = useToastStore((s) => s.showToast);
   const prefs = (storeProfile?.preferences ?? {}) as Partial<UserPreferences>;
   const hideArena = prefs.hideArena === true;
 
   async function handleToggle(value: boolean) {
+    const previous = hideArena;
     setPreferences({ hideArena: value });
-    await updatePreferences({ hideArena: value });
+    const { error } = await updatePreferences({ hideArena: value });
+    if (error) {
+      setPreferences({ hideArena: previous });
+      showToast("Couldn't save your change. Try again.", "error");
+    }
   }
 
   return (
     <Card>
-      <SectionTitle>Features</SectionTitle>
+      <SectionTitle>Interface</SectionTitle>
       <SettingRow
         label="Show Arena"
         description="Display the Arena in the sidebar and dashboard. Disable to hide game mode from the app."
@@ -292,8 +298,8 @@ function AccountTab({
       setPasswordError("Passwords do not match");
       return;
     }
-    if (newPassword.length < 6) {
-      setPasswordError("Password must be at least 6 characters");
+    if (newPassword.length < 8) {
+      setPasswordError("Password must be at least 8 characters");
       return;
     }
     setPasswordStatus("saving");
@@ -328,7 +334,6 @@ function AccountTab({
 
   return (
     <div className="flex flex-col gap-4">
-      <FeaturesCard />
       <Card>
         <SectionTitle>Identity</SectionTitle>
         <div className="mt-5 flex flex-col gap-4">
@@ -484,6 +489,7 @@ function AccountTab({
 function EditorTab() {
   const storeProfile = useProfileStore((s) => s.profile);
   const setPreferences = useProfileStore((s) => s.setPreferences);
+  const showToast = useToastStore((s) => s.showToast);
   const prefs = (storeProfile?.preferences ?? {}) as Partial<UserPreferences>;
 
   const fontSize = prefs.fontSize ?? 18;
@@ -500,15 +506,28 @@ function EditorTab() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prefs.fontSize]);
 
-  async function savePref(updates: Partial<UserPreferences>) {
+  async function savePref(updates: Partial<UserPreferences>): Promise<boolean> {
+    const previous = Object.fromEntries(
+      Object.keys(updates).map((key) => [key, (prefs as Record<string, unknown>)[key]])
+    ) as Partial<UserPreferences>;
     setPreferences(updates);
-    await updatePreferences(updates);
+    const { error } = await updatePreferences(updates);
+    if (error) {
+      setPreferences(previous);
+      showToast("Couldn't save your changes. Try again.", "error");
+      return false;
+    }
+    return true;
   }
 
   function handleFontSizeChange(val: number) {
+    const previousFontSize = fontSize;
     setLocalFontSize(val);
     clearTimeout(fontSaveTimer.current);
-    fontSaveTimer.current = setTimeout(() => savePref({ fontSize: val }), 500);
+    fontSaveTimer.current = setTimeout(async () => {
+      const ok = await savePref({ fontSize: val });
+      if (!ok) setLocalFontSize(previousFontSize);
+    }, 500);
   }
 
   return (
@@ -581,6 +600,7 @@ function AppearanceTab({ unlockedIds }: { unlockedIds: Set<string> }) {
   const storeProfile = useProfileStore((s) => s.profile);
   const setPreferences = useProfileStore((s) => s.setPreferences);
   const subscriptionTier = useProfileStore((s) => s.subscriptionTier);
+  const showToast = useToastStore((s) => s.showToast);
   const prefs = (storeProfile?.preferences ?? {}) as Partial<UserPreferences>;
 
   const activeTheme = resolveThemeId(prefs.activeTheme);
@@ -608,20 +628,35 @@ function AppearanceTab({ unlockedIds }: { unlockedIds: Set<string> }) {
 
   async function selectTheme(id: string) {
     if (!isItemUnlocked(id)) return;
+    const previous = activeTheme;
     setPreferences({ activeTheme: id });
-    await updatePreferences({ activeTheme: id });
+    const { error } = await updatePreferences({ activeTheme: id });
+    if (error) {
+      setPreferences({ activeTheme: previous });
+      showToast("Couldn't save your theme. Try again.", "error");
+    }
   }
 
   async function selectAvatar(id: string) {
     if (!isItemUnlocked(id)) return;
+    const previous = activeAvatar;
     setPreferences({ activeAvatar: id });
-    await updatePreferences({ activeAvatar: id });
+    const { error } = await updatePreferences({ activeAvatar: id });
+    if (error) {
+      setPreferences({ activeAvatar: previous });
+      showToast("Couldn't save your avatar. Try again.", "error");
+    }
   }
 
   async function selectFont(id: string) {
     if (!isItemUnlocked(id)) return;
+    const previous = activeFont;
     setPreferences({ activeFont: id });
-    await updatePreferences({ activeFont: id });
+    const { error } = await updatePreferences({ activeFont: id });
+    if (error) {
+      setPreferences({ activeFont: previous });
+      showToast("Couldn't save your font. Try again.", "error");
+    }
   }
 
   return (
@@ -830,6 +865,8 @@ function AppearanceTab({ unlockedIds }: { unlockedIds: Set<string> }) {
           })}
         </div>
       </Card>
+
+      <InterfaceCard />
 
       <Link
         href="/profile/unlockables"
@@ -1043,9 +1080,9 @@ function SyncTab() {
   );
 }
 
-// ─── Danger Zone Tab ──────────────────────────────────────────────────────────
+// ─── Data Tab ─────────────────────────────────────────────────────────────────
 
-function DangerTab() {
+function DataTab() {
   const [deleteConfirm, setDeleteConfirm] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -1296,7 +1333,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "appearance", label: "Appearance" },
   { id: "billing", label: "Billing" },
   { id: "sync", label: "Sync" },
-  { id: "danger", label: "Danger Zone" },
+  { id: "data", label: "Data" },
 ];
 
 export function SettingsClient({
@@ -1370,11 +1407,7 @@ export function SettingsClient({
                 background:
                   activeTab === tab.id ? "var(--color-gold)" : "transparent",
                 color:
-                  tab.id === "danger"
-                    ? activeTab === tab.id
-                      ? "var(--color-crimson)"
-                      : "color-mix(in srgb, var(--color-crimson) 50%, transparent)"
-                    : activeTab === tab.id
+                  activeTab === tab.id
                     ? "var(--text-on-accent)"
                     : "var(--color-mist)",
                 fontWeight: activeTab === tab.id ? 500 : 400,
@@ -1441,12 +1474,12 @@ export function SettingsClient({
       </div>
       <div
         className="mx-auto max-w-2xl"
-        id="panel-danger"
+        id="panel-data"
         role="tabpanel"
-        aria-labelledby="tab-danger"
-        hidden={activeTab !== "danger"}
+        aria-labelledby="tab-data"
+        hidden={activeTab !== "data"}
       >
-        <DangerTab />
+        <DataTab />
       </div>
     </div>
   );
