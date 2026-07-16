@@ -4,6 +4,8 @@ import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import CharacterCount from "@tiptap/extension-character-count";
+import { isHistoryTransaction } from "@tiptap/pm/history";
+import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { cn, getLocalDateString } from "@/lib/utils";
@@ -42,6 +44,16 @@ function mapDisplayStatus(dbStatus: string | null, online: boolean): DisplaySync
   if (dbStatus === 'conflict') return 'conflict'
   if (dbStatus === 'syncing') return 'syncing'
   return 'online_dirty'
+}
+
+// Mirrors @tiptap/extensions CharacterCount's default wordCounter exactly (split on
+// literal " " after textBetween, drop empty tokens). The eligibility ledger below
+// diffs word counts across transactions, so it must use the identical algorithm —
+// any drift here (e.g. a regex-based approximation) lets pasted words that this
+// count over/under-reports slip past the paste exclusion as "typed."
+function countWords(doc: ProseMirrorNode): number {
+  const text = doc.textBetween(0, doc.content.size, " ", " ")
+  return text.split(" ").filter((word) => word !== "").length
 }
 
 interface RuneEditorProps {
@@ -119,13 +131,16 @@ export default function RuneEditor({
   const isLoadingRef = useRef(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const lastSavedWordCountRef = useRef<number>(currentPage?.word_count ?? 0);
-  const pastedWordsRef = useRef(0);
+  // Net word-count delta contributed by transactions classified as directly typed
+  // (see onTransaction below). Paste, drop, and undo/redo never add to this — so
+  // it can't retroactively "absorb" pasted words on a later save or keystroke.
+  // Consumed (reduced) only when a save successfully credits XP/writing-stats.
+  const pendingEligibleWordsRef = useRef(0);
   const wordLimitBlockedRef = useRef(false);
   // Tracks live editor word count between saves so handleTextInput / handleKeyDown
   // can gate input before a character appears, not just at the next debounce cycle.
   const currentWordCountRef = useRef<number>(currentPage?.word_count ?? 0);
   const sessionId = useRef(crypto.randomUUID());
-  const lastAwardedWordCountRef = useRef<number>(currentPage?.word_count ?? 0);
   const isOnlineRef = useRef(isOnline);
   const prevIsOnlineRef = useRef(isOnline);
   const userIdRef = useRef(userId);
@@ -213,7 +228,7 @@ export default function RuneEditor({
     return () => window.removeEventListener('rune-word-limit-blocked', handleWordLimitBlocked);
   }, []);
 
-  const handleSave = useCallback(async (content: Record<string, unknown>, wordCount: number) => {
+  const handleSave = useCallback(async (content: Record<string, unknown>, wordCount: number, creditableWords: number) => {
     const page = currentPageRef.current;
     const uid = userIdRef.current;
     if (!page || !uid) return;
@@ -242,21 +257,20 @@ export default function RuneEditor({
     setIsSaving(true);
     onPageUpdatedRef.current(page.id, { content, word_count: wordCount });
 
-    if (delta > 0) {
-      const pastedDeduction = Math.min(pastedWordsRef.current, delta);
-      pastedWordsRef.current = Math.max(0, pastedWordsRef.current - pastedDeduction);
-      lastSavedWordCountRef.current = wordCount;
-      const adjustedDelta = delta - pastedDeduction;
-      if (adjustedDelta > 0) {
-        if (isOnlineRef.current) {
-          void recordWordsWritten(projectIdRef.current, adjustedDelta, page.id, getLocalDateString())
-            .catch(err => console.error('[offline] recordWordsWritten failed:', err));
-        } else {
-          // Queue a writing credit to be applied once we reconnect.
-          // The paste deduction is already factored into adjustedDelta.
-          void storeOfflineWritingCredit(projectIdRef.current, page.id, adjustedDelta)
-            .catch(err => console.error('[offline] storeOfflineWritingCredit failed:', err));
-        }
+    // Always advance to the actual current total — including on deletions/undo —
+    // so this baseline never goes stale. A baseline that only moved on growth
+    // let a later increase (e.g. a redo restoring deleted content) be measured
+    // against a too-low remembered total and misread as fresh growth.
+    lastSavedWordCountRef.current = wordCount;
+
+    if (creditableWords > 0) {
+      if (isOnlineRef.current) {
+        void recordWordsWritten(projectIdRef.current, creditableWords, page.id, getLocalDateString())
+          .catch(err => console.error('[offline] recordWordsWritten failed:', err));
+      } else {
+        // Queue a writing credit to be applied once we reconnect.
+        void storeOfflineWritingCredit(projectIdRef.current, page.id, creditableWords)
+          .catch(err => console.error('[offline] storeOfflineWritingCredit failed:', err));
       }
     }
 
@@ -339,7 +353,7 @@ export default function RuneEditor({
         return false;
       },
 
-      handlePaste: (_view, event) => {
+      handlePaste: (_view) => {
         // At the limit, block paste before any content reaches the document.
         if (subscriptionTierRef.current === 'free') {
           const otherPageWords =
@@ -349,17 +363,47 @@ export default function RuneEditor({
             return true; // block paste
           }
         }
-        // Under limit (or Scribe): track pasted word count so it can be
-        // deducted from XP / writing-stats credits. Pasted words still count
-        // toward the manuscript word total.
-        const text = event.clipboardData?.getData("text/plain") ?? "";
-        const wc = text.split(/\s+/).filter((t) => t.length >= 2).length;
-        if (wc > 0) {
-          pastedWordsRef.current += wc;
-        }
+        // Under limit (or Scribe): let the paste through. Pasted words still count
+        // toward the manuscript word total; XP/writing-stats eligibility is
+        // classified below in onTransaction from ProseMirror's own paste metadata
+        // rather than estimated here from raw clipboard text.
         return false;
       },
 
+    },
+    onTransaction({ transaction }) {
+      // Programmatic content loads (page switch, hydration, sync reconciliation,
+      // conflict resolution) all run with isLoadingRef true — never eligible.
+      if (isLoadingRef.current) return;
+      if (!transaction.docChanged) return;
+
+      const before = countWords(transaction.before);
+      const after = countWords(transaction.doc);
+      const delta = after - before;
+      if (delta === 0) return;
+
+      if (delta < 0) {
+        // Any deletion (regardless of origin) shrinks the eligible pool first —
+        // words that no longer exist in the document can't be pending-eligible.
+        pendingEligibleWordsRef.current = Math.max(0, pendingEligibleWordsRef.current + delta);
+        return;
+      }
+
+      // Paste, drag-and-drop, and undo/redo replay all land words in the
+      // manuscript but are never eligible for XP. Undo/redo is excluded because
+      // ProseMirror's history replay carries no record of whether the words it's
+      // restoring were originally typed or pasted — treating all history
+      // navigation as ineligible is the only way to guarantee redoing a paste
+      // can never grant XP.
+      const isPasteOrDrop =
+        transaction.getMeta("paste") === true ||
+        transaction.getMeta("uiEvent") === "paste" ||
+        transaction.getMeta("uiEvent") === "drop";
+      const isHistoryNav = isHistoryTransaction(transaction);
+
+      if (!isPasteOrDrop && !isHistoryNav) {
+        pendingEligibleWordsRef.current += delta;
+      }
     },
     onUpdate({ editor }) {
       if (isLoadingRef.current) return;
@@ -413,41 +457,38 @@ export default function RuneEditor({
         const wordCount =
           (editor.storage.characterCount?.words?.() as number | undefined) ?? 0;
 
-        // Snapshot paste count before handleSave consumes it, so XP can apply
-        // the same deduction independently of the writing-stats deduction.
+        // Single snapshot of the eligible-word ledger, shared by writing-stats and
+        // XP below — the only number either system uses to represent "how many
+        // typed words this cycle." Capped to the manuscript's own net growth this
+        // cycle (never awarded when the page's total didn't actually grow), same
+        // invariant the previous per-cycle deduction preserved.
         const rawDelta = wordCount - lastSavedWordCountRef.current;
-        const pastedThisCycle =
-          rawDelta > 0 ? Math.min(pastedWordsRef.current, rawDelta) : 0;
+        const eligibleWords = pendingEligibleWordsRef.current;
+        const creditableWords = rawDelta > 0 ? Math.min(eligibleWords, rawDelta) : 0;
 
-        await handleSaveRef.current(content, wordCount);
+        await handleSaveRef.current(content, wordCount, creditableWords);
 
-        // Only award XP when the save was not blocked by the word limit.
+        // Only consume the ledger and award XP when the save was not blocked by
+        // the word limit — a blocked cycle leaves it fully intact for retry.
         if (!wordLimitBlockedRef.current) {
-          const wordsThisIncrement = wordCount - lastAwardedWordCountRef.current;
-          // Always advance the XP baseline to avoid double-counting on the next
-          // save cycle, even when xpDelta is 0 (all-paste increment).
-          lastAwardedWordCountRef.current = wordCount;
-          if (wordsThisIncrement > 0) {
-            const xpDeduction = Math.min(pastedThisCycle, wordsThisIncrement);
-            const xpDelta = wordsThisIncrement - xpDeduction;
-            if (xpDelta > 0) {
-              const xpGain = xpRewardForWords(xpDelta);
-              void awardProjectXp(xpGain, { mode: "project" }, sessionId.current).then((result) => {
-                if (result.data) {
-                  setStoredProfile(result.data);
-                  if (result.data.leveledUp) {
-                    setPendingLevelUp({ newLevel: result.data.newLevel, newUnlockables: result.data.newUnlockables });
-                  } else if (result.data.newUnlockables.length > 0) {
-                    showToast(unlockToastMessage(result.data.newUnlockables), "success");
-                  }
-                  if (!isFocusModeRef.current) {
-                    setXpFlash({ id: Date.now(), amount: xpGain });
-                    clearTimeout(xpFlashTimerRef.current);
-                    xpFlashTimerRef.current = setTimeout(() => setXpFlash(null), 2200);
-                  }
+          pendingEligibleWordsRef.current = Math.max(0, pendingEligibleWordsRef.current - creditableWords);
+          if (creditableWords > 0) {
+            const xpGain = xpRewardForWords(creditableWords);
+            void awardProjectXp(xpGain, { mode: "project" }, sessionId.current).then((result) => {
+              if (result.data) {
+                setStoredProfile(result.data);
+                if (result.data.leveledUp) {
+                  setPendingLevelUp({ newLevel: result.data.newLevel, newUnlockables: result.data.newUnlockables });
+                } else if (result.data.newUnlockables.length > 0) {
+                  showToast(unlockToastMessage(result.data.newUnlockables), "success");
                 }
-              });
-            }
+                if (!isFocusModeRef.current) {
+                  setXpFlash({ id: Date.now(), amount: xpGain });
+                  clearTimeout(xpFlashTimerRef.current);
+                  xpFlashTimerRef.current = setTimeout(() => setXpFlash(null), 2200);
+                }
+              }
+            });
           }
         }
       }, Math.max(autoSaveDelayRef.current, 2500));
@@ -503,9 +544,8 @@ export default function RuneEditor({
     prevPageIdRef.current = newPageId;
     currentPageRef.current = currentPage ?? null;
     lastSavedWordCountRef.current = currentPage?.word_count ?? 0;
-    lastAwardedWordCountRef.current = currentPage?.word_count ?? 0;
     currentWordCountRef.current = currentPage?.word_count ?? 0;
-    pastedWordsRef.current = 0;
+    pendingEligibleWordsRef.current = 0;
     wordLimitBlockedRef.current = false;
 
     isLoadingRef.current = true;
@@ -514,7 +554,6 @@ export default function RuneEditor({
       (editor.storage.characterCount?.words?.() as number | undefined) ??
       currentPage?.word_count ??
       0;
-    lastAwardedWordCountRef.current = lastSavedWordCountRef.current;
     setShowingLocalDraft(false);
 
     const pageIdForDraftCheck = newPageId;
@@ -541,7 +580,6 @@ export default function RuneEditor({
               if (pending.localUpdatedAt > serverMs) {
                 editor.commands.setContent(pending.content);
                 lastSavedWordCountRef.current = pending.wordCount;
-                lastAwardedWordCountRef.current = pending.wordCount;
                 setShowingLocalDraft(true);
               }
             }
@@ -563,17 +601,6 @@ export default function RuneEditor({
 
   useEffect(() => {
     return () => {
-      // Award XP for words that were saved but whose debounce hadn't fired yet
-      // (e.g., tab closed mid-session). Deduct any unconsumed paste words so
-      // pasted content doesn't earn XP on unmount either.
-      const remaining = lastSavedWordCountRef.current - lastAwardedWordCountRef.current;
-      if (remaining > 0) {
-        const pastedDeduction = Math.min(pastedWordsRef.current, remaining);
-        const xpDelta = remaining - pastedDeduction;
-        if (xpDelta > 0) {
-          void awardProjectXp(xpRewardForWords(xpDelta), { mode: "project" }, sessionId.current);
-        }
-      }
       clearTimeout(xpFlashTimerRef.current);
 
       // Flush a still-pending debounced save before the editor is destroyed.
@@ -898,7 +925,9 @@ export default function RuneEditor({
             clearTimeout(saveTimerRef.current);
             isLoadingRef.current = false;
             lastSavedWordCountRef.current = serverWordCount;
-            lastAwardedWordCountRef.current = serverWordCount;
+            // Discard any pending eligible words from the local edits being
+            // replaced — they no longer exist in the kept (server) content.
+            pendingEligibleWordsRef.current = 0;
             onPageUpdatedRef.current(currentPage.id, {
               content: serverContent,
               word_count: serverWordCount,
