@@ -175,6 +175,15 @@ export async function deleteAccount(): Promise<ActionResult> {
     .eq("id", user.id)
     .maybeSingle();
 
+  // analytics_excluded_users cascades away with the profile below, so this
+  // is the only chance to durably record whether the account was a Pulse
+  // exclusion (founder/test) at the time of deletion — see migration 010.
+  const { data: exclusion } = await admin
+    .from("analytics_excluded_users")
+    .select("user_id")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
   await admin.from("deleted_accounts").insert({
     original_user_id: user.id,
     email: user.email ?? null,
@@ -183,6 +192,7 @@ export async function deleteAccount(): Promise<ActionResult> {
     xp: profile?.xp ?? null,
     level: profile?.level ?? null,
     subscription_tier: profile?.subscription_tier ?? null,
+    was_excluded_account: Boolean(exclusion),
   });
 
   const { error } = await admin.auth.admin.deleteUser(user.id);

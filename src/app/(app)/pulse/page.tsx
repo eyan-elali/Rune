@@ -7,12 +7,14 @@ import {
   getHeartbeat,
   getOnboardingInsights,
   getWriterProgress,
+  listExcludedUsers,
   listFounderNotes,
   searchRecentWriters,
 } from "@/lib/actions/pulse";
 import type { PulseTimeRange } from "@/lib/actions/pulse";
 import { PulseDrawerProvider } from "@/components/pulse/PulseDrawer";
 import { TimeRangeSelector } from "@/components/pulse/TimeRangeSelector";
+import { IncludeInternalToggle } from "@/components/pulse/IncludeInternalToggle";
 import { DailyBrief } from "@/components/pulse/sections/DailyBrief";
 import { Heartbeat } from "@/components/pulse/sections/Heartbeat";
 import { ActivationFunnel } from "@/components/pulse/sections/ActivationFunnel";
@@ -21,6 +23,7 @@ import { WriterProgress } from "@/components/pulse/sections/WriterProgress";
 import { CampaignPerformance } from "@/components/pulse/sections/CampaignPerformance";
 import { RecentWriters } from "@/components/pulse/sections/RecentWriters";
 import { OpenQuestions } from "@/components/pulse/sections/OpenQuestions";
+import { InternalAccounts } from "@/components/pulse/sections/InternalAccounts";
 
 function normalizeRange(value: string | undefined): PulseTimeRange {
   if (value === "7d" || value === "30d" || value === "90d" || value === "all") return value;
@@ -28,14 +31,15 @@ function normalizeRange(value: string | undefined): PulseTimeRange {
 }
 
 interface PulsePageProps {
-  searchParams: Promise<{ range?: string }>;
+  searchParams: Promise<{ range?: string; internal?: string }>;
 }
 
 export default async function PulsePage({ searchParams }: PulsePageProps) {
   await requireAdmin();
 
-  const { range: rawRange } = await searchParams;
+  const { range: rawRange, internal } = await searchParams;
   const range = normalizeRange(rawRange);
+  const includeInternal = internal === "1";
 
   const [
     dailyBrief,
@@ -47,20 +51,22 @@ export default async function PulsePage({ searchParams }: PulsePageProps) {
     campaigns,
     recentWriters,
     notes,
+    excludedUsers,
   ] = await Promise.all([
-    getDailyBrief(),
-    getHeartbeat(range),
-    getActivationFunnel(range),
+    getDailyBrief(includeInternal),
+    getHeartbeat(range, includeInternal),
+    getActivationFunnel(range, includeInternal),
     getActivationTrackingStartDate(),
-    getOnboardingInsights(range),
-    getWriterProgress(range),
-    getCampaignPerformance(range),
-    searchRecentWriters("", range),
+    getOnboardingInsights(range, includeInternal),
+    getWriterProgress(range, includeInternal),
+    getCampaignPerformance(range, includeInternal),
+    searchRecentWriters("", range, includeInternal),
     listFounderNotes(),
+    listExcludedUsers(),
   ]);
 
   return (
-    <PulseDrawerProvider range={range}>
+    <PulseDrawerProvider range={range} includeInternal={includeInternal}>
       <div className="mx-auto max-w-7xl px-8 py-10">
         {/* Header */}
         <div className="mb-8 flex items-center justify-between">
@@ -75,7 +81,10 @@ export default async function PulsePage({ searchParams }: PulsePageProps) {
               What happened, where writers are leaving, and what to work on next.
             </p>
           </div>
-          <TimeRangeSelector range={range} />
+          <div className="flex items-center gap-3">
+            <IncludeInternalToggle includeInternal={includeInternal} />
+            <TimeRangeSelector range={range} />
+          </div>
         </div>
 
         {/* Daily Brief */}
@@ -106,6 +115,11 @@ export default async function PulsePage({ searchParams }: PulsePageProps) {
         <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-[3fr_2fr]">
           <RecentWriters initialWriters={recentWriters} />
           <OpenQuestions initialNotes={notes} />
+        </div>
+
+        {/* Internal Accounts */}
+        <div className="mt-5">
+          <InternalAccounts initialUsers={excludedUsers} />
         </div>
       </div>
     </PulseDrawerProvider>

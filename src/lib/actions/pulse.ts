@@ -45,6 +45,37 @@ async function requireAdminService(): Promise<ServiceClient> {
   return client;
 }
 
+// ── Internal-account exclusion ───────────────────────────────────────────
+// Founder/test accounts recorded in analytics_excluded_users keep firing
+// (and storing) normal analytics_events rows — this never touches the write
+// path. It only changes what Pulse's read queries count by default, via one
+// canonical set fetched once per call and applied at every query that would
+// otherwise leak an excluded account into a metric. `includeInternal` is a
+// per-request debug override (never persisted) — see IncludeInternalToggle.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+async function getExcludedUserIds(
+  client: ServiceClient,
+  includeInternal: boolean
+): Promise<Set<string>> {
+  if (includeInternal) return new Set();
+  const { data } = await client.from("analytics_excluded_users").select("user_id");
+  return new Set((data ?? []).map((r) => r.user_id as string));
+}
+
+// A Postgrest "not in (...)" filter value for the given excluded ids, or
+// null when there's nothing to exclude (callers skip the .not() call
+// entirely in that case). Values are validated as UUIDs before being
+// interpolated — analytics_excluded_users is service-role-managed only, but
+// this keeps the query safe even against a malformed row rather than
+// trusting the shape.
+function excludedIdsFilter(excluded: Set<string>): string | null {
+  if (excluded.size === 0) return null;
+  const ids = Array.from(excluded).filter((id) => UUID_RE.test(id));
+  if (ids.length === 0) return null;
+  return `(${ids.join(",")})`;
+}
+
 function rangeSince(range: PulseTimeRange): string | null {
   if (range === "all") return null;
   const days = range === "7d" ? 7 : range === "30d" ? 30 : 90;
@@ -69,11 +100,14 @@ function yesterdayBoundsUtc(): { since: string; until: string; label: string } {
 async function countProfilesInWindow(
   client: ServiceClient,
   since: string | null,
-  until: string | null
+  until: string | null,
+  excluded: Set<string>
 ): Promise<number> {
   let q = client.from("profiles").select("id", { count: "exact", head: true });
   if (since) q = q.gte("created_at", since);
   if (until) q = q.lt("created_at", until);
+  const notIn = excludedIdsFilter(excluded);
+  if (notIn) q = q.not("id", "in", notIn);
   const { count } = await q;
   return count ?? 0;
 }
@@ -82,11 +116,14 @@ async function countDistinctUsersForEvent(
   client: ServiceClient,
   eventName: AnalyticsEventName,
   since: string | null,
-  until: string | null = null
+  until: string | null,
+  excluded: Set<string>
 ): Promise<number> {
   let q = client.from("analytics_events").select("user_id").eq("event_name", eventName);
   if (since) q = q.gte("created_at", since);
   if (until) q = q.lt("created_at", until);
+  const notIn = excludedIdsFilter(excluded);
+  if (notIn) q = q.not("user_id", "in", notIn);
   const { data } = await q;
   return new Set((data ?? []).map((r) => r.user_id).filter(Boolean)).size;
 }
@@ -102,11 +139,14 @@ async function getUserIdsForEventInRange(
   client: ServiceClient,
   eventName: AnalyticsEventName,
   since: string | null,
-  until: string | null = null
+  until: string | null,
+  excluded: Set<string>
 ): Promise<string[]> {
   let q = client.from("analytics_events").select("user_id").eq("event_name", eventName);
   if (since) q = q.gte("created_at", since);
   if (until) q = q.lt("created_at", until);
+  const notIn = excludedIdsFilter(excluded);
+  if (notIn) q = q.not("user_id", "in", notIn);
   const { data } = await q;
   return Array.from(new Set((data ?? []).map((r) => r.user_id as string).filter(Boolean)));
 }
@@ -130,6 +170,18 @@ async function countCohortUsersForEvent(
 }
 
 // ── Daily Brief ──────────────────────────────────────────────────────────
+//
+// KNOWN LIMITATION — subscription_started (used here and in Heartbeat/
+// Campaign Performance as the only subscription/revenue proxy Pulse has) is
+// fired by the Stripe webhook (src/app/api/webhooks/stripe/route.ts) without
+// recording Stripe's `livemode` flag anywhere — subscription_events.payload
+// doesn't capture it either. Pulse cannot today distinguish a real
+// subscription from one created against Stripe's test/sandbox mode; do not
+// present this count as verified live revenue. The only current mitigation
+// is analytics_excluded_users: every controlled Stripe sandbox/test account
+// MUST be added there, since user-level exclusion filters its
+// subscription_started events regardless of livemode. If a real revenue/MRR
+// metric is added later, capture and check `livemode` at that time.
 
 export interface DailyBrief {
   label: string;
@@ -145,22 +197,23 @@ export interface DailyBrief {
   activationCohortSize: number;
 }
 
-export async function getDailyBrief(): Promise<DailyBrief> {
+export async function getDailyBrief(includeInternal = false): Promise<DailyBrief> {
   const client = await requireAdminService();
   const { since, until, label } = yesterdayBoundsUtc();
+  const excluded = await getExcludedUserIds(client, includeInternal);
 
   const [signups, onboardingCompletions, firstSaves, secondWritingDays, subscriptions, funnel] =
     await Promise.all([
-      countProfilesInWindow(client, since, until),
-      countDistinctUsersForEvent(client, "onboarding_completed", since, until),
-      countDistinctUsersForEvent(client, "first_save", since, until),
-      countDistinctUsersForEvent(client, "second_writing_day", since, until),
-      countDistinctUsersForEvent(client, "subscription_started", since, until),
+      countProfilesInWindow(client, since, until, excluded),
+      countDistinctUsersForEvent(client, "onboarding_completed", since, until, excluded),
+      countDistinctUsersForEvent(client, "first_save", since, until, excluded),
+      countDistinctUsersForEvent(client, "second_writing_day", since, until, excluded),
+      countDistinctUsersForEvent(client, "subscription_started", since, until, excluded),
       // The drop-off insight uses a trailing 30-day funnel rather than a
       // single day — one day of raw counts is too small a sample to name a
       // reliable bottleneck, and the brief is meant to describe the current
       // state of the funnel, not just what happened in the last 24 hours.
-      getActivationFunnelInternal(client, rangeSince("30d"), null),
+      getActivationFunnelInternal(client, rangeSince("30d"), null, excluded),
     ]);
 
   return {
@@ -176,6 +229,8 @@ export async function getDailyBrief(): Promise<DailyBrief> {
 }
 
 // ── Heartbeat ────────────────────────────────────────────────────────────
+// `subscribers` is subscription_started — see the sandbox/live limitation
+// noted above DailyBrief.
 
 export interface HeartbeatMetrics {
   signups: number;
@@ -184,15 +239,19 @@ export interface HeartbeatMetrics {
   subscribers: number;
 }
 
-export async function getHeartbeat(range: PulseTimeRange): Promise<HeartbeatMetrics> {
+export async function getHeartbeat(
+  range: PulseTimeRange,
+  includeInternal = false
+): Promise<HeartbeatMetrics> {
   const client = await requireAdminService();
   const since = rangeSince(range);
+  const excluded = await getExcludedUserIds(client, includeInternal);
 
   const [signups, firstSaves, secondWritingDays, subscribers] = await Promise.all([
-    countProfilesInWindow(client, since, null),
-    countDistinctUsersForEvent(client, "first_save", since),
-    countDistinctUsersForEvent(client, "second_writing_day", since),
-    countDistinctUsersForEvent(client, "subscription_started", since),
+    countProfilesInWindow(client, since, null, excluded),
+    countDistinctUsersForEvent(client, "first_save", since, null, excluded),
+    countDistinctUsersForEvent(client, "second_writing_day", since, null, excluded),
+    countDistinctUsersForEvent(client, "subscription_started", since, null, excluded),
   ]);
 
   return { signups, firstSaves, secondWritingDays, subscribers };
@@ -248,9 +307,10 @@ const FUNNEL_DEFS: { key: string; label: string; eventName: AnalyticsEventName }
 async function getActivationFunnelInternal(
   client: ServiceClient,
   since: string | null,
-  until: string | null
+  until: string | null,
+  excluded: Set<string>
 ): Promise<FunnelResult> {
-  const cohort = await getUserIdsForEventInRange(client, "signup_completed", since, until);
+  const cohort = await getUserIdsForEventInRange(client, "signup_completed", since, until, excluded);
   const cohortSize = cohort.length;
 
   if (cohortSize === 0) {
@@ -300,9 +360,13 @@ async function getActivationFunnelInternal(
   return { steps, bottleneck, cohortSize };
 }
 
-export async function getActivationFunnel(range: PulseTimeRange): Promise<FunnelResult> {
+export async function getActivationFunnel(
+  range: PulseTimeRange,
+  includeInternal = false
+): Promise<FunnelResult> {
   const client = await requireAdminService();
-  return getActivationFunnelInternal(client, rangeSince(range), null);
+  const excluded = await getExcludedUserIds(client, includeInternal);
+  return getActivationFunnelInternal(client, rangeSince(range), null, excluded);
 }
 
 // Drilldown for a single funnel stage — must return exactly the members
@@ -311,14 +375,16 @@ export async function getActivationFunnel(range: PulseTimeRange): Promise<Funnel
 // matches the number they clicked.
 export async function getActivationFunnelDrilldownUsers(
   stepKey: string,
-  range: PulseTimeRange
+  range: PulseTimeRange,
+  includeInternal = false
 ): Promise<DrilldownUser[]> {
   const client = await requireAdminService();
   const since = rangeSince(range);
   const def = FUNNEL_DEFS.find((d) => d.key === stepKey);
   if (!def) return [];
 
-  const cohort = await getUserIdsForEventInRange(client, "signup_completed", since, null);
+  const excluded = await getExcludedUserIds(client, includeInternal);
+  const cohort = await getUserIdsForEventInRange(client, "signup_completed", since, null, excluded);
   if (cohort.length === 0) return [];
 
   let q = client
@@ -390,14 +456,20 @@ function hasOnboardingInsightsMetadata(
   return typeof m.firstSentenceSkipped === "boolean" && typeof m.letterWritten === "boolean";
 }
 
-export async function getOnboardingInsights(range: PulseTimeRange): Promise<OnboardingInsights> {
+export async function getOnboardingInsights(
+  range: PulseTimeRange,
+  includeInternal = false
+): Promise<OnboardingInsights> {
   const client = await requireAdminService();
   const since = rangeSince(range);
+  const excluded = await getExcludedUserIds(client, includeInternal);
 
   // Single query: metadata is only ever selected for onboarding_completed
   // rows already scoped to the requested range, never scanned table-wide.
   let q = client.from("analytics_events").select("metadata").eq("event_name", "onboarding_completed");
   if (since) q = q.gte("created_at", since);
+  const notIn = excludedIdsFilter(excluded);
+  if (notIn) q = q.not("user_id", "in", notIn);
   const { data } = await q;
   const rows = data ?? [];
 
@@ -446,18 +518,24 @@ const WORD_MILESTONES: { threshold: number; eventName: AnalyticsEventName }[] = 
   { threshold: 15000, eventName: "reached_15000_words" },
 ];
 
-export async function getWriterProgress(range: PulseTimeRange): Promise<WriterProgressItem[]> {
+export async function getWriterProgress(
+  range: PulseTimeRange,
+  includeInternal = false
+): Promise<WriterProgressItem[]> {
   const client = await requireAdminService();
   const since = rangeSince(range);
+  const excluded = await getExcludedUserIds(client, includeInternal);
 
   const counts = await Promise.all(
-    WORD_MILESTONES.map((m) => countDistinctUsersForEvent(client, m.eventName, since))
+    WORD_MILESTONES.map((m) => countDistinctUsersForEvent(client, m.eventName, since, null, excluded))
   );
 
   return WORD_MILESTONES.map((m, i) => ({ ...m, count: counts[i] }));
 }
 
 // ── Campaign Performance ─────────────────────────────────────────────────
+// `subscribers` is subscription_started — see the sandbox/live limitation
+// noted above DailyBrief.
 
 export interface CampaignRow {
   campaign: string;
@@ -471,14 +549,15 @@ const UNATTRIBUTED_LABEL = "Direct / Unattributed";
 
 async function getCampaignCohort(
   client: ServiceClient,
-  range: PulseTimeRange
+  range: PulseTimeRange,
+  excluded: Set<string>
 ): Promise<{ userIds: string[]; campaignByUser: Map<string, string> }> {
   const since = rangeSince(range);
   // Cohort-consistent with the activation funnel: a campaign's signups are
   // users with a tracked signup_completed event in range, not every profile
   // created in range. A historically attributed user with no tracked signup
   // event is correctly absent here — their journey can't be reconstructed.
-  const userIds = await getUserIdsForEventInRange(client, "signup_completed", since, null);
+  const userIds = await getUserIdsForEventInRange(client, "signup_completed", since, null, excluded);
 
   const campaignByUser = new Map<string, string>();
   if (userIds.length > 0) {
@@ -495,9 +574,13 @@ async function getCampaignCohort(
   return { userIds, campaignByUser };
 }
 
-export async function getCampaignPerformance(range: PulseTimeRange): Promise<CampaignRow[]> {
+export async function getCampaignPerformance(
+  range: PulseTimeRange,
+  includeInternal = false
+): Promise<CampaignRow[]> {
   const client = await requireAdminService();
-  const { userIds, campaignByUser } = await getCampaignCohort(client, range);
+  const excluded = await getExcludedUserIds(client, includeInternal);
+  const { userIds, campaignByUser } = await getCampaignCohort(client, range, excluded);
   if (userIds.length === 0) return [];
 
   // Downstream conversion is checked across all time, not bounded to the
@@ -537,10 +620,12 @@ export async function getCampaignPerformance(range: PulseTimeRange): Promise<Cam
 export async function getCampaignDrilldownUsers(
   campaign: string,
   metric: "signups" | "firstSaves" | "secondWritingDays" | "subscribers",
-  range: PulseTimeRange
+  range: PulseTimeRange,
+  includeInternal = false
 ): Promise<DrilldownUser[]> {
   const client = await requireAdminService();
-  const { userIds, campaignByUser } = await getCampaignCohort(client, range);
+  const excluded = await getExcludedUserIds(client, includeInternal);
+  const { userIds, campaignByUser } = await getCampaignCohort(client, range, excluded);
   const cohort = userIds.filter((id) => (campaignByUser.get(id) ?? UNATTRIBUTED_LABEL) === campaign);
   if (cohort.length === 0) return [];
 
@@ -605,10 +690,13 @@ export type DrilldownKind = "signups" | AnalyticsEventName;
 
 export async function getDrilldownUsers(
   kind: DrilldownKind,
-  range: PulseTimeRange
+  range: PulseTimeRange,
+  includeInternal = false
 ): Promise<DrilldownUser[]> {
   const client = await requireAdminService();
   const since = rangeSince(range);
+  const excluded = await getExcludedUserIds(client, includeInternal);
+  const notIn = excludedIdsFilter(excluded);
 
   if (kind === "signups") {
     let q = client
@@ -617,6 +705,7 @@ export async function getDrilldownUsers(
       .order("created_at", { ascending: false })
       .limit(200);
     if (since) q = q.gte("created_at", since);
+    if (notIn) q = q.not("id", "in", notIn);
     const { data } = await q;
     return (data ?? []).map((p) => ({
       id: p.id as string,
@@ -634,6 +723,7 @@ export async function getDrilldownUsers(
     .order("created_at", { ascending: false })
     .limit(500);
   if (since) q = q.gte("created_at", since);
+  if (notIn) q = q.not("user_id", "in", notIn);
   const { data } = await q;
 
   const eventAtByUser = new Map<string, string>();
@@ -659,10 +749,13 @@ export interface WriterSummary {
 
 export async function searchRecentWriters(
   query: string,
-  range: PulseTimeRange
+  range: PulseTimeRange,
+  includeInternal = false
 ): Promise<WriterSummary[]> {
   const client = await requireAdminService();
   const since = rangeSince(range);
+  const excluded = await getExcludedUserIds(client, includeInternal);
+  const notIn = excludedIdsFilter(excluded);
 
   let q = client
     .from("profiles")
@@ -670,6 +763,7 @@ export async function searchRecentWriters(
     .order("created_at", { ascending: false })
     .limit(50);
   if (since) q = q.gte("created_at", since);
+  if (notIn) q = q.not("id", "in", notIn);
 
   const term = query.trim();
   if (term) {
@@ -809,6 +903,85 @@ export async function createFounderNote(content: string): Promise<{ error: strin
 export async function deleteFounderNote(id: string): Promise<{ error: string | null }> {
   const client = await requireAdminService();
   const { error } = await client.from("founder_notes").delete().eq("id", id);
+  if (error) return { error: error.message };
+  revalidatePath("/pulse");
+  return { error: null };
+}
+
+// ── Internal Accounts: manage Pulse's founder/test exclusion list ────────
+// Minimal admin CRUD over analytics_excluded_users. Deliberately add-by-
+// exact-UUID only — no search/browse UI for picking accounts to exclude, to
+// keep this a narrow allowlist tool rather than a user-management surface.
+
+export interface ExcludedUser {
+  userId: string;
+  displayName: string | null;
+  username: string | null;
+  reason: string | null;
+  createdAt: string;
+}
+
+export async function listExcludedUsers(): Promise<ExcludedUser[]> {
+  const client = await requireAdminService();
+  const { data: rows } = await client
+    .from("analytics_excluded_users")
+    .select("user_id, reason, created_at")
+    .order("created_at", { ascending: false });
+  if (!rows || rows.length === 0) return [];
+
+  const ids = rows.map((r) => r.user_id as string);
+  const { data: profiles } = await client
+    .from("profiles")
+    .select("id, display_name, username")
+    .in("id", ids);
+  const profileById = new Map((profiles ?? []).map((p) => [p.id as string, p]));
+
+  return rows.map((r) => {
+    const p = profileById.get(r.user_id as string);
+    return {
+      userId: r.user_id as string,
+      displayName: (p?.display_name as string | null) ?? null,
+      username: (p?.username as string | null) ?? null,
+      reason: r.reason as string | null,
+      createdAt: r.created_at as string,
+    };
+  });
+}
+
+export async function addExcludedUser(
+  userId: string,
+  reason: string
+): Promise<{ error: string | null }> {
+  const admin = await getCurrentAdmin();
+  if (!admin) return { error: "Not authorized" };
+
+  const trimmedId = userId.trim();
+  if (!UUID_RE.test(trimmedId)) return { error: "Enter a valid user UUID." };
+
+  const client = await getServiceClient();
+  if (!client) return { error: "Pulse is not configured (missing SUPABASE_SERVICE_ROLE_KEY)." };
+
+  const { data: profile } = await client
+    .from("profiles")
+    .select("id")
+    .eq("id", trimmedId)
+    .maybeSingle();
+  if (!profile) return { error: "No account exists with that ID." };
+
+  const { error } = await client.from("analytics_excluded_users").upsert({
+    user_id: trimmedId,
+    reason: reason.trim() || null,
+    created_by: admin.id,
+  });
+
+  if (error) return { error: error.message };
+  revalidatePath("/pulse");
+  return { error: null };
+}
+
+export async function removeExcludedUser(userId: string): Promise<{ error: string | null }> {
+  const client = await requireAdminService();
+  const { error } = await client.from("analytics_excluded_users").delete().eq("user_id", userId);
   if (error) return { error: error.message };
   revalidatePath("/pulse");
   return { error: null };

@@ -460,15 +460,21 @@ create policy "future_letters: delete own"
 -- touch this table. Records persist forever after the originating auth user
 -- is deleted. Use the Supabase Table Editor (service role) to view them.
 create table if not exists public.deleted_accounts (
-  id                uuid        primary key default gen_random_uuid(),
-  original_user_id  uuid        not null,
-  email             text,
-  username          text,
-  display_name      text,
-  xp                integer,
-  level             integer,
-  subscription_tier text,
-  deleted_at        timestamptz not null default now()
+  id                    uuid        primary key default gen_random_uuid(),
+  original_user_id      uuid        not null,
+  email                 text,
+  username              text,
+  display_name          text,
+  xp                    integer,
+  level                 integer,
+  subscription_tier     text,
+  -- Captured at deletion time from analytics_excluded_users, which cascades
+  -- away with the profile — this is the only durable record of exclusion
+  -- status once that row is gone. Not personal data; a plain boolean. See
+  -- migration 010. No Pulse metric reads this yet (no account-deletion
+  -- metric exists today), but a future one can filter on it correctly.
+  was_excluded_account  boolean     not null default false,
+  deleted_at            timestamptz not null default now()
 );
 
 alter table public.deleted_accounts enable row level security;
@@ -487,6 +493,10 @@ alter table public.deleted_accounts enable row level security;
 --   deleted_at        timestamptz not null default now()
 -- );
 -- alter table public.deleted_accounts enable row level security;
+
+-- ── Migration: was_excluded_account on deleted_accounts (run once on existing databases) ─
+-- alter table public.deleted_accounts
+--   add column if not exists was_excluded_account boolean not null default false;
 
 -- ── analytics_events ─────────────────────────────────────────────────
 -- First-party product analytics. RLS is enabled but no user-facing policies
@@ -607,6 +617,31 @@ alter table public.founder_notes enable row level security;
 --   updated_at timestamptz not null default now()
 -- );
 -- alter table public.founder_notes enable row level security;
+
+-- ── analytics_excluded_users ─────────────────────────────────────────
+-- Founder/test-account exclusion for Pulse. Pure allowlist of accounts whose
+-- analytics_events rows remain stored but are filtered out of Pulse's default
+-- aggregate metrics — see getExcludedUserIds() in src/lib/actions/pulse.ts.
+-- Same zero-policy RLS pattern as analytics_events/deleted_accounts/
+-- founder_notes. Added by migration 010.
+create table if not exists public.analytics_excluded_users (
+  user_id    uuid        primary key references public.profiles (id) on delete cascade,
+  reason     text,
+  created_by uuid        references public.profiles (id) on delete set null,
+  created_at timestamptz not null default now()
+);
+
+alter table public.analytics_excluded_users enable row level security;
+-- No policies — only the service-role key (never exposed to clients) can access.
+
+-- ── Migration: add analytics_excluded_users (run once on existing databases) ─
+-- create table if not exists public.analytics_excluded_users (
+--   user_id    uuid        primary key references public.profiles (id) on delete cascade,
+--   reason     text,
+--   created_by uuid        references public.profiles (id) on delete set null,
+--   created_at timestamptz not null default now()
+-- );
+-- alter table public.analytics_excluded_users enable row level security;
 
 -- ── user_pricing_entitlements ────────────────────────────────────────
 -- Trusted, server-only pricing/word-limit entitlement. Deliberately a

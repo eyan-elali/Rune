@@ -30,6 +30,7 @@ type DrawerState =
 
 interface PulseDrawerContextValue {
   range: PulseTimeRange;
+  includeInternal: boolean;
   openDrilldown: (kind: DrilldownKind, title: string) => void;
   openFunnelDrilldown: (stepKey: string, title: string) => void;
   openCampaignDrilldown: (campaign: string, metric: CampaignMetric, title: string) => void;
@@ -94,9 +95,11 @@ function eventLabel(name: string): string {
 
 export function PulseDrawerProvider({
   range,
+  includeInternal,
   children,
 }: {
   range: PulseTimeRange;
+  includeInternal: boolean;
   children: ReactNode;
 }) {
   const [state, setState] = useState<DrawerState>({ mode: "closed" });
@@ -106,11 +109,11 @@ export function PulseDrawerProvider({
   const openDrilldown = useCallback(
     (kind: DrilldownKind, title: string) => {
       setState({ mode: "list", title, loading: true, users: [] });
-      getDrilldownUsers(kind, range)
+      getDrilldownUsers(kind, range, includeInternal)
         .then((users) => setState({ mode: "list", title, loading: false, users }))
         .catch(() => setState({ mode: "list", title, loading: false, users: [] }));
     },
-    [range]
+    [range, includeInternal]
   );
 
   // Distinct from openDrilldown: the funnel's counts are cohort-consistent
@@ -120,21 +123,21 @@ export function PulseDrawerProvider({
   const openFunnelDrilldown = useCallback(
     (stepKey: string, title: string) => {
       setState({ mode: "list", title, loading: true, users: [] });
-      getActivationFunnelDrilldownUsers(stepKey, range)
+      getActivationFunnelDrilldownUsers(stepKey, range, includeInternal)
         .then((users) => setState({ mode: "list", title, loading: false, users }))
         .catch(() => setState({ mode: "list", title, loading: false, users: [] }));
     },
-    [range]
+    [range, includeInternal]
   );
 
   const openCampaignDrilldown = useCallback(
     (campaign: string, metric: CampaignMetric, title: string) => {
       setState({ mode: "list", title, loading: true, users: [] });
-      getCampaignDrilldownUsers(campaign, metric, range)
+      getCampaignDrilldownUsers(campaign, metric, range, includeInternal)
         .then((users) => setState({ mode: "list", title, loading: false, users }))
         .catch(() => setState({ mode: "list", title, loading: false, users: [] }));
     },
-    [range]
+    [range, includeInternal]
   );
 
   const openUser = useCallback(
@@ -182,7 +185,7 @@ export function PulseDrawerProvider({
 
   return (
     <PulseDrawerContext.Provider
-      value={{ range, openDrilldown, openFunnelDrilldown, openCampaignDrilldown, openUser }}
+      value={{ range, includeInternal, openDrilldown, openFunnelDrilldown, openCampaignDrilldown, openUser }}
     >
       {children}
 

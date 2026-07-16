@@ -11,7 +11,7 @@ function fmtDate(iso: string): string {
 }
 
 export function RecentWriters({ initialWriters }: { initialWriters: WriterSummary[] }) {
-  const { range, openUser } = usePulseDrawer();
+  const { range, includeInternal, openUser } = usePulseDrawer();
   const [query, setQuery] = useState("");
   const [searchResults, setSearchResults] = useState<WriterSummary[] | null>(null);
   const [loading, setLoading] = useState(false);
@@ -27,7 +27,7 @@ export function RecentWriters({ initialWriters }: { initialWriters: WriterSummar
     let cancelled = false;
     const t = setTimeout(() => {
       setLoading(true);
-      searchRecentWriters(trimmedQuery, range)
+      searchRecentWriters(trimmedQuery, range, includeInternal)
         .then((results) => {
           if (!cancelled) setSearchResults(results);
         })
@@ -39,7 +39,7 @@ export function RecentWriters({ initialWriters }: { initialWriters: WriterSummar
       cancelled = true;
       clearTimeout(t);
     };
-  }, [trimmedQuery, range]);
+  }, [trimmedQuery, range, includeInternal]);
 
   return (
     <PulseCard className="flex flex-col p-6">
