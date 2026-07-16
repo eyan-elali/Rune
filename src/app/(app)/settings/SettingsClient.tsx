@@ -1212,60 +1212,63 @@ function BillingTab({
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Current plan card */}
-      <Card>
-        <SectionTitle>Current plan</SectionTitle>
+      {/* Current plan card — matches the standard Settings content width */}
+      <div className="mx-auto w-full max-w-2xl">
+        <Card>
+          <SectionTitle>Current plan</SectionTitle>
 
-        {status === "past_due" && (
-          <div
-            className="mt-4 rounded-lg px-4 py-3 text-sm"
-            role="alert"
-            style={{
-              background: "color-mix(in srgb, var(--color-crimson) 10%, transparent)",
-              border: "1px solid color-mix(in srgb, var(--color-crimson) 30%, transparent)",
-              color: "var(--color-crimson)",
-            }}
-          >
-            Your last payment failed. Update your payment method to keep access.
-          </div>
-        )}
-
-        <div className="mt-5 flex items-center justify-between">
-          <div>
-            <p className="font-rune-serif text-2xl" style={{ color: "var(--color-gold)" }}>
-              {tierLabels[subscriptionTier]}
-            </p>
-            <div className="mt-1 flex items-center gap-2">
-              <span
-                className="inline-block h-1.5 w-1.5 rounded-full"
-                style={{ background: statusColors[status] ?? "var(--color-mist)" }}
-                aria-hidden
-              />
-              <p className="text-xs capitalize" style={{ color: statusColors[status] ?? "var(--color-mist)" }}>
-                {status}
-              </p>
+          {status === "past_due" && (
+            <div
+              className="mt-4 rounded-lg px-4 py-3 text-sm"
+              role="alert"
+              style={{
+                background: "color-mix(in srgb, var(--color-crimson) 10%, transparent)",
+                border: "1px solid color-mix(in srgb, var(--color-crimson) 30%, transparent)",
+                color: "var(--color-crimson)",
+              }}
+            >
+              Your last payment failed. Update your payment method to keep access.
             </div>
-            {periodEnd && subscriptionTier !== "free" && (
-              <p className="mt-1 text-xs" style={{ color: "var(--color-mist)" }}>
-                Next billing date: {periodEnd}
+          )}
+
+          <div className="mt-5 flex items-center justify-between">
+            <div>
+              <p className="font-rune-serif text-2xl" style={{ color: "var(--color-gold)" }}>
+                {tierLabels[subscriptionTier]}
               </p>
+              <div className="mt-1 flex items-center gap-2">
+                <span
+                  className="inline-block h-1.5 w-1.5 rounded-full"
+                  style={{ background: statusColors[status] ?? "var(--color-mist)" }}
+                  aria-hidden
+                />
+                <p className="text-xs capitalize" style={{ color: statusColors[status] ?? "var(--color-mist)" }}>
+                  {status}
+                </p>
+              </div>
+              {periodEnd && subscriptionTier !== "free" && (
+                <p className="mt-1 text-xs" style={{ color: "var(--color-mist)" }}>
+                  Next billing date: {periodEnd}
+                </p>
+              )}
+            </div>
+
+            {subscriptionTier !== "free" && (
+              <Button
+                variant="ghost"
+                onClick={handleManageSubscription}
+                loading={isPending}
+              >
+                Manage Subscription
+              </Button>
             )}
           </div>
+        </Card>
+      </div>
 
-          {subscriptionTier !== "free" && (
-            <Button
-              variant="ghost"
-              onClick={handleManageSubscription}
-              loading={isPending}
-            >
-              Manage Subscription
-            </Button>
-          )}
-        </div>
-      </Card>
-
-      {/* Pricing table */}
-      <div>
+      {/* Pricing table — the one section allowed a wider inner region;
+          bounded independently so it never widens the Settings shell itself. */}
+      <div className="mx-auto w-full max-w-4xl">
         <p className="mb-6 text-xs uppercase tracking-widest" style={{ color: "var(--color-mist)" }}>
           Plans
         </p>
@@ -1324,62 +1327,64 @@ export function SettingsClient({
   }, []);
 
   return (
-    <div
-      className={cn(
-        "mx-auto px-8 py-12",
-        activeTab === "billing" ? "max-w-6xl" : "max-w-2xl"
-      )}
-    >
-      <h1
-        className="!mb-8 font-rune-serif text-4xl"
-        style={{ color: "var(--text-primary)" }}
-      >
-        Settings
-      </h1>
+    <div className="mx-auto max-w-6xl px-8 py-12">
+      {/* Heading + tab bar always render at the standard Settings content
+          width, regardless of which panel is active below — the outer
+          shell's max-width is constant so tabs never shift it. */}
+      <div className="mx-auto max-w-2xl">
+        <h1
+          className="!mb-8 font-rune-serif text-4xl"
+          style={{ color: "var(--text-primary)" }}
+        >
+          Settings
+        </h1>
 
-      {/* Tab bar */}
-      <div
-        className="mb-8 flex gap-1 rounded-lg p-1"
-        role="tablist"
-        aria-label="Settings sections"
-        style={{
-          background: "var(--surface-card)",
-          border: "1px solid var(--color-border)",
-        }}
-      >
-        {TABS.map((tab) => (
-          <button
-            key={tab.id}
-            id={`tab-${tab.id}`}
-            role="tab"
-            aria-selected={activeTab === tab.id}
-            aria-controls={`panel-${tab.id}`}
-            onClick={() => setActiveTab(tab.id)}
-            className={cn(
-              "flex-1 rounded px-3 py-2 text-sm transition-colors duration-150",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rune-gold"
-            )}
-            style={{
-              background:
-                activeTab === tab.id ? "var(--color-gold)" : "transparent",
-              color:
-                tab.id === "danger"
-                  ? activeTab === tab.id
-                    ? "var(--color-crimson)"
-                    : "color-mix(in srgb, var(--color-crimson) 50%, transparent)"
-                  : activeTab === tab.id
-                  ? "var(--text-on-accent)"
-                  : "var(--color-mist)",
-              fontWeight: activeTab === tab.id ? 500 : 400,
-            }}
-          >
-            {tab.label}
-          </button>
-        ))}
+        <div
+          className="mb-8 flex gap-1 rounded-lg p-1"
+          role="tablist"
+          aria-label="Settings sections"
+          style={{
+            background: "var(--surface-card)",
+            border: "1px solid var(--color-border)",
+          }}
+        >
+          {TABS.map((tab) => (
+            <button
+              key={tab.id}
+              id={`tab-${tab.id}`}
+              role="tab"
+              aria-selected={activeTab === tab.id}
+              aria-controls={`panel-${tab.id}`}
+              onClick={() => setActiveTab(tab.id)}
+              className={cn(
+                "flex-1 rounded px-3 py-2 text-sm transition-colors duration-150",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rune-gold"
+              )}
+              style={{
+                background:
+                  activeTab === tab.id ? "var(--color-gold)" : "transparent",
+                color:
+                  tab.id === "danger"
+                    ? activeTab === tab.id
+                      ? "var(--color-crimson)"
+                      : "color-mix(in srgb, var(--color-crimson) 50%, transparent)"
+                    : activeTab === tab.id
+                    ? "var(--text-on-accent)"
+                    : "var(--color-mist)",
+                fontWeight: activeTab === tab.id ? 500 : 400,
+              }}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* Panels */}
+      {/* Panels — each non-billing panel stays at the standard content
+          width; Billing manages its own (narrower heading/wider pricing)
+          width internally. */}
       <div
+        className="mx-auto max-w-2xl"
         id="panel-account"
         role="tabpanel"
         aria-labelledby="tab-account"
@@ -1388,6 +1393,7 @@ export function SettingsClient({
         <AccountTab profile={profile} email={email} />
       </div>
       <div
+        className="mx-auto max-w-2xl"
         id="panel-editor"
         role="tabpanel"
         aria-labelledby="tab-editor"
@@ -1396,6 +1402,7 @@ export function SettingsClient({
         <EditorTab />
       </div>
       <div
+        className="mx-auto max-w-2xl"
         id="panel-appearance"
         role="tabpanel"
         aria-labelledby="tab-appearance"
@@ -1417,6 +1424,7 @@ export function SettingsClient({
         />
       </div>
       <div
+        className="mx-auto max-w-2xl"
         id="panel-sync"
         role="tabpanel"
         aria-labelledby="tab-sync"
@@ -1425,6 +1433,7 @@ export function SettingsClient({
         <SyncTab />
       </div>
       <div
+        className="mx-auto max-w-2xl"
         id="panel-danger"
         role="tabpanel"
         aria-labelledby="tab-danger"
