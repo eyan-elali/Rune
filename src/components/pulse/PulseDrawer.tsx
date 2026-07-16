@@ -371,6 +371,7 @@ function UserPanel({
               <StatRow label="Tier" value={data.subscriptionTier ?? "free"} />
               <StatRow label="Level" value={String(data.level)} />
               <StatRow label="Words written" value={data.totalWordsWritten.toLocaleString()} />
+              <StatRow label="Total words" value={data.totalWords.toLocaleString()} />
               <StatRow label="XP" value={data.xp.toLocaleString()} />
             </div>
           </div>

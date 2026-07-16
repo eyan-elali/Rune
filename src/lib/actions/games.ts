@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { checkFreeWordLimit } from "@/lib/actions/pages";
+import { recalculateProjectWordCount } from "@/lib/projectWordCount";
 
 type ActionResult<T> = { data: T; error: null } | { data: null; error: string };
 
@@ -135,22 +136,10 @@ export async function appendSprintToProject(
 
   if (pageError) return { data: null, error: pageError.message };
 
-  // Update project word count
-  const { data: allChapters } = await supabase
-    .from("chapters")
-    .select("id")
-    .eq("project_id", projectId);
-
-  if (allChapters) {
-    const chapterIds = allChapters.map((c) => c.id);
-    const { data: allPages } = await supabase
-      .from("pages")
-      .select("word_count")
-      .in("chapter_id", chapterIds);
-
-    const totalWords = allPages?.reduce((sum, p) => sum + (p.word_count ?? 0), 0) ?? 0;
-    await supabase.from("projects").update({ word_count: totalWords }).eq("id", projectId);
-  }
+  // Canonical-aware recalculation — the new sprint page may not be the
+  // canonical page for its chapter, in which case it must not count toward
+  // the project total any more than any other non-canonical draft would.
+  await recalculateProjectWordCount(supabase, projectId);
 
   revalidatePath(`/projects/${projectId}`);
   revalidatePath(`/projects/${projectId}/chapters/${chapterId}`);
@@ -231,29 +220,10 @@ export async function appendToExistingPage(
     .single();
 
   if (chapter) {
-    const { data: allChapters } = await supabase
-      .from("chapters")
-      .select("id")
-      .eq("project_id", chapter.project_id);
-
-    if (allChapters) {
-      const chapterIds = allChapters.map((c: { id: string }) => c.id);
-      const { data: allPages } = await supabase
-        .from("pages")
-        .select("word_count")
-        .in("chapter_id", chapterIds);
-
-      const totalWords =
-        allPages?.reduce(
-          (sum: number, p: { word_count: number }) => sum + (p.word_count ?? 0),
-          0
-        ) ?? 0;
-
-      await supabase
-        .from("projects")
-        .update({ word_count: totalWords })
-        .eq("id", chapter.project_id);
-    }
+    // Canonical-aware recalculation — appending to a non-canonical page must
+    // not count toward the project total any more than any other
+    // non-canonical draft would.
+    await recalculateProjectWordCount(supabase, chapter.project_id);
 
     revalidatePath(`/projects/${chapter.project_id}`);
     revalidatePath(

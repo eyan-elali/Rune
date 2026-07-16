@@ -51,6 +51,7 @@ interface ResultData {
   isNewBest: boolean;
   sprintWords: number;
   lapWords: number;
+  creditDate: string;
 }
 
 function extractWords(html: string): string[] {
@@ -418,6 +419,7 @@ function ResultsState({
           textWritten={textWritten}
           sessionInvalidated={!isSessionValid}
           pageSource={pageSource}
+          creditDate={result.creditDate}
         />
       </div>
     </div>
@@ -766,7 +768,11 @@ export default function RaceYourselfPage() {
       useGameStore.getState().setPersonalBest(dur, sprintWords);
     }
 
-    setResultData({ words: finalWords, duration: dur, xp, isNewBest, sprintWords, lapWords });
+    // Captured once and reused for both the credit below and the later
+    // transfer-to-project call, so a save that happens after local midnight
+    // still subtracts from the bucket the words actually landed in.
+    const creditDate = getLocalDateString();
+    setResultData({ words: finalWords, duration: dur, xp, isNewBest, sprintWords, lapWords, creditDate });
 
     const userId = useProfileStore.getState().profile?.id;
     if (userId && finalWords > 0) {
@@ -788,7 +794,7 @@ export default function RaceYourselfPage() {
             ...(sessionIsValid ? {} : { invalidated: true }),
           }
         ),
-        recordWordsWritten(null, finalWords, null, getLocalDateString()),
+        recordWordsWritten(null, finalWords, null, creditDate),
       ]).then(([xpResult]) => {
         setIsSaving(false);
         if (xpResult.data) {

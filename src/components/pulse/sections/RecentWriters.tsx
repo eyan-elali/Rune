@@ -86,11 +86,19 @@ export function RecentWriters({ initialWriters }: { initialWriters: WriterSummar
                       Joined {fmtDate(w.createdAt)} · {w.subscriptionTier ?? "free"}
                     </span>
                   </span>
-                  <span
-                    className="shrink-0 text-right text-sm font-medium tabular-nums"
-                    style={{ color: "var(--text-primary)", opacity: 0.85 }}
-                  >
-                    {w.totalWordsWritten.toLocaleString()} words
+                  <span className="shrink-0 text-right">
+                    <span
+                      className="block text-sm font-medium tabular-nums"
+                      style={{ color: "var(--text-primary)", opacity: 0.85 }}
+                    >
+                      {w.totalWordsWritten.toLocaleString()} written
+                    </span>
+                    <span
+                      className="block text-xs tabular-nums"
+                      style={{ color: "var(--color-mist)" }}
+                    >
+                      {w.totalWords.toLocaleString()} total
+                    </span>
                   </span>
                 </button>
               </li>

@@ -745,6 +745,7 @@ export interface WriterSummary {
   createdAt: string;
   subscriptionTier: string | null;
   totalWordsWritten: number;
+  totalWords: number;
 }
 
 export async function searchRecentWriters(
@@ -776,16 +777,26 @@ export async function searchRecentWriters(
   if (rows.length === 0) return [];
 
   const ids = rows.map((r) => r.id as string);
-  const { data: sessions } = await client
-    .from("writing_sessions")
-    .select("user_id, words_added")
-    .in("user_id", ids);
+  const [{ data: sessions }, { data: projects }] = await Promise.all([
+    client.from("writing_sessions").select("user_id, words_added").in("user_id", ids),
+    client.from("projects").select("user_id, word_count").in("user_id", ids),
+  ]);
 
   const wordsByUser = new Map<string, number>();
   for (const s of sessions ?? []) {
     wordsByUser.set(
       s.user_id as string,
       (wordsByUser.get(s.user_id as string) ?? 0) + ((s.words_added as number) ?? 0)
+    );
+  }
+
+  // Sum of projects.word_count per owner — the manuscript total across every
+  // project, independent of the paste-excluded words-written ledger above.
+  const totalWordsByUser = new Map<string, number>();
+  for (const p of projects ?? []) {
+    totalWordsByUser.set(
+      p.user_id as string,
+      (totalWordsByUser.get(p.user_id as string) ?? 0) + ((p.word_count as number) ?? 0)
     );
   }
 
@@ -796,6 +807,7 @@ export async function searchRecentWriters(
     createdAt: p.created_at as string,
     subscriptionTier: p.subscription_tier as string | null,
     totalWordsWritten: wordsByUser.get(p.id as string) ?? 0,
+    totalWords: totalWordsByUser.get(p.id as string) ?? 0,
   }));
 }
 
@@ -817,25 +829,28 @@ export interface UserDrawerData {
   xp: number;
   level: number;
   totalWordsWritten: number;
+  totalWords: number;
   timeline: UserTimelineEntry[];
 }
 
 export async function getUserDrawerData(userId: string): Promise<UserDrawerData | null> {
   const client = await requireAdminService();
 
-  const [{ data: profile }, { data: events }, { data: sessions }] = await Promise.all([
-    client
-      .from("profiles")
-      .select("id, display_name, username, created_at, subscription_tier, xp, level")
-      .eq("id", userId)
-      .maybeSingle(),
-    client
-      .from("analytics_events")
-      .select("event_name, created_at, metadata")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: true }),
-    client.from("writing_sessions").select("words_added").eq("user_id", userId),
-  ]);
+  const [{ data: profile }, { data: events }, { data: sessions }, { data: projects }] =
+    await Promise.all([
+      client
+        .from("profiles")
+        .select("id, display_name, username, created_at, subscription_tier, xp, level")
+        .eq("id", userId)
+        .maybeSingle(),
+      client
+        .from("analytics_events")
+        .select("event_name, created_at, metadata")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: true }),
+      client.from("writing_sessions").select("words_added").eq("user_id", userId),
+      client.from("projects").select("word_count").eq("user_id", userId),
+    ]);
 
   if (!profile) return null;
 
@@ -852,6 +867,13 @@ export async function getUserDrawerData(userId: string): Promise<UserDrawerData 
     0
   );
 
+  // Manuscript total across every project this writer owns — includes
+  // pasted/imported words, unlike totalWordsWritten above.
+  const totalWords = (projects ?? []).reduce(
+    (sum, p) => sum + ((p.word_count as number) ?? 0),
+    0
+  );
+
   return {
     id: profile.id as string,
     email,
@@ -862,6 +884,7 @@ export async function getUserDrawerData(userId: string): Promise<UserDrawerData 
     xp: (profile.xp as number) ?? 0,
     level: (profile.level as number) ?? 1,
     totalWordsWritten,
+    totalWords,
     timeline: (events ?? []).map((e) => ({
       eventName: e.event_name as string,
       createdAt: e.created_at as string,

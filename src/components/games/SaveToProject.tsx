@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
-import { getLocalDateString } from "@/lib/utils";
 import {
   appendSprintToProject,
   appendToExistingPage,
@@ -27,11 +26,19 @@ export function SaveToProject({
   textWritten,
   sessionInvalidated = false,
   pageSource,
+  creditDate,
 }: {
   words: number;
   textWritten: string;
   sessionInvalidated?: boolean;
   pageSource?: PageSource;
+  // The local calendar date recordWordsWritten() used when the game session's
+  // words were first credited to the anonymous (project_id: null) writing_sessions
+  // bucket. transferGameWordsToProject() must subtract from that same date — not
+  // "today" — or a save that happens after local midnight (race finishes 11:58pm,
+  // saved to a project at 12:03am) fails to find the original bucket, leaving the
+  // words double-counted (once anonymously, once under the project).
+  creditDate: string;
 }) {
   const [step, setStep] = useState<SaveStep>("idle");
   const [projects, setProjects] = useState<Project[]>([]);
@@ -51,7 +58,7 @@ export function SaveToProject({
     const result = await appendToExistingPage(pageSource.page.id, textWritten, words);
     if (result.error) { setAppendError(result.error); setAppendStep("error"); return; }
     if (!sessionInvalidated) {
-      await transferGameWordsToProject(pageSource.project.id, words, getLocalDateString());
+      await transferGameWordsToProject(pageSource.project.id, words, creditDate);
     }
     setAppendStep("saved");
   }
@@ -134,7 +141,7 @@ export function SaveToProject({
     }
     // Transfer words to project stats unless session was invalidated by anti-cheat
     if (!sessionInvalidated) {
-      await transferGameWordsToProject(selectedProject.id, words, getLocalDateString());
+      await transferGameWordsToProject(selectedProject.id, words, creditDate);
     }
     setSavedChapterName(chapter.title);
     setStep("saved");

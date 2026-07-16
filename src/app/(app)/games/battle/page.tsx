@@ -128,6 +128,7 @@ interface ResultData {
   enemyId: string;
   sprintWords: number;
   lapWords: number;
+  creditDate: string;
 }
 
 // ── Enemy Select ──────────────────────────────────────────────────────────────
@@ -761,6 +762,7 @@ function ResultsState({
           textWritten={textWritten}
           sessionInvalidated={!isSessionValid}
           pageSource={pageSource}
+          creditDate={result.creditDate}
         />
       </div>
     </div>
@@ -884,6 +886,10 @@ export default function BattlePage() {
         );
       }
 
+      // Captured once and reused for both the credit below and the later
+      // transfer-to-project call, so a save that happens after local midnight
+      // still subtracts from the bucket the words actually landed in.
+      const creditDate = getLocalDateString();
       setResultData({
         words: totalWords,
         xp,
@@ -892,6 +898,7 @@ export default function BattlePage() {
         enemyId: enemy.id,
         sprintWords,
         lapWords,
+        creditDate,
       });
 
       if (!hasSavedRef.current) {
@@ -918,7 +925,7 @@ export default function BattlePage() {
                 data: null,
                 error: null,
               }),
-          recordWordsWritten(null, totalWords, null, getLocalDateString()),
+          recordWordsWritten(null, totalWords, null, creditDate),
         ]).then(([, xpResult]) => {
           setIsSaving(false);
           if (xpResult.data) {

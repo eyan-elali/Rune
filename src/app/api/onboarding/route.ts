@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { recordAnalyticsEvent, type RecordAnalyticsEventInput } from "@/lib/actions/analytics";
 import { checkFreeWordLimit } from "@/lib/actions/pages";
+import { recalculateProjectWordCount } from "@/lib/projectWordCount";
 
 // The only two themes every account has unlocked. Onboarding never shows
 // (or trusts the client to send) anything beyond these — validated again
@@ -164,6 +165,14 @@ export async function POST(req: Request) {
       { status: 500 }
     );
   }
+
+  // Keep projects.word_count in sync with the first-sentence page immediately,
+  // rather than leaving it at its default 0 until the writer's first editor
+  // autosave. This must not go through the editor's save path (updatePage /
+  // syncPageWithLimitCheck) — that path is also where the one-time
+  // "first_save" analytics event fires, and it must only fire once the writer
+  // adds words beyond what onboarding itself created.
+  await recalculateProjectWordCount(supabase, project.id);
 
   // The manuscript itself (project/chapter/page) is now safely persisted.
   // Theme preference and the future letter are secondary — best-effort

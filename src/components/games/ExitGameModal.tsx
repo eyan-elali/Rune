@@ -2,6 +2,7 @@
 
 import { Button } from "@/components/ui/Button";
 import { SaveToProject } from "@/components/games/SaveToProject";
+import { getLocalDateString } from "@/lib/utils";
 import type { PageSource } from "@/components/games/PageSourceSelector";
 
 interface ExitGameModalProps {
@@ -68,7 +69,16 @@ export function ExitGameModal({
 
         {words > 0 && (
           <div className="flex flex-col items-center">
-            <SaveToProject words={words} textWritten={textWritten} pageSource={pageSource} />
+            {/* No anonymous writing_sessions credit exists yet at this point in
+                the game (recordWordsWritten only fires on completion) — these
+                words are being transferred to the project for the first time,
+                so "now" is the correct, and only sensible, credit date. */}
+            <SaveToProject
+              words={words}
+              textWritten={textWritten}
+              pageSource={pageSource}
+              creditDate={getLocalDateString()}
+            />
           </div>
         )}
 
