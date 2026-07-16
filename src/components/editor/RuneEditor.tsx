@@ -12,7 +12,7 @@ import { cn, getLocalDateString } from "@/lib/utils";
 import { renamePage } from "@/lib/actions/pages";
 import { recordWordsWritten } from "@/lib/actions/writingStats";
 import { writeToPendingQueue, syncPendingWrite } from "@/lib/offline/syncEngine";
-import { getOfflineDB, getPendingWrite, storeOfflineWritingCredit, getCachedServerUpdatedAt } from "@/lib/offline/db";
+import { getOfflineDB, getPendingWrite, storeOfflineWritingCredit } from "@/lib/offline/db";
 import { SyncConflictModal } from "./SyncConflictModal";
 import { useNetworkStore } from "@/store/networkStore";
 import { awardProjectXp } from "@/lib/actions/xp";
@@ -111,8 +111,6 @@ export default function RuneEditor({
     syncStatusRef.current = s;
     setSyncStatus(s);
   }
-  const [showingLocalDraft, setShowingLocalDraft] = useState(false);
-  const [isSyncingNow, setIsSyncingNow] = useState(false);
   const [conflictModalOpen, setConflictModalOpen] = useState(false);
   const [wordLimitModalOpen, setWordLimitModalOpen] = useState(false);
   const [upgradePending, setUpgradePending] = useState(false);
@@ -289,12 +287,6 @@ export default function RuneEditor({
     setIsSaving(false);
     void readDbSyncStatus(page.id).then((dbStatus) => {
       setSyncStatusAndRef(mapDisplayStatus(dbStatus, isOnlineRef.current));
-      // Once nothing is left pending in IDB, this page is fully synced — clear
-      // any lingering "Showing latest local draft" banner from a prior recovery.
-      // Previously this only cleared via the explicit "Sync now" button, so a
-      // normal autosave that resolved the same condition left a stale prompt
-      // telling the user to sync content that had already synced.
-      if (!dbStatus) setShowingLocalDraft(false);
     });
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -554,34 +546,38 @@ export default function RuneEditor({
       (editor.storage.characterCount?.words?.() as number | undefined) ??
       currentPage?.word_count ??
       0;
-    setShowingLocalDraft(false);
 
     const pageIdForDraftCheck = newPageId;
-    const propServerUpdatedAt = currentPage?.updated_at;
 
     if (pageIdForDraftCheck) {
       void (async () => {
         try {
           const pending = await getPendingWrite(pageIdForDraftCheck);
           if (currentPageRef.current?.id !== pageIdForDraftCheck) return;
+
           if (pending) {
-            // Prefer the IDB page_cache baseline over the `currentPage.updated_at`
-            // prop. The prop is a snapshot from whenever this Page object was last
-            // merged into EditorShell's state, and handlePageUpdated() never
-            // refreshes updated_at after a background sync — so comparing a fresh
-            // IDB localUpdatedAt against that stale prop produces false "showing
-            // local draft" prompts for a page that has already synced cleanly.
-            // page_cache.serverUpdatedAt is written by the sync engine on every
-            // confirmed save and is always current.
-            const serverUpdatedAt =
-              (await getCachedServerUpdatedAt(pageIdForDraftCheck)) ?? propServerUpdatedAt;
-            if (serverUpdatedAt) {
-              const serverMs = new Date(serverUpdatedAt).getTime();
-              if (pending.localUpdatedAt > serverMs) {
-                editor.commands.setContent(pending.content);
-                lastSavedWordCountRef.current = pending.wordCount;
-                setShowingLocalDraft(true);
-              }
+            // A pending write always means the server hasn't confirmed this
+            // content yet — load it so the editor never shows content staler
+            // than what's already sitting in the local queue.
+            editor.commands.setContent(pending.content);
+            lastSavedWordCountRef.current = pending.wordCount;
+
+            // Whether this is a genuine conflict (server independently changed)
+            // or just an ordinary unsynced write left behind by a debounce/page
+            // -switch race is syncPendingWrite's call to make — it's the single
+            // place that compares against the confirmed server baseline. A real
+            // conflict is already surfaced through the normal syncStatus ===
+            // 'conflict' indicator below; nothing here should second-guess it or
+            // force the user through a separate manual "sync" step for what is,
+            // in the single-tab-online case, just autosave finishing its job.
+            if (pending.syncStatus !== 'conflict' && isOnlineRef.current) {
+              setSyncStatusAndRef('syncing');
+              await syncPendingWrite(pageIdForDraftCheck);
+            }
+
+            if (currentPageRef.current?.id === pageIdForDraftCheck) {
+              const afterStatus = await readDbSyncStatus(pageIdForDraftCheck);
+              setSyncStatusAndRef(mapDisplayStatus(afterStatus, isOnlineRef.current));
             }
           }
         } catch {
@@ -630,32 +626,6 @@ export default function RuneEditor({
 
   const wordCount =
     (editor?.storage.characterCount?.words?.() as number | undefined) ?? 0;
-
-  async function handleSyncNow() {
-    const pageId = currentPageRef.current?.id;
-    if (!pageId || isSyncingNow) return;
-    if (syncStatusRef.current === 'conflict') {
-      setConflictModalOpen(true);
-      return;
-    }
-    setIsSyncingNow(true);
-    try {
-      await syncPendingWrite(pageId);
-      const pending = await getPendingWrite(pageId);
-      if (!pending) {
-        setShowingLocalDraft(false);
-        setLastSaved(new Date());
-        setSyncStatusAndRef('synced');
-      } else {
-        const dbStatus = await readDbSyncStatus(pageId);
-        setSyncStatusAndRef(mapDisplayStatus(dbStatus, isOnlineRef.current));
-      }
-    } catch {
-      // silent
-    } finally {
-      setIsSyncingNow(false);
-    }
-  }
 
   async function commitTitle() {
     const page = currentPageRef.current;
@@ -810,7 +780,7 @@ export default function RuneEditor({
         </div>
       </div>
 
-      {/* Sync status + local draft notice — hidden during onboarding */}
+      {/* Sync status notice — hidden during onboarding */}
       <div
         className="fixed bottom-[4.5rem] right-7 z-40 md:bottom-[5rem] md:right-9 flex flex-col items-end gap-1"
         style={{
@@ -820,87 +790,55 @@ export default function RuneEditor({
           ...uiChromeFadeStyle,
         }}
       >
-        {showingLocalDraft ? (
-          <span style={{ color: "var(--color-mist)", opacity: 0.8, fontStyle: "italic" }}>
-            Showing latest local draft
-            {isOnline && (
-              <>
-                {" · "}
-                <button
-                  type="button"
-                  onClick={() => void handleSyncNow()}
-                  disabled={isSyncingNow}
-                  aria-label="Sync local draft to server"
-                  style={{
-                    background: "none",
-                    border: "none",
-                    cursor: isSyncingNow ? "default" : "pointer",
-                    padding: 0,
-                    font: "inherit",
-                    letterSpacing: "inherit",
-                    fontStyle: "normal",
-                    color: isSyncingNow ? "var(--color-mist)" : "var(--color-gold)",
-                    opacity: isSyncingNow ? 0.5 : 1,
-                  }}
-                >
-                  {isSyncingNow ? "Syncing…" : "Sync now"}
-                </button>
-              </>
-            )}
+        {syncStatus === 'synced' && (
+          <span
+            className="pointer-events-none"
+            style={{ color: "var(--color-mist)", opacity: 0.6, transition: "opacity 0.4s" }}
+          >
+            Saved
           </span>
-        ) : (
-          <>
-            {syncStatus === 'synced' && (
-              <span
-                className="pointer-events-none"
-                style={{ color: "var(--color-mist)", opacity: 0.6, transition: "opacity 0.4s" }}
-              >
-                Saved
-              </span>
-            )}
-            {syncStatus === 'online_dirty' && (
-              <span
-                className="pointer-events-none"
-                style={{ color: "var(--color-mist)", opacity: 0.8 }}
-              >
-                Saving...
-              </span>
-            )}
-            {syncStatus === 'syncing' && (
-              <span
-                className="pointer-events-none"
-                style={{ color: "var(--color-mist)", opacity: 0.8 }}
-              >
-                Syncing...
-              </span>
-            )}
-            {syncStatus === 'offline_dirty' && (
-              <span
-                className="pointer-events-none"
-                style={{ color: "var(--color-gold)", opacity: 0.9 }}
-              >
-                Saved locally
-              </span>
-            )}
-            {syncStatus === 'conflict' && (
-              <button
-                type="button"
-                onClick={() => setConflictModalOpen(true)}
-                aria-label="Sync conflict — click to resolve"
-                style={{
-                  color: "var(--color-crimson)",
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  padding: 0,
-                  font: "inherit",
-                  letterSpacing: "inherit",
-                }}
-              >
-                Conflict
-              </button>
-            )}
-          </>
+        )}
+        {syncStatus === 'online_dirty' && (
+          <span
+            className="pointer-events-none"
+            style={{ color: "var(--color-mist)", opacity: 0.8 }}
+          >
+            Saving...
+          </span>
+        )}
+        {syncStatus === 'syncing' && (
+          <span
+            className="pointer-events-none"
+            style={{ color: "var(--color-mist)", opacity: 0.8 }}
+          >
+            Syncing...
+          </span>
+        )}
+        {syncStatus === 'offline_dirty' && (
+          <span
+            className="pointer-events-none"
+            style={{ color: "var(--color-gold)", opacity: 0.9 }}
+          >
+            Saved locally
+          </span>
+        )}
+        {syncStatus === 'conflict' && (
+          <button
+            type="button"
+            onClick={() => setConflictModalOpen(true)}
+            aria-label="Sync conflict — click to resolve"
+            style={{
+              color: "var(--color-crimson)",
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              padding: 0,
+              font: "inherit",
+              letterSpacing: "inherit",
+            }}
+          >
+            Conflict
+          </button>
         )}
       </div>
 
@@ -910,14 +848,12 @@ export default function RuneEditor({
           pageId={currentPage.id}
           onKeepLocal={() => {
             setConflictModalOpen(false);
-            setShowingLocalDraft(false);
             setLastSaved(new Date());
             setSyncStatusAndRef('synced');
             showToast("Local draft kept", "success");
           }}
           onKeepServer={(serverContent, serverWordCount) => {
             setConflictModalOpen(false);
-            setShowingLocalDraft(false);
             setLastSaved(new Date());
             setSyncStatusAndRef('synced');
             isLoadingRef.current = true;
