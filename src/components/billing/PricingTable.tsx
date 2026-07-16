@@ -231,8 +231,8 @@ function CtaButton({
       style={{
         background: isFeatured ? 'var(--color-ink)' : 'var(--color-gold)',
         // --color-ink is always dark, but --color-gold is sometimes a dark
-        // charcoal itself (Ivory Tower, Manuscript) — gold-on-ink there was
-        // nearly invisible, and plain ink-on-gold had the same problem in
+        // charcoal itself (Manuscript) — gold-on-ink there was nearly
+        // invisible, and plain ink-on-gold had the same problem in
         // reverse. --color-parchment is reliably light in every theme, and
         // --text-on-accent is calibrated per theme for the gold fill.
         color: isFeatured ? 'var(--color-parchment)' : 'var(--text-on-accent)',
@@ -249,7 +249,7 @@ function tierTextColors(isFeatured: boolean) {
   if (isFeatured) {
     // The featured card fills its whole background with var(--color-gold),
     // and that resolves to a different lightness in every theme (e.g. a dark
-    // charcoal in Ivory Tower/Manuscript, a bright amber in Gilded Age). Use
+    // charcoal in Manuscript, a bright amber in Gilded Age). Use
     // --text-on-accent — already calibrated per theme for legibility on top
     // of --color-gold — instead of assuming dark ink always works.
     return {

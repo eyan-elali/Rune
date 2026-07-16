@@ -18,8 +18,8 @@
   --color-parchment:    #faf7f2;
   --color-vellum:       #f5f0e6;
   --color-sepia:        #f0ebe0;
-  --color-gold:         #957722;
-  --color-gold-dim:     #8a6a1c;
+  --color-gold:         #c2a530;
+  --color-gold-dim:     #785212;
   --color-crimson:      #8b2e2e;
   --color-sage:         #4a6741;
   --color-mist:         #7a6f63;
@@ -197,7 +197,7 @@ body {
 
 :root:not([data-theme]) .battle-hp-bar__fill--player,
 [data-theme="parchment"] .battle-hp-bar__fill--player {
-  background: #b48c35;
+  background: #b58430;
 }
 
 :root:not([data-theme]) .battle-hp-bar__fill--player.battle-hp-bar__fill--low,
@@ -296,6 +296,41 @@ body {
 
 [data-theme="manuscript"] .battle-word-count {
   background: rgba(60, 58, 54, 0.06);
+  border: 1px solid var(--color-border-strong);
+}
+
+/* Rosewood — light theme, same contrast needs as parchment/fog/manuscript */
+[data-theme="ivory-tower"] .battle-status-badge--writing {
+  background: rgba(43, 30, 28, 0.04);
+  border: 1px solid var(--color-border-strong);
+}
+
+[data-theme="ivory-tower"] .battle-status-badge--writing .battle-status-badge__dot {
+  background: var(--color-gold-dim);
+  opacity: 1;
+}
+
+[data-theme="ivory-tower"] .battle-status-badge--writing .battle-status-badge__text {
+  color: var(--color-ink);
+  opacity: 1;
+}
+
+[data-theme="ivory-tower"] .battle-status-badge--idle {
+  background: rgba(139, 46, 46, 0.1);
+  border: 1px solid rgba(139, 46, 46, 0.35);
+}
+
+[data-theme="ivory-tower"] .battle-status-badge--idle .battle-status-badge__dot {
+  background: var(--color-crimson);
+}
+
+[data-theme="ivory-tower"] .battle-status-badge--idle .battle-status-badge__text {
+  color: var(--color-crimson);
+  opacity: 1;
+}
+
+[data-theme="ivory-tower"] .battle-word-count {
+  background: rgba(150, 64, 86, 0.06);
   border: 1px solid var(--color-border-strong);
 }
 
@@ -559,12 +594,12 @@ html[data-theme="the-void"] .ProseMirror .is-empty.is-editor-empty::before {
   --color-ink:          #160908;
   --color-parchment:    #f0dedd;
   --color-vellum:       #e8d2d0;
-  --color-sepia:        #1e0b0a;
-  --color-gold:         #c04848;
-  --color-gold-dim:     #8b2e2e;
-  --color-mist:         #927777;
-  --color-border:       rgba(192, 72, 72, 0.22);
-  --color-border-strong: rgba(192, 72, 72, 0.45);
+  --color-sepia:        #301412;
+  --color-gold:         #d63d43;
+  --color-gold-dim:     #a12125;
+  --color-mist:         #9b8282;
+  --color-border:       rgba(214, 61, 67, 0.22);
+  --color-border-strong: rgba(214, 61, 67, 0.45);
   --color-shadow:       rgba(0, 0, 0, 0.4);
 
   --bg-primary:         #160908;
@@ -578,22 +613,25 @@ html[data-theme="the-void"] .ProseMirror .is-empty.is-editor-empty::before {
   --editor-text:        var(--color-ink);
 }
 
-/* ── Unlockable theme: The Ivory Tower ──────────────────────────── */
+/* ── Unlockable theme: Rosewood — dusty rose on warm ivory. A writing
+   desk of fine rosewood: pressed petals between pages, wax-seal red,
+   restrained rather than sweet. Replaces the old Ivory Tower, which had
+   drifted into a near-duplicate of Manuscript's neutral charcoal. ── */
 [data-theme="ivory-tower"] {
-  --color-ink:          #1e242b;
-  --color-parchment:    #f5f3ee;
-  --color-vellum:       #eceae4;
-  --color-sepia:        #e8e4db;
-  --color-gold:         #4a4d52;
-  --color-gold-dim:     #333133;
-  --color-crimson:      #c04848;
-  --color-sage:         #3d5c38;
-  --color-mist:         #5f6678;
-  --color-border:       rgba(74, 77, 82, 0.2);
-  --color-border-strong: rgba(74, 77, 82, 0.35);
-  --color-shadow:       rgba(45, 50, 68, 0.08);
+  --color-ink:          #2b1e1c;
+  --color-parchment:    #f7f2f0;
+  --color-vellum:       #efe3e0;
+  --color-sepia:        #e6d7d3;
+  --color-gold:         #964056;
+  --color-gold-dim:     #672838;
+  --color-crimson:      #8b2e2e;
+  --color-sage:         #4a6741;
+  --color-mist:         #82645e;
+  --color-border:       rgba(150, 64, 86, 0.2);
+  --color-border-strong: rgba(150, 64, 86, 0.35);
+  --color-shadow:       rgba(60, 30, 35, 0.08);
 
-  --bg-primary:         #f5f3ee;
+  --bg-primary:         #f7f2f0;
   --bg-secondary:       var(--color-vellum);
   --bg-sidebar:         var(--color-sepia);
   --surface-card:       #ffffff;
@@ -638,7 +676,7 @@ html[data-theme="the-void"] .ProseMirror .is-empty.is-editor-empty::before {
   --color-gold-dim:     #445260;
   --color-crimson:      #7a3a3a;
   --color-sage:         #4a5f52;
-  --color-mist:         #6a7380;
+  --color-mist:         #596b7d;
   --color-border:       rgba(90, 106, 122, 0.2);
   --color-border-strong: rgba(90, 106, 122, 0.38);
   --color-shadow:       rgba(42, 48, 56, 0.1);
@@ -660,13 +698,13 @@ html[data-theme="the-void"] .ProseMirror .is-empty.is-editor-empty::before {
   --color-parchment:    #e4ebe0;
   --color-vellum:       #d4ddd0;
   --color-sepia:        #1a2418;
-  --color-gold:         #7a9a62;
-  --color-gold-dim:     #5a7248;
+  --color-gold:         #85a857;
+  --color-gold-dim:     #5d783b;
   --color-crimson:      #8b3e3e;
   --color-sage:         #4a6741;
   --color-mist:         #818d7a;
-  --color-border:       rgba(122, 154, 98, 0.22);
-  --color-border-strong: rgba(122, 154, 98, 0.42);
+  --color-border:       rgba(133, 168, 87, 0.22);
+  --color-border-strong: rgba(133, 168, 87, 0.42);
   --color-shadow:       rgba(0, 0, 0, 0.35);
 
   --bg-primary:         #0e140e;
@@ -685,14 +723,14 @@ html[data-theme="the-void"] .ProseMirror .is-empty.is-editor-empty::before {
   --color-ink:          #060608;
   --color-parchment:    #e8e8ea;
   --color-vellum:       #dcdcdc;
-  --color-sepia:        #131313;
-  --color-gold:         #52c8f0;
-  --color-gold-dim:     #2f9dc7;
+  --color-sepia:        #1a1e22;
+  --color-gold:         #61aad1;
+  --color-gold-dim:     #3785ae;
   --color-crimson:      #9a4048;
   --color-sage:         #3d5a48;
-  --color-mist:         #7e7e84;
-  --color-border:       rgba(82, 200, 240, 0.2);
-  --color-border-strong: rgba(82, 200, 240, 0.4);
+  --color-mist:         #8c8c91;
+  --color-border:       rgba(97, 170, 209, 0.2);
+  --color-border-strong: rgba(97, 170, 209, 0.4);
   --color-shadow:       rgba(0, 0, 0, 0.5);
 
   --bg-primary:         #060608;
@@ -711,14 +749,14 @@ html[data-theme="the-void"] .ProseMirror .is-empty.is-editor-empty::before {
   --color-ink:          #081210;
   --color-parchment:    #e8f0e4;
   --color-vellum:       #d8e8d0;
-  --color-sepia:        #0e1a14;
-  --color-gold:         #c7ad3f;
-  --color-gold-dim:     #8f7a2a;
+  --color-sepia:        #132a1d;
+  --color-gold:         #c7b638;
+  --color-gold-dim:     #8d8125;
   --color-crimson:      #8b4040;
   --color-sage:         #3a6848;
-  --color-mist:         #708776;
-  --color-border:       rgba(199, 173, 63, 0.22);
-  --color-border-strong: rgba(199, 173, 63, 0.42);
+  --color-mist:         #84998a;
+  --color-border:       rgba(199, 182, 56, 0.22);
+  --color-border-strong: rgba(199, 182, 56, 0.42);
   --color-shadow:       rgba(0, 0, 0, 0.4);
 
   --bg-primary:         #081210;
@@ -738,8 +776,8 @@ html[data-theme="the-void"] .ProseMirror .is-empty.is-editor-empty::before {
   --color-parchment:    #e4e0ec;
   --color-vellum:       #d4d0e0;
   --color-sepia:        #14101c;
-  --color-gold:         #9a88c0;
-  --color-gold-dim:     #6a5a90;
+  --color-gold:         #d6b151;
+  --color-gold-dim:     #a78225;
   --color-crimson:      #9a4868;
   --color-sage:         #4a5a48;
   --color-mist:         #837b92;
@@ -763,14 +801,14 @@ html[data-theme="the-void"] .ProseMirror .is-empty.is-editor-empty::before {
   --color-ink:          #14080c;
   --color-parchment:    #f0e8e4;
   --color-vellum:       #e8dcd4;
-  --color-sepia:        #1e1014;
-  --color-gold:         #d4a84c;
-  --color-gold-dim:     #a07830;
+  --color-sepia:        #2c171e;
+  --color-gold:         #d69a38;
+  --color-gold-dim:     #a3701f;
   --color-crimson:      #6a1828;
   --color-sage:         #4a5a40;
-  --color-mist:         #947a72;
-  --color-border:       rgba(212, 168, 76, 0.24);
-  --color-border-strong: rgba(212, 168, 76, 0.45);
+  --color-mist:         #9e877f;
+  --color-border:       rgba(214, 154, 56, 0.24);
+  --color-border-strong: rgba(214, 154, 56, 0.45);
   --color-shadow:       rgba(0, 0, 0, 0.4);
 
   --bg-primary:         #14080c;
@@ -912,14 +950,14 @@ html[data-theme="the-void"] .ProseMirror .is-empty.is-editor-empty::before {
   --color-ink:          #000000;
   --color-parchment:    #e0dee2;
   --color-vellum:       #d6d4d8;
-  --color-sepia:        #0c0c0c;
-  --color-gold:         #726e7a;
-  --color-gold-dim:     #4e4b56;
+  --color-sepia:        #16101c;
+  --color-gold:         #7c6f95;
+  --color-gold-dim:     #5c5071;
   --color-crimson:      #7a6870;
   --color-sage:         #3a4840;
   --color-mist:         #86838c;
-  --color-border:       rgba(114, 110, 122, 0.2);
-  --color-border-strong: rgba(114, 110, 122, 0.38);
+  --color-border:       rgba(124, 111, 149, 0.2);
+  --color-border-strong: rgba(124, 111, 149, 0.38);
   --color-shadow:       rgba(0, 0, 0, 0.6);
 
   --bg-primary:         #000000;

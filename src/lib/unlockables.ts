@@ -34,7 +34,7 @@ export const UNLOCKABLES: Unlockable[] = [
   { id: 'crimson-ink',        name: 'Crimson Ink',        type: 'theme', tier: 'scribe', description: 'Dark reds and bone white. Dramatic and intense.',                 requirement: { type: 'level', value: 15 } },
   { id: 'forest-scriptorium', name: 'Forest Scriptorium', type: 'theme', tier: 'scribe', description: 'Deep greens and bark brown. Grounded and focused.',              requirement: { type: 'words', value: 10000 } },
   { id: 'obsidian',           name: 'Obsidian',           type: 'theme', tier: 'scribe', description: 'Pure blacks and ice blue. Cold and precise.',                     requirement: { type: 'level', value: 25 } },
-  { id: 'ivory-tower',        name: 'Ivory Tower',        type: 'theme', tier: 'scribe', description: "Bone white and charcoal. The scholar's clean desk.",              requirement: { type: 'level', value: 30 } },
+  { id: 'ivory-tower',        name: 'Rosewood',           type: 'theme', tier: 'scribe', description: 'Warm ivory and dusty rose. A pressed petal between the pages.',    requirement: { type: 'level', value: 30 } },
   { id: 'absinthe',           name: 'Absinthe',           type: 'theme', tier: 'scribe', description: 'Deep emerald and gold. Decadent and otherworldly.',               requirement: { type: 'level', value: 40 } },
   { id: 'ravens-court',       name: "Raven's Court",      type: 'theme', tier: 'scribe', description: 'Black, purple, and silver. The darkest academia.',                requirement: { type: 'words', value: 50000 } },
   { id: 'gilded-age',         name: 'Gilded Age',         type: 'theme', tier: 'scribe', description: 'Rich burgundy and hammered gold. Opulent.',                       requirement: { type: 'level', value: 50 } },
