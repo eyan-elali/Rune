@@ -535,15 +535,15 @@ html[data-theme="the-void"] .ProseMirror .is-empty.is-editor-empty::before {
   --color-ink:          #0d0c12;
   --color-parchment:    #d8dee8;
   --color-vellum:       #ccd4e0;
-  --color-sepia:        #161c2c;
+  --color-sepia:        #1a2442;
   --color-gold:         #7b93c9;
   --color-gold-dim:     #566ca3;
-  --color-mist:         #85839a;
+  --color-mist:         #8d8ba0;
   --color-border:       rgba(123, 147, 201, 0.2);
   --color-border-strong: rgba(123, 147, 201, 0.4);
   --color-shadow:       rgba(0, 0, 0, 0.4);
 
-  --bg-primary:         #0d0c12;
+  --bg-primary:         #10131f;
   --bg-secondary:       var(--color-sepia);
   --bg-sidebar:         var(--color-sepia);
   --surface-card:       var(--color-sepia);
@@ -683,16 +683,16 @@ html[data-theme="the-void"] .ProseMirror .is-empty.is-editor-empty::before {
 /* ── Unlockable theme: Obsidian ─────────────────────────────────── */
 [data-theme="obsidian"] {
   --color-ink:          #060608;
-  --color-parchment:    #e4eef4;
-  --color-vellum:       #d0dde8;
-  --color-sepia:        #101018;
-  --color-gold:         #5ec2e8;
-  --color-gold-dim:     #3a9cc4;
+  --color-parchment:    #e8e8ea;
+  --color-vellum:       #dcdcdc;
+  --color-sepia:        #131313;
+  --color-gold:         #52c8f0;
+  --color-gold-dim:     #2f9dc7;
   --color-crimson:      #9a4048;
   --color-sage:         #3d5a48;
-  --color-mist:         #707f90;
-  --color-border:       rgba(94, 194, 232, 0.2);
-  --color-border-strong: rgba(94, 194, 232, 0.4);
+  --color-mist:         #7e7e84;
+  --color-border:       rgba(82, 200, 240, 0.2);
+  --color-border-strong: rgba(82, 200, 240, 0.4);
   --color-shadow:       rgba(0, 0, 0, 0.5);
 
   --bg-primary:         #060608;
@@ -910,16 +910,16 @@ html[data-theme="the-void"] .ProseMirror .is-empty.is-editor-empty::before {
 /* ── Unlockable theme: The Void ─────────────────────────────────── */
 [data-theme="the-void"] {
   --color-ink:          #000000;
-  --color-parchment:    #dcd4e8;
-  --color-vellum:       #c8c0d8;
-  --color-sepia:        #08060c;
-  --color-gold:         #7a7090;
-  --color-gold-dim:     #564c68;
-  --color-crimson:      #93707c;
+  --color-parchment:    #e0dee2;
+  --color-vellum:       #d6d4d8;
+  --color-sepia:        #0c0c0c;
+  --color-gold:         #726e7a;
+  --color-gold-dim:     #4e4b56;
+  --color-crimson:      #7a6870;
   --color-sage:         #3a4840;
-  --color-mist:         #7e7591;
-  --color-border:       rgba(122, 112, 144, 0.2);
-  --color-border-strong: rgba(122, 112, 144, 0.38);
+  --color-mist:         #86838c;
+  --color-border:       rgba(114, 110, 122, 0.2);
+  --color-border-strong: rgba(114, 110, 122, 0.38);
   --color-shadow:       rgba(0, 0, 0, 0.6);
 
   --bg-primary:         #000000;
