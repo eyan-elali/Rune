@@ -27,7 +27,7 @@ export function CircularRing({ current, target, size = 128 }: CircularRingProps)
         cy={cy}
         r={radius}
         fill="none"
-        stroke="rgba(201,168,76,0.10)"
+        stroke="color-mix(in srgb, var(--color-gold) 10%, transparent)"
         strokeWidth={strokeWidth}
       />
       <circle

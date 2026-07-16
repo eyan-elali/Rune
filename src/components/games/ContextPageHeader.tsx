@@ -38,7 +38,7 @@ export function ContextPageHeader({ content }: ContextPageHeaderProps) {
         >
           <div
             className="font-rune-serif text-base leading-[1.9]"
-            style={{ color: "var(--text-primary)" }}
+            style={{ color: "var(--editor-text)" }}
           >
             {lines.map((line, i) =>
               line === "—" ? (
@@ -67,10 +67,10 @@ export function ContextPageHeader({ content }: ContextPageHeaderProps) {
       </div>
 
       <div className="mb-6 mt-3">
-        <div style={{ height: "1px", background: "rgba(201, 168, 76, 0.3)" }} />
+        <div style={{ height: "1px", background: "color-mix(in srgb, var(--color-gold) 30%, transparent)" }} />
         <p
           className="mt-2 text-center font-rune-serif text-[10px] italic"
-          style={{ color: "var(--color-mist)", opacity: 0.5, letterSpacing: "0.12em" }}
+          style={{ color: "var(--editor-text)", opacity: 0.45, letterSpacing: "0.12em" }}
         >
           — prior text —
         </p>

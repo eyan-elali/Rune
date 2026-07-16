@@ -435,7 +435,7 @@ export function ProgressDrawer({
                           }}
                           onMouseEnter={(e) =>
                             ((e.currentTarget as HTMLElement).style.background =
-                              "rgba(201, 168, 76, 0.06)")
+                              "color-mix(in srgb, var(--color-gold) 6%, transparent)")
                           }
                           onMouseLeave={(e) =>
                             ((e.currentTarget as HTMLElement).style.background =
@@ -558,7 +558,7 @@ export function ProgressDrawer({
                       className="w-full overflow-hidden rounded-full"
                       style={{
                         height: "5px",
-                        background: "rgba(201, 168, 76, 0.14)",
+                        background: "color-mix(in srgb, var(--color-gold) 14%, transparent)",
                       }}
                       role="progressbar"
                       aria-valuenow={percentage ?? 0}
@@ -624,7 +624,7 @@ export function ProgressDrawer({
                 <div
                   className="mx-7 mb-2 rounded-lg p-5"
                   style={{
-                    background: "rgba(201, 168, 76, 0.04)",
+                    background: "color-mix(in srgb, var(--color-gold) 4%, transparent)",
                     border: "1px solid var(--color-border-strong)",
                   }}
                 >

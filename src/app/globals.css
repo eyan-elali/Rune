@@ -18,7 +18,7 @@
   --color-parchment:    #faf7f2;
   --color-vellum:       #f5f0e6;
   --color-sepia:        #f0ebe0;
-  --color-gold:         #b8922a;
+  --color-gold:         #957722;
   --color-gold-dim:     #8a6a1c;
   --color-crimson:      #8b2e2e;
   --color-sage:         #4a6741;
@@ -402,6 +402,23 @@ body {
   height: 0;
 }
 
+/* Dark themes keep the manuscript page itself a light paper surface
+   (--surface-editor), but --color-mist is tuned bright for muted text
+   against those themes' dark chrome. Pin the placeholder to --editor-text
+   (always dark ink) instead, so it stays legible against the light page. */
+html[data-theme="candlelight"] .ProseMirror .is-empty.is-editor-empty::before,
+html[data-theme="midnight-library"] .ProseMirror .is-empty.is-editor-empty::before,
+html[data-theme="crimson-ink"] .ProseMirror .is-empty.is-editor-empty::before,
+html[data-theme="forest-scriptorium"] .ProseMirror .is-empty.is-editor-empty::before,
+html[data-theme="obsidian"] .ProseMirror .is-empty.is-editor-empty::before,
+html[data-theme="absinthe"] .ProseMirror .is-empty.is-editor-empty::before,
+html[data-theme="ravens-court"] .ProseMirror .is-empty.is-editor-empty::before,
+html[data-theme="gilded-age"] .ProseMirror .is-empty.is-editor-empty::before,
+html[data-theme="the-void"] .ProseMirror .is-empty.is-editor-empty::before {
+  color: var(--editor-text);
+  opacity: 0.4;
+}
+
 /* Selection highlight */
 .ProseMirror ::selection {
   background: rgba(184, 146, 42, 0.25);
@@ -444,26 +461,16 @@ body {
   }
 }
 
-/* Onboarding secondary text. --text-muted (= --color-mist) is tuned for
-   light surfaces and reads too dark against Candlelight's near-black
-   background, so onboarding gets its own muted tone that only diverges
-   from the shared token on that one theme. */
+/* Onboarding and phone-waiting-room secondary text share the app's muted
+   token. --color-mist is now tuned per dark theme for ~4.5:1 contrast
+   against both --bg-primary and --surface-card (see dark-theme blocks
+   below), so no per-route override is needed here anymore. */
 .rune-onboarding {
   --onboarding-muted: var(--text-muted);
 }
 
-[data-theme="candlelight"] .rune-onboarding {
-  --onboarding-muted: rgba(245, 240, 232, 0.64);
-}
-
-/* Phone waiting room shares onboarding's muted-text fix — same near-black
-   Candlelight background, same problem with --text-muted reading too dark. */
 .rune-waiting-room {
   --onboarding-muted: var(--text-muted);
-}
-
-[data-theme="candlelight"] .rune-waiting-room {
-  --onboarding-muted: rgba(245, 240, 232, 0.64);
 }
 
 /* ── Editor tutorial ─────────────────────────────────────────────── */
@@ -507,7 +514,7 @@ body {
   --color-gold-dim:     #8a6f2e;
   --color-crimson:      #8b2e2e;
   --color-sage:         #4a6741;
-  --color-mist:         #6b6560;
+  --color-mist:         #938d87;
   --color-border:       rgba(201, 168, 76, 0.2);
   --color-border-strong: rgba(201, 168, 76, 0.4);
   --color-shadow:       rgba(0, 0, 0, 0.3);
@@ -526,14 +533,14 @@ body {
 /* ── Unlockable theme: Midnight Library ─────────────────────────── */
 [data-theme="midnight-library"] {
   --color-ink:          #0d0c12;
-  --color-parchment:    #d8d6e8;
-  --color-vellum:       #ccc9dc;
-  --color-sepia:        #12101a;
-  --color-gold:         #7b9ece;
-  --color-gold-dim:     #5a7aaa;
-  --color-mist:         #6a6880;
-  --color-border:       rgba(123, 158, 206, 0.2);
-  --color-border-strong: rgba(123, 158, 206, 0.4);
+  --color-parchment:    #d8dee8;
+  --color-vellum:       #ccd4e0;
+  --color-sepia:        #161c2c;
+  --color-gold:         #7b93c9;
+  --color-gold-dim:     #566ca3;
+  --color-mist:         #85839a;
+  --color-border:       rgba(123, 147, 201, 0.2);
+  --color-border-strong: rgba(123, 147, 201, 0.4);
   --color-shadow:       rgba(0, 0, 0, 0.4);
 
   --bg-primary:         #0d0c12;
@@ -555,7 +562,7 @@ body {
   --color-sepia:        #1e0b0a;
   --color-gold:         #c04848;
   --color-gold-dim:     #8b2e2e;
-  --color-mist:         #6e5858;
+  --color-mist:         #927777;
   --color-border:       rgba(192, 72, 72, 0.22);
   --color-border-strong: rgba(192, 72, 72, 0.45);
   --color-shadow:       rgba(0, 0, 0, 0.4);
@@ -577,13 +584,13 @@ body {
   --color-parchment:    #f5f3ee;
   --color-vellum:       #eceae4;
   --color-sepia:        #e8e4db;
-  --color-gold:         #5a6a8a;
-  --color-gold-dim:     #3d4f6b;
+  --color-gold:         #4a4d52;
+  --color-gold-dim:     #333133;
   --color-crimson:      #c04848;
   --color-sage:         #3d5c38;
   --color-mist:         #5f6678;
-  --color-border:       rgba(90, 106, 138, 0.2);
-  --color-border-strong: rgba(90, 106, 138, 0.35);
+  --color-border:       rgba(74, 77, 82, 0.2);
+  --color-border-strong: rgba(74, 77, 82, 0.35);
   --color-shadow:       rgba(45, 50, 68, 0.08);
 
   --bg-primary:         #f5f3ee;
@@ -595,13 +602,6 @@ body {
   --text-muted:         var(--color-mist);
   --text-on-accent:     #ffffff;
   --editor-text:        var(--color-ink);
-}
-
-/* ── Ivory Tower: arena icon contrast ───────────────────────────── */
-[data-theme="ivory-tower"] .arena-game-icon {
-  background: rgba(45, 50, 68, 0.1) !important;
-  border-color: rgba(45, 50, 68, 0.35) !important;
-  filter: saturate(0) contrast(1.2);
 }
 
 /* ── Preview theme: Manuscript (neutral light, no gold) ──────────── */
@@ -626,15 +626,6 @@ body {
   --text-muted:         var(--color-mist);
   --text-on-accent:     #ffffff;
   --editor-text:        var(--color-ink);
-}
-
-/* Manuscript: neutralize the hardcoded gold-tinted arena icon background
-   (same fix as Ivory Tower — that background is a literal rgba(gold), not a
-   var, wherever the Arena hub renders game icons). */
-[data-theme="manuscript"] .arena-game-icon {
-  background: rgba(40, 38, 34, 0.06) !important;
-  border-color: var(--color-border-strong) !important;
-  filter: saturate(0) contrast(1.1);
 }
 
 /* ── Unlockable theme: London Fog (cool light) ──────────────────── */
@@ -673,7 +664,7 @@ body {
   --color-gold-dim:     #5a7248;
   --color-crimson:      #8b3e3e;
   --color-sage:         #4a6741;
-  --color-mist:         #6a7564;
+  --color-mist:         #818d7a;
   --color-border:       rgba(122, 154, 98, 0.22);
   --color-border-strong: rgba(122, 154, 98, 0.42);
   --color-shadow:       rgba(0, 0, 0, 0.35);
@@ -695,13 +686,13 @@ body {
   --color-parchment:    #e4eef4;
   --color-vellum:       #d0dde8;
   --color-sepia:        #101018;
-  --color-gold:         #6eb0d4;
-  --color-gold-dim:     #4a8aaa;
+  --color-gold:         #5ec2e8;
+  --color-gold-dim:     #3a9cc4;
   --color-crimson:      #9a4048;
   --color-sage:         #3d5a48;
-  --color-mist:         #6a7888;
-  --color-border:       rgba(110, 176, 212, 0.2);
-  --color-border-strong: rgba(110, 176, 212, 0.4);
+  --color-mist:         #707f90;
+  --color-border:       rgba(94, 194, 232, 0.2);
+  --color-border-strong: rgba(94, 194, 232, 0.4);
   --color-shadow:       rgba(0, 0, 0, 0.5);
 
   --bg-primary:         #060608;
@@ -721,13 +712,13 @@ body {
   --color-parchment:    #e8f0e4;
   --color-vellum:       #d8e8d0;
   --color-sepia:        #0e1a14;
-  --color-gold:         #c9a84c;
-  --color-gold-dim:     #8a6f2e;
+  --color-gold:         #c7ad3f;
+  --color-gold-dim:     #8f7a2a;
   --color-crimson:      #8b4040;
   --color-sage:         #3a6848;
-  --color-mist:         #6a8070;
-  --color-border:       rgba(201, 168, 76, 0.22);
-  --color-border-strong: rgba(201, 168, 76, 0.42);
+  --color-mist:         #708776;
+  --color-border:       rgba(199, 173, 63, 0.22);
+  --color-border-strong: rgba(199, 173, 63, 0.42);
   --color-shadow:       rgba(0, 0, 0, 0.4);
 
   --bg-primary:         #081210;
@@ -751,7 +742,7 @@ body {
   --color-gold-dim:     #6a5a90;
   --color-crimson:      #9a4868;
   --color-sage:         #4a5a48;
-  --color-mist:         #787088;
+  --color-mist:         #837b92;
   --color-border:       rgba(154, 136, 192, 0.22);
   --color-border-strong: rgba(154, 136, 192, 0.42);
   --color-shadow:       rgba(0, 0, 0, 0.45);
@@ -777,7 +768,7 @@ body {
   --color-gold-dim:     #a07830;
   --color-crimson:      #6a1828;
   --color-sage:         #4a5a40;
-  --color-mist:         #8a7068;
+  --color-mist:         #947a72;
   --color-border:       rgba(212, 168, 76, 0.24);
   --color-border-strong: rgba(212, 168, 76, 0.45);
   --color-shadow:       rgba(0, 0, 0, 0.4);
@@ -922,13 +913,13 @@ body {
   --color-parchment:    #dcd4e8;
   --color-vellum:       #c8c0d8;
   --color-sepia:        #08060c;
-  --color-gold:         #6a5a8a;
-  --color-gold-dim:     #4a3a68;
-  --color-crimson:      #8a3858;
+  --color-gold:         #7a7090;
+  --color-gold-dim:     #564c68;
+  --color-crimson:      #93707c;
   --color-sage:         #3a4840;
-  --color-mist:         #686078;
-  --color-border:       rgba(106, 90, 138, 0.2);
-  --color-border-strong: rgba(106, 90, 138, 0.38);
+  --color-mist:         #7e7591;
+  --color-border:       rgba(122, 112, 144, 0.2);
+  --color-border-strong: rgba(122, 112, 144, 0.38);
   --color-shadow:       rgba(0, 0, 0, 0.6);
 
   --bg-primary:         #000000;

@@ -463,9 +463,9 @@ function NoteRow({
       )}
       style={{
         background: isPinned
-          ? "rgba(201,168,76,0.05)"
+          ? "color-mix(in srgb, var(--color-gold) 5%, transparent)"
           : "rgba(255,255,255,0.025)",
-        border: isPinned ? "1px solid rgba(201,168,76,0.15)" : "1px solid transparent",
+        border: isPinned ? "1px solid color-mix(in srgb, var(--color-gold) 15%, transparent)" : "1px solid transparent",
       }}
     >
       {/* Checkbox */}

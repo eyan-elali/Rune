@@ -57,7 +57,7 @@ export function ActivationFunnel({
 
                 <span
                   className="relative h-6 flex-1 overflow-hidden rounded-sm"
-                  style={{ background: "rgba(201, 168, 76, 0.08)" }}
+                  style={{ background: "color-mix(in srgb, var(--color-gold) 8%, transparent)" }}
                 >
                   <span
                     className="absolute inset-y-0 left-0 rounded-sm transition-all"

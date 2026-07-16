@@ -489,8 +489,8 @@ export function PageList({
         <div
           className="mx-3 mt-2 flex shrink-0 items-start gap-2 rounded-md px-2.5 py-2"
           style={{
-            background: "rgba(201, 168, 76, 0.06)",
-            borderLeft: "2px solid rgba(201, 168, 76, 0.35)",
+            background: "color-mix(in srgb, var(--color-gold) 6%, transparent)",
+            borderLeft: "2px solid color-mix(in srgb, var(--color-gold) 35%, transparent)",
           }}
         >
           <Info

@@ -14,8 +14,8 @@ export function GuideButton({ onClick, label = "Page Guide" }: GuideButtonProps)
       title={label}
       className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-medium transition-opacity duration-150 hover:opacity-80"
       style={{
-        background: "rgba(201, 168, 76, 0.08)",
-        border: "1px solid rgba(201, 168, 76, 0.2)",
+        background: "color-mix(in srgb, var(--color-gold) 8%, transparent)",
+        border: "1px solid color-mix(in srgb, var(--color-gold) 20%, transparent)",
         color: "var(--color-mist)",
       }}
     >

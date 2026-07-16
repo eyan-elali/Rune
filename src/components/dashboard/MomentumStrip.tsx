@@ -54,7 +54,7 @@ export function MomentumStrip({
         className="flex flex-col gap-1 px-6 py-5"
         style={{
           ...cellStyle,
-          borderTop: "2px solid rgba(201, 168, 76, 0.45)",
+          borderTop: "2px solid color-mix(in srgb, var(--color-gold) 45%, transparent)",
         }}
       >
         <p
@@ -130,7 +130,7 @@ export function MomentumStrip({
           style={cellStyle}
           onMouseEnter={(e) => {
             (e.currentTarget as HTMLButtonElement).style.background =
-              "rgba(201, 168, 76, 0.04)";
+              "color-mix(in srgb, var(--color-gold) 4%, transparent)";
           }}
           onMouseLeave={(e) => {
             (e.currentTarget as HTMLButtonElement).style.background =
@@ -138,7 +138,7 @@ export function MomentumStrip({
           }}
           onFocus={(e) => {
             (e.currentTarget as HTMLButtonElement).style.boxShadow =
-              "inset 0 0 0 2px rgba(201, 168, 76, 0.35)";
+              "inset 0 0 0 2px color-mix(in srgb, var(--color-gold) 35%, transparent)";
           }}
           onBlur={(e) => {
             (e.currentTarget as HTMLButtonElement).style.boxShadow = "none";
@@ -170,7 +170,7 @@ export function MomentumStrip({
               </p>
               <div
                 className="mt-2 overflow-hidden rounded-full"
-                style={{ height: "3px", background: "rgba(201, 168, 76, 0.12)" }}
+                style={{ height: "3px", background: "color-mix(in srgb, var(--color-gold) 12%, transparent)" }}
                 role="progressbar"
                 aria-valuenow={goalPercent ?? 0}
                 aria-valuemin={0}

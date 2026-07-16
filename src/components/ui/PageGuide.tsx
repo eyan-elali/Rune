@@ -274,9 +274,9 @@ export function PageGuide({ steps, isOpen, onClose, onStepChange }: PageGuidePro
             left: `${sLeft}px`,
             width: `${sW}px`,
             height: `${sH}px`,
-            border: "1.5px solid rgba(201,168,76,0.65)",
+            border: "1.5px solid color-mix(in srgb, var(--color-gold) 65%, transparent)",
             borderRadius: highlightRadius,
-            boxShadow: "0 0 0 1px rgba(201,168,76,0.10), 0 0 20px rgba(201,168,76,0.16)",
+            boxShadow: "0 0 0 1px color-mix(in srgb, var(--color-gold) 10%, transparent), 0 0 20px color-mix(in srgb, var(--color-gold) 16%, transparent)",
             zIndex: 201,
             pointerEvents: "none",
           }}

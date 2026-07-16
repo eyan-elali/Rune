@@ -24,7 +24,7 @@ export function TimeRangeSelector({ range }: { range: PulseTimeRange }) {
   return (
     <div
       className="inline-flex items-center gap-0.5 rounded-full p-1"
-      style={{ background: "rgba(201, 168, 76, 0.06)", border: "1px solid var(--color-border)" }}
+      style={{ background: "color-mix(in srgb, var(--color-gold) 6%, transparent)", border: "1px solid var(--color-border)" }}
       role="tablist"
       aria-label="Time range"
     >

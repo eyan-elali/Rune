@@ -47,8 +47,8 @@ export function XpBar({ xp, level, hero = false }: XpBarProps) {
             aria-valuemax={required}
             aria-label={`Level ${level} XP progress`}
             style={{
-              background: "rgba(201, 168, 76, 0.12)",
-              border: "1px solid rgba(201, 168, 76, 0.2)",
+              background: "color-mix(in srgb, var(--color-gold) 12%, transparent)",
+              border: "1px solid color-mix(in srgb, var(--color-gold) 20%, transparent)",
             }}
           >
             <div
@@ -58,7 +58,7 @@ export function XpBar({ xp, level, hero = false }: XpBarProps) {
                 background:
                   "linear-gradient(90deg, var(--color-gold-dim), var(--color-gold))",
                 transition: "width 0.8s ease-out",
-                boxShadow: "0 0 6px rgba(201, 168, 76, 0.35)",
+                boxShadow: "0 0 6px color-mix(in srgb, var(--color-gold) 35%, transparent)",
               }}
             />
           </div>
@@ -100,8 +100,8 @@ export function XpBar({ xp, level, hero = false }: XpBarProps) {
         aria-valuemax={required}
         aria-label={`Level ${level} XP progress`}
         style={{
-          background: "rgba(201, 168, 76, 0.12)",
-          border: "1px solid rgba(201, 168, 76, 0.2)",
+          background: "color-mix(in srgb, var(--color-gold) 12%, transparent)",
+          border: "1px solid color-mix(in srgb, var(--color-gold) 20%, transparent)",
         }}
       >
         <div
@@ -111,7 +111,7 @@ export function XpBar({ xp, level, hero = false }: XpBarProps) {
             background:
               "linear-gradient(90deg, var(--color-gold-dim), var(--color-gold))",
             transition: "width 0.8s ease-out",
-            boxShadow: "0 0 8px rgba(201, 168, 76, 0.4)",
+            boxShadow: "0 0 8px color-mix(in srgb, var(--color-gold) 40%, transparent)",
           }}
         />
       </div>

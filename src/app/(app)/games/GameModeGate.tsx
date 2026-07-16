@@ -24,7 +24,7 @@ export function GameModeGate() {
     <div
       className="relative flex flex-col items-center justify-center rounded-xl px-8 py-20 text-center"
       style={{
-        background: 'rgba(201,168,76,0.03)',
+        background: 'color-mix(in srgb, var(--color-gold) 3%, transparent)',
         border: '1px solid var(--color-border)',
       }}
     >
@@ -38,7 +38,7 @@ export function GameModeGate() {
       <div
         className="mb-5 flex h-16 w-16 items-center justify-center rounded-full text-3xl"
         style={{
-          background: 'rgba(201,168,76,0.08)',
+          background: 'color-mix(in srgb, var(--color-gold) 8%, transparent)',
           border: '1px solid var(--color-border-strong)',
         }}
         aria-hidden

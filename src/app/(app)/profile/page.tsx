@@ -267,8 +267,8 @@ export default async function ProfilePage() {
         <div
           className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full"
           style={{
-            background: "rgba(201, 168, 76, 0.12)",
-            border: "1px solid rgba(201, 168, 76, 0.25)",
+            background: "color-mix(in srgb, var(--color-gold) 12%, transparent)",
+            border: "1px solid color-mix(in srgb, var(--color-gold) 25%, transparent)",
           }}
           aria-hidden
         >
@@ -404,8 +404,8 @@ export default async function ProfilePage() {
                 title={item.name}
                 className="flex h-9 w-9 items-center justify-center rounded-full"
                 style={{
-                  background: "rgba(201, 168, 76, 0.12)",
-                  border: "1px solid rgba(201, 168, 76, 0.28)",
+                  background: "color-mix(in srgb, var(--color-gold) 12%, transparent)",
+                  border: "1px solid color-mix(in srgb, var(--color-gold) 28%, transparent)",
                 }}
                 aria-label={item.name}
               >

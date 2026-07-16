@@ -57,7 +57,7 @@ export function LevelUpModal() {
             fontSize: "clamp(6rem, 20vw, 10rem)",
             color: "var(--color-gold)",
             textShadow:
-              "0 0 60px rgba(201, 168, 76, 0.4), 0 0 120px rgba(201, 168, 76, 0.15)",
+              "0 0 60px color-mix(in srgb, var(--color-gold) 40%, transparent), 0 0 120px color-mix(in srgb, var(--color-gold) 15%, transparent)",
           }}
           aria-live="polite"
         >

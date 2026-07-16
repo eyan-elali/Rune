@@ -15,7 +15,7 @@ interface ExploreCardData {
 const cardBaseStyle = {
   background: "var(--surface-card)",
   border: "1px solid var(--color-border)",
-  borderLeft: "2px solid rgba(201, 168, 76, 0.3)",
+  borderLeft: "2px solid color-mix(in srgb, var(--color-gold) 30%, transparent)",
 } as const;
 
 function ExploreCard({ title, tagline, body, cta, href, onClick, dataGuide }: ExploreCardData) {
@@ -29,7 +29,7 @@ function ExploreCard({ title, tagline, body, cta, href, onClick, dataGuide }: Ex
       </h3>
       <p
         className="mt-1 font-rune-serif text-xs italic"
-        style={{ color: "rgba(201, 168, 76, 0.6)" }}
+        style={{ color: "color-mix(in srgb, var(--color-gold) 60%, transparent)" }}
       >
         {tagline}
       </p>

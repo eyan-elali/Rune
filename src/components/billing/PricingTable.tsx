@@ -92,7 +92,7 @@ function PillToggle<T extends string>({
       className="inline-flex rounded-full p-0.5"
       role="group"
       aria-label={label}
-      style={{ background: 'rgba(201,168,76,0.08)', border: '1px solid var(--color-border-strong)' }}
+      style={{ background: 'color-mix(in srgb, var(--color-gold) 8%, transparent)', border: '1px solid var(--color-border-strong)' }}
     >
       {options.map((opt) => (
         <button
@@ -171,14 +171,19 @@ function CtaButton({
   }
 
   if (isCurrentPlan) {
+    // Transparent background shows the card behind it — on the featured
+    // card that's a var(--color-gold) fill, so border/text need
+    // --text-on-accent there instead of --color-gold (which can be a dark
+    // charcoal in some themes and would disappear against its own fill).
+    const currentPlanColor = isFeatured ? 'var(--text-on-accent)' : 'var(--color-gold)'
     return (
       <button
         disabled
         className="w-full rounded-lg px-5 py-2.5 text-sm font-medium"
         style={{
           background: 'transparent',
-          border: '1px solid var(--color-gold)',
-          color: 'var(--color-gold)',
+          border: `1px solid ${currentPlanColor}`,
+          color: currentPlanColor,
           opacity: 0.7,
           cursor: 'default',
         }}
@@ -225,7 +230,12 @@ function CtaButton({
       className="w-full rounded-lg px-5 py-2.5 text-sm font-medium transition-all duration-150 hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rune-gold"
       style={{
         background: isFeatured ? 'var(--color-ink)' : 'var(--color-gold)',
-        color: isFeatured ? 'var(--color-gold)' : 'var(--color-ink)',
+        // --color-ink is always dark, but --color-gold is sometimes a dark
+        // charcoal itself (Ivory Tower, Manuscript) — gold-on-ink there was
+        // nearly invisible, and plain ink-on-gold had the same problem in
+        // reverse. --color-parchment is reliably light in every theme, and
+        // --text-on-accent is calibrated per theme for the gold fill.
+        color: isFeatured ? 'var(--color-parchment)' : 'var(--text-on-accent)',
       }}
     >
       {isPending ? 'Loading…' : label}
@@ -237,15 +247,20 @@ function CtaButton({
 
 function tierTextColors(isFeatured: boolean) {
   if (isFeatured) {
+    // The featured card fills its whole background with var(--color-gold),
+    // and that resolves to a different lightness in every theme (e.g. a dark
+    // charcoal in Ivory Tower/Manuscript, a bright amber in Gilded Age). Use
+    // --text-on-accent — already calibrated per theme for legibility on top
+    // of --color-gold — instead of assuming dark ink always works.
     return {
-      heading: 'var(--color-ink)',
-      tagline: 'rgba(26,22,20,0.6)',
-      price: 'var(--color-ink)',
-      priceSuffix: 'rgba(26,22,20,0.55)',
-      annualNote: 'rgba(26,22,20,0.5)',
-      featureIncluded: 'rgba(26,22,20,0.8)',
-      featureExcluded: 'rgba(26,22,20,0.35)',
-      featureMark: 'var(--color-ink)',
+      heading: 'var(--text-on-accent)',
+      tagline: 'color-mix(in srgb, var(--text-on-accent) 60%, transparent)',
+      price: 'var(--text-on-accent)',
+      priceSuffix: 'color-mix(in srgb, var(--text-on-accent) 55%, transparent)',
+      annualNote: 'color-mix(in srgb, var(--text-on-accent) 50%, transparent)',
+      featureIncluded: 'color-mix(in srgb, var(--text-on-accent) 80%, transparent)',
+      featureExcluded: 'color-mix(in srgb, var(--text-on-accent) 35%, transparent)',
+      featureMark: 'var(--text-on-accent)',
     }
   }
   return {
@@ -308,16 +323,19 @@ function TierCard({
       style={{
         background: isFeatured ? 'var(--color-gold)' : 'var(--surface-card)',
         border: isFeatured ? 'none' : '1px solid var(--color-border)',
-        boxShadow: isFeatured ? '0 8px 48px rgba(201,168,76,0.22)' : undefined,
+        boxShadow: isFeatured ? '0 8px 48px color-mix(in srgb, var(--color-gold) 22%, transparent)' : undefined,
       }}
     >
       {billingPeriod === 'annual' && tier !== 'free' && (
         <div
           className="absolute -top-3 right-5 rounded-full px-3 py-0.5 text-[10px] font-semibold uppercase tracking-widest"
           style={{
-            background: isFeatured ? 'var(--color-ink)' : 'rgba(201,168,76,0.15)',
-            border: `1px solid ${isFeatured ? 'transparent' : 'rgba(201,168,76,0.3)'}`,
-            color: 'var(--color-gold)',
+            background: isFeatured ? 'var(--color-ink)' : 'color-mix(in srgb, var(--color-gold) 15%, transparent)',
+            border: `1px solid ${isFeatured ? 'transparent' : 'color-mix(in srgb, var(--color-gold) 30%, transparent)'}`,
+            // On the featured card this badge sits on --color-ink (always
+            // dark), so it needs light text — --color-gold itself is
+            // sometimes a dark charcoal/near-black and would vanish there.
+            color: isFeatured ? 'var(--color-parchment)' : 'var(--color-gold)',
           }}
         >
           20% off

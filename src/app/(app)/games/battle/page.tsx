@@ -222,8 +222,8 @@ function EnemySelectState({
                     <span
                       className="inline-block rounded px-2 py-0.5 text-[9px] uppercase tracking-widest font-semibold"
                       style={{
-                        background: "rgba(139, 46, 46, 0.18)",
-                        border: "1px solid rgba(139, 46, 46, 0.35)",
+                        background: "color-mix(in srgb, var(--color-crimson) 18%, transparent)",
+                        border: "1px solid color-mix(in srgb, var(--color-crimson) 35%, transparent)",
                         color: "var(--color-crimson)",
                       }}
                     >
@@ -240,7 +240,7 @@ function EnemySelectState({
                   <span
                     className="inline-block rounded px-2 py-0.5 text-[9px] uppercase tracking-widest"
                     style={{
-                      background: "rgba(201, 168, 76, 0.07)",
+                      background: "color-mix(in srgb, var(--color-gold) 7%, transparent)",
                       border: "1px solid var(--color-border)",
                       color: "var(--color-mist)",
                       opacity: 0.6,
@@ -367,8 +367,8 @@ function BattleHUD({
               <span
                 className="mt-0.5 text-[9px] uppercase tracking-widest rounded px-1.5 py-0.5 flex-shrink-0"
                 style={{
-                  background: "rgba(139,46,46,0.15)",
-                  border: "1px solid rgba(139,46,46,0.3)",
+                  background: "color-mix(in srgb, var(--color-crimson) 15%, transparent)",
+                  border: "1px solid color-mix(in srgb, var(--color-crimson) 30%, transparent)",
                   color: "var(--color-crimson)",
                 }}
               >
@@ -400,8 +400,8 @@ function BattleHUD({
             <div
               className="mt-3 flex items-center gap-2 rounded px-3 py-2"
               style={{
-                background: "rgba(201, 168, 76, 0.12)",
-                border: "1px solid rgba(201, 168, 76, 0.4)",
+                background: "color-mix(in srgb, var(--color-gold) 12%, transparent)",
+                border: "1px solid color-mix(in srgb, var(--color-gold) 40%, transparent)",
               }}
               aria-live="polite"
             >
@@ -508,10 +508,10 @@ function BattleHUD({
             <button
               type="button"
               onClick={onExit}
-              className="w-full rounded py-2.5 text-[10px] uppercase tracking-wider transition-colors duration-150 hover:bg-[rgba(139,46,46,0.12)]"
+              className="w-full rounded py-2.5 text-[10px] uppercase tracking-wider transition-colors duration-150 hover:bg-[color-mix(in_srgb,var(--color-crimson)_12%,transparent)]"
               style={{
                 color: "var(--color-crimson)",
-                border: "1px solid rgba(139, 46, 46, 0.28)",
+                border: "1px solid color-mix(in srgb, var(--color-crimson) 28%, transparent)",
               }}
             >
               Surrender
@@ -552,7 +552,11 @@ function ResultsState({
           100% { background-position:  200% center; }
         }
         .shimmer-gold {
-          background: linear-gradient(90deg, #c9a84c 0%, #f5d98a 45%, #e8c76a 55%, #c9a84c 100%);
+          background: linear-gradient(90deg,
+            var(--color-gold) 0%,
+            color-mix(in srgb, var(--color-gold) 55%, white) 45%,
+            color-mix(in srgb, var(--color-gold) 80%, white) 55%,
+            var(--color-gold) 100%);
           background-size: 200% auto;
           animation: rune-shimmer 2.4s linear infinite;
           -webkit-background-clip: text;
@@ -560,7 +564,11 @@ function ResultsState({
           background-clip: text;
         }
         .shimmer-crimson {
-          background: linear-gradient(90deg, #8b2e2e 0%, #c44545 45%, #a33535 55%, #8b2e2e 100%);
+          background: linear-gradient(90deg,
+            var(--color-crimson) 0%,
+            color-mix(in srgb, var(--color-crimson) 55%, white) 45%,
+            color-mix(in srgb, var(--color-crimson) 80%, white) 55%,
+            var(--color-crimson) 100%);
           background-size: 200% auto;
           animation: rune-shimmer 2.4s linear infinite;
           -webkit-background-clip: text;
@@ -591,7 +599,7 @@ function ResultsState({
             background: `linear-gradient(90deg, transparent, ${
               isVictory
                 ? "var(--color-border-strong)"
-                : "rgba(139,46,46,0.35)"
+                : "color-mix(in srgb, var(--color-crimson) 35%, transparent)"
             }, transparent)`,
           }}
         />
@@ -613,7 +621,7 @@ function ResultsState({
           <div
             className="mt-4 rounded px-5 py-2.5 text-xs"
             style={{
-              background: "rgba(201, 168, 76, 0.06)",
+              background: "color-mix(in srgb, var(--color-gold) 6%, transparent)",
               border: "1px solid var(--color-border)",
             }}
             aria-label="Split word count breakdown"

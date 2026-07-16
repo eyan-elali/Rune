@@ -71,7 +71,7 @@ export function ManuscriptExportButton({ project }: Props) {
         }}
         onMouseEnter={(e) => {
           (e.currentTarget as HTMLButtonElement).style.background =
-            "rgba(201,168,76,0.06)";
+            "color-mix(in srgb, var(--color-gold) 6%, transparent)";
         }}
         onMouseLeave={(e) => {
           (e.currentTarget as HTMLButtonElement).style.background = "transparent";

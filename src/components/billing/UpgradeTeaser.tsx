@@ -12,8 +12,8 @@ export function UpgradeTeaser({ feature, description, tier }: UpgradeTeaserProps
     <div
       className="flex flex-col gap-3 rounded-lg p-5"
       style={{
-        background: "rgba(201, 168, 76, 0.03)",
-        border: "1px dashed rgba(201, 168, 76, 0.25)",
+        background: "color-mix(in srgb, var(--color-gold) 3%, transparent)",
+        border: "1px dashed color-mix(in srgb, var(--color-gold) 25%, transparent)",
       }}
     >
       <div className="flex items-center gap-2">

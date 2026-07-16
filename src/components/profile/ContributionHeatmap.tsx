@@ -42,7 +42,7 @@ export function ContributionHeatmap({ data }: ContributionHeatmapProps) {
     return (
       <div
         className="h-32 w-full rounded-lg"
-        style={{ background: "rgba(201,168,76,0.06)", border: "1px solid var(--color-border)" }}
+        style={{ background: "color-mix(in srgb, var(--color-gold) 6%, transparent)", border: "1px solid var(--color-border)" }}
       />
     );
   }
@@ -103,7 +103,7 @@ export function ContributionHeatmap({ data }: ContributionHeatmapProps) {
             style={
               range === value
                 ? {
-                    background: "rgba(201,168,76,0.15)",
+                    background: "color-mix(in srgb, var(--color-gold) 15%, transparent)",
                     color: "var(--color-gold)",
                     borderBottom: "2px solid var(--color-gold)",
                   }

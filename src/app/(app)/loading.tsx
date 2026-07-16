@@ -9,7 +9,7 @@ export default function AppLoading() {
         .rune-spinner {
           width: 28px;
           height: 28px;
-          border: 2px solid rgba(201, 168, 76, 0.18);
+          border: 2px solid color-mix(in srgb, var(--color-gold) 18%, transparent);
           border-top-color: var(--color-gold);
           border-radius: 50%;
           animation: rune-spin 0.9s linear infinite;

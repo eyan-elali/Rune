@@ -91,9 +91,9 @@ export function AddGoalModal({
           <p
             className="mb-4 rounded px-3 py-2 text-xs"
             style={{
-              background: "rgba(139,46,46,0.12)",
+              background: "color-mix(in srgb, var(--color-crimson) 12%, transparent)",
               color: "var(--color-crimson)",
-              border: "1px solid rgba(139,46,46,0.25)",
+              border: "1px solid color-mix(in srgb, var(--color-crimson) 25%, transparent)",
             }}
           >
             You already have a manuscript goal. Remove it from the dashboard first.

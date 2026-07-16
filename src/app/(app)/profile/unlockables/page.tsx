@@ -22,8 +22,8 @@ function ScribeBadge() {
     <span
       className="inline-flex items-center rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-widest"
       style={{
-        background: "rgba(201,168,76,0.1)",
-        border: "1px solid rgba(201,168,76,0.35)",
+        background: "color-mix(in srgb, var(--color-gold) 10%, transparent)",
+        border: "1px solid color-mix(in srgb, var(--color-gold) 35%, transparent)",
         color: "var(--color-gold)",
       }}
     >
@@ -48,7 +48,7 @@ function UnlockableCard({
   const isUnlocked = unlockedAt !== null || isAlwaysFree;
 
   const cardBorder = isTierGated
-    ? "1.5px dashed rgba(201,168,76,0.45)"
+    ? "1.5px dashed color-mix(in srgb, var(--color-gold) 45%, transparent)"
     : isUnlocked
     ? "1px solid var(--color-border-strong)"
     : "1px solid var(--color-border)";
@@ -78,8 +78,8 @@ function UnlockableCard({
         <div
           className="mb-3 flex h-10 w-10 items-center justify-center rounded-full"
           style={{
-            background: "rgba(201, 168, 76, 0.12)",
-            border: "1px solid rgba(201, 168, 76, 0.25)",
+            background: "color-mix(in srgb, var(--color-gold) 12%, transparent)",
+            border: "1px solid color-mix(in srgb, var(--color-gold) 25%, transparent)",
           }}
           aria-hidden
         >

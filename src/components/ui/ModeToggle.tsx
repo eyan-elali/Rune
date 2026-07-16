@@ -36,7 +36,7 @@ export function ModeToggle() {
         background: isFocus
           ? "var(--color-gold)"
           : isHovered
-            ? "rgba(201,168,76,0.1)"
+            ? "color-mix(in srgb, var(--color-gold) 10%, transparent)"
             : "transparent",
         color: isFocus
           ? "var(--color-ink)"

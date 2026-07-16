@@ -105,8 +105,8 @@ export function UserAvatar({
         className
       )}
       style={{
-        background: "rgba(201, 168, 76, 0.12)",
-        border: "1px solid rgba(201, 168, 76, 0.25)",
+        background: "color-mix(in srgb, var(--color-gold) 12%, transparent)",
+        border: "1px solid color-mix(in srgb, var(--color-gold) 25%, transparent)",
         color: "var(--color-gold)",
       }}
       aria-label={`Avatar: ${activeAvatarId}`}

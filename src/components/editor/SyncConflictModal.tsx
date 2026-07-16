@@ -155,7 +155,7 @@ export function SyncConflictModal({
         style={{
           background: "var(--surface-card)",
           border: "1px solid var(--color-border-strong)",
-          boxShadow: "0 32px 80px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(201,168,76,0.08)",
+          boxShadow: "0 32px 80px rgba(0, 0, 0, 0.65), 0 0 0 1px color-mix(in srgb, var(--color-gold) 8%, transparent)",
         }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -164,8 +164,8 @@ export function SyncConflictModal({
           <div
             className="flex items-center gap-1.5 rounded-full px-2.5 py-1"
             style={{
-              background: "rgba(139, 46, 46, 0.15)",
-              border: "1px solid rgba(139, 46, 46, 0.3)",
+              background: "color-mix(in srgb, var(--color-crimson) 15%, transparent)",
+              border: "1px solid color-mix(in srgb, var(--color-crimson) 30%, transparent)",
             }}
           >
             <span
@@ -228,7 +228,7 @@ export function SyncConflictModal({
               <div
                 className="rounded-xl p-4"
                 style={{
-                  background: "rgba(201, 168, 76, 0.07)",
+                  background: "color-mix(in srgb, var(--color-gold) 7%, transparent)",
                   border: "1px solid var(--color-border-strong)",
                 }}
               >
@@ -295,8 +295,8 @@ export function SyncConflictModal({
                 className="mb-4 rounded-lg px-3 py-2 text-xs"
                 style={{
                   color: "var(--color-crimson)",
-                  background: "rgba(139,46,46,0.1)",
-                  border: "1px solid rgba(139,46,46,0.2)",
+                  background: "color-mix(in srgb, var(--color-crimson) 10%, transparent)",
+                  border: "1px solid color-mix(in srgb, var(--color-crimson) 20%, transparent)",
                 }}
               >
                 {resolveError}

@@ -190,7 +190,7 @@ function ThemeOption({ id, name, description, active, onSelect }: ThemeOptionPro
       aria-label={`${name} — ${description}`}
       className="relative flex flex-1 flex-col items-start rounded-lg p-5 text-left transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rune-gold"
       style={{
-        background: active ? "rgba(184, 146, 42, 0.1)" : "var(--bg-secondary)",
+        background: active ? "color-mix(in srgb, var(--color-gold) 10%, transparent)" : "var(--bg-secondary)",
         border: `1px solid ${active ? "var(--color-gold)" : "var(--color-border)"}`,
       }}
     >

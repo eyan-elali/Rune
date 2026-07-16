@@ -247,7 +247,11 @@ function ResultsState({
           100% { background-position:  200% center; }
         }
         .shimmer-text {
-          background: linear-gradient(90deg, #c9a84c 0%, #f5d98a 45%, #e8c76a 55%, #c9a84c 100%);
+          background: linear-gradient(90deg,
+            var(--color-gold) 0%,
+            color-mix(in srgb, var(--color-gold) 55%, white) 45%,
+            color-mix(in srgb, var(--color-gold) 80%, white) 55%,
+            var(--color-gold) 100%);
           background-size: 200% auto;
           animation: rune-shimmer 2.4s linear infinite;
           -webkit-background-clip: text;
@@ -292,7 +296,7 @@ function ResultsState({
         <div
             className="mt-4 rounded px-5 py-2.5 text-xs"
             style={{
-              background: "rgba(201, 168, 76, 0.06)",
+              background: "color-mix(in srgb, var(--color-gold) 6%, transparent)",
               border: "1px solid var(--color-border)",
             }}
             aria-label="Split word count breakdown"
@@ -570,7 +574,7 @@ function HUD({
                 className="rounded px-2.5 py-1 font-rune-sans text-[10px] uppercase tracking-wider transition-colors duration-150 hover:bg-rune-crimson/15"
                 style={{
                   color: "var(--color-crimson)",
-                  border: "1px solid rgba(139, 46, 46, 0.35)",
+                  border: "1px solid color-mix(in srgb, var(--color-crimson) 35%, transparent)",
                 }}
               >
                 Exit
@@ -585,8 +589,8 @@ function HUD({
         <div
           className="px-8 py-2 text-center text-[10px] uppercase tracking-widest"
           style={{
-            background: "rgba(201, 168, 76, 0.08)",
-            borderTop: "1px solid rgba(201, 168, 76, 0.15)",
+            background: "color-mix(in srgb, var(--color-gold) 8%, transparent)",
+            borderTop: "1px solid color-mix(in srgb, var(--color-gold) 15%, transparent)",
             color: "var(--color-gold)",
           }}
           aria-live="polite"
@@ -596,7 +600,7 @@ function HUD({
       )}
 
       {/* Progress bar */}
-      <div className="h-[3px]" style={{ background: "rgba(201, 168, 76, 0.08)" }} aria-hidden>
+      <div className="h-[3px]" style={{ background: "color-mix(in srgb, var(--color-gold) 8%, transparent)" }} aria-hidden>
         <div
           className="h-full transition-all duration-1000 ease-linear"
           style={{

@@ -116,7 +116,7 @@ function MiniXpBar() {
   return (
     <div
       className="h-1 w-full overflow-hidden"
-      style={{ background: "rgba(201, 168, 76, 0.12)" }}
+      style={{ background: "color-mix(in srgb, var(--color-gold) 12%, transparent)" }}
       role="presentation"
       aria-hidden
     >

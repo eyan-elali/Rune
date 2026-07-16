@@ -230,8 +230,8 @@ export function YourStoryHero({
           <div
             className="my-5 rounded-md px-4 py-3"
             style={{
-              background: "rgba(201,168,76,0.06)",
-              border: "1px solid rgba(201,168,76,0.18)",
+              background: "color-mix(in srgb, var(--color-gold) 6%, transparent)",
+              border: "1px solid color-mix(in srgb, var(--color-gold) 18%, transparent)",
             }}
           >
             <p

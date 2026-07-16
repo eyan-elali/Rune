@@ -61,7 +61,7 @@ export function SaveToProject({
     if (appendStep === "saved") {
       return (
         <div className="mt-4 rounded-lg px-5 py-3 text-center text-sm"
-          style={{ background: "rgba(74, 103, 65, 0.15)", border: "1px solid rgba(74, 103, 65, 0.3)", color: "var(--color-sage)" }}>
+          style={{ background: "color-mix(in srgb, var(--color-sage) 15%, transparent)", border: "1px solid color-mix(in srgb, var(--color-sage) 30%, transparent)", color: "var(--color-sage)" }}>
           ✓ &nbsp;Appended to &ldquo;{page.title}&rdquo;
         </div>
       );
@@ -146,8 +146,8 @@ export function SaveToProject({
       <div
         className="mt-4 rounded-lg px-5 py-3 text-center text-sm"
         style={{
-          background: "rgba(74, 103, 65, 0.15)",
-          border: "1px solid rgba(74, 103, 65, 0.3)",
+          background: "color-mix(in srgb, var(--color-sage) 15%, transparent)",
+          border: "1px solid color-mix(in srgb, var(--color-sage) 30%, transparent)",
           color: "var(--color-sage)",
         }}
       >

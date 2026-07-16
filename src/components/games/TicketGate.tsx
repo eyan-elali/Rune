@@ -84,8 +84,8 @@ export function TicketGate({ children, onTicketConsumed }: TicketGateProps) {
         <div
           className="mb-5 flex h-16 w-16 items-center justify-center rounded-full text-3xl"
           style={{
-            background: 'rgba(139,46,46,0.08)',
-            border: '1px solid rgba(139,46,46,0.25)',
+            background: 'color-mix(in srgb, var(--color-crimson) 8%, transparent)',
+            border: '1px solid color-mix(in srgb, var(--color-crimson) 25%, transparent)',
           }}
           aria-hidden
         >
@@ -148,7 +148,7 @@ function TicketPrompt({
       <div
         className="mb-5 flex h-16 w-16 items-center justify-center rounded-full text-3xl"
         style={{
-          background: 'rgba(201,168,76,0.08)',
+          background: 'color-mix(in srgb, var(--color-gold) 8%, transparent)',
           border: '1px solid var(--color-border-strong)',
         }}
         aria-hidden

@@ -30,7 +30,7 @@ export function WriterProgress({ data }: { data: WriterProgressItem[] }) {
               <span className="w-12 shrink-0 text-sm" style={{ color: "var(--text-primary)" }}>
                 {formatThreshold(item.threshold)}
               </span>
-              <span className="relative h-4 flex-1 overflow-hidden rounded-sm" style={{ background: "rgba(201, 168, 76, 0.08)" }}>
+              <span className="relative h-4 flex-1 overflow-hidden rounded-sm" style={{ background: "color-mix(in srgb, var(--color-gold) 8%, transparent)" }}>
                 <span
                   className="absolute inset-y-0 left-0 rounded-sm"
                   style={{ width: `${widthPercent}%`, background: "var(--color-gold)", opacity: 0.7 }}

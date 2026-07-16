@@ -113,7 +113,7 @@ export default async function GamesPage() {
               <div
                 className="arena-game-icon mb-6 flex h-14 w-14 items-center justify-center rounded-full text-2xl"
                 style={{
-                  background: "rgba(201, 168, 76, 0.1)",
+                  background: "color-mix(in srgb, var(--color-gold) 10%, transparent)",
                   border: "1px solid var(--color-border-strong)",
                 }}
                 aria-hidden
@@ -137,7 +137,7 @@ export default async function GamesPage() {
                   <div
                     className="flex items-baseline gap-2 rounded px-3 py-2"
                     style={{
-                      background: "rgba(201, 168, 76, 0.08)",
+                      background: "color-mix(in srgb, var(--color-gold) 8%, transparent)",
                       border: "1px solid var(--color-border)",
                     }}
                   >
@@ -198,8 +198,8 @@ export default async function GamesPage() {
               <div
                 className="arena-game-icon mb-6 flex h-14 w-14 items-center justify-center rounded-full text-2xl"
                 style={{
-                  background: "rgba(139, 46, 46, 0.1)",
-                  border: "1px solid rgba(139, 46, 46, 0.25)",
+                  background: "color-mix(in srgb, var(--color-crimson) 10%, transparent)",
+                  border: "1px solid color-mix(in srgb, var(--color-crimson) 25%, transparent)",
                 }}
                 aria-hidden
               >
@@ -220,8 +220,8 @@ export default async function GamesPage() {
                 <div
                   className="flex items-center gap-2 rounded px-3 py-2"
                   style={{
-                    background: "rgba(139, 46, 46, 0.07)",
-                    border: "1px solid rgba(139, 46, 46, 0.2)",
+                    background: "color-mix(in srgb, var(--color-crimson) 7%, transparent)",
+                    border: "1px solid color-mix(in srgb, var(--color-crimson) 20%, transparent)",
                   }}
                 >
                   <span className="text-xs" style={{ color: "var(--color-crimson)", opacity: 0.8 }}>

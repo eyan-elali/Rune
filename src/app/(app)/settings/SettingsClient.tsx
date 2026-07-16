@@ -102,7 +102,7 @@ function Toggle({
       style={{
         background: checked
           ? "var(--color-gold)"
-          : "rgba(201, 168, 76, 0.12)",
+          : "color-mix(in srgb, var(--color-gold) 12%, transparent)",
         border: `1px solid ${checked ? "var(--color-gold)" : "var(--color-border-strong)"}`,
       }}
     >
@@ -175,8 +175,8 @@ function Card({ children, danger }: { children: React.ReactNode; danger?: boolea
     <div
       className="rounded-lg p-6"
       style={{
-        background: danger ? "rgba(139, 46, 46, 0.08)" : "var(--surface-card)",
-        border: `1px solid ${danger ? "rgba(139, 46, 46, 0.3)" : "var(--color-border)"}`,
+        background: danger ? "color-mix(in srgb, var(--color-crimson) 8%, transparent)" : "var(--surface-card)",
+        border: `1px solid ${danger ? "color-mix(in srgb, var(--color-crimson) 30%, transparent)" : "var(--color-border)"}`,
       }}
     >
       {children}
@@ -639,7 +639,7 @@ function AppearanceTab({ unlockedIds }: { unlockedIds: Set<string> }) {
                 className="relative flex flex-col items-start rounded-lg p-4 text-left transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rune-gold"
                 style={{
                   background: active
-                    ? "rgba(184, 146, 42, 0.1)"
+                    ? "color-mix(in srgb, var(--color-gold) 10%, transparent)"
                     : "var(--bg-secondary)",
                   border: `1px solid ${active ? "var(--color-gold)" : "var(--color-border)"}`,
                   opacity: unlocked ? 1 : 0.45,
@@ -668,7 +668,7 @@ function AppearanceTab({ unlockedIds }: { unlockedIds: Set<string> }) {
                   <span
                     className="absolute right-3 top-3 rounded px-1.5 py-0.5 text-[10px] uppercase tracking-widest"
                     style={{
-                      background: "rgba(184, 146, 42, 0.1)",
+                      background: "color-mix(in srgb, var(--color-gold) 10%, transparent)",
                       border: "1px solid var(--color-border)",
                       color: "var(--color-mist)",
                     }}
@@ -717,7 +717,7 @@ function AppearanceTab({ unlockedIds }: { unlockedIds: Set<string> }) {
                 className="relative flex flex-col items-start rounded-lg p-4 text-left transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rune-gold"
                 style={{
                   background: active
-                    ? "rgba(184, 146, 42, 0.1)"
+                    ? "color-mix(in srgb, var(--color-gold) 10%, transparent)"
                     : "var(--bg-secondary)",
                   border: `1px solid ${active ? "var(--color-gold)" : "var(--color-border)"}`,
                   opacity: unlocked ? 1 : 0.45,
@@ -780,7 +780,7 @@ function AppearanceTab({ unlockedIds }: { unlockedIds: Set<string> }) {
                 className="relative flex flex-col items-center gap-2 rounded-lg p-3 transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rune-gold"
                 style={{
                   background: active
-                    ? "rgba(184, 146, 42, 0.1)"
+                    ? "color-mix(in srgb, var(--color-gold) 10%, transparent)"
                     : "var(--bg-secondary)",
                   border: `1px solid ${active ? "var(--color-gold)" : "var(--color-border)"}`,
                   opacity: unlocked ? 1 : 0.4,
@@ -802,9 +802,9 @@ function AppearanceTab({ unlockedIds }: { unlockedIds: Set<string> }) {
                   className="flex h-10 w-10 items-center justify-center rounded-full font-rune-serif text-lg"
                   style={{
                     background: unlocked
-                      ? "rgba(201, 168, 76, 0.12)"
+                      ? "color-mix(in srgb, var(--color-gold) 12%, transparent)"
                       : "rgba(107, 101, 96, 0.12)",
-                    border: `1px solid ${unlocked ? "rgba(201, 168, 76, 0.25)" : "rgba(107, 101, 96, 0.25)"}`,
+                    border: `1px solid ${unlocked ? "color-mix(in srgb, var(--color-gold) 25%, transparent)" : "rgba(107, 101, 96, 0.25)"}`,
                     color: unlocked
                       ? "var(--color-gold)"
                       : "var(--color-mist)",
@@ -951,7 +951,7 @@ function SyncTab() {
               className="flex flex-col items-center justify-center rounded-lg py-5"
               style={{
                 background: "var(--bg-secondary)",
-                border: `1px solid ${danger ? "rgba(139,46,46,0.35)" : "var(--color-border)"}`,
+                border: `1px solid ${danger ? "color-mix(in srgb, var(--color-crimson) 35%, transparent)" : "var(--color-border)"}`,
               }}
             >
               <span
@@ -978,8 +978,8 @@ function SyncTab() {
           className="rounded-lg px-4 py-3 text-sm leading-relaxed"
           role="status"
           style={{
-            background: "rgba(139,46,46,0.07)",
-            border: "1px solid rgba(139,46,46,0.25)",
+            background: "color-mix(in srgb, var(--color-crimson) 7%, transparent)",
+            border: "1px solid color-mix(in srgb, var(--color-crimson) 25%, transparent)",
             color: "var(--color-mist)",
           }}
         >
@@ -1221,8 +1221,8 @@ function BillingTab({
             className="mt-4 rounded-lg px-4 py-3 text-sm"
             role="alert"
             style={{
-              background: "rgba(139,46,46,0.1)",
-              border: "1px solid rgba(139,46,46,0.3)",
+              background: "color-mix(in srgb, var(--color-crimson) 10%, transparent)",
+              border: "1px solid color-mix(in srgb, var(--color-crimson) 30%, transparent)",
               color: "var(--color-crimson)",
             }}
           >
@@ -1366,7 +1366,7 @@ export function SettingsClient({
                 tab.id === "danger"
                   ? activeTab === tab.id
                     ? "var(--color-crimson)"
-                    : "rgba(139, 46, 46, 0.5)"
+                    : "color-mix(in srgb, var(--color-crimson) 50%, transparent)"
                   : activeTab === tab.id
                   ? "var(--text-on-accent)"
                   : "var(--color-mist)",

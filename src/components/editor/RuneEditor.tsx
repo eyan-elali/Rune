@@ -924,7 +924,7 @@ export default function RuneEditor({
           >
             <div
               className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full"
-              style={{ background: 'rgba(201,168,76,0.1)', border: '1px solid rgba(201,168,76,0.35)' }}
+              style={{ background: 'color-mix(in srgb, var(--color-gold) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--color-gold) 35%, transparent)' }}
               aria-hidden
             >
               <span className="text-2xl">✦</span>
@@ -999,7 +999,7 @@ export default function RuneEditor({
           style={{
             background: "var(--surface-card)",
             color: "var(--text-primary)",
-            border: "1px solid rgba(201, 168, 76, 0.4)"
+            border: "1px solid color-mix(in srgb, var(--color-gold) 40%, transparent)"
           }}
         >
           {wordCount} <span className="ml-1 opacity-80">{wordCount === 1 ? "word" : "words"}</span>
