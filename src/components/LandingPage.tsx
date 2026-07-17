@@ -329,9 +329,9 @@ export default function LandingPage() {
           .landing-scribe-card {
             flex-direction: column !important;
             gap: 1.5rem !important;
-            width: min(92vw, 480px) !important;
+            width: min(92vw, 500px) !important;
             margin: 0 auto !important;
-            padding: 1.75rem !important;
+            padding: 2rem !important;
           }
           .landing-scribe-card-identity { flex: none !important; }
           .landing-scribe-card-capabilities {
@@ -465,10 +465,10 @@ export default function LandingPage() {
             align-items: stretch !important;
             text-align: center !important;
             gap: 1rem !important;
-            width: min(92vw, 430px) !important;
+            width: min(92vw, 450px) !important;
             margin-left: auto !important;
             margin-right: auto !important;
-            padding: 1.5rem !important;
+            padding: 1.75rem !important;
           }
           .landing-trial-banner-cta {
             display: block !important;
@@ -478,10 +478,10 @@ export default function LandingPage() {
           .landing-scribe-card {
             flex-direction: column !important;
             gap: 1.5rem !important;
-            width: min(92vw, 430px) !important;
+            width: min(92vw, 450px) !important;
             margin-left: auto !important;
             margin-right: auto !important;
-            padding: 1.75rem !important;
+            padding: 2rem !important;
           }
           .landing-scribe-card-identity { flex: none !important; }
           .landing-scribe-card-capabilities {
@@ -2825,12 +2825,12 @@ export default function LandingPage() {
           className="bg-[var(--bg-primary)] landing-pricing-section"
           style={{
             width: '100%',
-            padding: '4.5rem 1.5rem 5rem',
+            padding: '3.5rem 1.5rem 4rem',
             borderTop: '1px solid var(--color-border)',
             scrollMarginTop: '56px',
           }}
         >
-          <div className="relative z-20" style={{ maxWidth: '760px', margin: '0 auto', width: '100%' }}>
+          <div className="relative z-20" style={{ maxWidth: '860px', margin: '0 auto', width: '100%' }}>
 
           <div
             style={{
@@ -2839,7 +2839,7 @@ export default function LandingPage() {
               letterSpacing: '0.26em',
               color: 'var(--color-gold)',
               textAlign: 'center',
-              marginBottom: '1.25rem',
+              marginBottom: '1.75rem',
               opacity: 0.7,
             }}
           >
@@ -2856,16 +2856,16 @@ export default function LandingPage() {
               gap: '2rem',
               border: '1px solid var(--color-border)',
               borderRadius: '10px',
-              padding: '1.4rem 1.9rem',
-              marginBottom: '1.1rem',
+              padding: '1.85rem 2.25rem',
+              marginBottom: '1.5rem',
             }}
           >
             <div className="landing-trial-banner-copy">
-              <p style={{ fontFamily: SERIF, fontSize: '1.2rem', fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '-0.01em', marginBottom: '0.3rem' }}>
+              <p style={{ fontFamily: SERIF, fontSize: '1.35rem', fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '-0.01em', marginBottom: '0.4rem' }}>
                 Write your first 2,000 words free.
               </p>
-              <p style={{ fontFamily: SANS, fontSize: '13px', color: 'var(--text-muted)', lineHeight: 1.5 }}>
-                No credit card required — Rune&apos;s complete core writing environment, free to try.
+              <p style={{ fontFamily: SANS, fontSize: '13.5px', color: 'var(--text-muted)', lineHeight: 1.55 }}>
+                No credit card required. Experience Rune&apos;s complete writing environment for your first 2,000 words.
               </p>
             </div>
             <Link
@@ -2877,9 +2877,9 @@ export default function LandingPage() {
                 background: 'var(--color-gold)',
                 color: '#1e1a16',
                 border: 'none',
-                padding: '12px 26px',
+                padding: '15px 34px',
                 borderRadius: '4px',
-                fontSize: '13px',
+                fontSize: '14px',
                 fontFamily: SERIF,
                 fontWeight: 600,
                 letterSpacing: '0.06em',
@@ -2900,33 +2900,38 @@ export default function LandingPage() {
             className="relative z-20 bg-[var(--surface-card)] landing-scribe-card"
             style={{
               display: 'flex',
-              gap: '2.25rem',
+              gap: '2.5rem',
               border: '1px solid var(--color-border-strong)',
               borderRadius: '12px',
-              padding: '1.9rem 2.1rem',
+              padding: '2.5rem 2.75rem',
             }}
           >
             {/* Identity + price + CTA */}
-            <div className="landing-scribe-card-identity" style={{ flex: '0 0 210px', display: 'flex', flexDirection: 'column' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '7px', fontFamily: SERIF, fontSize: '19px', fontWeight: 600, color: 'var(--color-gold)', marginBottom: '0.5rem' }}>
-                <Crown size={17} className="text-[var(--color-gold)]" aria-hidden />
+            <div className="landing-scribe-card-identity" style={{ flex: '0 0 225px', display: 'flex', flexDirection: 'column' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '7px', fontFamily: SERIF, fontSize: '21px', fontWeight: 600, color: 'var(--color-gold)', marginBottom: '0.6rem' }}>
+                <Crown size={18} className="text-[var(--color-gold)]" aria-hidden />
                 Scribe
               </div>
-              <p style={{ fontFamily: SANS, fontSize: '12.5px', color: 'var(--text-muted)', lineHeight: 1.5, marginBottom: '0.9rem' }}>
-                The complete Rune writing environment, without a word limit.
+              <p style={{ fontFamily: SANS, fontSize: '13px', color: 'var(--text-muted)', lineHeight: 1.5, marginBottom: '1.1rem' }}>
+                Everything Rune has to offer. Write without limits.
               </p>
 
-              <div style={{ display: 'inline-flex', alignSelf: 'flex-start', border: '1px solid var(--color-border)', borderRadius: '18px', padding: '3px', marginBottom: '0.75rem' }}>
+              <div
+                role="group"
+                aria-label="Billing interval"
+                style={{ display: 'inline-flex', alignSelf: 'flex-start', border: '1px solid var(--color-border)', borderRadius: '20px', padding: '4px', marginBottom: '1rem' }}
+              >
                 {(['monthly', 'annual'] as const).map((plan) => (
                   <button
                     key={plan}
                     onClick={() => handleBilling(plan)}
+                    aria-pressed={billing === plan}
                     style={{
                       background: billing === plan ? 'var(--color-gold)' : 'transparent',
                       color: billing === plan ? '#1e1a16' : 'var(--text-muted)',
-                      borderRadius: '15px',
-                      padding: '4px 12px',
-                      fontSize: '11px',
+                      borderRadius: '17px',
+                      padding: '6px 16px',
+                      fontSize: '12px',
                       fontWeight: billing === plan ? 600 : 400,
                       cursor: 'pointer',
                       border: 'none',
@@ -2941,12 +2946,12 @@ export default function LandingPage() {
 
               <div style={{ opacity: priceVisible ? 1 : 0, transition: 'opacity 0.2s ease' }}>
                 <div style={{ display: 'flex', alignItems: 'baseline' }}>
-                  <span style={{ fontFamily: SERIF, fontSize: 'clamp(26px, 3vw, 32px)', fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1 }}>
+                  <span style={{ fontFamily: SERIF, fontSize: 'clamp(30px, 3.2vw, 36px)', fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1 }}>
                     {billing === 'monthly' ? '$9.99' : '$8.00'}
                   </span>
-                  <span style={{ fontFamily: SANS, fontSize: '13px', color: 'var(--text-muted)', marginLeft: '4px' }}>/mo</span>
+                  <span style={{ fontFamily: SANS, fontSize: '13.5px', color: 'var(--text-muted)', marginLeft: '4px' }}>/mo</span>
                 </div>
-                <div style={{ fontFamily: SANS, fontSize: '11px', color: 'var(--text-muted)', marginTop: '3px', minHeight: '14px' }}>
+                <div style={{ fontFamily: SANS, fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px', minHeight: '14px' }}>
                   {billing === 'annual' ? 'Billed annually at $96/yr — 20% off' : ' '}
                 </div>
               </div>
@@ -2956,13 +2961,13 @@ export default function LandingPage() {
                 className="gold-btn"
                 style={{
                   display: 'block',
-                  marginTop: '0.6rem',
+                  marginTop: '0.85rem',
                   background: 'var(--color-gold)',
                   color: '#1e1a16',
                   border: 'none',
-                  padding: '11px 0',
+                  padding: '13px 0',
                   borderRadius: '4px',
-                  fontSize: '13px',
+                  fontSize: '14px',
                   fontFamily: SERIF,
                   fontWeight: 600,
                   letterSpacing: '0.06em',
@@ -2979,46 +2984,45 @@ export default function LandingPage() {
             {/* What Rune actually is — stands on its own, no reliance on earlier sections */}
             <div
               className="landing-scribe-card-capabilities"
-              style={{ flex: '1 1 auto', minWidth: 0, borderLeft: '1px solid var(--color-border)', paddingLeft: '2rem' }}
+              style={{ flex: '1 1 auto', minWidth: 0, borderLeft: '1px solid var(--color-border)', paddingLeft: '2.25rem' }}
             >
-              <div style={{ fontFamily: SANS, fontSize: '10px', letterSpacing: '0.16em', color: 'var(--text-muted)', opacity: 0.75, marginBottom: '0.6rem' }}>
+              <div style={{ fontFamily: SANS, fontSize: '10px', letterSpacing: '0.16em', color: 'var(--text-muted)', opacity: 0.75, marginBottom: '0.75rem' }}>
                 THE COMPLETE WRITING ENVIRONMENT
               </div>
               <div
                 className="landing-scribe-features-grid"
-                style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', columnGap: '1.5rem', rowGap: '8px', marginBottom: '1rem' }}
+                style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', columnGap: '1.75rem', rowGap: '10px', marginBottom: '1.25rem' }}
               >
                 {[
                   'A focused editor built for novels',
-                  'Chapters, pages, and organization',
+                  'Organize every chapter and page',
                   'Reliable autosave, even offline',
-                  'Notes, goals, and progress tracking',
+                  'Keep notes, goals, and progress beside your manuscript',
                   'Focus Mode and Arena writing sessions',
                   'Export your manuscript anytime',
                 ].map((f) => (
-                  <div key={f} style={{ display: 'flex', gap: '7px', alignItems: 'flex-start', fontSize: '13px', color: 'var(--text-primary)', lineHeight: 1.45, fontFamily: SANS }}>
+                  <div key={f} style={{ display: 'flex', gap: '7px', alignItems: 'flex-start', fontSize: '13.5px', color: 'var(--text-primary)', lineHeight: 1.45, fontFamily: SANS }}>
                     <span style={{ color: 'var(--color-gold)', fontSize: '11px', flexShrink: 0, marginTop: '2px' }}>✦</span>
                     {f}
                   </div>
                 ))}
               </div>
 
-              <div style={{ fontFamily: SANS, fontSize: '10px', letterSpacing: '0.16em', color: 'var(--color-gold)', opacity: 0.85, marginBottom: '0.6rem' }}>
+              <div style={{ fontFamily: SANS, fontSize: '10px', letterSpacing: '0.16em', color: 'var(--color-gold)', opacity: 0.85, marginBottom: '0.75rem' }}>
                 WITH SCRIBE
               </div>
               <div
                 className="landing-scribe-features-grid"
-                style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', columnGap: '1.5rem', rowGap: '8px' }}
+                style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', columnGap: '1.75rem', rowGap: '10px' }}
               >
-                {[
-                  'Unlimited writing — no word ceiling',
-                  'Premium themes, fonts, and avatars',
-                ].map((f) => (
-                  <div key={f} style={{ display: 'flex', gap: '7px', alignItems: 'flex-start', fontSize: '13px', color: 'var(--text-primary)', lineHeight: 1.45, fontFamily: SANS }}>
-                    <span style={{ color: 'var(--color-gold)', fontSize: '11px', flexShrink: 0, marginTop: '2px' }}>✦</span>
-                    {f}
-                  </div>
-                ))}
+                <div style={{ display: 'flex', gap: '7px', alignItems: 'flex-start', fontSize: '14.5px', fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.45, fontFamily: SANS }}>
+                  <span style={{ color: 'var(--color-gold)', fontSize: '12px', flexShrink: 0, marginTop: '2px' }}>✦</span>
+                  Unlimited writing — no word limit
+                </div>
+                <div style={{ display: 'flex', gap: '7px', alignItems: 'flex-start', fontSize: '13.5px', color: 'var(--text-primary)', lineHeight: 1.45, fontFamily: SANS }}>
+                  <span style={{ color: 'var(--color-gold)', fontSize: '11px', flexShrink: 0, marginTop: '2px' }}>✦</span>
+                  Premium themes, fonts, and avatars
+                </div>
               </div>
             </div>
           </div>
