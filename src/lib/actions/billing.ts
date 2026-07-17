@@ -1,11 +1,13 @@
 'use server'
 
+import { randomUUID } from 'crypto'
 import { createClient } from '@/lib/supabase/server'
 import { stripe } from '@/lib/stripe/client'
 import { PRICE_IDS } from '@/lib/stripe/config'
 import type { PaidTier, BillingPeriod } from '@/lib/stripe/config'
 import type { User } from '@supabase/supabase-js'
 import Stripe from 'stripe'
+import { ALREADY_SUBSCRIBED_MESSAGE } from '@/lib/purchaseIntent'
 
 const RETRYABLE_BILLING_ERROR = 'Billing is temporarily unavailable. Please try again in a moment.'
 
@@ -139,10 +141,19 @@ export async function getOrCreateStripeCustomerId(
   return { customerId: customer.id, error: null }
 }
 
+/**
+ * `source` distinguishes the ordinary Settings/Billing upgrade path from the
+ * landing-page purchase-intent handoff (src/app/auth/continue/route.ts,
+ * src/app/api/intent/scribe/route.ts) — Stripe-metadata-only, never read by
+ * the webhook. A landing-intent checkout returns through /auth/continue
+ * instead of /settings so a not-yet-onboarded new writer lands back in
+ * onboarding/the workspace rather than a Settings page they've never seen.
+ */
 export async function createCheckoutSession(
   tier: PaidTier,
   billingPeriod: BillingPeriod,
-  referralId?: string
+  referralId?: string,
+  source: 'settings' | 'landing_purchase_intent' = 'settings'
 ): Promise<{ url: string | null; error: string | null }> {
   const supabase = await createClient()
   const {
@@ -150,33 +161,114 @@ export async function createCheckoutSession(
   } = await supabase.auth.getUser()
   if (!user) return { url: null, error: 'Not authenticated' }
 
+  // Local guard, checked before touching Stripe at all — same pattern as
+  // createFoundingCheckoutSession in src/lib/actions/pricing.ts. The UI
+  // already prevents this in the normal Settings flow (CtaButton only shows
+  // "Upgrade" to non-subscribers), but the landing-page purchase-intent path
+  // has no such UI state to rely on, so this must be enforced server-side.
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('subscription_tier')
+    .eq('id', user.id)
+    .single()
+  if ((profile?.subscription_tier ?? 'free') === 'scribe') {
+    return { url: null, error: ALREADY_SUBSCRIBED_MESSAGE }
+  }
+
   const { customerId, error: customerError } = await getOrCreateStripeCustomerId(supabase, user)
   if (customerError || !customerId) return { url: null, error: customerError ?? 'Failed to resolve billing customer' }
 
-  const priceId = PRICE_IDS[tier][billingPeriod]
+  // Stripe-side guard: catches an existing subscription the local `profiles`
+  // row hasn't caught up to yet (e.g. created directly in Stripe, or a race
+  // with an in-flight webhook).
+  try {
+    const existingSubs = await stripe.subscriptions.list({ customer: customerId, limit: 10 })
+    const hasExisting = existingSubs.data.some(
+      (s) => s.status !== 'canceled' && s.status !== 'incomplete_expired'
+    )
+    if (hasExisting) {
+      return { url: null, error: ALREADY_SUBSCRIBED_MESSAGE }
+    }
+  } catch {
+    return { url: null, error: RETRYABLE_BILLING_ERROR }
+  }
 
-  const session = await stripe.checkout.sessions.create({
-    mode: 'subscription',
-    customer: customerId,
-    line_items: [{ price: priceId, quantity: 1 }],
-    success_url: `${APP_URL}/settings?upgraded=true`,
-    cancel_url: `${APP_URL}/settings`,
-    metadata: {
-      supabase_user_id: user.id,
-      tier,
-      promotekit_referral: referralId || '',
-    },
-    subscription_data: {
-      metadata: {
-        supabase_user_id: user.id,
-        tier,
-        promotekit_referral: referralId || '',
+  const priceId = PRICE_IDS[tier][billingPeriod]
+  const isLandingIntent = source === 'landing_purchase_intent'
+  const successUrl = isLandingIntent
+    ? `${APP_URL}/auth/continue?checkout=success&session_id={CHECKOUT_SESSION_ID}`
+    : `${APP_URL}/settings?upgraded=true`
+  const cancelUrl = isLandingIntent
+    ? `${APP_URL}/auth/continue?checkout=cancelled`
+    : `${APP_URL}/settings`
+
+  // One key per checkout ATTEMPT, not one permanent key per user — see the
+  // matching comment on createFoundingCheckoutSession in
+  // src/lib/actions/pricing.ts for why. Guards against a network retry of
+  // the same click producing two sessions, without ever blocking a
+  // genuinely new click.
+  const attemptId = randomUUID()
+
+  let session: Stripe.Checkout.Session
+  try {
+    session = await stripe.checkout.sessions.create(
+      {
+        mode: 'subscription',
+        customer: customerId,
+        line_items: [{ price: priceId, quantity: 1 }],
+        success_url: successUrl,
+        cancel_url: cancelUrl,
+        metadata: {
+          supabase_user_id: user.id,
+          tier,
+          promotekit_referral: referralId || '',
+          source,
+        },
+        subscription_data: {
+          metadata: {
+            supabase_user_id: user.id,
+            tier,
+            promotekit_referral: referralId || '',
+            source,
+          },
+        },
+        allow_promotion_codes: true,
       },
-    },
-    allow_promotion_codes: true,
-  })
+      { idempotencyKey: `checkout_${user.id}_${attemptId}` }
+    )
+  } catch (err) {
+    return { url: null, error: err instanceof Error ? err.message : RETRYABLE_BILLING_ERROR }
+  }
 
   return { url: session.url, error: null }
+}
+
+/**
+ * Thin wrapper around createCheckoutSession for the landing-page
+ * purchase-intent continuation (src/app/auth/continue/route.ts and
+ * src/app/api/intent/scribe/route.ts) — classifies the result into a status
+ * those route handlers can branch on directly, instead of string-matching
+ * the error message at every call site.
+ */
+export async function startScribeCheckoutForCurrentUser(
+  interval: BillingPeriod,
+  source: 'landing_purchase_intent'
+): Promise<
+  | { status: 'ok'; url: string }
+  | { status: 'already_subscribed' }
+  | { status: 'unauthenticated' }
+  | { status: 'error'; error: string }
+> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { status: 'unauthenticated' }
+
+  const result = await createCheckoutSession('scribe', interval, undefined, source)
+  if (result.url) return { status: 'ok', url: result.url }
+  if (result.error === ALREADY_SUBSCRIBED_MESSAGE) return { status: 'already_subscribed' }
+  return { status: 'error', error: result.error ?? 'Failed to start checkout' }
 }
 
 export async function createPortalSession(): Promise<{

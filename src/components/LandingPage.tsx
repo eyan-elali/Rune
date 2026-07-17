@@ -735,7 +735,8 @@ export default function LandingPage() {
 
             {/* Primary CTA */}
             <Link
-              href="/signup"
+              href="/api/intent/clear"
+              prefetch={false}
               className="gold-btn"
               style={{
                 display: 'inline-block',
@@ -2869,7 +2870,8 @@ export default function LandingPage() {
               </p>
             </div>
             <Link
-              href="/signup"
+              href="/api/intent/clear"
+              prefetch={false}
               className="gold-btn landing-trial-banner-cta"
               style={{
                 flexShrink: 0,
@@ -2957,7 +2959,8 @@ export default function LandingPage() {
               </div>
 
               <Link
-                href={`/signup?plan=scribe&billing=${billing}`}
+                href={`/api/intent/scribe?billing=${billing}`}
+                prefetch={false}
                 className="gold-btn"
                 style={{
                   display: 'block',
@@ -3120,7 +3123,8 @@ export default function LandingPage() {
 
             {/* Primary CTA */}
             <Link
-              href="/signup"
+              href="/api/intent/clear"
+              prefetch={false}
               className="gold-btn"
               style={{
                 display: 'inline-block',

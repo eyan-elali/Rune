@@ -1,7 +1,9 @@
 "use server";
 
+import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { getPenNameValidationError, normalizePenName } from "@/lib/penName";
+import { PURCHASE_INTENT_COOKIE, parsePurchaseIntent } from "@/lib/purchaseIntent";
 
 type CompletePenNameResult = {
   error: string | null;
@@ -47,6 +49,13 @@ export async function completePenName(rawPenName: string): Promise<CompletePenNa
   });
   if (metadataError) {
     console.error("[completePenName] auth metadata sync failed", { succeeded: false });
+  }
+
+  const cookieStore = await cookies();
+  const hasPendingScribeIntent =
+    parsePurchaseIntent(cookieStore.get(PURCHASE_INTENT_COOKIE)?.value) !== null;
+  if (hasPendingScribeIntent) {
+    return { error: null, redirectTo: "/auth/continue" };
   }
 
   const { count } = await supabase

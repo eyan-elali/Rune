@@ -14,7 +14,12 @@ interface FieldErrors {
   confirmPassword?: string;
 }
 
-export default function SignupClient() {
+interface SignupClientProps {
+  /** True when a pending "Continue with Scribe" intent cookie is present. */
+  hasScribeIntent?: boolean;
+}
+
+export default function SignupClient({ hasScribeIntent = false }: SignupClientProps) {
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -95,6 +100,11 @@ export default function SignupClient() {
             <span className="text-rune-gold">{email}</span>. Click it to
             activate your account.
           </p>
+          {hasScribeIntent && (
+            <p className="mt-3 text-xs text-rune-gold">
+              Confirm your email to continue with Scribe.
+            </p>
+          )}
         </div>
         <p className="mt-5 text-center text-xs text-stone-100">
           <Link
@@ -117,9 +127,16 @@ export default function SignupClient() {
           borderColor: "var(--color-border)",
         }}
       >
-        <h1 className="!mb-6 font-rune-serif text-xl text-stone-100">
+        <h1
+          className={`font-rune-serif text-xl text-stone-100 ${hasScribeIntent ? "!mb-2" : "!mb-6"}`}
+        >
           Create your account
         </h1>
+        {hasScribeIntent && (
+          <p className="!mb-4 text-xs text-stone-100/80">
+            Create your Rune account to continue with Scribe.
+          </p>
+        )}
 
         <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
           <Input

@@ -34,7 +34,15 @@ export default function CompleteProfileClient() {
       return;
     }
 
-    router.push(result.redirectTo ?? "/dashboard");
+    const redirectTo = result.redirectTo ?? "/dashboard";
+    if (redirectTo === "/auth/continue") {
+      // /auth/continue is a route handler, not a page — a full navigation
+      // ensures it actually runs server-side rather than 404ing under
+      // client-side RSC navigation.
+      window.location.href = redirectTo;
+      return;
+    }
+    router.push(redirectTo);
     router.refresh();
   }
 

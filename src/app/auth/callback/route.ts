@@ -5,6 +5,7 @@ import { ATTRIBUTION_COOKIE_NAME, deserializeAttributionCookie } from '@/lib/att
 import { recordFirstTouchAttribution } from '@/lib/actions/attribution'
 import { recordAnalyticsEvent } from '@/lib/actions/analytics'
 import { isPenNameMissing } from '@/lib/penName'
+import { PURCHASE_INTENT_COOKIE, parsePurchaseIntent } from '@/lib/purchaseIntent'
 
 // Best-effort: reads the first-touch cookie and persists the attribution row
 // for the just-verified user. Never throws — a failure here must not block
@@ -64,7 +65,19 @@ export async function GET(request: NextRequest) {
 
   if (code) {
     const isNewSignup = intent === 'signup'
-    const baseDestination = isNewSignup ? '/onboarding' : next
+    // A pending Scribe purchase intent always takes priority over the
+    // ordinary destination — /auth/continue consumes it (creating the
+    // Checkout session) and only then falls back to the same
+    // onboarding/dashboard routing this would otherwise do directly. When
+    // there's no intent, behavior is byte-for-byte the same as before.
+    const hasPendingScribeIntent = parsePurchaseIntent(
+      request.cookies.get(PURCHASE_INTENT_COOKIE)?.value
+    ) !== null
+    const baseDestination = hasPendingScribeIntent
+      ? '/auth/continue'
+      : isNewSignup
+      ? '/onboarding'
+      : next
     // Placeholder response used only as the cookie sink for the Supabase
     // client below (setAll writes session cookies onto it, and the
     // attribution helper deletes its cookie from it). The real destination

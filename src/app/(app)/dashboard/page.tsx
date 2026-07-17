@@ -13,7 +13,11 @@ export const metadata: Metadata = {
   description: "Your writing dashboard. Projects, recent work, and game stats.",
 };
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ registered?: string }>;
+}) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -37,7 +41,12 @@ export default async function DashboardPage() {
   const projects = (rawProjects as Project[] | null) ?? [];
 
   if (projects.length === 0) {
-    redirect("/onboarding");
+    // Forward `registered=1` so RegistrationTracker (rendered on
+    // /onboarding) still fires the CompleteRegistration pixel for a
+    // brand-new signup whose pending Scribe intent detoured them through
+    // /auth/continue before they had any projects yet.
+    const { registered } = await searchParams;
+    redirect(registered === "1" ? "/onboarding?registered=1" : "/onboarding");
   }
 
   const totalWords = projects.reduce((sum, p) => sum + (p.word_count ?? 0), 0);

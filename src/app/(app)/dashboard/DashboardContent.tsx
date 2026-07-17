@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { BetaFeedbackBanner } from "@/components/dashboard/BetaFeedbackBanner";
 import { YourStoryHero } from "@/components/dashboard/YourStoryHero";
 import { MomentumStrip } from "@/components/dashboard/MomentumStrip";
@@ -13,6 +14,7 @@ import type { WritingGoal } from "@/lib/actions/writingStats";
 import { getTodayWords, getWritingStreak } from "@/lib/actions/writingStats";
 import { getLocalDateString } from "@/lib/utils";
 import { useProfileStore } from "@/store/profileStore";
+import { useToastStore } from "@/store/toastStore";
 
 const DASHBOARD_GUIDE_STEPS: GuideStep[] = [
   {
@@ -67,10 +69,40 @@ export function DashboardContent({
   const [localTodayWords, setLocalTodayWords] = useState(todayWords);
   const [localStreak, setLocalStreak] = useState(writingStreak);
   const userId = useProfileStore((s) => s.profile?.id);
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const showToast = useToastStore((s) => s.showToast);
 
   useEffect(() => {
     setLocalGoals(goals);
   }, [goals]);
+
+  // Restrained, one-time acknowledgement after returning from a cancelled or
+  // failed Scribe Checkout via the landing-page purchase-intent flow
+  // (src/app/auth/continue/route.ts) — the account itself is untouched
+  // either way, so this never blocks anything, just reassures.
+  useEffect(() => {
+    if (searchParams.get("checkoutCancelled") === "1") {
+      showToast(
+        "Your account is ready. You can start writing free and upgrade whenever you're ready.",
+        "info"
+      );
+    } else if (searchParams.get("checkoutError") === "1") {
+      showToast(
+        "We couldn't open checkout. Your account is ready, and you can try again from Billing.",
+        "error"
+      );
+    } else {
+      return;
+    }
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("checkoutCancelled");
+    params.delete("checkoutError");
+    const query = params.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Re-fetch today's words and streak using the browser's local date.
   // The server-rendered initial values use UTC, which can be a different

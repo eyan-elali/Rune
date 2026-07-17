@@ -9,7 +9,12 @@ import { Input } from "@/components/ui/Input";
 
 type Mode = "password" | "magic-link";
 
-export default function LoginClient() {
+interface LoginClientProps {
+  /** True when a pending "Continue with Scribe" intent cookie is present. */
+  hasScribeIntent?: boolean;
+}
+
+export default function LoginClient({ hasScribeIntent = false }: LoginClientProps) {
   const router = useRouter();
   const [mode, setMode] = useState<Mode>("password");
   const [email, setEmail] = useState("");
@@ -26,7 +31,21 @@ export default function LoginClient() {
     const supabase = createClient();
 
     if (mode === "magic-link") {
-      const { error } = await supabase.auth.signInWithOtp({ email });
+      // Only override the redirect when a Scribe intent is pending — every
+      // other magic-link sign-in keeps using the project's default
+      // redirect, unchanged.
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        ...(hasScribeIntent && {
+          options: {
+            emailRedirectTo: (() => {
+              const u = new URL("/auth/callback", window.location.origin);
+              u.searchParams.set("next", "/auth/continue");
+              return u.toString();
+            })(),
+          },
+        }),
+      });
       if (error) {
         setError(error.message);
       } else {
@@ -39,6 +58,11 @@ export default function LoginClient() {
       });
       if (error) {
         setError(error.message);
+      } else if (hasScribeIntent) {
+        // A full navigation, not router.push: /auth/continue is a route
+        // handler (no page.tsx), and it needs the session cookie
+        // signInWithPassword just set to already be on the request.
+        window.location.href = "/auth/continue";
       } else {
         router.push("/dashboard");
         router.refresh();
@@ -91,9 +115,16 @@ export default function LoginClient() {
           borderColor: "var(--color-border)",
         }}
       >
-        <h1 className="!mb-4 font-rune-serif text-xl text-stone-100">
+        <h1
+          className={`font-rune-serif text-xl text-stone-100 ${hasScribeIntent ? "!mb-1" : "!mb-4"}`}
+        >
           {mode === "password" ? "Sign in" : "Sign in with link"}
         </h1>
+        {hasScribeIntent && (
+          <p className="!mb-4 text-xs text-stone-100/80">
+            Sign in to continue with Scribe.
+          </p>
+        )}
 
         <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
           <Input

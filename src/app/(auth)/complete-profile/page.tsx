@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { isPenNameMissing } from "@/lib/penName";
+import { PURCHASE_INTENT_COOKIE, parsePurchaseIntent } from "@/lib/purchaseIntent";
 import { RegistrationTracker } from "@/components/RegistrationTracker";
 import CompleteProfileClient from "./CompleteProfileClient";
 
@@ -27,6 +29,12 @@ export default async function CompleteProfilePage() {
   // them on to wherever they'd normally land. If the lookup itself failed,
   // fail safely by rendering the form rather than guessing.
   if (!profileError && !isPenNameMissing(profile?.display_name)) {
+    const cookieStore = await cookies();
+    const hasPendingScribeIntent =
+      parsePurchaseIntent(cookieStore.get(PURCHASE_INTENT_COOKIE)?.value) !== null;
+    if (hasPendingScribeIntent) {
+      redirect("/auth/continue");
+    }
     const { count } = await supabase
       .from("projects")
       .select("id", { count: "exact", head: true })

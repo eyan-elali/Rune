@@ -10,7 +10,21 @@ import {
   normalizeLandingPath,
 } from "@/lib/attribution";
 
-const PUBLIC_ROUTES = ["/", "/login", "/signup", "/auth/callback", "/terms", "/privacy"];
+const PUBLIC_ROUTES = [
+  "/",
+  "/login",
+  "/signup",
+  "/auth/callback",
+  "/terms",
+  "/privacy",
+  // Entry point for the landing page's "Continue with Scribe" CTA — must be
+  // reachable signed-out (it records purchase intent and sends the visitor
+  // to signup), and it fully handles the authenticated case itself.
+  "/api/intent/scribe",
+  // Entry point for the landing page's free-start CTAs — clears any
+  // stale purchase intent before continuing to signup.
+  "/api/intent/clear",
+];
 
 // First-touch capture: only runs on public entry routes, only when no
 // first-touch cookie already exists, and only when this visit actually
