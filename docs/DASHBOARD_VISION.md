@@ -171,7 +171,7 @@ Empty states must never feel like failure. They must feel like invitation.
 
 The free tier is a complete writing experience, not a degraded one.
 
-Free tier writers can write, organize their manuscript, and enter game mode with a weekly ticket. That is a real product. It should feel like one.
+Free tier writers can write, organize their manuscript, and play the Arena games without restriction, up to their account-wide free-word allowance (2,000 words for new writers, 15,000 for legacy writers). That is a real product. It should feel like one.
 
 ### How premium sections should appear to free users
 

@@ -9,7 +9,7 @@ import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { cn, getLocalDateString } from "@/lib/utils";
-import { renamePage } from "@/lib/actions/pages";
+import { renamePage, getAccountWordTotal } from "@/lib/actions/pages";
 import { recordWordsWritten } from "@/lib/actions/writingStats";
 import { writeToPendingQueue, syncPendingWrite } from "@/lib/offline/syncEngine";
 import { getOfflineDB, getPendingWrite, storeOfflineWritingCredit } from "@/lib/offline/db";
@@ -62,7 +62,8 @@ interface RuneEditorProps {
   currentPage: Page | null;
   onPageUpdated: (pageId: string, updates: Partial<Page>) => void;
   onRenamePage: (pageId: string, title: string) => void;
-  projectWordCount?: number;
+  /** Account-wide manuscript word total at page load — see getAccountWordTotal. */
+  accountWordTotal?: number;
 }
 
 interface ToolbarPos {
@@ -82,7 +83,7 @@ export default function RuneEditor({
   currentPage,
   onPageUpdated,
   onRenamePage,
-  projectWordCount = 0,
+  accountWordTotal = 0,
 }: RuneEditorProps) {
   const { setIsSaving, setLastSaved } = useEditorStore();
   const showToast = useToastStore((s) => s.showToast);
@@ -119,7 +120,16 @@ export default function RuneEditor({
   const [xpFlash, setXpFlash] = useState<{ id: number; amount: number } | null>(null);
   const xpFlashTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const projectWordCountRef = useRef(projectWordCount);
+  // Account-wide manuscript word total. Initialized from the server-rendered
+  // baseline (accountWordTotal), then kept fresh two ways: an immediate
+  // optimistic adjustment by this page's own save delta (handleSave below —
+  // mirrors how lastSavedWordCountRef itself advances), and an async re-fetch
+  // via getAccountWordTotal() after each save/sync settles, so drift from
+  // another tab/device/Arena session self-corrects without ever polling on
+  // every keystroke. Switching between pages within the same loaded chapter
+  // doesn't need a re-fetch: this ref already reflects the whole account:
+  // only lastSavedWordCountRef (reset on page switch below) needs to change.
+  const accountWordTotalRef = useRef(accountWordTotal);
 
 
 
@@ -173,7 +183,17 @@ export default function RuneEditor({
   useEffect(() => { projectIdRef.current = projectId; }, [projectId]);
   useEffect(() => { subscriptionTierRef.current = subscriptionTier; }, [subscriptionTier]);
   useEffect(() => { wordLimitRef.current = wordLimit; }, [wordLimit]);
-  useEffect(() => { projectWordCountRef.current = projectWordCount; }, [projectWordCount]);
+  // A boundary re-sync — fires whenever the server-rendered baseline changes
+  // (project/chapter navigation re-renders ChapterEditorPage with a fresh
+  // getAccountWordTotal() value), correcting any drift accumulated since.
+  useEffect(() => { accountWordTotalRef.current = accountWordTotal; }, [accountWordTotal]);
+
+  const refreshAccountWordTotal = useCallback(() => {
+    if (subscriptionTierRef.current !== 'free') return;
+    void getAccountWordTotal().then((total) => {
+      accountWordTotalRef.current = total;
+    });
+  }, []);
 
 
   useEffect(() => {
@@ -202,6 +222,9 @@ export default function RuneEditor({
           setSyncStatusAndRef(mapDisplayStatus(afterStatus, true));
           if (!afterStatus && pendingBefore) {
             expectedServerWordCountRef.current = pendingBefore.wordCount;
+            // Reconnect-sync boundary — reconcile the account-wide total
+            // after content written while offline actually lands server-side.
+            refreshAccountWordTotal();
           }
         } else if (dbStatus === 'syncing') {
           setSyncStatusAndRef('syncing');
@@ -214,7 +237,7 @@ export default function RuneEditor({
         setSyncStatusAndRef(mapDisplayStatus(dbStatus, isOnline));
       });
     }
-  }, [isOnline, currentPage?.id]);
+  }, [isOnline, currentPage?.id, refreshAccountWordTotal]);
 
   useEffect(() => {
     function handleSyncQueueUpdated() {
@@ -230,14 +253,18 @@ export default function RuneEditor({
   }, []);
 
   // Show the word-limit modal when the offline sync engine blocks a write that
-  // would push a free-tier project over 15k words.
+  // would push the account over its free-word allowance.
   useEffect(() => {
     function handleWordLimitBlocked() {
       setWordLimitModalOpen(true);
+      // The account total is at (or was already past) the limit — refresh
+      // so the client's optimistic estimate matches the server's authority
+      // instead of drifting further out of sync on the next keystroke.
+      refreshAccountWordTotal();
     }
     window.addEventListener('rune-word-limit-blocked', handleWordLimitBlocked);
     return () => window.removeEventListener('rune-word-limit-blocked', handleWordLimitBlocked);
-  }, []);
+  }, [refreshAccountWordTotal]);
 
   const handleSave = useCallback(async (content: Record<string, unknown>, wordCount: number, creditableWords: number) => {
     const page = currentPageRef.current;
@@ -246,10 +273,13 @@ export default function RuneEditor({
 
     const delta = wordCount - lastSavedWordCountRef.current;
 
-    // Free-tier word limit check — only block growth, never block edits/deletions
+    // Free-tier word limit check — only block growth, never block edits/deletions.
+    // This is a client-side UX guard only: the server (save_page_checked, via
+    // syncPageWithLimitCheck below) always re-derives the account-wide total
+    // independently and is the actual authority.
     if (subscriptionTierRef.current === 'free' && delta > 0) {
-      const otherPageWords = projectWordCountRef.current - (lastSavedWordCountRef.current);
-      if (otherPageWords + wordCount > wordLimitRef.current) {
+      const otherAccountWords = accountWordTotalRef.current - lastSavedWordCountRef.current;
+      if (otherAccountWords + wordCount > wordLimitRef.current) {
         wordLimitBlockedRef.current = true;
         setWordLimitModalOpen(true);
         setIsSaving(false);
@@ -273,6 +303,12 @@ export default function RuneEditor({
     // let a later increase (e.g. a redo restoring deleted content) be measured
     // against a too-low remembered total and misread as fresh growth.
     lastSavedWordCountRef.current = wordCount;
+    // Mirror the same advance into the account-wide total — an optimistic,
+    // immediate correction so the next keystroke's guard doesn't lag behind
+    // this save. The async refresh below (after the sync actually confirms)
+    // corrects for any drift this optimism can't see, like a concurrent
+    // save on a different page/tab/device.
+    accountWordTotalRef.current = accountWordTotalRef.current + delta;
 
     if (creditableWords > 0) {
       if (isOnlineRef.current) {
@@ -305,6 +341,11 @@ export default function RuneEditor({
         // server now actually holds, so the next save's conflict check
         // compares against reality instead of the pre-edit word count.
         expectedServerWordCountRef.current = wordCount;
+        // Server-reconciliation boundary — corrects accountWordTotalRef for
+        // any drift the optimistic adjustment above couldn't see (a
+        // concurrent save on a different page, tab, device, or Arena
+        // session since this page was last loaded).
+        refreshAccountWordTotal();
       }
     });
 
@@ -336,14 +377,18 @@ export default function RuneEditor({
       // never appears in the editor at all. Returning `true` from any handler
       // signals to ProseMirror "I handled this — skip default behaviour."
       //
-      // Helper: true when the current project total is at or above the limit
-      // for free users. Uses refs so all handlers always read live values.
+      // Helper: true when the account-wide total (every project the writer
+      // owns, not just this one) is at or above the limit for free users.
+      // Uses refs so all handlers always read live values. This is a
+      // client-side estimate only — the server (save_page_checked, via
+      // syncPageWithLimitCheck) always re-derives the account-wide total
+      // independently and is the actual authority.
 
       handleTextInput: (_view, _from, _to, _text) => {
         if (subscriptionTierRef.current !== 'free') return false;
-        const otherPageWords =
-          projectWordCountRef.current - lastSavedWordCountRef.current;
-        if (otherPageWords + currentWordCountRef.current >= wordLimitRef.current) {
+        const otherAccountWords =
+          accountWordTotalRef.current - lastSavedWordCountRef.current;
+        if (otherAccountWords + currentWordCountRef.current >= wordLimitRef.current) {
           setWordLimitModalOpen(true);
           return true; // block the insertion
         }
@@ -355,9 +400,9 @@ export default function RuneEditor({
         // Ctrl/Cmd shortcuts) must continue to work normally.
         if (event.key !== 'Enter') return false;
         if (subscriptionTierRef.current !== 'free') return false;
-        const otherPageWords =
-          projectWordCountRef.current - lastSavedWordCountRef.current;
-        if (otherPageWords + currentWordCountRef.current >= wordLimitRef.current) {
+        const otherAccountWords =
+          accountWordTotalRef.current - lastSavedWordCountRef.current;
+        if (otherAccountWords + currentWordCountRef.current >= wordLimitRef.current) {
           setWordLimitModalOpen(true);
           return true; // block the new paragraph
         }
@@ -367,9 +412,9 @@ export default function RuneEditor({
       handlePaste: (_view) => {
         // At the limit, block paste before any content reaches the document.
         if (subscriptionTierRef.current === 'free') {
-          const otherPageWords =
-            projectWordCountRef.current - lastSavedWordCountRef.current;
-          if (otherPageWords + currentWordCountRef.current >= wordLimitRef.current) {
+          const otherAccountWords =
+            accountWordTotalRef.current - lastSavedWordCountRef.current;
+          if (otherAccountWords + currentWordCountRef.current >= wordLimitRef.current) {
             setWordLimitModalOpen(true);
             return true; // block paste
           }
@@ -425,7 +470,7 @@ export default function RuneEditor({
         (editor.storage.characterCount?.words?.() as number | undefined) ?? 0;
 
       // Per-keystroke IDB write (best-effort). Skipped for free users when the
-      // current word count would push the project over the limit — prevents
+      // current word count would push the account over the limit — prevents
       // over-limit content from reaching the offline queue and syncing to the
       // server after a "Maybe Later" dismissal or on reconnect.
       const pageNow = currentPageRef.current;
@@ -437,7 +482,7 @@ export default function RuneEditor({
         const isOverLimit =
           subscriptionTierRef.current === 'free' &&
           wcNow > lastSavedWordCountRef.current &&
-          projectWordCountRef.current - lastSavedWordCountRef.current + wcNow > wordLimitRef.current;
+          accountWordTotalRef.current - lastSavedWordCountRef.current + wcNow > wordLimitRef.current;
 
         if (!isOverLimit) {
           try {
@@ -936,19 +981,19 @@ export default function RuneEditor({
               className="mb-3 font-rune-serif text-2xl"
               style={{ color: 'var(--text-primary)' }}
             >
-              You&rsquo;ve reached {wordLimit.toLocaleString()} words.
+              Ready to keep writing?
             </h2>
             <p
               className="mb-2 text-sm leading-relaxed"
               style={{ color: 'var(--color-mist)' }}
             >
-              Upgrade to Scribe to continue writing this manuscript with unlimited words.
+              You&rsquo;ve reached your {wordLimit.toLocaleString()} free words. Your manuscript is safe, and you can export it anytime.
             </p>
             <p
               className="mb-8 text-sm leading-relaxed"
               style={{ color: 'var(--color-mist)' }}
             >
-              Your manuscript is always yours, and you can export it anytime.
+              Continue with Scribe to keep writing in Rune without limits.
             </p>
             <div className="flex flex-col gap-3">
               <button
@@ -964,7 +1009,7 @@ export default function RuneEditor({
                 className="w-full rounded-lg px-5 py-3 text-sm font-medium transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rune-gold"
                 style={{ background: 'var(--color-gold)', color: 'var(--color-ink)' }}
               >
-                {upgradePending ? 'Loading…' : 'Upgrade to Scribe'}
+                {upgradePending ? 'Loading…' : 'Continue with Scribe'}
               </button>
               <a
                 href={`/projects/${projectId}`}

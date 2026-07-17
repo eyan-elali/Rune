@@ -33,29 +33,23 @@ const DEFAULT_PUBLIC_FREE_WORD_LIMIT = 2000
 
 function getFreeFeatures(freeWordLimit: number) {
   return [
-    { label: '1 manuscript', included: true },
-    { label: `Up to ${freeWordLimit.toLocaleString()} words`, included: true },
+    { label: `${freeWordLimit.toLocaleString()} free words`, included: true },
+    { label: 'Unlimited manuscripts', included: true },
+    { label: 'Full Arena access', included: true },
     { label: 'All writing tools', included: true },
     { label: 'Goals & Progress', included: true },
     { label: 'Notes', included: true },
     { label: 'Profile & Stats', included: true },
     { label: 'Export', included: true },
     { label: 'Focus Mode', included: true },
-    { label: '1 Arena ticket / week', included: true },
   ]
 }
 
 const SCRIBE_FEATURES = [
   { label: 'Everything in Free', included: true },
-  { label: 'Unlimited manuscripts', included: true },
-  { label: 'Unlimited words', included: true },
-  { label: 'Unlimited Arena access', included: true },
-  { label: 'All unlockables', included: true },
+  { label: 'Unlimited words — no ceiling', included: true },
+  { label: 'All premium unlockables', included: true },
 ]
-
-function featureLabelNeedsNowrap(label: string): boolean {
-  return /Arena ticket|Arena access/i.test(label)
-}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -577,9 +571,7 @@ function TierCard({
             >
               {f.included ? '✦' : '—'}
             </span>
-            <span className={featureLabelNeedsNowrap(f.label) ? 'whitespace-nowrap' : undefined}>
-              {f.label}
-            </span>
+            <span>{f.label}</span>
           </li>
         ))}
       </ul>
@@ -626,14 +618,14 @@ export function PricingTable({
     {
       id: 'free',
       name: 'Free',
-      tagline: 'Start your practice.',
+      tagline: "Rune's full writing environment.",
       price: null,
       featured: false,
     },
     {
       id: 'scribe',
       name: 'Scribe',
-      tagline: 'For writers who show up.',
+      tagline: 'Keep writing without a word ceiling.',
       price: PRICES.scribe,
       featured: true,
     },

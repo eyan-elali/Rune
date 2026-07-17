@@ -23,7 +23,7 @@ export function NewDraftButton({ projectId, projectTitle }: NewDraftButtonProps)
     setLoading(false);
 
     if (result.error || !result.data) {
-      showToast("Failed to create draft.", "error");
+      showToast(result.error || "Failed to create draft.", "error");
       return;
     }
 

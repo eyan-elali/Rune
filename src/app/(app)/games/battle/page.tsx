@@ -7,18 +7,15 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { HpBar } from "@/components/games/HpBar";
 import { BattleLog, type BattleLogEntry } from "@/components/games/BattleLog";
-import { TicketGate } from "@/components/games/TicketGate";
 import { awardXp } from "@/lib/actions/xp";
 import { createGameSession } from "@/lib/actions/games";
 import { PageSourceSelector, type PageSource } from "@/components/games/PageSourceSelector";
 import { ContextPageHeader } from "@/components/games/ContextPageHeader";
 import { SaveToProject } from "@/components/games/SaveToProject";
 import { ExitGameModal } from "@/components/games/ExitGameModal";
-import { getWeeklyTicketUsage } from "@/lib/actions/billing";
 import { recordWordsWritten } from "@/lib/actions/writingStats";
 import { xpRewardForWords } from "@/lib/xp";
 import { unlockToastMessage } from "@/lib/unlockables";
-import { getGameTicketsAllowed } from "@/lib/subscription";
 import { useGameStore } from "@/store/gameStore";
 import { useProfileStore } from "@/store/profileStore";
 import { useToastStore } from "@/store/toastStore";
@@ -532,7 +529,6 @@ function ResultsState({
   textWritten,
   isSessionValid,
   onBattleAgain,
-  canBattleAgain,
   pageSource,
 }: {
   result: ResultData;
@@ -540,7 +536,6 @@ function ResultsState({
   textWritten: string;
   isSessionValid: boolean;
   onBattleAgain: () => void;
-  canBattleAgain: boolean;
   pageSource?: PageSource;
 }) {
   const isVictory = result.outcome === "victory";
@@ -710,38 +705,15 @@ function ResultsState({
           </p>
         )}
 
-        {!canBattleAgain && (
-          <p
-            className="mb-6 max-w-sm text-sm leading-relaxed"
-            style={{ color: "var(--color-mist)" }}
-          >
-            No Arena entries left this week. Upgrade to Scribe for unlimited battles and races!
-          </p>
-        )}
-
         <div className="flex flex-col items-center gap-4">
           <div className="flex justify-center gap-4">
-            <Button
-              variant="primary"
-              onClick={onBattleAgain}
-              disabled={!canBattleAgain}
-              aria-disabled={!canBattleAgain}
-            >
+            <Button variant="primary" onClick={onBattleAgain}>
               Battle Again
             </Button>
             <Link href="/games">
               <Button variant="ghost">Return to Hub</Button>
             </Link>
           </div>
-          {!canBattleAgain && (
-            <Link
-              href="/settings"
-              className="text-xs uppercase tracking-widest transition-opacity duration-150 hover:opacity-100"
-              style={{ color: "var(--color-gold)", opacity: 0.75 }}
-            >
-              View plans in Settings
-            </Link>
-          )}
         </div>
 
         {/* Written-in context */}
@@ -774,7 +746,6 @@ function ResultsState({
 export default function BattlePage() {
   const router = useRouter();
   const profile = useProfileStore((s) => s.profile);
-  const subscriptionTier = useProfileStore((s) => s.subscriptionTier);
 
   useEffect(() => {
     const prefs = (profile?.preferences ?? {}) as Record<string, unknown>;
@@ -801,8 +772,6 @@ export default function BattlePage() {
   const [resultData, setResultData] = useState<ResultData | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [sessionValid, setSessionValid] = useState(true);
-  const [ticketConsumed, setTicketConsumed] = useState(false);
-  const [canBattleAgain, setCanBattleAgain] = useState(true);
   const [showExitModal, setShowExitModal] = useState(false);
 
   // Refs — read by game loop and callbacks without re-render
@@ -823,24 +792,6 @@ export default function BattlePage() {
   useEffect(() => {
     phaseRef.current = phase;
   }, [phase]);
-
-  useEffect(() => {
-    if (phase !== "results" || !profile?.id) return;
-
-    const allowed = getGameTicketsAllowed(subscriptionTier);
-    if (allowed === Infinity) {
-      setCanBattleAgain(true);
-      return;
-    }
-
-    let cancelled = false;
-    getWeeklyTicketUsage(profile.id).then((used) => {
-      if (!cancelled) setCanBattleAgain(used < allowed);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [phase, profile?.id, subscriptionTier]);
 
   const addLog = useCallback((message: string) => {
     const id = logIdRef.current++;
@@ -1114,32 +1065,22 @@ export default function BattlePage() {
   }, [router]);
 
   const handleBattleAgain = useCallback(() => {
-    if (!canBattleAgain) return;
     hasSavedRef.current = false;
     victoryAchievedRef.current = false;
     wordsAtVictoryRef.current = 0;
     battleTextWrittenRef.current = "";
     setVictoryAchieved(false);
     setSessionValid(true);
-    setTicketConsumed(false);
     setResultData(null);
     setBattleTextWritten("");
     setPhase("enemy-select");
     setSelectedEnemy(null);
     useGameStore.getState().resetToSetup();
-  }, [canBattleAgain]);
+  }, []);
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
-  if (phase === "enemy-select" && !ticketConsumed) {
-    return (
-      <TicketGate onTicketConsumed={() => setTicketConsumed(true)}>
-        <EnemySelectState onSelect={handleSelectEnemy} onSourceSelect={setPageSource} />
-      </TicketGate>
-    );
-  }
-
-  if (phase === "enemy-select" && ticketConsumed) {
+  if (phase === "enemy-select") {
     return <EnemySelectState onSelect={handleSelectEnemy} onSourceSelect={setPageSource} />;
   }
 
@@ -1151,7 +1092,6 @@ export default function BattlePage() {
         textWritten={battleTextWritten}
         isSessionValid={sessionValid}
         onBattleAgain={handleBattleAgain}
-        canBattleAgain={canBattleAgain}
         pageSource={pageSource}
       />
     );

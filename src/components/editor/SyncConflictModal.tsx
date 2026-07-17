@@ -98,8 +98,15 @@ export function SyncConflictModal({
     setResolveError(null);
     setResolving("local");
     try {
-      const ok = await forceWriteLocalContent(pageId);
-      if (!ok) {
+      const result = await forceWriteLocalContent(pageId);
+      if (result.status === "word_limit_blocked") {
+        setResolveError(
+          "This would put you over your free-word limit. Your draft is safe — continue with Scribe to save it, or export it."
+        );
+        setResolving(null);
+        return;
+      }
+      if (result.status !== "ok") {
         setResolveError("Could not save local draft. Check your connection and try again.");
         setResolving(null);
         return;

@@ -316,6 +316,25 @@ export default function LandingPage() {
             grid-template-columns: 1fr !important;
             gap: 1.25rem !important;
           }
+
+          /* Pricing: Scribe card stacks gracefully on narrow tablets */
+          .landing-scribe-card {
+            flex-direction: column !important;
+            align-items: stretch !important;
+            text-align: center !important;
+            gap: 1.75rem !important;
+            width: min(92vw, 480px) !important;
+            padding: 2rem !important;
+          }
+          .landing-scribe-card-price { align-self: center !important; }
+          .landing-scribe-features-grid {
+            grid-template-columns: 1fr !important;
+            text-align: left !important;
+          }
+          .landing-scribe-card-cta a {
+            display: block !important;
+            width: 100% !important;
+          }
         }
 
         /* ─── MOBILE < 768px ──────────────────────────────── */
@@ -431,19 +450,30 @@ export default function LandingPage() {
             gap: 1.25rem !important;
           }
 
-          /* ── Pricing — stacked cards, iOS-card sizing ── */
-          .pricing-grid {
+          /* ── Pricing — trial CTA full-width, Scribe card stacked ── */
+          .landing-pricing-trial-cta {
+            display: block !important;
+            width: 100% !important;
+            text-align: center !important;
+          }
+          .landing-scribe-card {
             flex-direction: column !important;
-            align-items: center !important;
-            max-width: 100% !important;
+            align-items: stretch !important;
+            text-align: center !important;
+            gap: 1.5rem !important;
+            width: min(92vw, 430px) !important;
             margin-left: auto !important;
             margin-right: auto !important;
-            gap: 1.5rem !important;
+            padding: 1.75rem !important;
           }
-          .pricing-grid > div {
-            width: min(92vw, 430px) !important;
-            flex: none !important;
-            padding: 1.5rem !important;
+          .landing-scribe-card-price { align-self: center !important; }
+          .landing-scribe-features-grid {
+            grid-template-columns: 1fr !important;
+            text-align: left !important;
+          }
+          .landing-scribe-card-cta a {
+            display: block !important;
+            width: 100% !important;
           }
 
           /* ── Hero editor: tighter header on mobile ── */
@@ -2780,207 +2810,196 @@ export default function LandingPage() {
           }}
         >
           <div className="relative z-20" style={{ maxWidth: '900px', margin: '0 auto', width: '100%' }}>
-          <div
-            style={{
-              fontFamily: SANS,
-              fontSize: '10px',
-              letterSpacing: '0.26em',
-              color: 'var(--color-gold)',
-              textAlign: 'center',
-              marginBottom: '2rem',
-              opacity: 0.7,
-            }}
-          >
-            PRICING
-          </div>
-          <h2
-            style={{
-              fontFamily: SERIF,
-              fontSize: 'clamp(1.6rem, 3vw, 2.4rem)',
-              fontWeight: 700,
-              color: 'var(--text-primary)',
-              textAlign: 'center',
-              letterSpacing: '-0.01em',
-              marginBottom: '0.85rem',
-            }}
-          >
-            Simple pricing. Start writing for free.
-          </h2>
-          <p style={{ fontFamily: SANS, fontSize: '16px', color: 'var(--text-muted)', textAlign: 'center', lineHeight: 1.75, maxWidth: '480px', margin: '0 auto 0.75rem' }}>
-            Begin your manuscript today. Upgrade only when you&apos;re ready to write without limits.
-          </p>
-          <p style={{ fontFamily: SANS, fontSize: '14px', color: 'var(--text-muted)', textAlign: 'center', lineHeight: 1.6, maxWidth: '480px', margin: '0 auto 2.5rem', opacity: 0.85 }}>
-            Write your first 2,000 words free. No card required.
-          </p>
 
-          {/* Billing toggle */}
-          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '3rem' }}>
-            <div style={{ display: 'inline-flex', border: '1px solid var(--color-border)', borderRadius: '24px', padding: '4px' }}>
-              {(['monthly', 'annual'] as const).map((plan) => (
-                <button
-                  key={plan}
-                  onClick={() => handleBilling(plan)}
+          {/* Trial invitation — the clearest first action on the page */}
+          <div style={{ textAlign: 'center', maxWidth: '560px', margin: '0 auto 5rem' }}>
+            <div
+              style={{
+                fontFamily: SANS,
+                fontSize: '10px',
+                letterSpacing: '0.26em',
+                color: 'var(--color-gold)',
+                marginBottom: '1.5rem',
+                opacity: 0.7,
+              }}
+            >
+              TRY RUNE FOR FREE
+            </div>
+            <h2
+              style={{
+                fontFamily: SERIF,
+                fontSize: 'clamp(1.8rem, 3.4vw, 2.6rem)',
+                fontWeight: 700,
+                color: 'var(--text-primary)',
+                letterSpacing: '-0.01em',
+                marginBottom: '1.1rem',
+              }}
+            >
+              Write your first 2,000 words free.
+            </h2>
+            <p style={{ fontFamily: SANS, fontSize: '16px', color: 'var(--text-muted)', lineHeight: 1.75, margin: '0 auto 2.25rem' }}>
+              No credit card required. Experience Rune&apos;s complete core writing
+              environment and decide whether it feels like the right home for
+              your novel.
+            </p>
+            <Link
+              href="/signup"
+              className="gold-btn landing-pricing-trial-cta"
+              style={{
+                display: 'inline-block',
+                background: 'var(--color-gold)',
+                color: '#1e1a16',
+                border: 'none',
+                padding: '14px 44px',
+                borderRadius: '4px',
+                fontSize: '14px',
+                fontFamily: SERIF,
+                fontWeight: 600,
+                letterSpacing: '0.08em',
+                cursor: 'pointer',
+                transition: 'background 0.15s ease',
+                textDecoration: 'none',
+              }}
+            >
+              Start Writing Free
+            </Link>
+            <div
+              style={{
+                fontFamily: SANS,
+                fontSize: '12px',
+                color: 'var(--text-muted)',
+                marginTop: '1.1rem',
+                opacity: 0.7,
+                letterSpacing: '0.02em',
+              }}
+            >
+              Continue with Scribe only when you&apos;re ready.
+            </div>
+          </div>
+
+          <SectionDivider />
+
+          {/* Scribe — one elegant horizontal offer, secondary to the trial */}
+          <div style={{ marginTop: '5rem' }}>
+            <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
+              <h3
+                style={{
+                  fontFamily: SERIF,
+                  fontSize: 'clamp(1.3rem, 2.2vw, 1.6rem)',
+                  fontWeight: 600,
+                  color: 'var(--text-primary)',
+                  marginBottom: '0.6rem',
+                }}
+              >
+                Continue your novel with Scribe.
+              </h3>
+              <p style={{ fontFamily: SANS, fontSize: '14px', color: 'var(--text-muted)', maxWidth: '440px', margin: '0 auto', lineHeight: 1.6 }}>
+                When Rune becomes your writing home, keep going without a word ceiling.
+              </p>
+            </div>
+
+            {/* Billing toggle */}
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '2.5rem' }}>
+              <div style={{ display: 'inline-flex', border: '1px solid var(--color-border)', borderRadius: '24px', padding: '4px' }}>
+                {(['monthly', 'annual'] as const).map((plan) => (
+                  <button
+                    key={plan}
+                    onClick={() => handleBilling(plan)}
+                    style={{
+                      background: billing === plan ? 'var(--color-gold)' : 'transparent',
+                      color: billing === plan ? '#1e1a16' : 'var(--text-muted)',
+                      borderRadius: '20px',
+                      padding: '6px 20px',
+                      fontSize: '13px',
+                      fontWeight: billing === plan ? 600 : 400,
+                      cursor: 'pointer',
+                      border: 'none',
+                      transition: 'all 0.2s ease',
+                      fontFamily: SANS,
+                    }}
+                  >
+                    {plan === 'monthly' ? 'Monthly' : 'Annual (Save 20%)'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div
+              className="relative z-20 bg-[var(--surface-card)] landing-scribe-card"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '3rem',
+                maxWidth: 'min(780px, 100%)',
+                margin: '0 auto',
+                border: '1px solid var(--color-border-strong)',
+                borderRadius: '10px',
+                padding: '2.75rem 3rem',
+              }}
+            >
+              <div className="landing-scribe-card-price" style={{ flex: '0 0 auto' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontFamily: SERIF, fontSize: '22px', fontWeight: 600, color: 'var(--color-gold)', marginBottom: '0.6rem' }}>
+                  <Crown size={20} className="text-[var(--color-gold)]" aria-hidden />
+                  Scribe
+                </div>
+                <div style={{ opacity: priceVisible ? 1 : 0, transition: 'opacity 0.2s ease' }}>
+                  <div style={{ display: 'flex', alignItems: 'baseline' }}>
+                    <span style={{ fontFamily: SERIF, fontSize: 'clamp(30px, 4vw, 42px)', fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1 }}>
+                      {billing === 'monthly' ? '$9.99' : '$8.00'}
+                    </span>
+                    <span style={{ fontFamily: SANS, fontSize: '14px', color: 'var(--text-muted)', marginLeft: '4px' }}>/mo</span>
+                  </div>
+                  {billing === 'annual' && (
+                    <div style={{ fontFamily: SANS, fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                      Billed annually at $96/yr
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="landing-scribe-card-features" style={{ flex: '1 1 auto', minWidth: 0 }}>
+                <div
+                  className="landing-scribe-features-grid"
+                  style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', columnGap: '1.5rem', rowGap: '10px' }}
+                >
+                  {[
+                    'Unlimited writing — no word ceiling',
+                    'Everything in your free trial',
+                    'All premium unlockables',
+                  ].map((f) => (
+                    <div key={f} style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', fontSize: '14px', color: 'var(--text-primary)', lineHeight: 1.5, fontFamily: SANS }}>
+                      <span style={{ color: 'var(--color-gold)', fontSize: '12px', flexShrink: 0, marginTop: '1px' }}>✦</span>
+                      {f}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="landing-scribe-card-cta" style={{ flex: '0 0 auto' }}>
+                <Link
+                  href={`/signup?plan=scribe&billing=${billing}`}
+                  className="gold-btn"
                   style={{
-                    background: billing === plan ? 'var(--color-gold)' : 'transparent',
-                    color: billing === plan ? '#1e1a16' : 'var(--text-muted)',
-                    borderRadius: '20px',
-                    padding: '6px 20px',
-                    fontSize: '13px',
-                    fontWeight: billing === plan ? 600 : 400,
-                    cursor: 'pointer',
+                    display: 'block',
+                    background: 'var(--color-gold)',
+                    color: '#1e1a16',
                     border: 'none',
-                    transition: 'all 0.2s ease',
-                    fontFamily: SANS,
+                    padding: '13px 28px',
+                    borderRadius: '4px',
+                    fontSize: '14px',
+                    fontFamily: SERIF,
+                    fontWeight: 600,
+                    letterSpacing: '0.08em',
+                    cursor: 'pointer',
+                    transition: 'background 0.15s ease',
+                    textAlign: 'center',
+                    textDecoration: 'none',
+                    whiteSpace: 'nowrap',
                   }}
                 >
-                  {plan === 'monthly' ? 'Monthly' : 'Annual (Save 20%)'}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Pricing grid */}
-          <div
-            className="pricing-grid"
-            style={{ display: 'flex', flexDirection: 'row', gap: '1.5rem', maxWidth: '780px', margin: '0 auto', alignItems: 'flex-start' }}
-          >
-            {/* Free */}
-            <div className="relative z-20 bg-[var(--surface-card)]" style={{ flex: 1, border: '1px solid var(--color-border)', borderRadius: '8px', padding: '2rem' }}>
-              <div style={{ fontFamily: SERIF, fontSize: '22px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.35rem' }}>Free</div>
-              <div style={{ fontFamily: SANS, fontSize: '14px', color: 'var(--text-muted)', marginBottom: '1.5rem' }}>Start your first manuscript.</div>
-              <div style={{ display: 'flex', alignItems: 'baseline' }}>
-                <span style={{ fontFamily: SERIF, fontSize: 'clamp(32px, 4vw, 48px)', fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1 }}>$0</span>
-                <span style={{ fontFamily: SANS, fontSize: '14px', color: 'var(--text-muted)', marginLeft: '4px' }}>/month</span>
+                  Unlock Scribe
+                </Link>
               </div>
-
-              <div style={{ height: '1px', background: 'var(--color-border)', margin: '1.5rem 0' }} />
-
-              {['1 manuscript', 'Up to 2,000 words', 'All writing tools', 'Goals & Progress', 'Notes', 'Profile & Stats', 'Export', 'Focus Mode', '1 Arena ticket / week'].map((f) => (
-                <div key={f} style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', marginBottom: '10px', fontSize: '14px', color: 'var(--text-primary)', lineHeight: 1.5, fontFamily: SANS }}>
-                  <span style={{ color: 'var(--color-gold)', fontSize: '12px', flexShrink: 0, marginTop: '1px' }}>✦</span>
-                  {f}
-                </div>
-              ))}
-
-              <Link
-                href="/signup"
-                className="ghost-btn"
-                style={{
-                  display: 'block',
-                  width: '100%',
-                  marginTop: '2rem',
-                  border: '1px solid var(--color-border-strong)',
-                  background: 'transparent',
-                  color: 'var(--text-primary)',
-                  padding: '11px 0',
-                  borderRadius: '4px',
-                  fontSize: '14px',
-                  fontFamily: SERIF,
-                  letterSpacing: '0.06em',
-                  cursor: 'pointer',
-                  transition: 'background 0.15s ease',
-                  textAlign: 'center',
-                  textDecoration: 'none',
-                }}
-              >
-                Start Free
-              </Link>
-              <div
-                style={{
-                  fontFamily: SANS,
-                  fontSize: '11px',
-                  color: 'var(--text-muted)',
-                  textAlign: 'center',
-                  marginTop: '0.65rem',
-                  opacity: 0.55,
-                  letterSpacing: '0.02em',
-                }}
-              >
-                No credit card required.
-              </div>
-            </div>
-
-            {/* Scribe */}
-            <div className="relative z-20 bg-[var(--surface-card)]" style={{ flex: 1, border: '1px dashed var(--color-gold)', borderRadius: '8px', padding: '2rem' }}>
-              <div
-                style={{
-                  position: 'absolute',
-                  top: '-12px',
-                  left: '50%',
-                  transform: 'translateX(-50%)',
-                  background: 'var(--color-gold)',
-                  color: '#1e1a16',
-                  fontSize: '11px',
-                  fontWeight: 600,
-                  letterSpacing: '0.1em',
-                  padding: '3px 14px',
-                  borderRadius: '10px',
-                  whiteSpace: 'nowrap',
-                  fontFamily: SANS,
-                }}
-              >
-                Best for Novelists
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontFamily: SERIF, fontSize: '22px', fontWeight: 600, color: 'var(--color-gold)', marginBottom: '0.35rem' }}>
-                <Crown size={20} className="text-[var(--color-gold)]" aria-hidden />
-                Scribe
-              </div>
-              <div style={{ fontFamily: SANS, fontSize: '14px', color: 'var(--text-muted)', marginBottom: '1.5rem' }}>For writers ready to go all in.</div>
-
-              <div style={{ opacity: priceVisible ? 1 : 0, transition: 'opacity 0.2s ease' }}>
-                <div style={{ display: 'flex', alignItems: 'baseline' }}>
-                  <span style={{ fontFamily: SERIF, fontSize: 'clamp(32px, 4vw, 48px)', fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1 }}>
-                    {billing === 'monthly' ? '$9.99' : '$8.00'}
-                  </span>
-                  <span style={{ fontFamily: SANS, fontSize: '14px', color: 'var(--text-muted)', marginLeft: '4px' }}>/mo</span>
-                </div>
-                {billing === 'annual' && (
-                  <div style={{ fontFamily: SANS, fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>
-                    Billed annually at $96/yr
-                  </div>
-                )}
-              </div>
-
-              <div style={{ height: '1px', background: 'var(--color-border)', margin: '1.5rem 0' }} />
-
-              {[
-                'Everything in Free',
-                'Unlimited manuscripts & words',
-                'Unlimited Arena access',
-                'All unlockables',
-                'Priority support',
-              ].map((f) => (
-                <div key={f} style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', marginBottom: '10px', fontSize: '14px', color: 'var(--text-primary)', lineHeight: 1.5, fontFamily: SANS }}>
-                  <span style={{ color: 'var(--color-gold)', fontSize: '12px', flexShrink: 0, marginTop: '1px' }}>✦</span>
-                  {f}
-                </div>
-              ))}
-
-              <Link
-                href={`/signup?plan=scribe&billing=${billing}`}
-                className="gold-btn"
-                style={{
-                  display: 'block',
-                  width: '100%',
-                  marginTop: '2rem',
-                  background: 'var(--color-gold)',
-                  color: '#1e1a16',
-                  border: 'none',
-                  padding: '13px 0',
-                  borderRadius: '4px',
-                  fontSize: '14px',
-                  fontFamily: SERIF,
-                  fontWeight: 600,
-                  letterSpacing: '0.08em',
-                  cursor: 'pointer',
-                  transition: 'background 0.15s ease',
-                  textAlign: 'center',
-                  textDecoration: 'none',
-                }}
-              >
-                Unlock Scribe
-              </Link>
             </div>
           </div>
           </div>

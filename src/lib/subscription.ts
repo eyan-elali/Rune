@@ -2,8 +2,6 @@ export type SubscriptionTier = 'free' | 'scribe'
 
 export const FEATURE_GATES = {
   // Scale gates — scribe only
-  unlimitedProjects: ['scribe'],
-  unlimitedArena:    ['scribe'],
   premiumUnlockables: ['scribe'],
   // Writing features — available to all
   goals:          ['free', 'scribe'],
@@ -22,9 +20,4 @@ export function canAccessFeature(
   feature: keyof typeof FEATURE_GATES
 ): boolean {
   return (FEATURE_GATES[feature] as readonly string[]).includes(tier)
-}
-
-export function getGameTicketsAllowed(tier: SubscriptionTier): number {
-  if (tier === 'scribe') return Infinity
-  return 1
 }

@@ -2,10 +2,20 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { checkFreeWordLimit } from "@/lib/actions/pages";
 import { recalculateProjectWordCount } from "@/lib/projectWordCount";
 
 type ActionResult<T> = { data: T; error: null } | { data: null; error: string };
+
+type SavePageCheckedResult =
+  | { status: "ok"; updated_at: string; version: number }
+  | { status: "word_limit_blocked"; limit: number }
+  | { status: "version_mismatch" }
+  | { status: "error"; error: string };
+
+type InsertPageCheckedResult =
+  | { status: "ok"; id: string }
+  | { status: "word_limit_blocked"; limit: number }
+  | { status: "error"; error: string };
 
 export async function createGameSession(
   mode: string,
@@ -70,6 +80,13 @@ function htmlToTiptapDoc(html: string): Record<string, unknown> {
   };
 }
 
+/**
+ * Creates a new "Sprint" page from an Arena session and saves it, subject to
+ * the account-wide free-word limit. Delegates the check-and-insert to
+ * insert_page_checked() (migration 011) — a single atomic database function,
+ * so a concurrent editor save (or another Arena save) can't race this and
+ * jointly exceed the limit.
+ */
 export async function appendSprintToProject(
   projectId: string,
   chapterId: string,
@@ -95,20 +112,6 @@ export async function appendSprintToProject(
     return { data: null, error: "Chapter not found in this project" };
   }
 
-  const { blocked, limit } = await checkFreeWordLimit(
-    supabase,
-    user.id,
-    projectId,
-    null,
-    wordCount
-  );
-  if (blocked) {
-    return {
-      data: null,
-      error: `This would put the project over your ${limit.toLocaleString()}-word free limit. Upgrade to Scribe to keep writing.`,
-    };
-  }
-
   // Find next position
   const { data: existing } = await supabase
     .from("pages")
@@ -128,13 +131,25 @@ export async function appendSprintToProject(
 
   const content = htmlToTiptapDoc(html);
 
-  const { data: page, error: pageError } = await supabase
-    .from("pages")
-    .insert({ chapter_id: chapterId, title, content, word_count: wordCount, position })
-    .select("id")
-    .single();
+  const { data, error } = await supabase.rpc("insert_page_checked", {
+    p_chapter_id: chapterId,
+    p_title: title,
+    p_content: content,
+    p_word_count: wordCount,
+    p_position: position,
+  });
 
-  if (pageError) return { data: null, error: pageError.message };
+  if (error) return { data: null, error: error.message };
+
+  const result = data as InsertPageCheckedResult;
+
+  if (result.status === "word_limit_blocked") {
+    return {
+      data: null,
+      error: `This would put you over your ${result.limit.toLocaleString()}-word free limit. Upgrade to Scribe to keep writing.`,
+    };
+  }
+  if (result.status === "error") return { data: null, error: result.error };
 
   // Canonical-aware recalculation — the new sprint page may not be the
   // canonical page for its chapter, in which case it must not count toward
@@ -144,9 +159,16 @@ export async function appendSprintToProject(
   revalidatePath(`/projects/${projectId}`);
   revalidatePath(`/projects/${projectId}/chapters/${chapterId}`);
 
-  return { data: page as { id: string }, error: null };
+  return { data: { id: result.id }, error: null };
 }
 
+/**
+ * Appends an Arena session's words onto an existing page, subject to the
+ * account-wide free-word limit. Delegates the check-and-update to
+ * save_page_checked() (migration 011) — the same atomic function the
+ * editor's autosave path uses, so this can't race a concurrent editor save
+ * (or another Arena save) and jointly exceed the limit.
+ */
 export async function appendToExistingPage(
   pageId: string,
   html: string,
@@ -166,29 +188,7 @@ export async function appendToExistingPage(
 
   if (fetchError || !page) return { data: null, error: "Page not found" };
 
-  const { data: existingChapter } = await supabase
-    .from("chapters")
-    .select("project_id")
-    .eq("id", page.chapter_id)
-    .single();
-
   const newWordCount = (page.word_count ?? 0) + additionalWordCount;
-
-  if (existingChapter) {
-    const { blocked, limit } = await checkFreeWordLimit(
-      supabase,
-      user.id,
-      existingChapter.project_id,
-      pageId,
-      newWordCount
-    );
-    if (blocked) {
-      return {
-        data: null,
-        error: `This would put the project over your ${limit.toLocaleString()}-word free limit. Upgrade to Scribe to keep writing.`,
-      };
-    }
-  }
 
   const newDoc = htmlToTiptapDoc(html);
   const existingNodes =
@@ -200,23 +200,32 @@ export async function appendToExistingPage(
     content: [...existingNodes, { type: "horizontalRule" }, ...newNodes],
   };
 
-  const { data: updated, error: updateError } = await supabase
-    .from("pages")
-    .update({
-      content: mergedContent,
-      word_count: newWordCount,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", pageId)
-    .select("id, chapter_id")
-    .single();
+  const { data, error } = await supabase.rpc("save_page_checked", {
+    p_page_id: pageId,
+    p_content: mergedContent,
+    p_word_count: newWordCount,
+    p_expected_version: null,
+  });
 
-  if (updateError) return { data: null, error: updateError.message };
+  if (error) return { data: null, error: error.message };
+
+  const result = data as SavePageCheckedResult;
+
+  if (result.status === "word_limit_blocked") {
+    return {
+      data: null,
+      error: `This would put you over your ${result.limit.toLocaleString()}-word free limit. Upgrade to Scribe to keep writing.`,
+    };
+  }
+  if (result.status === "version_mismatch") {
+    return { data: null, error: "This page changed elsewhere. Please try again." };
+  }
+  if (result.status === "error") return { data: null, error: result.error };
 
   const { data: chapter } = await supabase
     .from("chapters")
     .select("project_id")
-    .eq("id", updated.chapter_id)
+    .eq("id", page.chapter_id)
     .single();
 
   if (chapter) {
@@ -226,12 +235,10 @@ export async function appendToExistingPage(
     await recalculateProjectWordCount(supabase, chapter.project_id);
 
     revalidatePath(`/projects/${chapter.project_id}`);
-    revalidatePath(
-      `/projects/${chapter.project_id}/chapters/${updated.chapter_id}`
-    );
+    revalidatePath(`/projects/${chapter.project_id}/chapters/${page.chapter_id}`);
   }
 
-  return { data: { id: updated.id }, error: null };
+  return { data: { id: pageId }, error: null };
 }
 
 export type CombatRecord = { wins: number; losses: number };

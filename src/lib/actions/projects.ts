@@ -38,31 +38,6 @@ export async function createProject(
   const { supabase, user } = await getUser();
   if (!user) return { data: null, error: "Not authenticated" };
 
-  const { data: profileRow } = await supabase
-    .from("profiles")
-    .select("subscription_tier")
-    .eq("id", user.id)
-    .single();
-
-  const tier = profileRow?.subscription_tier ?? "free";
-
-  if (tier === "free") {
-    const { count } = await supabase
-      .from("projects")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", user.id);
-
-    if ((count ?? 0) >= 1) {
-      return {
-        data: null,
-        error: Object.assign(
-          new Error("Upgrade to Scribe to create unlimited projects"),
-          { code: "UPGRADE_REQUIRED" }
-        ).message,
-      };
-    }
-  }
-
   const { data, error } = await supabase
     .from("projects")
     .insert({
@@ -106,28 +81,6 @@ export async function duplicateProject(
   const { supabase, user } = await getUser();
   if (!user) return { data: null, error: "Not authenticated" };
 
-  const { data: profileRow } = await supabase
-    .from("profiles")
-    .select("subscription_tier")
-    .eq("id", user.id)
-    .single();
-
-  const tier = profileRow?.subscription_tier ?? "free";
-
-  if (tier === "free") {
-    const { count } = await supabase
-      .from("projects")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", user.id);
-
-    if ((count ?? 0) >= 1) {
-      return {
-        data: null,
-        error: "Upgrade to Scribe to create unlimited projects",
-      };
-    }
-  }
-
   // Fetch original project
   const { data: original, error: projErr } = await supabase
     .from("projects")
@@ -137,6 +90,57 @@ export async function duplicateProject(
     .single();
 
   if (projErr || !original) return { data: null, error: "Project not found" };
+
+  // Duplication adds a full copy of the original's words to the account —
+  // check that against the account-wide free-tier limit before writing
+  // anything, now that free users are no longer capped at one project. The
+  // duplicate mirrors the original's chapters/pages (including is_canonical)
+  // 1:1, so the original's own canonical-aware total — the same definition
+  // account_word_total() uses, see migration 011 — is exactly how many
+  // words the duplicate will add to the account.
+  //
+  // This remains a check-then-write rather than a single atomic database
+  // call (unlike the single-page save/insert paths in pages.ts/games.ts):
+  // duplication creates many rows across many chapters in one user action,
+  // which doesn't fit that shape without a much larger change. A double-
+  // click racing this check is a narrower, lower-frequency risk than the
+  // multi-tab editor race the atomic paths close, and is already mitigated
+  // client-side (the confirm button disables while the request is in flight).
+  const { data: originalChapters } = await supabase
+    .from("chapters")
+    .select("id")
+    .eq("project_id", projectId);
+
+  const originalChapterIds = (originalChapters ?? []).map((c: { id: string }) => c.id);
+  let originalWordTotal = 0;
+  if (originalChapterIds.length > 0) {
+    const { data: originalPages } = await supabase
+      .from("pages")
+      .select("chapter_id, word_count, is_canonical")
+      .in("chapter_id", originalChapterIds);
+
+    for (const chapterId of originalChapterIds) {
+      const chapterPages = (originalPages ?? []).filter(
+        (p: { chapter_id: string }) => p.chapter_id === chapterId
+      );
+      originalWordTotal += calculateChapterWordCount({ pages: chapterPages });
+    }
+  }
+
+  if (originalWordTotal > 0) {
+    const { data: limitData } = await supabase.rpc("free_word_limit_for_caller");
+    const limit = limitData as number | null;
+    if (limit !== null) {
+      const { data: totalData } = await supabase.rpc("account_word_total");
+      const accountTotal = (totalData as number | null) ?? 0;
+      if (accountTotal + originalWordTotal > limit) {
+        return {
+          data: null,
+          error: `Duplicating this project would put you over your ${limit.toLocaleString()}-word free limit. Upgrade to Scribe to keep writing.`,
+        };
+      }
+    }
+  }
 
   // Find a unique draft title
   const { data: existingTitles } = await supabase
@@ -319,31 +323,6 @@ export async function createProjectWithDraft(
 ): Promise<ActionResult<{ projectId: string; chapterId: string; page: Page; chapter: Chapter; project: Project }>> {
   const { supabase, user } = await getUser();
   if (!user) return { data: null, error: "Not authenticated" };
-
-  const { data: profileRow } = await supabase
-    .from("profiles")
-    .select("subscription_tier")
-    .eq("id", user.id)
-    .single();
-
-  const tier = profileRow?.subscription_tier ?? "free";
-
-  if (tier === "free") {
-    const { count } = await supabase
-      .from("projects")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", user.id);
-
-    if ((count ?? 0) >= 1) {
-      return {
-        data: null,
-        error: Object.assign(
-          new Error("Upgrade to Scribe to create unlimited projects"),
-          { code: "UPGRADE_REQUIRED" }
-        ).message,
-      };
-    }
-  }
 
   const { data: project, error: projectError } = await supabase
     .from("projects")

@@ -43,6 +43,8 @@ interface EditorShellProps {
   allChapters: ChapterWithStats[];
   showTutorial?: boolean;
   forceTutorial?: boolean;
+  /** Account-wide manuscript word total at page load — see getAccountWordTotal. */
+  accountWordTotal?: number;
 }
 
 export function EditorShell({
@@ -54,6 +56,7 @@ export function EditorShell({
   allChapters,
   showTutorial = false,
   forceTutorial = false,
+  accountWordTotal = 0,
 }: EditorShellProps) {
   const [pages, setPages] = useState<Page[]>(initialPages);
   const [selectedPageId, setSelectedPageId] = useState<string | null>(
@@ -218,7 +221,7 @@ export function EditorShell({
           currentPage={currentPage}
           onPageUpdated={handlePageUpdated}
           onRenamePage={handleRenamePage}
-          projectWordCount={project.word_count ?? 0}
+          accountWordTotal={accountWordTotal}
         />
       </div>
     </div>

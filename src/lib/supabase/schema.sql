@@ -233,13 +233,13 @@ create trigger profiles_protect_billing_columns
 --   before update on public.profiles
 --   for each row execute function public.protect_billing_columns();
 
--- projects: users manaehage only their own projects
+-- projects: users manage only their own projects
 create policy "projects: select own"
   on public.projects for select
   using (auth.uid() = user_id);
 
 create policy "projects: insert own"
-  on public.pmusirojects for insert
+  on public.projects for insert
   with check (auth.uid() = user_id);
 
 create policy "projects: update own"

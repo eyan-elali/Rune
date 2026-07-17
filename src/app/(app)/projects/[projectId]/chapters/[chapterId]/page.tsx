@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { getPages } from "@/lib/actions/pages";
+import { getPages, getAccountWordTotal } from "@/lib/actions/pages";
 import { getChapters } from "@/lib/actions/chapters";
 import { EditorShell } from "@/components/editor/EditorShell";
 import { OfflineEditorFallback } from "@/components/editor/OfflineEditorFallback";
@@ -33,12 +33,13 @@ export default async function ChapterEditorPage({
   const forceTutorial = tutorial === "returning";
   const supabase = await createClient();
 
-  const [chapterResult, projectResult, pagesResult, chaptersResult] =
+  const [chapterResult, projectResult, pagesResult, chaptersResult, accountWordTotal] =
     await Promise.all([
       supabase.from("chapters").select("*").eq("id", chapterId).single(),
       supabase.from("projects").select("*").eq("id", projectId).single(),
       getPages(chapterId),
       getChapters(projectId),
+      getAccountWordTotal(),
     ]);
 
   const { data: chapter, error: chapterError } = chapterResult;
@@ -66,6 +67,7 @@ export default async function ChapterEditorPage({
         allChapters={chaptersResult.data ?? []}
         showTutorial={showTutorial}
         forceTutorial={forceTutorial}
+        accountWordTotal={accountWordTotal}
       />
     </div>
   );

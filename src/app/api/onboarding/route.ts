@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { recordAnalyticsEvent, type RecordAnalyticsEventInput } from "@/lib/actions/analytics";
-import { checkFreeWordLimit } from "@/lib/actions/pages";
 import { recalculateProjectWordCount } from "@/lib/projectWordCount";
 
 // The only two themes every account has unlocked. Onboarding never shows
@@ -76,23 +75,6 @@ export async function POST(req: Request) {
     .eq("id", user.id)
     .single();
 
-  const tier = profileRow?.subscription_tier ?? "free";
-  if (tier === "free") {
-    const { count } = await supabase
-      .from("projects")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", user.id);
-    if ((count ?? 0) >= 1) {
-      return NextResponse.json(
-        {
-          error: "Upgrade to Scribe to create unlimited projects",
-          code: "UPGRADE_REQUIRED",
-        },
-        { status: 403 }
-      );
-    }
-  }
-
   const { data: project, error: projectError } = await supabase
     .from("projects")
     .insert({ user_id: user.id, title, cover_color: null })
@@ -126,50 +108,50 @@ export async function POST(req: Request) {
     : null;
   const wordCount = firstSentence ? countWords(firstSentence) : 0;
 
-  if (wordCount > 0) {
-    const { blocked, limit } = await checkFreeWordLimit(
-      supabase,
-      user.id,
-      project.id,
-      null,
-      wordCount
-    );
-    if (blocked) {
-      await supabase.from("projects").delete().eq("id", project.id);
-      return NextResponse.json(
-        {
-          error: `Your first sentence is longer than your ${limit.toLocaleString()}-word free allowance.`,
-          code: "FREE_WORD_LIMIT_REACHED",
-        },
-        { status: 403 }
-      );
+  // Atomically checks the account-wide free-word limit and creates the page
+  // in one database call (see insert_page_checked, migration 011) — this is
+  // the writer's very first page, so it's also the first content-adding path
+  // any account ever goes through.
+  const { data: insertResult, error: insertError } = await supabase.rpc(
+    "insert_page_checked",
+    {
+      p_chapter_id: chapter.id,
+      p_title: "Page 1",
+      p_content: pageContent,
+      p_word_count: wordCount,
+      p_position: 0,
     }
+  );
+
+  if (insertError) {
+    await supabase.from("projects").delete().eq("id", project.id);
+    return NextResponse.json({ error: insertError.message }, { status: 500 });
   }
 
-  const { data: page, error: pageError } = await supabase
-    .from("pages")
-    .insert({
-      chapter_id: chapter.id,
-      title: "Page 1",
-      content: pageContent,
-      word_count: wordCount,
-      position: 0,
-      is_canonical: false,
-    })
-    .select()
-    .single();
-  if (pageError || !page) {
+  const result = insertResult as
+    | { status: "ok"; id: string }
+    | { status: "word_limit_blocked"; limit: number }
+    | { status: "error"; error: string };
+
+  if (result.status === "word_limit_blocked") {
     await supabase.from("projects").delete().eq("id", project.id);
     return NextResponse.json(
-      { error: pageError?.message ?? "Failed to create page" },
-      { status: 500 }
+      {
+        error: `Your first sentence is longer than your ${result.limit.toLocaleString()}-word free allowance.`,
+        code: "FREE_WORD_LIMIT_REACHED",
+      },
+      { status: 403 }
     );
+  }
+  if (result.status === "error") {
+    await supabase.from("projects").delete().eq("id", project.id);
+    return NextResponse.json({ error: result.error }, { status: 500 });
   }
 
   // Keep projects.word_count in sync with the first-sentence page immediately,
   // rather than leaving it at its default 0 until the writer's first editor
-  // autosave. This must not go through the editor's save path (updatePage /
-  // syncPageWithLimitCheck) — that path is also where the one-time
+  // autosave. This must not go through the editor's save path
+  // (syncPageWithLimitCheck) — that path is also where the one-time
   // "first_save" analytics event fires, and it must only fire once the writer
   // adds words beyond what onboarding itself created.
   await recalculateProjectWordCount(supabase, project.id);

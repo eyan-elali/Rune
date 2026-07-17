@@ -2,7 +2,6 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { recalculateProjectWordCount } from "@/lib/projectWordCount";
-import { resolveFreeWordLimit, type PricingCohort } from "@/lib/pricing";
 import { recordAnalyticsEvent } from "@/lib/actions/analytics";
 import type { Page } from "@/lib/types";
 
@@ -17,67 +16,40 @@ async function getUser() {
 }
 
 /**
- * Canonical, server-authoritative free-tier word-limit check, shared by every
- * write path that can add words to a project's stored manuscript (editor
- * saves, offline sync, Arena "Save to Project", onboarding's first page).
- * Scribe subscribers (subscription_tier === 'scribe', the app's sole
- * canonical "is paid" test — see canAccessFeature in src/lib/subscription.ts)
- * are always unrestricted. Free users are limited per-project according to
- * their pricing_cohort (legacy_15k vs starter_2k, resolved from
- * user_pricing_entitlements — a missing row defensively defaults to the
- * tighter starter_2k rather than the more generous legacy_15k).
+ * Account-wide, server-authoritative manuscript word count for the signed-in
+ * user — canonical-aware (mirrors calculateProjectWordCount in
+ * src/lib/manuscript.ts) and summed across every project they own, backed by
+ * the account_word_total() database function (see migration 011). Returns 0
+ * for Scribe subscribers without querying pages/chapters at all, since the
+ * value is meaningless once the account is unrestricted.
  *
- * excludePageId should be null when the page doesn't exist yet (a brand new
- * page being created), or the id of the page being replaced/appended to so
- * its own prior word count isn't double-counted.
+ * This is a display/UX value only — safe to call directly from client
+ * components for the editor's remaining-words estimate. The actual limit is
+ * enforced server-side, atomically, by save_page_checked/insert_page_checked
+ * (see below) — never by this function or its caller.
  */
-export async function checkFreeWordLimit(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  userId: string,
-  projectId: string,
-  excludePageId: string | null,
-  candidateWordCount: number
-): Promise<{ blocked: boolean; limit: number }> {
+export async function getAccountWordTotal(): Promise<number> {
+  const { supabase, user } = await getUser();
+  if (!user) return 0;
+
   const { data: profileRow } = await supabase
     .from("profiles")
     .select("subscription_tier")
-    .eq("id", userId)
+    .eq("id", user.id)
     .single();
 
-  if ((profileRow?.subscription_tier ?? "free") !== "free") {
-    return { blocked: false, limit: Infinity };
-  }
+  if ((profileRow?.subscription_tier ?? "free") !== "free") return 0;
 
-  const { data: entitlement } = await supabase
-    .from("user_pricing_entitlements")
-    .select("pricing_cohort")
-    .eq("user_id", userId)
-    .maybeSingle();
-
-  const cohort = (entitlement?.pricing_cohort as PricingCohort | undefined) ?? "starter_2k";
-  const limit = resolveFreeWordLimit(cohort);
-
-  const { data: projectChapters } = await supabase
-    .from("chapters")
-    .select("id")
-    .eq("project_id", projectId);
-
-  const chapterIds = (projectChapters ?? []).map((c: { id: string }) => c.id);
-  if (chapterIds.length === 0) {
-    return { blocked: candidateWordCount > limit, limit };
-  }
-
-  const { data: allPages } = await supabase
-    .from("pages")
-    .select("id, word_count")
-    .in("chapter_id", chapterIds);
-
-  const totalExcludingCurrent = (allPages ?? [])
-    .filter((p: { id: string }) => p.id !== excludePageId)
-    .reduce((s: number, p: { word_count: number }) => s + (p.word_count ?? 0), 0);
-
-  return { blocked: totalExcludingCurrent + candidateWordCount > limit, limit };
+  const { data, error } = await supabase.rpc("account_word_total");
+  if (error || typeof data !== "number") return 0;
+  return data;
 }
+
+type SavePageCheckedResult =
+  | { status: "ok"; updated_at: string; version: number }
+  | { status: "word_limit_blocked"; limit: number }
+  | { status: "version_mismatch" }
+  | { status: "error"; error: string };
 
 export async function getPages(
   chapterId: string
@@ -127,87 +99,6 @@ export async function createPage(
 
   if (error) return { data: null, error: error.message };
   return { data, error: null };
-}
-
-export async function updatePage(
-  id: string,
-  content: Record<string, unknown>,
-  wordCount: number
-): Promise<ActionResult<Page>> {
-  const { supabase, user } = await getUser();
-  if (!user) return { data: null, error: "Not authenticated" };
-
-  const { data: profileRow } = await supabase
-    .from("profiles")
-    .select("subscription_tier")
-    .eq("id", user.id)
-    .single();
-
-  const tier = profileRow?.subscription_tier ?? "free";
-
-  if (tier === "free") {
-    const { data: currentPage } = await supabase
-      .from("pages")
-      .select("chapter_id, word_count")
-      .eq("id", id)
-      .single();
-
-    if (currentPage && wordCount > (currentPage.word_count ?? 0)) {
-      // Only enforce limit when words are being added (not on edits or deletions)
-      const { data: chapter } = await supabase
-        .from("chapters")
-        .select("project_id")
-        .eq("id", currentPage.chapter_id)
-        .single();
-
-      if (chapter) {
-        const { blocked } = await checkFreeWordLimit(
-          supabase,
-          user.id,
-          chapter.project_id,
-          id,
-          wordCount
-        );
-
-        if (blocked) {
-          return {
-            data: null,
-            error: "FREE_WORD_LIMIT_REACHED",
-          };
-        }
-      }
-    }
-  }
-
-  const { data: page, error } = await supabase
-    .from("pages")
-    .update({
-      content,
-      word_count: wordCount,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", id)
-    .select()
-    .single();
-
-  if (error) return { data: null, error: error.message };
-
-  await supabase
-    .from("chapters")
-    .update({ updated_at: new Date().toISOString() })
-    .eq("id", page.chapter_id);
-
-  const { data: chapter } = await supabase
-    .from("chapters")
-    .select("project_id")
-    .eq("id", page.chapter_id)
-    .single();
-
-  if (chapter) {
-    await recalculateProjectWordCount(supabase, chapter.project_id);
-  }
-
-  return { data: page, error: null };
 }
 
 export async function reorderPages(
@@ -345,9 +236,14 @@ export async function clearCanonicalPage(
 }
 
 /**
- * Server-side word limit check + version-guarded page update for the offline
- * sync path. Called instead of a raw Supabase update so that free-tier limits
- * are enforced even when the save originates from the offline queue.
+ * Server-side word limit check + version-guarded page update for the live
+ * editor's autosave path (both the immediate online save and the
+ * reconnect/flush-queue path call this). Delegates the check-and-write to
+ * save_page_checked() (migration 011), a single atomic database function —
+ * the limit check and the page update used to be two separate round trips
+ * here, which let two concurrent saves on different pages read the same
+ * "remaining" figure and jointly exceed the account-wide limit. The
+ * database function closes that race with a per-account advisory lock.
  *
  * Returns a discriminated union so the caller can handle each case without
  * needing to inspect raw DB error codes.
@@ -367,57 +263,20 @@ export async function syncPageWithLimitCheck(
   const { supabase, user } = await getUser();
   if (!user) return { status: "error", error: "Not authenticated" };
 
-  const { data: profileRow } = await supabase
-    .from("profiles")
-    .select("subscription_tier")
-    .eq("id", user.id)
-    .single();
+  const { data, error } = await supabase.rpc("save_page_checked", {
+    p_page_id: id,
+    p_content: content,
+    p_word_count: wordCount,
+    p_expected_version: serverVersion,
+  });
 
-  const tier = profileRow?.subscription_tier ?? "free";
+  if (error) return { status: "error", error: error.message };
 
-  if (tier === "free") {
-    const { data: currentPage } = await supabase
-      .from("pages")
-      .select("chapter_id, word_count")
-      .eq("id", id)
-      .single();
+  const result = data as SavePageCheckedResult;
 
-    if (currentPage && wordCount > (currentPage.word_count ?? 0)) {
-      const { data: chapter } = await supabase
-        .from("chapters")
-        .select("project_id")
-        .eq("id", currentPage.chapter_id)
-        .single();
-
-      if (chapter) {
-        const { blocked } = await checkFreeWordLimit(
-          supabase,
-          user.id,
-          chapter.project_id,
-          id,
-          wordCount
-        );
-
-        if (blocked) {
-          return { status: "word_limit_blocked" };
-        }
-      }
-    }
-  }
-
-  const { data: updated, error: updateError } = await supabase
-    .from("pages")
-    .update({
-      content,
-      word_count: wordCount,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", id)
-    .eq("version", serverVersion)
-    .select("id, updated_at, version");
-
-  if (updateError) return { status: "error", error: updateError.message };
-  if (!updated || updated.length === 0) return { status: "version_mismatch" };
+  if (result.status === "error") return { status: "error", error: result.error };
+  if (result.status === "word_limit_blocked") return { status: "word_limit_blocked" };
+  if (result.status === "version_mismatch") return { status: "version_mismatch" };
 
   // Best-effort — analytics must never block a successful save from returning.
   // This is the authoritative persistence point for the live editor's autosave
@@ -453,16 +312,19 @@ export async function syncPageWithLimitCheck(
 
   return {
     status: "ok",
-    updated_at: (updated[0].updated_at as string) ?? new Date().toISOString(),
-    version: updated[0].version as number,
+    updated_at: result.updated_at,
+    version: result.version,
   };
 }
 
 /**
  * Post-sync maintenance called after syncPendingWrite successfully persists a
- * page to Supabase. Mirrors what updatePage() does server-side: touches the
- * parent chapter's updated_at and runs the canonical-aware project word count
- * recalculation (which also revalidates the project and profile page caches).
+ * page to Supabase. Touches the parent chapter's updated_at and runs the
+ * canonical-aware project word count recalculation (which also revalidates
+ * the project and profile page caches). This is purely for the *display*
+ * total (projects.word_count) — unrelated to the account-wide enforcement
+ * above, which is always computed live from pages/chapters, never from this
+ * denormalized column.
  */
 export async function afterPageSync(pageId: string): Promise<void> {
   const { supabase, user } = await getUser();

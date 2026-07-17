@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { cn, getLocalDateString } from "@/lib/utils";
-import { TicketGate } from "@/components/games/TicketGate";
 import { useGameStore } from "@/store/gameStore";
 import { useProfileStore } from "@/store/profileStore";
 import { useToastStore } from "@/store/toastStore";
@@ -17,10 +16,8 @@ import { ContextPageHeader } from "@/components/games/ContextPageHeader";
 import { SaveToProject } from "@/components/games/SaveToProject";
 import { ExitGameModal } from "@/components/games/ExitGameModal";
 import { recordWordsWritten } from "@/lib/actions/writingStats";
-import { getWeeklyTicketUsage } from "@/lib/actions/billing";
 import { xpRewardForWords } from "@/lib/xp";
 import { unlockToastMessage } from "@/lib/unlockables";
-import { getGameTicketsAllowed } from "@/lib/subscription";
 
 const GameEditor = dynamic(() => import("@/components/editor/GameEditor"), {
   ssr: false,
@@ -221,7 +218,6 @@ function ResultsState({
   textWritten,
   isSessionValid,
   onRaceAgain,
-  canRaceAgain,
   pageSource,
 }: {
   result: ResultData;
@@ -229,7 +225,6 @@ function ResultsState({
   textWritten: string;
   isSessionValid: boolean;
   onRaceAgain: () => void;
-  canRaceAgain: boolean;
   pageSource?: PageSource;
 }) {
   const wpm =
@@ -366,39 +361,16 @@ function ResultsState({
           </div>
         </div>
 
-        {!canRaceAgain && (
-          <p
-            className="mb-6 max-w-sm text-sm leading-relaxed"
-            style={{ color: "var(--color-mist)" }}
-          >
-            No Arena entries left this week. Upgrade to Scribe for unlimited battles and races!
-          </p>
-        )}
-
         {/* Primary actions */}
         <div className="flex flex-col items-center gap-4">
           <div className="flex justify-center gap-4">
-            <Button
-              variant="primary"
-              onClick={onRaceAgain}
-              disabled={!canRaceAgain}
-              aria-disabled={!canRaceAgain}
-            >
+            <Button variant="primary" onClick={onRaceAgain}>
               Race Again
             </Button>
             <Link href="/games">
               <Button variant="ghost">Return to Hub</Button>
             </Link>
           </div>
-          {!canRaceAgain && (
-            <Link
-              href="/settings"
-              className="text-xs uppercase tracking-widest transition-opacity duration-150 hover:opacity-100"
-              style={{ color: "var(--color-gold)", opacity: 0.75 }}
-            >
-              View plans in Settings
-            </Link>
-          )}
         </div>
 
         {/* Written-in context */}
@@ -638,7 +610,6 @@ export default function RaceYourselfPage() {
   const router = useRouter();
   const hasSaved = useRef(false);
   const profile = useProfileStore((s) => s.profile);
-  const subscriptionTier = useProfileStore((s) => s.subscriptionTier);
 
   useEffect(() => {
     const prefs = (profile?.preferences ?? {}) as Record<string, unknown>;
@@ -668,8 +639,6 @@ export default function RaceYourselfPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [raceFinished, setRaceFinished] = useState(false);
   const [sessionValid, setSessionValid] = useState(true);
-  const [ticketConsumed, setTicketConsumed] = useState(false);
-  const [canRaceAgain, setCanRaceAgain] = useState(true);
   const [showExitModal, setShowExitModal] = useState(false);
 
   // Refs for split-XP tracking across effect boundaries
@@ -816,40 +785,20 @@ export default function RaceYourselfPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameState]);
 
-  useEffect(() => {
-    if (gameState !== "results" || !profile?.id) return;
-
-    const allowed = getGameTicketsAllowed(subscriptionTier);
-    if (allowed === Infinity) {
-      setCanRaceAgain(true);
-      return;
-    }
-
-    let cancelled = false;
-    getWeeklyTicketUsage(profile.id).then((used) => {
-      if (!cancelled) setCanRaceAgain(used < allowed);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [gameState, profile?.id, subscriptionTier]);
-
   const handleBeginRace = useCallback(() => {
     setGameKey((k) => k + 1);
     startGame(localDuration);
   }, [localDuration, startGame]);
 
   const handleRaceAgain = useCallback(() => {
-    if (!canRaceAgain) return;
     hasSaved.current = false;
     raceFinishedRef.current = false;
     wordsAtFinishRef.current = 0;
     setRaceFinished(false);
     setSessionValid(true);
-    setTicketConsumed(false);
     resetToSetup();
     setResultData(null);
-  }, [canRaceAgain, resetToSetup]);
+  }, [resetToSetup]);
 
   const handleExit = useCallback(() => {
     if (wordsWritten === 0) {
@@ -872,21 +821,7 @@ export default function RaceYourselfPage() {
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
-  if (gameState === "idle" && !ticketConsumed) {
-    return (
-      <TicketGate onTicketConsumed={() => setTicketConsumed(true)}>
-        <SetupState
-          localDuration={localDuration}
-          setLocalDuration={setLocalDuration}
-          personalBests={personalBests}
-          onBegin={handleBeginRace}
-          onSourceSelect={setPageSource}
-        />
-      </TicketGate>
-    );
-  }
-
-  if (gameState === "idle" && ticketConsumed) {
+  if (gameState === "idle") {
     return (
       <SetupState
         localDuration={localDuration}
@@ -906,7 +841,6 @@ export default function RaceYourselfPage() {
         textWritten={textWritten}
         isSessionValid={sessionValid}
         onRaceAgain={handleRaceAgain}
-        canRaceAgain={canRaceAgain}
         pageSource={pageSource}
       />
     );

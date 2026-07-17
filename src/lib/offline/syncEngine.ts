@@ -370,32 +370,56 @@ export async function getConflictedPages() {
 /**
  * Force-write the local pending content to Supabase, bypassing the staleness
  * check that would normally mark a write as a conflict. Uses the page ID alone
- * (no version guard) so this always wins over the remote state.
+ * (no version guard, p_expected_version: null) so this always wins over the
+ * remote state.
  *
- * On success: clears the pending write, updates cache, runs post-sync maintenance.
- * Returns true if the write succeeded, false otherwise.
+ * Delegates to save_page_checked() (migration 011) — the same atomic,
+ * account-wide free-word-limit check every other save path uses. This used
+ * to be a raw update with no limit check at all, meaning a writer could
+ * bypass their word limit entirely by triggering a sync conflict and
+ * resolving it with "Keep Local."
+ *
+ * On success: clears the pending write, updates cache, runs post-sync
+ * maintenance. If blocked by the word limit, the pending write is left in
+ * IndexedDB (nothing is lost) and the caller should surface the same
+ * upgrade prompt shown elsewhere.
  */
-export async function forceWriteLocalContent(pageId: string): Promise<boolean> {
+export async function forceWriteLocalContent(pageId: string): Promise<
+  | { status: 'ok' }
+  | { status: 'word_limit_blocked' }
+  | { status: 'error' }
+> {
   const db = await getOfflineDB()
   const pending = await db.get('pending_writes', pageId)
-  if (!pending) return false
+  if (!pending) return { status: 'error' }
 
   const supabase = createClient()
   const { data: { session } } = await supabase.auth.getSession()
-  if (!session) return false
+  if (!session) return { status: 'error' }
 
-  const { data: updated, error: updateError } = await supabase
-    .from('pages')
-    .update({
-      content: pending.content,
-      word_count: pending.wordCount,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', pageId)
-    .select('id, updated_at, version')
-    .single()
+  const { data, error } = await supabase.rpc('save_page_checked', {
+    p_page_id: pageId,
+    p_content: pending.content,
+    p_word_count: pending.wordCount,
+    p_expected_version: null,
+  })
 
-  if (updateError || !updated) return false
+  if (error || !data) return { status: 'error' }
+
+  const result = data as
+    | { status: 'ok'; updated_at: string; version: number }
+    | { status: 'word_limit_blocked'; limit: number }
+    | { status: 'version_mismatch' }
+    | { status: 'error'; error: string }
+
+  if (result.status === 'word_limit_blocked') {
+    // Content stays in IDB as 'pending' — nothing is lost, matching the
+    // regular autosave path's handling of the same outcome.
+    await db.put('pending_writes', { ...pending, syncStatus: 'pending' })
+    return { status: 'word_limit_blocked' }
+  }
+
+  if (result.status !== 'ok') return { status: 'error' }
 
   await db.delete('pending_writes', pageId)
   const existingCache = await db.get('page_cache', pageId)
@@ -404,8 +428,8 @@ export async function forceWriteLocalContent(pageId: string): Promise<boolean> {
     id: pageId,
     content: pending.content,
     wordCount: pending.wordCount,
-    serverUpdatedAt: (updated.updated_at as string) ?? new Date().toISOString(),
-    serverVersion: updated.version as number | undefined,
+    serverUpdatedAt: result.updated_at,
+    serverVersion: result.version,
     cachedAt: Date.now(),
   })
 
@@ -415,5 +439,5 @@ export async function forceWriteLocalContent(pageId: string): Promise<boolean> {
     // Non-fatal
   }
 
-  return true
+  return { status: 'ok' }
 }
