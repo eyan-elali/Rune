@@ -736,6 +736,57 @@ export async function getDrilldownUsers(
   return hydrateDrilldownUsers(client, Array.from(eventAtByUser.keys()), eventAtByUser);
 }
 
+// ── Stored-word totals ───────────────────────────────────────────────────
+// "Total Words" in Pulse means every live page a writer has stored —
+// canonical AND non-canonical — the same definition the free-tier
+// allowance is measured against (see account_word_total() in migration
+// 011). This is deliberately not projects.word_count: that cached column is
+// canonical-aware (only each chapter's canonical page counts), which is the
+// right definition for the manuscript's *official* display total elsewhere
+// in the app, but would under-report a writer who has non-canonical drafts
+// stored — Pulse's Total Words is about storage/allowance usage, not the
+// official manuscript. Queried directly (projects → chapters → pages)
+// rather than any cached total, so it can never be stale for this purpose.
+// Deleted rows are excluded automatically (they aren't in the tables), and
+// each page is read exactly once, so nothing is double-counted.
+async function getStoredWordTotalsByUser(
+  client: ServiceClient,
+  userIds: string[]
+): Promise<Map<string, number>> {
+  const totals = new Map<string, number>();
+  if (userIds.length === 0) return totals;
+
+  const { data: projects } = await client
+    .from("projects")
+    .select("id, user_id")
+    .in("user_id", userIds);
+  const userIdByProject = new Map((projects ?? []).map((p) => [p.id as string, p.user_id as string]));
+  const projectIds = Array.from(userIdByProject.keys());
+  if (projectIds.length === 0) return totals;
+
+  const { data: chapters } = await client
+    .from("chapters")
+    .select("id, project_id")
+    .in("project_id", projectIds);
+  const projectIdByChapter = new Map((chapters ?? []).map((c) => [c.id as string, c.project_id as string]));
+  const chapterIds = Array.from(projectIdByChapter.keys());
+  if (chapterIds.length === 0) return totals;
+
+  const { data: pages } = await client
+    .from("pages")
+    .select("word_count, chapter_id")
+    .in("chapter_id", chapterIds);
+
+  for (const p of pages ?? []) {
+    const projectId = projectIdByChapter.get(p.chapter_id as string);
+    const userId = projectId ? userIdByProject.get(projectId) : undefined;
+    if (!userId) continue;
+    totals.set(userId, (totals.get(userId) ?? 0) + ((p.word_count as number) ?? 0));
+  }
+
+  return totals;
+}
+
 // ── Recent Writers ───────────────────────────────────────────────────────
 
 export interface WriterSummary {
@@ -777,9 +828,9 @@ export async function searchRecentWriters(
   if (rows.length === 0) return [];
 
   const ids = rows.map((r) => r.id as string);
-  const [{ data: sessions }, { data: projects }] = await Promise.all([
+  const [{ data: sessions }, totalWordsByUser] = await Promise.all([
     client.from("writing_sessions").select("user_id, words_added").in("user_id", ids),
-    client.from("projects").select("user_id, word_count").in("user_id", ids),
+    getStoredWordTotalsByUser(client, ids),
   ]);
 
   const wordsByUser = new Map<string, number>();
@@ -787,16 +838,6 @@ export async function searchRecentWriters(
     wordsByUser.set(
       s.user_id as string,
       (wordsByUser.get(s.user_id as string) ?? 0) + ((s.words_added as number) ?? 0)
-    );
-  }
-
-  // Sum of projects.word_count per owner — the manuscript total across every
-  // project, independent of the paste-excluded words-written ledger above.
-  const totalWordsByUser = new Map<string, number>();
-  for (const p of projects ?? []) {
-    totalWordsByUser.set(
-      p.user_id as string,
-      (totalWordsByUser.get(p.user_id as string) ?? 0) + ((p.word_count as number) ?? 0)
     );
   }
 
@@ -836,7 +877,7 @@ export interface UserDrawerData {
 export async function getUserDrawerData(userId: string): Promise<UserDrawerData | null> {
   const client = await requireAdminService();
 
-  const [{ data: profile }, { data: events }, { data: sessions }, { data: projects }] =
+  const [{ data: profile }, { data: events }, { data: sessions }, totalWordsByUser] =
     await Promise.all([
       client
         .from("profiles")
@@ -849,7 +890,7 @@ export async function getUserDrawerData(userId: string): Promise<UserDrawerData 
         .eq("user_id", userId)
         .order("created_at", { ascending: true }),
       client.from("writing_sessions").select("words_added").eq("user_id", userId),
-      client.from("projects").select("word_count").eq("user_id", userId),
+      getStoredWordTotalsByUser(client, [userId]),
     ]);
 
   if (!profile) return null;
@@ -867,12 +908,10 @@ export async function getUserDrawerData(userId: string): Promise<UserDrawerData 
     0
   );
 
-  // Manuscript total across every project this writer owns — includes
-  // pasted/imported words, unlike totalWordsWritten above.
-  const totalWords = (projects ?? []).reduce(
-    (sum, p) => sum + ((p.word_count as number) ?? 0),
-    0
-  );
+  // Every stored page this writer owns, canonical or not — see
+  // getStoredWordTotalsByUser above. Includes pasted/imported words, unlike
+  // totalWordsWritten above.
+  const totalWords = totalWordsByUser.get(userId) ?? 0;
 
   return {
     id: profile.id as string,

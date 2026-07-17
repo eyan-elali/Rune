@@ -691,6 +691,25 @@ create trigger user_pricing_entitlements_touch_updated_at
 -- run that file directly in the Supabase SQL editor rather than
 -- reassembling it from this comment.
 
+-- ── Migration: account-wide free-word-limit enforcement (run once on existing databases, migration 011) ─
+-- See src/lib/supabase/migrations/011_account_word_limit.sql for the full
+-- script — run that file directly rather than reassembling it from this
+-- comment. Adds six functions, none of them SECURITY DEFINER (every one
+-- is SECURITY INVOKER, reads auth.uid() itself, and relies on the existing
+-- "projects/chapters/pages: * own" RLS policies above for enforcement;
+-- EXECUTE is revoked from PUBLIC and granted only to `authenticated`):
+--   lock_account_word_budget()      — shared per-account advisory-lock entry point
+--   account_word_total(...)         — canonical-aware account-wide word count
+--   free_word_limit_for_caller()    — resolves the caller's free-tier limit (or null if Scribe)
+--   save_page_checked(...)          — atomic check-and-save for an existing page
+--   insert_page_checked(...)        — atomic check-and-insert for a new page
+--   duplicate_project_checked(...)  — atomic check-and-duplicate for a whole project
+-- This depends on pages.is_canonical (migration 001) and pages.version
+-- (migration 006) already existing — neither is reflected earlier in this
+-- file (a pre-existing gap in this schema snapshot, not introduced by
+-- migration 011), so a genuinely fresh install must also run those two
+-- migrations before 011.
+
 -- ═══════════════════════════════════════════════════════════════════
 --  Auto-create profile on signup
 -- ═══════════════════════════════════════════════════════════════════

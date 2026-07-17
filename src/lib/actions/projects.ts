@@ -75,176 +75,48 @@ export async function updateProject(
   return { data, error: null };
 }
 
+type DuplicateProjectCheckedResult =
+  | { status: "ok"; project: Project }
+  | { status: "word_limit_blocked"; limit: number }
+  | { status: "error"; error: string };
+
+/**
+ * Duplicates a project — chapters, pages, canonical-page relationships —
+ * subject to the account-wide free-word limit. Delegates the entire
+ * operation to duplicate_project_checked() (migration 011): ownership
+ * verification, the canonical-aware word-limit check, and every row copy
+ * happen inside that single atomic database call, sharing the same
+ * per-account advisory lock as page saves/inserts. This closes the earlier
+ * check-then-write race, where a concurrent editor save (or another
+ * duplication) could read the same "remaining" figure and jointly exceed
+ * the account-wide limit — and guarantees no partial duplicate is ever left
+ * behind if something fails partway through.
+ */
 export async function duplicateProject(
   projectId: string
 ): Promise<ActionResult<Project>> {
   const { supabase, user } = await getUser();
   if (!user) return { data: null, error: "Not authenticated" };
 
-  // Fetch original project
-  const { data: original, error: projErr } = await supabase
-    .from("projects")
-    .select("*")
-    .eq("id", projectId)
-    .eq("user_id", user.id)
-    .single();
+  const { data, error } = await supabase.rpc("duplicate_project_checked", {
+    p_project_id: projectId,
+  });
 
-  if (projErr || !original) return { data: null, error: "Project not found" };
+  if (error) return { data: null, error: error.message };
 
-  // Duplication adds a full copy of the original's words to the account —
-  // check that against the account-wide free-tier limit before writing
-  // anything, now that free users are no longer capped at one project. The
-  // duplicate mirrors the original's chapters/pages (including is_canonical)
-  // 1:1, so the original's own canonical-aware total — the same definition
-  // account_word_total() uses, see migration 011 — is exactly how many
-  // words the duplicate will add to the account.
-  //
-  // This remains a check-then-write rather than a single atomic database
-  // call (unlike the single-page save/insert paths in pages.ts/games.ts):
-  // duplication creates many rows across many chapters in one user action,
-  // which doesn't fit that shape without a much larger change. A double-
-  // click racing this check is a narrower, lower-frequency risk than the
-  // multi-tab editor race the atomic paths close, and is already mitigated
-  // client-side (the confirm button disables while the request is in flight).
-  const { data: originalChapters } = await supabase
-    .from("chapters")
-    .select("id")
-    .eq("project_id", projectId);
+  const result = data as DuplicateProjectCheckedResult;
 
-  const originalChapterIds = (originalChapters ?? []).map((c: { id: string }) => c.id);
-  let originalWordTotal = 0;
-  if (originalChapterIds.length > 0) {
-    const { data: originalPages } = await supabase
-      .from("pages")
-      .select("chapter_id, word_count, is_canonical")
-      .in("chapter_id", originalChapterIds);
-
-    for (const chapterId of originalChapterIds) {
-      const chapterPages = (originalPages ?? []).filter(
-        (p: { chapter_id: string }) => p.chapter_id === chapterId
-      );
-      originalWordTotal += calculateChapterWordCount({ pages: chapterPages });
-    }
+  if (result.status === "word_limit_blocked") {
+    return {
+      data: null,
+      error: `Duplicating this project would put you over your ${result.limit.toLocaleString()}-word free limit. Upgrade to Scribe to keep writing.`,
+    };
   }
-
-  if (originalWordTotal > 0) {
-    const { data: limitData } = await supabase.rpc("free_word_limit_for_caller");
-    const limit = limitData as number | null;
-    if (limit !== null) {
-      const { data: totalData } = await supabase.rpc("account_word_total");
-      const accountTotal = (totalData as number | null) ?? 0;
-      if (accountTotal + originalWordTotal > limit) {
-        return {
-          data: null,
-          error: `Duplicating this project would put you over your ${limit.toLocaleString()}-word free limit. Upgrade to Scribe to keep writing.`,
-        };
-      }
-    }
-  }
-
-  // Find a unique draft title
-  const { data: existingTitles } = await supabase
-    .from("projects")
-    .select("title")
-    .eq("user_id", user.id)
-    .ilike("title", `${original.title} — Draft%`);
-
-  const usedNumbers = new Set<number>();
-  for (const { title } of existingTitles ?? []) {
-    const match = title.match(/— Draft (\d+)$/);
-    if (match) usedNumbers.add(parseInt(match[1], 10));
-  }
-  let draftNum = 2;
-  while (usedNumbers.has(draftNum)) draftNum++;
-  const newTitle = `${original.title} — Draft ${draftNum}`;
-
-  // Create new project
-  const { data: newProject, error: createErr } = await supabase
-    .from("projects")
-    .insert({
-      user_id: user.id,
-      title: newTitle,
-      description: original.description,
-      cover_color: original.cover_color,
-      word_count: 0,
-    })
-    .select()
-    .single();
-
-  if (createErr || !newProject) return { data: null, error: createErr?.message ?? "Failed to create project" };
-
-  // Fetch chapters in order
-  const { data: chapters } = await supabase
-    .from("chapters")
-    .select("*")
-    .eq("project_id", projectId)
-    .order("position", { ascending: true });
-
-  for (const chapter of chapters ?? []) {
-    const { data: newChapter, error: chapErr } = await supabase
-      .from("chapters")
-      .insert({
-        project_id: newProject.id,
-        title: chapter.title,
-        position: chapter.position,
-      })
-      .select()
-      .single();
-
-    if (chapErr || !newChapter) continue;
-
-    // Fetch pages in order
-    const { data: pages } = await supabase
-      .from("pages")
-      .select("*")
-      .eq("chapter_id", chapter.id)
-      .order("position", { ascending: true });
-
-    for (const page of pages ?? []) {
-      await supabase.from("pages").insert({
-        chapter_id: newChapter.id,
-        title: page.title,
-        content: page.content,
-        word_count: page.word_count,
-        position: page.position,
-        is_canonical: page.is_canonical,
-      });
-    }
-  }
-
-  // Recalculate word count for new project
-  const { data: newChapters } = await supabase
-    .from("chapters")
-    .select("id")
-    .eq("project_id", newProject.id);
-
-  const newChapterIds = (newChapters ?? []).map((c: { id: string }) => c.id);
-  let totalWords = 0;
-  if (newChapterIds.length > 0) {
-    const { data: allPages } = await supabase
-      .from("pages")
-      .select("word_count, is_canonical, chapter_id")
-      .in("chapter_id", newChapterIds);
-
-    for (const chapId of newChapterIds) {
-      const chapterPages = (allPages ?? []).filter((p: { chapter_id: string }) => p.chapter_id === chapId);
-      const canonical = chapterPages.find((p: { is_canonical: boolean }) => p.is_canonical);
-      if (canonical) {
-        totalWords += canonical.word_count;
-      } else {
-        totalWords += chapterPages.reduce((s: number, p: { word_count: number }) => s + (p.word_count ?? 0), 0);
-      }
-    }
-
-    await supabase
-      .from("projects")
-      .update({ word_count: totalWords })
-      .eq("id", newProject.id);
-  }
+  if (result.status === "error") return { data: null, error: result.error };
 
   revalidatePath("/projects");
   // No XP awarded for duplication — only manual typing earns progression.
-  return { data: { ...newProject, word_count: totalWords }, error: null };
+  return { data: result.project, error: null };
 }
 
 export async function toggleProjectPin(

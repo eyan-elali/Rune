@@ -16,10 +16,14 @@ async function getUser() {
 }
 
 /**
- * Account-wide, server-authoritative manuscript word count for the signed-in
- * user — canonical-aware (mirrors calculateProjectWordCount in
- * src/lib/manuscript.ts) and summed across every project they own, backed by
- * the account_word_total() database function (see migration 011). Returns 0
+ * Account-wide, server-authoritative *stored-word* total for the signed-in
+ * user — every live page they own, canonical or not, summed across every
+ * project, backed by the account_word_total() database function (see
+ * migration 011). This is deliberately NOT the same figure as a project's
+ * displayed manuscript total (projects.word_count / calculateProjectWordCount
+ * in src/lib/manuscript.ts, which only counts each chapter's canonical
+ * page) — the free-tier allowance is measured against everything Rune is
+ * storing for the writer, not just the current official draft. Returns 0
  * for Scribe subscribers without querying pages/chapters at all, since the
  * value is meaningless once the account is unrestricted.
  *

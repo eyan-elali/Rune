@@ -3012,7 +3012,7 @@ export default function LandingPage() {
               >
                 {[
                   'Unlimited writing — no word ceiling',
-                  'All premium unlockables',
+                  'Premium themes, fonts, and avatars',
                 ].map((f) => (
                   <div key={f} style={{ display: 'flex', gap: '7px', alignItems: 'flex-start', fontSize: '13px', color: 'var(--text-primary)', lineHeight: 1.45, fontFamily: SANS }}>
                     <span style={{ color: 'var(--color-gold)', fontSize: '11px', flexShrink: 0, marginTop: '2px' }}>✦</span>

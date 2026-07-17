@@ -48,7 +48,7 @@ function getFreeFeatures(freeWordLimit: number) {
 const SCRIBE_FEATURES = [
   { label: 'Everything in Free', included: true },
   { label: 'Unlimited words — no ceiling', included: true },
-  { label: 'All premium unlockables', included: true },
+  { label: 'Premium themes, fonts, and avatars', included: true },
 ]
 
 // ─── Types ────────────────────────────────────────────────────────────────────
