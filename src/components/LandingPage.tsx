@@ -5,6 +5,9 @@ import Link from 'next/link'
 import {
   Crown,
 } from 'lucide-react'
+import { getScribeAnnualSavingsPercent } from '@/lib/pricing'
+
+const SCRIBE_ANNUAL_SAVINGS_PERCENT = getScribeAnnualSavingsPercent()
 
 const HERO_THEMES = {
   candlelight: {
@@ -2866,7 +2869,7 @@ export default function LandingPage() {
                 Write your first 2,000 words free.
               </p>
               <p style={{ fontFamily: SANS, fontSize: '13.5px', color: 'var(--text-muted)', lineHeight: 1.55 }}>
-                No credit card required. Experience Rune&apos;s complete writing environment for your first 2,000 words.
+                Experience Rune&apos;s complete writing environment for your first 2,000 words. No credit card required.
               </p>
             </div>
             <Link
@@ -2921,7 +2924,7 @@ export default function LandingPage() {
               <div
                 role="group"
                 aria-label="Billing interval"
-                style={{ display: 'inline-flex', alignSelf: 'flex-start', border: '1px solid var(--color-border)', borderRadius: '20px', padding: '4px', marginBottom: '1rem' }}
+                style={{ display: 'flex', width: '100%', border: '1px solid var(--color-border)', borderRadius: '20px', padding: '4px', marginBottom: '1rem' }}
               >
                 {(['monthly', 'annual'] as const).map((plan) => (
                   <button
@@ -2929,19 +2932,22 @@ export default function LandingPage() {
                     onClick={() => handleBilling(plan)}
                     aria-pressed={billing === plan}
                     style={{
+                      flex: 1,
                       background: billing === plan ? 'var(--color-gold)' : 'transparent',
                       color: billing === plan ? '#1e1a16' : 'var(--text-muted)',
                       borderRadius: '17px',
-                      padding: '6px 16px',
+                      padding: '6px 8px',
                       fontSize: '12px',
+                      lineHeight: 1.3,
                       fontWeight: billing === plan ? 600 : 400,
                       cursor: 'pointer',
                       border: 'none',
                       transition: 'all 0.2s ease',
                       fontFamily: SANS,
+                      textAlign: 'center',
                     }}
                   >
-                    {plan === 'monthly' ? 'Monthly' : 'Annual'}
+                    {plan === 'monthly' ? 'Monthly' : `Annual · Save ${SCRIBE_ANNUAL_SAVINGS_PERCENT}%`}
                   </button>
                 ))}
               </div>
@@ -2954,20 +2960,20 @@ export default function LandingPage() {
                   <span style={{ fontFamily: SANS, fontSize: '13.5px', color: 'var(--text-muted)', marginLeft: '4px' }}>/mo</span>
                 </div>
                 <div style={{ fontFamily: SANS, fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px', minHeight: '14px' }}>
-                  {billing === 'annual' ? 'Billed annually at $96/yr — 20% off' : ' '}
+                  {billing === 'annual' ? `Billed annually at $96/yr — Save ${SCRIBE_ANNUAL_SAVINGS_PERCENT}%` : ' '}
                 </div>
               </div>
 
               <Link
                 href={`/api/intent/scribe?billing=${billing}`}
                 prefetch={false}
-                className="gold-btn"
+                className="ghost-btn"
                 style={{
                   display: 'block',
                   marginTop: '0.85rem',
-                  background: 'var(--color-gold)',
-                  color: '#1e1a16',
-                  border: 'none',
+                  background: 'transparent',
+                  color: 'var(--text-primary)',
+                  border: '1px solid var(--color-border-strong)',
                   padding: '13px 0',
                   borderRadius: '4px',
                   fontSize: '14px',
@@ -2975,7 +2981,7 @@ export default function LandingPage() {
                   fontWeight: 600,
                   letterSpacing: '0.06em',
                   cursor: 'pointer',
-                  transition: 'background 0.15s ease',
+                  transition: 'background 0.15s ease, border-color 0.15s ease',
                   textAlign: 'center',
                   textDecoration: 'none',
                 }}
@@ -2990,7 +2996,7 @@ export default function LandingPage() {
               style={{ flex: '1 1 auto', minWidth: 0, borderLeft: '1px solid var(--color-border)', paddingLeft: '2.25rem' }}
             >
               <div style={{ fontFamily: SANS, fontSize: '10px', letterSpacing: '0.16em', color: 'var(--text-muted)', opacity: 0.75, marginBottom: '0.75rem' }}>
-                THE COMPLETE WRITING ENVIRONMENT
+                INCLUDED FROM YOUR FIRST WORD
               </div>
               <div
                 className="landing-scribe-features-grid"

@@ -33,9 +33,22 @@ export interface ActiveScribeBilling {
   price: number | null;
 }
 
-const STANDARD_SCRIBE_MONTHLY_PRICE = 9.99;
-const STANDARD_SCRIBE_ANNUAL_PER_MONTH = 8;
+export const STANDARD_SCRIBE_MONTHLY_PRICE = 9.99;
+export const STANDARD_SCRIBE_ANNUAL_PER_MONTH = 8;
 const FOUNDING_SCRIBE_MONTHLY_PRICE = 6.99;
+
+/** Annual total is derived from the per-month annual rate, never a separate literal. */
+export const STANDARD_SCRIBE_ANNUAL_TOTAL =
+  STANDARD_SCRIBE_ANNUAL_PER_MONTH * 12;
+
+/** Single source for the annual-billing discount shown across pricing surfaces. */
+export function getScribeAnnualSavingsPercent(): number {
+  const payingMonthlyOverAYear = STANDARD_SCRIBE_MONTHLY_PRICE * 12;
+  const savings =
+    (payingMonthlyOverAYear - STANDARD_SCRIBE_ANNUAL_TOTAL) /
+    payingMonthlyOverAYear;
+  return Math.round(savings * 100);
+}
 
 export function resolveActiveScribeBilling(
   subscriptionTier: string | null | undefined,
