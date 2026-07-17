@@ -299,8 +299,6 @@ begin
 end;
 $$;
 
-drop function if exists public.save_page_checked(uuid, jsonb, int, int);
-
 revoke execute on function public.save_page_checked(uuid, jsonb, int, int) from public;
 grant execute on function public.save_page_checked(uuid, jsonb, int, int) to authenticated;
 
