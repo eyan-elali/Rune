@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { SaveToProject } from "@/components/games/SaveToProject";
 import { getLocalDateString } from "@/lib/utils";
@@ -14,6 +15,9 @@ interface ExitGameModalProps {
   onLeave: () => void;
 }
 
+// How long the "✓ Saved" confirmation stays on screen before auto-leaving.
+const LEAVE_AFTER_SAVE_DELAY_MS = 1100;
+
 export function ExitGameModal({
   title,
   words,
@@ -22,6 +26,28 @@ export function ExitGameModal({
   onKeepGoing,
   onLeave,
 }: ExitGameModalProps) {
+  // A mid-game save must always end the run — otherwise a player who saves
+  // here and then keeps writing gets those same words re-credited (and
+  // potentially re-appended) a second time when the game finishes normally.
+  // Locking these buttons the instant a save starts (not just after it
+  // succeeds) closes the window where "Keep Writing" could dodge that.
+  const [saving, setSaving] = useState(false);
+  const leaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  useEffect(() => {
+    return () => {
+      if (leaveTimeoutRef.current) clearTimeout(leaveTimeoutRef.current);
+    };
+  }, []);
+
+  function handleSaveSettled(success: boolean) {
+    if (success) {
+      leaveTimeoutRef.current = setTimeout(onLeave, LEAVE_AFTER_SAVE_DELAY_MS);
+    } else {
+      setSaving(false);
+    }
+  }
+
   return (
     <div
       role="dialog"
@@ -29,7 +55,7 @@ export function ExitGameModal({
       aria-label={title}
       className="fixed inset-0 z-50 flex items-center justify-center px-6"
       style={{ background: "rgba(10, 8, 6, 0.88)", backdropFilter: "blur(4px)" }}
-      onClick={onKeepGoing}
+      onClick={saving ? undefined : onKeepGoing}
     >
       <div
         className="w-full max-w-sm rounded-lg px-8 py-10 text-center"
@@ -78,6 +104,8 @@ export function ExitGameModal({
               textWritten={textWritten}
               pageSource={pageSource}
               creditDate={getLocalDateString()}
+              onSaveStart={() => setSaving(true)}
+              onSaveSettled={handleSaveSettled}
             />
           </div>
         )}
@@ -89,10 +117,10 @@ export function ExitGameModal({
         />
 
         <div className="flex justify-center gap-4">
-          <Button variant="ghost" onClick={onKeepGoing}>
+          <Button variant="ghost" onClick={onKeepGoing} disabled={saving}>
             Keep Writing
           </Button>
-          <Button variant="danger" onClick={onLeave}>
+          <Button variant="danger" onClick={onLeave} disabled={saving}>
             Leave Arena
           </Button>
         </div>

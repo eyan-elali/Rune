@@ -27,6 +27,8 @@ export function SaveToProject({
   sessionInvalidated = false,
   pageSource,
   creditDate,
+  onSaveStart,
+  onSaveSettled,
 }: {
   words: number;
   textWritten: string;
@@ -39,6 +41,15 @@ export function SaveToProject({
   // saved to a project at 12:03am) fails to find the original bucket, leaving the
   // words double-counted (once anonymously, once under the project).
   creditDate: string;
+  // Lifecycle hooks used by ExitGameModal so a mid-game save can lock the
+  // "Keep Writing" escape hatch for its duration: without this, a player who
+  // saves mid-game and then keeps playing gets the same words re-credited (and
+  // potentially re-appended) a second time when the game finishes normally.
+  // onSaveStart fires synchronously the instant a save begins, so there is no
+  // click-window where "Keep Writing" is still enabled. onSaveSettled fires
+  // once the save resolves, reporting whether it succeeded.
+  onSaveStart?: () => void;
+  onSaveSettled?: (success: boolean) => void;
 }) {
   const [step, setStep] = useState<SaveStep>("idle");
   const [projects, setProjects] = useState<Project[]>([]);
@@ -55,12 +66,19 @@ export function SaveToProject({
   async function handleAppend() {
     if (pageSource?.type !== "existing") return;
     setAppendStep("saving");
+    onSaveStart?.();
     const result = await appendToExistingPage(pageSource.page.id, textWritten, words);
-    if (result.error) { setAppendError(result.error); setAppendStep("error"); return; }
+    if (result.error) {
+      setAppendError(result.error);
+      setAppendStep("error");
+      onSaveSettled?.(false);
+      return;
+    }
     if (!sessionInvalidated) {
       await transferGameWordsToProject(pageSource.project.id, words, creditDate);
     }
     setAppendStep("saved");
+    onSaveSettled?.(true);
   }
 
   if (pageSource?.type === "existing") {
@@ -128,6 +146,7 @@ export function SaveToProject({
   async function handleSelectChapter(chapter: Chapter) {
     if (!selectedProject) return;
     setStep("saving");
+    onSaveStart?.();
     const result = await appendSprintToProject(
       selectedProject.id,
       chapter.id,
@@ -137,6 +156,7 @@ export function SaveToProject({
     if (result.error) {
       setErrorMsg(result.error);
       setStep("error");
+      onSaveSettled?.(false);
       return;
     }
     // Transfer words to project stats unless session was invalidated by anti-cheat
@@ -145,6 +165,7 @@ export function SaveToProject({
     }
     setSavedChapterName(chapter.title);
     setStep("saved");
+    onSaveSettled?.(true);
   }
 
   // Saved confirmation
