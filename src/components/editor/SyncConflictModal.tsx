@@ -20,10 +20,22 @@ interface ServerVersionInfo {
 
 interface SyncConflictModalProps {
   pageId: string;
-  onKeepLocal: () => void;
+  /** Called only after the server confirmed it now holds the local draft. */
+  onKeepLocal: (keptWordCount: number) => void;
   onKeepServer: (serverContent: Record<string, unknown>, serverWordCount: number) => void;
   onClose: () => void;
 }
+
+// Accurate failure descriptions per category — a word-limit rejection or an
+// expired session must never be reported as "check your internet."
+const KEEP_LOCAL_ERROR_MESSAGES: Record<string, string> = {
+  auth: "Your session has expired. Your draft is safe on this device — sign in again, then retry.",
+  not_found:
+    "This page no longer exists on the server. Your draft is safe on this device — copy it into another page or contact support.",
+  network: "Could not reach the server. Your draft is safe on this device — check your connection and try again.",
+  server:
+    "The server rejected the save. Your draft is safe on this device — please try again.",
+};
 
 function pluralWords(n: number) {
   return n === 1 ? "word" : "words";
@@ -62,16 +74,25 @@ export function SyncConflictModal({
         }
 
         const supabase = createClient();
-        const { data, error } = await supabase
+        // Plain list select, not .single() — zero rows (page deleted /
+        // inaccessible) must be distinguishable from a query error instead of
+        // both collapsing into PGRST116's generic coercion message.
+        const { data: rows, error } = await supabase
           .from("pages")
           .select("content, word_count, updated_at, version")
-          .eq("id", pageId)
-          .single();
+          .eq("id", pageId);
 
-        if (error || !data) {
+        if (error) {
           setLoadError("Could not load the server version.");
           return;
         }
+        if (!rows || rows.length === 0) {
+          setLoadError(
+            "This page no longer exists on the server. Your local draft is safe on this device."
+          );
+          return;
+        }
+        const data = rows[0];
 
         setServerVersion({
           content: (data.content ?? {}) as Record<string, unknown>,
@@ -107,11 +128,13 @@ export function SyncConflictModal({
         return;
       }
       if (result.status !== "ok") {
-        setResolveError("Could not save local draft. Check your connection and try again.");
+        setResolveError(
+          KEEP_LOCAL_ERROR_MESSAGES[result.category] ?? KEEP_LOCAL_ERROR_MESSAGES.server
+        );
         setResolving(null);
         return;
       }
-      onKeepLocal();
+      onKeepLocal(result.wordCount);
     } catch {
       setResolveError("An unexpected error occurred. Please try again.");
       setResolving(null);
@@ -136,6 +159,8 @@ export function SyncConflictModal({
         wordCount: serverVersion.wordCount,
         serverUpdatedAt: serverVersion.updatedAt,
         serverVersion: serverVersion.version,
+        serverWordCount: serverVersion.wordCount,
+        serverContent: serverVersion.content,
         cachedAt: Date.now(),
       });
 

@@ -322,12 +322,12 @@ export default function RuneEditor({
     }
 
     if (isOnlineRef.current) {
-      const preCheckStatus = await readDbSyncStatus(page.id);
-      if (preCheckStatus === 'conflict') {
-        setSyncStatusAndRef('conflict');
-        setIsSaving(false);
-        return;
-      }
+      // No conflict pre-check here: syncPendingWrite re-runs conflict
+      // detection on every call, so a stale 'conflict' latch (e.g. one raised
+      // against a still-empty server page) heals itself, while a genuine
+      // two-writer conflict is simply re-confirmed and surfaces through the
+      // status read below. Skipping the sync on a latched status was what let
+      // a single false positive permanently block every future upload.
       setSyncStatusAndRef('syncing');
       await syncPendingWrite(page.id, 'online', expectedServerWordCountRef.current);
       setLastSaved(new Date());
@@ -586,14 +586,33 @@ export default function RuneEditor({
       const wordCount =
         (editor.storage.characterCount?.words?.() as number | undefined) ?? 0;
       const uid = userIdRef.current;
-      // Captured synchronously, before the ref is reassigned below for the
-      // new page — reading the ref lazily inside the async block below would
+      // Captured synchronously, before the refs are reassigned below for the
+      // new page — reading them lazily inside the async block below would
       // race the synchronous reset that happens later in this same effect.
       const prevExpectedWordCount = expectedServerWordCountRef.current;
+      // Writing credit for typed words whose debounce cycle never fired —
+      // without this, switching pages before the debounce silently dropped
+      // the tail of the session from Today's Words. Same ledger math as the
+      // debounce path; if the debounce already ran, rawDelta is 0 and nothing
+      // is double-credited. (The ledger ref is reset for the new page just
+      // below, so this is also its only consumer for the old page.)
+      const rawDelta = wordCount - lastSavedWordCountRef.current;
+      const creditableWords =
+        rawDelta > 0 ? Math.min(pendingEligibleWordsRef.current, rawDelta) : 0;
+      const prevProjectId = projectIdRef.current;
       if (uid) {
         void (async () => {
           await writeToPendingQueue(prevPageId, uid, content, wordCount);
           onPageUpdatedRef.current(prevPageId, { content, word_count: wordCount });
+          if (creditableWords > 0) {
+            if (isOnlineRef.current) {
+              void recordWordsWritten(prevProjectId, creditableWords, prevPageId, getLocalDateString())
+                .catch(err => console.error('[offline] recordWordsWritten (page switch) failed:', err));
+            } else {
+              void storeOfflineWritingCredit(prevProjectId, prevPageId, creditableWords)
+                .catch(err => console.error('[offline] storeOfflineWritingCredit (page switch) failed:', err));
+            }
+          }
           if (isOnlineRef.current) {
             void syncPendingWrite(prevPageId, 'online', prevExpectedWordCount);
           }
@@ -620,11 +639,30 @@ export default function RuneEditor({
     // Captured synchronously alongside the reset above — safe to read later
     // inside the async block even if another page switch reassigns the ref
     // in the meantime.
-    const expectedWordCountForDraftCheck = expectedServerWordCountRef.current;
+    let expectedWordCountForDraftCheck = expectedServerWordCountRef.current;
 
     if (pageIdForDraftCheck) {
       void (async () => {
         try {
+          // Prefer the last CONFIRMED server word count from the offline cache
+          // over currentPage.word_count: the page prop is updated optimistically
+          // by every save attempt (onPageUpdated fires before the server
+          // confirms), so after a failed save it can claim words the server
+          // never received — and a baseline seeded from it would misread the
+          // still-empty server page as a conflict on the next sync.
+          try {
+            const idb = await getOfflineDB();
+            const cacheEntry = await idb.get('page_cache', pageIdForDraftCheck);
+            if (typeof cacheEntry?.serverWordCount === 'number') {
+              expectedWordCountForDraftCheck = cacheEntry.serverWordCount;
+              if (currentPageRef.current?.id === pageIdForDraftCheck) {
+                expectedServerWordCountRef.current = cacheEntry.serverWordCount;
+              }
+            }
+          } catch {
+            // best-effort — fall back to the prop-seeded baseline
+          }
+
           const pending = await getPendingWrite(pageIdForDraftCheck);
           if (currentPageRef.current?.id !== pageIdForDraftCheck) return;
 
@@ -692,6 +730,23 @@ export default function RuneEditor({
           const wordCount =
             (editor.storage.characterCount?.words?.() as number | undefined) ?? 0;
           const expectedWordCountAtUnmount = expectedServerWordCountRef.current;
+          // Same tail-of-session credit as the page-switch flush above:
+          // navigating away (e.g. to the dashboard) before the debounce fired
+          // must not drop the typed words from Today's Words. rawDelta is 0
+          // when the debounce already credited this content — no double count.
+          const rawDelta = wordCount - lastSavedWordCountRef.current;
+          const creditableWords =
+            rawDelta > 0 ? Math.min(pendingEligibleWordsRef.current, rawDelta) : 0;
+          if (creditableWords > 0) {
+            if (isOnlineRef.current) {
+              void recordWordsWritten(projectIdRef.current, creditableWords, page.id, getLocalDateString())
+                .catch(err => console.error('[offline] recordWordsWritten (unmount) failed:', err));
+            } else {
+              void storeOfflineWritingCredit(projectIdRef.current, page.id, creditableWords)
+                .catch(err => console.error('[offline] storeOfflineWritingCredit (unmount) failed:', err));
+            }
+            pendingEligibleWordsRef.current = Math.max(0, pendingEligibleWordsRef.current - creditableWords);
+          }
           void writeToPendingQueue(page.id, uid, content, wordCount).then(() => {
             if (isOnlineRef.current) void syncPendingWrite(page.id, 'online', expectedWordCountAtUnmount);
           });
@@ -923,14 +978,14 @@ export default function RuneEditor({
       {conflictModalOpen && currentPage && (
         <SyncConflictModal
           pageId={currentPage.id}
-          onKeepLocal={() => {
+          onKeepLocal={(keptWordCount) => {
             setConflictModalOpen(false);
             setLastSaved(new Date());
             setSyncStatusAndRef('synced');
-            // forceWriteLocalContent just persisted this tab's local draft as-is —
-            // the server now holds exactly what lastSavedWordCountRef already
-            // reflects (set when the draft was restored/last edited).
-            expectedServerWordCountRef.current = lastSavedWordCountRef.current;
+            // forceWriteLocalContent persisted and VERIFIED exactly this word
+            // count on the server — advance the private baseline to what the
+            // server now actually holds.
+            expectedServerWordCountRef.current = keptWordCount;
             showToast("Local draft kept", "success");
           }}
           onKeepServer={(serverContent, serverWordCount) => {

@@ -274,7 +274,14 @@ export async function syncPageWithLimitCheck(
     p_expected_version: serverVersion,
   });
 
-  if (error) return { status: "error", error: error.message };
+  // Include the Postgres/PostgREST error code — "42P01: relation ... does not
+  // exist" style failures are database-drift signals the client-side log needs
+  // to surface verbatim for diagnosis.
+  if (error)
+    return {
+      status: "error",
+      error: `${error.code ? error.code + ": " : ""}${error.message}`,
+    };
 
   const result = data as SavePageCheckedResult;
 

@@ -1,0 +1,17 @@
+{
+  "name": "rune-sync-harness",
+  "private": true,
+  "type": "module",
+  "description": "Deterministic reproduction/verification harness for the offline sync engine (real syncEngine.ts + db.ts, mocked network boundary) and for migration 011's SQL functions (real Postgres via PGlite).",
+  "scripts": {
+    "build": "node build.mjs",
+    "sync": "node build.mjs && node run-all.mjs",
+    "sql": "node sqltest.mjs",
+    "test": "npm run sync && npm run sql && node sqldrift.mjs"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.2.17",
+    "esbuild": "^0.25.0",
+    "fake-indexeddb": "^6.0.0"
+  }
+}

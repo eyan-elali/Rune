@@ -13,6 +13,11 @@ interface RuneOfflineDB extends DBSchema {
       localUpdatedAt: number
       syncStatus: 'pending' | 'syncing' | 'failed' | 'conflict'
       retryCount: number
+      // Diagnostics for the most recent failed sync attempt — the exact server
+      // error message (never manuscript content) and when it happened. Cleared
+      // on the next successful sync (the row is deleted then anyway).
+      lastError?: string
+      lastErrorAt?: number
     }
   }
   // Writing credits accumulated while offline — flushed to writing_sessions on reconnect.
@@ -38,6 +43,19 @@ interface RuneOfflineDB extends DBSchema {
       serverUpdatedAt?: string
       // Last confirmed server version number — secondary conflict signal.
       serverVersion?: number
+      // Last confirmed server word_count — the PRIMARY content-scoped conflict
+      // baseline. pages.word_count is only ever written by the content-save
+      // path, while updated_at/version are bumped by the DB trigger on ANY row
+      // update (rename, reorder, canonical toggle) — so this is the one durable
+      // signal that tracks content, not metadata. Absent on entries written
+      // before this field existed; conflict detection then falls back to the
+      // older heuristics.
+      serverWordCount?: number
+      // Last confirmed server content — stored only on confirmed syncs. Used
+      // exclusively by the deep content check that disambiguates "version
+      // advanced but word count identical" (a real remote edit with the same
+      // word count vs. a metadata-only bump). Never displayed directly.
+      serverContent?: Record<string, unknown>
       cachedAt: number
       // Rich view-cache fields — populated by cachePage(); absent in minimal sync entries
       chapter_id?: string
@@ -210,6 +228,11 @@ export async function cachePage(page: Page, projectId: string): Promise<void> {
       await db.put('page_cache', {
         ...existing,
         serverUpdatedAt: existing.serverUpdatedAt ?? page.updated_at,
+        // Same backfill-only rule as serverUpdatedAt: never overwrite an
+        // established content baseline while local edits are pending — the
+        // page prop may already reflect optimistic local word counts.
+        serverWordCount: existing.serverWordCount ?? page.word_count,
+        serverContent: existing.serverContent ?? page.content ?? {},
         chapter_id: page.chapter_id,
         project_id: projectId,
         title: page.title,
@@ -219,12 +242,16 @@ export async function cachePage(page: Page, projectId: string): Promise<void> {
         updated_at: page.updated_at,
       })
     } else {
-      // No local edits — cache full server page
+      // No local edits — cache full server page. With no pending write, the
+      // page object's word_count cannot be optimistically ahead of the server,
+      // so it is safe to record as the confirmed content baseline.
       await db.put('page_cache', {
         id: page.id,
         content: page.content ?? {},
         wordCount: page.word_count,
         serverUpdatedAt: page.updated_at,
+        serverWordCount: page.word_count,
+        serverContent: page.content ?? {},
         cachedAt: Date.now(),
         chapter_id: page.chapter_id,
         project_id: projectId,
