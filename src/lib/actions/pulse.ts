@@ -16,6 +16,7 @@
 
 import { revalidatePath } from "next/cache";
 import { getCurrentAdmin } from "@/lib/actions/admin";
+import { computeStreaks } from "@/lib/streaks";
 import type { AnalyticsEventName } from "@/lib/analyticsEvents";
 import type { FounderNote } from "@/lib/types";
 
@@ -428,32 +429,178 @@ export async function getActivationTrackingStartDate(): Promise<string | null> {
 
 // ── Onboarding Insights ──────────────────────────────────────────────────
 // Behavioral detail on top of the onboarding_completed milestone — not a new
-// funnel stage. Sourced entirely from the two booleans the onboarding API
-// route attaches to that event's metadata (see src/app/api/onboarding/route.ts):
-// firstSentenceSkipped and letterWritten. Rows recorded before that metadata
-// existed are simply excluded from the percentages (no backfill, no guess).
+// funnel stage. Two different questions, two different reliable signals:
+//
+// - "Did this writer complete onboarding at all?" is knowable for every
+//   account ever created: onboarding creates a project atomically (see
+//   src/app/api/onboarding/route.ts), so "has >=1 project" is a durable,
+//   analytics-independent population.
+//
+// - "Did this writer write or skip their first sentence?" has no durable
+//   signal beyond the analytics events recorded at the moment onboarding
+//   finished (first_sentence_written, and the sibling onboarding_completed
+//   event). Page content is mutable after the fact — a skipped first page
+//   can fill up with real writing later — so it can't be reconstructed
+//   after the fact from page state. Accounts that onboarded before this
+//   event existed are excluded from both written and skipped counts rather
+//   than guessed at (see hasIncompleteFirstSentenceCoverage below).
+//
+// Future-letter written/skipped is measured against a narrower population
+// still: writers who *completed onboarding* on or after the future-letter
+// feature's launch date. Writers who onboarded before that date never had
+// the option to write one, so counting them as "skipped" would misrepresent
+// a feature they never saw — they're excluded from both counts and
+// surfaced with a distinct "unavailable" status in the drilldown table
+// instead. Ground truth for "written" is the future_letters table itself
+// (not the onboarding_completed metadata boolean), which is what lets this
+// cover every eligible writer, not just those onboarded after analytics
+// metadata existed.
+//
+// Eligibility is intentionally NOT keyed on profiles.created_at (account
+// creation). A writer can create an account before the feature launched and
+// only complete onboarding afterward — signup and onboarding completion are
+// not the same moment. Onboarding creates the project/chapter/page
+// atomically as its final step (src/app/api/onboarding/route.ts), so a
+// writer's earliest project.created_at is the durable, analytics-independent
+// timestamp for "when onboarding actually finished," and that's what's
+// compared against the launch date below.
+//
+// FUTURE_LETTER_LAUNCH_AT is the commit that shipped the future-letter
+// migration, the onboarding route's write path, and the onboarding UI for
+// it in one changeset — commit 3a729f02f96defa4cf62caf70c31835b86e31ca8,
+// "New steps added. V1 Done." (git log -S'future_letters' -- src/app/api/
+// onboarding/route.ts), authored 2026-07-13T16:00:37-04:00 =
+// 2026-07-13T20:00:37.000Z. There is no separate deploy-log entry in this
+// repo, so this assumes Vercel's continuous deployment from `main` shipped
+// it at essentially the same moment the commit landed (per CLAUDE.md, this
+// project deploys to Vercel on push) — it is the commit timestamp, not a
+// confirmed production deploy timestamp.
+const FUTURE_LETTER_LAUNCH_AT = "2026-07-13T20:00:37.000Z";
 
-export interface OnboardingInsights {
-  // Every onboarding_completed row in range, regardless of metadata.
-  totalCompleted: number;
-  // Subset of totalCompleted carrying the two-boolean metadata — the actual
-  // denominator for the percentages below.
-  coveredCount: number;
-  firstSentenceWrittenPercent: number;
-  firstSentenceSkippedPercent: number;
-  letterWrittenPercent: number;
-  letterSkippedPercent: number;
-  // True when some onboarding_completed rows in range predate the metadata —
-  // callers should show a quiet coverage notice in that case.
-  hasIncompleteCoverage: boolean;
+interface OnboardingCohort {
+  // Every writer, in range, who has completed onboarding (>=1 project).
+  onboardedIds: string[];
+  // Subset of onboardedIds whose earliest project was created on/after
+  // FUTURE_LETTER_LAUNCH_AT — the actual future-letter population.
+  letterEligibleIds: string[];
+  // user_id -> earliest future_letters.created_at, scoped to letterEligibleIds.
+  letterWrittenAt: Map<string, string>;
+  // user_id -> onboarding_completed event time, for writers whose onboarding
+  // was tracked by analytics — the first-sentence population.
+  firstSentenceCompletedAt: Map<string, string>;
+  // user_id -> first_sentence_written event time.
+  firstSentenceWrittenAt: Map<string, string>;
 }
 
-function hasOnboardingInsightsMetadata(
-  metadata: unknown
-): metadata is { firstSentenceSkipped: boolean; letterWritten: boolean } {
-  if (!metadata || typeof metadata !== "object") return false;
-  const m = metadata as Record<string, unknown>;
-  return typeof m.firstSentenceSkipped === "boolean" && typeof m.letterWritten === "boolean";
+async function getOnboardedUserIds(
+  client: ServiceClient,
+  since: string | null,
+  excluded: Set<string>
+): Promise<{ id: string; earliestProjectAt: string }[]> {
+  let q = client.from("profiles").select("id, created_at");
+  if (since) q = q.gte("created_at", since);
+  const notIn = excludedIdsFilter(excluded);
+  if (notIn) q = q.not("id", "in", notIn);
+  const { data: profiles } = await q;
+  const candidateIds = (profiles ?? []).map((p) => p.id as string);
+  if (candidateIds.length === 0) return [];
+
+  // One batched query for every candidate's projects — not just whether one
+  // exists, but each project's created_at, so the earliest one can double
+  // as the onboarding-completion timestamp (see comment above
+  // FUTURE_LETTER_LAUNCH_AT). No N+1: this is a single .in() query
+  // regardless of how many candidates there are.
+  const { data: projects } = await client
+    .from("projects")
+    .select("user_id, created_at")
+    .in("user_id", candidateIds);
+  const earliestProjectAtByUser = new Map<string, string>();
+  for (const p of projects ?? []) {
+    const uid = p.user_id as string;
+    const at = p.created_at as string;
+    const existing = earliestProjectAtByUser.get(uid);
+    if (!existing || at < existing) earliestProjectAtByUser.set(uid, at);
+  }
+
+  return Array.from(earliestProjectAtByUser.entries()).map(([id, earliestProjectAt]) => ({
+    id,
+    earliestProjectAt,
+  }));
+}
+
+async function getOnboardingCohort(
+  client: ServiceClient,
+  since: string | null,
+  excluded: Set<string>
+): Promise<OnboardingCohort> {
+  const onboarded = await getOnboardedUserIds(client, since, excluded);
+  const onboardedIds = onboarded.map((o) => o.id);
+  const letterEligibleIds = onboarded
+    .filter((o) => o.earliestProjectAt >= FUTURE_LETTER_LAUNCH_AT)
+    .map((o) => o.id);
+  const notIn = excludedIdsFilter(excluded);
+
+  const [lettersResult, eventsResult] = await Promise.all([
+    letterEligibleIds.length > 0
+      ? client.from("future_letters").select("user_id, created_at").in("user_id", letterEligibleIds)
+      : Promise.resolve({ data: [] as { user_id: string; created_at: string }[] | null }),
+    (async () => {
+      let q = client
+        .from("analytics_events")
+        .select("user_id, event_name, created_at")
+        .in("event_name", ["onboarding_completed", "first_sentence_written"]);
+      if (since) q = q.gte("created_at", since);
+      if (notIn) q = q.not("user_id", "in", notIn);
+      return q;
+    })(),
+  ]);
+
+  const letterWrittenAt = new Map<string, string>();
+  for (const row of lettersResult.data ?? []) {
+    const uid = row.user_id as string;
+    const at = row.created_at as string;
+    const existing = letterWrittenAt.get(uid);
+    if (!existing || at < existing) letterWrittenAt.set(uid, at);
+  }
+
+  const firstSentenceCompletedAt = new Map<string, string>();
+  const firstSentenceWrittenAt = new Map<string, string>();
+  for (const row of eventsResult.data ?? []) {
+    const uid = row.user_id as string;
+    const at = row.created_at as string;
+    const target = row.event_name === "onboarding_completed" ? firstSentenceCompletedAt : firstSentenceWrittenAt;
+    const existing = target.get(uid);
+    if (!existing || at < existing) target.set(uid, at);
+  }
+
+  return { onboardedIds, letterEligibleIds, letterWrittenAt, firstSentenceCompletedAt, firstSentenceWrittenAt };
+}
+
+export interface OnboardingInsights {
+  // Every writer in range who has completed onboarding, regardless of
+  // whether they're old enough to count toward the letter stat.
+  onboardedCount: number;
+  // Subset of onboardedCount who onboarded on/after the future-letter
+  // launch date — the actual denominator for the letter percentages below.
+  letterEligibleCount: number;
+  letterWrittenCount: number;
+  letterSkippedCount: number;
+  letterWrittenPercent: number;
+  letterSkippedPercent: number;
+  // True when some onboarded writers in range predate the future-letter
+  // launch — callers should show a quiet eligibility notice.
+  hasIneligibleLetterCohort: boolean;
+
+  // Subset of onboardedCount whose onboarding was tracked by analytics —
+  // the denominator for the first-sentence percentages below.
+  firstSentenceCoveredCount: number;
+  firstSentenceWrittenCount: number;
+  firstSentenceSkippedCount: number;
+  firstSentenceWrittenPercent: number;
+  firstSentenceSkippedPercent: number;
+  // True when some onboarded writers in range predate the first-sentence
+  // analytics event — callers should show a quiet coverage notice.
+  hasIncompleteFirstSentenceCoverage: boolean;
 }
 
 export async function getOnboardingInsights(
@@ -463,42 +610,259 @@ export async function getOnboardingInsights(
   const client = await requireAdminService();
   const since = rangeSince(range);
   const excluded = await getExcludedUserIds(client, includeInternal);
+  const cohort = await getOnboardingCohort(client, since, excluded);
 
-  // Single query: metadata is only ever selected for onboarding_completed
-  // rows already scoped to the requested range, never scanned table-wide.
-  let q = client.from("analytics_events").select("metadata").eq("event_name", "onboarding_completed");
-  if (since) q = q.gte("created_at", since);
-  const notIn = excludedIdsFilter(excluded);
-  if (notIn) q = q.not("user_id", "in", notIn);
-  const { data } = await q;
-  const rows = data ?? [];
+  const onboardedCount = cohort.onboardedIds.length;
+  const letterEligibleCount = cohort.letterEligibleIds.length;
+  const letterWrittenCount = cohort.letterWrittenAt.size;
+  const letterSkippedCount = letterEligibleCount - letterWrittenCount;
 
-  let firstSentenceWritten = 0;
-  let firstSentenceSkipped = 0;
-  let letterWritten = 0;
-  let letterSkipped = 0;
-  let coveredCount = 0;
+  const firstSentenceCoveredCount = cohort.firstSentenceCompletedAt.size;
+  const firstSentenceWrittenCount = Array.from(cohort.firstSentenceCompletedAt.keys()).filter((id) =>
+    cohort.firstSentenceWrittenAt.has(id)
+  ).length;
+  const firstSentenceSkippedCount = firstSentenceCoveredCount - firstSentenceWrittenCount;
 
-  for (const row of rows) {
-    if (!hasOnboardingInsightsMetadata(row.metadata)) continue;
-    coveredCount++;
-    if (row.metadata.firstSentenceSkipped) firstSentenceSkipped++;
-    else firstSentenceWritten++;
-    if (row.metadata.letterWritten) letterWritten++;
-    else letterSkipped++;
-  }
-
-  const pct = (n: number) => (coveredCount > 0 ? Math.round((n / coveredCount) * 1000) / 10 : 0);
+  const pct = (n: number, d: number) => (d > 0 ? Math.round((n / d) * 1000) / 10 : 0);
 
   return {
-    totalCompleted: rows.length,
-    coveredCount,
-    firstSentenceWrittenPercent: pct(firstSentenceWritten),
-    firstSentenceSkippedPercent: pct(firstSentenceSkipped),
-    letterWrittenPercent: pct(letterWritten),
-    letterSkippedPercent: pct(letterSkipped),
-    hasIncompleteCoverage: rows.length > coveredCount,
+    onboardedCount,
+    letterEligibleCount,
+    letterWrittenCount,
+    letterSkippedCount,
+    letterWrittenPercent: pct(letterWrittenCount, letterEligibleCount),
+    letterSkippedPercent: pct(letterSkippedCount, letterEligibleCount),
+    hasIneligibleLetterCohort: onboardedCount > letterEligibleCount,
+    firstSentenceCoveredCount,
+    firstSentenceWrittenCount,
+    firstSentenceSkippedCount,
+    firstSentenceWrittenPercent: pct(firstSentenceWrittenCount, firstSentenceCoveredCount),
+    firstSentenceSkippedPercent: pct(firstSentenceSkippedCount, firstSentenceCoveredCount),
+    hasIncompleteFirstSentenceCoverage: onboardedCount > firstSentenceCoveredCount,
   };
+}
+
+// ── Onboarding drilldowns: future letters + first sentence ──────────────
+
+export type OnboardingDrilldownKind =
+  | "future_letter_written"
+  | "future_letter_skipped"
+  | "first_sentence_written"
+  | "first_sentence_skipped";
+
+export interface OnboardingDrilldownRow {
+  id: string;
+  displayName: string | null;
+  username: string | null;
+  email: string | null;
+  createdAt: string;
+  subscriptionTier: string | null;
+  projectCount: number;
+  totalWords: number;
+  streak: number;
+  // "unavailable" — onboarded before the future-letter feature launched, so
+  // they never had the option and don't count toward written or skipped.
+  futureLetterStatus: "written" | "skipped" | "unavailable";
+  firstSentenceStatus: "written" | "skipped" | "unknown";
+}
+
+function idsForOnboardingKind(
+  cohort: OnboardingCohort,
+  kind: OnboardingDrilldownKind
+): { ids: string[]; sortAt: Map<string, string> } {
+  switch (kind) {
+    case "future_letter_written":
+      return { ids: Array.from(cohort.letterWrittenAt.keys()), sortAt: cohort.letterWrittenAt };
+    case "future_letter_skipped":
+      return {
+        ids: cohort.letterEligibleIds.filter((id) => !cohort.letterWrittenAt.has(id)),
+        sortAt: new Map(),
+      };
+    case "first_sentence_written":
+      return {
+        ids: Array.from(cohort.firstSentenceCompletedAt.keys()).filter((id) =>
+          cohort.firstSentenceWrittenAt.has(id)
+        ),
+        sortAt: cohort.firstSentenceWrittenAt,
+      };
+    case "first_sentence_skipped":
+      return {
+        ids: Array.from(cohort.firstSentenceCompletedAt.keys()).filter(
+          (id) => !cohort.firstSentenceWrittenAt.has(id)
+        ),
+        sortAt: cohort.firstSentenceCompletedAt,
+      };
+  }
+}
+
+// auth.admin has no "get many users by id" call — only getUserById (one at a
+// time) and listUsers (paginated, unfiltered). For a table of up to ~200
+// drilldown rows, paginating listUsers once and keeping only the ids we
+// need avoids up to 200 sequential admin calls.
+async function getEmailsByUserId(
+  client: ServiceClient,
+  userIds: string[]
+): Promise<Map<string, string>> {
+  const emails = new Map<string, string>();
+  if (userIds.length === 0) return emails;
+  const wanted = new Set(userIds);
+  const perPage = 1000;
+  for (let page = 1; page <= 20 && wanted.size > 0; page++) {
+    const { data, error } = await client.auth.admin.listUsers({ page, perPage });
+    if (error || !data) break;
+    for (const u of data.users) {
+      if (wanted.has(u.id) && u.email) {
+        emails.set(u.id, u.email);
+        wanted.delete(u.id);
+      }
+    }
+    if (data.users.length < perPage) break;
+  }
+  return emails;
+}
+
+// One page of a drilldown table, plus the true size of the full matching
+// cohort (after any search filter) — never just the page size. Callers rely
+// on totalCount to render an honest "Showing X of Y" / load-more state
+// instead of silently truncating at the page size.
+export interface OnboardingDrilldownPage {
+  rows: OnboardingDrilldownRow[];
+  totalCount: number;
+}
+
+const ONBOARDING_DRILLDOWN_PAGE_SIZE = 50;
+
+export async function getOnboardingDrilldownRows(
+  kind: OnboardingDrilldownKind,
+  range: PulseTimeRange,
+  includeInternal = false,
+  query = "",
+  offset = 0
+): Promise<OnboardingDrilldownPage> {
+  const client = await requireAdminService();
+  const since = rangeSince(range);
+  const excluded = await getExcludedUserIds(client, includeInternal);
+  const cohort = await getOnboardingCohort(client, since, excluded);
+
+  const { ids: allIds, sortAt } = idsForOnboardingKind(cohort, kind);
+  if (allIds.length === 0) return { rows: [], totalCount: 0 };
+
+  // Lightweight pass over the FULL matching cohort (not just one page) —
+  // needed to sort deterministically before paginating, and, when
+  // searching, to match on name/username without fetching heavier
+  // per-row data (projects, word totals, streak) for anyone outside the
+  // requested page.
+  const { data: lightProfiles } = await client
+    .from("profiles")
+    .select("id, display_name, username, created_at")
+    .in("id", allIds);
+  const createdAtById = new Map<string, string>();
+  const nameById = new Map<string, string>();
+  for (const p of lightProfiles ?? []) {
+    const id = p.id as string;
+    createdAtById.set(id, p.created_at as string);
+    nameById.set(id, `${p.display_name ?? ""} ${p.username ?? ""}`.toLowerCase());
+  }
+
+  const sortedIds = [...allIds].sort((a, b) => {
+    const at = sortAt.get(a) ?? createdAtById.get(a) ?? "";
+    const bt = sortAt.get(b) ?? createdAtById.get(b) ?? "";
+    return bt.localeCompare(at);
+  });
+
+  // Search spans the full cohort, not just whatever page is currently
+  // loaded — this is what lets totalCount (and therefore the "Showing X of
+  // Y" state) stay accurate while a search is active. Cohort sizes here are
+  // a founder debugging tool's scale (tens to low hundreds), so scanning it
+  // in memory is cheap; email matching reuses the same bulk lookup pagination
+  // uses for row-building rather than a second per-row admin call.
+  const term = query.trim().toLowerCase();
+  let matchingIds = sortedIds;
+  let emailById: Map<string, string> | null = null;
+  if (term) {
+    emailById = await getEmailsByUserId(client, sortedIds);
+    const emails = emailById;
+    matchingIds = sortedIds.filter((id) => {
+      const name = nameById.get(id) ?? "";
+      const email = (emails.get(id) ?? "").toLowerCase();
+      return name.includes(term) || email.includes(term);
+    });
+  }
+
+  const totalCount = matchingIds.length;
+  const pageIds = matchingIds.slice(offset, offset + ONBOARDING_DRILLDOWN_PAGE_SIZE);
+  if (pageIds.length === 0) return { rows: [], totalCount };
+
+  const [{ data: profiles }, { data: projects }, totalWordsByUser, { data: sessions }, emailByUser] =
+    await Promise.all([
+      client
+        .from("profiles")
+        .select("id, display_name, username, created_at, subscription_tier")
+        .in("id", pageIds),
+      client.from("projects").select("id, user_id").in("user_id", pageIds),
+      getStoredWordTotalsByUser(client, pageIds),
+      client
+        .from("writing_sessions")
+        .select("user_id, session_date")
+        .in("user_id", pageIds)
+        .gt("words_added", 0),
+      emailById ? Promise.resolve(emailById) : getEmailsByUserId(client, pageIds),
+    ]);
+
+  const projectCountByUser = new Map<string, number>();
+  for (const p of projects ?? []) {
+    const uid = p.user_id as string;
+    projectCountByUser.set(uid, (projectCountByUser.get(uid) ?? 0) + 1);
+  }
+
+  const sessionDatesByUser = new Map<string, string[]>();
+  for (const s of sessions ?? []) {
+    const uid = s.user_id as string;
+    const list = sessionDatesByUser.get(uid) ?? [];
+    list.push(s.session_date as string);
+    sessionDatesByUser.set(uid, list);
+  }
+  const streakByUser = new Map<string, number>();
+  for (const [uid, dates] of sessionDatesByUser) {
+    const uniqueSorted = Array.from(new Set(dates)).sort();
+    streakByUser.set(uid, computeStreaks(uniqueSorted).currentStreak);
+  }
+
+  const letterEligibleSet = new Set(cohort.letterEligibleIds);
+  // pageIds already reflects the intended sort + search + pagination order
+  // established above — .in() queries don't preserve row order, so rebuild
+  // the final order from it rather than re-deriving from timestamps again.
+  const orderIndex = new Map(pageIds.map((id, i) => [id, i]));
+
+  const rows = (profiles ?? [])
+    .map((p) => {
+      const id = p.id as string;
+      const row: OnboardingDrilldownRow = {
+        id,
+        displayName: p.display_name as string | null,
+        username: p.username as string | null,
+        email: emailByUser.get(id) ?? null,
+        createdAt: p.created_at as string,
+        subscriptionTier: p.subscription_tier as string | null,
+        projectCount: projectCountByUser.get(id) ?? 0,
+        totalWords: totalWordsByUser.get(id) ?? 0,
+        streak: streakByUser.get(id) ?? 0,
+        futureLetterStatus: !letterEligibleSet.has(id)
+          ? "unavailable"
+          : cohort.letterWrittenAt.has(id)
+            ? "written"
+            : "skipped",
+        firstSentenceStatus: cohort.firstSentenceCompletedAt.has(id)
+          ? cohort.firstSentenceWrittenAt.has(id)
+            ? "written"
+            : "skipped"
+          : "unknown",
+      };
+      return row;
+    })
+    .sort((a, b) => (orderIndex.get(a.id) ?? 0) - (orderIndex.get(b.id) ?? 0));
+
+  return { rows, totalCount };
 }
 
 // ── Writer Progress ──────────────────────────────────────────────────────

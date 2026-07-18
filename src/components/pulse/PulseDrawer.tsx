@@ -1,31 +1,58 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import {
   getActivationFunnelDrilldownUsers,
   getCampaignDrilldownUsers,
   getDrilldownUsers,
+  getOnboardingDrilldownRows,
   getUserDrawerData,
 } from "@/lib/actions/pulse";
 import type {
   DrilldownKind,
   DrilldownUser,
+  OnboardingDrilldownKind,
+  OnboardingDrilldownPage,
+  OnboardingDrilldownRow,
   PulseTimeRange,
   UserDrawerData,
 } from "@/lib/actions/pulse";
 
 type CampaignMetric = "signups" | "firstSaves" | "secondWritingDays" | "subscribers";
 
+type ListBackTo = { mode: "list"; title: string; users: DrilldownUser[] };
+type TableBackTo = {
+  mode: "table";
+  // Identifies which openOnboardingDrilldown call produced this state, so
+  // TablePanel can be keyed by it and remount (resetting its local
+  // search/pagination state) whenever a *different* open happens — including
+  // re-clicking the same kind's card while the table is already showing.
+  session: number;
+  kind: OnboardingDrilldownKind;
+  title: string;
+  rows: OnboardingDrilldownRow[];
+  totalCount: number;
+};
+
 type DrawerState =
   | { mode: "closed" }
   | { mode: "list"; title: string; loading: boolean; users: DrilldownUser[] }
+  | {
+      mode: "table";
+      session: number;
+      kind: OnboardingDrilldownKind;
+      title: string;
+      loading: boolean;
+      rows: OnboardingDrilldownRow[];
+      totalCount: number;
+    }
   | {
       mode: "user";
       loading: boolean;
       userId: string;
       data: UserDrawerData | null;
-      backTo: { title: string; users: DrilldownUser[] } | null;
+      backTo: ListBackTo | TableBackTo | null;
     };
 
 interface PulseDrawerContextValue {
@@ -34,6 +61,12 @@ interface PulseDrawerContextValue {
   openDrilldown: (kind: DrilldownKind, title: string) => void;
   openFunnelDrilldown: (stepKey: string, title: string) => void;
   openCampaignDrilldown: (campaign: string, metric: CampaignMetric, title: string) => void;
+  openOnboardingDrilldown: (kind: OnboardingDrilldownKind, title: string) => void;
+  fetchOnboardingDrilldownPage: (
+    kind: OnboardingDrilldownKind,
+    query: string,
+    offset: number
+  ) => Promise<OnboardingDrilldownPage>;
   openUser: (userId: string) => void;
 }
 
@@ -103,6 +136,7 @@ export function PulseDrawerProvider({
   children: ReactNode;
 }) {
   const [state, setState] = useState<DrawerState>({ mode: "closed" });
+  const tableSessionRef = useRef(0);
 
   const close = useCallback(() => setState({ mode: "closed" }), []);
 
@@ -140,6 +174,35 @@ export function PulseDrawerProvider({
     [range, includeInternal]
   );
 
+  const openOnboardingDrilldown = useCallback(
+    (kind: OnboardingDrilldownKind, title: string) => {
+      const session = ++tableSessionRef.current;
+      setState({ mode: "table", session, kind, title, loading: true, rows: [], totalCount: 0 });
+      getOnboardingDrilldownRows(kind, range, includeInternal, "", 0)
+        .then(({ rows, totalCount }) =>
+          setState((prev) =>
+            prev.mode === "table" && prev.session === session
+              ? { ...prev, loading: false, rows, totalCount }
+              : prev
+          )
+        )
+        .catch(() =>
+          setState((prev) => (prev.mode === "table" && prev.session === session ? { ...prev, loading: false } : prev))
+        );
+    },
+    [range, includeInternal]
+  );
+
+  // Shared by the table panel's search box and its load-more button — both
+  // need to re-query the full server-side cohort (not just what's already
+  // loaded), so this is exposed on context rather than baked into
+  // openOnboardingDrilldown, which only ever fetches page one.
+  const fetchOnboardingDrilldownPage = useCallback(
+    (kind: OnboardingDrilldownKind, query: string, offset: number) =>
+      getOnboardingDrilldownRows(kind, range, includeInternal, query, offset),
+    [range, includeInternal]
+  );
+
   const openUser = useCallback(
     (userId: string) => {
       setState((prev) => ({
@@ -147,7 +210,19 @@ export function PulseDrawerProvider({
         loading: true,
         userId,
         data: null,
-        backTo: prev.mode === "list" ? { title: prev.title, users: prev.users } : null,
+        backTo:
+          prev.mode === "list"
+            ? { mode: "list", title: prev.title, users: prev.users }
+            : prev.mode === "table"
+              ? {
+                  mode: "table",
+                  session: prev.session,
+                  kind: prev.kind,
+                  title: prev.title,
+                  rows: prev.rows,
+                  totalCount: prev.totalCount,
+                }
+              : null,
       }));
       getUserDrawerData(userId)
         .then((data) =>
@@ -165,11 +240,20 @@ export function PulseDrawerProvider({
   );
 
   const goBack = useCallback(() => {
-    setState((prev) =>
-      prev.mode === "user" && prev.backTo
+    setState((prev) => {
+      if (prev.mode !== "user" || !prev.backTo) return { mode: "closed" };
+      return prev.backTo.mode === "list"
         ? { mode: "list", title: prev.backTo.title, loading: false, users: prev.backTo.users }
-        : { mode: "closed" }
-    );
+        : {
+            mode: "table",
+            session: prev.backTo.session,
+            kind: prev.backTo.kind,
+            title: prev.backTo.title,
+            loading: false,
+            rows: prev.backTo.rows,
+            totalCount: prev.backTo.totalCount,
+          };
+    });
   }, []);
 
   useEffect(() => {
@@ -185,7 +269,16 @@ export function PulseDrawerProvider({
 
   return (
     <PulseDrawerContext.Provider
-      value={{ range, includeInternal, openDrilldown, openFunnelDrilldown, openCampaignDrilldown, openUser }}
+      value={{
+        range,
+        includeInternal,
+        openDrilldown,
+        openFunnelDrilldown,
+        openCampaignDrilldown,
+        openOnboardingDrilldown,
+        fetchOnboardingDrilldownPage,
+        openUser,
+      }}
     >
       {children}
 
@@ -201,12 +294,15 @@ export function PulseDrawerProvider({
         onClick={close}
       />
 
-      {/* Panel */}
+      {/* Panel — widened for the table mode, which has too many columns for
+          the standard 440px list/user width. */}
       <aside
         role="dialog"
         aria-modal="true"
         aria-label="Pulse detail"
-        className="fixed right-0 top-0 z-50 flex h-full w-full max-w-[440px] flex-col overflow-y-auto transition-transform duration-300"
+        className={`fixed right-0 top-0 z-50 flex h-full w-full flex-col overflow-y-auto transition-transform duration-300 ${
+          state.mode === "table" ? "max-w-[880px]" : "max-w-[440px]"
+        }`}
         style={{
           background: "var(--surface-card)",
           borderLeft: "1px solid var(--color-border)",
@@ -221,6 +317,19 @@ export function PulseDrawerProvider({
             users={state.users}
             onClose={close}
             onSelectUser={openUser}
+          />
+        )}
+        {state.mode === "table" && (
+          <TablePanel
+            key={state.session}
+            kind={state.kind}
+            title={state.title}
+            loading={state.loading}
+            rows={state.rows}
+            totalCount={state.totalCount}
+            onClose={close}
+            onSelectUser={openUser}
+            fetchPage={fetchOnboardingDrilldownPage}
           />
         )}
         {state.mode === "user" && (
@@ -329,6 +438,217 @@ function ListPanel({
               </li>
             ))}
           </ul>
+        )}
+      </div>
+    </>
+  );
+}
+
+const TABLE_COLUMNS: { key: string; label: string; align?: "right" }[] = [
+  { key: "name", label: "Name" },
+  { key: "email", label: "Email" },
+  { key: "createdAt", label: "Joined" },
+  { key: "plan", label: "Plan" },
+  { key: "projects", label: "Projects", align: "right" },
+  { key: "words", label: "Words", align: "right" },
+  { key: "streak", label: "Streak", align: "right" },
+  { key: "letter", label: "Letter" },
+  { key: "firstSentence", label: "1st Sentence" },
+];
+
+function statusLabel(status: "written" | "skipped" | "unknown" | "unavailable"): string {
+  if (status === "written") return "Written";
+  if (status === "skipped") return "Skipped";
+  if (status === "unavailable") return "Not available yet";
+  return "Unknown";
+}
+
+function TablePanel({
+  kind,
+  title,
+  loading,
+  rows: propsRows,
+  totalCount: propsTotalCount,
+  onClose,
+  onSelectUser,
+  fetchPage,
+}: {
+  kind: OnboardingDrilldownKind;
+  title: string;
+  loading: boolean;
+  rows: OnboardingDrilldownRow[];
+  totalCount: number;
+  onClose: () => void;
+  onSelectUser: (userId: string) => void;
+  fetchPage: (
+    kind: OnboardingDrilldownKind,
+    query: string,
+    offset: number
+  ) => Promise<OnboardingDrilldownPage>;
+}) {
+  const [query, setQuery] = useState("");
+  // null means "no local action taken yet — reflect the live rows/totalCount
+  // props as-is" (which is what lets the initial fetch's props update, from
+  // loading:true/rows:[] to the real first page, show up correctly without
+  // ever syncing a prop into state via an effect). Search and load-more
+  // both set this explicitly from their own event handlers instead.
+  const [override, setOverride] = useState<{ rows: OnboardingDrilldownRow[]; totalCount: number } | null>(
+    null
+  );
+  const [searching, setSearching] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, []);
+
+  const rows = override?.rows ?? propsRows;
+  const totalCount = override?.totalCount ?? propsTotalCount;
+
+  function handleQueryChange(next: string) {
+    setQuery(next);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    const trimmed = next.trim();
+    if (!trimmed) {
+      // Cleared search — fall back to the original (unsearched) page
+      // instead of re-fetching it.
+      setOverride(null);
+      setSearching(false);
+      return;
+    }
+    setSearching(true);
+    debounceRef.current = setTimeout(() => {
+      fetchPage(kind, trimmed, 0)
+        .then((page) => setOverride(page))
+        .finally(() => setSearching(false));
+    }, 250);
+  }
+
+  function handleLoadMore() {
+    setLoadingMore(true);
+    fetchPage(kind, query.trim(), rows.length)
+      .then((page) => setOverride({ rows: [...rows, ...page.rows], totalCount: page.totalCount }))
+      .finally(() => setLoadingMore(false));
+  }
+
+  const hasMore = rows.length < totalCount;
+  const showingLabel =
+    totalCount === 0
+      ? null
+      : rows.length < totalCount
+        ? `Showing ${rows.length} of ${totalCount}`
+        : `${totalCount} writer${totalCount === 1 ? "" : "s"}`;
+
+  return (
+    <>
+      <DrawerHeader eyebrow={`${totalCount} writer${totalCount === 1 ? "" : "s"}`} title={title} onClose={onClose} />
+      <div className="flex-1 overflow-y-auto px-5 py-3">
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => handleQueryChange(e.target.value)}
+          placeholder="Search by name or email…"
+          className="mb-3 w-full rounded-md px-3 py-1.5 text-xs outline-none"
+          style={{
+            background: "var(--surface-card)",
+            border: "1px solid var(--color-border-strong)",
+            color: "var(--text-primary)",
+          }}
+        />
+        {loading || searching ? (
+          <p className="px-2 py-6 text-sm" style={{ color: "var(--color-mist)" }}>
+            {loading ? "Loading…" : "Searching…"}
+          </p>
+        ) : rows.length === 0 ? (
+          <p className="px-2 py-6 text-sm" style={{ color: "var(--color-mist)" }}>
+            No writers match this yet.
+          </p>
+        ) : (
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr style={{ borderBottom: "1px solid var(--color-border)" }}>
+                    {TABLE_COLUMNS.map((col) => (
+                      <th
+                        key={col.key}
+                        className={`whitespace-nowrap pb-2 pr-3 font-semibold uppercase tracking-widest ${
+                          col.align === "right" ? "text-right" : "text-left"
+                        }`}
+                        style={{ color: "var(--color-mist)" }}
+                      >
+                        {col.label}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((r) => (
+                    <tr key={r.id} style={{ borderBottom: "1px solid var(--color-border)" }}>
+                      <td className="max-w-[130px] truncate py-2 pr-3">
+                        <button
+                          onClick={() => onSelectUser(r.id)}
+                          className="truncate text-left transition-opacity hover:opacity-70"
+                          style={{ color: "var(--text-primary)" }}
+                        >
+                          {r.displayName?.trim() || r.username?.trim() || "Writer"}
+                        </button>
+                      </td>
+                      <td
+                        className="max-w-[170px] truncate py-2 pr-3"
+                        style={{ color: "var(--color-mist)" }}
+                        title={r.email ?? undefined}
+                      >
+                        {r.email ?? "—"}
+                      </td>
+                      <td className="whitespace-nowrap py-2 pr-3" style={{ color: "var(--color-mist)" }}>
+                        {fmtDate(r.createdAt)}
+                      </td>
+                      <td className="whitespace-nowrap py-2 pr-3" style={{ color: "var(--color-mist)" }}>
+                        {r.subscriptionTier ?? "free"}
+                      </td>
+                      <td className="py-2 pr-3 text-right tabular-nums" style={{ color: "var(--text-primary)" }}>
+                        {r.projectCount}
+                      </td>
+                      <td className="py-2 pr-3 text-right tabular-nums" style={{ color: "var(--text-primary)" }}>
+                        {r.totalWords.toLocaleString()}
+                      </td>
+                      <td className="py-2 pr-3 text-right tabular-nums" style={{ color: "var(--text-primary)" }}>
+                        {r.streak}
+                      </td>
+                      <td className="whitespace-nowrap py-2 pr-3" style={{ color: "var(--color-mist)" }}>
+                        {statusLabel(r.futureLetterStatus)}
+                      </td>
+                      <td className="whitespace-nowrap py-2" style={{ color: "var(--color-mist)" }}>
+                        {statusLabel(r.firstSentenceStatus)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="flex items-center justify-between px-1 py-3">
+              <p className="text-[11px]" style={{ color: "var(--color-mist)", opacity: 0.7 }}>
+                {showingLabel}
+              </p>
+              {hasMore && (
+                <button
+                  onClick={handleLoadMore}
+                  disabled={loadingMore}
+                  className="rounded-md px-3 py-1.5 text-xs transition-opacity hover:opacity-70 disabled:opacity-50"
+                  style={{
+                    border: "1px solid var(--color-border-strong)",
+                    color: "var(--text-primary)",
+                  }}
+                >
+                  {loadingMore ? "Loading…" : "Load more"}
+                </button>
+              )}
+            </div>
+          </>
         )}
       </div>
     </>
