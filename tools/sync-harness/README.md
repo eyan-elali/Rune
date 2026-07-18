@@ -28,11 +28,21 @@ migration-011 `save_page_checked` contract). Scenarios:
 - `i`  repeated syncs of the same write must issue exactly one server save
 
 **`npm run sql`** — loads a faithful schema subset (RLS policies, version
-trigger, entitlements table, mocked `auth.uid()`) into real Postgres
-(PGlite/WASM) and applies `migrations/011_account_word_limit.sql` verbatim,
-then verifies `save_page_checked`'s full contract plus the failure
-fingerprints of two production drift states (stale 3-arg
-`account_word_total` → 42883, missing `user_pricing_entitlements` → 42P01).
+trigger, the production `trg_page_updated` trigger, entitlements table,
+mocked `auth.uid()`) into real Postgres (PGlite/WASM) and applies
+`migrations/011_account_word_limit.sql` and
+`migrations/012_fix_bump_project_updated_at.sql` verbatim, then verifies
+`save_page_checked`'s full contract through the real triggers, plus the
+failure fingerprints of two drift states (stale 3-arg `account_word_total`
+→ 42883, missing `user_pricing_entitlements` → 42P01).
+
+**`node sqldrift.mjs`** (run by `npm test`) — the July 2026 incident
+regression: reconstructs the exact hand-applied production trigger
+(`bump_project_updated_at` with unqualified table names, no pinned
+search_path), proves `save_page_checked` fails with the exact production
+error `relation "projects" does not exist` and rolls the save back, then
+applies migration 012 twice (idempotency) and proves the save commits
+through the real trigger with the parent project's `updated_at` advancing.
 
 ## Run
 

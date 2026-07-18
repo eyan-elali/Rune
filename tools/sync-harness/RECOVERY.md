@@ -1,11 +1,17 @@
 # Recovering the stranded page (July 2026 incident)
 
-> **Update (runtime evidence received):** typing now produces
-> `relation "projects" does not exist` from the server save path. That is a
-> drifted, hand-applied function body in production (unqualified table name
-> under `search_path = ''`) — the repo never contained it. **Apply
-> `src/lib/supabase/migrations/012_requalify_word_limit_functions.sql` in the
-> Supabase SQL editor FIRST**, then run the post-apply verification queries at
+> **Update (root cause confirmed from the live production catalog):** typing
+> produces `relation "projects" does not exist` from the server save path.
+> The migration-011 word-limit functions are canonical and fully qualified in
+> production — they were NOT the fault. The fault is a hand-applied trigger
+> the repo never contained: `trg_page_updated` on `public.pages`, whose
+> function `public.bump_project_updated_at()` uses unqualified
+> `projects`/`chapters` with no pinned search_path. Fired from inside
+> `save_page_checked` (`set search_path = ''`), it raises that error and
+> rolls back the entire save — the RPC reaches Postgres but the page stays at
+> 0 words. **Apply
+> `src/lib/supabase/migrations/012_fix_bump_project_updated_at.sql` in the
+> Supabase SQL editor FIRST**, then run the read-only verification queries at
 > the bottom of that file, then deploy the client. The steps below remain
 > valid for backing up and confirming recovery.
 
@@ -59,6 +65,7 @@ Interpretation:
 | Observation | Meaning |
 | --- | --- |
 | `{"status":"ok",...}` and the row persists | client-side false-conflict latch was the only fault (fixed in this patch) |
+| `{"code":"42P01","message":"relation \"projects\" does not exist"}` | the confirmed trigger fault (`bump_project_updated_at` unqualified under `search_path = ''`) → apply migration 012 |
 | `{"code":"42883","message":"function public.account_word_total(uuid, integer) does not exist"}` | production DB still has the stale 3-arg draft of `account_word_total` → re-run current migration 011 in the SQL editor |
 | `{"code":"42P01","message":"relation \"public.user_pricing_entitlements\" does not exist"}` | migration 009 was never applied → apply it, then re-run 011 |
 | `{"status":"word_limit_blocked","limit":N}` | genuine account-wide allowance rejection — check the account's cohort/tier before anything else |
@@ -89,6 +96,10 @@ select to_regclass('public.user_pricing_entitlements') as entitlements_table,
 select column_name from information_schema.columns
  where table_schema='public' and table_name='pages' and column_name='version';
 select tgname from pg_trigger where tgrelid = 'public.pages'::regclass and not tgisinternal;
+
+-- 5. The trigger fix from migration 012 landed: body must reference
+--    public.projects / public.chapters and pin `SET search_path TO ''`
+select pg_get_functiondef('public.bump_project_updated_at()'::regprocedure);
 ```
 
 ## Step 3 — deploy this patch, then let it self-heal

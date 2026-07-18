@@ -711,6 +711,45 @@ create trigger user_pricing_entitlements_touch_updated_at
 -- migrations before 011.
 
 -- ═══════════════════════════════════════════════════════════════════
+--  Keep projects.updated_at fresh when a page changes
+-- ═══════════════════════════════════════════════════════════════════
+-- Origin note: this trigger existed only in production (hand-applied in the
+-- SQL editor, never committed) until the July 2026 save-failure incident.
+-- Its hand-applied body used unqualified `projects`/`chapters` with no
+-- pinned search_path, so when the pages UPDATE ran inside
+-- save_page_checked (`set search_path = ''`) it raised
+-- `relation "projects" does not exist` and rolled back every save.
+-- Migration 012 replaced the body with this canonical definition — fully
+-- qualified and pinned to an empty search_path so it is safe no matter
+-- which context fires it. See
+-- src/lib/supabase/migrations/012_fix_bump_project_updated_at.sql.
+-- SECURITY INVOKER: the projects UPDATE relies on the
+-- "projects: update own" policy above, so only the owner's saves bump it.
+
+create or replace function public.bump_project_updated_at()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  update public.projects
+  set updated_at = now()
+  where id = (
+    select c.project_id
+    from public.chapters c
+    where c.id = new.chapter_id
+  );
+
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_page_updated on public.pages;
+create trigger trg_page_updated
+  after update on public.pages
+  for each row execute function public.bump_project_updated_at();
+
+-- ═══════════════════════════════════════════════════════════════════
 --  Auto-create profile on signup
 -- ═══════════════════════════════════════════════════════════════════
 

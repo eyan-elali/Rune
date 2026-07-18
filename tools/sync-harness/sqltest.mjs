@@ -1,8 +1,12 @@
 // Runs migration 011's functions in REAL Postgres (PGlite/WASM) with a faithful
 // subset of the Rune schema: RLS policies, the migration-006 version trigger,
-// migration-009 entitlements table, and a mocked auth.uid() reading a GUC.
-// Verifies save_page_checked's contract as committed, and captures the exact
-// failure fingerprints of two suspected production drift states.
+// the production trg_page_updated trigger (with migration 012's fixed
+// function body), migration-009 entitlements table, and a mocked auth.uid()
+// reading a GUC. Verifies save_page_checked's contract as committed —
+// including that the pages UPDATE commits THROUGH the real triggers — and
+// captures the exact failure fingerprints of two suspected drift states.
+// The July 2026 broken-trigger production state itself is reconstructed and
+// repaired in sqldrift.mjs.
 import { PGlite } from '@electric-sql/pglite';
 import fs from 'node:fs';
 
@@ -10,6 +14,7 @@ const db = new PGlite();
 const MIG011 = fs.readFileSync(new URL('../../src/lib/supabase/migrations/011_account_word_limit.sql', import.meta.url).pathname, 'utf8')
   // grants reference supabase roles; map to our local test role
   .replaceAll('to authenticated', 'to authenticated');
+const MIG012 = fs.readFileSync(new URL('../../src/lib/supabase/migrations/012_fix_bump_project_updated_at.sql', import.meta.url).pathname, 'utf8');
 
 const U1 = '11111111-1111-1111-1111-111111111111';
 const U2 = '22222222-2222-2222-2222-222222222222';
@@ -48,7 +53,8 @@ create table public.projects (
   user_id uuid not null references public.profiles(id),
   title text not null default 't',
   description text, cover_color text,
-  word_count int not null default 0
+  word_count int not null default 0,
+  updated_at timestamptz not null default now()
 );
 create table public.chapters (
   id uuid primary key default gen_random_uuid(),
@@ -92,6 +98,7 @@ alter table public.user_pricing_entitlements enable row level security;
 
 create policy "profiles: select own" on public.profiles for select using (auth.uid() = id);
 create policy "projects: select own" on public.projects for select using (user_id = auth.uid());
+create policy "projects: update own" on public.projects for update using (user_id = auth.uid());
 create policy "chapters: select own" on public.chapters for select using (
   exists (select 1 from public.projects where projects.id = chapters.project_id and projects.user_id = auth.uid()));
 create policy "pages: select own" on public.pages for select using (
@@ -112,11 +119,21 @@ grant execute on function auth.uid() to authenticated;
 
 await db.exec(MIG011);
 
+// migration 012's fixed bump_project_updated_at + the production trigger it
+// belongs to, so every scenario below exercises the real save path.
+await db.exec(MIG012);
+await db.exec(`
+create trigger trg_page_updated
+  after update on public.pages
+  for each row execute function public.bump_project_updated_at();
+`);
+
 // seed: U1 free/starter_2k, U2 free; project/chapter/page for U1
+// (project updated_at seeded in the past so the trigger's bump is observable)
 await db.exec(`
 insert into public.profiles (id, subscription_tier) values ('${U1}','free'), ('${U2}','free');
 insert into public.user_pricing_entitlements (user_id, pricing_cohort) values ('${U1}','starter_2k');
-insert into public.projects (id, user_id) values ('aaaaaaaa-0000-0000-0000-000000000001','${U1}');
+insert into public.projects (id, user_id, updated_at) values ('aaaaaaaa-0000-0000-0000-000000000001','${U1}', now() - interval '1 hour');
 insert into public.chapters (id, project_id) values ('bbbbbbbb-0000-0000-0000-000000000001','aaaaaaaa-0000-0000-0000-000000000001');
 insert into public.pages (id, chapter_id) values ('cccccccc-0000-0000-0000-000000000001','bbbbbbbb-0000-0000-0000-000000000001');
 `);
@@ -132,6 +149,8 @@ const P1 = 'cccccccc-0000-0000-0000-000000000001';
   check('S1: 650-word save on fresh page returns ok', res?.status === 'ok', JSON.stringify(res ?? r.error));
   const row = (await db.query(`select word_count, version from public.pages where id = $1`, [P1])).rows[0];
   check('S1: row persisted (650 words, version 2)', row.word_count === 650 && row.version === 2, JSON.stringify(row));
+  const proj = (await db.query(`select updated_at > now() - interval '5 minutes' as bumped from public.projects where id = 'aaaaaaaa-0000-0000-0000-000000000001'`)).rows[0];
+  check('S1: trg_page_updated bumped parent project.updated_at', proj.bumped === true, '');
 }
 
 // S2: stale version → version_mismatch, row untouched
