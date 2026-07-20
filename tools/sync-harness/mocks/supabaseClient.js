@@ -19,17 +19,17 @@ export function createClient() {
               // resolves to a LIST result ({ data: rows[], error }), while
               // .single() coerces exactly-one-row (kept for any remaining
               // callers). A missing row is data: [] with NO error.
-              const list = () => {
-                const { data, error } = fetchPage(id);
+              const list = async () => {
+                const { data } = await fetchPage(id);
                 if (!data) return { data: [], error: null };
                 return { data: [data], error: null };
               };
               return {
                 then(resolve, reject) {
-                  return Promise.resolve(list()).then(resolve, reject);
+                  return list().then(resolve, reject);
                 },
                 async single() {
-                  const { data } = fetchPage(id);
+                  const { data } = await fetchPage(id);
                   if (!data) {
                     return { data: null, error: { code: 'PGRST116', message: 'Cannot coerce the result to a single JSON object' } };
                   }

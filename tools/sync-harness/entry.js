@@ -11,7 +11,7 @@ import {
 } from '@/lib/offline/syncEngine';
 import { getOfflineDB, cachePage } from '@/lib/offline/db';
 import {
-  server, resetServer, createServerPage, metadataUpdate, remoteContentSave, releaseHang,
+  server, resetServer, createServerPage, metadataUpdate, remoteContentSave, releaseHang, releaseFetchHang,
 } from './mocks/serverState.js';
 
 const PAGE = 'page-1';
@@ -278,7 +278,187 @@ async function m() {
   check('M: flush retry keeps accurate failed state', after?.syncStatus === 'failed' && flushResult.failed === 1, JSON.stringify(flushResult));
 }
 
-const scenarios = { r1, r2, r3, r6, r7, g1, g2, g3, w, f, i, m };
+// ── KL: the exact production Keep-Local lifecycle — the "false conflict after
+//    Keep Local" bug. Baseline v-N (40w) → genuine conflict → Keep Local
+//    succeeds (server advances one version) → next local edit → background poll
+//    reads the client's OWN new version → NO false conflict → edit persists.
+async function kl() {
+  resetServer();
+  await createPageAndPrimeCache();
+  // Confirmed acknowledged baseline: 40 words, recorded in cache + on server.
+  await writeToPendingQueue(PAGE, USER, doc(40), 40);
+  await syncPendingWrite(PAGE, 'online', 0);
+  check('KL: acknowledged baseline synced (server 40w)', server.pages.get(PAGE).word_count === 40, '');
+
+  // Local and server diverge → a legitimate conflict is presented.
+  remoteContentSave(PAGE, doc(55, 'remote'), 55);
+  await writeToPendingQueue(PAGE, USER, doc(41), 41);
+  await syncPendingWrite(PAGE, 'online', 40); // editor path, confirmed baseline 40
+  check('KL: legitimate conflict presented', (await getPending())?.syncStatus === 'conflict', '');
+
+  // User chooses Keep Local — force-write succeeds and returns the new version.
+  const res = await forceWriteLocalContent(PAGE);
+  const keptVersion = server.pages.get(PAGE).version;
+  check('KL: Keep Local succeeds, returns kept word count', res.status === 'ok' && res.wordCount === 41, JSON.stringify(res));
+  check('KL: server now holds kept-local content (41w)', server.pages.get(PAGE).word_count === 41, '');
+  check('KL: queue cleared after Keep Local', (await getPending()) === null, '');
+  const cacheAfterKL = await getCache();
+  check('KL: IDB baseline adopted the acknowledged version + word count',
+    cacheAfterKL?.serverVersion === keptVersion && cacheAfterKL?.serverWordCount === 41,
+    JSON.stringify({ v: cacheAfterKL?.serverVersion, kept: keptVersion, w: cacheAfterKL?.serverWordCount }));
+
+  // The next local edit + a background poll that reads server version === the
+  // client's own kept version must NOT be misread as an external edit.
+  await writeToPendingQueue(PAGE, USER, doc(42), 42);
+  const flush = await flushPendingQueue();
+  check('KL: next edit does NOT false-conflict; background poll uploads',
+    flush.synced === 1 && flush.conflicts === 0, JSON.stringify(flush));
+  check('KL: new local edit persisted (42w)', server.pages.get(PAGE).word_count === 42, '');
+  check('KL: queue clean at end', (await getPending()) === null, '');
+}
+
+// ── KLRACE: the async race the fix closes — a background sync captures stale
+//    server state (a slow fetch) BEFORE Keep Local, Keep Local completes fully,
+//    then the stale sync resumes. It must not raise/resurrect a false conflict.
+async function klrace() {
+  resetServer();
+  await createPageAndPrimeCache();
+  await writeToPendingQueue(PAGE, USER, doc(40), 40);
+  await syncPendingWrite(PAGE, 'online', 0);
+  // Genuine conflict setup: server independently at 55w, local at 41w.
+  remoteContentSave(PAGE, doc(55, 'remote'), 55);
+  await writeToPendingQueue(PAGE, USER, doc(41), 41);
+  await syncPendingWrite(PAGE, 'online', 40);
+  check('KLRACE: conflict staged', (await getPending())?.syncStatus === 'conflict', '');
+
+  // A background flush sync begins and its server fetch hangs holding the
+  // pre-Keep-Local snapshot (55w).
+  server.fetchMode = 'hang';
+  const staleSync = syncPendingWrite(PAGE, 'offline_sync');
+  await new Promise((r) => setTimeout(r, 20));
+
+  // User clicks Keep Local while that sync is in flight. With the per-page lock
+  // it queues behind the sync instead of interleaving.
+  const keepLocal = forceWriteLocalContent(PAGE);
+  await new Promise((r) => setTimeout(r, 20));
+
+  // Release the hung fetch; later fetches (Keep Local's verify) run normally.
+  server.fetchMode = 'ok';
+  releaseFetchHang();
+
+  const [, klRes] = await Promise.all([staleSync, keepLocal]);
+  check('KLRACE: Keep Local still succeeds under the race', klRes.status === 'ok' && klRes.wordCount === 41, JSON.stringify(klRes));
+
+  const pending = await getPending();
+  check('KLRACE: stale in-flight sync did NOT resurrect a false conflict', pending === null, JSON.stringify(pending));
+  check('KLRACE: server holds kept-local content (41w)', server.pages.get(PAGE).word_count === 41, server.pages.get(PAGE).word_count);
+  const cache = await getCache();
+  check('KLRACE: confirmed baseline == committed server version',
+    cache?.serverWordCount === 41 && cache?.serverVersion === server.pages.get(PAGE).version,
+    JSON.stringify({ w: cache?.serverWordCount, cv: cache?.serverVersion, sv: server.pages.get(PAGE).version }));
+}
+
+// ── KLEXT: a GENUINE external edit landing AFTER Keep Local must still conflict.
+async function klext() {
+  resetServer();
+  await createPageAndPrimeCache();
+  await writeToPendingQueue(PAGE, USER, doc(40), 40);
+  await syncPendingWrite(PAGE, 'online', 0);
+  remoteContentSave(PAGE, doc(55, 'remote'), 55);
+  await writeToPendingQueue(PAGE, USER, doc(41), 41);
+  await syncPendingWrite(PAGE, 'online', 40);
+  const kl = await forceWriteLocalContent(PAGE); // server 41 @ kept version
+
+  // Another device writes real content AFTER the kept version.
+  remoteContentSave(PAGE, doc(70, 'remote2'), 70);
+
+  await writeToPendingQueue(PAGE, USER, doc(42), 42);
+  await syncPendingWrite(PAGE, 'online', kl.status === 'ok' ? kl.wordCount : 41); // editor baseline = kept 41
+  const pending = await getPending();
+  check('KLEXT: genuine external edit after Keep Local still conflicts', pending?.syncStatus === 'conflict', pending?.syncStatus);
+  check('KLEXT: external content not overwritten', server.pages.get(PAGE).word_count === 70, '');
+}
+
+// ── KLREPEAT: the reported loop — after Keep Local, repeated edit+poll cycles
+//    must never re-raise a conflict.
+async function klrepeat() {
+  resetServer();
+  await createPageAndPrimeCache();
+  await writeToPendingQueue(PAGE, USER, doc(40), 40);
+  await syncPendingWrite(PAGE, 'online', 0);
+  remoteContentSave(PAGE, doc(55, 'remote'), 55);
+  await writeToPendingQueue(PAGE, USER, doc(41), 41);
+  await syncPendingWrite(PAGE, 'online', 40);
+  const res = await forceWriteLocalContent(PAGE);
+  check('KLREPEAT: Keep Local ok', res.status === 'ok', JSON.stringify(res));
+
+  let conflicts = 0;
+  for (let n = 42; n <= 46; n++) {
+    await writeToPendingQueue(PAGE, USER, doc(n), n);
+    const f = await flushPendingQueue();
+    conflicts += f.conflicts;
+    // interleave an editor-path sync too, using the kept baseline
+    await writeToPendingQueue(PAGE, USER, doc(n), n);
+    await syncPendingWrite(PAGE, 'online', n);
+    const p = await getPending();
+    if (p?.syncStatus === 'conflict') conflicts++;
+  }
+  check('KLREPEAT: no conflict recurs across repeated edit+poll cycles', conflicts === 0, 'conflicts=' + conflicts);
+  check('KLREPEAT: final content persisted (46w)', server.pages.get(PAGE).word_count === 46, '');
+  check('KLREPEAT: queue clean at end', (await getPending()) === null, '');
+}
+
+// ── KLMETA: after Keep Local, a metadata-only bump (rename) with identical
+//    content/word count must NOT be read as a conflict (deep content check).
+async function klmeta() {
+  resetServer();
+  await createPageAndPrimeCache();
+  await writeToPendingQueue(PAGE, USER, doc(40), 40);
+  await syncPendingWrite(PAGE, 'online', 0);
+  remoteContentSave(PAGE, doc(55, 'remote'), 55);
+  await writeToPendingQueue(PAGE, USER, doc(41), 41);
+  await syncPendingWrite(PAGE, 'online', 40);
+  await forceWriteLocalContent(PAGE); // server: doc(41), 41w, kept version
+  metadataUpdate(PAGE); // rename → version bumps; content + word count identical
+
+  await writeToPendingQueue(PAGE, USER, doc(42), 42);
+  const f = await flushPendingQueue();
+  check('KLMETA: metadata-only bump after Keep Local does not false-conflict',
+    f.synced === 1 && f.conflicts === 0, JSON.stringify(f));
+  check('KLMETA: server has newest content (42w)', server.pages.get(PAGE).word_count === 42, '');
+}
+
+// ── KLSERVER: Keep Server resets the baseline (mirrors the modal's IDB reset);
+//    subsequent edits sync against the server baseline with no false conflict.
+async function klserver() {
+  resetServer();
+  await createPageAndPrimeCache();
+  await writeToPendingQueue(PAGE, USER, doc(40), 40);
+  await syncPendingWrite(PAGE, 'online', 0);
+  remoteContentSave(PAGE, doc(55, 'remote'), 55);
+  await writeToPendingQueue(PAGE, USER, doc(41), 41);
+  await syncPendingWrite(PAGE, 'online', 40);
+  check('KLSERVER: conflict staged', (await getPending())?.syncStatus === 'conflict', '');
+
+  // Keep Server — the exact IDB reset SyncConflictModal.handleKeepServer performs.
+  const srv = server.pages.get(PAGE);
+  const db = await getOfflineDB();
+  await db.delete('pending_writes', PAGE);
+  await db.put('page_cache', {
+    id: PAGE, content: srv.content, wordCount: srv.word_count,
+    serverUpdatedAt: srv.updated_at, serverVersion: srv.version,
+    serverWordCount: srv.word_count, serverContent: srv.content, cachedAt: Date.now(),
+  });
+
+  // Edit the kept server content and sync — must not false-conflict.
+  await writeToPendingQueue(PAGE, USER, doc(56, 'remote'), 56);
+  const f = await flushPendingQueue();
+  check('KLSERVER: edit after Keep Server syncs with no false conflict',
+    f.synced === 1 && f.conflicts === 0, JSON.stringify(f));
+  check('KLSERVER: server advanced from the kept baseline (56w)', server.pages.get(PAGE).word_count === 56, '');
+}
+
+const scenarios = { r1, r2, r3, r6, r7, g1, g2, g3, w, f, i, m, kl, klrace, klext, klrepeat, klmeta, klserver };
 const name = process.env.SCENARIO;
 if (!scenarios[name]) { console.error('unknown scenario', name); process.exit(2); }
 await scenarios[name]();

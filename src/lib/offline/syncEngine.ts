@@ -67,15 +67,48 @@ function stableStringify(value: unknown): string {
   return '{' + keys.map((k) => JSON.stringify(k) + ':' + stableStringify(obj[k])).join(',') + '}'
 }
 
+// Per-page exclusive operation chain. It serializes the two kinds of
+// server-reconciling operations that must never interleave for a single page:
+// a background/editor sync (doSyncPendingWrite) and the "Keep Local" force-write
+// (doForceWriteLocalContent). syncPendingWrite alone was already serialized by
+// inFlightSyncs below, but forceWriteLocalContent bypassed it entirely — so a
+// sync that had captured the server row and the pending snapshot BEFORE a
+// concurrent Keep Local could complete AFTER it, comparing a stale fetched
+// server word_count against the freshly-written cache baseline (a false
+// conflict) and resurrecting the just-deleted pending row via putStatus's
+// fallback to the stale snapshot. Chaining both through this lock makes that
+// race impossible: whichever operation starts first runs to completion, and the
+// other sees the fully-reconciled state.
+//
+// Ordering follows call order (the map is read+set synchronously at entry). The
+// chain link is settled-guarded so one operation's rejection can never reject
+// the operations queued behind it, and the returned promise still carries the
+// operation's own result/rejection unchanged.
+const pageOpChains = new Map<string, Promise<unknown>>()
+
+function runExclusive<T>(pageId: string, op: () => Promise<T>): Promise<T> {
+  const prev = pageOpChains.get(pageId) ?? Promise.resolve()
+  const run = prev.then(op, op)
+  const link = run.then(() => undefined, () => undefined)
+  pageOpChains.set(pageId, link)
+  void link.then(() => {
+    // Drop the entry once this page's queue has fully drained, so a long-lived
+    // session doesn't accumulate one settled promise per page ever touched.
+    if (pageOpChains.get(pageId) === link) pageOpChains.delete(pageId)
+  })
+  return run
+}
+
 // At most one authoritative sync per page at a time. Two callers (the editor's
 // debounced save and the 30-second background flush) used to run
 // syncPendingWrite concurrently for the same page; both would fetch the same
 // server version, one save would win, and the loser's version_mismatch retry
-// added avoidable churn. Serializing per page also makes the delete-race guard
-// below airtight.
+// added avoidable churn. Coalescing concurrent syncs onto one in-flight promise
+// avoids that; runExclusive above additionally serializes syncs against the
+// Keep Local force-write.
 const inFlightSyncs = new Map<string, Promise<void>>()
 
-export async function syncPendingWrite(
+export function syncPendingWrite(
   pageId: string,
   savePath: 'online' | 'offline_sync' = 'online',
   // The word count this caller last confirmed the server holds for this page —
@@ -89,7 +122,7 @@ export async function syncPendingWrite(
   const existing = inFlightSyncs.get(pageId)
   if (existing) return existing
 
-  const run = doSyncPendingWrite(pageId, savePath, expectedWordCount)
+  const run = runExclusive(pageId, () => doSyncPendingWrite(pageId, savePath, expectedWordCount))
     .finally(() => { inFlightSyncs.delete(pageId) })
   inFlightSyncs.set(pageId, run)
   return run
@@ -561,7 +594,18 @@ function isNetworkFailureMessage(message: string): boolean {
   )
 }
 
-export async function forceWriteLocalContent(pageId: string): Promise<ForceWriteResult> {
+export function forceWriteLocalContent(pageId: string): Promise<ForceWriteResult> {
+  // Serialized against syncPendingWrite through the same per-page lock: a
+  // background/editor sync already in flight for this page must finish (and
+  // publish its reconciled state) before the force-write reads the pending row
+  // and cache, and any sync started while the force-write runs waits until it
+  // has committed version N+1 and the confirmed baseline. This closes the race
+  // where a stale in-flight sync raised a false conflict after Keep Local had
+  // already succeeded. See runExclusive above.
+  return runExclusive(pageId, () => doForceWriteLocalContent(pageId))
+}
+
+async function doForceWriteLocalContent(pageId: string): Promise<ForceWriteResult> {
   const db = await getOfflineDB()
   const pending = await db.get('pending_writes', pageId)
   if (!pending) {

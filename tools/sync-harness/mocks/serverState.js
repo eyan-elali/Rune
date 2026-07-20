@@ -12,6 +12,12 @@ export const server = {
   // knobs
   rpcMode: 'ok', // 'ok' | 'error' | 'word_limit_blocked' | 'hang'
   hangResolvers: [],
+  // When 'hang', a fetch captures the row snapshot at CALL time and only
+  // resolves — with that now-possibly-stale snapshot — once releaseFetchHang()
+  // runs. This models a slow network round-trip that returns pre-write data,
+  // the exact shape of the Keep-Local vs background-sync race.
+  fetchMode: 'ok', // 'ok' | 'hang'
+  fetchHangResolvers: [],
   log: [],
 };
 
@@ -19,6 +25,8 @@ export function resetServer() {
   server.pages.clear();
   server.rpcMode = 'ok';
   server.hangResolvers = [];
+  server.fetchMode = 'ok';
+  server.fetchHangResolvers = [];
   server.log = [];
 }
 
@@ -63,6 +71,11 @@ export function releaseHang() {
   server.hangResolvers = [];
 }
 
+export function releaseFetchHang() {
+  for (const r of server.fetchHangResolvers) r();
+  server.fetchHangResolvers = [];
+}
+
 // migration 011 save_page_checked semantics (word limit not modeled unless knob set)
 export async function savePageChecked({ p_page_id, p_content, p_word_count, p_expected_version }) {
   server.log.push({ op: 'save_page_checked', id: p_page_id, words: p_word_count, expectedVersion: p_expected_version });
@@ -89,8 +102,14 @@ export async function savePageChecked({ p_page_id, p_content, p_word_count, p_ex
   return { error: null, data: { status: 'ok', updated_at: row.updated_at, version: row.version } };
 }
 
-export function fetchPage(id) {
+export async function fetchPage(id) {
+  // Snapshot at CALL time — a hung fetch must resolve with the state it saw when
+  // it started, not the state after a concurrent write commits.
   const row = server.pages.get(id);
-  if (!row) return { data: null, error: { message: 'not found' } };
-  return { data: structuredClone(row), error: null };
+  const snapshot = row ? structuredClone(row) : null;
+  if (server.fetchMode === 'hang') {
+    await new Promise((resolve) => server.fetchHangResolvers.push(resolve));
+  }
+  if (!snapshot) return { data: null, error: { message: 'not found' } };
+  return { data: snapshot, error: null };
 }

@@ -26,6 +26,13 @@ migration-011 `save_page_checked` contract). Scenarios:
 - `w`  word-limit blocks must keep content queued and report distinctly
 - `f`  the exact production stranded state (empty server + conflicted local prose) must recover
 - `i`  repeated syncs of the same write must issue exactly one server save
+- `m`  a stale queue entry for a deleted/inaccessible page → accurate `failed` classification, prose preserved
+- `kl` the Keep-Local lifecycle: conflict → Keep Local → next edit + background poll reads the client's OWN new version → no false conflict
+- `klrace` the async race the per-page lock closes: a background sync captures stale server state before Keep Local, Keep Local completes, the stale sync resumes → must NOT resurrect a false conflict
+- `klext` a genuine external edit landing AFTER Keep Local must still conflict
+- `klrepeat` repeated edit+poll cycles after Keep Local must never re-raise a conflict (the reported loop)
+- `klmeta` a metadata-only bump after Keep Local (identical content) must not false-conflict
+- `klserver` Keep Server resets the baseline; later edits sync with no false conflict
 
 **`npm run sql`** — loads a faithful schema subset (RLS policies, version
 trigger, the production `trg_page_updated` trigger, entitlements table,
