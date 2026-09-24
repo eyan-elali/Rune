@@ -1,14 +1,20 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getCachedPagesForChapter, getCachedChapterMeta } from "@/lib/offline/db";
+import {
+  getCachedPagesForChapter,
+  getCachedChapterMeta,
+  getCachedUnplacedScenes,
+  getCachedProject,
+} from "@/lib/offline/db";
 import { EditorShell } from "./EditorShell";
 import { OfflinePageMessage } from "@/components/ui/OfflinePageMessage";
-import type { Chapter, PlacedScene, Project } from "@/lib/types";
+import type { Chapter, Project, Scene } from "@/lib/types";
 
 interface OfflineEditorFallbackProps {
   projectId: string;
-  chapterId: string;
+  /** The Chapter to rebuild from the offline cache, or null for the Project's Unplaced Scenes. */
+  chapterId: string | null;
 }
 
 type LoadState = "loading" | "found" | "not_found";
@@ -18,13 +24,28 @@ export function OfflineEditorFallback({
   chapterId,
 }: OfflineEditorFallbackProps) {
   const [loadState, setLoadState] = useState<LoadState>("loading");
-  const [pages, setPages] = useState<PlacedScene[]>([]);
+  const [pages, setPages] = useState<Scene[]>([]);
   const [chapter, setChapter] = useState<Chapter | null>(null);
   const [project, setProject] = useState<Project | null>(null);
 
   useEffect(() => {
     void (async () => {
       try {
+        if (chapterId === null) {
+          const [cachedPages, cachedProject] = await Promise.all([
+            getCachedUnplacedScenes(projectId),
+            getCachedProject(projectId),
+          ]);
+          if (cachedPages.length > 0 && cachedProject) {
+            setPages(cachedPages);
+            setProject(cachedProject);
+            setLoadState("found");
+          } else {
+            setLoadState("not_found");
+          }
+          return;
+        }
+
         const [cachedPages, meta] = await Promise.all([
           getCachedPagesForChapter(chapterId),
           getCachedChapterMeta(chapterId),
@@ -42,7 +63,7 @@ export function OfflineEditorFallback({
         setLoadState("not_found");
       }
     })();
-  }, [chapterId]);
+  }, [projectId, chapterId]);
 
   if (loadState === "loading") {
     return (
@@ -64,14 +85,13 @@ export function OfflineEditorFallback({
     );
   }
 
-  if (loadState === "not_found" || !chapter || !project) {
+  if (loadState === "not_found" || !project || (chapterId !== null && !chapter)) {
     return <OfflinePageMessage />;
   }
 
   return (
     <EditorShell
       projectId={projectId}
-      chapterId={chapterId}
       initialPages={pages}
       chapter={chapter}
       project={project}

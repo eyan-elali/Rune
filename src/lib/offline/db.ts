@@ -1,5 +1,5 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb'
-import type { Chapter, PlacedScene, Project } from '@/lib/types'
+import type { Chapter, PlacedScene, Project, Scene, UnplacedScene } from '@/lib/types'
 import { getLocalDateString } from '@/lib/utils'
 
 // Store names, keys and field names ("page", pageId, page_cache) are
@@ -61,8 +61,10 @@ interface RuneOfflineDB extends DBSchema {
       // word count vs. a metadata-only bump). Never displayed directly.
       serverContent?: Record<string, unknown>
       cachedAt: number
-      // Rich view-cache fields — populated by cachePage(); absent in minimal sync entries
-      chapter_id?: string
+      // Rich view-cache fields — populated by cachePage(); absent in minimal sync entries.
+      // chapter_id: a Chapter id (placed), null (an Unplaced Scene), or absent
+      // (no known placement — a minimal sync entry, or a placement found stale).
+      chapter_id?: string | null
       project_id?: string
       manuscript_id?: string
       title?: string
@@ -196,11 +198,11 @@ export async function getCachedServerUpdatedAt(pageId: string): Promise<string |
 
 function cacheEntryToScene(
   entry: RuneOfflineDB['page_cache']['value']
-): PlacedScene {
+): Scene {
   return {
     id: entry.id,
     manuscript_id: entry.manuscript_id ?? '',
-    chapter_id: entry.chapter_id!,
+    chapter_id: entry.chapter_id ?? null,
     title: entry.title!,
     content: entry.content,
     word_count: entry.wordCount,
@@ -212,10 +214,10 @@ function cacheEntryToScene(
 }
 
 /**
- * Store a server-fetched placed Scene for offline access.
+ * Store a server-fetched Scene (placed or Unplaced) for offline access.
  * Skips content overwrite when a pending local write exists.
  */
-export async function cachePage(page: PlacedScene, projectId: string): Promise<void> {
+export async function cachePage(page: Scene, projectId: string): Promise<void> {
   try {
     const db = await getOfflineDB()
     const pending = await db.get('pending_writes', page.id)
@@ -275,11 +277,11 @@ export async function cachePage(page: PlacedScene, projectId: string): Promise<v
 }
 
 /** Returns the cached Scene if it has full metadata; null otherwise. */
-export async function getCachedPage(pageId: string): Promise<PlacedScene | null> {
+export async function getCachedPage(pageId: string): Promise<Scene | null> {
   try {
     const db = await getOfflineDB()
     const entry = await db.get('page_cache', pageId)
-    if (!entry || !entry.chapter_id || !entry.title) return null
+    if (!entry || entry.chapter_id === undefined || !entry.title) return null
     return cacheEntryToScene(entry)
   } catch {
     return null
@@ -293,10 +295,61 @@ export async function getCachedPagesForChapter(chapterId: string): Promise<Place
     const all = await db.getAll('page_cache')
     return all
       .filter((e) => e.chapter_id === chapterId && !!e.title)
-      .map(cacheEntryToScene)
+      .map((e) => cacheEntryToScene(e) as PlacedScene)
       .sort((a, b) => a.position - b.position)
   } catch {
     return []
+  }
+}
+
+/** Returns a Project's Unplaced Scenes from the view cache, sorted by position. */
+export async function getCachedUnplacedScenes(projectId: string): Promise<UnplacedScene[]> {
+  try {
+    const db = await getOfflineDB()
+    const all = await db.getAll('page_cache')
+    return all
+      .filter((e) => e.chapter_id === null && e.project_id === projectId && !!e.title)
+      .map((e) => cacheEntryToScene(e) as UnplacedScene)
+      .sort((a, b) => a.position - b.position)
+  } catch {
+    return []
+  }
+}
+
+/**
+ * After a fresh server read of one container — a Chapter's placed Scenes
+ * (chapterId) or a Project's Unplaced Scenes (null) — forgets the cached
+ * placement of any Scene the cache still files there but the server no longer
+ * lists (moved elsewhere, e.g. on another device). Only the placement is
+ * dropped, so the offline lists stop showing the Scene in the wrong place;
+ * its content, sync baseline and any pending write are untouched.
+ */
+export async function forgetStalePlacements(
+  projectId: string,
+  chapterId: string | null,
+  currentSceneIds: string[]
+): Promise<void> {
+  try {
+    const db = await getOfflineDB()
+    const keep = new Set(currentSceneIds)
+    // One readwrite transaction: each entry is rewritten from the value read in
+    // the same transaction, so a sync baseline written concurrently by the sync
+    // engine can never be replaced by an older copy.
+    const tx = db.transaction('page_cache', 'readwrite')
+    let cursor = await tx.store.openCursor()
+    while (cursor) {
+      const entry = cursor.value
+      const stale =
+        !keep.has(entry.id) &&
+        entry.chapter_id === chapterId &&
+        // A placed Scene is identified by its Chapter; an Unplaced one by its Project.
+        (chapterId !== null || entry.project_id === projectId)
+      if (stale) await cursor.update({ ...entry, chapter_id: undefined })
+      cursor = await cursor.continue()
+    }
+    await tx.done
+  } catch {
+    // best-effort
   }
 }
 
@@ -317,6 +370,20 @@ export async function cacheChapterMeta(chapter: Chapter, project: Project): Prom
     })
   } catch {
     // best-effort
+  }
+}
+
+/**
+ * Returns a Project cached alongside any of its Chapters (cacheChapterMeta), or
+ * null. The Unplaced Scenes view has no Chapter of its own to cache it with.
+ */
+export async function getCachedProject(projectId: string): Promise<Project | null> {
+  try {
+    const db = await getOfflineDB()
+    const all = await db.getAll('chapter_meta')
+    return all.find((e) => e.project_id === projectId)?.project ?? null
+  } catch {
+    return null
   }
 }
 

@@ -90,8 +90,14 @@ export interface Scene {
   updated_at: string;
 }
 
-/** A Scene placed in a Chapter — the only kind the editor opens today. */
+/** A Scene placed in a Chapter: part of the ordered manuscript. */
 export type PlacedScene = Scene & { chapter_id: string };
+
+/**
+ * A Scene with no Chapter. Still manuscript prose, editable and saved like any
+ * Scene, but outside the ordered manuscript total and standard export.
+ */
+export type UnplacedScene = Scene & { chapter_id: null };
 
 export interface ProjectNote {
   id: string;

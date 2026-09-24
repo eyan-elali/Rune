@@ -2,9 +2,9 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { recalculateProjectWordCount } from "@/lib/projectWordCount";
-import { getProjectIdForManuscript } from "@/lib/manuscriptQueries";
+import { getProjectIdForManuscript, getUnplacedScenes as queryUnplacedScenes } from "@/lib/manuscriptQueries";
 import { recordAnalyticsEvent } from "@/lib/actions/analytics";
-import type { PlacedScene, Scene } from "@/lib/types";
+import type { PlacedScene, Scene, UnplacedScene } from "@/lib/types";
 
 type ActionResult<T> = { data: T; error: null } | { data: null; error: string };
 
@@ -131,6 +131,120 @@ export async function reorderScenes(
   if (failed?.error) return { error: failed.error.message };
 
   return { error: null };
+}
+
+/** The Project's Unplaced Scenes, in Unplaced order. */
+export async function getUnplacedScenes(
+  projectId: string
+): Promise<ActionResult<UnplacedScene[]>> {
+  const { supabase, user } = await getUser();
+  if (!user) return { data: null, error: "Not authenticated" };
+
+  const { data, error } = await queryUnplacedScenes(supabase, projectId);
+  if (error) return { data: null, error: error.message };
+  return { data, error: null };
+}
+
+// ── Placement ─────────────────────────────────────────────────────────────────
+//
+// Moving a Scene changes only chapter_id and position on the SAME row: the
+// Scene ID, its content, its writing history and any queued offline save
+// (keyed by Scene ID) are untouched. manuscript_id never changes — the
+// database forbids it (scenes_forbid_manuscript_reassignment) and the
+// composite foreign key refuses a Chapter from another Manuscript, so the
+// checks below are for clear errors, not the last line of defence.
+//
+// The row update bumps version/updated_at (increment_scene_version). The
+// editor's autosave treats that as a metadata-only change: its conflict check
+// is content-scoped (word_count), and a version_mismatch simply retries.
+
+/** Next position at the end of a Chapter (chapterId) or of the Unplaced list (null). */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function nextPosition(supabase: any, manuscriptId: string, chapterId: string | null): Promise<number> {
+  const base = supabase.from("scenes").select("position").eq("manuscript_id", manuscriptId);
+  const { data } = await (chapterId === null ? base.is("chapter_id", null) : base.eq("chapter_id", chapterId))
+    .order("position", { ascending: false })
+    .limit(1);
+  return data && data.length > 0 ? (data[0].position as number) + 1 : 0;
+}
+
+/**
+ * Moves a Scene out of narrative order into its Manuscript's Unplaced Scenes,
+ * at the end of that list. Its words leave the ordered manuscript total and
+ * export; they still count toward the account total (account_word_total).
+ */
+export async function moveSceneToUnplaced(
+  sceneId: string
+): Promise<ActionResult<UnplacedScene>> {
+  const { supabase, user } = await getUser();
+  if (!user) return { data: null, error: "Not authenticated" };
+
+  const { data: scene } = await supabase
+    .from("scenes")
+    .select("id, manuscript_id, chapter_id")
+    .eq("id", sceneId)
+    .maybeSingle();
+  if (!scene) return { data: null, error: "Scene not found" };
+
+  if (scene.chapter_id !== null) {
+    const position = await nextPosition(supabase, scene.manuscript_id, null);
+    const { error } = await supabase
+      .from("scenes")
+      .update({ chapter_id: null, position })
+      .eq("id", sceneId);
+    if (error) return { data: null, error: error.message };
+
+    const projectId = await getProjectIdForManuscript(supabase, scene.manuscript_id);
+    if (projectId) await recalculateProjectWordCount(supabase, projectId);
+  }
+
+  const { data, error } = await supabase.from("scenes").select("*").eq("id", sceneId).single();
+  if (error) return { data: null, error: error.message };
+  return { data: data as UnplacedScene, error: null };
+}
+
+/**
+ * Places a Scene at the end of a Chapter of its own Manuscript — an Unplaced
+ * Scene, or a placed Scene from another Chapter. A Chapter of any other
+ * Manuscript (even the writer's own other project) is refused.
+ */
+export async function moveSceneToChapter(
+  sceneId: string,
+  chapterId: string
+): Promise<ActionResult<PlacedScene>> {
+  const { supabase, user } = await getUser();
+  if (!user) return { data: null, error: "Not authenticated" };
+
+  const [{ data: scene }, { data: chapter }] = await Promise.all([
+    supabase.from("scenes").select("id, manuscript_id, chapter_id").eq("id", sceneId).maybeSingle(),
+    supabase.from("chapters").select("id, manuscript_id").eq("id", chapterId).maybeSingle(),
+  ]);
+  if (!scene) return { data: null, error: "Scene not found" };
+  if (!chapter) return { data: null, error: "Chapter not found" };
+  if (chapter.manuscript_id !== scene.manuscript_id) {
+    return { data: null, error: "A Scene can only move within its own manuscript" };
+  }
+
+  if (scene.chapter_id !== chapterId) {
+    const position = await nextPosition(supabase, scene.manuscript_id, chapterId);
+    const { error } = await supabase
+      .from("scenes")
+      .update({ chapter_id: chapterId, position })
+      .eq("id", sceneId);
+    if (error) return { data: null, error: error.message };
+
+    await supabase
+      .from("chapters")
+      .update({ updated_at: new Date().toISOString() })
+      .eq("id", chapterId);
+
+    const projectId = await getProjectIdForManuscript(supabase, scene.manuscript_id);
+    if (projectId) await recalculateProjectWordCount(supabase, projectId);
+  }
+
+  const { data, error } = await supabase.from("scenes").select("*").eq("id", sceneId).single();
+  if (error) return { data: null, error: error.message };
+  return { data: data as PlacedScene, error: null };
 }
 
 export async function renameScene(

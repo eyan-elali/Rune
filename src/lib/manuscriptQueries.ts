@@ -1,4 +1,4 @@
-import type { Chapter } from "@/lib/types";
+import type { Chapter, UnplacedScene } from "@/lib/types";
 
 // Rune 2.0 manuscript reads shared by server actions, route handlers and
 // browser components: Project → Manuscript → Chapters → placed Scenes.
@@ -20,6 +20,7 @@ type QueryError = { message: string; code?: string | null };
 
 export type SceneSummary = { id: string; word_count: number };
 export type ChapterWithScenes = Chapter & { scenes: SceneSummary[] };
+export type UnplacedSceneSummary = SceneSummary & { title: string };
 
 /** The Project's Manuscript id, or null when the Project is missing or not visible to the caller. */
 export async function getManuscriptIdForProject(
@@ -118,4 +119,42 @@ export async function getProjectIdForManuscript(
     .eq("id", manuscriptId)
     .maybeSingle();
   return (data?.project_id as string | undefined) ?? null;
+}
+
+/**
+ * The Project's Unplaced Scenes (chapter_id null), by position, full rows.
+ * Unplaced position is only an append order: moving a Scene to Unplaced puts
+ * it last. It has no narrative meaning.
+ */
+export async function getUnplacedScenes(
+  supabase: SupabaseLike,
+  projectId: string
+): Promise<{ data: UnplacedScene[]; error: QueryError | null }> {
+  const manuscriptId = await getManuscriptIdForProject(supabase, projectId);
+  if (!manuscriptId) return { data: [], error: null };
+  const { data, error } = await supabase
+    .from("scenes")
+    .select("*")
+    .eq("manuscript_id", manuscriptId)
+    .is("chapter_id", null)
+    .order("position", { ascending: true });
+  if (error) return { data: [], error };
+  return { data: (data ?? []) as UnplacedScene[], error: null };
+}
+
+/** id, title and word_count of the Project's Unplaced Scenes, by position — no prose. */
+export async function getUnplacedSceneSummaries(
+  supabase: SupabaseLike,
+  projectId: string
+): Promise<{ data: UnplacedSceneSummary[]; error: QueryError | null }> {
+  const manuscriptId = await getManuscriptIdForProject(supabase, projectId);
+  if (!manuscriptId) return { data: [], error: null };
+  const { data, error } = await supabase
+    .from("scenes")
+    .select("id, title, word_count")
+    .eq("manuscript_id", manuscriptId)
+    .is("chapter_id", null)
+    .order("position", { ascending: true });
+  if (error) return { data: [], error };
+  return { data: (data ?? []) as UnplacedSceneSummary[], error: null };
 }

@@ -24,7 +24,7 @@ import { useProfileStore } from "@/store/profileStore";
 import { useToastStore } from "@/store/toastStore";
 import { WORD_LIMITS } from "@/lib/pricing";
 import { createCheckoutSession } from "@/lib/actions/billing";
-import type { PlacedScene, UserPreferences } from "@/lib/types";
+import type { Scene, UserPreferences } from "@/lib/types";
 
 type DisplaySyncStatus = 'synced' | 'online_dirty' | 'offline_dirty' | 'syncing' | 'conflict'
 
@@ -58,9 +58,10 @@ function countWords(doc: ProseMirrorNode): number {
 
 interface RuneEditorProps {
   projectId: string;
-  chapterId: string;
-  currentPage: PlacedScene | null;
-  onPageUpdated: (pageId: string, updates: Partial<PlacedScene>) => void;
+  /** null while editing an Unplaced Scene. */
+  chapterId: string | null;
+  currentPage: Scene | null;
+  onPageUpdated: (pageId: string, updates: Partial<Scene>) => void;
   onRenamePage: (pageId: string, title: string) => void;
   /** Account-wide manuscript word total at page load — see getAccountWordTotal. */
   accountWordTotal?: number;
@@ -133,7 +134,7 @@ export default function RuneEditor({
 
 
 
-  const currentPageRef = useRef<PlacedScene | null>(currentPage);
+  const currentPageRef = useRef<Scene | null>(currentPage);
   const onPageUpdatedRef = useRef(onPageUpdated);
   const prevPageIdRef = useRef<string | null>(null);
   const isLoadingRef = useRef(false);

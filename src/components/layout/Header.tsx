@@ -16,6 +16,7 @@ const SEGMENT_LABELS: Record<string, string> = {
   battle: "Battle",
   unlockables: "Unlockables",
   chapters: "Chapters",
+  unplaced: "Unplaced Scenes",
 };
 
 function useBreadcrumbs() {

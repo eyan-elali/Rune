@@ -6,7 +6,8 @@ interface EditorState {
   currentPageId: string | null;
   isSaving: boolean;
   lastSaved: Date | null;
-  setCurrentPage: (projectId: string, chapterId: string, pageId: string) => void;
+  /** chapterId is null while editing an Unplaced Scene. */
+  setCurrentPage: (projectId: string, chapterId: string | null, pageId: string) => void;
   setIsSaving: (isSaving: boolean) => void;
   setLastSaved: (date: Date) => void;
   clearLastSaved: () => void;

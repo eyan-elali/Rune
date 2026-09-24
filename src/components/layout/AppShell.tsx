@@ -16,6 +16,7 @@ import { useUIStore } from "@/store/uiStore";
 import type { ReactNode } from "react";
 import type { Profile } from "@/lib/types";
 import type { PricingCohort } from "@/lib/pricing";
+import { isManuscriptEditorPath } from "@/lib/utils";
 
 interface AppShellProps {
   profile: Profile | null;
@@ -49,7 +50,7 @@ export function AppShell({
   const isBattleActive =
     pathname === "/games/battle" && gameState === "active";
   const shouldHideFocusUI =
-    mode === "focus" && pathname.includes("/chapters/");
+    mode === "focus" && isManuscriptEditorPath(pathname);
   const shouldHideUI = shouldHideFocusUI || isRaceActive || isBattleActive;
 
   useEffect(() => {
