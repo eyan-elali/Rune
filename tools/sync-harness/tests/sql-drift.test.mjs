@@ -10,9 +10,7 @@
 // Direct updates under a normal search path kept working.
 import { test, before } from 'node:test';
 import assert from 'node:assert/strict';
-import { createTestDb, readMigration, asUser, HARNESS_DIR } from '../lib/pg.mjs';
-import fs from 'node:fs';
-import path from 'node:path';
+import { createTestDb, readMigration, readRepoFile, asUser, createAuthUser } from '../lib/pg.mjs';
 
 const U1 = '11111111-1111-1111-1111-111111111111';
 const U2 = '22222222-2222-2222-2222-222222222222';
@@ -37,18 +35,19 @@ const projUpdatedAt = async () => (await db.query(`select updated_at from public
 
 before(async () => {
   db = await createTestDb();
-  await db.exec(fs.readFileSync(path.join(HARNESS_DIR, 'sql/fixtures/save-path-subset.sql'), 'utf8'));
+  // Production baseline: already has the FIXED bump_project_updated_at and the
+  // trg_page_updated trigger, plus production's save_page_checked.
+  await db.exec(readRepoFile('src/lib/supabase/schema.sql'));
+  await createAuthUser(db, U1);
   await db.exec(`
-    insert into public.profiles (id) values ('${U1}');
-    insert into public.user_pricing_entitlements (user_id) values ('${U1}');
-    insert into public.projects (id, user_id, updated_at) values ('${PROJ1}','${U1}', now() - interval '1 hour');
-    insert into public.chapters (id, project_id) values ('bbbbbbbb-0000-0000-0000-000000000001','${PROJ1}');
-    insert into public.pages (id, chapter_id) values ('${P1}','bbbbbbbb-0000-0000-0000-000000000001');
+    insert into public.projects (id, user_id, title, updated_at) values ('${PROJ1}','${U1}', 't', now() - interval '1 hour');
+    insert into public.chapters (id, project_id, title, position) values ('bbbbbbbb-0000-0000-0000-000000000001','${PROJ1}', 'c', 1);
+    insert into public.pages (id, chapter_id, title, position) values ('${P1}','bbbbbbbb-0000-0000-0000-000000000001', 'p', 0);
   `);
-  await db.exec(readMigration('011_account_word_limit.sql')); // canonical word-limit functions, as in production
 
-  // The EXACT deployed production state (verbatim from the live catalog,
-  // including casing): unqualified body, no pinned search_path.
+  // Put back the EXACT hand-applied production body from before migration 012
+  // (verbatim from the July 2026 live catalog, including casing): unqualified
+  // table names, no pinned search_path. trg_page_updated already points at it.
   await db.exec(`
     CREATE OR REPLACE FUNCTION public.bump_project_updated_at()
     RETURNS trigger
@@ -60,10 +59,6 @@ before(async () => {
       RETURN NEW;
     END;
     $function$;
-    CREATE TRIGGER trg_page_updated
-    AFTER UPDATE ON pages
-    FOR EACH ROW
-    EXECUTE FUNCTION bump_project_updated_at();
   `);
 });
 
@@ -107,7 +102,7 @@ test('012-post: word limit still enforced and non-owner still cannot save', asyn
   const blocked = await trySave(U1, 2500);
   assert.equal(blocked.res?.status, 'word_limit_blocked', JSON.stringify(blocked.res ?? blocked.error));
 
-  await db.exec(`insert into public.profiles (id) values ('${U2}') on conflict do nothing;`);
+  await createAuthUser(db, U2);
   const other = await asUser(db, U2, (tx) =>
     tx.query(`select public.save_page_checked($1::uuid,'{}'::jsonb,10,null::int) as res`, [P1]));
   assert.deepEqual(other.rows[0].res, { status: 'error', error: 'Page not found' }, 'RLS intact');

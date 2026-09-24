@@ -2,28 +2,17 @@
 
 Step-by-step instructions for deploying Rune to production.
 
-> [!WARNING]
-> **The database instructions in this guide are stale and unsafe (September 2026).**
-> Do not follow Step 2 or "Stripe Setup → 4. Run DB migrations" to build a new
-> database, and never re-run old migration files against production.
+> [!IMPORTANT]
+> **Database changes follow `tools/db-audit/STAGING.md`.** Take a manual backup
+> (production has no managed backups or PITR on the Free plan), rehearse on a
+> disposable staging project, and check the exact expected catalog diff. Never
+> re-run migrations 001–012 against any database. They are history and are
+> already contained in `src/lib/supabase/schema.sql`. Re-running `007` regresses
+> signup.
 >
-> - `src/lib/supabase/schema.sql` is **not** a complete schema. Pasting it into a
->   fresh project gives a broken database: signup fails, because `handle_new_user`
->   inserts `profiles.subscription_tier`, which that file never creates; every
->   profile update fails in `protect_billing_columns`; and the save RPCs from
->   migration 011, `pages.is_canonical` / `pages.version`, and several tables are missing.
-> - The migrations in `src/lib/supabase/migrations/` cannot rebuild production either:
->   there is no base-table migration, several production objects exist in no tracked
->   file, and re-running historical migrations can regress production (for example,
->   re-running `007_fix_signup_trigger.sql` replaces the current `handle_new_user` with
->   an older version that no longer creates pricing entitlements).
->
-> Rune 2.0 Phase 0 reconciles production, migrations and `schema.sql`. The read-only
-> capture procedure is in `tools/db-audit/README.md`. Until that reconciliation lands,
-> treat production as the only source of schema truth.
->
-> The Stripe section below also describes an obsolete Arcane tier and old prices; the
-> current required environment variables are listed in `src/lib/env.ts`.
+> The Stripe section below still describes an obsolete Arcane tier and old
+> prices. The current required environment variables are listed in
+> `src/lib/env.ts`.
 
 ---
 
@@ -45,18 +34,34 @@ Step-by-step instructions for deploying Rune to production.
 
 ---
 
-## Step 2 — Run the Database Schema
+## Step 2 — Build the Database Schema
 
-> [!CAUTION]
-> **Do not use this step.** `schema.sql` is incomplete and produces a broken database
-> (see the warning at the top of this guide). Kept for historical reference only.
+A new database is built from the production baseline, then the migrations
+that came after it:
 
-1. In the Supabase dashboard, go to **SQL Editor**.
-2. Click **New query**.
-3. Paste the entire contents of `src/lib/supabase/schema.sql`.
-4. Click **Run**.
+1. `src/lib/supabase/schema.sql`. It is generated from the committed production
+   catalog snapshot (`src/lib/supabase/catalog/`) and proven equivalent by
+   `npm test`. It creates every table, constraint, index, function, RLS policy,
+   trigger (including the `auth.users` signup trigger) and grant production has.
+2. Every migration numbered **013 and above** in
+   `src/lib/supabase/migrations/`, in order. Each one records itself in
+   `public.schema_migrations` and refuses to run twice.
 
-This creates all tables, enables Row Level Security, and installs the trigger that auto-creates a `profiles` row on sign-up.
+With psql (Session pooler connection string, port 5432):
+
+```bash
+psql "$DB_URL" -X -1 -v ON_ERROR_STOP=1 -f src/lib/supabase/schema.sql
+psql "$DB_URL" -X -1 -v ON_ERROR_STOP=1 -f src/lib/supabase/migrations/013_schema_migrations_ledger.sql
+psql "$DB_URL" -X -1 -v ON_ERROR_STOP=1 -f src/lib/supabase/migrations/014_assert_production_baseline.sql
+```
+
+Or paste each file into the SQL editor, in the same order, and run it as one
+script. Then run `tools/db-audit/catalog.sql` and compare it with
+`node tools/db-audit/diff-catalog.mjs src/lib/supabase/catalog/production-2026-09-24.json <export> --expect schema-only`.
+
+Do **not** run migrations 001–012. For changing an existing database
+(production), see `src/lib/supabase/migrations/README.md` and
+`tools/db-audit/STAGING.md`.
 
 ---
 
@@ -159,17 +164,10 @@ For local webhook testing: `stripe listen --forward-to localhost:3000/api/webhoo
 
 Go to **Settings → Billing → Customer portal** in the Stripe dashboard and enable it.
 
-### 4. Run DB migrations
+### 4. Database
 
-> [!CAUTION]
-> **Historical — do not run.** These migrations are already applied to production, and
-> this list is incomplete. Re-running migration files can regress production (see the
-> warning at the top of this guide).
-
-Run these SQL files in order in the Supabase SQL Editor:
-- `src/lib/supabase/migrations/004_billing.sql` — adds billing columns to profiles + subscription_events table
-- `src/lib/supabase/migrations/005_game_tickets.sql` — game_tickets table + increment RPC
-- `src/lib/supabase/migrations/006_offline_sync.sql` — ensures `updated_at NOT NULL` on pages, adds `version` integer column, installs `page_version_trigger` for optimistic locking. **Must be run before deploying the offline-sync feature.**
+Nothing Stripe-specific to run: the billing columns, `subscription_events` and
+the entitlement tables are part of `src/lib/supabase/schema.sql` (Step 2).
 
 ### Environment variables for Stripe
 

@@ -71,7 +71,7 @@ Counts come from `getOfflineStorageSummary()`. **Clear cache** (`clearPageCache(
 
 ## Required database objects
 
-Migrations 006 (`pages.version`, `page_version_trigger`), 011 (`save_page_checked` and helpers) and 012 (`bump_project_updated_at`) must be present. The schema reconciliation for Rune 2.0 Phase 0 is tracked separately — see `tools/db-audit/README.md`.
+`pages.version` and `page_version_trigger`, `save_page_checked` and its helpers, and `bump_project_updated_at` / `trg_page_updated` are all part of the production baseline in `src/lib/supabase/schema.sql`. Migration 014 asserts the save-path RPC contracts (one overload each, frozen argument lists, pinned `search_path`).
 
 ## Word count warning
 

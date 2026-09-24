@@ -6,9 +6,7 @@
 // These are foundation checks, not the Phase 0 regression suites.
 import { test, before } from 'node:test';
 import assert from 'node:assert/strict';
-import fs from 'node:fs';
-import path from 'node:path';
-import { createTestDb, readMigration, withRole, asUser, HARNESS_DIR } from '../lib/pg.mjs';
+import { createTestDb, readRepoFile, withRole, asUser, createAuthUser } from '../lib/pg.mjs';
 import { createSupabaseAdapter } from '../lib/supabase-adapter.mjs';
 import { bundleForTest } from '../lib/bundle.mjs';
 
@@ -25,17 +23,16 @@ let db;
 
 before(async () => {
   db = await createTestDb();
-  await db.exec(fs.readFileSync(path.join(HARNESS_DIR, 'sql/fixtures/save-path-subset.sql'), 'utf8'));
-  await db.exec(readMigration('011_account_word_limit.sql'));
+  await db.exec(readRepoFile('src/lib/supabase/schema.sql')); // production baseline
+  await createAuthUser(db, A); // signup trigger → profiles + entitlements
+  await createAuthUser(db, B);
   await db.exec(`
-    insert into public.profiles (id) values ('${A}'), ('${B}');
-    insert into public.user_pricing_entitlements (user_id) values ('${A}');
-    insert into public.projects (id, user_id, word_count) values ('${PROJ}', '${A}', 12345);
-    insert into public.chapters (id, project_id, position) values ('${CH1}', '${PROJ}', 1), ('${CH2}', '${PROJ}', 2);
-    insert into public.pages (id, chapter_id, position, word_count, is_canonical) values
-      ('${PG1}', '${CH1}', 0, 100, false),
-      ('${PG2}', '${CH1}', 1, 40,  true),
-      ('${PG3}', '${CH2}', 0, 7,   false);
+    insert into public.projects (id, user_id, title, word_count) values ('${PROJ}', '${A}', 'Golden', 12345);
+    insert into public.chapters (id, project_id, title, position) values ('${CH1}', '${PROJ}', 'One', 1), ('${CH2}', '${PROJ}', 'Two', 2);
+    insert into public.pages (id, chapter_id, title, position, word_count, is_canonical) values
+      ('${PG1}', '${CH1}', 'p', 0, 100, false),
+      ('${PG2}', '${CH1}', 'p', 1, 40,  true),
+      ('${PG3}', '${CH2}', 'p', 0, 7,   false);
   `);
 });
 
@@ -118,10 +115,11 @@ test('adapter: insert / update / delete with returning, and jsonb round-trip', a
   const upd = await sb.from('pages').update({ title: 'Renamed' }).eq('id', ins.data.id).select('title, version').single();
   assert.deepEqual(upd.data, { title: 'Renamed', version: 2 }, 'version trigger fires through the adapter');
 
-  // The subset has no delete policy on pages: RLS silently deletes nothing.
   const del = await sb.from('pages').delete().eq('id', ins.data.id).select('id');
-  assert.deepEqual(del.data, []);
-  await db.query(`delete from public.pages where id = $1`, [ins.data.id]);
+  assert.deepEqual(del.data, [{ id: ins.data.id }], 'owner may delete (pages: delete own)');
+
+  const otherDel = await createSupabaseAdapter(db, { userId: B }).from('pages').delete().eq('id', PG1).select('id');
+  assert.deepEqual(otherDel.data, [], "another user's delete affects 0 rows");
 });
 
 test('adapter: rejected insert (RLS WITH CHECK) returns an error object, not a throw', async () => {

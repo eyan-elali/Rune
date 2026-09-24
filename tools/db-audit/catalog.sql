@@ -65,7 +65,7 @@ s_meta as (
     'database', current_database(),
     'current_user', current_user,
     'transaction_read_only', current_setting('transaction_read_only'),
-    'catalog_sql_version', 'phase0-b-1'
+    'catalog_sql_version', 'phase0-d-1'
   ) as payload, 1 as n
 ),
 
@@ -341,6 +341,24 @@ s_role_settings as (
     and kv.setting ~* '^(pgrst\.db_(max_rows|schemas|extra_search_path|pre_request)|statement_timeout|search_path|default_transaction_read_only)='
 ),
 
+-- ── 18 event triggers (database-wide) ─────────────────────────────────────────
+-- Supabase installs several of its own; Rune-relevant ones call a function in
+-- `public` (e.g. the platform's rls_auto_enable). Added in catalog version
+-- phase0-d-1 — earlier snapshots do not have this section.
+s_event_triggers as (
+  select coalesce(jsonb_agg(jsonb_build_object(
+           'name', e.evtname,
+           'event', e.evtevent,
+           'function', p.pronamespace::regnamespace::text || '.' || p.proname,
+           'enabled', e.evtenabled,
+           'tags', e.evttags,
+           'owner', pg_get_userbyid(e.evtowner)
+         ) order by e.evtname), '[]'::jsonb) as payload,
+         count(*) as n
+  from pg_event_trigger e
+  join pg_proc p on p.oid = e.evtfoid
+),
+
 -- ── dynamic probes (row counts, cron/webhook presence, integrity counts) ─────
 -- Each probe is a query written in THIS file that returns a single column `j`
 -- (base64-encoded JSON, so any value survives the XML round trip). A probe
@@ -512,6 +530,7 @@ from (
   union all select 15, 'publications',     n, payload from s_publications
   union all select 16, 'roles',            n, payload from s_roles
   union all select 17, 'role_settings',    n, payload from s_role_settings
+  union all select 18, 'event_triggers',   n, payload from s_event_triggers
   union all select 20 + row_number() over (order by section), section, n, payload from s_probes
 ) out
 order by ord;

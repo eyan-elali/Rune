@@ -1,5 +1,17 @@
 # Production catalog capture (read-only)
 
+| File | Purpose |
+|---|---|
+| `catalog.sql` | Read-only structural capture (this document) |
+| `diff-catalog.mjs` | Compares two captures; `--expect none \| schema-only \| 013-014` checks an exact expected diff |
+| `generate-schema.mjs` | Regenerates `src/lib/supabase/schema.sql` from a committed snapshot |
+| `catalog-lib.mjs` | Shared loader/normalizer/diff (no dependencies) |
+| `STAGING.md` | Manual backup, backup verification, staging rehearsal, expected diffs, rollback |
+
+The first production capture (2026-09-24) is committed at
+`src/lib/supabase/catalog/production-2026-09-24.json`, with its findings in
+that folder's README.
+
 Rune 2.0 Phase 0 needs one trustworthy picture of what the **production** database
 actually contains, so the repository's migrations and `schema.sql` can be reconciled
 with it before any Rune 2.0 migration is written. `catalog.sql` produces that picture.
@@ -9,7 +21,8 @@ constraints (with foreign-key delete behavior), indexes, RLS flags, policies,
 non-internal triggers (on `public` tables and `auth.users`), public functions (identity
 arguments, SECURITY DEFINER, `search_path`/config, ACLs, overloads), table grants for
 `anon` / `authenticated` / `service_role`, views, sequences, extensions, realtime
-publications, roles, whitelisted role settings, cron-job and webhook presence, exact
+publications, roles, whitelisted role settings, event triggers (since catalog
+version `phase0-d-1`), cron-job and webhook presence, exact
 row counts per table, and a small set of anonymous integrity counts (for example, how
 many chapters have a canonical page, and how many position ties exist).
 
@@ -109,12 +122,12 @@ prompt, or a `~/.pgpass` entry.
 4. The names of any redacted functions or triggers, and anything you removed.
 5. Any error message, verbatim.
 
-Don't commit the output yourself. After review it will be committed in Phase 0
-Commit D as `src/lib/supabase/catalog/production-<date>.json` and used to write the
-reconciliation migration and regenerate `schema.sql`.
+Don't commit the output yourself. After review, a new capture is committed as
+`src/lib/supabase/catalog/production-<date>.json` and `schema.sql` is
+regenerated from it (see `src/lib/supabase/migrations/README.md`).
 
 ## What this does not do
 
 It does not change production, reconcile anything, or create migrations. It reads
-the catalog once. Re-run it after every future production migration and diff the
-output against the committed snapshot to detect drift.
+the catalog once. Re-run it before and after every production migration and
+compare the two with `diff-catalog.mjs --expect …` (see `STAGING.md`).
