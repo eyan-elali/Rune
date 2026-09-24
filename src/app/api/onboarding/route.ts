@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { recordAnalyticsEvent, type RecordAnalyticsEventInput } from "@/lib/actions/analytics";
 import { recalculateProjectWordCount } from "@/lib/projectWordCount";
+import { getManuscriptIdForProject } from "@/lib/manuscriptQueries";
 
 // The only two themes every account has unlocked. Onboarding never shows
 // (or trusts the client to send) anything beyond these — validated again
@@ -87,12 +88,21 @@ export async function POST(req: Request) {
     );
   }
 
-  // From here on, any failure rolls back the project (cascades chapter +
-  // page) so a retry starts clean instead of leaving an orphaned,
-  // chapterless project the writer can never reach.
+  // From here on, any failure rolls back the project (cascades manuscript,
+  // chapter and scene) so a retry starts clean instead of leaving an
+  // orphaned, chapterless project the writer can never reach.
+  //
+  // The Manuscript is created with the Project by the database
+  // (trg_project_manuscript).
+  const manuscriptId = await getManuscriptIdForProject(supabase, project.id);
+  if (!manuscriptId) {
+    await supabase.from("projects").delete().eq("id", project.id);
+    return NextResponse.json({ error: "Failed to create manuscript" }, { status: 500 });
+  }
+
   const { data: chapter, error: chapterError } = await supabase
     .from("chapters")
-    .insert({ project_id: project.id, title: "Chapter 1", position: 1 })
+    .insert({ manuscript_id: manuscriptId, title: "Chapter 1", position: 1 })
     .select()
     .single();
   if (chapterError || !chapter) {
@@ -103,21 +113,21 @@ export async function POST(req: Request) {
     );
   }
 
-  const pageContent = firstSentence
+  const sceneContent = firstSentence
     ? sentenceToTiptapContent(firstSentence)
     : null;
   const wordCount = firstSentence ? countWords(firstSentence) : 0;
 
-  // Atomically checks the account-wide free-word limit and creates the page
-  // in one database call (see insert_page_checked, migration 011) — this is
-  // the writer's very first page, so it's also the first content-adding path
+  // Atomically checks the account-wide free-word limit and creates the first
+  // Scene in one database call (see insert_scene_checked) — this is the
+  // writer's very first Scene, so it's also the first content-adding path
   // any account ever goes through.
   const { data: insertResult, error: insertError } = await supabase.rpc(
-    "insert_page_checked",
+    "insert_scene_checked",
     {
       p_chapter_id: chapter.id,
       p_title: "Page 1",
-      p_content: pageContent,
+      p_content: sceneContent,
       p_word_count: wordCount,
       p_position: 0,
     }
@@ -148,15 +158,15 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: result.error }, { status: 500 });
   }
 
-  // Keep projects.word_count in sync with the first-sentence page immediately,
+  // Keep projects.word_count in sync with the first-sentence Scene immediately,
   // rather than leaving it at its default 0 until the writer's first editor
   // autosave. This must not go through the editor's save path
-  // (syncPageWithLimitCheck) — that path is also where the one-time
+  // (syncSceneWithLimitCheck) — that path is also where the one-time
   // "first_save" analytics event fires, and it must only fire once the writer
   // adds words beyond what onboarding itself created.
   await recalculateProjectWordCount(supabase, project.id);
 
-  // The manuscript itself (project/chapter/page) is now safely persisted.
+  // The manuscript itself (project/manuscript/chapter/scene) is now safely persisted.
   // Theme preference and the future letter are secondary — best-effort
   // from here so a hiccup in either never throws away the writer's project.
   const currentPrefs = (profileRow?.preferences as Record<string, unknown>) ?? {};
@@ -179,7 +189,7 @@ export async function POST(req: Request) {
     }
   }
 
-  // Project, chapter, and page all persisted successfully above — this is the
+  // Project, manuscript, chapter, and scene all persisted successfully above — this is the
   // authoritative completion point for onboarding's data model, and the
   // client unconditionally navigates to the editor immediately after this
   // response, so recording completion here (rather than waiting for the

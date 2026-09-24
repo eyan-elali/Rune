@@ -9,20 +9,22 @@
 //
 // These are the Task 1 FUTURE contracts (formerly skipped in
 // sql-ownership-contract.test.mjs, written against a hypothetical
-// `pages.manuscript_id`), now executable against `scenes`. The query shapes
-// below are the Scene equivalents of the app's current `pages` shapes: they
-// are what the application task must send. The REAL app modules still target
-// the legacy schema; running them here is deferred (last test).
+// `pages.manuscript_id`), now executable against `scenes`, plus the REAL
+// application modules (last section): the autosave server action, the offline
+// sync engine and the export loader.
 //
-// Shapes (Scene equivalents of the app's current shapes):
+// Shapes (the app's own shapes; the last section runs the real code):
 //   READ_SYNC / READ_DEEP / READ_CONFLICT / READ_VERIFY  syncEngine.ts, SyncConflictModal.tsx
 //   KEEP_LOCAL   save_scene_checked(p_expected_version: null)
-//   AUTOSAVE     save_scene_checked(p_expected_version: n)   (actions/pages.ts syncPageWithLimitCheck)
-//   EXPORT_LOAD  Manuscript by Project → Chapters by Manuscript → Scenes .in(chapter_id)
+//   AUTOSAVE     save_scene_checked(p_expected_version: n)   (actions/scenes.ts syncSceneWithLimitCheck)
+//   EXPORT_LOAD  export/projectExport.ts loadManuscriptForExport (REAL module)
+import 'fake-indexeddb/auto'; // the sync engine's offline queue (db.ts)
 import { test, before } from 'node:test';
 import assert from 'node:assert/strict';
-import { createTestDb, readRepoFile, LEGACY_BASELINE, RUNE2_SCHEMA } from '../lib/pg.mjs';
+import path from 'node:path';
+import { createTestDb, readRepoFile, HARNESS_DIR, LEGACY_BASELINE, RUNE2_SCHEMA } from '../lib/pg.mjs';
 import { createSupabaseAdapter } from '../lib/supabase-adapter.mjs';
+import { bundleForTest } from '../lib/bundle.mjs';
 import { prototypeLegacyToRune2 } from '../lib/legacy-to-rune2.mjs';
 import { USERS, chapterId, pageId, projectId, seedFixture, syntheticDoc } from '../fixtures/manuscript-fixture.mjs';
 
@@ -41,13 +43,10 @@ const SAVE = (sb, id, content, words, version) =>
   sb.rpc('save_scene_checked', { p_scene_id: id, p_content: content, p_word_count: words, p_expected_version: version });
 const KEEP_LOCAL = (sb, id, content, words) => SAVE(sb, id, content, words, null);
 
+let exportModule; // the REAL export module (loader + PDF)
 async function EXPORT_LOAD(sb, pid) {
-  const { data: manuscript } = await sb.from('manuscripts').select('id').eq('project_id', pid).maybeSingle();
-  if (!manuscript) return [];
-  const { data: chapters } = await sb.from('chapters').select('*').eq('manuscript_id', manuscript.id).order('position', { ascending: true });
-  if (!chapters?.length) return [];
-  const { data: scenes } = await sb.from('scenes').select('*').in('chapter_id', chapters.map((c) => c.id)).order('position', { ascending: true });
-  return (scenes ?? []).map((s) => s.id);
+  const { chapters, scenesPerChapter } = await exportModule.loadManuscriptForExport(sb, pid);
+  return chapters.flatMap((c) => (scenesPerChapter[c.id] ?? []).map((s) => s.id));
 }
 
 const as = (db, userId) => createSupabaseAdapter(db, userId ? { userId } : {});
@@ -59,6 +58,9 @@ before(async () => {
   legacy = await createTestDb();
   await legacy.exec(readRepoFile(LEGACY_BASELINE));
   await seedFixture(legacy);
+  exportModule = await bundleForTest('src/lib/export/projectExport.ts', {
+    name: 'r2_projectExport', aliases: { jspdf: path.join(HARNESS_DIR, 'mocks/jspdf.js') },
+  });
 });
 
 async function seededDb() {
@@ -380,17 +382,126 @@ test('deleting a Chapter deletes its placed Scenes (as Rune 1.x did) but never t
 
 // ── export (formerly FUTURE) ──────────────────────────────────────────────────
 
-test('the Rune 2.0 export loader returns placed Scenes only, and nothing to other writers', async () => {
+test('the REAL export loader returns placed Scenes only, in manuscript order, and nothing to other writers', async () => {
   const db = await seededDb();
   const ids = await EXPORT_LOAD(as(db, ALICE), projectId('hollow'));
-  assert.deepEqual(ids.sort(), ['h1a', 'h2a', 'h3a', 'h4a', 'h4b', 'h4c', 'h6c'].map(pageId).sort());
+  assert.deepEqual(ids, ['h1a', 'h2a', 'h3a', 'h4a', 'h4b', 'h4c', 'h6c'].map(pageId), 'chapters by position (ch5 empty, before ch4), Scenes by position');
   assert.ok(!ids.includes(UNPLACED_ALICE));
   assert.deepEqual(await EXPORT_LOAD(as(db, BRAM), projectId('hollow')), []);
   assert.deepEqual(await EXPORT_LOAD(as(db, null), projectId('hollow')), []);
 });
 
-// ── deferred ──────────────────────────────────────────────────────────────────
+// ── the REAL application modules ──────────────────────────────────────────────
+// The autosave server action (actions/scenes.ts), its post-sync maintenance,
+// the offline sync engine (offline/syncEngine.ts + db.ts over fake IndexedDB)
+// and the writing-credit flush (actions/writingStats.ts), bundled from src/
+// with only the framework and network boundaries mocked, against the Rune 2.0
+// schema. (The export loader runs above.)
 
-test('DEFERRED: the REAL autosave action, sync engine and export against Scenes', (t) => {
-  t.skip('pending: src/lib/actions/pages.ts, syncEngine.ts and the export loader still target the legacy `pages` schema — the application task moves them to Scenes and runs them here');
+const BROWSER = path.join(HARNESS_DIR, 'mocks/supabaseBrowser.js');
+let scenesAction;
+let engine;
+let offline; // offline/db.ts — its own bundle, same fake IndexedDB database as the engine's
+before(async () => {
+  scenesAction = await bundleForTest('src/lib/actions/scenes.ts', { name: 'r2_actions_scenes' });
+  engine = await bundleForTest('src/lib/offline/syncEngine.ts', { name: 'r2_syncEngine', aliases: { '@/lib/supabase/client': BROWSER } });
+  offline = await bundleForTest('src/lib/offline/db.ts', { name: 'r2_offline_db' });
+});
+
+/** Signs the browser and the server actions in as `userId` (null = signed out). */
+function signIn(db, userId) {
+  const sb = as(db, userId);
+  globalThis.__runeBrowserClient = sb;
+  engine.setServerClient(sb);
+  scenesAction.setServerClient(sb);
+  return sb;
+}
+
+async function queue(id, userId, words, label = 'queued') {
+  await engine.writeToPendingQueue(id, userId, syntheticDoc(label, words), words);
+}
+async function pendingRow(id) {
+  return (await (await offline.getOfflineDB()).get('pending_writes', id)) ?? null;
+}
+
+test('REAL autosave action: replays to an Unplaced Scene by ID; version_mismatch, word_limit_blocked and "Scene not found" keep their contract', async () => {
+  const db = await seededDb();
+  const save = (userId, id, words, version) => {
+    scenesAction.setServerClient(as(db, userId));
+    return scenesAction.syncSceneWithLimitCheck(id, syntheticDoc('autosave', words), words, version, 'offline_sync');
+  };
+  const ok = await save(BRAM, UNPLACED_BRAM, 730, 4);
+  assert.equal(ok.status, 'ok', JSON.stringify(ok));
+  assert.equal(ok.version, 5);
+  assert.deepEqual(await one(db, `select chapter_id, word_count from public.scenes where id = $1`, [UNPLACED_BRAM]), { chapter_id: null, word_count: 730 });
+  assert.deepEqual(await save(BRAM, UNPLACED_BRAM, 731, 4), { status: 'version_mismatch' });
+  assert.deepEqual(await save(ALICE, PLACED_ALICE, 121, 4), { status: 'word_limit_blocked' }, 'alice is over her 2,000-word limit');
+  assert.deepEqual(await save(ALICE, UNPLACED_BRAM, 1, null), { status: 'error', error: 'Scene not found' });
+  assert.equal((await one(db, `select word_count from public.scenes where id = $1`, [UNPLACED_BRAM])).word_count, 730, 'only the owner\'s write landed');
+});
+
+test('REAL afterSceneSync: stores the ordered (placed-only) total and touches only a placed Scene\'s Chapter', async () => {
+  const db = await seededDb();
+  scenesAction.setServerClient(as(db, ALICE));
+  const chapterAt = async (label) => (await one(db, `select updated_at::text as t from public.chapters where id = $1`, [chapterId(label)])).t;
+  const before = { ch1: await chapterAt('ash.ch1'), ch2: await chapterAt('ash.ch2') };
+  await scenesAction.afterSceneSync(pageId('a1a')); // Unplaced, 500 words
+  assert.equal((await one(db, `select word_count from public.projects where id = $1`, [projectId('ash')])).word_count, 100,
+    'the stale 999 becomes the placed total (a1b 0 + a2a 60 + a2b 40); the Unplaced 500 is excluded');
+  assert.equal(await chapterAt('ash.ch1'), before.ch1, 'an Unplaced Scene touches no Chapter');
+  await scenesAction.afterSceneSync(pageId('a2a'));
+  assert.notEqual(await chapterAt('ash.ch2'), before.ch2);
+});
+
+test('REAL sync engine: a cached, queued edit syncs through save_scene_checked; Keep Local works; another writer gets not_found from "Scene not found"', async () => {
+  const db = await seededDb();
+  const bram = signIn(db, BRAM);
+
+  // Editor load: the Chapter's Scenes from the real action, cached for offline use.
+  const scenes = await scenesAction.getScenes(chapterId('tide.ch3'));
+  assert.deepEqual(scenes.data.map((s) => s.id), [pageId('t3a'), pageId('t3b')]);
+  await offline.cachePage(scenes.data[0], projectId('tide'));
+
+  await queue(pageId('t3a'), BRAM, 345);
+  await engine.syncPendingWrite(pageId('t3a'), 'offline_sync');
+  assert.equal(await pendingRow(pageId('t3a')), null, 'queue cleared');
+  assert.deepEqual(await one(db, `select word_count, version from public.scenes where id = $1`, [pageId('t3a')]), { word_count: 345, version: 4 });
+  assert.equal((await one(db, `select word_count from public.projects where id = $1`, [projectId('tide')])).word_count, 650 + 0 + 345 + 340,
+    'afterSceneSync stored the ordered total');
+  const used = bram.calls.map((c) => `${c.kind}:${c.name}`);
+  assert.ok(used.includes('from:scenes') && used.includes('rpc:save_scene_checked'));
+  assert.ok(!used.some((c) => /pages|page_checked/.test(c)), used.join(' '));
+
+  // Keep Local on an Unplaced Scene (no cached baseline; bypasses conflict detection).
+  await queue(UNPLACED_BRAM, BRAM, 740, 'keep');
+  assert.deepEqual(await engine.forceWriteLocalContent(UNPLACED_BRAM), { status: 'ok', wordCount: 740 });
+  assert.equal(await pendingRow(UNPLACED_BRAM), null);
+
+  // Another writer: the RPC's literal not-found string is classified, and the queued prose is kept.
+  signIn(db, ALICE);
+  await queue(UNPLACED_BRAM, ALICE, 5, 'intruder');
+  const denied = await engine.forceWriteLocalContent(UNPLACED_BRAM);
+  assert.deepEqual(denied, { status: 'error', category: 'not_found', message: 'Scene not found' });
+  await engine.syncPendingWrite(UNPLACED_BRAM, 'offline_sync');
+  const kept = await pendingRow(UNPLACED_BRAM);
+  assert.equal(kept?.syncStatus, 'failed', 'an invisible Scene fails the write durably');
+  assert.equal(kept.wordCount, 5, 'the queued prose is preserved');
+  assert.equal((await one(db, `select word_count from public.scenes where id = $1`, [UNPLACED_BRAM])).word_count, 740);
+  await (await offline.getOfflineDB()).delete('pending_writes', UNPLACED_BRAM);
+});
+
+test('REAL offline writing credits land on writing_sessions.scene_id, for placed and Unplaced Scenes alike', async () => {
+  const db = await seededDb();
+  signIn(db, BRAM);
+  await offline.storeOfflineWritingCredit(projectId('tide'), UNPLACED_BRAM, 12);
+  await offline.storeOfflineWritingCredit(projectId('tide'), UNPLACED_BRAM, 3);
+  await offline.storeOfflineWritingCredit(projectId('tide'), pageId('t3b'), 7);
+  await engine.flushOfflineWritingCredits();
+  const rows = (await db.query(`select scene_id, project_id, words_added from public.writing_sessions
+    where user_id = $1 and session_date > '2026-09-01' order by words_added`, [BRAM])).rows; // after every fixture row
+  assert.deepEqual(rows, [
+    { scene_id: pageId('t3b'), project_id: projectId('tide'), words_added: 7 },
+    { scene_id: UNPLACED_BRAM, project_id: projectId('tide'), words_added: 15 },
+  ]);
+  assert.deepEqual(await (await offline.getOfflineDB()).getAll('pending_writing_credits'), [], 'credits applied once');
 });

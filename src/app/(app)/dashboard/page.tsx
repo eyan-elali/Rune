@@ -5,6 +5,7 @@ import { getGoals, getWritingStreak, getTodayWords, getWordsByDay } from "@/lib/
 import { DashboardContent } from "./DashboardContent";
 import type { SubscriptionTier } from "@/lib/subscription";
 import { calculateChapterWordCount } from "@/lib/manuscript";
+import { getChaptersWithScenes, getProjectIdsByManuscript } from "@/lib/manuscriptQueries";
 import type { Project, ProjectNote, UserPreferences } from "@/lib/types";
 import type { RecentPageCard, RecentWork, DrawerChapter } from "@/components/dashboard/types";
 
@@ -52,78 +53,77 @@ export default async function DashboardPage({
   const totalWords = projects.reduce((sum, p) => sum + (p.word_count ?? 0), 0);
 
   let recentPageCards: RecentPageCard[] = [];
-
-  if (projects.length > 0) {
-    const projectIds = projects.map((p) => p.id);
-    const { data: chapters } = await supabase
-      .from("chapters")
-      .select("id")
-      .in("project_id", projectIds);
-
-    const chapterIds = chapters?.map((c) => c.id) ?? [];
-
-    if (chapterIds.length > 0) {
-      const { data: recentPages } = await supabase
-        .from("pages")
-        .select(
-          `id, title, word_count, chapters ( id, title, projects ( id, title ) )`
-        )
-        .in("chapter_id", chapterIds)
-        .order("updated_at", { ascending: false })
-        .limit(2);
-
-      if (recentPages) {
-        for (const row of recentPages) {
-          const chapterRaw = row.chapters;
-          const chapter = Array.isArray(chapterRaw) ? chapterRaw[0] : chapterRaw;
-          if (!chapter) continue;
-          const projectRaw = chapter.projects;
-          const project = Array.isArray(projectRaw) ? projectRaw[0] : projectRaw;
-          if (!project) continue;
-          recentPageCards.push({
-            pageId: row.id,
-            pageTitle: (row as { title?: string }).title ?? "Untitled Page",
-            chapterId: chapter.id,
-            chapterTitle: chapter.title,
-            projectId: project.id,
-            projectTitle: project.title,
-            wordCount: row.word_count ?? 0,
-          });
-        }
-      }
-    }
-  }
-
   let recentWork: RecentWork | null = null;
 
   if (projects.length > 0) {
-    const { data: chapters } = await supabase
-      .from("chapters")
-      .select("id, title, project_id, updated_at, pages(word_count, is_canonical)")
-      .in("project_id", projects.map((p) => p.id))
-      .order("updated_at", { ascending: false })
-      .limit(1);
+    const { data: projectIdByManuscript } = await getProjectIdsByManuscript(
+      supabase,
+      projects.map((p) => p.id)
+    );
+    const manuscriptIds = [...projectIdByManuscript.keys()];
 
-    if (chapters && chapters.length > 0) {
-      type RawChapterRow = {
-        id: string;
-        title: string;
-        project_id: string;
-        updated_at: string;
-        pages: { word_count: number; is_canonical: boolean }[];
-      };
-      const chap = chapters[0] as unknown as RawChapterRow;
-      const proj = projects.find((p) => p.id === chap.project_id);
-      if (proj) {
-        recentWork = {
-          chapterId: chap.id,
-          chapterTitle: chap.title,
-          projectId: chap.project_id,
-          projectTitle: proj.title,
-          coverColor: proj.cover_color,
-          chapterWordCount: calculateChapterWordCount(chap),
-        };
+    type ChapterRow = { id: string; title: string; manuscript_id: string; updated_at: string };
+    const { data: rawChapters } = manuscriptIds.length > 0
+      ? await supabase
+          .from("chapters")
+          .select("id, title, manuscript_id, updated_at")
+          .in("manuscript_id", manuscriptIds)
+      : { data: [] };
+    const chapters = (rawChapters ?? []) as ChapterRow[];
+    const chapterById = new Map(chapters.map((c) => [c.id, c]));
+    const projectOf = (chapter: ChapterRow) =>
+      projects.find((p) => p.id === projectIdByManuscript.get(chapter.manuscript_id));
+
+    // The two most recently edited placed Scenes (Unplaced Scenes have no
+    // Chapter to open them in).
+    if (chapters.length > 0) {
+      const { data: recentScenes } = await supabase
+        .from("scenes")
+        .select("id, title, word_count, chapter_id")
+        .in("chapter_id", chapters.map((c) => c.id))
+        .order("updated_at", { ascending: false })
+        .limit(2);
+
+      for (const row of recentScenes ?? []) {
+        const chapter = chapterById.get(row.chapter_id as string);
+        const project = chapter ? projectOf(chapter) : undefined;
+        if (!chapter || !project) continue;
+        recentPageCards.push({
+          pageId: row.id,
+          pageTitle: (row as { title?: string }).title ?? "Untitled Page",
+          chapterId: chapter.id,
+          chapterTitle: chapter.title,
+          projectId: project.id,
+          projectTitle: project.title,
+          wordCount: row.word_count ?? 0,
+        });
       }
+    }
+
+    // The most recently updated Chapter.
+    const { data: latestChapters } = manuscriptIds.length > 0
+      ? await supabase
+          .from("chapters")
+          .select("id, title, manuscript_id, updated_at")
+          .in("manuscript_id", manuscriptIds)
+          .order("updated_at", { ascending: false })
+          .limit(1)
+      : { data: [] };
+    const latestChapter = (latestChapters ?? [])[0] as ChapterRow | undefined;
+    const latestProject = latestChapter ? projectOf(latestChapter) : undefined;
+    if (latestChapter && latestProject) {
+      const { data: scenes } = await supabase
+        .from("scenes")
+        .select("word_count")
+        .eq("chapter_id", latestChapter.id);
+      recentWork = {
+        chapterId: latestChapter.id,
+        chapterTitle: latestChapter.title,
+        projectId: latestProject.id,
+        projectTitle: latestProject.title,
+        coverColor: latestProject.cover_color,
+        chapterWordCount: calculateChapterWordCount({ scenes: scenes ?? [] }),
+      };
     }
   }
 
@@ -159,22 +159,12 @@ export default async function DashboardPage({
 
   if (projects.length > 0) {
     const [chapsResult, wordsByDay] = await Promise.all([
-      supabase
-        .from("chapters")
-        .select("id, title, pages(word_count, is_canonical)")
-        .eq("project_id", recentWork?.projectId ?? projects[0].id)
-        .order("position", { ascending: true }),
+      getChaptersWithScenes(supabase, recentWork?.projectId ?? projects[0].id),
       getWordsByDay(user!.id, 30),
     ]);
 
-    if (chapsResult.data) {
-      type RawChapterWithPages = {
-        id: string;
-        title: string;
-        pages: { word_count: number; is_canonical: boolean }[];
-      };
-      const rawChaps = chapsResult.data as unknown as RawChapterWithPages[];
-      progressChapters = rawChaps.map((c) => ({
+    if (!chapsResult.error) {
+      progressChapters = chapsResult.data.map((c) => ({
         id: c.id,
         title: c.title,
         wordCount: calculateChapterWordCount(c),

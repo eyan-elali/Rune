@@ -2,8 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import type { Project, Chapter, Page } from "@/lib/types";
-import { calculateChapterWordCount } from "@/lib/manuscript";
+import type { Project, Chapter, PlacedScene } from "@/lib/types";
+import { calculateChapterWordCount, calculateProjectWordCount } from "@/lib/manuscript";
+import { getChaptersWithScenes, getManuscriptIdForProject } from "@/lib/manuscriptQueries";
 
 type ActionResult<T> = { data: T; error: null } | { data: null; error: string };
 
@@ -81,12 +82,12 @@ type DuplicateProjectCheckedResult =
   | { status: "error"; error: string };
 
 /**
- * Duplicates a project — chapters, pages, canonical-page relationships —
- * subject to the account-wide free-word limit. Delegates the entire
- * operation to duplicate_project_checked() (migration 011): ownership
- * verification, the canonical-aware word-limit check, and every row copy
+ * Duplicates a project — its Manuscript's Chapters and every Scene, placed
+ * and Unplaced — subject to the account-wide free-word limit. Delegates the
+ * entire operation to duplicate_project_checked(): ownership verification,
+ * the word-limit check (counting every copied Scene), and every row copy
  * happen inside that single atomic database call, sharing the same
- * per-account advisory lock as page saves/inserts. This closes the earlier
+ * per-account advisory lock as Scene saves/inserts. This closes the earlier
  * check-then-write race, where a concurrent editor save (or another
  * duplication) could read the same "remaining" figure and jointly exceed
  * the account-wide limit — and guarantees no partial duplicate is ever left
@@ -154,45 +155,17 @@ export async function deleteProject(id: string): Promise<{ error: string | null 
 
 export async function getProjectStats(
   projectId: string
-): Promise<{ chapterCount: number; totalCanonicalWords: number }> {
+): Promise<{ chapterCount: number; totalWords: number }> {
   const { supabase } = await getUser();
 
-  const { data: chapters } = await supabase
-    .from("chapters")
-    .select("id")
-    .eq("project_id", projectId);
-
-  const chapterIds = (chapters ?? []).map((c: { id: string }) => c.id);
-  if (chapterIds.length === 0) return { chapterCount: 0, totalCanonicalWords: 0 };
-
-  const { data: pages } = await supabase
-    .from("pages")
-    .select("chapter_id, word_count, is_canonical")
-    .in("chapter_id", chapterIds);
-
-  let totalWords = 0;
-  for (const chapterId of chapterIds) {
-    const chapterPages = (pages ?? []).filter(
-      (p: { chapter_id: string }) => p.chapter_id === chapterId
-    );
-    const canonical = chapterPages.find((p: { is_canonical: boolean }) => p.is_canonical);
-    if (canonical) {
-      totalWords += (canonical as { word_count: number }).word_count ?? 0;
-    } else {
-      totalWords += chapterPages.reduce(
-        (s: number, p: { word_count: number }) => s + (p.word_count ?? 0),
-        0
-      );
-    }
-  }
-
-  return { chapterCount: chapterIds.length, totalCanonicalWords: totalWords };
+  const { data: chapters } = await getChaptersWithScenes(supabase, projectId);
+  return { chapterCount: chapters.length, totalWords: calculateProjectWordCount(chapters) };
 }
 
 export async function createProjectWithDraft(
   title: string,
   coverColor?: string
-): Promise<ActionResult<{ projectId: string; chapterId: string; page: Page; chapter: Chapter; project: Project }>> {
+): Promise<ActionResult<{ projectId: string; chapterId: string; scene: PlacedScene; chapter: Chapter; project: Project }>> {
   const { supabase, user } = await getUser();
   if (!user) return { data: null, error: "Not authenticated" };
 
@@ -210,9 +183,15 @@ export async function createProjectWithDraft(
     return { data: null, error: projectError?.message ?? "Failed to create project" };
   }
 
+  // Created with the Project by the database (trg_project_manuscript).
+  const manuscriptId = await getManuscriptIdForProject(supabase, project.id);
+  if (!manuscriptId) {
+    return { data: null, error: "Failed to create manuscript" };
+  }
+
   const { data: chapter, error: chapterError } = await supabase
     .from("chapters")
-    .insert({ project_id: project.id, title: "Chapter 1", position: 1 })
+    .insert({ manuscript_id: manuscriptId, title: "Chapter 1", position: 1 })
     .select()
     .single();
 
@@ -220,27 +199,27 @@ export async function createProjectWithDraft(
     return { data: null, error: chapterError?.message ?? "Failed to create chapter" };
   }
 
-  const { data: page, error: pageError } = await supabase
-    .from("pages")
+  const { data: scene, error: sceneError } = await supabase
+    .from("scenes")
     .insert({
+      manuscript_id: manuscriptId,
       chapter_id: chapter.id,
       title: "Page 1",
       content: null,
       word_count: 0,
       position: 0,
-      is_canonical: false,
     })
     .select()
     .single();
 
-  if (pageError || !page) {
-    return { data: null, error: pageError?.message ?? "Failed to create page" };
+  if (sceneError || !scene) {
+    return { data: null, error: sceneError?.message ?? "Failed to create scene" };
   }
 
   revalidatePath("/projects");
   revalidatePath("/dashboard");
 
-  return { data: { projectId: project.id, chapterId: chapter.id, page, chapter, project }, error: null };
+  return { data: { projectId: project.id, chapterId: chapter.id, scene, chapter, project }, error: null };
 }
 
 export async function getProjectChaptersForDrawer(
@@ -249,21 +228,10 @@ export async function getProjectChaptersForDrawer(
   const { supabase, user } = await getUser();
   if (!user) return [];
 
-  const { data } = await supabase
-    .from("chapters")
-    .select("id, title, pages(word_count, is_canonical)")
-    .eq("project_id", projectId)
-    .order("position", { ascending: true });
+  const { data, error } = await getChaptersWithScenes(supabase, projectId);
+  if (error) return [];
 
-  if (!data) return [];
-
-  type RawChapter = {
-    id: string;
-    title: string;
-    pages: { word_count: number; is_canonical: boolean }[];
-  };
-
-  return (data as unknown as RawChapter[]).map((c) => ({
+  return data.map((c) => ({
     id: c.id,
     title: c.title,
     wordCount: calculateChapterWordCount(c),

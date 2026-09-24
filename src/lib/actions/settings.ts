@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { getProjectIdsByManuscript } from "@/lib/manuscriptQueries";
 import type { UserPreferences } from "@/lib/types";
 
 type ActionResult = { error: string | null };
@@ -80,23 +81,31 @@ export async function exportUserData(): Promise<{
     .eq("user_id", user.id);
 
   const projectIds = (projects ?? []).map((p: { id: string }) => p.id);
+  let manuscripts: unknown[] = [];
   let chapters: unknown[] = [];
-  let pages: unknown[] = [];
+  let scenes: unknown[] = [];
 
   if (projectIds.length > 0) {
-    const { data: chapterData } = await supabase
-      .from("chapters")
+    const { data: manuscriptData } = await supabase
+      .from("manuscripts")
       .select("*")
       .in("project_id", projectIds);
-    chapters = chapterData ?? [];
+    manuscripts = manuscriptData ?? [];
 
-    const chapterIds = (chapterData ?? []).map((c: { id: string }) => c.id);
-    if (chapterIds.length > 0) {
-      const { data: pageData } = await supabase
-        .from("pages")
+    const manuscriptIds = (manuscriptData ?? []).map((m: { id: string }) => m.id);
+    if (manuscriptIds.length > 0) {
+      const { data: chapterData } = await supabase
+        .from("chapters")
         .select("*")
-        .in("chapter_id", chapterIds);
-      pages = pageData ?? [];
+        .in("manuscript_id", manuscriptIds);
+      chapters = chapterData ?? [];
+
+      // Every Scene the writer owns, placed and Unplaced.
+      const { data: sceneData } = await supabase
+        .from("scenes")
+        .select("*")
+        .in("manuscript_id", manuscriptIds);
+      scenes = sceneData ?? [];
     }
   }
 
@@ -105,8 +114,9 @@ export async function exportUserData(): Promise<{
       exported_at: new Date().toISOString(),
       user_id: user.id,
       projects: projects ?? [],
+      manuscripts,
       chapters,
-      pages,
+      scenes,
     },
     error: null,
   };
@@ -127,16 +137,20 @@ export async function getRecentEditorChapter(): Promise<{
   const projectIds = (projects ?? []).map((p: { id: string }) => p.id);
   if (!projectIds.length) return null;
 
+  const { data: projectIdByManuscript } = await getProjectIdsByManuscript(supabase, projectIds);
+  if (projectIdByManuscript.size === 0) return null;
+
   const { data: chapters } = await supabase
     .from("chapters")
-    .select("id, project_id")
-    .in("project_id", projectIds)
+    .select("id, manuscript_id")
+    .in("manuscript_id", [...projectIdByManuscript.keys()])
     .order("updated_at", { ascending: false })
     .limit(1);
 
   const chapter = chapters?.[0];
-  if (!chapter) return null;
-  return { projectId: chapter.project_id, chapterId: chapter.id };
+  const projectId = chapter ? projectIdByManuscript.get(chapter.manuscript_id) : undefined;
+  if (!chapter || !projectId) return null;
+  return { projectId, chapterId: chapter.id };
 }
 
 export async function markFirstWordsSaved(): Promise<ActionResult> {

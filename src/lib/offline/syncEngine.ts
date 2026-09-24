@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/client'
 import { getOfflineDB, evictOldCacheEntries } from '@/lib/offline/db'
 import { createGameSession } from '@/lib/actions/games'
 import { awardProjectXp } from '@/lib/actions/xp'
-import { afterPageSync, syncPageWithLimitCheck } from '@/lib/actions/pages'
+import { afterSceneSync, syncSceneWithLimitCheck } from '@/lib/actions/scenes'
 import { recordWordsWritten } from '@/lib/actions/writingStats'
 
 // ── Write queue ───────────────────────────────────────────────────────────────
@@ -178,7 +178,7 @@ async function doSyncPendingWrite(
     // hides the three very different situations below. Fetch as a plain list
     // and classify explicitly.
     const { data: serverRows, error: fetchError } = await supabase
-      .from('pages')
+      .from('scenes')
       .select('updated_at, version, word_count')
       .eq('id', pageId)
 
@@ -202,7 +202,7 @@ async function doSyncPendingWrite(
       return
     }
     if (serverRows.length > 1) {
-      // pages.id is the primary key — more than one row is an invariant
+      // scenes.id is the primary key — more than one row is an invariant
       // violation that must never be silently reconciled.
       await failAttempt(
         'failed',
@@ -216,9 +216,9 @@ async function doSyncPendingWrite(
     //
     // A genuine conflict needs evidence that the server's CONTENT changed away
     // from the last baseline this device confirmed — not merely that the row
-    // was touched. pages.version and updated_at are bumped by the DB trigger
-    // on *any* update (title rename, page reorder, canonical toggle), so they
-    // are metadata signals, not content signals. pages.word_count is only ever
+    // was touched. scenes.version and updated_at are bumped by the DB trigger
+    // on *any* update (title rename, reorder, placement change), so they
+    // are metadata signals, not content signals. scenes.word_count is only ever
     // written by the content-save path, so word-count-vs-confirmed-baseline is
     // the primary signal; a deep content comparison disambiguates the one case
     // word count can't (a remote edit that happens to land on the identical
@@ -253,12 +253,12 @@ async function doSyncPendingWrite(
       ) {
         // Word count matches the confirmed baseline but the row's version
         // advanced past it. Usually that is a metadata-only bump (rename /
-        // reorder / canonical toggle). But word-count equality alone is not
+        // reorder / placement change). But word-count equality alone is not
         // proof the content is unchanged — a remote edit can land on the
         // identical count — so fetch the server content and compare it
         // structurally against the confirmed baseline copy.
         const { data: contentRows, error: contentError } = await supabase
-          .from('pages')
+          .from('scenes')
           .select('content')
           .eq('id', pageId)
         if (contentError) {
@@ -313,7 +313,7 @@ async function doSyncPendingWrite(
     // savePath is passed through only for analytics failure-diagnostics
     // (see recordAnalyticsEvent(first_save) below) — it has no effect on sync
     // behavior itself.
-    const syncResult = await syncPageWithLimitCheck(
+    const syncResult = await syncSceneWithLimitCheck(
       pageId,
       pending.content,
       pending.wordCount,
@@ -382,10 +382,10 @@ async function doSyncPendingWrite(
       cachedAt: Date.now(),
     })
 
-    // Mirror the server-side maintenance that updatePage() performs:
-    // touch chapter updated_at + canonical-aware project word count recalculation.
+    // Server-side maintenance: touch the Chapter's updated_at and recalculate
+    // the project's ordered manuscript total.
     try {
-      await afterPageSync(pageId)
+      await afterSceneSync(pageId)
     } catch {
       // Non-fatal — page content is saved; totals will correct on next full navigation.
     }
@@ -561,7 +561,7 @@ export async function getConflictedPages() {
  * (no version guard, p_expected_version: null) so this always wins over the
  * remote state.
  *
- * Delegates to save_page_checked() (migration 011) — the same atomic,
+ * Delegates to save_scene_checked() — the same atomic,
  * account-wide free-word-limit check every other save path uses. This used
  * to be a raw update with no limit check at all, meaning a writer could
  * bypass their word limit entirely by triggering a sync conflict and
@@ -618,8 +618,8 @@ async function doForceWriteLocalContent(pageId: string): Promise<ForceWriteResul
     return { status: 'error', category: 'auth', message: 'No auth session — sign-in required' }
   }
 
-  const { data, error } = await supabase.rpc('save_page_checked', {
-    p_page_id: pageId,
+  const { data, error } = await supabase.rpc('save_scene_checked', {
+    p_scene_id: pageId,
     p_content: pending.content,
     p_word_count: pending.wordCount,
     p_expected_version: null,
@@ -628,7 +628,7 @@ async function doForceWriteLocalContent(pageId: string): Promise<ForceWriteResul
   if (error || !data) {
     const message = error
       ? `${error.code ? error.code + ': ' : ''}${error.message}`
-      : 'Empty response from save_page_checked'
+      : 'Empty response from save_scene_checked'
     console.error(`[sync] Keep Local force-write failed for page ${pageId}:`, message)
     return {
       status: 'error',
@@ -655,7 +655,8 @@ async function doForceWriteLocalContent(pageId: string): Promise<ForceWriteResul
     console.error(`[sync] Keep Local force-write rejected for page ${pageId}:`, message)
     return {
       status: 'error',
-      category: message === 'Page not found' ? 'not_found' : 'server',
+      // The literal not-found error string of save_scene_checked.
+      category: message === 'Scene not found' ? 'not_found' : 'server',
       message,
     }
   }
@@ -664,7 +665,7 @@ async function doForceWriteLocalContent(pageId: string): Promise<ForceWriteResul
   // local state — "Keep Local" must never report success on trust alone.
   // (Plain list select, not .single() — see doSyncPendingWrite for why.)
   const { data: verifyRows, error: verifyError } = await supabase
-    .from('pages')
+    .from('scenes')
     .select('word_count, version')
     .eq('id', pageId)
   const verifyRow = verifyRows && verifyRows.length === 1 ? verifyRows[0] : null
@@ -702,7 +703,7 @@ async function doForceWriteLocalContent(pageId: string): Promise<ForceWriteResul
   })
 
   try {
-    await afterPageSync(pageId)
+    await afterSceneSync(pageId)
   } catch {
     // Non-fatal
   }

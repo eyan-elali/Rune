@@ -1,6 +1,6 @@
-// Mock Supabase server: one pages table with the production trigger semantics
-// (version + updated_at bump on EVERY update — migration 006), plus a
-// save_page_checked implementation mirroring migration 011's logic.
+// Mock Supabase server: one scenes table with the version trigger semantics
+// (version + updated_at bump on EVERY update — scene_version_trigger), plus a
+// save_scene_checked implementation mirroring its logic (migration 015).
 // Time is a controllable logical clock so timestamp comparisons are exact.
 
 let now = 1_000_000; // logical ms clock
@@ -8,7 +8,7 @@ export function tick(ms = 1000) { now += ms; return now; }
 export function nowIso() { return new Date(now).toISOString(); }
 
 export const server = {
-  pages: new Map(), // id -> { content, word_count, version, updated_at }
+  scenes: new Map(), // id -> { content, word_count, version, updated_at }
   // knobs
   rpcMode: 'ok', // 'ok' | 'error' | 'word_limit_blocked' | 'hang'
   hangResolvers: [],
@@ -22,7 +22,7 @@ export const server = {
 };
 
 export function resetServer() {
-  server.pages.clear();
+  server.scenes.clear();
   server.rpcMode = 'ok';
   server.hangResolvers = [];
   server.fetchMode = 'ok';
@@ -31,13 +31,13 @@ export function resetServer() {
 }
 
 export function createServerPage(id, { wordCount = 0, content = null } = {}) {
-  server.pages.set(id, {
+  server.scenes.set(id, {
     content,
     word_count: wordCount,
     version: 1,
     updated_at: nowIso(),
   });
-  return structuredClone(server.pages.get(id));
+  return structuredClone(server.scenes.get(id));
 }
 
 // The migration-006 trigger: ANY update bumps version and updated_at.
@@ -46,10 +46,10 @@ function triggerBump(row) {
   row.updated_at = nowIso();
 }
 
-// Metadata-only update — renamePage / reorderPages / canonical toggle.
+// Metadata-only update — renameScene / reorderScenes / placement change.
 export function metadataUpdate(id) {
   tick(1000);
-  const row = server.pages.get(id);
+  const row = server.scenes.get(id);
   if (!row) throw new Error('no such page');
   triggerBump(row);
   server.log.push({ op: 'metadata_update', id, version: row.version });
@@ -58,7 +58,7 @@ export function metadataUpdate(id) {
 // Content save from ANOTHER device/browser (bypasses this client entirely).
 export function remoteContentSave(id, content, wordCount) {
   tick(1000);
-  const row = server.pages.get(id);
+  const row = server.scenes.get(id);
   if (!row) throw new Error('no such page');
   row.content = content;
   row.word_count = wordCount;
@@ -70,12 +70,11 @@ export function remoteContentSave(id, content, wordCount) {
 // only placement metadata changes; id, content and word_count never do. The
 // real data step suppresses the version trigger; `bumpVersion` models a data
 // step that forgot to, which the client must still survive.
-export function applyPlacementMigration(id, { chapterId, isCanonical = false, bumpVersion = false }) {
+export function applyPlacementMigration(id, { chapterId, bumpVersion = false }) {
   tick(1000);
-  const row = server.pages.get(id);
+  const row = server.scenes.get(id);
   if (!row) throw new Error('no such page');
   row.chapter_id = chapterId;
-  row.is_canonical = isCanonical;
   if (bumpVersion) triggerBump(row);
   server.log.push({ op: 'placement_migration', id, chapterId, version: row.version });
 }
@@ -90,17 +89,17 @@ export function releaseFetchHang() {
   server.fetchHangResolvers = [];
 }
 
-// migration 011 save_page_checked semantics (word limit not modeled unless knob set)
-export async function savePageChecked({ p_page_id, p_content, p_word_count, p_expected_version }) {
-  server.log.push({ op: 'save_page_checked', id: p_page_id, words: p_word_count, expectedVersion: p_expected_version });
+// save_scene_checked semantics (word limit not modeled unless knob set)
+export async function saveSceneChecked({ p_scene_id, p_content, p_word_count, p_expected_version }) {
+  server.log.push({ op: 'save_scene_checked', id: p_scene_id, words: p_word_count, expectedVersion: p_expected_version });
   if (server.rpcMode === 'hang') {
     await new Promise((resolve) => server.hangResolvers.push(resolve));
   }
   if (server.rpcMode === 'error') {
     return { error: { message: 'simulated postgres error (P0001)' }, data: null };
   }
-  const row = server.pages.get(p_page_id);
-  if (!row) return { error: null, data: { status: 'error', error: 'Page not found' } };
+  const row = server.scenes.get(p_scene_id);
+  if (!row) return { error: null, data: { status: 'error', error: 'Scene not found' } };
   if (server.rpcMode === 'word_limit_blocked' && p_word_count > row.word_count) {
     return { error: null, data: { status: 'word_limit_blocked', limit: 2000 } };
   }
@@ -116,10 +115,10 @@ export async function savePageChecked({ p_page_id, p_content, p_word_count, p_ex
   return { error: null, data: { status: 'ok', updated_at: row.updated_at, version: row.version } };
 }
 
-export async function fetchPage(id) {
+export async function fetchScene(id) {
   // Snapshot at CALL time — a hung fetch must resolve with the state it saw when
   // it started, not the state after a concurrent write commits.
-  const row = server.pages.get(id);
+  const row = server.scenes.get(id);
   const snapshot = row ? structuredClone(row) : null;
   if (server.fetchMode === 'hang') {
     await new Promise((resolve) => server.fetchHangResolvers.push(resolve));

@@ -1,4 +1,4 @@
-import type { Project, Chapter, Page } from "@/lib/types";
+import type { Project, Chapter, PlacedScene } from "@/lib/types";
 import {
   PW,
   PH,
@@ -88,18 +88,60 @@ function hasText(node: TNode): boolean {
   return (node.content ?? []).some(hasText);
 }
 
-function endsWithParagraphBlock(page: Page): boolean {
-  const root = page.content as TNode | null;
+function endsWithParagraphBlock(scene: PlacedScene): boolean {
+  const root = scene.content as TNode | null;
   const blocks = root?.content ?? [];
   const lastBlock = [...blocks].reverse().find(hasText);
 
   return lastBlock?.type === "paragraph";
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type SupabaseLike = any;
+
+/**
+ * Loads what the manuscript export renders: the Project's Chapters by
+ * position and their placed Scenes. Unplaced Scenes are never exported.
+ * Throws on a failed read so a partial manuscript is never exported.
+ */
+export async function loadManuscriptForExport(
+  supabase: SupabaseLike,
+  projectId: string
+): Promise<{ chapters: Chapter[]; scenesPerChapter: Record<string, PlacedScene[]> }> {
+  const { data: manuscript, error: manuscriptErr } = await supabase
+    .from("manuscripts")
+    .select("id")
+    .eq("project_id", projectId)
+    .maybeSingle();
+  if (manuscriptErr) throw manuscriptErr;
+  if (!manuscript) return { chapters: [], scenesPerChapter: {} };
+
+  const { data: chapters, error: chapErr } = await supabase
+    .from("chapters")
+    .select("*")
+    .eq("manuscript_id", manuscript.id)
+    .order("position", { ascending: true });
+  if (chapErr) throw chapErr;
+  if (!chapters || chapters.length === 0) return { chapters: [], scenesPerChapter: {} };
+
+  const { data: scenes, error: sceneErr } = await supabase
+    .from("scenes")
+    .select("*")
+    .in("chapter_id", (chapters as Chapter[]).map((c) => c.id))
+    .order("position", { ascending: true });
+  if (sceneErr) throw sceneErr;
+
+  const scenesPerChapter: Record<string, PlacedScene[]> = {};
+  for (const scene of (scenes ?? []) as PlacedScene[]) {
+    (scenesPerChapter[scene.chapter_id] ??= []).push(scene);
+  }
+  return { chapters: chapters as Chapter[], scenesPerChapter };
+}
+
 export async function exportProjectAsPdf(
   project: Project,
   chapters: Chapter[],
-  pagesPerChapter: Record<string, Page[]>
+  scenesPerChapter: Record<string, PlacedScene[]>
 ): Promise<void> {
   const { default: jsPDF } = await import("jspdf");
 
@@ -121,14 +163,11 @@ export async function exportProjectAsPdf(
 
   let firstChapter = true;
   for (const chapter of sorted) {
-    const allPages = pagesPerChapter[chapter.id] ?? [];
-    if (allPages.length === 0) continue;
-
-    // Determine pages to export: canonical page only, or all in position order
-    const canonicalPage = allPages.find((p) => p.is_canonical);
-    const pagesToExport = canonicalPage
-      ? [canonicalPage]
-      : [...allPages].sort((a, b) => a.position - b.position);
+    // Every placed Scene of the Chapter, in position order.
+    const scenesToExport = [...(scenesPerChapter[chapter.id] ?? [])].sort(
+      (a, b) => a.position - b.position
+    );
+    if (scenesToExport.length === 0) continue;
 
     // Start every chapter on a fresh page
     if (firstChapter) {
@@ -145,14 +184,14 @@ export async function exportProjectAsPdf(
     renderChapterTitle(state, chapter);
     state.bodyParagraphCount = 0;
 
-    for (let i = 0; i < pagesToExport.length; i++) {
+    for (let i = 0; i < scenesToExport.length; i++) {
       if (i > 0) {
-        if (endsWithParagraphBlock(pagesToExport[i - 1])) {
+        if (endsWithParagraphBlock(scenesToExport[i - 1])) {
           renderPageDivider(state);
         }
         state.bodyParagraphCount = 0;
       }
-      const root = pagesToExport[i].content as TNode | null;
+      const root = scenesToExport[i].content as TNode | null;
       if (root?.content) {
         for (const node of root.content) {
           renderNode(state, node);

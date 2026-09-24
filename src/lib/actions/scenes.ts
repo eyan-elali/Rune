@@ -2,8 +2,9 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { recalculateProjectWordCount } from "@/lib/projectWordCount";
+import { getProjectIdForManuscript } from "@/lib/manuscriptQueries";
 import { recordAnalyticsEvent } from "@/lib/actions/analytics";
-import type { Page } from "@/lib/types";
+import type { PlacedScene, Scene } from "@/lib/types";
 
 type ActionResult<T> = { data: T; error: null } | { data: null; error: string };
 
@@ -17,19 +18,19 @@ async function getUser() {
 
 /**
  * Account-wide, server-authoritative *stored-word* total for the signed-in
- * user — every live page they own, canonical or not, summed across every
- * project, backed by the account_word_total() database function (see
- * migration 011). This is deliberately NOT the same figure as a project's
- * displayed manuscript total (projects.word_count / calculateProjectWordCount
- * in src/lib/manuscript.ts, which only counts each chapter's canonical
- * page) — the free-tier allowance is measured against everything Rune is
- * storing for the writer, not just the current official draft. Returns 0
- * for Scribe subscribers without querying pages/chapters at all, since the
- * value is meaningless once the account is unrestricted.
+ * user — every Scene they own, placed or Unplaced, summed across every
+ * project, backed by the account_word_total() database function. This is
+ * deliberately NOT the same figure as a project's displayed manuscript total
+ * (projects.word_count / calculateProjectWordCount in src/lib/manuscript.ts,
+ * which counts placed Scenes only) — the free-tier allowance is measured
+ * against everything Rune is storing for the writer, so moving prose to
+ * Unplaced Scenes can never lower it. Returns 0 for Scribe subscribers
+ * without querying at all, since the value is meaningless once the account
+ * is unrestricted.
  *
  * This is a display/UX value only — safe to call directly from client
  * components for the editor's remaining-words estimate. The actual limit is
- * enforced server-side, atomically, by save_page_checked/insert_page_checked
+ * enforced server-side, atomically, by save_scene_checked/insert_scene_checked
  * (see below) — never by this function or its caller.
  */
 export async function getAccountWordTotal(): Promise<number> {
@@ -49,37 +50,42 @@ export async function getAccountWordTotal(): Promise<number> {
   return data;
 }
 
-type SavePageCheckedResult =
+type SaveSceneCheckedResult =
   | { status: "ok"; updated_at: string; version: number }
   | { status: "word_limit_blocked"; limit: number }
   | { status: "version_mismatch" }
   | { status: "error"; error: string };
 
-export async function getPages(
+/** A Chapter's placed Scenes, in order. */
+export async function getScenes(
   chapterId: string
-): Promise<ActionResult<Page[]>> {
+): Promise<ActionResult<PlacedScene[]>> {
   const { supabase, user } = await getUser();
   if (!user) return { data: null, error: "Not authenticated" };
 
   const { data, error } = await supabase
-    .from("pages")
+    .from("scenes")
     .select("*")
     .eq("chapter_id", chapterId)
     .order("position", { ascending: true });
 
   if (error) return { data: null, error: error.message };
-  return { data: data ?? [], error: null };
+  return { data: (data ?? []) as PlacedScene[], error: null };
 }
 
-export async function createPage(
+/**
+ * Creates an empty Scene at the end of a Chapter. Its Manuscript is derived
+ * from the Chapter by the database (scenes_fill_manuscript_id).
+ */
+export async function createScene(
   chapterId: string,
   title: string
-): Promise<ActionResult<Page>> {
+): Promise<ActionResult<PlacedScene>> {
   const { supabase, user } = await getUser();
   if (!user) return { data: null, error: "Not authenticated" };
 
   const { data: existing } = await supabase
-    .from("pages")
+    .from("scenes")
     .select("position")
     .eq("chapter_id", chapterId)
     .order("position", { ascending: false })
@@ -89,33 +95,32 @@ export async function createPage(
     existing && existing.length > 0 ? existing[0].position + 1 : 0;
 
   const { data, error } = await supabase
-    .from("pages")
+    .from("scenes")
     .insert({
       chapter_id: chapterId,
       title: title.trim() || "Untitled",
       content: null,
       word_count: 0,
       position,
-      is_canonical: false,
     })
     .select()
     .single();
 
   if (error) return { data: null, error: error.message };
-  return { data, error: null };
+  return { data: data as PlacedScene, error: null };
 }
 
-export async function reorderPages(
+export async function reorderScenes(
   chapterId: string,
-  orderedPageIds: string[]
+  orderedSceneIds: string[]
 ): Promise<{ error: string | null }> {
   const { supabase, user } = await getUser();
   if (!user) return { error: "Not authenticated" };
 
   const results = await Promise.all(
-    orderedPageIds.map((id, index) =>
+    orderedSceneIds.map((id, index) =>
       supabase
-        .from("pages")
+        .from("scenes")
         .update({ position: index, updated_at: new Date().toISOString() })
         .eq("id", id)
         .eq("chapter_id", chapterId) // guard against cross-chapter drift
@@ -128,15 +133,15 @@ export async function reorderPages(
   return { error: null };
 }
 
-export async function renamePage(
+export async function renameScene(
   id: string,
   title: string
-): Promise<ActionResult<Page>> {
+): Promise<ActionResult<Scene>> {
   const { supabase, user } = await getUser();
   if (!user) return { data: null, error: "Not authenticated" };
 
   const { data, error } = await supabase
-    .from("pages")
+    .from("scenes")
     .update({
       title: title.trim() || "Untitled",
       updated_at: new Date().toISOString(),
@@ -146,113 +151,49 @@ export async function renamePage(
     .single();
 
   if (error) return { data: null, error: error.message };
-  return { data, error: null };
+  return { data: data as Scene, error: null };
 }
 
-export async function deletePage(
+export async function deleteScene(
   id: string
 ): Promise<{ error: string | null }> {
   const { supabase, user } = await getUser();
   if (!user) return { error: "Not authenticated" };
 
-  // Capture chapter/project info before deletion for word count recalculation
-  const { data: page } = await supabase
-    .from("pages")
-    .select("chapter_id")
+  // Capture the Manuscript before deletion for word count recalculation.
+  const { data: scene } = await supabase
+    .from("scenes")
+    .select("manuscript_id")
     .eq("id", id)
     .single();
 
-  const { error } = await supabase.from("pages").delete().eq("id", id);
+  const { error } = await supabase.from("scenes").delete().eq("id", id);
   if (error) return { error: error.message };
 
-  if (page) {
-    const { data: chapter } = await supabase
-      .from("chapters")
-      .select("project_id")
-      .eq("id", page.chapter_id)
-      .single();
-
-    if (chapter) {
-      await recalculateProjectWordCount(supabase, chapter.project_id);
+  if (scene) {
+    const projectId = await getProjectIdForManuscript(supabase, scene.manuscript_id);
+    if (projectId) {
+      await recalculateProjectWordCount(supabase, projectId);
     }
   }
 
   return { error: null };
 }
 
-export async function setCanonicalPage(
-  pageId: string,
-  chapterId: string
-): Promise<{ error: string | null }> {
-  const { supabase, user } = await getUser();
-  if (!user) return { error: "Not authenticated" };
-
-  // Clear all canonical flags in the chapter first (the DB trigger also enforces this)
-  await supabase
-    .from("pages")
-    .update({ is_canonical: false })
-    .eq("chapter_id", chapterId);
-
-  const { error } = await supabase
-    .from("pages")
-    .update({ is_canonical: true })
-    .eq("id", pageId);
-
-  if (error) return { error: error.message };
-
-  const { data: chapter } = await supabase
-    .from("chapters")
-    .select("project_id")
-    .eq("id", chapterId)
-    .single();
-
-  if (chapter) {
-    await recalculateProjectWordCount(supabase, chapter.project_id);
-  }
-
-  return { error: null };
-}
-
-export async function clearCanonicalPage(
-  chapterId: string
-): Promise<{ error: string | null }> {
-  const { supabase, user } = await getUser();
-  if (!user) return { error: "Not authenticated" };
-
-  const { error } = await supabase
-    .from("pages")
-    .update({ is_canonical: false })
-    .eq("chapter_id", chapterId);
-
-  if (error) return { error: error.message };
-
-  const { data: chapter } = await supabase
-    .from("chapters")
-    .select("project_id")
-    .eq("id", chapterId)
-    .single();
-
-  if (chapter) {
-    await recalculateProjectWordCount(supabase, chapter.project_id);
-  }
-
-  return { error: null };
-}
-
 /**
- * Server-side word limit check + version-guarded page update for the live
+ * Server-side word limit check + version-guarded Scene update for the live
  * editor's autosave path (both the immediate online save and the
  * reconnect/flush-queue path call this). Delegates the check-and-write to
- * save_page_checked() (migration 011), a single atomic database function —
- * the limit check and the page update used to be two separate round trips
- * here, which let two concurrent saves on different pages read the same
- * "remaining" figure and jointly exceed the account-wide limit. The
- * database function closes that race with a per-account advisory lock.
+ * save_scene_checked(), a single atomic database function — the limit check
+ * and the update used to be two separate round trips here, which let two
+ * concurrent saves on different Scenes read the same "remaining" figure and
+ * jointly exceed the account-wide limit. The database function closes that
+ * race with a per-account advisory lock.
  *
  * Returns a discriminated union so the caller can handle each case without
  * needing to inspect raw DB error codes.
  */
-export async function syncPageWithLimitCheck(
+export async function syncSceneWithLimitCheck(
   id: string,
   content: Record<string, unknown>,
   wordCount: number,
@@ -267,8 +208,8 @@ export async function syncPageWithLimitCheck(
   const { supabase, user } = await getUser();
   if (!user) return { status: "error", error: "Not authenticated" };
 
-  const { data, error } = await supabase.rpc("save_page_checked", {
-    p_page_id: id,
+  const { data, error } = await supabase.rpc("save_scene_checked", {
+    p_scene_id: id,
     p_content: content,
     p_word_count: wordCount,
     p_expected_version: serverVersion,
@@ -283,7 +224,7 @@ export async function syncPageWithLimitCheck(
       error: `${error.code ? error.code + ": " : ""}${error.message}`,
     };
 
-  const result = data as SavePageCheckedResult;
+  const result = data as SaveSceneCheckedResult;
 
   if (result.status === "error") return { status: "error", error: result.error };
   if (result.status === "word_limit_blocked") return { status: "word_limit_blocked" };
@@ -302,7 +243,7 @@ export async function syncPageWithLimitCheck(
       eventName: "first_save",
     });
     if (analyticsError) {
-      // Safe diagnostic context only — never log manuscript content, page
+      // Safe diagnostic context only — never log manuscript content, Scene
       // content, project titles, emails, or auth tokens.
       console.error("[analytics] first_save insert failed:", {
         eventName: "first_save",
@@ -330,37 +271,34 @@ export async function syncPageWithLimitCheck(
 
 /**
  * Post-sync maintenance called after syncPendingWrite successfully persists a
- * page to Supabase. Touches the parent chapter's updated_at and runs the
- * canonical-aware project word count recalculation (which also revalidates
+ * Scene. Touches the Scene's Chapter updated_at (a placed Scene only) and
+ * recalculates the project's ordered manuscript total (which also revalidates
  * the project and profile page caches). This is purely for the *display*
  * total (projects.word_count) — unrelated to the account-wide enforcement
- * above, which is always computed live from pages/chapters, never from this
+ * above, which is always computed live from every Scene, never from this
  * denormalized column.
  */
-export async function afterPageSync(pageId: string): Promise<void> {
+export async function afterSceneSync(sceneId: string): Promise<void> {
   const { supabase, user } = await getUser();
   if (!user) return;
 
-  const { data: page } = await supabase
-    .from("pages")
-    .select("chapter_id")
-    .eq("id", pageId)
+  const { data: scene } = await supabase
+    .from("scenes")
+    .select("chapter_id, manuscript_id")
+    .eq("id", sceneId)
     .single();
 
-  if (!page) return;
+  if (!scene) return;
 
-  await supabase
-    .from("chapters")
-    .update({ updated_at: new Date().toISOString() })
-    .eq("id", page.chapter_id);
+  if (scene.chapter_id) {
+    await supabase
+      .from("chapters")
+      .update({ updated_at: new Date().toISOString() })
+      .eq("id", scene.chapter_id);
+  }
 
-  const { data: chapter } = await supabase
-    .from("chapters")
-    .select("project_id")
-    .eq("id", page.chapter_id)
-    .single();
-
-  if (chapter) {
-    await recalculateProjectWordCount(supabase, chapter.project_id);
+  const projectId = await getProjectIdForManuscript(supabase, scene.manuscript_id);
+  if (projectId) {
+    await recalculateProjectWordCount(supabase, projectId);
   }
 }

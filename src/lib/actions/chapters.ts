@@ -3,6 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { recalculateProjectWordCount } from "@/lib/projectWordCount";
+import {
+  getChaptersWithScenes,
+  getManuscriptIdForProject,
+  type ChapterWithScenes,
+} from "@/lib/manuscriptQueries";
 import type { Chapter } from "@/lib/types";
 
 type ActionResult<T> = { data: T; error: null } | { data: null; error: string };
@@ -15,22 +20,15 @@ async function getUser() {
   return { supabase, user };
 }
 
-export async function getChapters(projectId: string): Promise<
-  ActionResult<
-    (Chapter & { pages: { id: string; word_count: number }[] })[]
-  >
-> {
+export async function getChapters(
+  projectId: string
+): Promise<ActionResult<ChapterWithScenes[]>> {
   const { supabase, user } = await getUser();
   if (!user) return { data: null, error: "Not authenticated" };
 
-  const { data, error } = await supabase
-    .from("chapters")
-    .select("*, pages(id, word_count, is_canonical)")
-    .eq("project_id", projectId)
-    .order("position", { ascending: true });
-
+  const { data, error } = await getChaptersWithScenes(supabase, projectId);
   if (error) return { data: null, error: error.message };
-  return { data: (data as typeof data & { pages: { id: string; word_count: number }[] }[]) ?? [], error: null };
+  return { data, error: null };
 }
 
 export async function createChapter(
@@ -41,24 +39,28 @@ export async function createChapter(
   const { supabase, user } = await getUser();
   if (!user) return { data: null, error: "Not authenticated" };
 
+  const manuscriptId = await getManuscriptIdForProject(supabase, projectId);
+  if (!manuscriptId) return { data: null, error: "Project not found" };
+
   const { data, error } = await supabase
     .from("chapters")
-    .insert({ project_id: projectId, title: title.trim(), position })
+    .insert({ manuscript_id: manuscriptId, title: title.trim(), position })
     .select()
     .single();
 
   if (error) return { data: null, error: error.message };
 
-  const { error: pageError } = await supabase.from("pages").insert({
+  // Every new Chapter starts with one empty placed Scene.
+  const { error: sceneError } = await supabase.from("scenes").insert({
+    manuscript_id: manuscriptId,
     chapter_id: data.id,
     title: "Page 1",
     content: null,
     word_count: 0,
     position: 0,
-    is_canonical: false,
   });
 
-  if (pageError) return { data: null, error: pageError.message };
+  if (sceneError) return { data: null, error: sceneError.message };
 
   revalidatePath(`/projects/${projectId}`);
   return { data, error: null };

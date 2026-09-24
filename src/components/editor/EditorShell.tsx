@@ -8,20 +8,13 @@ import { ExportButton } from "./ExportButton";
 import { EditorTutorial } from "./EditorTutorial";
 import { ModeToggle } from "@/components/ui/ModeToggle";
 import { GuideButton } from "@/components/ui/GuideButton";
-import type { Page, Chapter, Project } from "@/lib/types";
-import {
-  createPage,
-  deletePage,
-  setCanonicalPage,
-  clearCanonicalPage,
-  reorderPages,
-} from "@/lib/actions/pages";
+import type { PlacedScene, Chapter, Project } from "@/lib/types";
+import type { ChapterWithScenes } from "@/lib/manuscriptQueries";
+import { createScene, deleteScene, reorderScenes } from "@/lib/actions/scenes";
 import { cachePage, cacheChapterMeta } from "@/lib/offline/db";
 import { useEditorStore } from "@/store/editorStore";
 import { useModeStore } from "@/store/modeStore";
 import { useToastStore } from "@/store/toastStore";
-
-type ChapterWithStats = Chapter & { pages: { id: string; word_count: number }[] };
 
 const RuneEditor = dynamic(() => import("./RuneEditor"), {
   ssr: false,
@@ -37,10 +30,11 @@ const RuneEditor = dynamic(() => import("./RuneEditor"), {
 interface EditorShellProps {
   projectId: string;
   chapterId: string;
-  initialPages: Page[];
+  /** The Chapter's placed Scenes (shown to the writer as pages). */
+  initialPages: PlacedScene[];
   chapter: Chapter;
   project: Project;
-  allChapters: ChapterWithStats[];
+  allChapters: ChapterWithScenes[];
   showTutorial?: boolean;
   forceTutorial?: boolean;
   /** Account-wide manuscript word total at page load — see getAccountWordTotal. */
@@ -58,7 +52,7 @@ export function EditorShell({
   forceTutorial = false,
   accountWordTotal = 0,
 }: EditorShellProps) {
-  const [pages, setPages] = useState<Page[]>(initialPages);
+  const [pages, setPages] = useState<PlacedScene[]>(initialPages);
   const [selectedPageId, setSelectedPageId] = useState<string | null>(
     initialPages[0]?.id ?? null
   );
@@ -94,7 +88,7 @@ export function EditorShell({
   }, []);
 
   const handleAddPage = useCallback(async () => {
-    const { data, error } = await createPage(
+    const { data, error } = await createScene(
       chapterId,
       `Page ${pages.length + 1}`
     );
@@ -107,7 +101,7 @@ export function EditorShell({
 
   const handleDeletePage = useCallback(
     async (pageId: string) => {
-      const { error } = await deletePage(pageId);
+      const { error } = await deleteScene(pageId);
       if (!error) {
         setPages((prev) => {
           const remaining = prev.filter((p) => p.id !== pageId);
@@ -128,28 +122,13 @@ export function EditorShell({
   }, []);
 
   const handlePageUpdated = useCallback(
-    (pageId: string, updates: Partial<Page>) => {
+    (pageId: string, updates: Partial<PlacedScene>) => {
       setPages((prev) =>
         prev.map((p) => (p.id === pageId ? { ...p, ...updates } : p))
       );
     },
     []
   );
-
-  const handleSetCanonical = useCallback(
-    async (pageId: string) => {
-      setPages((prev) =>
-        prev.map((p) => ({ ...p, is_canonical: p.id === pageId }))
-      );
-      await setCanonicalPage(pageId, chapterId);
-    },
-    [chapterId]
-  );
-
-  const handleClearCanonical = useCallback(async () => {
-    setPages((prev) => prev.map((p) => ({ ...p, is_canonical: false })));
-    await clearCanonicalPage(chapterId);
-  }, [chapterId]);
 
   const handleReorderPages = useCallback(
     async (orderedPageIds: string[]) => {
@@ -159,11 +138,11 @@ export function EditorShell({
           const page = previous.find((p) => p.id === id);
           return page ? { ...page, position: index } : null;
         })
-        .filter((p): p is Page => p !== null);
+        .filter((p): p is PlacedScene => p !== null);
 
       setPages(reordered);
 
-      const { error } = await reorderPages(chapterId, orderedPageIds);
+      const { error } = await reorderScenes(chapterId, orderedPageIds);
       if (error) {
         setPages(previous);
         showToast(
@@ -191,8 +170,6 @@ export function EditorShell({
           onAddPage={handleAddPage}
           onDeletePage={handleDeletePage}
           onRenamePage={handleRenamePage}
-          onSetCanonical={handleSetCanonical}
-          onClearCanonical={handleClearCanonical}
           onReorderPages={handleReorderPages}
           allChapters={allChapters}
           currentChapterId={chapterId}

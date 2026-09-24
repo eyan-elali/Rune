@@ -10,6 +10,7 @@ import {
 import { getUserUnlockables } from "@/lib/actions/unlockables";
 import type { SubscriptionTier } from "@/lib/subscription";
 import { calculateProjectWordCount } from "@/lib/manuscript";
+import { getChaptersWithScenesByProject } from "@/lib/manuscriptQueries";
 import { UNLOCKABLES, type Unlockable } from "@/lib/unlockables";
 import { ProfileGuideMount } from "./ProfileGuideMount";
 import { ProfileStreakClient } from "@/components/profile/ProfileStreakClient";
@@ -153,7 +154,7 @@ export default async function ProfilePage() {
     supabase.from("profiles").select("*").eq("id", user!.id).single(),
     supabase
       .from("projects")
-      .select("id, title, chapters(id, pages(id, word_count, is_canonical))")
+      .select("id, title")
       .eq("user_id", user!.id),
     supabase
       .from("game_sessions")
@@ -180,14 +181,15 @@ export default async function ProfilePage() {
   ) as SubscriptionTier;
   const contributionHistory = await getContributionHistory(user!.id);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const projects = (rawProjects ?? []) as any[];
+  const projects = (rawProjects ?? []) as { id: string; title: string | null }[];
+  const { data: chaptersByProject } = await getChaptersWithScenesByProject(
+    supabase,
+    projects.map((p) => p.id)
+  );
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const projectWordCounts = projects.map((p: any) => ({
-    title: (p.title as string) ?? "Untitled",
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    words: calculateProjectWordCount((p.chapters ?? []) as any[]),
+  const projectWordCounts = projects.map((p) => ({
+    title: p.title ?? "Untitled",
+    words: calculateProjectWordCount(chaptersByProject[p.id] ?? []),
   }));
 
   const totalWords = projectWordCounts.reduce(

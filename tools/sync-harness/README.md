@@ -103,9 +103,10 @@ save commits through the real trigger.
 
 **`tests/migration-invariants.test.mjs`** is the Rune 2.0 Phase 1 migration
 safety harness (architecture doc §42). On the synthetic fixture it proves the
-harness's legacy rule matches the real app (`manuscript.ts`,
-`recalculateProjectWordCount`, `account_word_total()`, and the real PDF export
-with a recording jsPDF), that the approved mapping keeps the ordered manuscript,
+real Rune 2.0 app (`manuscript.ts`, `recalculateProjectWordCount`, and the real
+export loader + PDF export with a recording jsPDF), run on the approved mapping
+of the fixture, reproduces the legacy ordered totals and export selection, that
+`account_word_total()` counts every Page, that the approved mapping keeps the ordered manuscript,
 export selection, account totals and writing history, and that
 `checkMigration()` accepts a correct migration and names every defect in its
 negative controls without printing prose.
@@ -116,10 +117,12 @@ Its section 5 moves the fixture into the Rune 2.0 schema with
 lost sync metadata, alternates left placed, dropped history, a placed-only
 `account_word_total`).
 
-**`tests/sql-ownership-contract.test.mjs`** runs every browser-direct `pages`
-shape (sync pre-read, deep check, conflict modal, Keep Local, verify, export
-loader) and the real autosave action against real RLS on the Rune 1.x
-baseline, where real writers still are.
+**`tests/sql-ownership-contract.test.mjs`** runs every Rune 1.x `pages` shape
+the deployed app sends (sync pre-read, deep check, conflict modal, Keep Local,
+verify, export loader, and the autosave action's `save_page_checked` call with
+its status mapping) against real RLS on the Rune 1.x baseline, where real
+writers still are. The app on this branch targets the Rune 2.0 schema, so these
+shapes are pinned literally.
 
 **`tests/rune2-schema.test.mjs`** proves `schema.sql` is exactly what
 `build-schema.mjs` generates, that a database built from it alone equals
@@ -133,9 +136,17 @@ Chapter/Scene RLS through the Manuscript for every command, the Scene
 equivalents of the app's read shapes, `save_scene_checked` /
 `insert_scene_checked` / `account_word_total` / `duplicate_project_checked`,
 cross-tenant and cross-Manuscript injection, Unplaced Scenes counting toward
-the limit, triggers, writing history and deletion. These are the former
-Task 1 `FUTURE` tests. Running the REAL app modules against Scenes is
-deferred to the application task (one skipped test).
+the limit, triggers, writing history and deletion (the former Task 1 `FUTURE`
+tests). Its last section runs the REAL app modules against Scenes: the
+autosave action (`actions/scenes.ts`), `afterSceneSync`, the offline sync
+engine over fake IndexedDB (sync, Keep Local, the `'Scene not found'` →
+`not_found` classification), the writing-credit flush and the export loader.
+
+**`tests/app-rune2.test.mjs`** runs the real structure-changing paths on the
+Rune 2.0 schema: project/Chapter/Scene creation, reorder, rename, deletion and
+its total recalculation, the onboarding route (first sentence, skipped
+sentence, free-limit refusal with nothing left behind) and Arena's two save
+paths.
 
 ### Using the invariants in a migration test
 
@@ -153,7 +164,7 @@ cutover and final Phase 1 verification (run against the original baseline).
 **`tests/foundation.test.mjs`** covers the Phase 0 foundation itself: shim
 identity and RLS per role, the adapter's query shapes, RLS and error behaviour,
 and bundling the real `src/lib/projectWordCount.ts` and running it against
-PGlite as the project owner.
+PGlite (Rune 2.0 schema) as the project owner.
 
 ## Writing a test
 
@@ -168,7 +179,7 @@ let db;
 before(async () => { db = await createTestDb(); /* load schema + seed */ });
 
 test('…', async () => {
-  const mod = await bundleForTest('src/lib/actions/pages.ts');
+  const mod = await bundleForTest('src/lib/actions/scenes.ts');
   mod.setServerClient(createSupabaseAdapter(db, { userId: A }));
   // call real server actions; assert on db state
 });

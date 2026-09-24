@@ -2,6 +2,7 @@ import { getProjects } from "@/lib/actions/projects";
 import { ProjectsGrid } from "@/components/projects/ProjectsGrid";
 import { createClient } from "@/lib/supabase/server";
 import { calculateProjectWordCount } from "@/lib/manuscript";
+import { getChaptersWithScenesByProject } from "@/lib/manuscriptQueries";
 
 export default async function ProjectsPage() {
   const { data: projects, error } = await getProjects();
@@ -19,15 +20,13 @@ export default async function ProjectsPage() {
 
   if (projectList.length > 0) {
     const supabase = await createClient();
-    const { data: chapters } = await supabase
-      .from("chapters")
-      .select("id, project_id, pages(id, word_count, is_canonical)")
-      .in("project_id", projectList.map((p) => p.id));
+    const { data: chaptersByProject } = await getChaptersWithScenesByProject(
+      supabase,
+      projectList.map((p) => p.id)
+    );
 
     for (const project of projectList) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const projectChapters = (chapters ?? []).filter((c: any) => c.project_id === project.id);
-      wordCounts[project.id] = calculateProjectWordCount(projectChapters);
+      wordCounts[project.id] = calculateProjectWordCount(chaptersByProject[project.id] ?? []);
     }
   }
 

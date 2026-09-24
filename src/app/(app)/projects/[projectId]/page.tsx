@@ -4,11 +4,7 @@ import { ChapterList } from "@/components/projects/ChapterList";
 import { ProjectHeader } from "@/components/projects/ProjectHeader";
 import type { SubscriptionTier } from "@/lib/subscription";
 import { calculateProjectWordCount } from "@/lib/manuscript";
-import type { Chapter } from "@/lib/types";
-
-type ChapterWithStats = Chapter & {
-  pages: { id: string; word_count: number; is_canonical: boolean }[];
-};
+import { getChaptersWithScenes } from "@/lib/manuscriptQueries";
 
 interface ProjectPageProps {
   params: Promise<{ projectId: string }>;
@@ -22,11 +18,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
 
   const [{ data: project }, { data: chapters }, { data: profileTier }] = await Promise.all([
     supabase.from("projects").select("*").eq("id", projectId).single(),
-    supabase
-      .from("chapters")
-      .select("*, pages(id, word_count, is_canonical)")
-      .eq("project_id", projectId)
-      .order("position", { ascending: true }),
+    getChaptersWithScenes(supabase, projectId),
     supabase
       .from("profiles")
       .select("subscription_tier")
@@ -38,7 +30,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
 
   const subscriptionTier = (profileTier?.subscription_tier ?? "free") as SubscriptionTier;
 
-  const typedChapters = (chapters ?? []) as ChapterWithStats[];
+  const typedChapters = chapters ?? [];
   const completedCount = typedChapters.filter((c) => c.is_completed).length;
   const wordCount = calculateProjectWordCount(typedChapters);
 

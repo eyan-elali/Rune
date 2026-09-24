@@ -1,19 +1,22 @@
-export type PageStat = {
+export type SceneStat = {
   word_count: number;
-  is_canonical: boolean;
 };
 
-export type ChapterWithPageStats = {
-  pages?: PageStat[] | null;
+export type ChapterWithSceneStats = {
+  /** The Chapter's placed Scenes. Unplaced Scenes never belong to a Chapter. */
+  scenes?: SceneStat[] | null;
 };
 
-export function calculateChapterWordCount(chapter: ChapterWithPageStats): number {
-  const pages = chapter.pages ?? [];
-  const canonical = pages.find((p) => p.is_canonical);
-  if (canonical) return canonical.word_count ?? 0;
-  return pages.reduce((sum, p) => sum + (p.word_count ?? 0), 0);
+/** Ordered manuscript words in one Chapter: every placed Scene counts. */
+export function calculateChapterWordCount(chapter: ChapterWithSceneStats): number {
+  return (chapter.scenes ?? []).reduce((sum, s) => sum + (s.word_count ?? 0), 0);
 }
 
-export function calculateProjectWordCount(chapters: ChapterWithPageStats[]): number {
+/**
+ * The ordered manuscript total: every placed Scene of every Chapter.
+ * Unplaced Scenes are excluded. This is NOT the free-limit account total
+ * (account_word_total counts every Scene, placed or Unplaced).
+ */
+export function calculateProjectWordCount(chapters: ChapterWithSceneStats[]): number {
   return chapters.reduce((sum, c) => sum + calculateChapterWordCount(c), 0);
 }

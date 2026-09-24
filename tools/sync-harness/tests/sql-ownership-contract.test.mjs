@@ -1,7 +1,10 @@
 // Ownership / RLS contracts for manuscript prose on the Rune 1.x production
 // baseline (`pages`), through REAL Postgres (PGlite), driven with the exact
-// query shapes the app sends today. Written for the Rune 2.0 Page → Scene
-// migration.
+// query shapes the deployed Rune 1.x app sends (and stale clients and queued
+// offline saves keep sending). Written for the Rune 2.0 Page → Scene
+// migration. The app on this branch targets the Rune 2.0 schema
+// (tests/sql-rune2-manuscript.test.mjs runs its real modules), so the Rune
+// 1.x shapes are pinned here literally.
 //
 // A Rune 1.x Page's owner is found only through Page → Chapter → Project →
 // User. These tests pin that every browser-direct and server shape reaches a
@@ -14,7 +17,7 @@
 // schema, where Scenes own their Manuscript directly:
 // tests/sql-rune2-manuscript.test.mjs.
 //
-// Browser-direct shapes (the app's own files):
+// Browser-direct shapes (Rune 1.x files):
 //   READ_SYNC      syncEngine.ts  doSyncPendingWrite pre-read
 //   READ_DEEP      syncEngine.ts  deep content check
 //   READ_CONFLICT  SyncConflictModal.tsx  server version for the conflict modal
@@ -22,12 +25,12 @@
 //   READ_VERIFY    syncEngine.ts  Keep Local post-save verification
 //   EXPORT_LOAD    ManuscriptExportButton.tsx  chapters by project, then pages .in(chapter_id)
 // Server shape:
-//   AUTOSAVE       actions/pages.ts syncPageWithLimitCheck (REAL module) → save_page_checked(p_expected_version: n)
-import { test, before } from 'node:test';
+//   AUTOSAVE       actions/pages.ts syncPageWithLimitCheck → save_page_checked(p_expected_version: n),
+//                  with its status mapping
+import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createTestDb, readRepoFile, LEGACY_BASELINE } from '../lib/pg.mjs';
 import { createSupabaseAdapter } from '../lib/supabase-adapter.mjs';
-import { bundleForTest } from '../lib/bundle.mjs';
 import { takeManuscriptSnapshot } from '../lib/manuscript-snapshot.mjs';
 import { assertNoViolations, checkMigration } from '../lib/manuscript-invariants.mjs';
 import { LABELS, USERS, chapterId, pageId, projectId, seedFixture, syntheticDoc } from '../fixtures/manuscript-fixture.mjs';
@@ -61,14 +64,14 @@ async function seededDb() {
   return db;
 }
 
-let pagesAction; // the REAL autosave server action module
-before(async () => {
-  pagesAction = await bundleForTest('src/lib/actions/pages.ts', { name: 'own_actions_pages' });
-});
-
+/** Rune 1.x syncPageWithLimitCheck: save_page_checked with the read version, statuses mapped as the action does. */
 async function autosave(db, userId, id, content, words, version) {
-  pagesAction.setServerClient(as(db, userId));
-  return pagesAction.syncPageWithLimitCheck(id, content, words, version, 'offline_sync');
+  const { data, error } = await as(db, userId).rpc('save_page_checked', {
+    p_page_id: id, p_content: content, p_word_count: words, p_expected_version: version,
+  });
+  if (error) return { status: 'error', error: `${error.code ? error.code + ': ' : ''}${error.message}` };
+  if (data.status === 'word_limit_blocked') return { status: 'word_limit_blocked' };
+  return data;
 }
 
 /** Replays one queued offline write the way the sync engine does: pre-read by ID, autosave with the read version, verify. */
@@ -101,7 +104,7 @@ test('another user and anon see nothing through any read shape', async () => {
   }
 });
 
-test('a queued write to a future-Unplaced alternate replays by ID through the REAL autosave action', async () => {
+test('a queued write to a future-Unplaced alternate replays by ID through the Rune 1.x autosave shape', async () => {
   const db = await seededDb();
   const r = await replayQueuedWrite(db, BRAM, ALT_BRAM, 730);
   assert.equal(r.saved.status, 'ok', JSON.stringify(r.saved));

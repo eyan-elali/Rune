@@ -53,9 +53,17 @@ export interface Project {
   updated_at: string;
 }
 
-export interface Chapter {
+/** Exactly one per Project, created with it by the database. Holds no prose. */
+export interface Manuscript {
   id: string;
   project_id: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Chapter {
+  id: string;
+  manuscript_id: string;
   title: string;
   position: number;
   is_completed: boolean;
@@ -63,17 +71,27 @@ export interface Chapter {
   updated_at: string;
 }
 
-export interface Page {
+/**
+ * The unit of manuscript prose. A Scene always belongs to its Manuscript and
+ * is either placed in a Chapter of that Manuscript or Unplaced
+ * (chapter_id null). Every placed Scene counts toward the ordered manuscript
+ * total and appears in export; there is no canonical Scene.
+ */
+export interface Scene {
   id: string;
-  chapter_id: string;
+  manuscript_id: string;
+  chapter_id: string | null;
   title: string;
   content: Record<string, unknown> | null;
   word_count: number;
   position: number;
-  is_canonical: boolean;
+  version: number;
   created_at: string;
   updated_at: string;
 }
+
+/** A Scene placed in a Chapter — the only kind the editor opens today. */
+export type PlacedScene = Scene & { chapter_id: string };
 
 export interface ProjectNote {
   id: string;

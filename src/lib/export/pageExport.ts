@@ -1,4 +1,4 @@
-import type { Page, Chapter, Project } from "@/lib/types";
+import type { Scene, Chapter, Project } from "@/lib/types";
 import {
   PW,
   PH,
@@ -17,7 +17,7 @@ function slugify(s: string) {
 }
 
 export async function exportPageAsPdf(
-  page: Page,
+  page: Scene,
   chapter: Chapter,
   project: Project
 ): Promise<void> {

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import {
   appendSprintToProject,
-  appendToExistingPage,
+  appendToExistingScene,
 } from "@/lib/actions/games";
 import { transferGameWordsToProject } from "@/lib/actions/writingStats";
 import { getProjects } from "@/lib/actions/projects";
@@ -67,7 +67,7 @@ export function SaveToProject({
     if (pageSource?.type !== "existing") return;
     setAppendStep("saving");
     onSaveStart?.();
-    const result = await appendToExistingPage(pageSource.page.id, textWritten, words);
+    const result = await appendToExistingScene(pageSource.page.id, textWritten, words);
     if (result.error) {
       setAppendError(result.error);
       setAppendStep("error");

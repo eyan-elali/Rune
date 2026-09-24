@@ -78,7 +78,7 @@ export function SyncConflictModal({
         // inaccessible) must be distinguishable from a query error instead of
         // both collapsing into PGRST116's generic coercion message.
         const { data: rows, error } = await supabase
-          .from("pages")
+          .from("scenes")
           .select("content, word_count, updated_at, version")
           .eq("id", pageId);
 

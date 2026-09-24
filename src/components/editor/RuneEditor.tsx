@@ -9,7 +9,7 @@ import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { cn, getLocalDateString } from "@/lib/utils";
-import { renamePage, getAccountWordTotal } from "@/lib/actions/pages";
+import { renameScene, getAccountWordTotal } from "@/lib/actions/scenes";
 import { recordWordsWritten } from "@/lib/actions/writingStats";
 import { writeToPendingQueue, syncPendingWrite } from "@/lib/offline/syncEngine";
 import { getOfflineDB, getPendingWrite, storeOfflineWritingCredit } from "@/lib/offline/db";
@@ -24,7 +24,7 @@ import { useProfileStore } from "@/store/profileStore";
 import { useToastStore } from "@/store/toastStore";
 import { WORD_LIMITS } from "@/lib/pricing";
 import { createCheckoutSession } from "@/lib/actions/billing";
-import type { Page, UserPreferences } from "@/lib/types";
+import type { PlacedScene, UserPreferences } from "@/lib/types";
 
 type DisplaySyncStatus = 'synced' | 'online_dirty' | 'offline_dirty' | 'syncing' | 'conflict'
 
@@ -59,8 +59,8 @@ function countWords(doc: ProseMirrorNode): number {
 interface RuneEditorProps {
   projectId: string;
   chapterId: string;
-  currentPage: Page | null;
-  onPageUpdated: (pageId: string, updates: Partial<Page>) => void;
+  currentPage: PlacedScene | null;
+  onPageUpdated: (pageId: string, updates: Partial<PlacedScene>) => void;
   onRenamePage: (pageId: string, title: string) => void;
   /** Account-wide manuscript word total at page load — see getAccountWordTotal. */
   accountWordTotal?: number;
@@ -93,7 +93,7 @@ export default function RuneEditor({
   const userId = useProfileStore((s) => s.profile?.id);
   const subscriptionTier = useProfileStore((s) => s.subscriptionTier);
   const pricingCohort = useProfileStore((s) => s.pricingCohort);
-  // Client-side value is UX-only — the server (updatePage/syncPageWithLimitCheck)
+  // Client-side value is UX-only — the server (syncSceneWithLimitCheck)
   // always re-derives tier + cohort independently and is the actual authority.
   const wordLimit =
     subscriptionTier === "scribe" ? Infinity : WORD_LIMITS[pricingCohort ?? "starter_2k"];
@@ -133,7 +133,7 @@ export default function RuneEditor({
 
 
 
-  const currentPageRef = useRef<Page | null>(currentPage);
+  const currentPageRef = useRef<PlacedScene | null>(currentPage);
   const onPageUpdatedRef = useRef(onPageUpdated);
   const prevPageIdRef = useRef<string | null>(null);
   const isLoadingRef = useRef(false);
@@ -274,8 +274,8 @@ export default function RuneEditor({
     const delta = wordCount - lastSavedWordCountRef.current;
 
     // Free-tier word limit check — only block growth, never block edits/deletions.
-    // This is a client-side UX guard only: the server (save_page_checked, via
-    // syncPageWithLimitCheck below) always re-derives the account-wide total
+    // This is a client-side UX guard only: the server (save_scene_checked, via
+    // syncSceneWithLimitCheck below) always re-derives the account-wide total
     // independently and is the actual authority.
     if (subscriptionTierRef.current === 'free' && delta > 0) {
       const otherAccountWords = accountWordTotalRef.current - lastSavedWordCountRef.current;
@@ -380,8 +380,8 @@ export default function RuneEditor({
       // Helper: true when the account-wide total (every project the writer
       // owns, not just this one) is at or above the limit for free users.
       // Uses refs so all handlers always read live values. This is a
-      // client-side estimate only — the server (save_page_checked, via
-      // syncPageWithLimitCheck) always re-derives the account-wide total
+      // client-side estimate only — the server (save_scene_checked, via
+      // syncSceneWithLimitCheck) always re-derives the account-wide total
       // independently and is the actual authority.
 
       handleTextInput: (_view, _from, _to, _text) => {
@@ -773,7 +773,7 @@ export default function RuneEditor({
       showToast("Title saved locally — will sync when reconnected", "info");
       return;
     }
-    await renamePage(page.id, trimmed);
+    await renameScene(page.id, trimmed);
   }
 
   if (!currentPage) {

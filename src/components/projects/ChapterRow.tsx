@@ -7,14 +7,10 @@ import { updateChapter, deleteChapter, markChapterComplete } from "@/lib/actions
 import { calculateChapterWordCount } from "@/lib/manuscript";
 import { useToastStore } from "@/store/toastStore";
 import { cn } from "@/lib/utils";
-import type { Chapter } from "@/lib/types";
-
-type ChapterWithStats = Chapter & {
-  pages: { id: string; word_count: number; is_canonical: boolean }[];
-};
+import type { ChapterWithScenes } from "@/lib/manuscriptQueries";
 
 interface ChapterRowProps {
-  chapter: ChapterWithStats;
+  chapter: ChapterWithScenes;
   projectId: string;
 }
 
@@ -30,7 +26,7 @@ export function ChapterRow({ chapter, projectId }: ChapterRowProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const navClickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const pageCount = chapter.pages?.length ?? 0;
+  const pageCount = chapter.scenes?.length ?? 0;
   const totalWords = calculateChapterWordCount(chapter);
 
   function startEditing() {

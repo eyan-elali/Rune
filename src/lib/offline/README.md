@@ -1,10 +1,16 @@
 # Offline Sync
 
 > Verified against `db.ts` / `syncEngine.ts` in September 2026. The store names,
-> keys, and `save_page_checked` call shapes below are **compatibility contracts**:
+> keys, and `save_scene_checked` call shapes below are **compatibility contracts**:
 > stale tabs and queued IndexedDB writes depend on them. Do not rename, re-key, or
-> delete stores; do not change Page IDs. The regression harness in
-> `tools/sync-harness` exercises the real `syncEngine.ts` + `db.ts`.
+> delete stores; do not change Scene IDs. The regression harness in
+> `tools/sync-harness` exercises the real `syncEngine.ts` + `db.ts` (mocked
+> network) and, in `tests/sql-rune2-manuscript.test.mjs`, against real Postgres.
+>
+> The engine targets the Rune 2.0 schema (`scenes`). Store names, keys and field
+> names keep their Rune 1.x "page" spelling (`page_cache`, `pageId`) because they
+> are persisted in writers' browsers; every key is a Scene ID (Rune 2.0 keeps each
+> Page ID as its Scene ID).
 
 ## IndexedDB stores (`rune-offline`, version 3)
 
@@ -22,9 +28,9 @@ The `upgrade` callback only **creates missing stores** — it never deletes or m
 
 `page_cache` baseline fields (written only from confirmed server state):
 
-- `serverWordCount` — last confirmed server `word_count`. The **primary** conflict signal, because `pages.word_count` is only written by content saves.
+- `serverWordCount` — last confirmed server `word_count`. The **primary** conflict signal, because `scenes.word_count` is only written by content saves.
 - `serverContent` — last confirmed server content, used only by the deep content check.
-- `serverVersion` / `serverUpdatedAt` — metadata signals. The migration-006 trigger bumps them on **any** row update (rename, reorder, canonical toggle), so they are not proof of a content change.
+- `serverVersion` / `serverUpdatedAt` — metadata signals. `scene_version_trigger` bumps them on **any** row update (rename, reorder, placement change), so they are not proof of a content change.
 
 `writeToPendingQueue` preserves all of these via spread; it never overwrites a baseline with local values.
 
@@ -32,8 +38,8 @@ The `upgrade` callback only **creates missing stores** — it never deletes or m
 
 1. Every editor change calls `writeToPendingQueue(pageId, userId, content, wordCount)`, writing `pending_writes` and `page_cache` immediately. An existing `conflict` status is preserved.
 2. After the debounce (`autoSaveDelay`, default 1500 ms, effective minimum 2500 ms) the editor calls `syncPendingWrite(pageId, 'online', expectedWordCount)`, passing its private in-memory confirmed word count.
-3. `syncPendingWrite` reads `updated_at, version, word_count` for the page (a list read, not `.single()`), runs conflict detection, then calls the `syncPageWithLimitCheck` server action → `save_page_checked` RPC with `p_expected_version` = the fetched server version.
-4. On `ok`, the queue row is deleted **only if** its `localUpdatedAt` still matches the uploaded revision (a newer keystroke stays queued), the cache baseline is updated, and `afterPageSync` touches the chapter and recalculates the canonical-aware project total.
+3. `syncPendingWrite` reads `updated_at, version, word_count` for the page (a list read, not `.single()`), runs conflict detection, then calls the `syncSceneWithLimitCheck` server action (`src/lib/actions/scenes.ts`) → `save_scene_checked` RPC with `p_expected_version` = the fetched server version.
+4. On `ok`, the queue row is deleted **only if** its `localUpdatedAt` still matches the uploaded revision (a newer keystroke stays queued), the cache baseline is updated, and `afterSceneSync` touches the Scene's Chapter (placed Scenes only) and recalculates the project's ordered manuscript total.
 5. Offline, the write simply stays `pending`; the editor shows it as saved locally.
 
 Outcomes:
@@ -62,7 +68,7 @@ Concurrency: `syncPendingWrite` calls for the same page are coalesced (`inFlight
 
 ## Conflict resolution (`SyncConflictModal`)
 
-- **Keep Local** → `forceWriteLocalContent(pageId)`: calls `save_page_checked` **directly from the browser** with `p_expected_version: null`, verifies the server row, then clears only the acknowledged revision and adopts the returned version as the baseline. Any non-`ok` status is reported as an error and the draft is kept.
+- **Keep Local** → `forceWriteLocalContent(pageId)`: calls `save_scene_checked` **directly from the browser** with `p_expected_version: null`, verifies the server row, then clears only the acknowledged revision and adopts the returned version as the baseline. Any non-`ok` status is reported as an error and the draft is kept.
 - **Keep Server** → deletes the pending row and writes the fetched server content into `page_cache` as the new baseline.
 
 ## Settings → Sync tab
@@ -71,10 +77,10 @@ Counts come from `getOfflineStorageSummary()`. **Clear cache** (`clearPageCache(
 
 ## Required database objects
 
-`pages.version` and `page_version_trigger`, `save_page_checked` and its helpers, and `bump_project_updated_at` / `trg_page_updated` are all part of the Rune 1.x production baseline (`src/lib/supabase/baseline/production-2026-09-24.sql`). Migration 014 asserts the save-path RPC contracts (one overload each, frozen argument lists, pinned `search_path`).
+`scenes.version` / `scene_version_trigger`, `save_scene_checked` / `insert_scene_checked` and their helpers, and `bump_project_updated_at` / `trg_scene_updated` (Rune 2.0 schema: `src/lib/supabase/schema.sql`, migration 015). They keep the Rune 1.x contracts (`save_page_checked`, `insert_page_checked`, `trg_page_updated` in `src/lib/supabase/baseline/production-2026-09-24.sql`) except the renamed arguments (`p_scene_id`) and the not-found error string: `forceWriteLocalContent` classifies the literal `'Scene not found'` as `not_found`.
 
-The Rune 2.0 schema (`src/lib/supabase/schema.sql`, migration 015) replaces them with `scenes.version` / `scene_version_trigger`, `save_scene_checked` / `insert_scene_checked`, and `trg_scene_updated`, with the same contracts except the renamed arguments and the `'Scene not found'` error string. This engine still targets the Rune 1.x objects until the application task moves it.
+Production is still on the Rune 1.x baseline; this engine does not work against it. Deployed Rune 1.x clients and their queued offline saves keep calling `save_page_checked` until the future Rune 1.x → Rune 2.0 data migration, which must account for them.
 
 ## Word count warning
 
-**Never** increment `projects.word_count` by a delta. Always call `recalculateProjectWordCount(supabase, projectId)`, which counts each chapter's canonical page if one is set, otherwise all its pages. `afterPageSync` does this after every successful sync.
+**Never** increment `projects.word_count` by a delta. Always call `recalculateProjectWordCount(supabase, projectId)`, which stores the ordered manuscript total: every placed Scene of every Chapter (Unplaced Scenes excluded). `afterSceneSync` does this after every successful sync.

@@ -52,7 +52,7 @@ const STEPS: GuideStep[] = [
   {
     target: "project-export",
     heading: "Export Manuscript",
-    copy: "Export Manuscript exports the canonical pages from this project.",
+    copy: "Export Manuscript exports every chapter of this project, in order.",
     side: "bottom",
   },
 ];

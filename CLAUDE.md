@@ -428,7 +428,7 @@ Writers organize work through projects, chapters, pages, and canonical-page beha
 
 Do not change counting, deletion, export, canonical-page, or chapter-order behavior casually. These systems affect manuscript integrity and totals.
 
-**Current implementation reality:** a Chapter may mark one Page as canonical. When it does, only that Page counts toward manuscript totals and appears in export (`src/lib/projectWordCount.ts`, `src/lib/manuscript.ts`, `src/lib/export/projectExport.ts`).
+**Current implementation reality:** in production (Rune 1.x, the `main` branch), a Chapter may mark one Page as canonical. When it does, only that Page counts toward manuscript totals and appears in export. On the `rune-2` branch the application runs on the Rune 2.0 schema instead: every placed Scene counts and exports, and there is no canonical logic (`src/lib/manuscript.ts`, `src/lib/manuscriptQueries.ts`, `src/lib/projectWordCount.ts`, `src/lib/export/projectExport.ts`).
 
 **Rune 2.0 direction** (intended mapping only; not yet authorized to run):
 

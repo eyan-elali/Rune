@@ -12,9 +12,11 @@ Step-by-step instructions for deploying Rune to production.
 > regresses signup.
 >
 > **Rune 2.0 branch:** `src/lib/supabase/schema.sql` is now the Rune 2.0 schema
-> (Scenes, Manuscripts). The application code on this branch still uses the
-> Rune 1.x tables, so it does not run against a Rune 2.0 database until the
-> application task lands. Production stays on the Rune 1.x baseline.
+> (Scenes, Manuscripts), and the application code on this branch targets it
+> (`scenes`, `chapters.manuscript_id`, `save_scene_checked`). This branch does
+> **not** run against the Rune 1.x production database; do not deploy it there.
+> Production stays on the Rune 1.x baseline until the Rune 1.x → Rune 2.0 data
+> migration.
 >
 > The Stripe section below still describes an obsolete Arcane tier and old
 > prices. The current required environment variables are listed in

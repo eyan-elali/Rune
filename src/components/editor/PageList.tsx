@@ -8,17 +8,14 @@ import {
   FileText,
   Trash2,
   MoreHorizontal,
-  Bookmark,
-  Info,
   Pencil,
   ChevronLeft,
   GripVertical,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { Page, Chapter } from "@/lib/types";
-import { renamePage } from "@/lib/actions/pages";
-
-type ChapterWithStats = Chapter & { pages: { id: string; word_count: number }[] };
+import type { PlacedScene } from "@/lib/types";
+import type { ChapterWithScenes } from "@/lib/manuscriptQueries";
+import { renameScene } from "@/lib/actions/scenes";
 
 // ── Skeleton ──────────────────────────────────────────────────────────────────
 
@@ -64,12 +61,10 @@ export function PageListSkeleton() {
 // ── Per-page context menu ─────────────────────────────────────────────────────
 
 interface PageMenuProps {
-  page: Page;
+  page: PlacedScene;
   totalPages: number;
   onRename: () => void;
   onDelete: () => void;
-  onSetCanonical: () => void;
-  onClearCanonical: () => void;
 }
 
 function PageMenu({
@@ -77,8 +72,6 @@ function PageMenu({
   totalPages,
   onRename,
   onDelete,
-  onSetCanonical,
-  onClearCanonical,
 }: PageMenuProps) {
   const [open, setOpen] = useState(false);
   const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
@@ -170,44 +163,6 @@ function PageMenu({
                 }}
               />
 
-              {!page.is_canonical ? (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setOpen(false);
-                    onSetCanonical();
-                  }}
-                  className="flex w-full items-center gap-2.5 px-3.5 py-2 text-xs transition-colors hover:bg-rune-gold/10"
-                  style={{ color: "var(--color-gold)" }}
-                >
-                  <Bookmark size={11} aria-hidden />
-                  Set as Canonical
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setOpen(false);
-                    onClearCanonical();
-                  }}
-                  className="flex w-full items-center gap-2.5 px-3.5 py-2 text-xs transition-colors hover:bg-rune-gold/10"
-                  style={{ color: "var(--color-gold)" }}
-                >
-                  <Bookmark size={11} aria-hidden />
-                  Clear Canonical
-                </button>
-              )}
-
-              <div
-                style={{
-                  height: "1px",
-                  background: "var(--color-border)",
-                  margin: "2px 0",
-                }}
-              />
-
               <button
                 type="button"
                 disabled={totalPages <= 1}
@@ -233,16 +188,15 @@ function PageMenu({
 // ── Main component ────────────────────────────────────────────────────────────
 
 interface PageListProps {
-  pages: Page[];
+  /** The Chapter's placed Scenes, shown to the writer as pages. */
+  pages: PlacedScene[];
   selectedPageId: string | null;
   onSelectPage: (pageId: string) => void;
   onAddPage: () => void;
   onDeletePage: (pageId: string) => void;
   onRenamePage: (pageId: string, title: string) => void;
-  onSetCanonical: (pageId: string) => void;
-  onClearCanonical: () => void;
   onReorderPages: (orderedPageIds: string[]) => void;
-  allChapters: ChapterWithStats[];
+  allChapters: ChapterWithScenes[];
   currentChapterId: string;
   projectId: string;
 }
@@ -254,8 +208,6 @@ export function PageList({
   onAddPage,
   onDeletePage,
   onRenamePage,
-  onSetCanonical,
-  onClearCanonical,
   onReorderPages,
   allChapters,
   currentChapterId,
@@ -268,8 +220,6 @@ export function PageList({
   const [dragOverId, setDragOverId] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
-
-  const hasCanonical = pages.some((p) => p.is_canonical);
 
   function handleDragStart(e: React.DragEvent, pageId: string) {
     setDraggedId(pageId);
@@ -313,7 +263,7 @@ export function PageList({
     setDragOverId(null);
   }
 
-  function startEditing(page: Page, e: React.MouseEvent) {
+  function startEditing(page: PlacedScene, e: React.MouseEvent) {
     e.stopPropagation();
     setEditingId(page.id);
     setEditingTitle(page.title);
@@ -324,7 +274,7 @@ export function PageList({
     const title = editingTitle.trim() || "Untitled";
     onRenamePage(pageId, title);
     setEditingId(null);
-    await renamePage(pageId, title);
+    await renameScene(pageId, title);
   }
 
   // ── Chapters view ─────────────────────────────────────────────────────────────
@@ -376,8 +326,8 @@ export function PageList({
           >
             {allChapters.map((chapter) => {
               const isCurrent = chapter.id === currentChapterId;
-              const pageCount = chapter.pages.length;
-              const wordCount = chapter.pages.reduce(
+              const pageCount = chapter.scenes.length;
+              const wordCount = chapter.scenes.reduce(
                 (sum, p) => sum + (p.word_count ?? 0),
                 0
               );
@@ -484,31 +434,6 @@ export function PageList({
         />
       </div>
 
-      {/* Canonical info bar */}
-      {hasCanonical && (
-        <div
-          className="mx-3 mt-2 flex shrink-0 items-start gap-2 rounded-md px-2.5 py-2"
-          style={{
-            background: "color-mix(in srgb, var(--color-gold) 6%, transparent)",
-            borderLeft: "2px solid color-mix(in srgb, var(--color-gold) 35%, transparent)",
-          }}
-        >
-          <Info
-            size={11}
-            className="mt-0.5 shrink-0"
-            style={{ color: "var(--color-gold)", opacity: 0.7 }}
-            aria-hidden
-          />
-          <p
-            className="text-[10px] leading-snug"
-            style={{ color: "var(--color-gold)", opacity: 0.75 }}
-            title="One page per chapter can be set as the canonical word count source. Non-canonical pages in that chapter won't count toward project totals, preventing double-counting when you keep scene drafts alongside a final combined page."
-          >
-            One page is set as the word count source for a chapter.
-          </p>
-        </div>
-      )}
-
       {/* Page list */}
       <div className="flex min-h-0 flex-1 flex-col">
         <ul
@@ -516,16 +441,13 @@ export function PageList({
           role="list"
           aria-label="Chapter pages"
         >
-          {pages.map((page, index) => {
+          {pages.map((page) => {
             const isSelected = selectedPageId === page.id;
             const isEditing = editingId === page.id;
-            // When any page in this chapter is canonical, non-canonical pages are visually muted
-            const isSupressed = hasCanonical && !page.is_canonical;
 
             return (
               <li key={page.id} className="shrink-0">
                 <div
-                  data-tutorial-id={index === 0 ? "canonical-control" : undefined}
                   draggable={!isEditing}
                   onDragStart={(e) => handleDragStart(e, page.id)}
                   onDragOver={(e) => handleDragOver(e, page.id)}
@@ -566,31 +488,16 @@ export function PageList({
                       <GripVertical size={12} />
                     </span>
 
-                    {page.is_canonical ? (
-                      <span
-                        title="This page is the word count source for this chapter"
-                        aria-label="Canonical page"
-                        className="shrink-0 flex items-center"
-                      >
-                        <Bookmark
-                          size={13}
-                          fill="var(--color-gold)"
-                          style={{ color: "var(--color-gold)" }}
-                        />
-                      </span>
-                    ) : (
-                      <FileText
-                        size={13}
-                        className="shrink-0"
-                        style={{
-                          color: isSelected
-                            ? "var(--color-gold)"
-                            : "var(--color-mist)",
-                          opacity: isSupressed ? 0.45 : 1,
-                        }}
-                        aria-hidden
-                      />
-                    )}
+                    <FileText
+                      size={13}
+                      className="shrink-0"
+                      style={{
+                        color: isSelected
+                          ? "var(--color-gold)"
+                          : "var(--color-mist)",
+                      }}
+                      aria-hidden
+                    />
 
                     {isEditing ? (
                       <input
@@ -615,7 +522,7 @@ export function PageList({
                         className="min-w-0 flex-1 truncate text-sm"
                         style={{
                           color: "var(--text-primary)",
-                          opacity: isSelected ? 1 : isSupressed ? 0.4 : 0.65,
+                          opacity: isSelected ? 1 : 0.65,
                         }}
                         onDoubleClick={(e) => startEditing(page, e)}
                         title={page.title}
@@ -634,29 +541,18 @@ export function PageList({
                           setTimeout(() => inputRef.current?.select(), 0);
                         }}
                         onDelete={() => onDeletePage(page.id)}
-                        onSetCanonical={() => onSetCanonical(page.id)}
-                        onClearCanonical={onClearCanonical}
                       />
                     )}
                   </div>
 
-                  {/* Word count row — always shown, styled by canonical status */}
+                  {/* Word count row — always shown */}
                   {!isEditing && (
                     <div className="ml-[21px] mt-0.5">
                       <span
-                        className={cn(
-                          "text-[10px] tabular-nums transition-all duration-200",
-                          isSupressed && "line-through"
-                        )}
+                        className="text-[10px] tabular-nums transition-all duration-200"
                         style={{
-                          color: page.is_canonical
-                            ? "var(--color-gold)"
-                            : "var(--color-mist)",
-                          opacity: page.is_canonical
-                            ? 0.8
-                            : isSupressed
-                              ? 0.35
-                              : 0.5,
+                          color: "var(--color-mist)",
+                          opacity: 0.5,
                         }}
                       >
                         {(page.word_count ?? 0).toLocaleString()} words

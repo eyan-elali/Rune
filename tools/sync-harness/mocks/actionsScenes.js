@@ -1,10 +1,10 @@
-import { savePageChecked } from './serverState.js';
+import { saveSceneChecked } from './serverState.js';
 
-// Mirrors src/lib/actions/pages.ts syncPageWithLimitCheck: thin wrapper over
-// the save_page_checked RPC with the same discriminated-union mapping.
-export async function syncPageWithLimitCheck(id, content, wordCount, serverVersion, _savePath) {
-  const { error, data } = await savePageChecked({
-    p_page_id: id,
+// Mirrors src/lib/actions/scenes.ts syncSceneWithLimitCheck: thin wrapper over
+// the save_scene_checked RPC with the same discriminated-union mapping.
+export async function syncSceneWithLimitCheck(id, content, wordCount, serverVersion, _savePath) {
+  const { error, data } = await saveSceneChecked({
+    p_scene_id: id,
     p_content: content,
     p_word_count: wordCount,
     p_expected_version: serverVersion,
@@ -17,7 +17,7 @@ export async function syncPageWithLimitCheck(id, content, wordCount, serverVersi
   return { status: 'ok', updated_at: result.updated_at, version: result.version };
 }
 
-export const afterPageSyncCalls = [];
-export async function afterPageSync(pageId) {
-  afterPageSyncCalls.push(pageId);
+export const afterSceneSyncCalls = [];
+export async function afterSceneSync(sceneId) {
+  afterSceneSyncCalls.push(sceneId);
 }

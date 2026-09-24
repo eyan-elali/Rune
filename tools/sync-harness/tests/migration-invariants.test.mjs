@@ -2,8 +2,13 @@
 // later Phase 1 step must keep passing (architecture doc §42).
 //
 //   1. the synthetic, production-shaped fixture and its database snapshot;
-//   2. conformance: the harness's legacy rule matches the REAL app code
-//      (manuscript.ts, projectWordCount.ts, account_word_total, the PDF export);
+//   2. conformance: the REAL Rune 2.0 app code (manuscript.ts,
+//      projectWordCount.ts, the export loader + PDF export), run on the
+//      approved mapping of the legacy fixture, reproduces the legacy ordered
+//      totals and export selection; account_word_total still counts every
+//      Page. (The app on this branch no longer implements the legacy
+//      canonical rule, so the legacy model is pinned by the fixture's
+//      literal expectations and the Rune 1.x baseline's account total.);
 //   3. the approved Page → Scene mapping preserves the ordered manuscript,
 //      export selection, account totals and writing history;
 //   4. checkMigration() accepts a correct migration and names what a broken
@@ -34,7 +39,7 @@ import {
 } from '../lib/manuscript-invariants.mjs';
 import {
   CHAPTERS, LABELS, PAGES, PROJECTS, USERS, WRITING_SESSIONS, chapterId, chapterTitleFor, markerFor,
-  pageContent, pageId, pageLabelOf, projectId, seedFixture, snapshotFromFixture,
+  pageId, projectId, seedFixture, snapshotFromFixture,
 } from '../fixtures/manuscript-fixture.mjs';
 
 const ids = (...labels) => labels.map(pageId);
@@ -107,22 +112,24 @@ test('snapshots never carry prose: content is reduced to a hash', () => {
 
 // ── 2. the legacy rule matches the real application code ─────────────────────
 
-test('conformance: legacy chapter/project totals equal src/lib/manuscript.ts', async () => {
+test('conformance: src/lib/manuscript.ts on the mapped placement equals the legacy ordered total', async () => {
   const mod = await bundleForTest('src/lib/manuscript.ts', { name: 'inv_manuscript' });
+  const after = applyApprovedMapping(baseline);
   for (const p of baseline.projects) {
-    const chapters = chaptersInOrder(baseline, p.id).map((c) => ({
-      pages: placedPagesInOrder(baseline, c.id).map((pg) => ({ word_count: pg.wordCount, is_canonical: pg.isCanonical })),
+    const chapters = chaptersInOrder(after, p.id).map((c) => ({
+      scenes: placedPagesInOrder(after, c.id).map((s) => ({ word_count: s.wordCount })),
     }));
     assert.equal(mod.calculateProjectWordCount(chapters), legacyOrderedWordTotal(baseline, p.id), LABELS[p.id]);
   }
+  assert.deepEqual(baseline.projects.map((p) => legacyOrderedWordTotal(baseline, p.id)), [1450, 100, 1320, 0, 0], 'hollow, ash, tide, bramEmpty, coraEmpty');
 });
 
-test('conformance: legacy totals equal the REAL recalculateProjectWordCount (incl. the stale stored total)', async () => {
-  const scratch = await freshSeededDb(); // it writes projects.word_count
+test('conformance: the REAL recalculateProjectWordCount on the Rune 2.0 schema stores the legacy ordered total (incl. the stale stored total)', async () => {
+  const target = await rune2FromLegacy(); // it writes projects.word_count
   const mod = await bundleForTest('src/lib/projectWordCount.ts', { name: 'inv_projectWordCount' });
   for (const p of baseline.projects) {
-    await mod.recalculateProjectWordCount(createSupabaseAdapter(scratch, { userId: p.userId }), p.id);
-    const r = await scratch.query(`select word_count from public.projects where id = $1`, [p.id]);
+    await mod.recalculateProjectWordCount(createSupabaseAdapter(target, { userId: p.userId }), p.id);
+    const r = await target.query(`select word_count from public.projects where id = $1`, [p.id]);
     assert.equal(r.rows[0].word_count, legacyOrderedWordTotal(baseline, p.id), LABELS[p.id]);
   }
   assert.equal(legacyOrderedWordTotal(baseline, projectId('ash')), 100);
@@ -138,18 +145,19 @@ test('conformance: account totals equal the REAL account_word_total() — every 
     'alice is over the starter limit only because alternates count — the gap a migration must not open');
 });
 
-// Runs the REAL manuscript export: ManuscriptExportButton's two browser
-// queries (mirrored here through the adapter, as the owner) and the real
-// exportProjectAsPdf/tiptapToPdf with a recording jsPDF. Rendered chapter
-// headings and page markers reveal what was selected, in order. Empty pages
-// render nothing, so their selection is covered by the selection helper.
-async function renderRealExport(exportModule, { project, chapters, pages }) {
+// Runs the REAL manuscript export — loadManuscriptForExport (what
+// ManuscriptExportButton calls, as the owner) and the real
+// exportProjectAsPdf/tiptapToPdf with a recording jsPDF — against the Rune 2.0
+// database the approved mapping produces. Rendered chapter headings and page
+// markers reveal what was selected, in order. Empty Scenes render nothing, so
+// their selection is covered by the selection helper.
+async function renderRealExport(exportModule, sb, pid) {
   const recording = (globalThis.__runeTestPdf ??= { texts: [], saved: [] }); // shared with mocks/jspdf.js
   recording.texts.length = 0;
   recording.saved.length = 0;
-  const pagesPerChapter = {};
-  for (const page of pages) (pagesPerChapter[page.chapter_id] ??= []).push(page);
-  await exportModule.exportProjectAsPdf(project, chapters, pagesPerChapter);
+  const { chapters, scenesPerChapter } = await exportModule.loadManuscriptForExport(sb, pid);
+  if (chapters.length === 0) return null; // the button toasts "No chapters to export."
+  await exportModule.exportProjectAsPdf({ title: 'fixture-project' }, chapters, scenesPerChapter);
   const texts = recording.texts;
   const titleToChapter = Object.fromEntries(Object.keys(CHAPTERS).map((l) => [chapterTitleFor(l).toUpperCase(), chapterId(l)]));
   const markerToPage = Object.fromEntries(Object.keys(PAGES).map((l) => [markerFor(l), pageId(l)]));
@@ -165,29 +173,19 @@ const expectedRender = (selection, snapshot) => ({
   pages: selection.flatMap((c) => c.pageIds).filter((id) => snapshot.pages.find((p) => p.id === id).wordCount > 0),
 });
 
-async function loadExportRows(sb, pid) {
-  const { data: project } = await sb.from('projects').select('*').eq('id', pid).single();
-  const { data: chapters, error: chapErr } = await sb.from('chapters').select('*').eq('project_id', pid).order('position', { ascending: true });
-  assert.equal(chapErr, null);
-  if (chapters.length === 0) return { project, chapters, pages: [] }; // the button toasts "No chapters to export."
-  const { data: pages, error: pageErr } = await sb.from('pages').select('*').in('chapter_id', chapters.map((c) => c.id)).order('position', { ascending: true });
-  assert.equal(pageErr, null);
-  return { project, chapters, pages };
-}
-
-test('conformance: the REAL export (loader + exportProjectAsPdf) selects exactly legacyExportSelection', async () => {
+test('conformance: the REAL export (loader + exportProjectAsPdf) on the Rune 2.0 schema renders exactly legacyExportSelection', async () => {
   const mod = await bundleForTest('src/lib/export/projectExport.ts', {
     name: 'inv_projectExport', aliases: { jspdf: path.join(HARNESS_DIR, 'mocks/jspdf.js') },
   });
+  const target = await rune2FromLegacy();
   for (const p of baseline.projects) {
-    const rows = await loadExportRows(createSupabaseAdapter(db, { userId: p.userId }), p.id);
+    const rendered = await renderRealExport(mod, createSupabaseAdapter(target, { userId: p.userId }), p.id);
     const selection = legacyExportSelection(baseline, p.id);
-    if (rows.chapters.length === 0) { assert.deepEqual(selection, [], LABELS[p.id]); continue; }
-    const rendered = await renderRealExport(mod, rows);
+    if (rendered === null) { assert.deepEqual(selection, [], LABELS[p.id]); continue; }
     assert.equal(rendered.saved, 1);
     const want = expectedRender(selection, baseline);
     assert.deepEqual(named(rendered.headings), named(want.headings), `${LABELS[p.id]}: exported chapter headings`);
-    assert.deepEqual(named(rendered.pages), named(want.pages), `${LABELS[p.id]}: exported pages`);
+    assert.deepEqual(named(rendered.pages), named(want.pages), `${LABELS[p.id]}: exported Scenes`);
   }
 });
 
@@ -279,25 +277,6 @@ test('export selection: legacy export before === Rune 2.0 export after; Unplaced
     assert.deepEqual(rune2ExportSelection(after, p.id), legacyExportSelection(baseline, p.id), LABELS[p.id]);
     const exported = new Set(rune2ExportSelection(after, p.id).flatMap((c) => c.pageIds));
     for (const u of unplacedSceneIds(after, p.id)) assert.ok(!exported.has(u), `${LABELS[u]} must not export`);
-  }
-});
-
-test('the UNCHANGED export code, fed post-cutover data, renders what it renders today (stale-client safety)', async () => {
-  const mod = await bundleForTest('src/lib/export/projectExport.ts', {
-    name: 'inv_projectExport_after', aliases: { jspdf: path.join(HARNESS_DIR, 'mocks/jspdf.js') },
-  });
-  const after = applyApprovedMapping(baseline);
-  for (const p of baseline.projects) {
-    const chapters = chaptersInOrder(after, p.id).map((c) => ({ id: c.id, title: chapterTitleFor(Object.keys(CHAPTERS).find((l) => CHAPTERS[l].id === c.id)), position: c.position }));
-    if (chapters.length === 0) continue;
-    // What the loader's `.in('chapter_id', …)` returns after cutover: placed Scenes only.
-    const pages = after.pages.filter((pg) => pg.projectId === p.id && pg.chapterId !== null).map((pg) => ({
-      id: pg.id, chapter_id: pg.chapterId, position: pg.position, is_canonical: pg.isCanonical, content: pageContent(pageLabelOf[pg.id]),
-    })).sort((a, b) => a.position - b.position);
-    const rendered = await renderRealExport(mod, { project: { title: `fixture-project` }, chapters, pages });
-    const want = expectedRender(legacyExportSelection(baseline, p.id), baseline);
-    assert.deepEqual(named(rendered.headings), named(want.headings), LABELS[p.id]);
-    assert.deepEqual(named(rendered.pages), named(want.pages), LABELS[p.id]);
   }
 });
 

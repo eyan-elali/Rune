@@ -26,12 +26,6 @@ const STEPS: Step[] = [
     side: "right",
   },
   {
-    spotlightId: "canonical-control",
-    heading: "Canonical Pages",
-    copy: "A chapter can have multiple drafts. Mark one page as canonical to make it the official version used for manuscript totals and exports. If none are marked, Rune uses the chapter's pages normally.",
-    side: "right",
-  },
-  {
     spotlightId: "focus-mode-btn",
     heading: "Focus Mode",
     copy: "Hide the interface so you can focus only on your writing.",

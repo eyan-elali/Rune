@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { getCachedPagesForChapter, getCachedChapterMeta } from "@/lib/offline/db";
 import { EditorShell } from "./EditorShell";
 import { OfflinePageMessage } from "@/components/ui/OfflinePageMessage";
-import type { Chapter, Page, Project } from "@/lib/types";
+import type { Chapter, PlacedScene, Project } from "@/lib/types";
 
 interface OfflineEditorFallbackProps {
   projectId: string;
@@ -18,7 +18,7 @@ export function OfflineEditorFallback({
   chapterId,
 }: OfflineEditorFallbackProps) {
   const [loadState, setLoadState] = useState<LoadState>("loading");
-  const [pages, setPages] = useState<Page[]>([]);
+  const [pages, setPages] = useState<PlacedScene[]>([]);
   const [chapter, setChapter] = useState<Chapter | null>(null);
   const [project, setProject] = useState<Project | null>(null);
 

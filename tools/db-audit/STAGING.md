@@ -328,6 +328,5 @@ A database created later can instead be built in one step from
 `src/lib/supabase/schema.sql`, which already contains 013–015 and records them
 in `schema_migrations`.
 
-The application code on the `rune-2` branch still uses the Rune 1.x tables and
-RPCs, so it does not work against this database until the application task
-moves it to Scenes.
+The application code on the `rune-2` branch targets this schema (Scenes,
+Manuscripts, the Scene RPCs). It does not work against a Rune 1.x database.

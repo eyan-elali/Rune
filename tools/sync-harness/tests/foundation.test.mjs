@@ -6,7 +6,7 @@
 // These are foundation checks, not the Phase 0 regression suites.
 import { test, before } from 'node:test';
 import assert from 'node:assert/strict';
-import { createTestDb, readRepoFile, withRole, asUser, createAuthUser, LEGACY_BASELINE } from '../lib/pg.mjs';
+import { createTestDb, readRepoFile, withRole, asUser, createAuthUser, LEGACY_BASELINE, RUNE2_SCHEMA } from '../lib/pg.mjs';
 import { createSupabaseAdapter } from '../lib/supabase-adapter.mjs';
 import { bundleForTest } from '../lib/bundle.mjs';
 
@@ -156,16 +156,30 @@ test('adapter: unsupported shapes fail loudly instead of passing silently', asyn
 
 // ── 3. bundling real Rune code ───────────────────────────────────────────────
 
-test('bundle: real recalculateProjectWordCount runs against PGlite as the owner', async () => {
+test('bundle: real recalculateProjectWordCount runs against PGlite (Rune 2.0 schema) as the owner', async () => {
+  // The app targets the Rune 2.0 schema; the shim/adapter tests above use the Rune 1.x baseline.
+  const r2 = await createTestDb();
+  await r2.exec(readRepoFile(RUNE2_SCHEMA));
+  await createAuthUser(r2, A);
+  await r2.exec(`insert into public.projects (id, user_id, title, word_count) values ('${PROJ}', '${A}', 'Golden', 12345);`);
+  const m = (await r2.query(`select id from public.manuscripts where project_id = $1`, [PROJ])).rows[0].id;
+  await r2.exec(`
+    insert into public.chapters (id, manuscript_id, title, position) values ('${CH1}', '${m}', 'One', 1), ('${CH2}', '${m}', 'Two', 2);
+    insert into public.scenes (id, manuscript_id, chapter_id, title, position, word_count) values
+      ('${PG1}', '${m}', '${CH1}', 'p', 0, 100),
+      ('${PG2}', '${m}', '${CH1}', 'p', 1, 40),
+      ('${PG3}', '${m}', null,     'p', 0, 500);
+  `);
+
   const mod = await bundleForTest('src/lib/projectWordCount.ts', { name: 'foundation_projectWordCount' });
-  const sb = createSupabaseAdapter(db, { userId: A });
+  const sb = createSupabaseAdapter(r2, { userId: A });
   mod.setServerClient(sb); // unused by this helper (it takes the client as an argument), but proves the export
 
   await mod.recalculateProjectWordCount(sb, PROJ);
 
-  // Canonical-aware: chapter 1 → canonical PG2 only (40); chapter 2 → PG3 (9 after the rpc test).
-  const r = await db.query(`select word_count from public.projects where id = $1`, [PROJ]);
-  assert.equal(r.rows[0].word_count, 49);
+  // Every placed Scene counts (100 + 40); the Unplaced Scene (500) does not.
+  const r = await r2.query(`select word_count from public.projects where id = $1`, [PROJ]);
+  assert.equal(r.rows[0].word_count, 140);
   assert.deepEqual(
     mod.revalidateCalls.map((c) => c.path),
     [`/projects/${PROJ}`, '/profile'],

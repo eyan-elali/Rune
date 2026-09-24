@@ -4,13 +4,13 @@ import { useState } from "react";
 import { Loader2 } from "lucide-react";
 import { getProjects } from "@/lib/actions/projects";
 import { getChapters } from "@/lib/actions/chapters";
-import { getPages } from "@/lib/actions/pages";
+import { getScenes } from "@/lib/actions/scenes";
 import { cn } from "@/lib/utils";
-import type { Project, Chapter, Page } from "@/lib/types";
+import type { Project, Chapter, PlacedScene } from "@/lib/types";
 
 export type PageSource =
   | { type: "fresh" }
-  | { type: "existing"; page: Page; project: Project };
+  | { type: "existing"; page: PlacedScene; project: Project };
 
 type PageSourceSelectorProps = {
   onSelect: (source: PageSource) => void;
@@ -22,7 +22,7 @@ export function PageSourceSelector({ onSelect, className }: PageSourceSelectorPr
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [chapters, setChapters] = useState<Chapter[]>([]);
-  const [pages, setPages] = useState<Record<string, Page[]>>({});
+  const [pages, setPages] = useState<Record<string, PlacedScene[]>>({});
   const [loading, setLoading] = useState(false);
   const [pagesLoading, setPagesLoading] = useState(false);
   const [selectedPageId, setSelectedPageId] = useState<string | null>(null);
@@ -64,8 +64,8 @@ export function PageSourceSelector({ onSelect, className }: PageSourceSelectorPr
     const chapterList = chResult.data as Chapter[];
     setChapters(chapterList);
     setLoading(false);
-    const pageResults = await Promise.all(chapterList.map((ch) => getPages(ch.id)));
-    const pagesMap: Record<string, Page[]> = {};
+    const pageResults = await Promise.all(chapterList.map((ch) => getScenes(ch.id)));
+    const pagesMap: Record<string, PlacedScene[]> = {};
     for (let i = 0; i < chapterList.length; i++) {
       pagesMap[chapterList[i].id] = pageResults[i].data ?? [];
     }

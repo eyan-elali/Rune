@@ -1,7 +1,11 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb'
-import type { Chapter, Page, Project } from '@/lib/types'
+import type { Chapter, PlacedScene, Project } from '@/lib/types'
 import { getLocalDateString } from '@/lib/utils'
 
+// Store names, keys and field names ("page", pageId, page_cache) are
+// persisted in writers' browsers and are compatibility contracts — they keep
+// their Rune 1.x names. Every key is a Scene ID (Rune 2.0 keeps each Page ID
+// as its Scene ID).
 interface RuneOfflineDB extends DBSchema {
   pending_writes: {
     key: string // pageId
@@ -44,9 +48,9 @@ interface RuneOfflineDB extends DBSchema {
       // Last confirmed server version number — secondary conflict signal.
       serverVersion?: number
       // Last confirmed server word_count — the PRIMARY content-scoped conflict
-      // baseline. pages.word_count is only ever written by the content-save
+      // baseline. scenes.word_count is only ever written by the content-save
       // path, while updated_at/version are bumped by the DB trigger on ANY row
-      // update (rename, reorder, canonical toggle) — so this is the one durable
+      // update (rename, reorder, placement change) — so this is the one durable
       // signal that tracks content, not metadata. Absent on entries written
       // before this field existed; conflict detection then falls back to the
       // older heuristics.
@@ -60,9 +64,9 @@ interface RuneOfflineDB extends DBSchema {
       // Rich view-cache fields — populated by cachePage(); absent in minimal sync entries
       chapter_id?: string
       project_id?: string
+      manuscript_id?: string
       title?: string
       position?: number
-      is_canonical?: boolean
       created_at?: string
       updated_at?: string
     }
@@ -72,6 +76,7 @@ interface RuneOfflineDB extends DBSchema {
     value: {
       id: string
       project_id: string
+      manuscript_id?: string
       title: string
       position: number
       is_completed: boolean
@@ -189,27 +194,28 @@ export async function getCachedServerUpdatedAt(pageId: string): Promise<string |
 
 // ── View-cache helpers ─────────────────────────────────────────────────────────
 
-function cacheEntryToPage(
+function cacheEntryToScene(
   entry: RuneOfflineDB['page_cache']['value']
-): Page {
+): PlacedScene {
   return {
     id: entry.id,
+    manuscript_id: entry.manuscript_id ?? '',
     chapter_id: entry.chapter_id!,
     title: entry.title!,
     content: entry.content,
     word_count: entry.wordCount,
     position: entry.position ?? 0,
-    is_canonical: entry.is_canonical ?? false,
+    version: entry.serverVersion ?? 0,
     created_at: entry.created_at ?? entry.serverUpdatedAt ?? '',
     updated_at: entry.updated_at ?? entry.serverUpdatedAt ?? '',
   }
 }
 
 /**
- * Store a server-fetched page for offline access.
+ * Store a server-fetched placed Scene for offline access.
  * Skips content overwrite when a pending local write exists.
  */
-export async function cachePage(page: Page, projectId: string): Promise<void> {
+export async function cachePage(page: PlacedScene, projectId: string): Promise<void> {
   try {
     const db = await getOfflineDB()
     const pending = await db.get('pending_writes', page.id)
@@ -235,9 +241,9 @@ export async function cachePage(page: Page, projectId: string): Promise<void> {
         serverContent: existing.serverContent ?? page.content ?? {},
         chapter_id: page.chapter_id,
         project_id: projectId,
+        manuscript_id: page.manuscript_id,
         title: page.title,
         position: page.position,
-        is_canonical: page.is_canonical,
         created_at: page.created_at,
         updated_at: page.updated_at,
       })
@@ -255,9 +261,9 @@ export async function cachePage(page: Page, projectId: string): Promise<void> {
         cachedAt: Date.now(),
         chapter_id: page.chapter_id,
         project_id: projectId,
+        manuscript_id: page.manuscript_id,
         title: page.title,
         position: page.position,
-        is_canonical: page.is_canonical,
         created_at: page.created_at,
         updated_at: page.updated_at,
       })
@@ -268,26 +274,26 @@ export async function cachePage(page: Page, projectId: string): Promise<void> {
   }
 }
 
-/** Returns the cached page if it has full metadata; null otherwise. */
-export async function getCachedPage(pageId: string): Promise<Page | null> {
+/** Returns the cached Scene if it has full metadata; null otherwise. */
+export async function getCachedPage(pageId: string): Promise<PlacedScene | null> {
   try {
     const db = await getOfflineDB()
     const entry = await db.get('page_cache', pageId)
     if (!entry || !entry.chapter_id || !entry.title) return null
-    return cacheEntryToPage(entry)
+    return cacheEntryToScene(entry)
   } catch {
     return null
   }
 }
 
-/** Returns all pages for a chapter from the view cache, sorted by position. */
-export async function getCachedPagesForChapter(chapterId: string): Promise<Page[]> {
+/** Returns all placed Scenes of a chapter from the view cache, sorted by position. */
+export async function getCachedPagesForChapter(chapterId: string): Promise<PlacedScene[]> {
   try {
     const db = await getOfflineDB()
     const all = await db.getAll('page_cache')
     return all
       .filter((e) => e.chapter_id === chapterId && !!e.title)
-      .map(cacheEntryToPage)
+      .map(cacheEntryToScene)
       .sort((a, b) => a.position - b.position)
   } catch {
     return []
@@ -300,7 +306,8 @@ export async function cacheChapterMeta(chapter: Chapter, project: Project): Prom
     const db = await getOfflineDB()
     await db.put('chapter_meta', {
       id: chapter.id,
-      project_id: chapter.project_id,
+      project_id: project.id,
+      manuscript_id: chapter.manuscript_id,
       title: chapter.title,
       position: chapter.position,
       is_completed: chapter.is_completed,
@@ -321,10 +328,18 @@ export async function getCachedChapterMeta(
     const db = await getOfflineDB()
     const entry = await db.get('chapter_meta', chapterId)
     if (!entry) return null
-    const { project, ...rest } = entry
     return {
-      chapter: rest as Chapter,
-      project,
+      chapter: {
+        id: entry.id,
+        // Entries cached before Rune 2.0 have no manuscript_id; nothing offline reads it.
+        manuscript_id: entry.manuscript_id ?? '',
+        title: entry.title,
+        position: entry.position,
+        is_completed: entry.is_completed,
+        created_at: entry.created_at,
+        updated_at: entry.updated_at,
+      },
+      project: entry.project,
     }
   } catch {
     return null

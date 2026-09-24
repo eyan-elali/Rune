@@ -6,14 +6,10 @@ import { Plus } from "lucide-react";
 import { ChapterRow } from "./ChapterRow";
 import { createChapter } from "@/lib/actions/chapters";
 import { Button } from "@/components/ui/Button";
-import type { Chapter } from "@/lib/types";
-
-type ChapterWithStats = Chapter & {
-  pages: { id: string; word_count: number; is_canonical: boolean }[];
-};
+import type { ChapterWithScenes } from "@/lib/manuscriptQueries";
 
 interface ChapterListProps {
-  chapters: ChapterWithStats[];
+  chapters: ChapterWithScenes[];
   projectId: string;
 }
 

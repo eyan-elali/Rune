@@ -5,10 +5,10 @@ import { Download } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToastStore } from "@/store/toastStore";
 import { exportPageAsPdf } from "@/lib/export/pageExport";
-import type { Page, Chapter, Project } from "@/lib/types";
+import type { Scene, Chapter, Project } from "@/lib/types";
 
 interface ExportButtonProps {
-  page: Page | null;
+  page: Scene | null;
   chapter: Chapter;
   project: Project;
 }

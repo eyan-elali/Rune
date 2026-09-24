@@ -41,7 +41,7 @@ async function createPageAndPrimeCache() {
   await cachePage(
     {
       id: PAGE, chapter_id: 'ch-1', title: 'Page 1', content: null,
-      word_count: 0, position: 0, is_canonical: false,
+      word_count: 0, position: 0, manuscript_id: 'ms-1', version: 1,
       created_at: row.updated_at, updated_at: row.updated_at,
     },
     'proj-1'
@@ -55,7 +55,7 @@ async function r1() {
   await writeToPendingQueue(PAGE, USER, doc(650), 650);
   metadataUpdate(PAGE); // user names the page — trigger bumps version/updated_at
   const flushResult = await flushPendingQueue();
-  const serverRow = server.pages.get(PAGE);
+  const serverRow = server.scenes.get(PAGE);
   check('R1-fixed: flush uploads despite metadata bump', flushResult.synced === 1 && flushResult.conflicts === 0, JSON.stringify(flushResult));
   check('R1-fixed: server received all 650 words', serverRow.word_count === 650, serverRow.word_count);
   check('R1-fixed: queue cleared', (await getPending()) === null, '');
@@ -75,7 +75,7 @@ async function r2() {
   metadataUpdate(PAGE); // stale-baseline cause still present
 
   const flushResult = await flushPendingQueue();
-  const serverRow = server.pages.get(PAGE);
+  const serverRow = server.scenes.get(PAGE);
   check('R2-fixed: latched conflict re-evaluated and uploaded', flushResult.synced === 1, JSON.stringify(flushResult));
   check('R2-fixed: stranded 650-word prose recovered to server', serverRow.word_count === 650, serverRow.word_count);
   check('R2-fixed: conflict state cleared', (await getPending()) === null, '');
@@ -98,7 +98,7 @@ async function r3() {
   check('R3-fixed: newer 520w content still queued after older ok', after?.wordCount === 520 && after?.syncStatus === 'pending', JSON.stringify({ wc: after?.wordCount, st: after?.syncStatus }));
   // next cycle uploads the newest content
   await syncPendingWrite(PAGE, 'online', 500);
-  const serverRow = server.pages.get(PAGE);
+  const serverRow = server.scenes.get(PAGE);
   check('R3-fixed: next sync persists newest content (520w)', serverRow.word_count === 520, serverRow.word_count);
   check('R3-fixed: queue clean at end', (await getPending()) === null, '');
 }
@@ -130,7 +130,7 @@ async function r7() {
   await createPageAndPrimeCache();
   await writeToPendingQueue(PAGE, USER, doc(421), 421);
   await syncPendingWrite(PAGE, 'online', 421); // poisoned expected baseline, server at 0
-  const serverRow = server.pages.get(PAGE);
+  const serverRow = server.scenes.get(PAGE);
   check('R7-fixed: empty-server rule overrides poisoned baseline — uploads', serverRow.word_count === 421, serverRow.word_count);
   check('R7-fixed: no conflict latched', (await getPending()) === null, '');
 }
@@ -142,7 +142,7 @@ async function g1() {
   // confirmed sync at 500 words
   await writeToPendingQueue(PAGE, USER, doc(500), 500);
   await syncPendingWrite(PAGE, 'online', 0);
-  check('G1: baseline sync ok (server 500)', server.pages.get(PAGE).word_count === 500, '');
+  check('G1: baseline sync ok (server 500)', server.scenes.get(PAGE).word_count === 500, '');
 
   // another device writes different content (620 words)
   remoteContentSave(PAGE, doc(620, 'remote'), 620);
@@ -152,7 +152,7 @@ async function g1() {
   await syncPendingWrite(PAGE, 'online', 500);
   let pending = await getPending();
   check('G1: editor path flags genuine conflict', pending?.syncStatus === 'conflict', pending?.syncStatus);
-  check('G1: remote content NOT overwritten', server.pages.get(PAGE).word_count === 620, '');
+  check('G1: remote content NOT overwritten', server.scenes.get(PAGE).word_count === 620, '');
 
   // flush path re-evaluates: still a genuine conflict (confirmed baseline 500 ≠ server 620)
   const flushResult = await flushPendingQueue();
@@ -162,7 +162,7 @@ async function g1() {
   // Keep Local force-write wins explicitly
   const res = await forceWriteLocalContent(PAGE);
   check('G1: Keep Local force-writes and verifies', res.status === 'ok' && res.wordCount === 510, JSON.stringify(res));
-  check('G1: server now holds kept local version', server.pages.get(PAGE).word_count === 510, '');
+  check('G1: server now holds kept local version', server.scenes.get(PAGE).word_count === 510, '');
 }
 
 // ── G2: remote edit with IDENTICAL word count is caught by the deep content check
@@ -180,7 +180,7 @@ async function g2() {
   await flushPendingQueue();
   const pending = await getPending();
   check('G2: identical-word-count remote edit detected via deep content check', pending?.syncStatus === 'conflict', pending?.syncStatus);
-  check('G2: remote content preserved', JSON.stringify(server.pages.get(PAGE).content).includes('other0'), '');
+  check('G2: remote content preserved', JSON.stringify(server.scenes.get(PAGE).content).includes('other0'), '');
 }
 
 // ── G3: metadata-only bump after a confirmed sync → no conflict (deep check passes)
@@ -193,7 +193,7 @@ async function g3() {
   await writeToPendingQueue(PAGE, USER, doc(505), 505);
   const flushResult = await flushPendingQueue();
   check('G3: rename after confirmed sync — flush still uploads', flushResult.synced === 1 && flushResult.conflicts === 0, JSON.stringify(flushResult));
-  check('G3: server has newest content', server.pages.get(PAGE).word_count === 505, '');
+  check('G3: server has newest content', server.scenes.get(PAGE).word_count === 505, '');
 }
 
 // ── W: word-limit enforcement unchanged
@@ -205,7 +205,7 @@ async function w() {
   await syncPendingWrite(PAGE, 'online', 0);
   const pending = await getPending();
   check('W: blocked write stays pending (nothing lost)', pending?.syncStatus === 'pending' && pending?.wordCount === 650, pending?.syncStatus);
-  check('W: server unchanged', server.pages.get(PAGE).word_count === 0, '');
+  check('W: server unchanged', server.scenes.get(PAGE).word_count === 0, '');
   const res = await forceWriteLocalContent(PAGE);
   check('W: Keep Local reports word_limit_blocked distinctly', res.status === 'word_limit_blocked', JSON.stringify(res));
 }
@@ -228,7 +228,7 @@ async function f() {
   });
 
   const flushResult = await flushPendingQueue();
-  const serverRow = server.pages.get(PAGE);
+  const serverRow = server.scenes.get(PAGE);
   check('F: stranded prose auto-recovered by first flush', flushResult.synced === 1, JSON.stringify(flushResult));
   check('F: server holds the full 650 words', serverRow.word_count === 650, serverRow.word_count);
   check('F: conflict cleared, queue empty', (await getPending()) === null, '');
@@ -244,8 +244,8 @@ async function i() {
   await syncPendingWrite(PAGE, 'online', 0);
   await syncPendingWrite(PAGE, 'online', 300); // retry after success → no pending, no-op
   await flushPendingQueue();                    // nothing to do
-  const serverRow = server.pages.get(PAGE);
-  const saves = server.log.filter(l => l.op === 'save_page_checked').length;
+  const serverRow = server.scenes.get(PAGE);
+  const saves = server.log.filter(l => l.op === 'save_scene_checked').length;
   check('I: content correct after repeated sync calls', serverRow.word_count === 300, '');
   check('I: exactly one server save issued', saves === 1, 'saves=' + saves);
   check('I: queue empty, no duplication', (await getPending()) === null, '');
@@ -290,7 +290,7 @@ async function kl() {
   // Confirmed acknowledged baseline: 40 words, recorded in cache + on server.
   await writeToPendingQueue(PAGE, USER, doc(40), 40);
   await syncPendingWrite(PAGE, 'online', 0);
-  check('KL: acknowledged baseline synced (server 40w)', server.pages.get(PAGE).word_count === 40, '');
+  check('KL: acknowledged baseline synced (server 40w)', server.scenes.get(PAGE).word_count === 40, '');
 
   // Local and server diverge → a legitimate conflict is presented.
   remoteContentSave(PAGE, doc(55, 'remote'), 55);
@@ -300,9 +300,9 @@ async function kl() {
 
   // User chooses Keep Local — force-write succeeds and returns the new version.
   const res = await forceWriteLocalContent(PAGE);
-  const keptVersion = server.pages.get(PAGE).version;
+  const keptVersion = server.scenes.get(PAGE).version;
   check('KL: Keep Local succeeds, returns kept word count', res.status === 'ok' && res.wordCount === 41, JSON.stringify(res));
-  check('KL: server now holds kept-local content (41w)', server.pages.get(PAGE).word_count === 41, '');
+  check('KL: server now holds kept-local content (41w)', server.scenes.get(PAGE).word_count === 41, '');
   check('KL: queue cleared after Keep Local', (await getPending()) === null, '');
   const cacheAfterKL = await getCache();
   check('KL: IDB baseline adopted the acknowledged version + word count',
@@ -315,7 +315,7 @@ async function kl() {
   const flush = await flushPendingQueue();
   check('KL: next edit does NOT false-conflict; background poll uploads',
     flush.synced === 1 && flush.conflicts === 0, JSON.stringify(flush));
-  check('KL: new local edit persisted (42w)', server.pages.get(PAGE).word_count === 42, '');
+  check('KL: new local edit persisted (42w)', server.scenes.get(PAGE).word_count === 42, '');
   check('KL: queue clean at end', (await getPending()) === null, '');
 }
 
@@ -353,11 +353,11 @@ async function klrace() {
 
   const pending = await getPending();
   check('KLRACE: stale in-flight sync did NOT resurrect a false conflict', pending === null, JSON.stringify(pending));
-  check('KLRACE: server holds kept-local content (41w)', server.pages.get(PAGE).word_count === 41, server.pages.get(PAGE).word_count);
+  check('KLRACE: server holds kept-local content (41w)', server.scenes.get(PAGE).word_count === 41, server.scenes.get(PAGE).word_count);
   const cache = await getCache();
   check('KLRACE: confirmed baseline == committed server version',
-    cache?.serverWordCount === 41 && cache?.serverVersion === server.pages.get(PAGE).version,
-    JSON.stringify({ w: cache?.serverWordCount, cv: cache?.serverVersion, sv: server.pages.get(PAGE).version }));
+    cache?.serverWordCount === 41 && cache?.serverVersion === server.scenes.get(PAGE).version,
+    JSON.stringify({ w: cache?.serverWordCount, cv: cache?.serverVersion, sv: server.scenes.get(PAGE).version }));
 }
 
 // ── KLEXT: a GENUINE external edit landing AFTER Keep Local must still conflict.
@@ -378,7 +378,7 @@ async function klext() {
   await syncPendingWrite(PAGE, 'online', kl.status === 'ok' ? kl.wordCount : 41); // editor baseline = kept 41
   const pending = await getPending();
   check('KLEXT: genuine external edit after Keep Local still conflicts', pending?.syncStatus === 'conflict', pending?.syncStatus);
-  check('KLEXT: external content not overwritten', server.pages.get(PAGE).word_count === 70, '');
+  check('KLEXT: external content not overwritten', server.scenes.get(PAGE).word_count === 70, '');
 }
 
 // ── KLREPEAT: the reported loop — after Keep Local, repeated edit+poll cycles
@@ -406,7 +406,7 @@ async function klrepeat() {
     if (p?.syncStatus === 'conflict') conflicts++;
   }
   check('KLREPEAT: no conflict recurs across repeated edit+poll cycles', conflicts === 0, 'conflicts=' + conflicts);
-  check('KLREPEAT: final content persisted (46w)', server.pages.get(PAGE).word_count === 46, '');
+  check('KLREPEAT: final content persisted (46w)', server.scenes.get(PAGE).word_count === 46, '');
   check('KLREPEAT: queue clean at end', (await getPending()) === null, '');
 }
 
@@ -427,7 +427,7 @@ async function klmeta() {
   const f = await flushPendingQueue();
   check('KLMETA: metadata-only bump after Keep Local does not false-conflict',
     f.synced === 1 && f.conflicts === 0, JSON.stringify(f));
-  check('KLMETA: server has newest content (42w)', server.pages.get(PAGE).word_count === 42, '');
+  check('KLMETA: server has newest content (42w)', server.scenes.get(PAGE).word_count === 42, '');
 }
 
 // ── KLSERVER: Keep Server resets the baseline (mirrors the modal's IDB reset);
@@ -443,7 +443,7 @@ async function klserver() {
   check('KLSERVER: conflict staged', (await getPending())?.syncStatus === 'conflict', '');
 
   // Keep Server — the exact IDB reset SyncConflictModal.handleKeepServer performs.
-  const srv = server.pages.get(PAGE);
+  const srv = server.scenes.get(PAGE);
   const db = await getOfflineDB();
   await db.delete('pending_writes', PAGE);
   await db.put('page_cache', {
@@ -457,7 +457,7 @@ async function klserver() {
   const f = await flushPendingQueue();
   check('KLSERVER: edit after Keep Server syncs with no false conflict',
     f.synced === 1 && f.conflicts === 0, JSON.stringify(f));
-  check('KLSERVER: server advanced from the kept baseline (56w)', server.pages.get(PAGE).word_count === 56, '');
+  check('KLSERVER: server advanced from the kept baseline (56w)', server.scenes.get(PAGE).word_count === 56, '');
 }
 
 // ── MIG: the Rune 2.0 canonical cutover lands while a write is queued offline.
@@ -469,10 +469,10 @@ async function klserver() {
 async function migration(tag, bumpVersion) {
   resetServer();
   const row = createServerPage(PAGE, { wordCount: 380, content: doc(380, 'alt') });
-  Object.assign(server.pages.get(PAGE), { chapter_id: 'ch-canon', is_canonical: false });
+  Object.assign(server.scenes.get(PAGE), { chapter_id: 'ch-canon' });
   await cachePage({
     id: PAGE, chapter_id: 'ch-canon', title: 'Page 2', content: row.content, word_count: 380,
-    position: 1, is_canonical: false, created_at: row.updated_at, updated_at: row.updated_at,
+    position: 1, manuscript_id: 'ms-1', version: 1, created_at: row.updated_at, updated_at: row.updated_at,
   }, 'proj-1');
 
   // Offline: typing queues locally and banks a writing credit.
@@ -487,16 +487,16 @@ async function migration(tag, bumpVersion) {
 
   // The cutover runs on the server while this client is offline.
   applyPlacementMigration(PAGE, { chapterId: null, bumpVersion });
-  const idsAfterMigration = [...server.pages.keys()];
+  const idsAfterMigration = [...server.scenes.keys()];
 
   // Reconnect.
   const flushResult = await flushPendingQueue();
-  const saves = server.log.filter((l) => l.op === 'save_page_checked');
-  const serverRow = server.pages.get(PAGE);
+  const saves = server.log.filter((l) => l.op === 'save_scene_checked');
+  const serverRow = server.scenes.get(PAGE);
   check(`${tag}: replay uploads with no conflict`, flushResult.synced === 1 && flushResult.conflicts === 0 && flushResult.failed === 0, JSON.stringify(flushResult));
   check(`${tag}: exactly one save, addressed to the same Page ID`, saves.length === 1 && saves[0].id === PAGE, JSON.stringify(saves.map((l) => l.id)));
   check(`${tag}: the Scene holds the queued prose`, serverRow.word_count === 395 && JSON.stringify(serverRow.content) === JSON.stringify(doc(395, 'alt')), serverRow.word_count);
-  check(`${tag}: no row created or re-identified`, JSON.stringify([...server.pages.keys()]) === JSON.stringify(idsAfterMigration) && idsAfterMigration.length === 1, JSON.stringify([...server.pages.keys()]));
+  check(`${tag}: no row created or re-identified`, JSON.stringify([...server.scenes.keys()]) === JSON.stringify(idsAfterMigration) && idsAfterMigration.length === 1, JSON.stringify([...server.scenes.keys()]));
   check(`${tag}: saving does not re-place the Scene`, serverRow.chapter_id === null, serverRow.chapter_id);
   check(`${tag}: queue empty`, (await getPending()) === null, '');
   check(`${tag}: writing credit applied to the same Page ID and Project`,
