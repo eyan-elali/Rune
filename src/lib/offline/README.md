@@ -71,7 +71,9 @@ Counts come from `getOfflineStorageSummary()`. **Clear cache** (`clearPageCache(
 
 ## Required database objects
 
-`pages.version` and `page_version_trigger`, `save_page_checked` and its helpers, and `bump_project_updated_at` / `trg_page_updated` are all part of the production baseline in `src/lib/supabase/schema.sql`. Migration 014 asserts the save-path RPC contracts (one overload each, frozen argument lists, pinned `search_path`).
+`pages.version` and `page_version_trigger`, `save_page_checked` and its helpers, and `bump_project_updated_at` / `trg_page_updated` are all part of the Rune 1.x production baseline (`src/lib/supabase/baseline/production-2026-09-24.sql`). Migration 014 asserts the save-path RPC contracts (one overload each, frozen argument lists, pinned `search_path`).
+
+The Rune 2.0 schema (`src/lib/supabase/schema.sql`, migration 015) replaces them with `scenes.version` / `scene_version_trigger`, `save_scene_checked` / `insert_scene_checked`, and `trg_scene_updated`, with the same contracts except the renamed arguments and the `'Scene not found'` error string. This engine still targets the Rune 1.x objects until the application task moves it.
 
 ## Word count warning
 

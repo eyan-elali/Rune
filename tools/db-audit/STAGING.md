@@ -67,7 +67,8 @@ unset PGOPTIONS
   dump alone still protects every manuscript.
 - The `public` dump does **not** contain the signup trigger
   (`on_auth_user_created` lives on `auth.users`). Every restore must re-create
-  it (Part 2, step 4, and Part 4). Its definition is in `schema.sql`.
+  it (Part 2, step 4, and Part 4). Its definition is in the Rune 1.x baseline,
+  `src/lib/supabase/baseline/production-2026-09-24.sql`.
 
 ### Verify the backup (offline, no server needed)
 
@@ -126,8 +127,8 @@ restore, is Part 3's second pass.
 ```bash
 S=~/rune-backups/staging-$(date +%F) && mkdir -p "$S"
 
-# 1. Build the baseline
-psql "$STAGING_URL" -X -1 -v ON_ERROR_STOP=1 -f src/lib/supabase/schema.sql
+# 1. Build the Rune 1.x production baseline (NOT schema.sql, which is the Rune 2.0 schema)
+psql "$STAGING_URL" -X -1 -v ON_ERROR_STOP=1 -f src/lib/supabase/baseline/production-2026-09-24.sql
 
 # 2. Capture and compare with the production snapshot: structure must be identical
 psql "$STAGING_URL" -X -q -1 -v ON_ERROR_STOP=1 --csv -f tools/db-audit/catalog.sql > "$S/pass1-baseline.csv"
@@ -277,3 +278,56 @@ and decide deliberately; don't improvise under pressure.
 Phase 1 rewrites manuscript structure. Consider enabling daily backups/PITR
 (Pro plan) before it. At minimum, take a fresh Part 1 backup and verify it
 immediately before each Phase 1 production migration.
+
+---
+
+## Part 5 — The Rune 2.0 database (migration 015)
+
+Migration 015 (`015_rune2_manuscript_foundation.sql`) is for the **new, empty
+Rune 2.0 Supabase project only**. It drops and re-creates the manuscript
+tables, so it refuses to run if `projects`, `chapters`, `pages` or
+`writing_sessions` hold a single row. It must never be applied to production:
+production's Rune 1.x → Rune 2.0 data migration is a separate, future task.
+
+No backup is needed (there is no data), and rollback is rebuilding: create a
+new project, or re-run the steps below on a fresh one.
+
+```bash
+R2='postgresql://postgres.<rune2-ref>@<pooler-host>:5432/postgres'
+S=~/rune-backups/rune2-$(date +%F) && mkdir -p "$S"
+
+# 0. Make sure this is the EMPTY Rune 2.0 project, not production → both 0
+psql "$R2" -X -At -c "select count(*) from auth.users"
+psql "$R2" -X -At -c "select count(*) from public.projects"
+
+# 1. What the result must be: the catalog of baseline + 013–015, built locally
+npm --prefix tools/sync-harness run schema -- --check --catalog "$S/rune2-expected.json"
+
+# 2. Capture before
+psql "$R2" -X -q -1 -v ON_ERROR_STOP=1 --csv -f tools/db-audit/catalog.sql > "$S/rune2-before.csv"
+
+# 3. Apply 013 and 014 if the database does not have them yet (each refuses a
+#    second run with "already been applied" — that is fine), then 015
+psql "$R2" -X -1 -v ON_ERROR_STOP=1 -f src/lib/supabase/migrations/013_schema_migrations_ledger.sql
+psql "$R2" -X -1 -v ON_ERROR_STOP=1 -f src/lib/supabase/migrations/014_assert_production_baseline.sql
+psql "$R2" -X -1 -v ON_ERROR_STOP=1 -f src/lib/supabase/migrations/015_rune2_manuscript_foundation.sql
+
+# 4. Capture after: structure must be IDENTICAL to the local build
+psql "$R2" -X -q -1 -v ON_ERROR_STOP=1 --csv -f tools/db-audit/catalog.sql > "$S/rune2-after.csv"
+node tools/db-audit/diff-catalog.mjs "$S/rune2-expected.json" "$S/rune2-after.csv" --expect schema-only
+
+# 5. 015 must refuse a second run
+psql "$R2" -X -1 -f src/lib/supabase/migrations/015_rune2_manuscript_foundation.sql   # → "already been applied"
+```
+
+`rune2-after.csv`'s `integrity` section should show `projects_without_manuscript: 0`
+and the Rune 1.x page probes as `skipped: required column missing`. The exact
+structural change 015 makes is pinned by `tools/sync-harness/tests/rune2-schema.test.mjs`.
+
+A database created later can instead be built in one step from
+`src/lib/supabase/schema.sql`, which already contains 013–015 and records them
+in `schema_migrations`.
+
+The application code on the `rune-2` branch still uses the Rune 1.x tables and
+RPCs, so it does not work against this database until the application task
+moves it to Scenes.

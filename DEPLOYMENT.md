@@ -7,8 +7,14 @@ Step-by-step instructions for deploying Rune to production.
 > (production has no managed backups or PITR on the Free plan), rehearse on a
 > disposable staging project, and check the exact expected catalog diff. Never
 > re-run migrations 001–012 against any database. They are history and are
-> already contained in `src/lib/supabase/schema.sql`. Re-running `007` regresses
-> signup.
+> already contained in the Rune 1.x baseline
+> (`src/lib/supabase/baseline/production-2026-09-24.sql`). Re-running `007`
+> regresses signup.
+>
+> **Rune 2.0 branch:** `src/lib/supabase/schema.sql` is now the Rune 2.0 schema
+> (Scenes, Manuscripts). The application code on this branch still uses the
+> Rune 1.x tables, so it does not run against a Rune 2.0 database until the
+> application task lands. Production stays on the Rune 1.x baseline.
 >
 > The Stripe section below still describes an obsolete Arcane tier and old
 > prices. The current required environment variables are listed in
@@ -36,32 +42,37 @@ Step-by-step instructions for deploying Rune to production.
 
 ## Step 2 — Build the Database Schema
 
-A new database is built from the production baseline, then the migrations
-that came after it:
-
-1. `src/lib/supabase/schema.sql`. It is generated from the committed production
-   catalog snapshot (`src/lib/supabase/catalog/`) and proven equivalent by
-   `npm test`. It creates every table, constraint, index, function, RLS policy,
-   trigger (including the `auth.users` signup trigger) and grant production has.
-2. Every migration numbered **013 and above** in
-   `src/lib/supabase/migrations/`, in order. Each one records itself in
-   `public.schema_migrations` and refuses to run twice.
-
-With psql (Session pooler connection string, port 5432):
+**A new Rune 2.0 database** is built from one file:
 
 ```bash
 psql "$DB_URL" -X -1 -v ON_ERROR_STOP=1 -f src/lib/supabase/schema.sql
+```
+
+`schema.sql` is generated (`npm --prefix tools/sync-harness run schema`) from
+the Rune 1.x baseline plus every migration from 013 onward, and records those
+migrations in `public.schema_migrations`. Apply only migrations numbered above
+the last one it records. To check the result, run `tools/db-audit/catalog.sql`
+and compare it with the locally built catalog:
+
+```bash
+npm --prefix tools/sync-harness run schema -- --check --catalog /tmp/rune2-expected.json
+node tools/db-audit/diff-catalog.mjs /tmp/rune2-expected.json <export> --expect schema-only
+```
+
+**A Rune 1.x database** (production, or a staging rehearsal of it) is the
+baseline plus 013 and 014 — never 015, which refuses databases holding
+manuscripts:
+
+```bash
+psql "$DB_URL" -X -1 -v ON_ERROR_STOP=1 -f src/lib/supabase/baseline/production-2026-09-24.sql
 psql "$DB_URL" -X -1 -v ON_ERROR_STOP=1 -f src/lib/supabase/migrations/013_schema_migrations_ledger.sql
 psql "$DB_URL" -X -1 -v ON_ERROR_STOP=1 -f src/lib/supabase/migrations/014_assert_production_baseline.sql
 ```
 
-Or paste each file into the SQL editor, in the same order, and run it as one
-script. Then run `tools/db-audit/catalog.sql` and compare it with
-`node tools/db-audit/diff-catalog.mjs src/lib/supabase/catalog/production-2026-09-24.json <export> --expect schema-only`.
-
-Do **not** run migrations 001–012. For changing an existing database
-(production), see `src/lib/supabase/migrations/README.md` and
-`tools/db-audit/STAGING.md`.
+Compare with
+`node tools/db-audit/diff-catalog.mjs src/lib/supabase/catalog/production-2026-09-24.json <export> --expect schema-only`
+(before 013). The Rune 2.0 database created empty from the old baseline gets
+013–015 by `tools/db-audit/STAGING.md` Part 5.
 
 ---
 
@@ -167,7 +178,7 @@ Go to **Settings → Billing → Customer portal** in the Stripe dashboard and e
 ### 4. Database
 
 Nothing Stripe-specific to run: the billing columns, `subscription_events` and
-the entitlement tables are part of `src/lib/supabase/schema.sql` (Step 2).
+the entitlement tables are part of the schema built in Step 2.
 
 ### Environment variables for Stripe
 

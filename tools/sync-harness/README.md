@@ -29,13 +29,16 @@ points:
 
 | Path | Purpose |
 |---|---|
-| `src/lib/supabase/schema.sql` (repo) | The production baseline, loaded by every SQL test on top of the shim, so tests exercise production's real tables, policies, triggers and function bodies |
+| `src/lib/supabase/baseline/production-2026-09-24.sql` (repo, `LEGACY_BASELINE`) | The Rune 1.x production baseline, loaded by the legacy SQL tests on top of the shim, so they exercise production's real tables, policies, triggers and function bodies |
+| `src/lib/supabase/schema.sql` (repo, `RUNE2_SCHEMA`) | The canonical Rune 2.0 schema (baseline + migrations 013 onward), loaded by the Rune 2.0 tests |
+| `build-schema.mjs` | Generates `schema.sql` (`npm run schema`; `-- --check` fails if stale; `-- --catalog <file>` also writes the built catalog for comparing a real database) |
 | `sql/supabase-shim.sql` | Minimal Supabase for PGlite: roles `anon` / `authenticated` / `service_role` (BYPASSRLS), `auth.users`, `auth.uid()` / `auth.role()` / `auth.jwt()` from the same request GUCs PostgREST sets, and Supabase's default privileges on `public` |
 | `lib/pg.mjs` | `createTestDb()` (fresh PGlite + shim), `withRole()` / `asUser()` (one transaction per request as a role and user, like PostgREST), `readMigration()` |
 | `lib/supabase-adapter.mjs` | Minimal supabase-js-shaped client over PGlite, so real server code runs against real SQL + RLS. Unsupported query shapes fail with `adapter: unsupported …` instead of passing silently |
 | `lib/bundle.mjs` | `bundleForTest('src/…')` bundles a real Rune module with `@/lib/supabase/server`, `next/cache` and `next/server` mocked, and re-exports `setServerClient` and `revalidateCalls`. `aliases` can also replace a bare package (e.g. `{ jspdf: … }`) |
 | `lib/manuscript-invariants.mjs` | Rune 2.0 migration invariants over manuscript snapshots: the legacy canonical-aware rule, the Rune 2.0 rule, the approved Page → Scene mapping, and `checkMigration(before, after, { stage })` |
-| `lib/manuscript-snapshot.mjs` | `takeManuscriptSnapshot(db)`: ids, content hashes (never prose), word counts, placement, sync metadata, writing history, and real `account_word_total()` per user |
+| `lib/manuscript-snapshot.mjs` | `takeManuscriptSnapshot(db)` for either schema (legacy `pages`, or Rune 2.0 `scenes` through the Manuscript): ids, content hashes (never prose), word counts, placement, sync metadata, writing history, and real `account_word_total()` per user |
+| `lib/legacy-to-rune2.mjs` | TEST PROTOTYPE of the future Rune 1.x → Rune 2.0 data move (§42 mapping, Page ID = Scene ID), with `faults` for negative controls. Not the production migration |
 | `fixtures/manuscript-fixture.mjs` | Synthetic, production-shaped manuscript fixture (no real writing) with `seedFixture(db)`, `snapshotFromFixture()` and readable `LABELS` |
 | `mocks/` | Network and framework boundaries (`supabaseClient.js` / `serverState.js` for the sync engine; `supabaseServer.js`, `nextCache.js`, `nextServer.js` for bundled server code; `jspdf.js`, a recording jsPDF for the real export) |
 | `entry.js`, `build.mjs`, `scenarios.mjs`, `run-all.mjs` | The sync-engine scenarios (unchanged) and their bundler and runner |
@@ -71,8 +74,8 @@ bundle), backed by `fake-indexeddb`. Only the network boundary is mocked
 - `mig` the Rune 2.0 canonical cutover makes a page with a queued offline write (and a queued writing credit) Unplaced → replay lands on the same Page ID, no conflict, no remapping, no new row
 - `migbump` the same, when the data step fails to suppress the version trigger
 
-**`tests/schema-equivalence.test.mjs`** proves `src/lib/supabase/schema.sql`
-reproduces the committed production catalog snapshot exactly. It loads the
+**`tests/schema-equivalence.test.mjs`** proves the Rune 1.x baseline
+(`src/lib/supabase/baseline/production-2026-09-24.sql`) reproduces the committed production catalog snapshot exactly. It loads the
 schema, re-runs `tools/db-audit/catalog.sql`, and diffs with
 `tools/db-audit/catalog-lib.mjs`, including a negative control. It also proves
 migrations 013 + 014 produce exactly the expected catalog diff, refuse to run
@@ -107,14 +110,32 @@ export selection, account totals and writing history, and that
 `checkMigration()` accepts a correct migration and names every defect in its
 negative controls without printing prose.
 
+Its section 5 moves the fixture into the Rune 2.0 schema with
+`lib/legacy-to-rune2.mjs` and runs `checkMigration(baseline, rune2Snapshot,
+{ stage: 'cutover' })` database to database, with negative controls (new ids,
+lost sync metadata, alternates left placed, dropped history, a placed-only
+`account_word_total`).
+
 **`tests/sql-ownership-contract.test.mjs`** runs every browser-direct `pages`
 shape (sync pre-read, deep check, conflict modal, Keep Local, verify, export
-loader) and the real autosave action against real RLS. `CURRENT` tests run now.
-`FUTURE` tests cover Unplaced Scenes and are reported as skipped until the
-schema has `public.manuscripts` + `pages.manuscript_id`; they then run
-automatically. The final `FUTURE` dress rehearsal also needs
-`takeManuscriptSnapshot` extended to resolve Unplaced rows through the
-Manuscript (it throws until then, by design).
+loader) and the real autosave action against real RLS on the Rune 1.x
+baseline, where real writers still are.
+
+**`tests/rune2-schema.test.mjs`** proves `schema.sql` is exactly what
+`build-schema.mjs` generates, that a database built from it alone equals
+baseline + migrations (structure, ledger, row counts), and that migration 015
+makes exactly its intended catalog change, refuses to run twice or out of
+order, and refuses (changing nothing) on any database holding manuscript data.
+
+**`tests/sql-rune2-manuscript.test.mjs`** runs the Rune 2.0 contracts on
+`schema.sql` with the fixture moved in: Manuscript creation and read-only RLS,
+Chapter/Scene RLS through the Manuscript for every command, the Scene
+equivalents of the app's read shapes, `save_scene_checked` /
+`insert_scene_checked` / `account_word_total` / `duplicate_project_checked`,
+cross-tenant and cross-Manuscript injection, Unplaced Scenes counting toward
+the limit, triggers, writing history and deletion. These are the former
+Task 1 `FUTURE` tests. Running the REAL app modules against Scenes is
+deferred to the application task (one skipped test).
 
 ### Using the invariants in a migration test
 

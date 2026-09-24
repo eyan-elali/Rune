@@ -65,7 +65,7 @@ s_meta as (
     'database', current_database(),
     'current_user', current_user,
     'transaction_read_only', current_setting('transaction_read_only'),
-    'catalog_sql_version', 'phase0-d-1'
+    'catalog_sql_version', 'phase1-t2-1'
   ) as payload, 1 as n
 ),
 
@@ -412,42 +412,42 @@ probes(section, key, requires, sql) as (
               and exists (select 1 from public.pages s where s.chapter_id = c.chapter_id
                           and not s.is_canonical and s.word_count > 0)$q$
   union all
-  select 'integrity', 'chapters_without_pages', array[]::text[],
+  select 'integrity', 'chapters_without_pages', array['pages.chapter_id'],
          $q$select encode(convert_to(count(*)::text, 'UTF8'), 'base64') as j
             from public.chapters c where not exists (select 1 from public.pages p where p.chapter_id = c.id)$q$
   union all
-  select 'integrity', 'projects_without_chapters', array[]::text[],
+  select 'integrity', 'projects_without_chapters', array['chapters.project_id'],
          $q$select encode(convert_to(count(*)::text, 'UTF8'), 'base64') as j
             from public.projects pr where not exists (select 1 from public.chapters c where c.project_id = pr.id)$q$
   union all
-  select 'integrity', 'max_pages_per_chapter', array[]::text[],
+  select 'integrity', 'max_pages_per_chapter', array['pages.chapter_id'],
          $q$select encode(convert_to(coalesce(max(n), 0)::text, 'UTF8'), 'base64') as j
             from (select count(*) as n from public.pages group by chapter_id) x$q$
   union all
-  select 'integrity', 'max_pages_per_project', array[]::text[],
+  select 'integrity', 'max_pages_per_project', array['pages.chapter_id', 'chapters.project_id'],
          $q$select encode(convert_to(coalesce(max(n), 0)::text, 'UTF8'), 'base64') as j
             from (select count(*) as n from public.pages p join public.chapters c on c.id = p.chapter_id
                   group by c.project_id) x$q$
   union all
-  select 'integrity', 'max_chapters_per_project', array[]::text[],
+  select 'integrity', 'max_chapters_per_project', array['chapters.project_id'],
          $q$select encode(convert_to(coalesce(max(n), 0)::text, 'UTF8'), 'base64') as j
             from (select count(*) as n from public.chapters group by project_id) x$q$
   union all
-  select 'integrity', 'chapter_position_tie_groups', array[]::text[],
+  select 'integrity', 'chapter_position_tie_groups', array['chapters.project_id'],
          $q$select encode(convert_to(count(*)::text, 'UTF8'), 'base64') as j from (
               select 1 from public.chapters group by project_id, position having count(*) > 1) x$q$
   union all
-  select 'integrity', 'page_position_tie_groups', array[]::text[],
+  select 'integrity', 'page_position_tie_groups', array['pages.chapter_id'],
          $q$select encode(convert_to(count(*)::text, 'UTF8'), 'base64') as j from (
               select 1 from public.pages group by chapter_id, position having count(*) > 1) x$q$
   union all
-  select 'integrity', 'pages_null_content', array[]::text[],
+  select 'integrity', 'pages_null_content', array['pages.content'],
          $q$select encode(convert_to(count(*)::text, 'UTF8'), 'base64') as j from public.pages where content is null$q$
   union all
-  select 'integrity', 'pages_zero_words', array[]::text[],
+  select 'integrity', 'pages_zero_words', array['pages.word_count'],
          $q$select encode(convert_to(count(*)::text, 'UTF8'), 'base64') as j from public.pages where word_count = 0$q$
   union all
-  select 'integrity', 'projects_stored_word_count_mismatch', array['pages.is_canonical'],
+  select 'integrity', 'projects_stored_word_count_mismatch', array['pages.is_canonical', 'chapters.project_id'],
          -- projects.word_count vs the canonical-aware total recalculateProjectWordCount computes
          $q$select encode(convert_to(jsonb_build_object(
               'mismatched_projects', count(*) filter (where pr.word_count <> coalesce(t.total, 0)),
@@ -463,7 +463,7 @@ probes(section, key, requires, sql) as (
               from public.chapters c group by c.project_id
             ) t on t.project_id = pr.id$q$
   union all
-  select 'integrity', 'writing_sessions_page_id_usage', array['writing_sessions.page_id'],
+  select 'integrity', 'writing_sessions_page_id_usage', array['writing_sessions.page_id', 'pages.id'],
          $q$select encode(convert_to(jsonb_build_object(
               'rows_with_page_id', count(*) filter (where ws.page_id is not null),
               'rows_without_page_id', count(*) filter (where ws.page_id is null),
@@ -472,6 +472,22 @@ probes(section, key, requires, sql) as (
                    and not exists (select 1 from public.pages p where p.id = ws.page_id))
             )::text, 'UTF8'), 'base64') as j
             from public.writing_sessions ws$q$
+  union all
+  -- ── Rune 2.0 manuscript (migration 015+); skipped on a Rune 1.x database ──
+  select 'integrity', 'projects_without_manuscript', array['manuscripts.project_id'],
+         $q$select encode(convert_to(count(*)::text, 'UTF8'), 'base64') as j
+            from public.projects pr where not exists (select 1 from public.manuscripts m where m.project_id = pr.id)$q$
+  union all
+  select 'integrity', 'scenes_placement', array['scenes.chapter_id'],
+         $q$select encode(convert_to(jsonb_build_object(
+              'placed', count(*) filter (where chapter_id is not null),
+              'unplaced', count(*) filter (where chapter_id is null))::text, 'UTF8'), 'base64') as j
+            from public.scenes$q$
+  union all
+  select 'integrity', 'scene_position_tie_groups', array['scenes.chapter_id'],
+         $q$select encode(convert_to(count(*)::text, 'UTF8'), 'base64') as j from (
+              select 1 from public.scenes where chapter_id is not null
+              group by chapter_id, position having count(*) > 1) x$q$
   union all
   select 'integrity', 'writing_sessions_multi_rows_per_user_project_day', array[]::text[],
          -- >0 means the migration-002 unique(user_id, project_id, session_date) is not in force

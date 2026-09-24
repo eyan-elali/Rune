@@ -10,7 +10,7 @@
 // Direct updates under a normal search path kept working.
 import { test, before } from 'node:test';
 import assert from 'node:assert/strict';
-import { createTestDb, readMigration, readRepoFile, asUser, createAuthUser } from '../lib/pg.mjs';
+import { createTestDb, readMigration, readRepoFile, asUser, createAuthUser, LEGACY_BASELINE } from '../lib/pg.mjs';
 
 const U1 = '11111111-1111-1111-1111-111111111111';
 const U2 = '22222222-2222-2222-2222-222222222222';
@@ -37,7 +37,7 @@ before(async () => {
   db = await createTestDb();
   // Production baseline: already has the FIXED bump_project_updated_at and the
   // trg_page_updated trigger, plus production's save_page_checked.
-  await db.exec(readRepoFile('src/lib/supabase/schema.sql'));
+  await db.exec(readRepoFile(LEGACY_BASELINE));
   await createAuthUser(db, U1);
   await db.exec(`
     insert into public.projects (id, user_id, title, updated_at) values ('${PROJ1}','${U1}', 't', now() - interval '1 hour');

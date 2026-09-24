@@ -1,6 +1,8 @@
 // Phase 0 Commit D — schema truth.
 //
-// 1. src/lib/supabase/schema.sql, loaded into Postgres behind the Supabase
+// 1. The Rune 1.x production baseline
+//    (src/lib/supabase/baseline/production-2026-09-24.sql, formerly schema.sql),
+//    loaded into Postgres behind the Supabase
 //    shim, re-captured with tools/db-audit/catalog.sql, is structurally
 //    IDENTICAL to the committed production catalog snapshot (only documented
 //    Supabase-managed objects are ignored — see catalog-lib.mjs).
@@ -12,7 +14,7 @@
 // project (PostgreSQL 17) — see tools/db-audit/STAGING.md.
 import { test, before } from 'node:test';
 import assert from 'node:assert/strict';
-import { createTestDb, readRepoFile, readMigration } from '../lib/pg.mjs';
+import { createTestDb, readRepoFile, readMigration, LEGACY_BASELINE } from '../lib/pg.mjs';
 import {
   loadCatalog, catalogFromRows, diffCatalogs, diffCounts, describeDifference, EXPECTATIONS,
 } from '../../db-audit/catalog-lib.mjs';
@@ -24,7 +26,7 @@ import { REPO_DIR } from '../lib/pg.mjs';
 
 const SNAPSHOT = path.join(REPO_DIR, 'src/lib/supabase/catalog/production-2026-09-24.json');
 const CATALOG_SQL = readRepoFile('tools/db-audit/catalog.sql');
-const SCHEMA_SQL = readRepoFile('src/lib/supabase/schema.sql');
+const SCHEMA_SQL = readRepoFile(LEGACY_BASELINE);
 
 async function capture(db) {
   const res = await db.exec(CATALOG_SQL);
@@ -50,18 +52,18 @@ test('snapshot is a complete, read-only capture', () => {
   }
 });
 
-test('schema.sql is exactly what generate-schema.mjs produces from the snapshot (no hand edits)', () => {
+test('the Rune 1.x baseline is exactly what generate-schema.mjs produces from the snapshot (no hand edits)', () => {
   const out = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'rune-schema-')), 'schema.sql');
   const res = spawnSync(process.execPath, ['tools/db-audit/generate-schema.mjs', path.relative(REPO_DIR, SNAPSHOT), out],
     { cwd: REPO_DIR, encoding: 'utf8' });
   assert.equal(res.status, 0, res.stderr);
-  assert.equal(fs.readFileSync(out, 'utf8'), SCHEMA_SQL, 'regenerate: node tools/db-audit/generate-schema.mjs <snapshot> src/lib/supabase/schema.sql');
+  assert.equal(fs.readFileSync(out, 'utf8'), SCHEMA_SQL, `regenerate: node tools/db-audit/generate-schema.mjs <snapshot> ${LEGACY_BASELINE}`);
 });
 
-test('schema.sql reproduces the production catalog exactly', async () => {
+test('the Rune 1.x baseline reproduces the production catalog exactly', async () => {
   const local = await capture(await baselineDb());
   const { differences, skippedSections } = diffCatalogs(prod, local);
-  assert.equal(differences.length, 0, `schema.sql differs from production:\n${fmt(differences)}`);
+  assert.equal(differences.length, 0, `the baseline differs from production:\n${fmt(differences)}`);
   // event_triggers was added to catalog.sql after the snapshot was taken.
   assert.deepEqual(skippedSections, ['event_triggers']);
 });

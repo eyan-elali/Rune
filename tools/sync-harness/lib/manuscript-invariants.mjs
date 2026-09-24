@@ -35,6 +35,11 @@
 //   writingSessions: [{ id, userId, projectId, pageId, wordsAdded, sessionDate, createdAt }]
 //   users:           [userId]
 //   accountWordTotals: { [userId]: number }   // what the free-limit total reports
+// A snapshot of a Rune 2.0 database (scenes/manuscripts) uses the same shape
+// (`pages` = Scenes, `pageId` = scene_id) and adds:
+//   manuscripts:     [{ id, projectId }]
+//   manuscriptId on every chapter and prose row.
+// checkMigration() then also runs checkManuscriptOwnership() on `after`.
 import { createHash } from 'node:crypto';
 
 // ── content hashing ─────────────────────────────────────────────────────────
@@ -484,6 +489,37 @@ export function checkCanonicalCutover(before, after) {
 }
 
 /**
+ * Rune 2.0 ownership (only for a snapshot with `manuscripts`): every Project
+ * has exactly one Manuscript; every Chapter and Scene belongs to a Manuscript
+ * of its own Project; a placed Scene's Chapter is in the Scene's Manuscript.
+ */
+export function checkManuscriptOwnership(snapshot) {
+  if (!snapshot.manuscripts) return [];
+  const out = [];
+  const byProject = new Map();
+  for (const m of snapshot.manuscripts) byProject.set(m.projectId, [...(byProject.get(m.projectId) ?? []), m.id]);
+  const manuscriptProject = new Map(snapshot.manuscripts.map((m) => [m.id, m.projectId]));
+  for (const p of snapshot.projects) {
+    const n = (byProject.get(p.id) ?? []).length;
+    if (n !== 1) out.push(violation('ownership.one-manuscript-per-project', { projectId: p.id }, `project has ${n} manuscripts`));
+  }
+  const chapterManuscript = new Map(snapshot.chapters.map((c) => [c.id, c.manuscriptId]));
+  for (const c of snapshot.chapters) {
+    if (manuscriptProject.get(c.manuscriptId) !== c.projectId) {
+      out.push(violation('ownership.chapter-manuscript', { projectId: c.projectId, chapterId: c.id }, `chapter's manuscript ${c.manuscriptId} is not its project's`));
+    }
+  }
+  for (const q of snapshot.pages) {
+    const at = { projectId: q.projectId, chapterId: q.chapterId, pageId: q.id };
+    if (manuscriptProject.get(q.manuscriptId) !== q.projectId) out.push(violation('ownership.scene-manuscript', at, `scene's manuscript ${q.manuscriptId} is not its project's`));
+    if (q.chapterId !== null && chapterManuscript.get(q.chapterId) !== q.manuscriptId) {
+      out.push(violation('ownership.scene-chapter-same-manuscript', at, `placed in chapter of manuscript ${chapterManuscript.get(q.chapterId)}, belongs to ${q.manuscriptId}`));
+    }
+  }
+  return out;
+}
+
+/**
  * Runs every invariant for a migration stage. Returns violations (empty = pass).
  * `ignore` drops named invariants, e.g. ['structure.project-stored-word-count']
  * for the separate, reported cache recompute.
@@ -499,6 +535,7 @@ export function checkMigration(before, after, { stage, ignore = [] } = {}) {
     ...checkUnambiguousOrder(after),
     ...checkManuscriptOrderAndExport(before, after, { afterRule: stage === 'cutover' ? 'rune2' : 'legacy' }),
     ...(stage === 'cutover' ? checkCanonicalCutover(before, after) : checkPlacementUnchanged(before, after)),
+    ...checkManuscriptOwnership(after),
   ];
   return all.filter((v) => !ignore.includes(v.invariant));
 }

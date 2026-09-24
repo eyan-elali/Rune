@@ -192,7 +192,8 @@ export function snapshotFromFixture() {
 
 /**
  * Seeds the fixture into a database already holding the production baseline
- * (src/lib/supabase/schema.sql). Runs as the superuser; the signup trigger
+ * (the Rune 1.x `pages` schema: src/lib/supabase/baseline/production-2026-09-24.sql).
+ * Runs as the superuser; the signup trigger
  * creates each profile and entitlements row. No UPDATE touches `pages`, so
  * versions and timestamps are exactly the fixture's.
  */

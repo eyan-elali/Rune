@@ -6,7 +6,7 @@
 // These are foundation checks, not the Phase 0 regression suites.
 import { test, before } from 'node:test';
 import assert from 'node:assert/strict';
-import { createTestDb, readRepoFile, withRole, asUser, createAuthUser } from '../lib/pg.mjs';
+import { createTestDb, readRepoFile, withRole, asUser, createAuthUser, LEGACY_BASELINE } from '../lib/pg.mjs';
 import { createSupabaseAdapter } from '../lib/supabase-adapter.mjs';
 import { bundleForTest } from '../lib/bundle.mjs';
 
@@ -23,7 +23,7 @@ let db;
 
 before(async () => {
   db = await createTestDb();
-  await db.exec(readRepoFile('src/lib/supabase/schema.sql')); // production baseline
+  await db.exec(readRepoFile(LEGACY_BASELINE)); // Rune 1.x production baseline
   await createAuthUser(db, A); // signup trigger → profiles + entitlements
   await createAuthUser(db, B);
   await db.exec(`

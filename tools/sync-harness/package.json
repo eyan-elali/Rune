@@ -10,7 +10,8 @@
     "build": "node build.mjs",
     "sync": "node build.mjs && node run-all.mjs",
     "sql": "node --test --test-concurrency=1 tests/sql-*.test.mjs",
-    "test": "node build.mjs && node --test --test-concurrency=1 tests/*.test.mjs"
+    "test": "node build.mjs && node --test --test-concurrency=1 tests/*.test.mjs",
+    "schema": "node build-schema.mjs"
   },
   "devDependencies": {
     "@electric-sql/pglite": "0.2.17",

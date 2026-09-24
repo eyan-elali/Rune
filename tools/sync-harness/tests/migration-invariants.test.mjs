@@ -7,16 +7,22 @@
 //   3. the approved Page → Scene mapping preserves the ordered manuscript,
 //      export selection, account totals and writing history;
 //   4. checkMigration() accepts a correct migration and names what a broken
-//      one breaks (negative controls), without printing prose.
+//      one breaks (negative controls), without printing prose;
+//   5. the Rune 2.0 schema (schema.sql: manuscripts, scenes) can receive the
+//      legacy fixture through the approved mapping with every invariant intact
+//      — database to database, via the test prototype in
+//      lib/legacy-to-rune2.mjs — and database-level defects are caught.
 //
-// No schema changes here: the database only ever holds the current schema.
-// The cutover is exercised as a model (applyApprovedMapping) until a real
-// migration exists; that migration's test will call the same checkMigration()
-// with snapshots taken from the database.
+// Sections 1–4 use the Rune 1.x production baseline (the `pages` schema real
+// writers are on today). The cutover there is a model (applyApprovedMapping);
+// section 5 runs it for real into the Rune 2.0 schema. The production
+// Rune 1.x → Rune 2.0 migration is a future task and must pass the same
+// checkMigration(before, after, { stage: 'cutover' }).
 import { test, before } from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
-import { createTestDb, readRepoFile, HARNESS_DIR } from '../lib/pg.mjs';
+import { createTestDb, readRepoFile, HARNESS_DIR, LEGACY_BASELINE, RUNE2_SCHEMA } from '../lib/pg.mjs';
+import { prototypeLegacyToRune2 } from '../lib/legacy-to-rune2.mjs';
 import { createSupabaseAdapter } from '../lib/supabase-adapter.mjs';
 import { bundleForTest } from '../lib/bundle.mjs';
 import { takeManuscriptSnapshot } from '../lib/manuscript-snapshot.mjs';
@@ -39,7 +45,7 @@ let baseline; // snapshot of the seeded database, taken once, never mutated
 
 async function freshSeededDb() {
   const d = await createTestDb();
-  await d.exec(readRepoFile('src/lib/supabase/schema.sql')); // production baseline
+  await d.exec(readRepoFile(LEGACY_BASELINE)); // Rune 1.x production baseline
   await seedFixture(d);
   return d;
 }
@@ -398,3 +404,59 @@ test('failure output names the invariant, the fixture IDs and labels, and the or
   assert.match(text, /first difference at index 3/);
   assert.ok(text.includes(pageId('h4b')));
 });
+
+// ── 5. the Rune 2.0 schema receives the legacy fixture ───────────────────────
+
+/** A fresh Rune 2.0 database (schema.sql) filled from the seeded legacy database by the prototype mapping. */
+async function rune2FromLegacy(opts) {
+  const target = await createTestDb();
+  await target.exec(readRepoFile(RUNE2_SCHEMA));
+  await prototypeLegacyToRune2(db, target, opts);
+  return target;
+}
+
+test('Rune 2.0 schema: the legacy fixture, mapped into scenes/manuscripts, passes checkMigration(cutover) against the Rune 1.x baseline', async () => {
+  const after = await takeManuscriptSnapshot(await rune2FromLegacy());
+  assert.ok(after.manuscripts, 'read through the Rune 2.0 path');
+  assertNoViolations(checkMigration(baseline, after, { stage: 'cutover' }), { labels: LABELS, context: 'legacy → Rune 2.0 schema' });
+});
+
+test('Rune 2.0 schema: Page ID = Scene ID, alternates are Unplaced in their Manuscript, and the REAL account_word_total still counts them', async () => {
+  const target = await rune2FromLegacy();
+  const after = await takeManuscriptSnapshot(target);
+  assert.deepEqual(after.pages.map((p) => p.id), baseline.pages.map((p) => p.id), 'same prose ids, none invented');
+  const { byProject } = expectedRune2Mapping(baseline);
+  for (const p of baseline.projects) {
+    assert.deepEqual(named(unplacedSceneIds(after, p.id)), named([...byProject.get(p.id).unplacedIds].sort()), LABELS[p.id]);
+    assert.deepEqual(named(rune2OrderedPlacedSceneIds(after, p.id)), named(legacyOrderedManuscriptIds(baseline, p.id)), LABELS[p.id]);
+  }
+  assert.deepEqual(after.accountWordTotals, { [USERS.alice.id]: 3035, [USERS.bram.id]: 2740, [USERS.cora.id]: 0 });
+  assert.equal(after.manuscripts.length, baseline.projects.length, 'one Manuscript per Project, including projects without chapters');
+  const r = await target.query(`select count(*)::int as n from public.scenes where chapter_id is null`);
+  assert.equal(r.rows[0].n, 7, 'h3b, h3c, h6a, h6b, a1a, t1a, t1c');
+});
+
+const RUNE2_NEGATIVE_CONTROLS = [
+  ['Scenes get new ids', { faults: ['new-ids'] }, ['prose.row-survives', 'prose.no-invented-rows', 'history.row-unchanged']],
+  ['version/updated_at are not carried over', { faults: ['reset-sync'] }, ['sync.page-version', 'sync.page-updated-at']],
+  ['canonical siblings stay placed', { faults: ['keep-alternates'] }, ['cutover.placement', 'manuscript.ordered-ids', 'export.selection']],
+  ['history on Unplaced Scenes is dropped', { faults: ['drop-history'] }, ['history.row-survives', 'history.row-count']],
+  ['account_word_total counts placed Scenes only', {
+    after: (d) => d.exec(`
+      create or replace function public.account_word_total(p_candidate_scene_id uuid default null, p_candidate_word_count integer default null)
+      returns integer language sql stable set search_path to '' as $$
+        select coalesce(sum(s.word_count), 0)::int from public.scenes s
+        join public.chapters c on c.id = s.chapter_id
+        join public.manuscripts m on m.id = c.manuscript_id
+        join public.projects p on p.id = m.project_id where p.user_id = auth.uid() $$;`),
+  }, ['account.word-total', 'account.definition']],
+];
+
+for (const [name, { faults, after: sabotage }, expected] of RUNE2_NEGATIVE_CONTROLS) {
+  test(`Rune 2.0 negative control: ${name} → ${expected.join(', ')}`, async () => {
+    const target = await rune2FromLegacy({ faults });
+    if (sabotage) await sabotage(target);
+    const found = new Set(checkMigration(baseline, await takeManuscriptSnapshot(target), { stage: 'cutover' }).map((v) => v.invariant));
+    for (const inv of expected) assert.ok(found.has(inv), `expected ${inv}; got ${[...found].join(', ') || 'nothing'}`);
+  });
+}

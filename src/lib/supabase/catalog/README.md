@@ -8,9 +8,10 @@ or ids.
 
 It is the source of truth for:
 
-- `../schema.sql`, generated from it by `tools/db-audit/generate-schema.mjs`;
+- `../baseline/production-2026-09-24.sql` (the Rune 1.x baseline, formerly
+  `schema.sql`), generated from it by `tools/db-audit/generate-schema.mjs`;
 - `tools/sync-harness/tests/schema-equivalence.test.mjs`, which proves
-  `schema.sql` reproduces it exactly;
+  the baseline reproduces it exactly;
 - `tools/sync-harness/tests/production-baseline.test.mjs`, which pins the
   manuscript facts below.
 
@@ -81,5 +82,5 @@ project 32. 268 writing-session rows are keyed by page, 0 point at a missing pag
 
 After any production migration: re-run `tools/db-audit/catalog.sql`, check
 it with `tools/db-audit/diff-catalog.mjs`, save the new snapshot here under a
-new date, regenerate `schema.sql`, and update both tests' snapshot path and
+new date, regenerate the baseline, and update both tests' snapshot path and
 pinned facts deliberately.

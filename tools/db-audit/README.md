@@ -4,7 +4,8 @@
 |---|---|
 | `catalog.sql` | Read-only structural capture (this document) |
 | `diff-catalog.mjs` | Compares two captures; `--expect none \| schema-only \| 013-014` checks an exact expected diff |
-| `generate-schema.mjs` | Regenerates `src/lib/supabase/schema.sql` from a committed snapshot |
+| `generate-schema.mjs` | Regenerates the Rune 1.x baseline `src/lib/supabase/baseline/production-<date>.sql` from a committed snapshot |
+| `schema-generator.mjs` | The generator itself (pure). Also used by `tools/sync-harness/build-schema.mjs` to produce the Rune 2.0 `src/lib/supabase/schema.sql` |
 | `catalog-lib.mjs` | Shared loader/normalizer/diff (no dependencies) |
 | `STAGING.md` | Manual backup, backup verification, staging rehearsal, expected diffs, rollback |
 
@@ -24,7 +25,12 @@ arguments, SECURITY DEFINER, `search_path`/config, ACLs, overloads), table grant
 publications, roles, whitelisted role settings, event triggers (since catalog
 version `phase0-d-1`), cron-job and webhook presence, exact
 row counts per table, and a small set of anonymous integrity counts (for example, how
-many chapters have a canonical page, and how many position ties exist).
+many chapters have a canonical page, and how many position ties exist). Since
+catalog version `phase1-t2-1`, every integrity probe declares the columns it
+needs, so it also captures a Rune 2.0 database (no `pages`): Rune 1.x probes
+report `skipped: required column missing` there, and Rune 2.0 probes
+(`projects_without_manuscript`, `scenes_placement`, `scene_position_tie_groups`)
+report skipped on Rune 1.x.
 
 ## Safety guarantees
 

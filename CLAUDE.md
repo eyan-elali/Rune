@@ -434,7 +434,7 @@ Do not change counting, deletion, export, canonical-page, or chapter-order behav
 
 - A Chapter with a canonical Page: the canonical Page becomes the Chapter’s placed Scene, and its non-canonical Pages become Unplaced Scenes.
 - A Chapter without a canonical Page: its Pages become placed Scenes in their existing order.
-- The physical `pages` table stays during the beta migration, and each Page ID becomes its Scene ID.
+- Rune 2.0 stores Scenes in a `scenes` table, owned by a `manuscripts` row (one per Project); Chapters belong to the Manuscript. That schema exists on the new, empty Rune 2.0 database (migration 015). Production keeps `pages` until the Rune 1.x data migration, and each Page ID becomes its Scene ID.
 - Unplaced Scenes are real manuscript prose. They are excluded from the ordered manuscript total and from default export, but new writing in them counts toward writing activity (Today’s Words, writing days, sessions).
 - Scene numbers like `31.2` are derived presentation, never stored identity.
 - The beta keeps one Scene per editor instance. Do not rebuild the editor as a continuous multi-Scene document.

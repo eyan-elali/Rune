@@ -390,9 +390,11 @@ Scene titles are organizational metadata. Standard manuscript export does **not*
 
 Unplaced Scenes are not part of standard export (see above).
 
-### Scene identity during the beta migration
+### Scene identity and storage
 
-During the Rune 2.0 beta migration, manuscript Scenes are physically stored in the existing `pages` table, and **each Page ID becomes its Scene ID**. See §42.
+Rune 2.0 stores Scenes in a `scenes` table. A Scene belongs to its Manuscript (`manuscript_id`, which never changes) and is placed in a Chapter of that Manuscript or Unplaced (`chapter_id` null). Chapters belong to the Manuscript (`chapters.manuscript_id`), and the Manuscript to the Project, one to one. This schema was built on the new, empty Rune 2.0 database (migration 015).
+
+Scene identity is stable. When Rune 1.x manuscripts move to Rune 2.0, **each Page ID becomes its Scene ID**. See §42.
 
 ---
 
@@ -553,7 +555,7 @@ Writers see this object as a **Page**.
 
 Workspace Pages must **not** be stored in the existing physical `pages` table. Do not reuse the name `pages` for them.
 
-During the Rune 2.0 beta migration, `pages` stays compatibility-critical and physically stores manuscript **Scenes** (§42).
+Manuscript **Scenes** are stored in `scenes`. On production, the Rune 1.x `pages` table stays compatibility-critical until the Rune 1.x data migration (§42).
 
 Workspace Pages need a physical and internal name that cannot be confused with it, such as `workspace_documents`. The final schema name is chosen during schema design.
 
@@ -561,7 +563,7 @@ The rule:
 
 > Manuscript Scenes and Workspace Pages must never share an ambiguous physical persistence name.
 
-The same applies in code. Types, actions, and stores should keep "Scene (stored in `pages`)" and "Workspace Page" clearly apart.
+The same applies in code. Types, actions, and stores should keep "Scene" and "Workspace Page" clearly apart.
 
 ### Scenes and Workspace Pages are different objects
 
@@ -1806,11 +1808,10 @@ The audit established that existing `pages` rows are already the storage unit Ru
 
 - Every existing Page becomes a Scene, including empty ones.
 - No existing prose gets a new Scene ID.
-- No existing prose is copied into a new Scenes table.
+- No existing prose is re-created: every row keeps its id, content, word count, version and timestamps.
 - No existing Page is deleted or merged.
-- Every existing prose row is preserved in place.
 
-The physical `pages` table may remain during and after the migration for compatibility. The application and domain vocabulary moves toward "Scene".
+The Rune 2.0 schema stores Scenes in `scenes` (§6). Whether production's `pages` rows become `scenes` rows in place (a rename) or are copied with all of the above unchanged is decided by the Rune 1.x data-migration task, within the constraints below.
 
 ### Case A: Chapter with a canonical Page
 
@@ -1874,7 +1875,7 @@ For every Project, the ordered sequence of placed Scenes after the migration equ
 
 ### Implementation constraints (from the audit's recommendation, which stands)
 
-- Keep the physical `pages` table during the beta migration.
+- Production keeps the physical `pages` table, and its compatibility contracts, until the Rune 1.x data migration moves it to the Rune 2.0 schema (`scenes`).
 - Keep each Page ID as its Scene ID.
 - An Unplaced Scene has no Chapter (`chapter_id` is null) and belongs to the Manuscript. A Scene's ownership must stop depending on its Chapter **before** any Scene is unplaced. Otherwise access rules, queued offline saves, and account totals lose track of it.
 - At first, keep the compatibility-sensitive RPCs and database contracts (§45).
@@ -2023,6 +2024,7 @@ Canonical Pages are **not** a Rune 2.0 concept. They survive only as legacy Rune
 - Until the §42 mapping is implemented as an explicit migration, `is_canonical` keeps governing manuscript totals and export in the running application.
 - The cutover moves each canonical Chapter's non-canonical Pages to Unplaced Scenes and clears every `is_canonical` flag.
 - After cutover, no Rune 2.0 code reads `is_canonical`. The column, and the trigger that maintains it, may stay as inert compatibility artifacts until an explicit task removes them safely.
+- The Rune 2.0 schema (migration 015) has neither: no `is_canonical`, no canonical trigger, no canonical-aware database logic.
 
 ---
 

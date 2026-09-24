@@ -1,5 +1,5 @@
 // save_page_checked contract through REAL Postgres (PGlite) running the
-// production baseline (src/lib/supabase/schema.sql): real RLS policies, the
+// Rune 1.x production baseline (src/lib/supabase/baseline/production-2026-09-24.sql): real RLS policies, the
 // version trigger, trg_page_updated, and production's own function bodies.
 // Ported from sqltest.mjs (July 2026 incident harness) — every original
 // check S1–S8 is preserved.
@@ -8,7 +8,7 @@
 // file sequentially), exactly as the original script did.
 import { test, before } from 'node:test';
 import assert from 'node:assert/strict';
-import { createTestDb, readMigration, readRepoFile, asUser, createAuthUser } from '../lib/pg.mjs';
+import { createTestDb, readMigration, readRepoFile, asUser, createAuthUser, LEGACY_BASELINE } from '../lib/pg.mjs';
 
 const U1 = '11111111-1111-1111-1111-111111111111';
 const U2 = '22222222-2222-2222-2222-222222222222';
@@ -33,7 +33,7 @@ const save = (uid, pageId, content, words, version) =>
 
 before(async () => {
   db = await createTestDb();
-  await db.exec(readRepoFile('src/lib/supabase/schema.sql'));
+  await db.exec(readRepoFile(LEGACY_BASELINE));
   // Signup trigger creates profiles + starter_2k entitlements for both users.
   await createAuthUser(db, U1);
   await createAuthUser(db, U2);
