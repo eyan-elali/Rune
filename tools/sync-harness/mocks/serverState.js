@@ -66,6 +66,20 @@ export function remoteContentSave(id, content, wordCount) {
   server.log.push({ op: 'remote_content_save', id, words: wordCount });
 }
 
+// Rune 2.0 canonical cutover as it lands on one row (architecture doc §42):
+// only placement metadata changes; id, content and word_count never do. The
+// real data step suppresses the version trigger; `bumpVersion` models a data
+// step that forgot to, which the client must still survive.
+export function applyPlacementMigration(id, { chapterId, isCanonical = false, bumpVersion = false }) {
+  tick(1000);
+  const row = server.pages.get(id);
+  if (!row) throw new Error('no such page');
+  row.chapter_id = chapterId;
+  row.is_canonical = isCanonical;
+  if (bumpVersion) triggerBump(row);
+  server.log.push({ op: 'placement_migration', id, chapterId, version: row.version });
+}
+
 export function releaseHang() {
   for (const r of server.hangResolvers) r();
   server.hangResolvers = [];

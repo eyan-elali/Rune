@@ -9,10 +9,12 @@ import {
   flushPendingQueue,
   forceWriteLocalContent,
 } from '@/lib/offline/syncEngine';
-import { getOfflineDB, cachePage } from '@/lib/offline/db';
+import { getOfflineDB, cachePage, storeOfflineWritingCredit } from '@/lib/offline/db';
 import {
   server, resetServer, createServerPage, metadataUpdate, remoteContentSave, releaseHang, releaseFetchHang,
+  applyPlacementMigration,
 } from './mocks/serverState.js';
+import { recordWordsWrittenCalls } from './mocks/actionsMisc.js';
 
 const PAGE = 'page-1';
 const USER = 'user-1';
@@ -458,7 +460,56 @@ async function klserver() {
   check('KLSERVER: server advanced from the kept baseline (56w)', server.pages.get(PAGE).word_count === 56, '');
 }
 
-const scenarios = { r1, r2, r3, r6, r7, g1, g2, g3, w, f, i, m, kl, klrace, klext, klrepeat, klmeta, klserver };
+// ── MIG: the Rune 2.0 canonical cutover lands while a write is queued offline.
+//    PAGE is a non-canonical sibling in a canonical chapter, so the approved
+//    mapping (architecture doc §42) makes it an Unplaced Scene. pending_writes
+//    and pending_writing_credits carry only the Page ID (no chapter), so the
+//    replay must land on the SAME row with no ID remapping. `bumpVersion`
+//    models a data step that failed to suppress the version trigger.
+async function migration(tag, bumpVersion) {
+  resetServer();
+  const row = createServerPage(PAGE, { wordCount: 380, content: doc(380, 'alt') });
+  Object.assign(server.pages.get(PAGE), { chapter_id: 'ch-canon', is_canonical: false });
+  await cachePage({
+    id: PAGE, chapter_id: 'ch-canon', title: 'Page 2', content: row.content, word_count: 380,
+    position: 1, is_canonical: false, created_at: row.updated_at, updated_at: row.updated_at,
+  }, 'proj-1');
+
+  // Offline: typing queues locally and banks a writing credit.
+  await writeToPendingQueue(PAGE, USER, doc(395, 'alt'), 395);
+  await storeOfflineWritingCredit('proj-1', PAGE, 15);
+  const db = await getOfflineDB();
+  const pendingKeys = await db.getAllKeys('pending_writes');
+  const creditPages = (await db.getAll('pending_writing_credits')).map((c) => c.pageId);
+  check(`${tag}: queued write and credit are keyed by the Page ID only`,
+    JSON.stringify(pendingKeys) === JSON.stringify([PAGE]) && JSON.stringify(creditPages) === JSON.stringify([PAGE]),
+    JSON.stringify({ pendingKeys, creditPages }));
+
+  // The cutover runs on the server while this client is offline.
+  applyPlacementMigration(PAGE, { chapterId: null, bumpVersion });
+  const idsAfterMigration = [...server.pages.keys()];
+
+  // Reconnect.
+  const flushResult = await flushPendingQueue();
+  const saves = server.log.filter((l) => l.op === 'save_page_checked');
+  const serverRow = server.pages.get(PAGE);
+  check(`${tag}: replay uploads with no conflict`, flushResult.synced === 1 && flushResult.conflicts === 0 && flushResult.failed === 0, JSON.stringify(flushResult));
+  check(`${tag}: exactly one save, addressed to the same Page ID`, saves.length === 1 && saves[0].id === PAGE, JSON.stringify(saves.map((l) => l.id)));
+  check(`${tag}: the Scene holds the queued prose`, serverRow.word_count === 395 && JSON.stringify(serverRow.content) === JSON.stringify(doc(395, 'alt')), serverRow.word_count);
+  check(`${tag}: no row created or re-identified`, JSON.stringify([...server.pages.keys()]) === JSON.stringify(idsAfterMigration) && idsAfterMigration.length === 1, JSON.stringify([...server.pages.keys()]));
+  check(`${tag}: saving does not re-place the Scene`, serverRow.chapter_id === null, serverRow.chapter_id);
+  check(`${tag}: queue empty`, (await getPending()) === null, '');
+  check(`${tag}: writing credit applied to the same Page ID and Project`,
+    recordWordsWrittenCalls.length === 1 && recordWordsWrittenCalls[0].pageId === PAGE && recordWordsWrittenCalls[0].projectId === 'proj-1' && recordWordsWrittenCalls[0].words === 15,
+    JSON.stringify(recordWordsWrittenCalls));
+  const cache = await getCache();
+  check(`${tag}: confirmed baseline advanced on the same cache key`, cache?.serverWordCount === 395, cache?.serverWordCount);
+}
+
+const mig = () => migration('MIG', false);
+const migbump = () => migration('MIGBUMP', true);
+
+const scenarios = { r1, r2, r3, r6, r7, g1, g2, g3, w, f, i, m, kl, klrace, klext, klrepeat, klmeta, klserver, mig, migbump };
 const name = process.env.SCENARIO;
 if (!scenarios[name]) { console.error('unknown scenario', name); process.exit(2); }
 await scenarios[name]();

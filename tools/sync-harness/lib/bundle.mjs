@@ -31,11 +31,22 @@ function resolveRepoSrc(spec) {
   return null;
 }
 
+const FRAMEWORK_SPEC = /^(@\/|next\/)/;
+
 function aliasPlugin(aliases) {
+  // Exact bare-package aliases (e.g. 'jspdf' → a recording mock), including
+  // dynamic `await import('jspdf')`.
+  const exact = Object.keys(aliases).filter((k) => !FRAMEWORK_SPEC.test(k));
+  const escape = (s) => s.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
   return {
     name: 'rune-test-alias',
     setup(build) {
-      build.onResolve({ filter: /^(@\/|next\/)/ }, (args) => {
+      if (exact.length) {
+        build.onResolve({ filter: new RegExp(`^(${exact.map(escape).join('|')})$`) }, (args) => ({
+          path: aliases[args.path],
+        }));
+      }
+      build.onResolve({ filter: FRAMEWORK_SPEC }, (args) => {
         if (aliases[args.path]) return { path: aliases[args.path] };
         if (args.path.startsWith('@/')) {
           const p = resolveRepoSrc(args.path);

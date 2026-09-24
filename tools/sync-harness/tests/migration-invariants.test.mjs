@@ -1,0 +1,400 @@
+// Rune 2.0 Phase 1 migration safety harness: the manuscript invariants every
+// later Phase 1 step must keep passing (architecture doc §42).
+//
+//   1. the synthetic, production-shaped fixture and its database snapshot;
+//   2. conformance: the harness's legacy rule matches the REAL app code
+//      (manuscript.ts, projectWordCount.ts, account_word_total, the PDF export);
+//   3. the approved Page → Scene mapping preserves the ordered manuscript,
+//      export selection, account totals and writing history;
+//   4. checkMigration() accepts a correct migration and names what a broken
+//      one breaks (negative controls), without printing prose.
+//
+// No schema changes here: the database only ever holds the current schema.
+// The cutover is exercised as a model (applyApprovedMapping) until a real
+// migration exists; that migration's test will call the same checkMigration()
+// with snapshots taken from the database.
+import { test, before } from 'node:test';
+import assert from 'node:assert/strict';
+import path from 'node:path';
+import { createTestDb, readRepoFile, HARNESS_DIR } from '../lib/pg.mjs';
+import { createSupabaseAdapter } from '../lib/supabase-adapter.mjs';
+import { bundleForTest } from '../lib/bundle.mjs';
+import { takeManuscriptSnapshot } from '../lib/manuscript-snapshot.mjs';
+import {
+  applyApprovedMapping, assertNoViolations, chaptersInOrder, checkMigration, checkUnambiguousOrder,
+  expectedRune2Mapping, formatViolations, hashContent, legacyExportSelection, legacyOrderedManuscriptIds,
+  legacyOrderedWordTotal, modelAccountWordTotal, placedPagesInOrder, rune2ExportSelection,
+  rune2OrderedPlacedSceneIds, rune2PlacedWordTotal, unplacedSceneIds,
+} from '../lib/manuscript-invariants.mjs';
+import {
+  CHAPTERS, LABELS, PAGES, PROJECTS, USERS, WRITING_SESSIONS, chapterId, chapterTitleFor, markerFor,
+  pageContent, pageId, pageLabelOf, projectId, seedFixture, snapshotFromFixture,
+} from '../fixtures/manuscript-fixture.mjs';
+
+const ids = (...labels) => labels.map(pageId);
+const named = (list) => list.map((id) => LABELS[id] ?? id);
+
+let db;
+let baseline; // snapshot of the seeded database, taken once, never mutated
+
+async function freshSeededDb() {
+  const d = await createTestDb();
+  await d.exec(readRepoFile('src/lib/supabase/schema.sql')); // production baseline
+  await seedFixture(d);
+  return d;
+}
+
+before(async () => {
+  db = await freshSeededDb();
+  baseline = await takeManuscriptSnapshot(db);
+});
+
+// ── 1. fixture and snapshot ──────────────────────────────────────────────────
+
+test('fixture covers every production shape the migration must handle', () => {
+  const s = snapshotFromFixture();
+  const chapterPages = (cid) => s.pages.filter((p) => p.chapterId === cid);
+  const canonicalChapters = s.chapters.filter((c) => chapterPages(c.id).some((p) => p.isCanonical));
+  const shapes = {
+    projects: s.projects.length,
+    usersWithSeveralProjects: s.users.filter((u) => s.projects.filter((p) => p.userId === u).length > 1).length,
+    chaptersWithSeveralChaptersPerProject: s.projects.filter((p) => s.chapters.filter((c) => c.projectId === p.id).length > 1).length,
+    canonicalWithoutSiblings: canonicalChapters.filter((c) => chapterPages(c.id).length === 1).length,
+    canonicalWithAlternates: canonicalChapters.filter((c) => chapterPages(c.id).length > 1).length,
+    canonicalNotFirst: canonicalChapters.filter((c) => chapterPages(c.id).find((p) => p.isCanonical).position > 0).length,
+    emptyCanonicalWithProseSibling: canonicalChapters.filter((c) => {
+      const ps = chapterPages(c.id);
+      return ps.find((p) => p.isCanonical).wordCount === 0 && ps.some((p) => !p.isCanonical && p.wordCount > 0);
+    }).length,
+    noncanonicalMultiPage: s.chapters.filter((c) => chapterPages(c.id).length > 1 && !chapterPages(c.id).some((p) => p.isCanonical)).length,
+    onePageChapters: s.chapters.filter((c) => chapterPages(c.id).length === 1 && !chapterPages(c.id)[0].isCanonical).length,
+    emptyPagesNullContent: s.pages.filter((p) => p.wordCount === 0 && p.contentHash === hashContent(null)).length,
+    emptyPagesEmptyDoc: s.pages.filter((p) => p.wordCount === 0 && p.contentHash !== hashContent(null)).length,
+    chaptersWithoutPages: s.chapters.filter((c) => chapterPages(c.id).length === 0).length,
+    projectsWithoutChapters: s.projects.filter((p) => !s.chapters.some((c) => c.projectId === p.id)).length,
+    pagesWithHistory: new Set(s.writingSessions.filter((w) => w.pageId).map((w) => w.pageId)).size,
+    alternatesWithHistory: s.writingSessions.filter((w) => w.pageId && expectedRune2Mapping(s).placement.get(w.pageId) === null).length,
+    sessionsWithoutPage: s.writingSessions.filter((w) => !w.pageId).length,
+    staleStoredTotals: s.projects.filter((p) => p.storedWordCount !== legacyOrderedWordTotal(s, p.id)).length,
+    chapterPositionGaps: s.projects.filter((p) => chaptersInOrder(s, p.id).some((c, i, a) => i > 0 && c.position !== a[i - 1].position + 1)).length,
+  };
+  for (const [shape, n] of Object.entries(shapes)) assert.ok(n > 0, `fixture lost a required shape: ${shape}`);
+  assert.ok(shapes.projects >= 5 && shapes.projectsWithoutChapters >= 2);
+});
+
+test('the database snapshot of the seeded fixture equals the fixture model (ids, hashes, counts, placement, history, totals)', () => {
+  assert.deepEqual(baseline, snapshotFromFixture());
+  assert.deepEqual(baseline.accountWordTotals, {
+    [USERS.alice.id]: 3035, [USERS.bram.id]: 2740, [USERS.cora.id]: 0,
+  }, 'real account_word_total() per user');
+});
+
+test('fixture order is unambiguous (production has 0 position ties)', () => {
+  assert.deepEqual(checkUnambiguousOrder(baseline), []);
+});
+
+test('snapshots never carry prose: content is reduced to a hash', () => {
+  const text = JSON.stringify(baseline);
+  for (const label of Object.keys(PAGES)) assert.ok(!text.includes(markerFor(label)), `prose leaked for ${label}`);
+  assert.ok(!/\b(vellum|lantern|bramble)\b/.test(text));
+});
+
+// ── 2. the legacy rule matches the real application code ─────────────────────
+
+test('conformance: legacy chapter/project totals equal src/lib/manuscript.ts', async () => {
+  const mod = await bundleForTest('src/lib/manuscript.ts', { name: 'inv_manuscript' });
+  for (const p of baseline.projects) {
+    const chapters = chaptersInOrder(baseline, p.id).map((c) => ({
+      pages: placedPagesInOrder(baseline, c.id).map((pg) => ({ word_count: pg.wordCount, is_canonical: pg.isCanonical })),
+    }));
+    assert.equal(mod.calculateProjectWordCount(chapters), legacyOrderedWordTotal(baseline, p.id), LABELS[p.id]);
+  }
+});
+
+test('conformance: legacy totals equal the REAL recalculateProjectWordCount (incl. the stale stored total)', async () => {
+  const scratch = await freshSeededDb(); // it writes projects.word_count
+  const mod = await bundleForTest('src/lib/projectWordCount.ts', { name: 'inv_projectWordCount' });
+  for (const p of baseline.projects) {
+    await mod.recalculateProjectWordCount(createSupabaseAdapter(scratch, { userId: p.userId }), p.id);
+    const r = await scratch.query(`select word_count from public.projects where id = $1`, [p.id]);
+    assert.equal(r.rows[0].word_count, legacyOrderedWordTotal(baseline, p.id), LABELS[p.id]);
+  }
+  assert.equal(legacyOrderedWordTotal(baseline, projectId('ash')), 100);
+  assert.equal(PROJECTS.ash.storedWordCount, 999, 'the stored cache stays stale in the fixture on purpose');
+});
+
+test('conformance: account totals equal the REAL account_word_total() — every stored Page counts', () => {
+  for (const u of baseline.users) assert.equal(baseline.accountWordTotals[u], modelAccountWordTotal(baseline, u), LABELS[u]);
+  const alice = USERS.alice.id;
+  const orderedOnly = baseline.projects.filter((p) => p.userId === alice).reduce((n, p) => n + legacyOrderedWordTotal(baseline, p.id), 0);
+  assert.equal(orderedOnly, 1550);
+  assert.ok(baseline.accountWordTotals[alice] > 2000 && orderedOnly < 2000,
+    'alice is over the starter limit only because alternates count — the gap a migration must not open');
+});
+
+// Runs the REAL manuscript export: ManuscriptExportButton's two browser
+// queries (mirrored here through the adapter, as the owner) and the real
+// exportProjectAsPdf/tiptapToPdf with a recording jsPDF. Rendered chapter
+// headings and page markers reveal what was selected, in order. Empty pages
+// render nothing, so their selection is covered by the selection helper.
+async function renderRealExport(exportModule, { project, chapters, pages }) {
+  const recording = (globalThis.__runeTestPdf ??= { texts: [], saved: [] }); // shared with mocks/jspdf.js
+  recording.texts.length = 0;
+  recording.saved.length = 0;
+  const pagesPerChapter = {};
+  for (const page of pages) (pagesPerChapter[page.chapter_id] ??= []).push(page);
+  await exportModule.exportProjectAsPdf(project, chapters, pagesPerChapter);
+  const texts = recording.texts;
+  const titleToChapter = Object.fromEntries(Object.keys(CHAPTERS).map((l) => [chapterTitleFor(l).toUpperCase(), chapterId(l)]));
+  const markerToPage = Object.fromEntries(Object.keys(PAGES).map((l) => [markerFor(l), pageId(l)]));
+  return {
+    headings: texts.filter((t) => titleToChapter[t]).map((t) => titleToChapter[t]),
+    pages: texts.filter((t) => markerToPage[t]).map((t) => markerToPage[t]),
+    saved: recording.saved.length,
+  };
+}
+
+const expectedRender = (selection, snapshot) => ({
+  headings: selection.map((c) => c.chapterId),
+  pages: selection.flatMap((c) => c.pageIds).filter((id) => snapshot.pages.find((p) => p.id === id).wordCount > 0),
+});
+
+async function loadExportRows(sb, pid) {
+  const { data: project } = await sb.from('projects').select('*').eq('id', pid).single();
+  const { data: chapters, error: chapErr } = await sb.from('chapters').select('*').eq('project_id', pid).order('position', { ascending: true });
+  assert.equal(chapErr, null);
+  if (chapters.length === 0) return { project, chapters, pages: [] }; // the button toasts "No chapters to export."
+  const { data: pages, error: pageErr } = await sb.from('pages').select('*').in('chapter_id', chapters.map((c) => c.id)).order('position', { ascending: true });
+  assert.equal(pageErr, null);
+  return { project, chapters, pages };
+}
+
+test('conformance: the REAL export (loader + exportProjectAsPdf) selects exactly legacyExportSelection', async () => {
+  const mod = await bundleForTest('src/lib/export/projectExport.ts', {
+    name: 'inv_projectExport', aliases: { jspdf: path.join(HARNESS_DIR, 'mocks/jspdf.js') },
+  });
+  for (const p of baseline.projects) {
+    const rows = await loadExportRows(createSupabaseAdapter(db, { userId: p.userId }), p.id);
+    const selection = legacyExportSelection(baseline, p.id);
+    if (rows.chapters.length === 0) { assert.deepEqual(selection, [], LABELS[p.id]); continue; }
+    const rendered = await renderRealExport(mod, rows);
+    assert.equal(rendered.saved, 1);
+    const want = expectedRender(selection, baseline);
+    assert.deepEqual(named(rendered.headings), named(want.headings), `${LABELS[p.id]}: exported chapter headings`);
+    assert.deepEqual(named(rendered.pages), named(want.pages), `${LABELS[p.id]}: exported pages`);
+  }
+});
+
+// ── 3. the approved Page → Scene mapping ─────────────────────────────────────
+
+test('KEY INVARIANT: legacyOrderedManuscriptIds === expectedRune2PlacedSceneIds for every project', () => {
+  const { byProject } = expectedRune2Mapping(baseline);
+  for (const p of baseline.projects) {
+    assert.deepEqual(named(byProject.get(p.id).placedIds), named(legacyOrderedManuscriptIds(baseline, p.id)), LABELS[p.id]);
+    const after = applyApprovedMapping(baseline);
+    assert.deepEqual(named(rune2OrderedPlacedSceneIds(after, p.id)), named(legacyOrderedManuscriptIds(baseline, p.id)), LABELS[p.id]);
+    assert.equal(rune2PlacedWordTotal(after, p.id), legacyOrderedWordTotal(baseline, p.id), LABELS[p.id]);
+  }
+  assert.deepEqual(named(legacyOrderedManuscriptIds(baseline, projectId('hollow'))),
+    named(ids('h1a', 'h2a', 'h3a', 'h4a', 'h4b', 'h4c', 'h6c')), 'hollow: chapters by position (ch5 at 4 before ch4 at 5), pages by position');
+});
+
+test('Case A: a canonical Page stays placed; its alternates become Unplaced; nothing is deleted', () => {
+  const after = applyApprovedMapping(baseline);
+  const placedIn = (ch) => placedPagesInOrder(after, chapterId(ch)).map((p) => p.id);
+  const cases = [
+    ['hollow.ch3', ['h3a'], ['h3b', 'h3c']], // A* B C
+    ['hollow.ch6', ['h6c'], ['h6a', 'h6b']], // A B C*
+    ['tide.ch1', ['t1b'], ['t1a', 't1c']], // A B* C
+    ['ash.ch1', ['a1b'], ['a1a']], // empty canonical, prose sibling
+    ['hollow.ch2', ['h2a'], []], // canonical with no siblings
+  ];
+  for (const [ch, placed, unplaced] of cases) {
+    assert.deepEqual(named(placedIn(ch)), named(ids(...placed)), `${ch} placed`);
+    for (const l of unplaced) assert.equal(after.pages.find((p) => p.id === pageId(l)).chapterId, null, `${ch}: ${l} Unplaced`);
+  }
+  assert.deepEqual(named(unplacedSceneIds(after, projectId('hollow'))), named(ids('h3b', 'h3c', 'h6a', 'h6b').sort()));
+  assert.deepEqual(expectedRune2Mapping(baseline).byProject.get(projectId('hollow')).unplacedIds, ids('h3b', 'h3c', 'h6a', 'h6b'),
+    'recommended pool order: former chapter order, then former page position');
+  assert.ok(after.pages.every((p) => !p.isCanonical), 'every canonical flag cleared');
+});
+
+test('Case B: a chapter without a canonical Page keeps every Page placed, in position order', () => {
+  const after = applyApprovedMapping(baseline);
+  const placedIn = (ch) => placedPagesInOrder(after, chapterId(ch)).map((p) => p.id);
+  assert.deepEqual(named(placedIn('hollow.ch4')), named(ids('h4a', 'h4b', 'h4c')), 'position order, not insert order');
+  assert.deepEqual(named(placedIn('ash.ch2')), named(ids('a2a', 'a2b')));
+  assert.deepEqual(named(placedIn('tide.ch3')), named(ids('t3a', 't3b')));
+  assert.deepEqual(named(placedIn('hollow.ch1')), named(ids('h1a')), 'one-page chapter');
+});
+
+test('every Page becomes exactly one Scene with the same ID — empty Pages included; no Scene is invented', () => {
+  const { placement } = expectedRune2Mapping(baseline);
+  assert.equal(placement.size, baseline.pages.length);
+  assert.deepEqual([...placement.keys()].sort(), baseline.pages.map((p) => p.id));
+  for (const l of ['h4b', 't2a', 'a1b']) {
+    assert.ok(placement.has(pageId(l)), `empty page ${l} survives as a Scene`);
+    assert.notEqual(placement.get(pageId(l)), null, `empty page ${l} stays placed`);
+  }
+  const after = applyApprovedMapping(baseline);
+  assert.equal(after.pages.length, baseline.pages.length);
+  assert.equal(after.pages.filter((p) => p.chapterId === null).length, 7, '7 alternates become Unplaced');
+});
+
+test('a chapter without Pages and projects without Chapters: nothing invented, nothing deleted', () => {
+  const after = applyApprovedMapping(baseline);
+  assert.deepEqual(placedPagesInOrder(after, chapterId('hollow.ch5')), []);
+  assert.ok(after.chapters.some((c) => c.id === chapterId('hollow.ch5')), 'empty chapter still exists');
+  assert.ok(!legacyExportSelection(baseline, projectId('hollow')).some((c) => c.chapterId === chapterId('hollow.ch5')));
+  assert.ok(!rune2ExportSelection(after, projectId('hollow')).some((c) => c.chapterId === chapterId('hollow.ch5')), 'no heading either way');
+  for (const pr of ['bramEmpty', 'coraEmpty']) {
+    assert.deepEqual(legacyOrderedManuscriptIds(baseline, projectId(pr)), []);
+    assert.deepEqual(rune2OrderedPlacedSceneIds(after, projectId(pr)), []);
+    assert.deepEqual(unplacedSceneIds(after, projectId(pr)), []);
+    assert.ok(after.projects.some((p) => p.id === projectId(pr)));
+  }
+});
+
+test('account totals: the mapping keeps every user total; counting only placed Scenes would open a bypass', () => {
+  const after = applyApprovedMapping(baseline);
+  for (const u of baseline.users) {
+    assert.equal(modelAccountWordTotal(after, u), baseline.accountWordTotals[u], `${LABELS[u]}: placed + Unplaced`);
+  }
+  const alice = USERS.alice.id;
+  const placedOnly = after.pages
+    .filter((p) => p.chapterId !== null && after.projects.find((pr) => pr.id === p.projectId).userId === alice)
+    .reduce((n, p) => n + p.wordCount, 0);
+  assert.equal(placedOnly, 1550, 'a placed-only (chapter-joined) total would drop alice from 3035 to 1550 — under her 2000 limit');
+});
+
+test('export selection: legacy export before === Rune 2.0 export after; Unplaced Scenes never export', () => {
+  const after = applyApprovedMapping(baseline);
+  for (const p of baseline.projects) {
+    assert.deepEqual(rune2ExportSelection(after, p.id), legacyExportSelection(baseline, p.id), LABELS[p.id]);
+    const exported = new Set(rune2ExportSelection(after, p.id).flatMap((c) => c.pageIds));
+    for (const u of unplacedSceneIds(after, p.id)) assert.ok(!exported.has(u), `${LABELS[u]} must not export`);
+  }
+});
+
+test('the UNCHANGED export code, fed post-cutover data, renders what it renders today (stale-client safety)', async () => {
+  const mod = await bundleForTest('src/lib/export/projectExport.ts', {
+    name: 'inv_projectExport_after', aliases: { jspdf: path.join(HARNESS_DIR, 'mocks/jspdf.js') },
+  });
+  const after = applyApprovedMapping(baseline);
+  for (const p of baseline.projects) {
+    const chapters = chaptersInOrder(after, p.id).map((c) => ({ id: c.id, title: chapterTitleFor(Object.keys(CHAPTERS).find((l) => CHAPTERS[l].id === c.id)), position: c.position }));
+    if (chapters.length === 0) continue;
+    // What the loader's `.in('chapter_id', …)` returns after cutover: placed Scenes only.
+    const pages = after.pages.filter((pg) => pg.projectId === p.id && pg.chapterId !== null).map((pg) => ({
+      id: pg.id, chapter_id: pg.chapterId, position: pg.position, is_canonical: pg.isCanonical, content: pageContent(pageLabelOf[pg.id]),
+    })).sort((a, b) => a.position - b.position);
+    const rendered = await renderRealExport(mod, { project: { title: `fixture-project` }, chapters, pages });
+    const want = expectedRender(legacyExportSelection(baseline, p.id), baseline);
+    assert.deepEqual(named(rendered.headings), named(want.headings), LABELS[p.id]);
+    assert.deepEqual(named(rendered.pages), named(want.pages), LABELS[p.id]);
+  }
+});
+
+test('writing history stays attached to the same IDs: every page-keyed session still has its Scene', () => {
+  const after = applyApprovedMapping(baseline);
+  const scenes = new Set(after.pages.map((p) => p.id));
+  const keyed = WRITING_SESSIONS.filter((s) => s.page);
+  for (const s of keyed) assert.ok(scenes.has(pageId(s.page)), `session ${s.id} → ${s.page}`);
+  const onUnplaced = keyed.filter((s) => after.pages.find((p) => p.id === pageId(s.page)).chapterId === null).map((s) => s.page);
+  assert.deepEqual(onUnplaced.sort(), ['a1a', 'h3b', 'h6b', 't1c'], 'history on alternates survives with them');
+  assert.deepEqual(after.writingSessions, baseline.writingSessions);
+});
+
+// ── 4. checkMigration: accepts correct migrations, names broken ones ─────────
+
+test('checkMigration(additive): the database, re-read after a no-op stage, passes', async () => {
+  const again = await takeManuscriptSnapshot(db);
+  assertNoViolations(checkMigration(baseline, again, { stage: 'additive' }), { labels: LABELS });
+});
+
+test('checkMigration(cutover): the approved mapping passes', () => {
+  assertNoViolations(checkMigration(baseline, applyApprovedMapping(baseline), { stage: 'cutover' }), { labels: LABELS });
+});
+
+test('checkMigration(cutover): doing nothing is NOT a cutover', () => {
+  const found = new Set(checkMigration(baseline, structuredClone(baseline), { stage: 'cutover' }).map((v) => v.invariant));
+  for (const inv of ['cutover.placement', 'cutover.canonical-cleared', 'manuscript.ordered-ids', 'export.selection', 'manuscript.ordered-word-total']) {
+    assert.ok(found.has(inv), `expected ${inv}`);
+  }
+});
+
+const find = (s, label) => s.pages.find((p) => p.id === pageId(label));
+const session = (s, n) => s.writingSessions.find((w) => w.id === WRITING_SESSIONS[n - 1].id);
+
+// Each broken "migration" is the approved mapping plus one defect.
+const NEGATIVE_CONTROLS = [
+  ['a Page is deleted', (s) => { s.pages = s.pages.filter((p) => p.id !== pageId('h3c')); }, ['prose.row-survives']],
+  ['a Page is re-created under a new ID', (s) => { find(s, 'h3b').id = 'dddddddd-0000-4000-8000-999999999999'; },
+    ['prose.row-survives', 'prose.no-invented-rows', 'history.page-exists']],
+  ['prose content changes', (s) => { find(s, 'h1a').contentHash = hashContent({ type: 'doc' }); }, ['prose.content-hash']],
+  ['a word count changes', (s) => { find(s, 'h4a').wordCount += 1; },
+    ['prose.word-count', 'manuscript.ordered-word-total', 'account.definition']],
+  ['a Page moves to another project', (s) => { find(s, 'h3c').projectId = projectId('ash'); }, ['prose.project']],
+  ['the data step fires the version trigger', (s) => { find(s, 'h3b').version += 1; find(s, 'h3b').updatedAt = '2026-09-30 00:00:00+00'; },
+    ['sync.page-version', 'sync.page-updated-at']],
+  ['the data step bumps projects.updated_at', (s) => { s.projects.find((p) => p.id === projectId('hollow')).updatedAt = '2026-09-30 00:00:00+00'; },
+    ['sync.project-updated-at']],
+  ['an alternate stays placed', (s) => { find(s, 'h3b').chapterId = chapterId('hollow.ch3'); },
+    ['cutover.placement', 'manuscript.ordered-ids', 'manuscript.ordered-word-total', 'export.selection']],
+  ['the canonical Page is unplaced instead', (s) => { find(s, 'h3a').chapterId = null; },
+    ['cutover.placement', 'manuscript.ordered-ids', 'export.selection']],
+  ['a canonical flag survives', (s) => { find(s, 't1b').isCanonical = true; }, ['cutover.canonical-cleared']],
+  ['placed Scenes are reordered', (s) => { find(s, 'h4a').position = 5; }, ['manuscript.ordered-ids', 'export.selection']],
+  ['two placed Scenes share a position', (s) => { find(s, 'h4c').position = 0; }, ['order.page-position-tie']],
+  ['an empty Chapter is dropped', (s) => { s.chapters = s.chapters.filter((c) => c.id !== chapterId('hollow.ch5')); }, ['structure.chapter-survives']],
+  ['a Chapter is invented', (s) => { s.chapters.push({ id: 'cccccccc-0000-4000-8000-999999999999', projectId: projectId('coraEmpty'), position: 1 }); },
+    ['structure.no-invented-chapters']],
+  ['the stored project total is recomputed inside the migration', (s) => { s.projects.find((p) => p.id === projectId('ash')).storedWordCount = 100; },
+    ['structure.project-stored-word-count']],
+  ['a writing session is deleted (Page cascade)', (s) => { s.writingSessions = s.writingSessions.filter((w) => w.id !== WRITING_SESSIONS[0].id); },
+    ['history.row-survives', 'history.row-count']],
+  ['a writing session is re-pointed to another Page', (s) => { session(s, 1).pageId = pageId('h3a'); }, ['history.row-unchanged']],
+  ['a writing session is duplicated', (s) => { s.writingSessions.push({ ...session(s, 5), id: 'eeeeeeee-0000-4000-8000-999999999999' }); },
+    ['history.no-invented-rows', 'history.row-count']],
+  ['recorded words change', (s) => { session(s, 9).wordsAdded = 0; }, ['history.row-unchanged']],
+  ['account_word_total stops counting Unplaced Scenes (chapter inner join)', (s) => {
+    for (const u of s.users) s.accountWordTotals[u] -= s.pages.filter((p) => p.chapterId === null && s.projects.find((pr) => pr.id === p.projectId).userId === u).reduce((n, p) => n + p.wordCount, 0);
+  }, ['account.word-total', 'account.definition']],
+];
+
+for (const [name, defect, expected] of NEGATIVE_CONTROLS) {
+  test(`negative control: ${name} → ${expected.join(', ')}`, () => {
+    const after = structuredClone(applyApprovedMapping(baseline));
+    defect(after);
+    const violations = checkMigration(baseline, after, { stage: 'cutover' });
+    const found = new Set(violations.map((v) => v.invariant));
+    for (const inv of expected) assert.ok(found.has(inv), `expected ${inv}; got ${[...found].join(', ') || 'nothing'}`);
+    const message = (() => { try { assertNoViolations(violations, { labels: LABELS }); return ''; } catch (e) { return e.message; } })();
+    assert.ok(message.length > 0, 'assertNoViolations must throw');
+    assert.ok(!/\b(vellum|quill|lantern|ember|cinder|bramble|tallow|willow)\b/.test(message) && !message.includes('fixture-marker-'),
+      'failure output must not contain prose');
+  });
+}
+
+test('checkMigration(additive): moving any Page is a violation', () => {
+  const after = structuredClone(baseline);
+  find(after, 'h3b').chapterId = chapterId('hollow.ch1');
+  const found = new Set(checkMigration(baseline, after, { stage: 'additive' }).map((v) => v.invariant));
+  assert.ok(found.has('placement.unchanged'));
+  assert.ok(found.has('manuscript.ordered-ids'), 'a stale reader would now see B in chapter 1');
+});
+
+test('checkMigration: `ignore` exempts a deliberately reported step (the stored-total recompute)', () => {
+  const after = structuredClone(applyApprovedMapping(baseline));
+  after.projects.find((p) => p.id === projectId('ash')).storedWordCount = 100;
+  assert.deepEqual(checkMigration(baseline, after, { stage: 'cutover', ignore: ['structure.project-stored-word-count'] }), []);
+});
+
+test('failure output names the invariant, the fixture IDs and labels, and the ordering difference', () => {
+  const after = structuredClone(applyApprovedMapping(baseline));
+  find(after, 'h4a').position = 5;
+  const text = formatViolations(checkMigration(baseline, after, { stage: 'cutover' }), LABELS);
+  assert.match(text, /\[manuscript\.ordered-ids\] project=bbbbbbbb-0000-4000-8000-000000000001 \(project hollow\)/);
+  assert.match(text, /first difference at index 3/);
+  assert.ok(text.includes(pageId('h4b')));
+});

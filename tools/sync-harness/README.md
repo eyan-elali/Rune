@@ -22,7 +22,7 @@ points:
 
 | Command | What it runs |
 |---|---|
-| `npm run sync` | The 18 sync scenarios only, with the original per-scenario output |
+| `npm run sync` | The 20 sync scenarios only, with the original per-scenario output |
 | `npm run sql` | The SQL test files only (`tests/sql-*.test.mjs`) |
 
 ## Layout
@@ -33,8 +33,11 @@ points:
 | `sql/supabase-shim.sql` | Minimal Supabase for PGlite: roles `anon` / `authenticated` / `service_role` (BYPASSRLS), `auth.users`, `auth.uid()` / `auth.role()` / `auth.jwt()` from the same request GUCs PostgREST sets, and Supabase's default privileges on `public` |
 | `lib/pg.mjs` | `createTestDb()` (fresh PGlite + shim), `withRole()` / `asUser()` (one transaction per request as a role and user, like PostgREST), `readMigration()` |
 | `lib/supabase-adapter.mjs` | Minimal supabase-js-shaped client over PGlite, so real server code runs against real SQL + RLS. Unsupported query shapes fail with `adapter: unsupported …` instead of passing silently |
-| `lib/bundle.mjs` | `bundleForTest('src/…')` bundles a real Rune module with `@/lib/supabase/server`, `next/cache` and `next/server` mocked, and re-exports `setServerClient` and `revalidateCalls` |
-| `mocks/` | Network and framework boundaries (`supabaseClient.js` / `serverState.js` for the sync engine; `supabaseServer.js`, `nextCache.js`, `nextServer.js` for bundled server code) |
+| `lib/bundle.mjs` | `bundleForTest('src/…')` bundles a real Rune module with `@/lib/supabase/server`, `next/cache` and `next/server` mocked, and re-exports `setServerClient` and `revalidateCalls`. `aliases` can also replace a bare package (e.g. `{ jspdf: … }`) |
+| `lib/manuscript-invariants.mjs` | Rune 2.0 migration invariants over manuscript snapshots: the legacy canonical-aware rule, the Rune 2.0 rule, the approved Page → Scene mapping, and `checkMigration(before, after, { stage })` |
+| `lib/manuscript-snapshot.mjs` | `takeManuscriptSnapshot(db)`: ids, content hashes (never prose), word counts, placement, sync metadata, writing history, and real `account_word_total()` per user |
+| `fixtures/manuscript-fixture.mjs` | Synthetic, production-shaped manuscript fixture (no real writing) with `seedFixture(db)`, `snapshotFromFixture()` and readable `LABELS` |
+| `mocks/` | Network and framework boundaries (`supabaseClient.js` / `serverState.js` for the sync engine; `supabaseServer.js`, `nextCache.js`, `nextServer.js` for bundled server code; `jspdf.js`, a recording jsPDF for the real export) |
 | `entry.js`, `build.mjs`, `scenarios.mjs`, `run-all.mjs` | The sync-engine scenarios (unchanged) and their bundler and runner |
 | `tests/` | `node:test` files |
 
@@ -65,6 +68,8 @@ bundle), backed by `fake-indexeddb`. Only the network boundary is mocked
 - `klrepeat` repeated edit+poll cycles after Keep Local must never re-raise a conflict (the reported loop)
 - `klmeta` a metadata-only bump after Keep Local (identical content) must not false-conflict
 - `klserver` Keep Server resets the baseline; later edits sync with no false conflict
+- `mig` the Rune 2.0 canonical cutover makes a page with a queued offline write (and a queued writing credit) Unplaced → replay lands on the same Page ID, no conflict, no remapping, no new row
+- `migbump` the same, when the data step fails to suppress the version trigger
 
 **`tests/schema-equivalence.test.mjs`** proves `src/lib/supabase/schema.sql`
 reproduces the committed production catalog snapshot exactly. It loads the
@@ -92,6 +97,37 @@ incident regression. It puts back the exact hand-applied production body of
 proves `save_page_checked` fails with `relation "projects" does not exist` and
 rolls back. It then applies migration 012 twice (idempotency) and proves the
 save commits through the real trigger.
+
+**`tests/migration-invariants.test.mjs`** is the Rune 2.0 Phase 1 migration
+safety harness (architecture doc §42). On the synthetic fixture it proves the
+harness's legacy rule matches the real app (`manuscript.ts`,
+`recalculateProjectWordCount`, `account_word_total()`, and the real PDF export
+with a recording jsPDF), that the approved mapping keeps the ordered manuscript,
+export selection, account totals and writing history, and that
+`checkMigration()` accepts a correct migration and names every defect in its
+negative controls without printing prose.
+
+**`tests/sql-ownership-contract.test.mjs`** runs every browser-direct `pages`
+shape (sync pre-read, deep check, conflict modal, Keep Local, verify, export
+loader) and the real autosave action against real RLS. `CURRENT` tests run now.
+`FUTURE` tests cover Unplaced Scenes and are reported as skipped until the
+schema has `public.manuscripts` + `pages.manuscript_id`; they then run
+automatically. The final `FUTURE` dress rehearsal also needs
+`takeManuscriptSnapshot` extended to resolve Unplaced rows through the
+Manuscript (it throws until then, by design).
+
+### Using the invariants in a migration test
+
+```js
+const before = await takeManuscriptSnapshot(db);
+await db.exec(readMigration('0NN_….sql'));
+const after = await takeManuscriptSnapshot(db);
+assertNoViolations(checkMigration(before, after, { stage: 'additive' }), { labels: LABELS });
+```
+
+Use `stage: 'additive'` for steps that move no Page (schema introduction,
+ownership backfill, function bodies) and `stage: 'cutover'` for the canonical
+cutover and final Phase 1 verification (run against the original baseline).
 
 **`tests/foundation.test.mjs`** covers the Phase 0 foundation itself: shim
 identity and RLS per role, the adapter's query shapes, RLS and error behaviour,
