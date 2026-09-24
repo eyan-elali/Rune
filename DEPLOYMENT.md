@@ -2,6 +2,29 @@
 
 Step-by-step instructions for deploying Rune to production.
 
+> [!WARNING]
+> **The database instructions in this guide are stale and unsafe (September 2026).**
+> Do not follow Step 2 or "Stripe Setup → 4. Run DB migrations" to build a new
+> database, and never re-run old migration files against production.
+>
+> - `src/lib/supabase/schema.sql` is **not** a complete schema. Pasting it into a
+>   fresh project gives a broken database: signup fails, because `handle_new_user`
+>   inserts `profiles.subscription_tier`, which that file never creates; every
+>   profile update fails in `protect_billing_columns`; and the save RPCs from
+>   migration 011, `pages.is_canonical` / `pages.version`, and several tables are missing.
+> - The migrations in `src/lib/supabase/migrations/` cannot rebuild production either:
+>   there is no base-table migration, several production objects exist in no tracked
+>   file, and re-running historical migrations can regress production (for example,
+>   re-running `007_fix_signup_trigger.sql` replaces the current `handle_new_user` with
+>   an older version that no longer creates pricing entitlements).
+>
+> Rune 2.0 Phase 0 reconciles production, migrations and `schema.sql`. The read-only
+> capture procedure is in `tools/db-audit/README.md`. Until that reconciliation lands,
+> treat production as the only source of schema truth.
+>
+> The Stripe section below also describes an obsolete Arcane tier and old prices; the
+> current required environment variables are listed in `src/lib/env.ts`.
+
 ---
 
 ## Prerequisites
@@ -23,6 +46,10 @@ Step-by-step instructions for deploying Rune to production.
 ---
 
 ## Step 2 — Run the Database Schema
+
+> [!CAUTION]
+> **Do not use this step.** `schema.sql` is incomplete and produces a broken database
+> (see the warning at the top of this guide). Kept for historical reference only.
 
 1. In the Supabase dashboard, go to **SQL Editor**.
 2. Click **New query**.
@@ -133,6 +160,11 @@ For local webhook testing: `stripe listen --forward-to localhost:3000/api/webhoo
 Go to **Settings → Billing → Customer portal** in the Stripe dashboard and enable it.
 
 ### 4. Run DB migrations
+
+> [!CAUTION]
+> **Historical — do not run.** These migrations are already applied to production, and
+> this list is incomplete. Re-running migration files can regress production (see the
+> warning at the top of this guide).
 
 Run these SQL files in order in the Supabase SQL Editor:
 - `src/lib/supabase/migrations/004_billing.sql` — adds billing columns to profiles + subscription_events table
