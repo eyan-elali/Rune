@@ -8,6 +8,36 @@
 
 ---
 
+## 0. Rune 2.0 and How to Read This File
+
+**`Rune 2.0 — Product & Domain Architecture v1.md`** (repository root) is the authoritative source for Rune 2.0 product and domain architecture. That covers Manuscript, Groups, Chapters, Scenes, Unplaced Scenes, Workspace, Pages, Collections, the pricing direction, progress, Arena's status, the mapping from canonical Pages, and staged retirement of legacy systems.
+
+If this file and that document disagree about Rune 2.0 direction, the architecture document wins. Report the conflict.
+
+Rune 2.0 is:
+
+> **A special manuscript surrounded by a workspace the writer can shape however they think.**
+
+Several sections below separate two things:
+
+- **Current implementation reality:** what the deployed code does today. It is often load-bearing and compatibility-sensitive.
+- **Rune 2.0 direction:** where the product is going.
+
+Neither overrides the other by default.
+
+> **Do not remove legacy systems solely because the new architecture deprecates them.** Follow the staged Rune 2.0 migration plan and preserve compatibility until an explicit implementation task removes them safely.
+
+Legacy systems Rune 2.0 plans to retire, all still present in code:
+
+- free-word allowance pricing and its enforcement (`save_page_checked`, `insert_page_checked`, `account_word_total`, editor input guards, offline-queue compatibility),
+- XP, Levels, and XP/Level-based unlock requirements,
+- Arena as a notable product area (now optional legacy functionality),
+- Pages and canonical Pages as the manuscript-prose model (to be reinterpreted as Scenes).
+
+Rune 2.0 decisions do not authorize implementation. Start Rune 2.0 migration work only when a task explicitly asks for it.
+
+---
+
 ## 1. What Rune Is
 
 Rune is a **writing companion and manuscript workspace built for novelists**.
@@ -89,20 +119,38 @@ Rune treats a novel as a manuscript made of:
 - writing sessions,
 - and a long-term relationship between the writer and the work.
 
+That list is the current implementation. In Rune 2.0, manuscript prose lives in **Scenes**, placed in Chapters or kept as Unplaced Scenes, inside optional **Manuscript Groups**. A flexible **Workspace** of Pages, Folders, and Collections surrounds it. See the architecture document.
+
 Do not copy competitors mechanically. Use comparisons only to clarify Rune’s purpose.
 
-### Gamification is supportive, not the identity
+### Rune 2.0 priorities
 
-Rune contains progression and Arena experiences, but Rune should never feel like a childish game, a neon gamer product, or a habit app wearing a literary skin.
+1. Manuscript integrity.
+2. An excellent writing experience.
+3. A flexible supporting Workspace.
+4. Complexity only when requested.
+5. Protect attention.
+6. Help writers finish.
+7. The writer creates. Rune organizes.
 
-Gamification exists to help defeat the blank page and create momentum.
+### Progress, not gamification
 
-It must remain:
+> **Progress reflects the actual creative work. Gamification exists primarily to manufacture engagement.**
 
-- optional,
-- restrained,
-- understandable,
-- secondary to the manuscript.
+Rune 2.0 puts the first ahead of the second.
+
+**Rune 2.0 direction:**
+
+- XP and Levels are **not** part of Rune 2.0's product identity. That includes XP accumulation, level progression, XP bars, level-up framing, XP-based rewards, and level-based unlock conditions.
+- Rune is not a progression RPG layered over writing software.
+- Do not design a replacement XP economy.
+- Real progress stays central: manuscript word count, writing sessions, writing history, Today’s Words or equivalent, project goals, completion progress, milestones, Focus Mode, writing-day history, and realistic progress toward finishing.
+- Streaks may remain as underlying writing-history information. They are not a central pressure mechanism. Do not emphasize "don't break the streak."
+- Arena is optional legacy functionality, not central (§12).
+
+**Current implementation reality:** XP, Levels, and XP/Level unlock requirements still exist in code (for example `src/lib/xp.ts` and `src/lib/unlockables.ts`), as do Arena games. Leave them in place unless a task explicitly retires them.
+
+Rune should never feel like a childish game, a neon gamer product, or a habit app wearing a literary skin.
 
 ### AI and authorship
 
@@ -183,8 +231,7 @@ Use these pillars to organize product decisions and marketing.
 #### Return
 
 - Today’s Focus,
-- streaks,
-- writing history,
+- writing history (streaks as supporting history, not pressure),
 - goals,
 - progress,
 - gentle prompts,
@@ -199,7 +246,7 @@ Use these pillars to organize product decisions and marketing.
 - exports,
 - completion-oriented statistics.
 
-Arena and progression support these pillars. They are not a separate reason for Rune to exist.
+Rune 2.0 adds a flexible Workspace around the manuscript, under Organize. Arena and XP/Level progression are not pillars. Arena stays as optional legacy functionality, and XP/Levels are to be retired.
 
 ---
 
@@ -318,7 +365,7 @@ Current product decisions include:
 
 - **Parchment** is the default writing space.
 - **Candlelight** is available to all writers.
-- Additional themes are unlocked through writing and progression.
+- Current implementation: additional themes unlock through writing, XP, and Levels. Rune 2.0 keeps themes but separates their unlock model from XP and Levels. The replacement model is **undecided** (§13).
 - Theme selection should persist.
 - Unlocking a theme must not automatically switch the active theme.
 - Editor/manuscript font unlocks apply to manuscript writing, not the entire application UI.
@@ -347,7 +394,7 @@ Current concepts include:
 - Today’s Focus,
 - Today’s Words,
 - total manuscript words,
-- streak,
+- streak (supporting history, not a pressure mechanism),
 - manuscript goal,
 - project progress,
 - a compact path into supporting tools.
@@ -381,6 +428,25 @@ Writers organize work through projects, chapters, pages, and canonical-page beha
 
 Do not change counting, deletion, export, canonical-page, or chapter-order behavior casually. These systems affect manuscript integrity and totals.
 
+**Current implementation reality:** a Chapter may mark one Page as canonical. When it does, only that Page counts toward manuscript totals and appears in export (`src/lib/projectWordCount.ts`, `src/lib/manuscript.ts`, `src/lib/export/projectExport.ts`).
+
+**Rune 2.0 direction** (intended mapping only; not yet authorized to run):
+
+- A Chapter with a canonical Page: the canonical Page becomes the Chapter’s placed Scene, and its non-canonical Pages become Unplaced Scenes.
+- A Chapter without a canonical Page: its Pages become placed Scenes in their existing order.
+- The physical `pages` table stays during the beta migration, and each Page ID becomes its Scene ID.
+- Unplaced Scenes are real manuscript prose. They are excluded from the ordered manuscript total and from default export, but new writing in them counts toward writing activity (Today’s Words, writing days, sessions).
+- Scene numbers like `31.2` are derived presentation, never stored identity.
+- The beta keeps one Scene per editor instance. Do not rebuild the editor as a continuous multi-Scene document.
+- Titled Manuscript Groups appear as headings in standard export by default.
+- Workspace Pages (freeform documents writers call “Pages”) must **not** be stored in the `pages` table. Use a clearly distinct physical name such as `workspace_documents`.
+
+### Revision Notes
+
+**Current implementation reality:** Revision Notes are a project-scoped, lightweight checklist.
+
+**Rune 2.0 direction:** keep the existing Revision Notes system as it is for the beta. Do not migrate it into Workspace Pages or Collections. Folding it into a revision workflow later is deferred.
+
 ### Progress
 
 Progress should communicate movement toward a finished manuscript, not create pressure for constant output.
@@ -401,7 +467,7 @@ Current concepts include:
 - manuscript records,
 - estimated pages.
 
-Keep the hierarchy compact. Level may be prominent; statistics should not overwhelm the page.
+Keep the hierarchy compact and do not let statistics overwhelm the page. Level is currently displayed, but Rune 2.0 retires XP and Levels. Do not add new Level prominence or new level-based features.
 
 ### Arena
 
@@ -411,6 +477,8 @@ Arena contains optional writing experiences such as:
 - Battle Mode.
 
 Arena is separate from the normal editor experience.
+
+**Rune 2.0 direction:** Arena is optional legacy writing-session functionality. It may stay if it is cheap to preserve, but it is not part of the central Rune 2.0 proposition and must not shape core architecture. Do not remove or redesign it without an explicit task. Do not make Rune 2.0 migrations much more complex just to preserve it perfectly.
 
 There is no global “Game Mode” that should take over the application shell.
 
@@ -561,9 +629,35 @@ Do not rely on browser storage as the source of truth.
 
 ## 8. Pricing and Entitlements
 
-### Approved pricing direction
+### Rune 2.0 direction
 
-The approved model is:
+Rune 2.0 is a **subscription product with a time-based, full-product trial**. See §43 of the architecture document.
+
+- The trial is likely about one month. The **length is provisional**; do not hardcode "30 days" as a product requirement.
+- The **future price is not final**.
+- During the trial, writers use the real Rune, not a deliberately crippled version.
+- Rune 2.0 is **not** designed around a free manuscript word allowance, the 2,000-word limit, the 15,000-word legacy allowance as a long-term model, blocking words past a threshold, word-count-based free/paid distinctions, or free-project limits.
+- Do not design new features (Unplaced Scenes, Workspace Pages, and so on) around free-word allowance enforcement.
+
+**Not yet decided.** Do not invent answers to these:
+
+- trial length and price,
+- what access remains after a trial ends without converting, beyond reading and export,
+- existing-subscriber and Stripe migration,
+- legacy entitlements and cohorts,
+- grandfathering, including the Founding Scribe offer,
+- trial conversion,
+- cancellation behavior.
+
+These must be settled before billing changes ship.
+
+**Staged retirement.** Current word-limit enforcement is deeply built into `save_page_checked`, `insert_page_checked`, `account_word_total`, editor input guards, IndexedDB/offline-queue compatibility, and stale deployed clients. Dropping the product requirement does **not** mean removing that enforcement.
+
+The Rune 2.0 migration initially keeps the load-bearing RPC signatures and database contracts, so stale clients and queued offline saves keep working. Enforcement is retired in later stages, each through its own explicit task.
+
+### Current implementation reality
+
+Everything below describes the word-allowance pricing that is currently approved and implemented. It remains in force, and stays compatibility-sensitive, until Rune 2.0 billing work explicitly replaces it.
 
 #### New writers
 
@@ -610,16 +704,18 @@ The returning-user notice must clearly state:
 
 ### Entitlement principles
 
+These apply now and continue under Rune 2.0 unless a bullet is marked current-model only.
+
 - The server is authoritative.
 - Users must not be able to modify their pricing cohort.
 - Client-provided Stripe Price IDs must not be trusted.
-- Reading and export must remain available above a free limit.
+- Reading and export must remain available above a free limit, and when a trial or subscription ends.
 - Never delete, truncate, hide, or corrupt a manuscript because a subscription ends.
-- Above-limit free users may be prevented from adding words according to existing enforcement behavior.
-- Word-limit resolution must be centralized.
-- Pricing cohorts should be explicit, such as `legacy_15k` and `starter_2k`.
+- Current model only: above-limit free users may be prevented from adding words according to existing enforcement behavior.
+- Current model only: word-limit resolution must be centralized.
+- Current model only: pricing cohorts should be explicit, such as `legacy_15k` and `starter_2k`.
 
-These decisions may be pending implementation. Inspect the branch before assuming the schema, Stripe Price, notice, or enforcement changes already exist.
+Inspect the branch before assuming any schema, Stripe Price, notice, enforcement, or trial change exists.
 
 ---
 
@@ -656,6 +752,8 @@ Core event names include:
 Before adding or renaming events, inspect the typed analytics registry and Pulse queries.
 
 Event names and semantics are contracts. Do not casually rename them.
+
+Rune 2.0 pricing and XP retirement do not change existing events. For example, `reached_2000_words` and `reached_15000_words` stay as milestones. Trial-related events are not defined yet. Add them only through an explicit analytics task.
 
 ### Funnel rules
 
@@ -838,6 +936,14 @@ Current product decisions include:
 - free-tier enforcement must preserve the current definition of countable manuscript words unless explicitly changed,
 - server enforcement is authoritative.
 
+**Rune 2.0 direction:**
+
+- XP-eligible words and the free-tier allowance are legacy concepts to be retired in stages. They are not removed as collateral work.
+- Rune 2.0 adds **Unplaced Scene words**. They are excluded from the ordered manuscript total and default export, but new writing in them counts toward writing activity (Today’s Words, writing days, streak/history, sessions).
+- Manuscript totals, Today’s Words, sessions, goals, and milestones remain central.
+
+The word-limit RPCs (`save_page_checked`, `insert_page_checked`, `account_word_total`) sit on the save path, and stale clients and queued offline saves depend on them. Do not change their signatures or remove them outside an explicit, staged retirement task.
+
 When fixing a count discrepancy, trace every source rather than patching one display.
 
 ---
@@ -871,6 +977,8 @@ Current games include:
 
 Preserve current game logic unless the task explicitly concerns Arena.
 
+In Rune 2.0, Arena is optional legacy functionality, not core (§6). Focus Mode remains core.
+
 Do not let Arena styling or mechanics leak into the normal editor or onboarding.
 
 ---
@@ -887,11 +995,13 @@ The static unlockable registry and grant logic in the current code are authorita
 
 Do not rely on the original four-theme/five-avatar MVP list.
 
-Current decisions include:
+**Rune 2.0 direction:** themes and manuscript fonts stay, along with their infrastructure. Their unlock model will be **separated from XP and Levels**. The replacement is **not decided**; options include everything included with the subscription, meaningful writing milestones, or achievement-based unlocks tied to creative work. Do not design a replacement XP economy, and do not remove the current grant logic until an explicit task replaces it.
+
+Current implementation decisions include:
 
 - Parchment and Candlelight are available early,
 - Manuscript is a neutral early font unlock,
-- premium and progression-based unlockables remain part of Scribe/engagement design,
+- premium and progression-based unlockables are currently part of Scribe/engagement design (XP/Level requirements are legacy under Rune 2.0),
 - fonts affect manuscript writing, not the entire UI,
 - unlock persistence and grant logic must remain reliable,
 - unlocking an item should not silently change the active selection.
@@ -975,7 +1085,10 @@ Examples:
 - do not build future-letter resurfacing unless requested,
 - do not build 1v1 multiplayer unless requested,
 - do not redesign Pulse during an unrelated analytics change,
-- do not refactor the saving system during a visual task.
+- do not refactor the saving system during a visual task,
+- do not design a replacement XP economy,
+- do not build a full Version History UI for the Rune 2.0 beta, but do not make one harder to add later,
+- do not begin Rune 2.0 migrations or retire legacy systems (word limits, XP/Levels, canonical Pages, Arena) unless the task explicitly asks.
 
 When a prompt identifies a deferred feature, preserve a clean path for it without implementing it prematurely.
 
@@ -1029,7 +1142,7 @@ For editor changes, verify:
 
 Before coding:
 
-1. Read this file.
+1. Read this file, and for Rune 2.0 work, `Rune 2.0 — Product & Domain Architecture v1.md`.
 2. Inspect the actual implementation and current branch.
 3. Identify whether the requested product decision is already implemented, partially implemented, or pending.
 4. State the smallest safe plan.
@@ -1051,12 +1164,15 @@ After coding:
 ## 18. Non-Negotiables
 
 - A writer’s manuscript must never be trapped, deleted, or corrupted by pricing changes.
-- Reading and export remain available above free limits.
+- Reading and export remain available above free limits, and when a trial or subscription ends.
 - Manuscript content must never appear in analytics or logs.
 - Rune must not use AI to write, rewrite, or complete a writer’s story.
 - Saving reliability outranks animation and polish.
+- Offline resilience and safe sync must not be weakened, including for stale clients and queued offline saves during Rune 2.0 migration.
 - Desktop onboarding must not be degraded while building a separate mobile presentation.
-- Existing users must not lose the allowance they were originally promised.
-- Server-side state controls subscriptions, pricing cohorts, and founder eligibility.
+- Existing users must not lose the allowance they were originally promised. How that promise carries into the Rune 2.0 subscription model is an open business decision; do not resolve it unilaterally.
+- Existing users must not lose manuscript content, alternate drafts, or earned unlocks in any Rune 2.0 migration.
+- Server-side state controls subscriptions, trials, pricing cohorts, and founder eligibility, with RLS on user data.
 - Do not create duplicate projects during onboarding or retries.
+- Rune 2.0 migrations are staged and compatibility-safe. Legacy systems are not removed only because they are deprecated.
 - Do not add features merely because they are technically possible.
