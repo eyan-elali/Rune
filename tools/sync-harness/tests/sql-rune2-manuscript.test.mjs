@@ -460,7 +460,7 @@ test('REAL sync engine: a cached, queued edit syncs through save_scene_checked; 
   // Editor load: the Chapter's Scenes from the real action, cached for offline use.
   const scenes = await scenesAction.getScenes(chapterId('tide.ch3'));
   assert.deepEqual(scenes.data.map((s) => s.id), [pageId('t3a'), pageId('t3b')]);
-  await offline.cachePage(scenes.data[0], projectId('tide'));
+  await offline.cacheScene(scenes.data[0], projectId('tide'));
 
   await queue(pageId('t3a'), BRAM, 345);
   await engine.syncPendingWrite(pageId('t3a'), 'offline_sync');

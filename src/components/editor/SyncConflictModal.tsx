@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { getOfflineDB } from "@/lib/offline/db";
+import { getOfflineDB, SCENE_CACHE_STORE } from "@/lib/offline/db";
 import { forceWriteLocalContent } from "@/lib/offline/syncEngine";
 
 interface LocalDraftInfo {
@@ -19,7 +19,7 @@ interface ServerVersionInfo {
 }
 
 interface SyncConflictModalProps {
-  pageId: string;
+  sceneId: string;
   /** Called only after the server confirmed it now holds the local draft. */
   onKeepLocal: (keptWordCount: number) => void;
   onKeepServer: (serverContent: Record<string, unknown>, serverWordCount: number) => void;
@@ -47,7 +47,7 @@ function formatTime(ts: number | string) {
 }
 
 export function SyncConflictModal({
-  pageId,
+  sceneId,
   onKeepLocal,
   onKeepServer,
   onClose,
@@ -64,7 +64,7 @@ export function SyncConflictModal({
     async function loadVersions() {
       try {
         const db = await getOfflineDB();
-        const pending = await db.get("pending_writes", pageId);
+        const pending = await db.get("pending_writes", sceneId);
         if (pending) {
           setLocalDraft({
             content: pending.content,
@@ -74,13 +74,13 @@ export function SyncConflictModal({
         }
 
         const supabase = createClient();
-        // Plain list select, not .single() — zero rows (page deleted /
+        // Plain list select, not .single() — zero rows (scene deleted /
         // inaccessible) must be distinguishable from a query error instead of
         // both collapsing into PGRST116's generic coercion message.
         const { data: rows, error } = await supabase
           .from("scenes")
           .select("content, word_count, updated_at, version")
-          .eq("id", pageId);
+          .eq("id", sceneId);
 
         if (error) {
           setLoadError("Could not load the server version.");
@@ -108,7 +108,7 @@ export function SyncConflictModal({
     }
 
     void loadVersions();
-  }, [pageId]);
+  }, [sceneId]);
 
   useEffect(() => {
     containerRef.current?.focus();
@@ -119,7 +119,7 @@ export function SyncConflictModal({
     setResolveError(null);
     setResolving("local");
     try {
-      const result = await forceWriteLocalContent(pageId);
+      const result = await forceWriteLocalContent(sceneId);
       if (result.status === "word_limit_blocked") {
         setResolveError(
           "This would put you over your free-word limit. Your draft is safe — continue with Scribe to save it, or export it."
@@ -147,14 +147,14 @@ export function SyncConflictModal({
     setResolving("server");
     try {
       const db = await getOfflineDB();
-      await db.delete("pending_writes", pageId);
+      await db.delete("pending_writes", sceneId);
 
       // Always write the actual fetched server content into cache — even when no
       // prior cache entry exists, so offline navigation reflects the chosen version.
-      const existingCache = await db.get("page_cache", pageId);
-      await db.put("page_cache", {
+      const existingCache = await db.get(SCENE_CACHE_STORE, sceneId);
+      await db.put(SCENE_CACHE_STORE, {
         ...(existingCache ?? {}),
-        id: pageId,
+        id: sceneId,
         content: serverVersion.content,
         wordCount: serverVersion.wordCount,
         serverUpdatedAt: serverVersion.updatedAt,

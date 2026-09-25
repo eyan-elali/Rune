@@ -11,8 +11,8 @@ import { useProfileStore } from "@/store/profileStore";
 import { useToastStore } from "@/store/toastStore";
 import { awardXp } from "@/lib/actions/xp";
 import { createGameSession, getPersonalBests } from "@/lib/actions/games";
-import { PageSourceSelector, type PageSource } from "@/components/games/PageSourceSelector";
-import { ContextPageHeader } from "@/components/games/ContextPageHeader";
+import { SceneSourceSelector, type SceneSource } from "@/components/games/SceneSourceSelector";
+import { ContextSceneHeader } from "@/components/games/ContextSceneHeader";
 import { SaveToProject } from "@/components/games/SaveToProject";
 import { ExitGameModal } from "@/components/games/ExitGameModal";
 import { recordWordsWritten } from "@/lib/actions/writingStats";
@@ -84,7 +84,7 @@ function SetupState({
   setLocalDuration: (d: number) => void;
   personalBests: Record<number, number>;
   onBegin: () => void;
-  onSourceSelect: (source: PageSource) => void;
+  onSourceSelect: (source: SceneSource) => void;
 }) {
   const best = personalBests[localDuration] ?? 0;
   const label = DURATIONS.find((d) => d.seconds === localDuration)?.label ?? "";
@@ -93,7 +93,7 @@ function SetupState({
     <div className="flex min-h-full flex-col items-center justify-center px-8 py-16">
       <div className="w-full max-w-md">
         <div className="mb-10">
-          <PageSourceSelector className="mt-0" onSelect={onSourceSelect} />
+          <SceneSourceSelector className="mt-0" onSelect={onSourceSelect} />
         </div>
 
         <div className="mb-10 text-center">
@@ -218,14 +218,14 @@ function ResultsState({
   textWritten,
   isSessionValid,
   onRaceAgain,
-  pageSource,
+  sceneSource,
 }: {
   result: ResultData;
   isSaving: boolean;
   textWritten: string;
   isSessionValid: boolean;
   onRaceAgain: () => void;
-  pageSource?: PageSource;
+  sceneSource?: SceneSource;
 }) {
   const wpm =
     result.duration > 0
@@ -374,14 +374,14 @@ function ResultsState({
         </div>
 
         {/* Written-in context */}
-        {pageSource?.type === "existing" && (
+        {sceneSource?.type === "existing" && (
           <p className="mt-6 text-xs" style={{ color: "var(--color-mist)" }}>
             Written in:{" "}
             <span className="font-rune-serif" style={{ color: "var(--text-primary)" }}>
-              {pageSource.page.title}
+              {sceneSource.scene.title}
             </span>
             {" — "}
-            <span style={{ opacity: 0.6 }}>{pageSource.project.title}</span>
+            <span style={{ opacity: 0.6 }}>{sceneSource.project.title}</span>
           </p>
         )}
 
@@ -390,7 +390,7 @@ function ResultsState({
           words={result.words}
           textWritten={textWritten}
           sessionInvalidated={!isSessionValid}
-          pageSource={pageSource}
+          sceneSource={sceneSource}
           creditDate={result.creditDate}
         />
       </div>
@@ -631,7 +631,7 @@ export default function RaceYourselfPage() {
     resetToSetup,
   } = useGameStore();
 
-  const [pageSource, setPageSource] = useState<PageSource>({ type: "fresh" });
+  const [sceneSource, setSceneSource] = useState<SceneSource>({ type: "fresh" });
   const [localDuration, setLocalDuration] = useState(600);
   const [timeLeft, setTimeLeft] = useState(600);
   const [gameKey, setGameKey] = useState(0);
@@ -828,7 +828,7 @@ export default function RaceYourselfPage() {
         setLocalDuration={setLocalDuration}
         personalBests={personalBests}
         onBegin={handleBeginRace}
-        onSourceSelect={setPageSource}
+        onSourceSelect={setSceneSource}
       />
     );
   }
@@ -841,7 +841,7 @@ export default function RaceYourselfPage() {
         textWritten={textWritten}
         isSessionValid={sessionValid}
         onRaceAgain={handleRaceAgain}
-        pageSource={pageSource}
+        sceneSource={sceneSource}
       />
     );
   }
@@ -871,9 +871,9 @@ export default function RaceYourselfPage() {
         className="min-h-0 flex-1 overflow-y-auto"
         style={{ background: "var(--color-vellum)" }}
       >
-        {pageSource.type === "existing" && pageSource.page.content && (
+        {sceneSource.type === "existing" && sceneSource.scene.content && (
           <div className="mx-auto max-w-[760px]">
-            <ContextPageHeader content={pageSource.page.content} />
+            <ContextSceneHeader content={sceneSource.scene.content} />
           </div>
         )}
         <div className="mx-auto max-w-[760px]">
@@ -891,7 +891,7 @@ export default function RaceYourselfPage() {
           title="Leave the Race?"
           words={wordsWritten}
           textWritten={textWritten}
-          pageSource={pageSource}
+          sceneSource={sceneSource}
           onKeepGoing={() => setShowExitModal(false)}
           onLeave={handleLeaveArena}
         />

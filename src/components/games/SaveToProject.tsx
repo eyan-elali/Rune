@@ -9,7 +9,7 @@ import {
 import { transferGameWordsToProject } from "@/lib/actions/writingStats";
 import { getProjects } from "@/lib/actions/projects";
 import { getChapters } from "@/lib/actions/chapters";
-import type { PageSource } from "@/components/games/PageSourceSelector";
+import type { SceneSource } from "@/components/games/SceneSourceSelector";
 import type { Project, Chapter } from "@/lib/types";
 
 type SaveStep =
@@ -25,7 +25,7 @@ export function SaveToProject({
   words,
   textWritten,
   sessionInvalidated = false,
-  pageSource,
+  sceneSource,
   creditDate,
   onSaveStart,
   onSaveSettled,
@@ -33,7 +33,7 @@ export function SaveToProject({
   words: number;
   textWritten: string;
   sessionInvalidated?: boolean;
-  pageSource?: PageSource;
+  sceneSource?: SceneSource;
   // The local calendar date recordWordsWritten() used when the game session's
   // words were first credited to the anonymous (project_id: null) writing_sessions
   // bucket. transferGameWordsToProject() must subtract from that same date — not
@@ -62,12 +62,12 @@ export function SaveToProject({
 
   if (words === 0) return null;
 
-  // ── Existing page append flow ───────────────────────────────────────────────
+  // ── Existing scene append flow ───────────────────────────────────────────────
   async function handleAppend() {
-    if (pageSource?.type !== "existing") return;
+    if (sceneSource?.type !== "existing") return;
     setAppendStep("saving");
     onSaveStart?.();
-    const result = await appendToExistingScene(pageSource.page.id, textWritten, words);
+    const result = await appendToExistingScene(sceneSource.scene.id, textWritten, words);
     if (result.error) {
       setAppendError(result.error);
       setAppendStep("error");
@@ -75,19 +75,19 @@ export function SaveToProject({
       return;
     }
     if (!sessionInvalidated) {
-      await transferGameWordsToProject(pageSource.project.id, words, creditDate);
+      await transferGameWordsToProject(sceneSource.project.id, words, creditDate);
     }
     setAppendStep("saved");
     onSaveSettled?.(true);
   }
 
-  if (pageSource?.type === "existing") {
-    const { page, project } = pageSource;
+  if (sceneSource?.type === "existing") {
+    const { scene, project } = sceneSource;
     if (appendStep === "saved") {
       return (
         <div className="mt-4 rounded-lg px-5 py-3 text-center text-sm"
           style={{ background: "color-mix(in srgb, var(--color-sage) 15%, transparent)", border: "1px solid color-mix(in srgb, var(--color-sage) 30%, transparent)", color: "var(--color-sage)" }}>
-          ✓ &nbsp;Appended to &ldquo;{page.title}&rdquo;
+          ✓ &nbsp;Appended to &ldquo;{scene.title}&rdquo;
         </div>
       );
     }
@@ -107,7 +107,7 @@ export function SaveToProject({
       <div className="mt-4 text-center">
         <p className="mb-2 text-xs" style={{ color: "var(--color-mist)" }}>
           Append to:{" "}
-          <span className="font-rune-serif" style={{ color: "var(--color-gold)" }}>{page.title}</span>
+          <span className="font-rune-serif" style={{ color: "var(--color-gold)" }}>{scene.title}</span>
           {" · "}
           <span style={{ opacity: 0.6 }}>{project.title}</span>
         </p>

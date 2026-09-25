@@ -333,7 +333,7 @@ test('REAL sync engine: an edit queued offline lands on the same Scene ID after 
   const db = await seededDb();
   signIn(db, BRAM);
   const ch3 = chapterId('tide.ch3');
-  for (const s of (await scenes.getScenes(ch3)).data) await offline.cachePage(s, projectId('tide'));
+  for (const s of (await scenes.getScenes(ch3)).data) await offline.cacheScene(s, projectId('tide'));
 
   // Offline: the writer keeps typing in t3b; the save is queued by Scene ID.
   await engine.writeToPendingQueue(pageId('t3b'), BRAM, syntheticDoc('offline', 345), 345);
@@ -342,8 +342,8 @@ test('REAL sync engine: an edit queued offline lands on the same Scene ID after 
   assert.deepEqual(await scenes.reorderScenes(ch3, [pageId('t3b'), pageId('t3a')]), { error: null });
   // …then the Scene moves to another Chapter (another bump).
   const moved = (await scenes.moveSceneToChapter(pageId('t3b'), chapterId('tide.ch2'))).data;
-  await offline.cachePage(moved, projectId('tide')); // what EditorShell does after a move
-  assert.deepEqual((await offline.getCachedPagesForChapter(chapterId('tide.ch2'))).map((s) => s.id).includes(pageId('t3b')), true);
+  await offline.cacheScene(moved, projectId('tide')); // what EditorShell does after a move
+  assert.deepEqual((await offline.getCachedScenesForChapter(chapterId('tide.ch2'))).map((s) => s.id).includes(pageId('t3b')), true);
   assert.equal((await offline.getPendingWrite(pageId('t3b'))).wordCount, 345, 'the queued write is untouched');
 
   // Reconnect: the placement changes bumped version but not word_count, so the
@@ -360,7 +360,7 @@ test('REAL sync engine: an edit queued offline to a directly-created Unplaced Sc
   const db = await seededDb();
   signIn(db, BRAM);
   const created = (await scenes.createUnplacedScene(projectId('tide'), 'Scene 3')).data;
-  await offline.cachePage(created, projectId('tide'));
+  await offline.cacheScene(created, projectId('tide'));
   assert.ok((await offline.getCachedUnplacedScenes(projectId('tide'))).some((s) => s.id === created.id));
 
   await engine.writeToPendingQueue(created.id, BRAM, syntheticDoc('fresh', 12), 12);

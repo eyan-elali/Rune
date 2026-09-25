@@ -9,8 +9,8 @@ import { HpBar } from "@/components/games/HpBar";
 import { BattleLog, type BattleLogEntry } from "@/components/games/BattleLog";
 import { awardXp } from "@/lib/actions/xp";
 import { createGameSession } from "@/lib/actions/games";
-import { PageSourceSelector, type PageSource } from "@/components/games/PageSourceSelector";
-import { ContextPageHeader } from "@/components/games/ContextPageHeader";
+import { SceneSourceSelector, type SceneSource } from "@/components/games/SceneSourceSelector";
+import { ContextSceneHeader } from "@/components/games/ContextSceneHeader";
 import { SaveToProject } from "@/components/games/SaveToProject";
 import { ExitGameModal } from "@/components/games/ExitGameModal";
 import { recordWordsWritten } from "@/lib/actions/writingStats";
@@ -135,12 +135,12 @@ function EnemySelectState({
   onSourceSelect,
 }: {
   onSelect: (e: EnemyDef) => void;
-  onSourceSelect: (source: PageSource) => void;
+  onSourceSelect: (source: SceneSource) => void;
 }) {
   return (
     <div className="mx-auto max-w-4xl px-8 py-12">
       <div className="mx-auto mb-10 max-w-md">
-        <PageSourceSelector className="mt-0" onSelect={onSourceSelect} />
+        <SceneSourceSelector className="mt-0" onSelect={onSourceSelect} />
       </div>
 
       <div className="mb-10 text-center">
@@ -529,14 +529,14 @@ function ResultsState({
   textWritten,
   isSessionValid,
   onBattleAgain,
-  pageSource,
+  sceneSource,
 }: {
   result: ResultData;
   isSaving: boolean;
   textWritten: string;
   isSessionValid: boolean;
   onBattleAgain: () => void;
-  pageSource?: PageSource;
+  sceneSource?: SceneSource;
 }) {
   const isVictory = result.outcome === "victory";
 
@@ -717,14 +717,14 @@ function ResultsState({
         </div>
 
         {/* Written-in context */}
-        {pageSource?.type === "existing" && (
+        {sceneSource?.type === "existing" && (
           <p className="mt-6 text-xs" style={{ color: "var(--color-mist)" }}>
             Written in:{" "}
             <span className="font-rune-serif" style={{ color: "var(--text-primary)" }}>
-              {pageSource.page.title}
+              {sceneSource.scene.title}
             </span>
             {" — "}
-            <span style={{ opacity: 0.6 }}>{pageSource.project.title}</span>
+            <span style={{ opacity: 0.6 }}>{sceneSource.project.title}</span>
           </p>
         )}
 
@@ -733,7 +733,7 @@ function ResultsState({
           words={result.words}
           textWritten={textWritten}
           sessionInvalidated={!isSessionValid}
-          pageSource={pageSource}
+          sceneSource={sceneSource}
           creditDate={result.creditDate}
         />
       </div>
@@ -756,7 +756,7 @@ export default function BattlePage() {
   // Phase
   const [phase, setPhase] = useState<BattlePhase>("enemy-select");
   const [selectedEnemy, setSelectedEnemy] = useState<EnemyDef | null>(null);
-  const [pageSource, setPageSource] = useState<PageSource>({ type: "fresh" });
+  const [sceneSource, setSceneSource] = useState<SceneSource>({ type: "fresh" });
 
   // Battle state (rendered)
   const [playerHp, setPlayerHp] = useState(PLAYER_MAX_HP);
@@ -1081,7 +1081,7 @@ export default function BattlePage() {
   // ── Render ──────────────────────────────────────────────────────────────────
 
   if (phase === "enemy-select") {
-    return <EnemySelectState onSelect={handleSelectEnemy} onSourceSelect={setPageSource} />;
+    return <EnemySelectState onSelect={handleSelectEnemy} onSourceSelect={setSceneSource} />;
   }
 
   if (phase === "results" && resultData) {
@@ -1092,7 +1092,7 @@ export default function BattlePage() {
         textWritten={battleTextWritten}
         isSessionValid={sessionValid}
         onBattleAgain={handleBattleAgain}
-        pageSource={pageSource}
+        sceneSource={sceneSource}
       />
     );
   }
@@ -1130,9 +1130,9 @@ export default function BattlePage() {
         className="flex-1 overflow-y-auto"
         style={{ background: "var(--color-vellum)" }}
       >
-        {pageSource.type === "existing" && pageSource.page.content && (
+        {sceneSource.type === "existing" && sceneSource.scene.content && (
           <div className="mx-auto max-w-[720px]">
-            <ContextPageHeader content={pageSource.page.content} />
+            <ContextSceneHeader content={sceneSource.scene.content} />
           </div>
         )}
         <div className="mx-auto max-w-[720px]">
@@ -1154,7 +1154,7 @@ export default function BattlePage() {
           title="Surrender the Battle?"
           words={wordsWritten}
           textWritten={battleTextWritten}
-          pageSource={pageSource}
+          sceneSource={sceneSource}
           onKeepGoing={() => setShowExitModal(false)}
           onLeave={handleLeaveArena}
         />

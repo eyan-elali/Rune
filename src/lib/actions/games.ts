@@ -187,7 +187,6 @@ export async function appendToExistingScene(
     .eq("id", sceneId)
     .single();
 
-  // Arena calls Scenes pages in its UI.
   if (fetchError || !scene) return { data: null, error: "Scene not found" };
 
   const newWordCount = (scene.word_count ?? 0) + additionalWordCount;

@@ -4,11 +4,11 @@ import { useLayoutEffect, useRef } from "react";
 import type { TNode } from "@/lib/export/tiptapToPdf";
 import { tiptapToPlainLines } from "@/lib/export/tiptapToPdf";
 
-type ContextPageHeaderProps = {
+type ContextSceneHeaderProps = {
   content: Record<string, unknown> | null;
 };
 
-export function ContextPageHeader({ content }: ContextPageHeaderProps) {
+export function ContextSceneHeader({ content }: ContextSceneHeaderProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const lines = content ? tiptapToPlainLines(content as TNode) : [];
 

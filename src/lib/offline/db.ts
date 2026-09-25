@@ -2,13 +2,27 @@ import { openDB, type DBSchema, type IDBPDatabase } from 'idb'
 import type { Chapter, PlacedScene, Project, Scene, UnplacedScene } from '@/lib/types'
 import { getLocalDateString } from '@/lib/utils'
 
-// Store names, keys and field names ("page", pageId, page_cache) are
-// persisted in writers' browsers and are compatibility contracts — they keep
-// their Rune 1.x names. Every key is a Scene ID (Rune 2.0 keeps each Page ID
-// as its Scene ID).
+// ── Legacy storage names (compatibility only) ──────────────────────────────────
+//
+// The database name, store names and serialized field names below are persisted
+// in writers' browsers, where they may hold unsynced prose, conflict state and
+// offline writing credits. They keep their Rune 1.x names on purpose:
+//
+//   - `page_cache` is the Scene cache (SCENE_CACHE_STORE below),
+//   - `pending_writing_credits[].pageId` holds a Scene ID,
+//
+// and every key in every store is a Scene ID (Rune 2.0 keeps each Page ID as
+// its Scene ID). Renaming any of them would need a versioned IndexedDB
+// migration; without one, queued writes, cached content and credits would be
+// orphaned. Application code uses Scene names and reaches these through the
+// constant and types exported here.
+
+/** The Scene cache. Named `page_cache` in storage for compatibility only. */
+export const SCENE_CACHE_STORE = 'page_cache' as const
+
 interface RuneOfflineDB extends DBSchema {
   pending_writes: {
-    key: string // pageId
+    key: string // Scene ID
     value: {
       id: string
       userId: string
@@ -30,14 +44,16 @@ interface RuneOfflineDB extends DBSchema {
     key: string // UUID
     value: {
       id: string
+      // Legacy field name: holds a Scene ID. Serialized — do not rename.
       pageId: string
       projectId: string | null
       wordsAdded: number
       sessionDate: string // YYYY-MM-DD (local browser time) when words were written
     }
   }
+  // The Scene cache (SCENE_CACHE_STORE) — legacy store name.
   page_cache: {
-    key: string // pageId
+    key: string // Scene ID
     value: {
       id: string
       content: Record<string, unknown>
@@ -61,7 +77,7 @@ interface RuneOfflineDB extends DBSchema {
       // word count vs. a metadata-only bump). Never displayed directly.
       serverContent?: Record<string, unknown>
       cachedAt: number
-      // Rich view-cache fields — populated by cachePage(); absent in minimal sync entries.
+      // Rich view-cache fields — populated by cacheScene(); absent in minimal sync entries.
       // chapter_id: a Chapter id (placed), null (an Unplaced Scene), or absent
       // (no known placement — a minimal sync entry, or a placement found stale).
       chapter_id?: string | null
@@ -104,6 +120,9 @@ interface RuneOfflineDB extends DBSchema {
   }
 }
 
+/** A Scene cache row. */
+export type SceneCacheEntry = RuneOfflineDB[typeof SCENE_CACHE_STORE]['value']
+
 let dbInstance: IDBPDatabase<RuneOfflineDB> | null = null
 
 export async function getOfflineDB(): Promise<IDBPDatabase<RuneOfflineDB>> {
@@ -114,8 +133,8 @@ export async function getOfflineDB(): Promise<IDBPDatabase<RuneOfflineDB>> {
       if (!db.objectStoreNames.contains('pending_writes')) {
         db.createObjectStore('pending_writes', { keyPath: 'id' })
       }
-      if (!db.objectStoreNames.contains('page_cache')) {
-        db.createObjectStore('page_cache', { keyPath: 'id' })
+      if (!db.objectStoreNames.contains(SCENE_CACHE_STORE)) {
+        db.createObjectStore(SCENE_CACHE_STORE, { keyPath: 'id' })
       }
       if (!db.objectStoreNames.contains('pending_game_sessions')) {
         db.createObjectStore('pending_game_sessions', { keyPath: 'id' })
@@ -142,10 +161,10 @@ export async function requestPersistentStorage(): Promise<void> {
   }
 }
 
-export async function getPendingWrite(pageId: string) {
+export async function getPendingWrite(sceneId: string) {
   try {
     const db = await getOfflineDB()
-    return (await db.get('pending_writes', pageId)) ?? null
+    return (await db.get('pending_writes', sceneId)) ?? null
   } catch {
     return null
   }
@@ -154,13 +173,13 @@ export async function getPendingWrite(pageId: string) {
 export async function evictOldCacheEntries(): Promise<void> {
   try {
     const db = await getOfflineDB()
-    const allCached = await db.getAll('page_cache')
+    const allCached = await db.getAll(SCENE_CACHE_STORE)
     if (allCached.length <= 20) return
 
-    // Never evict the cache entry for a page that still has an unsynced local
+    // Never evict the cache entry for a scene that still has an unsynced local
     // write — it holds serverUpdatedAt/serverVersion, the baseline syncPendingWrite()
     // uses to detect conflicts. Losing it forces the "no cached baseline" fallback,
-    // which conservatively (and falsely) flags any page with existing content as
+    // which conservatively (and falsely) flags any scene with existing content as
     // a conflict on its next sync.
     const allPending = await db.getAll('pending_writes')
     const pendingIds = new Set(allPending.map((w) => w.id))
@@ -169,7 +188,7 @@ export async function evictOldCacheEntries(): Promise<void> {
       .sort((a, b) => a.cachedAt - b.cachedAt)
     const toDelete = evictionCandidates.slice(0, Math.max(0, allCached.length - 20))
     for (const entry of toDelete) {
-      await db.delete('page_cache', entry.id)
+      await db.delete(SCENE_CACHE_STORE, entry.id)
     }
   } catch {
     // Silent fail — cache eviction is best-effort
@@ -177,17 +196,17 @@ export async function evictOldCacheEntries(): Promise<void> {
 }
 
 /**
- * Returns the last confirmed server `updated_at` for a page, as recorded by the
+ * Returns the last confirmed server `updated_at` for a scene, as recorded by the
  * sync engine on its most recent successful write. This is the authoritative
  * baseline for "does the server have something newer than my local draft?"
- * checks — unlike a `Page.updated_at` prop threaded through React state, it is
+ * checks — unlike a `Scene.updated_at` prop threaded through React state, it is
  * always refreshed the moment a sync succeeds, regardless of whether the
  * component holding that prop re-renders.
  */
-export async function getCachedServerUpdatedAt(pageId: string): Promise<string | null> {
+export async function getCachedServerUpdatedAt(sceneId: string): Promise<string | null> {
   try {
     const db = await getOfflineDB()
-    const entry = await db.get('page_cache', pageId)
+    const entry = await db.get(SCENE_CACHE_STORE, sceneId)
     return entry?.serverUpdatedAt ?? null
   } catch {
     return null
@@ -196,9 +215,7 @@ export async function getCachedServerUpdatedAt(pageId: string): Promise<string |
 
 // ── View-cache helpers ─────────────────────────────────────────────────────────
 
-function cacheEntryToScene(
-  entry: RuneOfflineDB['page_cache']['value']
-): Scene {
+function cacheEntryToScene(entry: SceneCacheEntry): Scene {
   return {
     id: entry.id,
     manuscript_id: entry.manuscript_id ?? '',
@@ -217,57 +234,57 @@ function cacheEntryToScene(
  * Store a server-fetched Scene (placed or Unplaced) for offline access.
  * Skips content overwrite when a pending local write exists.
  */
-export async function cachePage(page: Scene, projectId: string): Promise<void> {
+export async function cacheScene(scene: Scene, projectId: string): Promise<void> {
   try {
     const db = await getOfflineDB()
-    const pending = await db.get('pending_writes', page.id)
-    const existing = await db.get('page_cache', page.id)
+    const pending = await db.get('pending_writes', scene.id)
+    const existing = await db.get(SCENE_CACHE_STORE, scene.id)
 
     if (pending && existing) {
       // User has unsaved local edits — preserve content, update metadata only.
       // Still backfill serverUpdatedAt if this cache entry never had one (e.g. a
-      // page created with server-side content — like the onboarding opening
+      // scene created with server-side content — like the onboarding opening
       // sentence — whose first local keystroke raced ahead of this cache-priming
       // call and created the page_cache row via writeToPendingQueue, which never
       // sets serverUpdatedAt). Without this, the baseline stays permanently unset,
-      // so the page's first real sync misreads its own non-zero word_count as
+      // so the scene's first real sync misreads its own non-zero word_count as
       // another device's unseen edit and gets stuck in a false conflict forever.
       // Never overwrite an already-established baseline — only fill a gap.
-      await db.put('page_cache', {
+      await db.put(SCENE_CACHE_STORE, {
         ...existing,
-        serverUpdatedAt: existing.serverUpdatedAt ?? page.updated_at,
+        serverUpdatedAt: existing.serverUpdatedAt ?? scene.updated_at,
         // Same backfill-only rule as serverUpdatedAt: never overwrite an
         // established content baseline while local edits are pending — the
-        // page prop may already reflect optimistic local word counts.
-        serverWordCount: existing.serverWordCount ?? page.word_count,
-        serverContent: existing.serverContent ?? page.content ?? {},
-        chapter_id: page.chapter_id,
+        // scene prop may already reflect optimistic local word counts.
+        serverWordCount: existing.serverWordCount ?? scene.word_count,
+        serverContent: existing.serverContent ?? scene.content ?? {},
+        chapter_id: scene.chapter_id,
         project_id: projectId,
-        manuscript_id: page.manuscript_id,
-        title: page.title,
-        position: page.position,
-        created_at: page.created_at,
-        updated_at: page.updated_at,
+        manuscript_id: scene.manuscript_id,
+        title: scene.title,
+        position: scene.position,
+        created_at: scene.created_at,
+        updated_at: scene.updated_at,
       })
     } else {
-      // No local edits — cache full server page. With no pending write, the
-      // page object's word_count cannot be optimistically ahead of the server,
+      // No local edits — cache full server scene. With no pending write, the
+      // scene object's word_count cannot be optimistically ahead of the server,
       // so it is safe to record as the confirmed content baseline.
-      await db.put('page_cache', {
-        id: page.id,
-        content: page.content ?? {},
-        wordCount: page.word_count,
-        serverUpdatedAt: page.updated_at,
-        serverWordCount: page.word_count,
-        serverContent: page.content ?? {},
+      await db.put(SCENE_CACHE_STORE, {
+        id: scene.id,
+        content: scene.content ?? {},
+        wordCount: scene.word_count,
+        serverUpdatedAt: scene.updated_at,
+        serverWordCount: scene.word_count,
+        serverContent: scene.content ?? {},
         cachedAt: Date.now(),
-        chapter_id: page.chapter_id,
+        chapter_id: scene.chapter_id,
         project_id: projectId,
-        manuscript_id: page.manuscript_id,
-        title: page.title,
-        position: page.position,
-        created_at: page.created_at,
-        updated_at: page.updated_at,
+        manuscript_id: scene.manuscript_id,
+        title: scene.title,
+        position: scene.position,
+        created_at: scene.created_at,
+        updated_at: scene.updated_at,
       })
       void evictOldCacheEntries()
     }
@@ -277,10 +294,10 @@ export async function cachePage(page: Scene, projectId: string): Promise<void> {
 }
 
 /** Returns the cached Scene if it has full metadata; null otherwise. */
-export async function getCachedPage(pageId: string): Promise<Scene | null> {
+export async function getCachedScene(sceneId: string): Promise<Scene | null> {
   try {
     const db = await getOfflineDB()
-    const entry = await db.get('page_cache', pageId)
+    const entry = await db.get(SCENE_CACHE_STORE, sceneId)
     if (!entry || entry.chapter_id === undefined || !entry.title) return null
     return cacheEntryToScene(entry)
   } catch {
@@ -289,10 +306,10 @@ export async function getCachedPage(pageId: string): Promise<Scene | null> {
 }
 
 /** Returns all placed Scenes of a chapter from the view cache, sorted by position. */
-export async function getCachedPagesForChapter(chapterId: string): Promise<PlacedScene[]> {
+export async function getCachedScenesForChapter(chapterId: string): Promise<PlacedScene[]> {
   try {
     const db = await getOfflineDB()
-    const all = await db.getAll('page_cache')
+    const all = await db.getAll(SCENE_CACHE_STORE)
     return all
       .filter((e) => e.chapter_id === chapterId && !!e.title)
       .map((e) => cacheEntryToScene(e) as PlacedScene)
@@ -306,7 +323,7 @@ export async function getCachedPagesForChapter(chapterId: string): Promise<Place
 export async function getCachedUnplacedScenes(projectId: string): Promise<UnplacedScene[]> {
   try {
     const db = await getOfflineDB()
-    const all = await db.getAll('page_cache')
+    const all = await db.getAll(SCENE_CACHE_STORE)
     return all
       .filter((e) => e.chapter_id === null && e.project_id === projectId && !!e.title)
       .map((e) => cacheEntryToScene(e) as UnplacedScene)
@@ -335,7 +352,7 @@ export async function forgetStalePlacements(
     // One readwrite transaction: each entry is rewritten from the value read in
     // the same transaction, so a sync baseline written concurrently by the sync
     // engine can never be replaced by an older copy.
-    const tx = db.transaction('page_cache', 'readwrite')
+    const tx = db.transaction(SCENE_CACHE_STORE, 'readwrite')
     let cursor = await tx.store.openCursor()
     while (cursor) {
       const entry = cursor.value
@@ -424,7 +441,7 @@ export async function getOfflineStorageSummary(): Promise<{
     const db = await getOfflineDB()
     const [allWrites, allCached] = await Promise.all([
       db.getAll('pending_writes'),
-      db.getAll('page_cache'),
+      db.getAll(SCENE_CACHE_STORE),
     ])
     const pending = allWrites.filter(
       (w) => w.syncStatus === 'pending' || w.syncStatus === 'syncing' || w.syncStatus === 'failed'
@@ -443,7 +460,7 @@ export async function getOfflineStorageSummary(): Promise<{
  */
 export async function storeOfflineWritingCredit(
   projectId: string | null,
-  pageId: string,
+  sceneId: string,
   wordsAdded: number
 ): Promise<void> {
   if (wordsAdded <= 0) return
@@ -451,7 +468,7 @@ export async function storeOfflineWritingCredit(
     const db = await getOfflineDB()
     await db.put('pending_writing_credits', {
       id: crypto.randomUUID(),
-      pageId,
+      pageId: sceneId, // legacy serialized field name
       projectId,
       wordsAdded,
       sessionDate: getLocalDateString(),
@@ -463,21 +480,21 @@ export async function storeOfflineWritingCredit(
 
 /**
  * Clears page_cache entries that have no corresponding pending_writes entry.
- * Never deletes entries for pages that have unsaved or conflicted local edits.
+ * Never deletes entries for scenes that have unsaved or conflicted local edits.
  * Returns the number of entries cleared.
  */
-export async function clearPageCache(): Promise<number> {
+export async function clearSceneCache(): Promise<number> {
   try {
     const db = await getOfflineDB()
     const [allCached, allPending] = await Promise.all([
-      db.getAll('page_cache'),
+      db.getAll(SCENE_CACHE_STORE),
       db.getAll('pending_writes'),
     ])
     const pendingIds = new Set(allPending.map((w) => w.id))
     let cleared = 0
     for (const entry of allCached) {
       if (!pendingIds.has(entry.id)) {
-        await db.delete('page_cache', entry.id)
+        await db.delete(SCENE_CACHE_STORE, entry.id)
         cleared++
       }
     }

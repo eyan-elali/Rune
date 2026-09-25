@@ -12,7 +12,7 @@ import { cn, getLocalDateString } from "@/lib/utils";
 import { renameScene, getAccountWordTotal } from "@/lib/actions/scenes";
 import { recordWordsWritten } from "@/lib/actions/writingStats";
 import { writeToPendingQueue, syncPendingWrite } from "@/lib/offline/syncEngine";
-import { getOfflineDB, getPendingWrite, storeOfflineWritingCredit } from "@/lib/offline/db";
+import { getOfflineDB, getPendingWrite, storeOfflineWritingCredit, SCENE_CACHE_STORE } from "@/lib/offline/db";
 import { SyncConflictModal } from "./SyncConflictModal";
 import { useNetworkStore } from "@/store/networkStore";
 import { awardProjectXp } from "@/lib/actions/xp";
@@ -28,10 +28,10 @@ import type { Scene, UserPreferences } from "@/lib/types";
 
 type DisplaySyncStatus = 'synced' | 'online_dirty' | 'offline_dirty' | 'syncing' | 'conflict'
 
-async function readDbSyncStatus(pageId: string): Promise<string | null> {
+async function readDbSyncStatus(sceneId: string): Promise<string | null> {
   try {
     const db = await getOfflineDB()
-    const pending = await db.get('pending_writes', pageId)
+    const pending = await db.get('pending_writes', sceneId)
     return pending?.syncStatus ?? null
   } catch {
     return null
@@ -60,9 +60,9 @@ interface RuneEditorProps {
   projectId: string;
   /** null while editing an Unplaced Scene. */
   chapterId: string | null;
-  currentPage: Scene | null;
-  onPageUpdated: (pageId: string, updates: Partial<Scene>) => void;
-  onRenamePage: (pageId: string, title: string) => void;
+  currentScene: Scene | null;
+  onSceneUpdated: (sceneId: string, updates: Partial<Scene>) => void;
+  onRenameScene: (sceneId: string, title: string) => void;
   /** Account-wide manuscript word total at page load — see getAccountWordTotal. */
   accountWordTotal?: number;
   /**
@@ -86,9 +86,9 @@ function getPromotekitReferral(): string {
 export default function RuneEditor({
   projectId,
   chapterId,
-  currentPage,
-  onPageUpdated,
-  onRenamePage,
+  currentScene,
+  onSceneUpdated,
+  onRenameScene,
   accountWordTotal = 0,
   emptyState,
 }: RuneEditorProps) {
@@ -123,38 +123,38 @@ export default function RuneEditor({
   const [wordLimitModalOpen, setWordLimitModalOpen] = useState(false);
   const [upgradePending, setUpgradePending] = useState(false);
   const [toolbarPos, setToolbarPos] = useState<ToolbarPos | null>(null);
-  const [titleDraft, setTitleDraft] = useState(currentPage?.title ?? "");
+  const [titleDraft, setTitleDraft] = useState(currentScene?.title ?? "");
   const [xpFlash, setXpFlash] = useState<{ id: number; amount: number } | null>(null);
   const xpFlashTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   // Account-wide manuscript word total. Initialized from the server-rendered
   // baseline (accountWordTotal), then kept fresh two ways: an immediate
-  // optimistic adjustment by this page's own save delta (handleSave below —
+  // optimistic adjustment by this scene's own save delta (handleSave below —
   // mirrors how lastSavedWordCountRef itself advances), and an async re-fetch
   // via getAccountWordTotal() after each save/sync settles, so drift from
   // another tab/device/Arena session self-corrects without ever polling on
-  // every keystroke. Switching between pages within the same loaded chapter
+  // every keystroke. Switching between scenes within the same loaded chapter
   // doesn't need a re-fetch: this ref already reflects the whole account:
-  // only lastSavedWordCountRef (reset on page switch below) needs to change.
+  // only lastSavedWordCountRef (reset on scene switch below) needs to change.
   const accountWordTotalRef = useRef(accountWordTotal);
 
 
 
-  const currentPageRef = useRef<Scene | null>(currentPage);
-  const onPageUpdatedRef = useRef(onPageUpdated);
-  const prevPageIdRef = useRef<string | null>(null);
+  const currentSceneRef = useRef<Scene | null>(currentScene);
+  const onSceneUpdatedRef = useRef(onSceneUpdated);
+  const prevSceneIdRef = useRef<string | null>(null);
   const isLoadingRef = useRef(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const lastSavedWordCountRef = useRef<number>(currentPage?.word_count ?? 0);
+  const lastSavedWordCountRef = useRef<number>(currentScene?.word_count ?? 0);
   // The word count this tab last confirmed the server actually holds for the
-  // current page — set on page load/switch and advanced only after this
+  // current scene — set on scene load/switch and advanced only after this
   // tab's own sync is confirmed successful (never optimistically, and never
   // via IndexedDB, which every tab of the browser shares). Passed to
   // syncPendingWrite as the private conflict-detection baseline so a sibling
   // tab's save can't silently erase evidence of divergence the way the
   // shared IndexedDB cache does. See syncEngine.ts for why word_count
   // specifically (not version/updated_at, which unrelated updates also bump).
-  const expectedServerWordCountRef = useRef<number>(currentPage?.word_count ?? 0);
+  const expectedServerWordCountRef = useRef<number>(currentScene?.word_count ?? 0);
   // Net word-count delta contributed by transactions classified as directly typed
   // (see onTransaction below). Paste, drop, and undo/redo never add to this — so
   // it can't retroactively "absorb" pasted words on a later save or keystroke.
@@ -163,7 +163,7 @@ export default function RuneEditor({
   const wordLimitBlockedRef = useRef(false);
   // Tracks live editor word count between saves so handleTextInput / handleKeyDown
   // can gate input before a character appears, not just at the next debounce cycle.
-  const currentWordCountRef = useRef<number>(currentPage?.word_count ?? 0);
+  const currentWordCountRef = useRef<number>(currentScene?.word_count ?? 0);
   const sessionId = useRef(crypto.randomUUID());
   const isOnlineRef = useRef(isOnline);
   const prevIsOnlineRef = useRef(isOnline);
@@ -204,28 +204,28 @@ export default function RuneEditor({
 
 
   useEffect(() => {
-    onPageUpdatedRef.current = onPageUpdated;
-  }, [onPageUpdated]);
+    onSceneUpdatedRef.current = onSceneUpdated;
+  }, [onSceneUpdated]);
 
   useEffect(() => {
-    setTitleDraft(currentPage?.title ?? "");
-  }, [currentPage?.id, currentPage?.title]);
+    setTitleDraft(currentScene?.title ?? "");
+  }, [currentScene?.id, currentScene?.title]);
 
   useEffect(() => {
-    const pageId = currentPage?.id;
-    if (!pageId) { setSyncStatusAndRef('synced'); return; }
+    const sceneId = currentScene?.id;
+    if (!sceneId) { setSyncStatusAndRef('synced'); return; }
 
     const wasOffline = !prevIsOnlineRef.current;
     prevIsOnlineRef.current = isOnline;
 
     if (isOnline && wasOffline) {
       void (async () => {
-        const dbStatus = await readDbSyncStatus(pageId);
+        const dbStatus = await readDbSyncStatus(sceneId);
         if (dbStatus === 'pending' || dbStatus === 'failed') {
-          const pendingBefore = await getPendingWrite(pageId);
+          const pendingBefore = await getPendingWrite(sceneId);
           setSyncStatusAndRef('syncing');
-          await syncPendingWrite(pageId, 'online', expectedServerWordCountRef.current);
-          const afterStatus = await readDbSyncStatus(pageId);
+          await syncPendingWrite(sceneId, 'online', expectedServerWordCountRef.current);
+          const afterStatus = await readDbSyncStatus(sceneId);
           setSyncStatusAndRef(mapDisplayStatus(afterStatus, true));
           if (!afterStatus && pendingBefore) {
             expectedServerWordCountRef.current = pendingBefore.wordCount;
@@ -240,17 +240,17 @@ export default function RuneEditor({
         }
       })();
     } else {
-      void readDbSyncStatus(pageId).then((dbStatus) => {
+      void readDbSyncStatus(sceneId).then((dbStatus) => {
         setSyncStatusAndRef(mapDisplayStatus(dbStatus, isOnline));
       });
     }
-  }, [isOnline, currentPage?.id, refreshAccountWordTotal]);
+  }, [isOnline, currentScene?.id, refreshAccountWordTotal]);
 
   useEffect(() => {
     function handleSyncQueueUpdated() {
-      const pageId = currentPageRef.current?.id;
-      if (!pageId) return;
-      void readDbSyncStatus(pageId).then((dbStatus) => {
+      const sceneId = currentSceneRef.current?.id;
+      if (!sceneId) return;
+      void readDbSyncStatus(sceneId).then((dbStatus) => {
         setSyncStatusAndRef(mapDisplayStatus(dbStatus, isOnlineRef.current));
       });
     }
@@ -274,9 +274,9 @@ export default function RuneEditor({
   }, [refreshAccountWordTotal]);
 
   const handleSave = useCallback(async (content: Record<string, unknown>, wordCount: number, creditableWords: number) => {
-    const page = currentPageRef.current;
+    const scene = currentSceneRef.current;
     const uid = userIdRef.current;
-    if (!page || !uid) return;
+    if (!scene || !uid) return;
 
     const delta = wordCount - lastSavedWordCountRef.current;
 
@@ -297,13 +297,13 @@ export default function RuneEditor({
     wordLimitBlockedRef.current = false;
 
     try {
-      await writeToPendingQueue(page.id, uid, content, wordCount);
+      await writeToPendingQueue(scene.id, uid, content, wordCount);
     } catch (err) {
       console.error('[offline] handleSave: IDB write failed — data may not be persisted locally:', err);
     }
 
     setIsSaving(true);
-    onPageUpdatedRef.current(page.id, { content, word_count: wordCount });
+    onSceneUpdatedRef.current(scene.id, { content, word_count: wordCount });
 
     // Always advance to the actual current total — including on deletions/undo —
     // so this baseline never goes stale. A baseline that only moved on growth
@@ -314,16 +314,16 @@ export default function RuneEditor({
     // immediate correction so the next keystroke's guard doesn't lag behind
     // this save. The async refresh below (after the sync actually confirms)
     // corrects for any drift this optimism can't see, like a concurrent
-    // save on a different page/tab/device.
+    // save on a different scene/tab/device.
     accountWordTotalRef.current = accountWordTotalRef.current + delta;
 
     if (creditableWords > 0) {
       if (isOnlineRef.current) {
-        void recordWordsWritten(projectIdRef.current, creditableWords, page.id, getLocalDateString())
+        void recordWordsWritten(projectIdRef.current, creditableWords, scene.id, getLocalDateString())
           .catch(err => console.error('[offline] recordWordsWritten failed:', err));
       } else {
         // Queue a writing credit to be applied once we reconnect.
-        void storeOfflineWritingCredit(projectIdRef.current, page.id, creditableWords)
+        void storeOfflineWritingCredit(projectIdRef.current, scene.id, creditableWords)
           .catch(err => console.error('[offline] storeOfflineWritingCredit failed:', err));
       }
     }
@@ -331,17 +331,17 @@ export default function RuneEditor({
     if (isOnlineRef.current) {
       // No conflict pre-check here: syncPendingWrite re-runs conflict
       // detection on every call, so a stale 'conflict' latch (e.g. one raised
-      // against a still-empty server page) heals itself, while a genuine
+      // against a still-empty server scene) heals itself, while a genuine
       // two-writer conflict is simply re-confirmed and surfaces through the
       // status read below. Skipping the sync on a latched status was what let
       // a single false positive permanently block every future upload.
       setSyncStatusAndRef('syncing');
-      await syncPendingWrite(page.id, 'online', expectedServerWordCountRef.current);
+      await syncPendingWrite(scene.id, 'online', expectedServerWordCountRef.current);
       setLastSaved(new Date());
     }
 
     setIsSaving(false);
-    void readDbSyncStatus(page.id).then((dbStatus) => {
+    void readDbSyncStatus(scene.id).then((dbStatus) => {
       setSyncStatusAndRef(mapDisplayStatus(dbStatus, isOnlineRef.current));
       if (!dbStatus) {
         // Confirmed synced — advance this tab's private baseline to what the
@@ -350,8 +350,8 @@ export default function RuneEditor({
         expectedServerWordCountRef.current = wordCount;
         // Server-reconciliation boundary — corrects accountWordTotalRef for
         // any drift the optimistic adjustment above couldn't see (a
-        // concurrent save on a different page, tab, device, or Arena
-        // session since this page was last loaded).
+        // concurrent save on a different scene, tab, device, or Arena
+        // session since this scene was last loaded).
         refreshAccountWordTotal();
       }
     });
@@ -376,7 +376,7 @@ export default function RuneEditor({
       }),
       CharacterCount,
     ],
-    content: currentPage?.content ?? null,
+    content: currentScene?.content ?? null,
     autofocus: "start",
     editorProps: {
       // ── Free-tier word-limit input guards ───────────────────────────────────
@@ -435,7 +435,7 @@ export default function RuneEditor({
 
     },
     onTransaction({ transaction }) {
-      // Programmatic content loads (page switch, hydration, sync reconciliation,
+      // Programmatic content loads (scene switch, hydration, sync reconciliation,
       // conflict resolution) all run with isLoadingRef true — never eligible.
       if (isLoadingRef.current) return;
       if (!transaction.docChanged) return;
@@ -480,9 +480,9 @@ export default function RuneEditor({
       // current word count would push the account over the limit — prevents
       // over-limit content from reaching the offline queue and syncing to the
       // server after a "Maybe Later" dismissal or on reconnect.
-      const pageNow = currentPageRef.current;
+      const sceneNow = currentSceneRef.current;
       const uidNow = userIdRef.current;
-      if (pageNow && uidNow) {
+      if (sceneNow && uidNow) {
         const contentNow = editor.getJSON() as Record<string, unknown>;
         const wcNow = (editor.storage.characterCount?.words?.() as number | undefined) ?? 0;
 
@@ -493,7 +493,7 @@ export default function RuneEditor({
 
         if (!isOverLimit) {
           try {
-            void writeToPendingQueue(pageNow.id, uidNow, contentNow, wcNow);
+            void writeToPendingQueue(sceneNow.id, uidNow, contentNow, wcNow);
           } catch (err) {
             console.error('[offline] onUpdate: per-keystroke IDB write failed:', err);
           }
@@ -507,8 +507,8 @@ export default function RuneEditor({
       clearTimeout(saveTimerRef.current);
       saveTimerRef.current = setTimeout(async () => {
         if (isLoadingRef.current) return;
-        const page = currentPageRef.current;
-        if (!page) return;
+        const scene = currentSceneRef.current;
+        if (!scene) return;
         // Guard against a debounce timer that outlives the editor (e.g. the
         // component unmounts before the timer fires). Tiptap's destroy() wipes
         // `editor.storage` to `{}`, so reading word count here would silently
@@ -523,7 +523,7 @@ export default function RuneEditor({
         // Single snapshot of the eligible-word ledger, shared by writing-stats and
         // XP below — the only number either system uses to represent "how many
         // typed words this cycle." Capped to the manuscript's own net growth this
-        // cycle (never awarded when the page's total didn't actually grow), same
+        // cycle (never awarded when the scene's total didn't actually grow), same
         // invariant the previous per-cycle deduction preserved.
         const rawDelta = wordCount - lastSavedWordCountRef.current;
         const eligibleWords = pendingEligibleWordsRef.current;
@@ -579,90 +579,90 @@ export default function RuneEditor({
     },
   });
 
-  // Handle page switching and initial load
+  // Handle scene switching and initial load
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!editor) return;
 
-    const prevPageId = prevPageIdRef.current;
-    const newPageId = currentPage?.id ?? null;
+    const prevSceneId = prevSceneIdRef.current;
+    const newSceneId = currentScene?.id ?? null;
 
-    if (prevPageId && prevPageId !== newPageId) {
+    if (prevSceneId && prevSceneId !== newSceneId) {
       clearTimeout(saveTimerRef.current);
       const content = editor.getJSON() as Record<string, unknown>;
       const wordCount =
         (editor.storage.characterCount?.words?.() as number | undefined) ?? 0;
       const uid = userIdRef.current;
       // Captured synchronously, before the refs are reassigned below for the
-      // new page — reading them lazily inside the async block below would
+      // new scene — reading them lazily inside the async block below would
       // race the synchronous reset that happens later in this same effect.
       const prevExpectedWordCount = expectedServerWordCountRef.current;
       // Writing credit for typed words whose debounce cycle never fired —
-      // without this, switching pages before the debounce silently dropped
+      // without this, switching scenes before the debounce silently dropped
       // the tail of the session from Today's Words. Same ledger math as the
       // debounce path; if the debounce already ran, rawDelta is 0 and nothing
-      // is double-credited. (The ledger ref is reset for the new page just
-      // below, so this is also its only consumer for the old page.)
+      // is double-credited. (The ledger ref is reset for the new scene just
+      // below, so this is also its only consumer for the old scene.)
       const rawDelta = wordCount - lastSavedWordCountRef.current;
       const creditableWords =
         rawDelta > 0 ? Math.min(pendingEligibleWordsRef.current, rawDelta) : 0;
       const prevProjectId = projectIdRef.current;
       if (uid) {
         void (async () => {
-          await writeToPendingQueue(prevPageId, uid, content, wordCount);
-          onPageUpdatedRef.current(prevPageId, { content, word_count: wordCount });
+          await writeToPendingQueue(prevSceneId, uid, content, wordCount);
+          onSceneUpdatedRef.current(prevSceneId, { content, word_count: wordCount });
           if (creditableWords > 0) {
             if (isOnlineRef.current) {
-              void recordWordsWritten(prevProjectId, creditableWords, prevPageId, getLocalDateString())
-                .catch(err => console.error('[offline] recordWordsWritten (page switch) failed:', err));
+              void recordWordsWritten(prevProjectId, creditableWords, prevSceneId, getLocalDateString())
+                .catch(err => console.error('[offline] recordWordsWritten (scene switch) failed:', err));
             } else {
-              void storeOfflineWritingCredit(prevProjectId, prevPageId, creditableWords)
-                .catch(err => console.error('[offline] storeOfflineWritingCredit (page switch) failed:', err));
+              void storeOfflineWritingCredit(prevProjectId, prevSceneId, creditableWords)
+                .catch(err => console.error('[offline] storeOfflineWritingCredit (scene switch) failed:', err));
             }
           }
           if (isOnlineRef.current) {
-            void syncPendingWrite(prevPageId, 'online', prevExpectedWordCount);
+            void syncPendingWrite(prevSceneId, 'online', prevExpectedWordCount);
           }
         })();
       }
     }
 
-    prevPageIdRef.current = newPageId;
-    currentPageRef.current = currentPage ?? null;
-    lastSavedWordCountRef.current = currentPage?.word_count ?? 0;
-    expectedServerWordCountRef.current = currentPage?.word_count ?? 0;
-    currentWordCountRef.current = currentPage?.word_count ?? 0;
+    prevSceneIdRef.current = newSceneId;
+    currentSceneRef.current = currentScene ?? null;
+    lastSavedWordCountRef.current = currentScene?.word_count ?? 0;
+    expectedServerWordCountRef.current = currentScene?.word_count ?? 0;
+    currentWordCountRef.current = currentScene?.word_count ?? 0;
     pendingEligibleWordsRef.current = 0;
     wordLimitBlockedRef.current = false;
 
     isLoadingRef.current = true;
-    editor.commands.setContent(currentPage?.content ?? null);
+    editor.commands.setContent(currentScene?.content ?? null);
     lastSavedWordCountRef.current =
       (editor.storage.characterCount?.words?.() as number | undefined) ??
-      currentPage?.word_count ??
+      currentScene?.word_count ??
       0;
 
-    const pageIdForDraftCheck = newPageId;
+    const sceneIdForDraftCheck = newSceneId;
     // Captured synchronously alongside the reset above — safe to read later
-    // inside the async block even if another page switch reassigns the ref
+    // inside the async block even if another scene switch reassigns the ref
     // in the meantime.
     let expectedWordCountForDraftCheck = expectedServerWordCountRef.current;
 
-    if (pageIdForDraftCheck) {
+    if (sceneIdForDraftCheck) {
       void (async () => {
         try {
           // Prefer the last CONFIRMED server word count from the offline cache
-          // over currentPage.word_count: the page prop is updated optimistically
-          // by every save attempt (onPageUpdated fires before the server
+          // over currentScene.word_count: the scene prop is updated optimistically
+          // by every save attempt (onSceneUpdated fires before the server
           // confirms), so after a failed save it can claim words the server
           // never received — and a baseline seeded from it would misread the
-          // still-empty server page as a conflict on the next sync.
+          // still-empty server scene as a conflict on the next sync.
           try {
             const idb = await getOfflineDB();
-            const cacheEntry = await idb.get('page_cache', pageIdForDraftCheck);
+            const cacheEntry = await idb.get(SCENE_CACHE_STORE, sceneIdForDraftCheck);
             if (typeof cacheEntry?.serverWordCount === 'number') {
               expectedWordCountForDraftCheck = cacheEntry.serverWordCount;
-              if (currentPageRef.current?.id === pageIdForDraftCheck) {
+              if (currentSceneRef.current?.id === sceneIdForDraftCheck) {
                 expectedServerWordCountRef.current = cacheEntry.serverWordCount;
               }
             }
@@ -670,8 +670,8 @@ export default function RuneEditor({
             // best-effort — fall back to the prop-seeded baseline
           }
 
-          const pending = await getPendingWrite(pageIdForDraftCheck);
-          if (currentPageRef.current?.id !== pageIdForDraftCheck) return;
+          const pending = await getPendingWrite(sceneIdForDraftCheck);
+          if (currentSceneRef.current?.id !== sceneIdForDraftCheck) return;
 
           if (pending) {
             // A pending write always means the server hasn't confirmed this
@@ -681,7 +681,7 @@ export default function RuneEditor({
             lastSavedWordCountRef.current = pending.wordCount;
 
             // Whether this is a genuine conflict (server independently changed)
-            // or just an ordinary unsynced write left behind by a debounce/page
+            // or just an ordinary unsynced write left behind by a debounce/scene
             // -switch race is syncPendingWrite's call to make — it's the single
             // place that compares against the confirmed server baseline. A real
             // conflict is already surfaced through the normal syncStatus ===
@@ -690,11 +690,11 @@ export default function RuneEditor({
             // in the single-tab-online case, just autosave finishing its job.
             if (pending.syncStatus !== 'conflict' && isOnlineRef.current) {
               setSyncStatusAndRef('syncing');
-              await syncPendingWrite(pageIdForDraftCheck, 'online', expectedWordCountForDraftCheck);
+              await syncPendingWrite(sceneIdForDraftCheck, 'online', expectedWordCountForDraftCheck);
             }
 
-            if (currentPageRef.current?.id === pageIdForDraftCheck) {
-              const afterStatus = await readDbSyncStatus(pageIdForDraftCheck);
+            if (currentSceneRef.current?.id === sceneIdForDraftCheck) {
+              const afterStatus = await readDbSyncStatus(sceneIdForDraftCheck);
               setSyncStatusAndRef(mapDisplayStatus(afterStatus, isOnlineRef.current));
               if (!afterStatus) {
                 expectedServerWordCountRef.current = pending.wordCount;
@@ -704,7 +704,7 @@ export default function RuneEditor({
         } catch {
           // best-effort
         } finally {
-          if (currentPageRef.current?.id === pageIdForDraftCheck) {
+          if (currentSceneRef.current?.id === sceneIdForDraftCheck) {
             isLoadingRef.current = false;
           }
         }
@@ -714,7 +714,7 @@ export default function RuneEditor({
         isLoadingRef.current = false;
       }, 0);
     }
-  }, [editor, currentPage?.id]);
+  }, [editor, currentScene?.id]);
 
   useEffect(() => {
     return () => {
@@ -730,14 +730,14 @@ export default function RuneEditor({
       // silently saving word_count: 0 over real content with no user deletion.
       if (saveTimerRef.current) {
         clearTimeout(saveTimerRef.current);
-        const page = currentPageRef.current;
+        const scene = currentSceneRef.current;
         const uid = userIdRef.current;
-        if (editor && !editor.isDestroyed && page && uid) {
+        if (editor && !editor.isDestroyed && scene && uid) {
           const content = editor.getJSON() as Record<string, unknown>;
           const wordCount =
             (editor.storage.characterCount?.words?.() as number | undefined) ?? 0;
           const expectedWordCountAtUnmount = expectedServerWordCountRef.current;
-          // Same tail-of-session credit as the page-switch flush above:
+          // Same tail-of-session credit as the scene-switch flush above:
           // navigating away (e.g. to the dashboard) before the debounce fired
           // must not drop the typed words from Today's Words. rawDelta is 0
           // when the debounce already credited this content — no double count.
@@ -746,16 +746,16 @@ export default function RuneEditor({
             rawDelta > 0 ? Math.min(pendingEligibleWordsRef.current, rawDelta) : 0;
           if (creditableWords > 0) {
             if (isOnlineRef.current) {
-              void recordWordsWritten(projectIdRef.current, creditableWords, page.id, getLocalDateString())
+              void recordWordsWritten(projectIdRef.current, creditableWords, scene.id, getLocalDateString())
                 .catch(err => console.error('[offline] recordWordsWritten (unmount) failed:', err));
             } else {
-              void storeOfflineWritingCredit(projectIdRef.current, page.id, creditableWords)
+              void storeOfflineWritingCredit(projectIdRef.current, scene.id, creditableWords)
                 .catch(err => console.error('[offline] storeOfflineWritingCredit (unmount) failed:', err));
             }
             pendingEligibleWordsRef.current = Math.max(0, pendingEligibleWordsRef.current - creditableWords);
           }
-          void writeToPendingQueue(page.id, uid, content, wordCount).then(() => {
-            if (isOnlineRef.current) void syncPendingWrite(page.id, 'online', expectedWordCountAtUnmount);
+          void writeToPendingQueue(scene.id, uid, content, wordCount).then(() => {
+            if (isOnlineRef.current) void syncPendingWrite(scene.id, 'online', expectedWordCountAtUnmount);
           });
         }
       }
@@ -767,23 +767,23 @@ export default function RuneEditor({
     (editor?.storage.characterCount?.words?.() as number | undefined) ?? 0;
 
   async function commitTitle() {
-    const page = currentPageRef.current;
-    if (!page) return;
+    const scene = currentSceneRef.current;
+    if (!scene) return;
     const trimmed = titleDraft.trim() || "Untitled";
-    if (trimmed === page.title) {
-      setTitleDraft(page.title);
+    if (trimmed === scene.title) {
+      setTitleDraft(scene.title);
       return;
     }
     setTitleDraft(trimmed);
-    onRenamePage(page.id, trimmed);
+    onRenameScene(scene.id, trimmed);
     if (!isOnlineRef.current) {
       showToast("Title saved locally — will sync when reconnected", "info");
       return;
     }
-    await renameScene(page.id, trimmed);
+    await renameScene(scene.id, trimmed);
   }
 
-  if (!currentPage) {
+  if (!currentScene) {
     return (
       <div className="flex h-full flex-1 items-center justify-center">
         {emptyState ?? (
@@ -886,7 +886,7 @@ export default function RuneEditor({
         >
           <div style={{ marginBottom: "2.5rem" }}>
             <input
-              id={`page-title-${currentPage.id}`}
+              id={`scene-title-${currentScene.id}`}
               type="text"
               value={titleDraft}
               onChange={(e) => setTitleDraft(e.target.value)}
@@ -897,7 +897,7 @@ export default function RuneEditor({
                 }
                 if (e.key === "Escape") {
                   e.preventDefault();
-                  flushSync(() => setTitleDraft(currentPage.title));
+                  flushSync(() => setTitleDraft(currentScene.title));
                   (e.target as HTMLInputElement).blur();
                 }
               }}
@@ -984,9 +984,9 @@ export default function RuneEditor({
       </div>
 
       {/* Sync conflict resolution modal */}
-      {conflictModalOpen && currentPage && (
+      {conflictModalOpen && currentScene && (
         <SyncConflictModal
-          pageId={currentPage.id}
+          sceneId={currentScene.id}
           onKeepLocal={(keptWordCount) => {
             setConflictModalOpen(false);
             setLastSaved(new Date());
@@ -1010,7 +1010,7 @@ export default function RuneEditor({
             // Discard any pending eligible words from the local edits being
             // replaced — they no longer exist in the kept (server) content.
             pendingEligibleWordsRef.current = 0;
-            onPageUpdatedRef.current(currentPage.id, {
+            onSceneUpdatedRef.current(currentScene.id, {
               content: serverContent,
               word_count: serverWordCount,
             });

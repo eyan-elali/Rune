@@ -70,7 +70,7 @@ function renderChapterTitle(state: State, chapter: Chapter): void {
   state.y += lh(pt); // blank line below
 }
 
-function renderPageDivider(state: State): void {
+function renderSceneDivider(state: State): void {
   guard(state, lh(BODY_PT) + 8);
   const d = state.doc;
   const before = lh(BODY_PT) * 0.6;
@@ -187,7 +187,7 @@ export async function exportProjectAsPdf(
     for (let i = 0; i < scenesToExport.length; i++) {
       if (i > 0) {
         if (endsWithParagraphBlock(scenesToExport[i - 1])) {
-          renderPageDivider(state);
+          renderSceneDivider(state);
         }
         state.bodyParagraphCount = 0;
       }

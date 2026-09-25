@@ -5,13 +5,13 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createProjectWithDraft } from "@/lib/actions/projects";
 import { Button } from "@/components/ui/Button";
-import type { RecentWork, RecentPageCard } from "./types";
+import type { RecentWork, RecentSceneCard } from "./types";
 import type { WritingGoal } from "@/lib/actions/writingStats";
 import type { ProjectNote } from "@/lib/types";
 
 interface YourStoryHeroProps {
   recentWork: RecentWork | null;
-  recentPageCard?: RecentPageCard;
+  recentSceneCard?: RecentSceneCard;
   todayWords?: number;
   writingStreak?: { currentStreak: number; maxStreak: number };
   goals?: WritingGoal[];
@@ -164,17 +164,17 @@ function getStoryHeroSubtitle(
 
 export function YourStoryHero({
   recentWork,
-  recentPageCard,
+  recentSceneCard,
   todayWords = 0,
   writingStreak = { currentStreak: 0, maxStreak: 0 },
   goals = [],
   pinnedNote = null,
 }: YourStoryHeroProps) {
-  const matchingPage =
-    recentPageCard &&
+  const matchingScene =
+    recentSceneCard &&
     recentWork &&
-    recentPageCard.chapterId === recentWork.chapterId
-      ? recentPageCard
+    recentSceneCard.chapterId === recentWork.chapterId
+      ? recentSceneCard
       : undefined;
 
   if (!recentWork) {
@@ -200,13 +200,13 @@ export function YourStoryHero({
         }}
       >
         <div className="min-w-0">
-          {(recentWork.chapterTitle || matchingPage?.pageTitle) && (
+          {(recentWork.chapterTitle || matchingScene?.sceneTitle) && (
             <p
               className="mb-3 text-xs font-semibold uppercase tracking-widest"
               style={{ color: "var(--color-mist)", opacity: 0.6 }}
             >
               {recentWork.chapterTitle}
-              {matchingPage ? ` · ${matchingPage.pageTitle}` : ""}
+              {matchingScene ? ` · ${matchingScene.sceneTitle}` : ""}
             </p>
           )}
           <h2

@@ -23,7 +23,7 @@ import { renameScene } from "@/lib/actions/scenes";
 
 // ── Skeleton ──────────────────────────────────────────────────────────────────
 
-export function PageListSkeleton() {
+export function SceneListSkeleton() {
   return (
     <aside
       className="flex h-full min-h-0 w-[15%] min-w-[160px] max-w-[240px] shrink-0 flex-col overflow-hidden"
@@ -64,8 +64,8 @@ export function PageListSkeleton() {
 
 // ── Per-Scene context menu ─────────────────────────────────────────────────────
 
-interface PageMenuProps {
-  page: Scene;
+interface SceneMenuProps {
+  scene: Scene;
   canDelete: boolean;
   onRename: () => void;
   onDelete: () => void;
@@ -79,8 +79,8 @@ interface PageMenuProps {
   onMoveDown?: () => void;
 }
 
-function PageMenu({
-  page,
+function SceneMenu({
+  scene,
   canDelete,
   onRename,
   onDelete,
@@ -89,7 +89,7 @@ function PageMenu({
   onMoveToChapter,
   onMoveUp,
   onMoveDown,
-}: PageMenuProps) {
+}: SceneMenuProps) {
   const [open, setOpen] = useState(false);
   const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
   const btnRef = useRef<HTMLButtonElement>(null);
@@ -131,7 +131,7 @@ function PageMenu({
         ref={btnRef}
         type="button"
         onClick={handleOpen}
-        aria-label={`Options for ${page.title}`}
+        aria-label={`Options for ${scene.title}`}
         aria-expanded={open}
         className="shrink-0 rounded p-0.5 opacity-0 transition-opacity duration-100 hover:bg-rune-gold/15 focus-visible:opacity-100 group-hover:opacity-100"
         style={{ color: "var(--color-mist)" }}
@@ -281,19 +281,19 @@ function PageMenu({
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-interface PageListProps {
+interface SceneListProps {
   /** The Chapter's placed Scenes, or the Unplaced Scenes. */
-  pages: Scene[];
-  selectedPageId: string | null;
-  onSelectPage: (pageId: string) => void;
+  scenes: Scene[];
+  selectedSceneId: string | null;
+  onSelectScene: (sceneId: string) => void;
   /** Adds a Scene at the end of this Chapter, or of the Unplaced Scenes. */
-  onAddPage: () => void;
-  onDeletePage: (pageId: string) => void;
-  onRenamePage: (pageId: string, title: string) => void;
+  onAddScene: () => void;
+  onDeleteScene: (sceneId: string) => void;
+  onRenameScene: (sceneId: string, title: string) => void;
   /** Absent in the Unplaced view: Unplaced Scenes have no narrative order. */
-  onReorderPages?: (orderedPageIds: string[]) => void;
-  onMoveToUnplaced?: (pageId: string) => void;
-  onMoveToChapter?: (pageId: string, chapterId: string) => void;
+  onReorderScenes?: (orderedSceneIds: string[]) => void;
+  onMoveToUnplaced?: (sceneId: string) => void;
+  onMoveToChapter?: (sceneId: string, chapterId: string) => void;
   allChapters: ChapterWithScenes[];
   /** The Chapter being edited, or null in the Unplaced view. */
   currentChapterId: string | null;
@@ -301,77 +301,77 @@ interface PageListProps {
   projectId: string;
 }
 
-export function PageList({
-  pages,
-  selectedPageId,
-  onSelectPage,
-  onAddPage,
-  onDeletePage,
-  onRenamePage,
-  onReorderPages,
+export function SceneList({
+  scenes,
+  selectedSceneId,
+  onSelectScene,
+  onAddScene,
+  onDeleteScene,
+  onRenameScene,
+  onReorderScenes,
   onMoveToUnplaced,
   onMoveToChapter,
   allChapters,
   currentChapterId,
   unplacedCount = 0,
   projectId,
-}: PageListProps) {
+}: SceneListProps) {
   const isUnplacedView = currentChapterId === null;
-  const canReorder = !!onReorderPages;
+  const canReorder = !!onReorderScenes;
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
-  const [view, setView] = useState<"pages" | "chapters">("pages");
+  const [view, setView] = useState<"scenes" | "chapters">("scenes");
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
-  function handleDragStart(e: React.DragEvent, pageId: string) {
-    setDraggedId(pageId);
+  function handleDragStart(e: React.DragEvent, sceneId: string) {
+    setDraggedId(sceneId);
     e.dataTransfer.effectAllowed = "move";
   }
 
-  function handleDragOver(e: React.DragEvent, pageId: string) {
+  function handleDragOver(e: React.DragEvent, sceneId: string) {
     e.preventDefault();
-    if (!draggedId || draggedId === pageId) return;
+    if (!draggedId || draggedId === sceneId) return;
     e.dataTransfer.dropEffect = "move";
-    if (dragOverId !== pageId) setDragOverId(pageId);
+    if (dragOverId !== sceneId) setDragOverId(sceneId);
   }
 
-  function handleDrop(e: React.DragEvent, pageId: string) {
+  function handleDrop(e: React.DragEvent, sceneId: string) {
     e.preventDefault();
-    if (!draggedId || draggedId === pageId) {
+    if (!draggedId || draggedId === sceneId) {
       setDraggedId(null);
       setDragOverId(null);
       return;
     }
 
-    const fromIndex = pages.findIndex((p) => p.id === draggedId);
-    const toIndex = pages.findIndex((p) => p.id === pageId);
+    const fromIndex = scenes.findIndex((p) => p.id === draggedId);
+    const toIndex = scenes.findIndex((p) => p.id === sceneId);
     if (fromIndex === -1 || toIndex === -1) {
       setDraggedId(null);
       setDragOverId(null);
       return;
     }
 
-    const reordered = pages.map((p) => p.id);
+    const reordered = scenes.map((p) => p.id);
     reordered.splice(fromIndex, 1);
     reordered.splice(toIndex, 0, draggedId);
 
     setDraggedId(null);
     setDragOverId(null);
-    onReorderPages?.(reordered);
+    onReorderScenes?.(reordered);
   }
 
   /** Keyboard/menu reordering: one step up (-1) or down (+1). */
-  function moveBy(pageId: string, delta: -1 | 1) {
-    const ids = pages.map((p) => p.id);
-    const from = ids.indexOf(pageId);
+  function moveBy(sceneId: string, delta: -1 | 1) {
+    const ids = scenes.map((p) => p.id);
+    const from = ids.indexOf(sceneId);
     const to = from + delta;
     if (from === -1 || to < 0 || to >= ids.length) return;
     ids.splice(from, 1);
-    ids.splice(to, 0, pageId);
-    onReorderPages?.(ids);
+    ids.splice(to, 0, sceneId);
+    onReorderScenes?.(ids);
   }
 
   function handleDragEnd() {
@@ -379,18 +379,18 @@ export function PageList({
     setDragOverId(null);
   }
 
-  function startEditing(page: Scene, e: React.MouseEvent) {
+  function startEditing(scene: Scene, e: React.MouseEvent) {
     e.stopPropagation();
-    setEditingId(page.id);
-    setEditingTitle(page.title);
+    setEditingId(scene.id);
+    setEditingTitle(scene.title);
     setTimeout(() => inputRef.current?.select(), 0);
   }
 
-  async function commitEdit(pageId: string) {
+  async function commitEdit(sceneId: string) {
     const title = editingTitle.trim() || "Untitled";
-    onRenamePage(pageId, title);
+    onRenameScene(sceneId, title);
     setEditingId(null);
-    await renameScene(pageId, title);
+    await renameScene(sceneId, title);
   }
 
   // ── Chapters view ─────────────────────────────────────────────────────────────
@@ -411,7 +411,7 @@ export function PageList({
           <div className="flex items-center gap-1.5 px-3 py-3">
             <button
               type="button"
-              onClick={() => setView("pages")}
+              onClick={() => setView("scenes")}
               aria-label="Back to scenes"
               title="Back to scenes"
               className="rounded p-0.5 transition-colors duration-100 hover:bg-rune-gold/10"
@@ -442,7 +442,7 @@ export function PageList({
           >
             {allChapters.map((chapter) => {
               const isCurrent = chapter.id === currentChapterId;
-              const pageCount = chapter.scenes.length;
+              const sceneCount = chapter.scenes.length;
               const wordCount = chapter.scenes.reduce(
                 (sum, p) => sum + (p.word_count ?? 0),
                 0
@@ -495,7 +495,7 @@ export function PageList({
                         opacity: isCurrent ? 0.8 : 0.5,
                       }}
                     >
-                      {pageCount} {pageCount === 1 ? "scene" : "scenes"} ·{" "}
+                      {sceneCount} {sceneCount === 1 ? "scene" : "scenes"} ·{" "}
                       {wordCount.toLocaleString()} words
                     </span>
                   </div>
@@ -518,7 +518,7 @@ export function PageList({
                 isUnplacedView ? "bg-rune-gold/15 shadow-sm" : "hover:bg-rune-gold/5"
               )}
               onClick={() => {
-                if (isUnplacedView) setView("pages");
+                if (isUnplacedView) setView("scenes");
                 else router.push(`/projects/${projectId}/unplaced`);
               }}
               role="button"
@@ -527,7 +527,7 @@ export function PageList({
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
                   e.preventDefault();
-                  if (isUnplacedView) setView("pages");
+                  if (isUnplacedView) setView("scenes");
                   else router.push(`/projects/${projectId}/unplaced`);
                 }
               }}
@@ -545,8 +545,8 @@ export function PageList({
                   opacity: isUnplacedView ? 0.8 : 0.5,
                 }}
               >
-                {isUnplacedView ? pages.length : unplacedCount}{" "}
-                {(isUnplacedView ? pages.length : unplacedCount) === 1 ? "scene" : "scenes"} · not in manuscript
+                {isUnplacedView ? scenes.length : unplacedCount}{" "}
+                {(isUnplacedView ? scenes.length : unplacedCount) === 1 ? "scene" : "scenes"} · not in manuscript
               </span>
             </div>
           </div>
@@ -555,11 +555,11 @@ export function PageList({
     );
   }
 
-  // ── Pages view ────────────────────────────────────────────────────────────────
+  // ── Scenes view ────────────────────────────────────────────────────────────────
 
   return (
     <aside
-      data-tutorial-id="pages-sidebar"
+      data-tutorial-id="scenes-sidebar"
       className="flex h-full min-h-0 w-[15%] min-w-[160px] max-w-[240px] shrink-0 flex-col"
       style={{
         background: "var(--bg-sidebar)",
@@ -605,32 +605,32 @@ export function PageList({
           role="list"
           aria-label={isUnplacedView ? "Unplaced Scenes" : "Chapter scenes"}
         >
-          {pages.map((page, index) => {
-            const isSelected = selectedPageId === page.id;
-            const isEditing = editingId === page.id;
+          {scenes.map((scene, index) => {
+            const isSelected = selectedSceneId === scene.id;
+            const isEditing = editingId === scene.id;
 
             return (
-              <li key={page.id} className="shrink-0">
+              <li key={scene.id} className="shrink-0">
                 <div
                   draggable={canReorder && !isEditing}
-                  onDragStart={(e) => handleDragStart(e, page.id)}
-                  onDragOver={(e) => handleDragOver(e, page.id)}
-                  onDrop={(e) => handleDrop(e, page.id)}
+                  onDragStart={(e) => handleDragStart(e, scene.id)}
+                  onDragOver={(e) => handleDragOver(e, scene.id)}
+                  onDrop={(e) => handleDrop(e, scene.id)}
                   onDragEnd={handleDragEnd}
                   className={cn(
                     "group relative mx-2 flex w-[calc(100%-1rem)] cursor-pointer select-none flex-col px-3 py-1.5 transition-all duration-200 rounded-md",
                     isSelected
                       ? "bg-rune-gold/15 shadow-sm"
                       : "hover:bg-rune-gold/5",
-                    draggedId === page.id && "opacity-40"
+                    draggedId === scene.id && "opacity-40"
                   )}
                   style={
-                    dragOverId === page.id && draggedId !== page.id
+                    dragOverId === scene.id && draggedId !== scene.id
                       ? { boxShadow: "inset 0 2px 0 0 var(--color-gold)" }
                       : undefined
                   }
                   onClick={() => {
-                    if (!isEditing) onSelectPage(page.id);
+                    if (!isEditing) onSelectScene(scene.id);
                   }}
                   role="button"
                   aria-current={isSelected ? "page" : undefined}
@@ -638,7 +638,7 @@ export function PageList({
                   onKeyDown={(e) => {
                     if ((e.key === "Enter" || e.key === " ") && !isEditing) {
                       e.preventDefault();
-                      onSelectPage(page.id);
+                      onSelectScene(scene.id);
                     }
                   }}
                 >
@@ -672,11 +672,11 @@ export function PageList({
                         ref={inputRef}
                         value={editingTitle}
                         onChange={(e) => setEditingTitle(e.target.value)}
-                        onBlur={() => commitEdit(page.id)}
+                        onBlur={() => commitEdit(scene.id)}
                         onKeyDown={(e) => {
                           if (e.key === "Enter") {
                             e.preventDefault();
-                            commitEdit(page.id);
+                            commitEdit(scene.id);
                           }
                           if (e.key === "Escape") setEditingId(null);
                         }}
@@ -692,36 +692,36 @@ export function PageList({
                           color: "var(--text-primary)",
                           opacity: isSelected ? 1 : 0.65,
                         }}
-                        onDoubleClick={(e) => startEditing(page, e)}
-                        title={page.title}
+                        onDoubleClick={(e) => startEditing(scene, e)}
+                        title={scene.title}
                       >
-                        {page.title}
+                        {scene.title}
                       </span>
                     )}
 
                     {!isEditing && (
-                      <PageMenu
-                        page={page}
-                        canDelete={isUnplacedView || pages.length > 1}
+                      <SceneMenu
+                        scene={scene}
+                        canDelete={isUnplacedView || scenes.length > 1}
                         onRename={() => {
-                          setEditingId(page.id);
-                          setEditingTitle(page.title);
+                          setEditingId(scene.id);
+                          setEditingTitle(scene.title);
                           setTimeout(() => inputRef.current?.select(), 0);
                         }}
-                        onDelete={() => onDeletePage(page.id)}
+                        onDelete={() => onDeleteScene(scene.id)}
                         onMoveToUnplaced={
-                          onMoveToUnplaced ? () => onMoveToUnplaced(page.id) : undefined
+                          onMoveToUnplaced ? () => onMoveToUnplaced(scene.id) : undefined
                         }
                         moveTargets={allChapters.filter((c) => c.id !== currentChapterId)}
                         onMoveToChapter={
                           onMoveToChapter
-                            ? (chapterId) => onMoveToChapter(page.id, chapterId)
+                            ? (chapterId) => onMoveToChapter(scene.id, chapterId)
                             : undefined
                         }
-                        onMoveUp={canReorder && index > 0 ? () => moveBy(page.id, -1) : undefined}
+                        onMoveUp={canReorder && index > 0 ? () => moveBy(scene.id, -1) : undefined}
                         onMoveDown={
-                          canReorder && index < pages.length - 1
-                            ? () => moveBy(page.id, 1)
+                          canReorder && index < scenes.length - 1
+                            ? () => moveBy(scene.id, 1)
                             : undefined
                         }
                       />
@@ -738,7 +738,7 @@ export function PageList({
                           opacity: 0.5,
                         }}
                       >
-                        {(page.word_count ?? 0).toLocaleString()} words
+                        {(scene.word_count ?? 0).toLocaleString()} words
                       </span>
                     </div>
                   )}
@@ -754,7 +754,7 @@ export function PageList({
             title="Double-click to add a scene"
             onDoubleClick={(e) => {
               e.preventDefault();
-              onAddPage();
+              onAddScene();
             }}
           />
         </ul>
@@ -770,7 +770,7 @@ export function PageList({
         <div className="p-2">
           <button
             type="button"
-            onClick={onAddPage}
+            onClick={onAddScene}
             className="flex w-full items-center gap-2 rounded px-3 py-2 text-xs transition-colors duration-100 hover:bg-rune-gold/10"
             style={{ color: "var(--color-mist)" }}
           >

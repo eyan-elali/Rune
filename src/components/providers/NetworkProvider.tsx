@@ -63,7 +63,7 @@ export default function NetworkProvider() {
     void isReallyOnline().then(setOnline)
 
     // Poll every 30 seconds to catch captive portal situations.
-    // Always flushes silently — the "X pages synced" toast only appears on
+    // Always flushes silently — the "X scenes synced" toast only appears on
     // genuine reconnects (handled by handleOnline above), not on routine polls.
     const interval = setInterval(async () => {
       const online = await isReallyOnline()

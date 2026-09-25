@@ -50,7 +50,7 @@ export default async function ChapterEditorPage({
     <div className="min-h-0 h-full">
       <EditorShell
         projectId={projectId}
-        initialPages={scenesResult.data ?? []}
+        initialScenes={scenesResult.data ?? []}
         chapter={chapter}
         project={project}
         allChapters={chaptersResult.data ?? []}

@@ -9,7 +9,7 @@ import {
   flushPendingQueue,
   forceWriteLocalContent,
 } from '@/lib/offline/syncEngine';
-import { getOfflineDB, cachePage, storeOfflineWritingCredit } from '@/lib/offline/db';
+import { getOfflineDB, cacheScene, storeOfflineWritingCredit } from '@/lib/offline/db';
 import {
   server, resetServer, createServerPage, metadataUpdate, remoteContentSave, releaseHang, releaseFetchHang,
   applyPlacementMigration,
@@ -38,7 +38,7 @@ async function getCache() {
 
 async function createPageAndPrimeCache() {
   const row = createServerPage(PAGE);
-  await cachePage(
+  await cacheScene(
     {
       id: PAGE, chapter_id: 'ch-1', title: 'Page 1', content: null,
       word_count: 0, position: 0, manuscript_id: 'ms-1', version: 1,
@@ -470,7 +470,7 @@ async function migration(tag, bumpVersion) {
   resetServer();
   const row = createServerPage(PAGE, { wordCount: 380, content: doc(380, 'alt') });
   Object.assign(server.scenes.get(PAGE), { chapter_id: 'ch-canon' });
-  await cachePage({
+  await cacheScene({
     id: PAGE, chapter_id: 'ch-canon', title: 'Page 2', content: row.content, word_count: 380,
     position: 1, manuscript_id: 'ms-1', version: 1, created_at: row.updated_at, updated_at: row.updated_at,
   }, 'proj-1');
@@ -480,7 +480,7 @@ async function migration(tag, bumpVersion) {
   await storeOfflineWritingCredit('proj-1', PAGE, 15);
   const db = await getOfflineDB();
   const pendingKeys = await db.getAllKeys('pending_writes');
-  const creditPages = (await db.getAll('pending_writing_credits')).map((c) => c.pageId);
+  const creditPages = (await db.getAll('pending_writing_credits')).map((c) => c.pageId); // legacy serialized field name
   check(`${tag}: queued write and credit are keyed by the Page ID only`,
     JSON.stringify(pendingKeys) === JSON.stringify([PAGE]) && JSON.stringify(creditPages) === JSON.stringify([PAGE]),
     JSON.stringify({ pendingKeys, creditPages }));
@@ -500,7 +500,7 @@ async function migration(tag, bumpVersion) {
   check(`${tag}: saving does not re-place the Scene`, serverRow.chapter_id === null, serverRow.chapter_id);
   check(`${tag}: queue empty`, (await getPending()) === null, '');
   check(`${tag}: writing credit applied to the same Page ID and Project`,
-    recordWordsWrittenCalls.length === 1 && recordWordsWrittenCalls[0].pageId === PAGE && recordWordsWrittenCalls[0].projectId === 'proj-1' && recordWordsWrittenCalls[0].words === 15,
+    recordWordsWrittenCalls.length === 1 && recordWordsWrittenCalls[0].sceneId === PAGE && recordWordsWrittenCalls[0].projectId === 'proj-1' && recordWordsWrittenCalls[0].words === 15,
     JSON.stringify(recordWordsWrittenCalls));
   const cache = await getCache();
   check(`${tag}: confirmed baseline advanced on the same cache key`, cache?.serverWordCount === 395, cache?.serverWordCount);

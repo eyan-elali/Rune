@@ -7,7 +7,7 @@ import type { SubscriptionTier } from "@/lib/subscription";
 import { calculateChapterWordCount } from "@/lib/manuscript";
 import { getChaptersWithScenes, getProjectIdsByManuscript } from "@/lib/manuscriptQueries";
 import type { Project, ProjectNote, UserPreferences } from "@/lib/types";
-import type { RecentPageCard, RecentWork, DrawerChapter } from "@/components/dashboard/types";
+import type { RecentSceneCard, RecentWork, DrawerChapter } from "@/components/dashboard/types";
 
 export const metadata: Metadata = {
   title: "Dashboard — Rune",
@@ -52,7 +52,7 @@ export default async function DashboardPage({
 
   const totalWords = projects.reduce((sum, p) => sum + (p.word_count ?? 0), 0);
 
-  let recentPageCards: RecentPageCard[] = [];
+  let recentSceneCards: RecentSceneCard[] = [];
   let recentWork: RecentWork | null = null;
 
   if (projects.length > 0) {
@@ -88,9 +88,9 @@ export default async function DashboardPage({
         const chapter = chapterById.get(row.chapter_id as string);
         const project = chapter ? projectOf(chapter) : undefined;
         if (!chapter || !project) continue;
-        recentPageCards.push({
-          pageId: row.id,
-          pageTitle: (row as { title?: string }).title ?? "Untitled Scene",
+        recentSceneCards.push({
+          sceneId: row.id,
+          sceneTitle: (row as { title?: string }).title ?? "Untitled Scene",
           chapterId: chapter.id,
           chapterTitle: chapter.title,
           projectId: project.id,
@@ -185,7 +185,7 @@ export default async function DashboardPage({
       projects={projects}
       totalWords={totalWords}
       recentWork={recentWork}
-      recentPageCards={recentPageCards}
+      recentSceneCards={recentSceneCards}
       profile={profile ?? null}
       goals={goals}
       writingStreak={writingStreak}

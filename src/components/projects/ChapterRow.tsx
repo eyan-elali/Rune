@@ -26,7 +26,7 @@ export function ChapterRow({ chapter, projectId }: ChapterRowProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const navClickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const pageCount = chapter.scenes?.length ?? 0;
+  const sceneCount = chapter.scenes?.length ?? 0;
   const totalWords = calculateChapterWordCount(chapter);
 
   function startEditing() {
@@ -148,7 +148,7 @@ export function ChapterRow({ chapter, projectId }: ChapterRowProps) {
 
       {/* Stats */}
       <div className="flex shrink-0 items-center gap-4 text-xs text-rune-mist/40">
-        <span>{pageCount} {pageCount === 1 ? "scene" : "scenes"}</span>
+        <span>{sceneCount} {sceneCount === 1 ? "scene" : "scenes"}</span>
         <span>{totalWords.toLocaleString()} words</span>
       </div>
 

@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { useState, useCallback, useEffect, useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { PageList } from "./PageList";
+import { SceneList } from "./SceneList";
 import { ExportButton } from "./ExportButton";
 import { EditorTutorial } from "./EditorTutorial";
 import { ModeToggle } from "@/components/ui/ModeToggle";
@@ -19,7 +19,7 @@ import {
   moveSceneToUnplaced,
   moveSceneToChapter,
 } from "@/lib/actions/scenes";
-import { cachePage, cacheChapterMeta, forgetStalePlacements } from "@/lib/offline/db";
+import { cacheScene, cacheChapterMeta, forgetStalePlacements } from "@/lib/offline/db";
 import { useEditorStore } from "@/store/editorStore";
 import { isManuscriptEditorPath } from "@/lib/utils";
 import { useModeStore } from "@/store/modeStore";
@@ -45,7 +45,7 @@ interface EditorShellProps {
    */
   chapter: Chapter | null;
   /** The Chapter's placed Scenes, or the Unplaced Scenes. May be empty. */
-  initialPages: Scene[];
+  initialScenes: Scene[];
   /** Scene to open first; defaults to the first one. */
   initialSelectedId?: string;
   project: Project;
@@ -61,7 +61,7 @@ interface EditorShellProps {
 export function EditorShell({
   projectId,
   chapter,
-  initialPages,
+  initialScenes,
   initialSelectedId,
   project,
   allChapters,
@@ -72,33 +72,33 @@ export function EditorShell({
 }: EditorShellProps) {
   const chapterId = chapter?.id ?? null;
   const router = useRouter();
-  const [pages, setPages] = useState<Scene[]>(initialPages);
-  const [selectedPageId, setSelectedPageId] = useState<string | null>(
-    initialPages.find((p) => p.id === initialSelectedId)?.id ?? initialPages[0]?.id ?? null
+  const [scenes, setScenes] = useState<Scene[]>(initialScenes);
+  const [selectedSceneId, setSelectedSceneId] = useState<string | null>(
+    initialScenes.find((p) => p.id === initialSelectedId)?.id ?? initialScenes[0]?.id ?? null
   );
-  const pagesRef = useRef(pages);
+  const scenesRef = useRef(scenes);
   useEffect(() => {
-    pagesRef.current = pages;
-  }, [pages]);
+    scenesRef.current = scenes;
+  }, [scenes]);
   const [guideTriggerCount, setGuideTriggerCount] = useState(0);
-  const setCurrentPage = useEditorStore((s) => s.setCurrentPage);
+  const setCurrentScene = useEditorStore((s) => s.setCurrentScene);
   const showToast = useToastStore((s) => s.showToast);
   const pathname = usePathname();
   const mode = useModeStore((s) => s.mode);
   const shouldHideFocusUI = mode === "focus" && isManuscriptEditorPath(pathname);
 
   useEffect(() => {
-    if (selectedPageId) {
-      setCurrentPage(projectId, chapterId, selectedPageId);
+    if (selectedSceneId) {
+      setCurrentScene(projectId, chapterId, selectedSceneId);
     }
-  }, [selectedPageId, projectId, chapterId, setCurrentPage]);
+  }, [selectedSceneId, projectId, chapterId, setCurrentScene]);
 
   useEffect(() => {
     void (async () => {
       try {
         if (chapter) await cacheChapterMeta(chapter, project);
-        await Promise.all(initialPages.map((p) => cachePage(p, projectId)));
-        await forgetStalePlacements(projectId, chapterId, initialPages.map((p) => p.id));
+        await Promise.all(initialScenes.map((p) => cacheScene(p, projectId)));
+        await forgetStalePlacements(projectId, chapterId, initialScenes.map((p) => p.id));
       } catch {
         // best-effort
       }
@@ -106,16 +106,16 @@ export function EditorShell({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const currentPage = pages.find((p) => p.id === selectedPageId) ?? null;
+  const currentScene = scenes.find((p) => p.id === selectedSceneId) ?? null;
 
-  const handleSelectPage = useCallback((pageId: string) => {
-    setSelectedPageId(pageId);
+  const handleSelectScene = useCallback((sceneId: string) => {
+    setSelectedSceneId(sceneId);
   }, []);
 
   // Appends a new, empty Scene to this Chapter or to the Unplaced Scenes. Both
   // go through the server's free-limit-checked creation RPCs.
-  const handleAddPage = useCallback(async () => {
-    const title = `Scene ${pagesRef.current.length + 1}`;
+  const handleAddScene = useCallback(async () => {
+    const title = `Scene ${scenesRef.current.length + 1}`;
     const { data, error } = chapterId
       ? await createScene(chapterId, title)
       : await createUnplacedScene(projectId, title);
@@ -123,50 +123,50 @@ export function EditorShell({
       showToast("Couldn't add a scene — try again when you're back online.", "error");
       return;
     }
-    await cachePage(data, projectId);
-    setPages((prev) => [...prev, data]);
-    setSelectedPageId(data.id);
+    await cacheScene(data, projectId);
+    setScenes((prev) => [...prev, data]);
+    setSelectedSceneId(data.id);
   }, [chapterId, projectId, showToast]);
 
   /**
    * Drops a Scene from this view after it was deleted or moved elsewhere. If it
-   * was open, the next Scene opens — the editor's page switch then flushes the
+   * was open, the next Scene opens — the editor's scene switch then flushes the
    * departing Scene's latest content to the offline queue and syncs it by ID,
    * wherever it now lives. Returns how many Scenes remain.
    */
-  const removeFromView = useCallback((pageId: string): number => {
+  const removeFromView = useCallback((sceneId: string): number => {
     // Called after an awaited server action: read the list through a ref and
     // update it functionally, so content the editor reported meanwhile
-    // (handlePageUpdated) is never replaced by a stale copy.
-    const current = pagesRef.current;
-    const index = current.findIndex((p) => p.id === pageId);
-    const remaining = current.filter((p) => p.id !== pageId);
-    setPages((prev) => prev.filter((p) => p.id !== pageId));
-    setSelectedPageId((selected) =>
-      selected === pageId
+    // (handleSceneUpdated) is never replaced by a stale copy.
+    const current = scenesRef.current;
+    const index = current.findIndex((p) => p.id === sceneId);
+    const remaining = current.filter((p) => p.id !== sceneId);
+    setScenes((prev) => prev.filter((p) => p.id !== sceneId));
+    setSelectedSceneId((selected) =>
+      selected === sceneId
         ? remaining[Math.min(index, remaining.length - 1)]?.id ?? null
         : selected
     );
     return remaining.length;
   }, []);
 
-  const handleDeletePage = useCallback(
-    async (pageId: string) => {
-      const { error } = await deleteScene(pageId);
-      if (!error) removeFromView(pageId);
+  const handleDeleteScene = useCallback(
+    async (sceneId: string) => {
+      const { error } = await deleteScene(sceneId);
+      if (!error) removeFromView(sceneId);
     },
     [removeFromView]
   );
 
   const handleMoveToUnplaced = useCallback(
-    async (pageId: string) => {
-      const { data, error } = await moveSceneToUnplaced(pageId);
+    async (sceneId: string) => {
+      const { data, error } = await moveSceneToUnplaced(sceneId);
       if (error || !data) {
         showToast("Couldn't move this scene — try again when you're back online.", "error");
         return;
       }
-      await cachePage(data, projectId);
-      removeFromView(pageId);
+      await cacheScene(data, projectId);
+      removeFromView(sceneId);
       showToast(`“${data.title}” moved to Unplaced Scenes`, "success");
       router.refresh();
     },
@@ -174,14 +174,14 @@ export function EditorShell({
   );
 
   const handleMoveToChapter = useCallback(
-    async (pageId: string, targetChapterId: string) => {
-      const { data, error } = await moveSceneToChapter(pageId, targetChapterId);
+    async (sceneId: string, targetChapterId: string) => {
+      const { data, error } = await moveSceneToChapter(sceneId, targetChapterId);
       if (error || !data) {
         showToast("Couldn't move this scene — try again when you're back online.", "error");
         return;
       }
-      await cachePage(data, projectId);
-      const left = removeFromView(pageId);
+      await cacheScene(data, projectId);
+      const left = removeFromView(sceneId);
       const target = allChapters.find((c) => c.id === targetChapterId);
       showToast(`“${data.title}” moved to ${target?.title ?? "its chapter"}`, "success");
       if (left === 0 && !chapterId) {
@@ -193,59 +193,59 @@ export function EditorShell({
     [allChapters, chapterId, projectId, removeFromView, router, showToast]
   );
 
-  const handleRenamePage = useCallback((pageId: string, title: string) => {
-    setPages((prev) =>
-      prev.map((p) => (p.id === pageId ? { ...p, title } : p))
+  const handleRenameScene = useCallback((sceneId: string, title: string) => {
+    setScenes((prev) =>
+      prev.map((p) => (p.id === sceneId ? { ...p, title } : p))
     );
   }, []);
 
-  const handlePageUpdated = useCallback(
-    (pageId: string, updates: Partial<Scene>) => {
-      setPages((prev) =>
-        prev.map((p) => (p.id === pageId ? { ...p, ...updates } : p))
+  const handleSceneUpdated = useCallback(
+    (sceneId: string, updates: Partial<Scene>) => {
+      setScenes((prev) =>
+        prev.map((p) => (p.id === sceneId ? { ...p, ...updates } : p))
       );
     },
     []
   );
 
-  const handleReorderPages = useCallback(
-    async (orderedPageIds: string[]) => {
+  const handleReorderScenes = useCallback(
+    async (orderedSceneIds: string[]) => {
       if (!chapterId) return;
-      const previous = pages;
-      const reordered = orderedPageIds
+      const previous = scenes;
+      const reordered = orderedSceneIds
         .map((id, index) => {
-          const page = previous.find((p) => p.id === id);
-          return page ? { ...page, position: index } : null;
+          const scene = previous.find((p) => p.id === id);
+          return scene ? { ...scene, position: index } : null;
         })
         .filter((p): p is Scene => p !== null);
 
-      setPages(reordered);
+      setScenes(reordered);
 
-      const { error, stale } = await reorderScenes(chapterId, orderedPageIds);
+      const { error, stale } = await reorderScenes(chapterId, orderedSceneIds);
       if (stale) {
         // A Scene moved in or out of this Chapter elsewhere; nothing changed on
         // the server. Take the server's list, keeping the local copy of any
         // Scene still here (it may hold content newer than the fetch).
         const { data: fresh } = await getScenes(chapterId);
         if (fresh) {
-          const local = new Map(pagesRef.current.map((p) => [p.id, p]));
+          const local = new Map(scenesRef.current.map((p) => [p.id, p]));
           const merged = fresh.map((p) => {
             const mine = local.get(p.id);
             return mine ? { ...mine, position: p.position } : p;
           });
-          setPages(merged);
-          setSelectedPageId((selected) =>
+          setScenes(merged);
+          setSelectedSceneId((selected) =>
             merged.some((p) => p.id === selected) ? selected : merged[0]?.id ?? null
           );
-          await Promise.all(merged.map((p) => cachePage(p, projectId)));
+          await Promise.all(merged.map((p) => cacheScene(p, projectId)));
         } else {
-          setPages(previous);
+          setScenes(previous);
         }
         showToast("This chapter changed elsewhere — its scenes have been refreshed.", "info");
         return;
       }
       if (error) {
-        setPages(previous);
+        setScenes(previous);
         showToast(
           "Couldn't reorder scenes — try again when you're back online.",
           "error"
@@ -254,24 +254,24 @@ export function EditorShell({
       }
 
       // Keep the offline cache's position values in sync so the offline
-      // page list (sorted by position) stays correct.
-      await Promise.all(reordered.map((p) => cachePage(p, projectId)));
+      // scene list (sorted by position) stays correct.
+      await Promise.all(reordered.map((p) => cacheScene(p, projectId)));
     },
-    [pages, chapterId, projectId, showToast]
+    [scenes, chapterId, projectId, showToast]
   );
 
   return (
     <div className="flex min-h-0 h-full overflow-hidden">
       <EditorTutorial active={showTutorial} forceRun={forceTutorial} replayTrigger={guideTriggerCount} />
       {!shouldHideFocusUI && (
-        <PageList
-          pages={pages}
-          selectedPageId={selectedPageId}
-          onSelectPage={handleSelectPage}
-          onAddPage={handleAddPage}
-          onDeletePage={handleDeletePage}
-          onRenamePage={handleRenamePage}
-          onReorderPages={chapterId ? handleReorderPages : undefined}
+        <SceneList
+          scenes={scenes}
+          selectedSceneId={selectedSceneId}
+          onSelectScene={handleSelectScene}
+          onAddScene={handleAddScene}
+          onDeleteScene={handleDeleteScene}
+          onRenameScene={handleRenameScene}
+          onReorderScenes={chapterId ? handleReorderScenes : undefined}
           onMoveToUnplaced={chapterId ? handleMoveToUnplaced : undefined}
           onMoveToChapter={handleMoveToChapter}
           allChapters={allChapters}
@@ -292,19 +292,19 @@ export function EditorShell({
             <ModeToggle />
             <div className="flex items-center gap-2">
               <GuideButton onClick={() => setGuideTriggerCount((c) => c + 1)} />
-              {chapter && <ExportButton page={currentPage} chapter={chapter} project={project} />}
+              {chapter && <ExportButton scene={currentScene} chapter={chapter} project={project} />}
             </div>
           </div>
         )}
         <RuneEditor
           projectId={projectId}
           chapterId={chapterId}
-          currentPage={currentPage}
-          onPageUpdated={handlePageUpdated}
-          onRenamePage={handleRenamePage}
+          currentScene={currentScene}
+          onSceneUpdated={handleSceneUpdated}
+          onRenameScene={handleRenameScene}
           accountWordTotal={accountWordTotal}
           emptyState={
-            pages.length === 0 ? (
+            scenes.length === 0 ? (
               <div className="flex max-w-sm flex-col items-center gap-3 px-6 text-center">
                 <p className="font-rune-serif text-lg" style={{ color: "var(--text-primary)" }}>
                   {chapter ? "This chapter has no scenes yet" : "No Unplaced Scenes"}
@@ -316,7 +316,7 @@ export function EditorShell({
                 </p>
                 <button
                   type="button"
-                  onClick={handleAddPage}
+                  onClick={handleAddScene}
                   className="mt-1 rounded px-3 py-1.5 text-sm transition-colors duration-100 hover:bg-rune-gold/10 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-rune-gold"
                   style={{ color: "var(--color-gold)" }}
                 >

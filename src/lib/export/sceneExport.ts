@@ -16,8 +16,8 @@ function slugify(s: string) {
   return s.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
 }
 
-export async function exportPageAsPdf(
-  page: Scene,
+export async function exportSceneAsPdf(
+  scene: Scene,
   chapter: Chapter,
   project: Project
 ): Promise<void> {
@@ -45,13 +45,13 @@ export async function exportPageAsPdf(
   }
   state.y += lh(14);
 
-  const root = page.content as TNode | null;
+  const root = scene.content as TNode | null;
   if (root?.content) {
     for (const node of root.content) {
       renderNode(state, node);
     }
   }
 
-  const filename = `${slugify(project.title)}-${slugify(chapter.title)}-${slugify(page.title)}.pdf`;
+  const filename = `${slugify(project.title)}-${slugify(chapter.title)}-${slugify(scene.title)}.pdf`;
   doc.save(filename);
 }

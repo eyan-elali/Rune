@@ -243,17 +243,17 @@ test('REAL sync engine: an edit queued offline while the Scene is placed lands o
   const db = await seededDb();
   signIn(db, BRAM);
   const placed = (await scenes.getScenes(chapterId('tide.ch3'))).data;
-  await offline.cachePage(placed.find((s) => s.id === pageId('t3b')), projectId('tide'));
+  await offline.cacheScene(placed.find((s) => s.id === pageId('t3b')), projectId('tide'));
 
   // Offline: the writer keeps typing; the save is queued by Scene ID.
   await engine.writeToPendingQueue(pageId('t3b'), BRAM, syntheticDoc('offline', 352), 352);
   // The Scene is moved to Unplaced (this tab after reconnecting, or another device).
   const moved = (await scenes.moveSceneToUnplaced(pageId('t3b'))).data;
-  await offline.cachePage(moved, projectId('tide')); // what EditorShell does after a move
+  await offline.cacheScene(moved, projectId('tide')); // what EditorShell does after a move
 
   // The offline view cache files it under Unplaced, keeping the queued prose.
   assert.deepEqual((await offline.getCachedUnplacedScenes(projectId('tide'))).map((s) => [s.id, s.chapter_id]), [[pageId('t3b'), null]]);
-  assert.ok(!(await offline.getCachedPagesForChapter(chapterId('tide.ch3'))).some((s) => s.id === pageId('t3b')));
+  assert.ok(!(await offline.getCachedScenesForChapter(chapterId('tide.ch3'))).some((s) => s.id === pageId('t3b')));
   assert.equal((await offline.getPendingWrite(pageId('t3b'))).wordCount, 352);
 
   // Reconnect: the queue replays. The placement change bumped version/updated_at
@@ -270,7 +270,7 @@ test('REAL sync engine: an edit queued offline to an Unplaced Scene syncs, and s
   signIn(db, BRAM);
   const unplaced = (await scenes.getUnplacedScenes(projectId('tide'))).data;
   assert.deepEqual(unplaced.map((s) => s.id).sort(), [pageId('t1a'), pageId('t1c')].sort());
-  for (const s of unplaced) await offline.cachePage(s, projectId('tide'));
+  for (const s of unplaced) await offline.cacheScene(s, projectId('tide'));
 
   await engine.writeToPendingQueue(pageId('t1c'), BRAM, syntheticDoc('draft', 725), 725);
   await engine.syncPendingWrite(pageId('t1c'), 'offline_sync');
@@ -289,7 +289,7 @@ test('REAL sync engine: an edit queued offline to an Unplaced Scene syncs, and s
 test('offline view cache: stale placements are forgotten without touching content, baselines or pending writes', async () => {
   const db = await seededDb();
   signIn(db, BRAM);
-  for (const s of (await scenes.getScenes(chapterId('tide.ch3'))).data) await offline.cachePage(s, projectId('tide'));
+  for (const s of (await scenes.getScenes(chapterId('tide.ch3'))).data) await offline.cacheScene(s, projectId('tide'));
   await engine.writeToPendingQueue(pageId('t3b'), BRAM, syntheticDoc('pending', 341), 341);
   const idb = await offline.getOfflineDB();
   const cachedBefore = await idb.get('page_cache', pageId('t3b'));
@@ -299,7 +299,7 @@ test('offline view cache: stale placements are forgotten without touching conten
   const fresh = (await scenes.getScenes(chapterId('tide.ch3'))).data.map((s) => s.id);
   await offline.forgetStalePlacements(projectId('tide'), chapterId('tide.ch3'), fresh);
 
-  assert.deepEqual((await offline.getCachedPagesForChapter(chapterId('tide.ch3'))).map((s) => s.id), [pageId('t3a')]);
+  assert.deepEqual((await offline.getCachedScenesForChapter(chapterId('tide.ch3'))).map((s) => s.id), [pageId('t3a')]);
   assert.deepEqual(await offline.getCachedUnplacedScenes(projectId('tide')), [], 'not guessed into Unplaced either');
   const cachedAfter = await idb.get('page_cache', pageId('t3b'));
   assert.equal(cachedAfter.chapter_id, undefined);
@@ -308,7 +308,7 @@ test('offline view cache: stale placements are forgotten without touching conten
   assert.equal((await offline.getPendingWrite(pageId('t3b'))).wordCount, 341, 'the queued write is untouched');
 
   // Loading the Unplaced view re-files it.
-  for (const s of (await scenes.getUnplacedScenes(projectId('tide'))).data) await offline.cachePage(s, projectId('tide'));
+  for (const s of (await scenes.getUnplacedScenes(projectId('tide'))).data) await offline.cacheScene(s, projectId('tide'));
   assert.ok((await offline.getCachedUnplacedScenes(projectId('tide'))).some((s) => s.id === pageId('t3b')));
   // Unplaced lists are per Project.
   assert.deepEqual(await offline.getCachedUnplacedScenes(projectId('hollow')), []);

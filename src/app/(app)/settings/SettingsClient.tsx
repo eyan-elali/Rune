@@ -15,7 +15,7 @@ import {
   deleteAccount,
 } from "@/lib/actions/settings";
 import { createPortalSession } from "@/lib/actions/billing";
-import { getOfflineStorageSummary, clearPageCache } from "@/lib/offline/db";
+import { getOfflineStorageSummary, clearSceneCache } from "@/lib/offline/db";
 import { flushPendingQueue } from "@/lib/offline/syncEngine";
 import { useProfileStore } from "@/store/profileStore";
 import { useToastStore } from "@/store/toastStore";
@@ -943,12 +943,12 @@ function SyncTab() {
   async function handleClearCache() {
     setIsClearing(true);
     try {
-      const cleared = await clearPageCache();
+      const cleared = await clearSceneCache();
       await loadSummary();
       setConfirmClear(false);
       showToast(
         cleared > 0
-          ? `Cleared ${cleared} cached page${cleared !== 1 ? "s" : ""}.`
+          ? `Cleared ${cleared} cached scene${cleared !== 1 ? "s" : ""}.`
           : "No cached scenes to clear.",
         "success"
       );

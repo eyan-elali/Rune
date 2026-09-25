@@ -51,7 +51,7 @@ export default async function UnplacedScenesPage({
       <EditorShell
         projectId={projectId}
         chapter={null}
-        initialPages={scenes}
+        initialScenes={scenes}
         initialSelectedId={scene}
         project={project}
         allChapters={chaptersResult.data ?? []}

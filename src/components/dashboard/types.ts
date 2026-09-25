@@ -2,9 +2,9 @@ import type { Project, ProjectNote } from "@/lib/types";
 import type { WritingGoal } from "@/lib/actions/writingStats";
 import type { SubscriptionTier } from "@/lib/subscription";
 
-export type RecentPageCard = {
-  pageId: string;
-  pageTitle: string;
+export type RecentSceneCard = {
+  sceneId: string;
+  sceneTitle: string;
   chapterId: string;
   chapterTitle: string;
   projectId: string;
@@ -32,7 +32,7 @@ export interface DashboardContentProps {
   projects: Project[];
   totalWords: number;
   recentWork: RecentWork | null;
-  recentPageCards: RecentPageCard[];
+  recentSceneCards: RecentSceneCard[];
   profile: { display_name: string | null; xp: number; level: number } | null;
   goals?: WritingGoal[];
   writingStreak?: { currentStreak: number; maxStreak: number };

@@ -4,13 +4,13 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { SaveToProject } from "@/components/games/SaveToProject";
 import { getLocalDateString } from "@/lib/utils";
-import type { PageSource } from "@/components/games/PageSourceSelector";
+import type { SceneSource } from "@/components/games/SceneSourceSelector";
 
 interface ExitGameModalProps {
   title: string;
   words: number;
   textWritten: string;
-  pageSource?: PageSource;
+  sceneSource?: SceneSource;
   onKeepGoing: () => void;
   onLeave: () => void;
 }
@@ -22,7 +22,7 @@ export function ExitGameModal({
   title,
   words,
   textWritten,
-  pageSource,
+  sceneSource,
   onKeepGoing,
   onLeave,
 }: ExitGameModalProps) {
@@ -102,7 +102,7 @@ export function ExitGameModal({
             <SaveToProject
               words={words}
               textWritten={textWritten}
-              pageSource={pageSource}
+              sceneSource={sceneSource}
               creditDate={getLocalDateString()}
               onSaveStart={() => setSaving(true)}
               onSaveSettled={handleSaveSettled}

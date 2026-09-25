@@ -49,7 +49,7 @@ export function DashboardContent({
   projects,
   totalWords,
   recentWork,
-  recentPageCards,
+  recentSceneCards,
   profile,
   goals = [],
   writingStreak = { currentStreak: 0, maxStreak: 0 },
@@ -154,7 +154,7 @@ export function DashboardContent({
       <div className="mb-6">
         <YourStoryHero
           recentWork={recentWork}
-          recentPageCard={recentPageCards[0]}
+          recentSceneCard={recentSceneCards[0]}
           todayWords={localTodayWords}
           writingStreak={localStreak}
           goals={goals}

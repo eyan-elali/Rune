@@ -4,24 +4,24 @@ import { useState } from "react";
 import { Download } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToastStore } from "@/store/toastStore";
-import { exportPageAsPdf } from "@/lib/export/pageExport";
+import { exportSceneAsPdf } from "@/lib/export/sceneExport";
 import type { Scene, Chapter, Project } from "@/lib/types";
 
 interface ExportButtonProps {
-  page: Scene | null;
+  scene: Scene | null;
   chapter: Chapter;
   project: Project;
 }
 
-export function ExportButton({ page, chapter, project }: ExportButtonProps) {
+export function ExportButton({ scene, chapter, project }: ExportButtonProps) {
   const [loading, setLoading] = useState(false);
   const showToast = useToastStore((s) => s.showToast);
 
   async function handleExport() {
-    if (!page || loading) return;
+    if (!scene || loading) return;
     setLoading(true);
     try {
-      await exportPageAsPdf(page, chapter, project);
+      await exportSceneAsPdf(scene, chapter, project);
       showToast("Scene exported as PDF", "success");
     } catch (err) {
       console.error("PDF export failed:", err);
@@ -35,7 +35,7 @@ export function ExportButton({ page, chapter, project }: ExportButtonProps) {
     <button
       type="button"
       onClick={handleExport}
-      disabled={!page || loading}
+      disabled={!scene || loading}
       aria-label="Export scene as PDF"
       data-tutorial-id="export-btn"
       className={cn(

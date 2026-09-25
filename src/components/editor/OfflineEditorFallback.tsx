@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import {
-  getCachedPagesForChapter,
+  getCachedScenesForChapter,
   getCachedChapterMeta,
   getCachedUnplacedScenes,
   getCachedProject,
@@ -24,7 +24,7 @@ export function OfflineEditorFallback({
   chapterId,
 }: OfflineEditorFallbackProps) {
   const [loadState, setLoadState] = useState<LoadState>("loading");
-  const [pages, setPages] = useState<Scene[]>([]);
+  const [scenes, setScenes] = useState<Scene[]>([]);
   const [chapter, setChapter] = useState<Chapter | null>(null);
   const [project, setProject] = useState<Project | null>(null);
 
@@ -32,12 +32,12 @@ export function OfflineEditorFallback({
     void (async () => {
       try {
         if (chapterId === null) {
-          const [cachedPages, cachedProject] = await Promise.all([
+          const [cachedScenes, cachedProject] = await Promise.all([
             getCachedUnplacedScenes(projectId),
             getCachedProject(projectId),
           ]);
-          if (cachedPages.length > 0 && cachedProject) {
-            setPages(cachedPages);
+          if (cachedScenes.length > 0 && cachedProject) {
+            setScenes(cachedScenes);
             setProject(cachedProject);
             setLoadState("found");
           } else {
@@ -46,13 +46,13 @@ export function OfflineEditorFallback({
           return;
         }
 
-        const [cachedPages, meta] = await Promise.all([
-          getCachedPagesForChapter(chapterId),
+        const [cachedScenes, meta] = await Promise.all([
+          getCachedScenesForChapter(chapterId),
           getCachedChapterMeta(chapterId),
         ]);
 
-        if (cachedPages.length > 0 && meta) {
-          setPages(cachedPages);
+        if (cachedScenes.length > 0 && meta) {
+          setScenes(cachedScenes);
           setChapter(meta.chapter);
           setProject(meta.project);
           setLoadState("found");
@@ -92,7 +92,7 @@ export function OfflineEditorFallback({
   return (
     <EditorShell
       projectId={projectId}
-      initialPages={pages}
+      initialScenes={scenes}
       chapter={chapter}
       project={project}
       allChapters={[]}

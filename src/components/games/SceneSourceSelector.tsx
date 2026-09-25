@@ -8,29 +8,29 @@ import { getScenes } from "@/lib/actions/scenes";
 import { cn } from "@/lib/utils";
 import type { Project, Chapter, PlacedScene } from "@/lib/types";
 
-export type PageSource =
+export type SceneSource =
   | { type: "fresh" }
-  | { type: "existing"; page: PlacedScene; project: Project };
+  | { type: "existing"; scene: PlacedScene; project: Project };
 
-type PageSourceSelectorProps = {
-  onSelect: (source: PageSource) => void;
+type SceneSourceSelectorProps = {
+  onSelect: (source: SceneSource) => void;
   className?: string;
 };
 
-export function PageSourceSelector({ onSelect, className }: PageSourceSelectorProps) {
+export function SceneSourceSelector({ onSelect, className }: SceneSourceSelectorProps) {
   const [mode, setMode] = useState<"fresh" | "existing">("fresh");
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [chapters, setChapters] = useState<Chapter[]>([]);
-  const [pages, setPages] = useState<Record<string, PlacedScene[]>>({});
+  const [scenes, setScenes] = useState<Record<string, PlacedScene[]>>({});
   const [loading, setLoading] = useState(false);
-  const [pagesLoading, setPagesLoading] = useState(false);
-  const [selectedPageId, setSelectedPageId] = useState<string | null>(null);
+  const [scenesLoading, setScenesLoading] = useState(false);
+  const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null);
   const [error, setError] = useState("");
 
   async function handleModeChange(next: "fresh" | "existing") {
     setMode(next);
-    setSelectedPageId(null);
+    setSelectedSceneId(null);
     if (next === "fresh") {
       onSelect({ type: "fresh" });
       return;
@@ -48,29 +48,29 @@ export function PageSourceSelector({ onSelect, className }: PageSourceSelectorPr
 
   async function handleSelectProject(project: Project) {
     setSelectedProject(project);
-    setSelectedPageId(null);
+    setSelectedSceneId(null);
     setChapters([]);
-    setPages({});
+    setScenes({});
     setError("");
     setLoading(true);
-    setPagesLoading(true);
+    setScenesLoading(true);
     const chResult = await getChapters(project.id);
     if (chResult.error || !chResult.data) {
       setLoading(false);
-      setPagesLoading(false);
+      setScenesLoading(false);
       setError(chResult.error ?? "Failed to load chapters");
       return;
     }
     const chapterList = chResult.data as Chapter[];
     setChapters(chapterList);
     setLoading(false);
-    const pageResults = await Promise.all(chapterList.map((ch) => getScenes(ch.id)));
-    const pagesMap: Record<string, PlacedScene[]> = {};
+    const sceneResults = await Promise.all(chapterList.map((ch) => getScenes(ch.id)));
+    const scenesMap: Record<string, PlacedScene[]> = {};
     for (let i = 0; i < chapterList.length; i++) {
-      pagesMap[chapterList[i].id] = pageResults[i].data ?? [];
+      scenesMap[chapterList[i].id] = sceneResults[i].data ?? [];
     }
-    setPages(pagesMap);
-    setPagesLoading(false);
+    setScenes(scenesMap);
+    setScenesLoading(false);
   }
 
   return (
@@ -164,10 +164,10 @@ export function PageSourceSelector({ onSelect, className }: PageSourceSelectorPr
                   type="button"
                   onClick={() => {
                     setSelectedProject(null);
-                    setSelectedPageId(null);
+                    setSelectedSceneId(null);
                     setChapters([]);
-                    setPages({});
-                    setPagesLoading(false);
+                    setScenes({});
+                    setScenesLoading(false);
                   }}
                   className="text-xs transition-opacity duration-150 hover:opacity-100"
                   style={{ color: "var(--color-mist)", opacity: 0.6 }}
@@ -193,8 +193,8 @@ export function PageSourceSelector({ onSelect, className }: PageSourceSelectorPr
 
               <div className="max-h-64 space-y-3 overflow-y-auto" style={{ scrollbarWidth: "thin" }}>
                 {chapters.map((chapter) => {
-                  const chapterPages = pages[chapter.id];
-                  const isPagesPending = pagesLoading || chapterPages === undefined;
+                  const chapterScenes = scenes[chapter.id];
+                  const isScenesPending = scenesLoading || chapterScenes === undefined;
 
                   return (
                     <div key={chapter.id}>
@@ -208,26 +208,26 @@ export function PageSourceSelector({ onSelect, className }: PageSourceSelectorPr
                         className="overflow-hidden rounded"
                         style={{ border: "1px solid var(--color-border)", background: "var(--color-sepia)" }}
                       >
-                        {isPagesPending ? (
+                        {isScenesPending ? (
                           <div className="flex justify-center px-4 py-3" aria-label="Loading scenes">
                             <Loader2 className="h-3.5 w-3.5 animate-spin text-[var(--color-gold)]" />
                           </div>
-                        ) : chapterPages.length === 0 ? (
+                        ) : chapterScenes.length === 0 ? (
                           <p className="px-4 py-2 text-xs" style={{ color: "var(--color-mist)", opacity: 0.4 }}>
                             No scenes
                           </p>
                         ) : (
-                          chapterPages.map((page, i) => {
-                            const isActive = selectedPageId === page.id;
+                          chapterScenes.map((scene, i) => {
+                            const isActive = selectedSceneId === scene.id;
 
                             return (
                               <button
-                                key={page.id}
+                                key={scene.id}
                                 type="button"
                                 aria-pressed={isActive}
                                 onClick={() => {
-                                  setSelectedPageId(page.id);
-                                  onSelect({ type: "existing", page, project: selectedProject });
+                                  setSelectedSceneId(scene.id);
+                                  onSelect({ type: "existing", scene, project: selectedProject });
                                 }}
                                 className={cn(
                                   "w-full border-l-2 px-4 py-2.5 text-left text-sm transition-colors duration-100",
@@ -245,10 +245,10 @@ export function PageSourceSelector({ onSelect, className }: PageSourceSelectorPr
                                     isActive ? "text-[var(--color-gold)]" : "text-[var(--text-primary)]"
                                   )}
                                 >
-                                  {page.title}
+                                  {scene.title}
                                 </span>
                                 <span className="ml-2 text-[10px]" style={{ color: "var(--color-mist)" }}>
-                                  {page.word_count.toLocaleString()} words
+                                  {scene.word_count.toLocaleString()} words
                                 </span>
                               </button>
                             );
