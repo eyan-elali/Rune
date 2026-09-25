@@ -8,7 +8,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "npm --prefix tools/sync-harness test"
+    "test": "npm --prefix tools/sync-harness test",
+    "db:migrations": "node tools/db-audit/migration-status.mjs"
   },
   "dependencies": {
     "@stripe/stripe-js": "^9.6.0",

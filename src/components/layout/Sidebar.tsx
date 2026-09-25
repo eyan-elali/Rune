@@ -13,6 +13,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Activity,
+  PanelsTopLeft,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useProfileStore } from "@/store/profileStore";
@@ -280,6 +281,16 @@ export function Sidebar({ displayName }: SidebarProps) {
               />
             </li>
           )}
+          {/* Temporary development entry into the separate Rune 2.0 shell. */}
+          <li>
+            <NavLink
+              href="/rune2"
+              label="Rune 2.0"
+              icon={PanelsTopLeft}
+              collapsed={sidebarCollapsed}
+              active={false}
+            />
+          </li>
         </ul>
       </nav>
 

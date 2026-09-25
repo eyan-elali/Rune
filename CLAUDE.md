@@ -867,6 +867,20 @@ When schema changes are required:
 - do not modify production directly,
 - do not expose service-role credentials.
 
+### Live migration state
+
+Before making claims about which Rune 2.0 migrations are applied, query the live Rune 2.0 migration ledger when access is available:
+
+```bash
+npm run db:migrations    # tools/db-audit/migration-status.mjs — read-only
+```
+
+It reads `public.schema_migrations` through GET requests only. It refuses to read a database that has a `pages` table (Rune 1.x or production). It also refuses a database that lacks `manuscripts` or `scenes`, and a project that doesn't match `RUNE2_SUPABASE_PROJECT_REF` when that variable is set.
+
+Git history, migration files in the repository, `STAGING.md`, memory notes, prior task reports, and whether changes are committed describe the **repository**, not the database. Never infer applied state from them.
+
+If the check refuses or cannot run, say exactly: **"Live migration state was not verified."** Never report a migration as unapplied unless the live ledger shows that.
+
 ### Environment variables
 
 Inspect the existing environment validation and example files.

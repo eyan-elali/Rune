@@ -24,9 +24,9 @@ type SupabaseLike = any;
 
 type QueryError = { message: string; code?: string | null };
 
-export type SceneSummary = { id: string; word_count: number };
+export type SceneSummary = { id: string; title: string; word_count: number };
 export type ChapterWithScenes = Chapter & { scenes: SceneSummary[] };
-export type UnplacedSceneSummary = SceneSummary & { title: string };
+export type UnplacedSceneSummary = SceneSummary;
 
 /** The Project's Manuscript id, or null when the Project is missing or not visible to the caller. */
 export async function getManuscriptIdForProject(
@@ -61,7 +61,7 @@ export async function getProjectIdsByManuscript(
 
 /**
  * Every Chapter of the given Projects, in manuscript reading order, each with
- * its placed Scenes (id, word_count) by position. Projects without Chapters
+ * its placed Scenes (id, title, word_count — no prose) by position. Projects without Chapters
  * map to [].
  */
 export async function getChaptersWithScenesByProject(
@@ -93,13 +93,13 @@ export async function getChaptersWithScenesByProject(
   if (chapterRows.length > 0) {
     const { data: scenes, error: sceneError } = await supabase
       .from("scenes")
-      .select("id, chapter_id, word_count")
+      .select("id, chapter_id, title, word_count")
       .in("chapter_id", chapterRows.map((c) => c.id))
       .order("position", { ascending: true });
     if (sceneError) return { data: byProject, error: sceneError };
     for (const s of (scenes ?? []) as (SceneSummary & { chapter_id: string })[]) {
       const list = scenesByChapter.get(s.chapter_id) ?? [];
-      list.push({ id: s.id, word_count: s.word_count });
+      list.push({ id: s.id, title: s.title, word_count: s.word_count });
       scenesByChapter.set(s.chapter_id, list);
     }
   }

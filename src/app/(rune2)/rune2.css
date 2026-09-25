@@ -1,0 +1,30 @@
+/* Rune 2.0 shell — a blank visual slate, scoped under .r2 so it neither
+   inherits nor affects the legacy themes. A few local values only; the real
+   visual language is discovered in the product (RUNE_2_VISUAL_DIRECTION.md). */
+
+.r2 {
+  --r2-bg: #ffffff;
+  --r2-nav-bg: #f7f7f5;
+  --r2-text: #1f2329;
+  --r2-muted: #6b7079;
+  --r2-faint: #a0a4ab;
+  --r2-border: #ebebe8;
+  --r2-hover: rgba(31, 35, 41, 0.05);
+  --r2-accent: #2c4a78; /* ink blue — restrained: focus, active, selection */
+
+  color-scheme: light;
+  background: var(--r2-bg);
+  color: var(--r2-text);
+  font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  scrollbar-color: rgba(31, 35, 41, 0.18) transparent;
+}
+
+.r2 ::-webkit-scrollbar-thumb {
+  background: rgba(31, 35, 41, 0.18);
+}
+
+.r2 :focus-visible {
+  outline: 2px solid var(--r2-accent);
+  outline-offset: 1px;
+  border-radius: 4px;
+}

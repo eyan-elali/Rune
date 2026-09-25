@@ -7,6 +7,7 @@
 | `generate-schema.mjs` | Regenerates the Rune 1.x baseline `src/lib/supabase/baseline/production-<date>.sql` from a committed snapshot |
 | `schema-generator.mjs` | The generator itself (pure). Also used by `tools/sync-harness/build-schema.mjs` to produce the Rune 2.0 `src/lib/supabase/schema.sql` |
 | `catalog-lib.mjs` | Shared loader/normalizer/diff (no dependencies) |
+| `migration-status.mjs` | Read-only report of the live Rune 2.0 ledger (`public.schema_migrations`); `npm run db:migrations` |
 | `STAGING.md` | Manual backup, backup verification, staging rehearsal, expected diffs, rollback |
 
 The first production capture (2026-09-24) is committed at

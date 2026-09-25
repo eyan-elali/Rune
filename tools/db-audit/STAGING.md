@@ -283,6 +283,11 @@ immediately before each Phase 1 production migration.
 
 ## Part 5 — The Rune 2.0 database (migrations 015–022)
 
+**Which migrations it already has:** only its live ledger knows. Run
+`npm run db:migrations` (read-only; uses `.env.local`, refuses anything that
+is not a Rune 2.0 database). This document lists what *can* be applied, not
+what *has been*.
+
 Migration 015 (`015_rune2_manuscript_foundation.sql`) is for the **new, empty
 Rune 2.0 Supabase project only**. It drops and re-creates the manuscript
 tables, so it refuses to run if `projects`, `chapters`, `pages` or
