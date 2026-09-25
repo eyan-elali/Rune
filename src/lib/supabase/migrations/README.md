@@ -35,6 +35,7 @@ Every database records what it has received in `public.schema_migrations`
 | `014` | every database | read-only assertions that the database is the 2026-09-24 baseline |
 | `015` | the **empty** Rune 2.0 database only | Rune 2.0 manuscript foundation: `manuscripts`, `chapters.manuscript_id`, `scenes` (replaces `pages`), `writing_sessions.scene_id`, `save_scene_checked` / `insert_scene_checked`, no canonical behavior |
 | `016` | the Rune 2.0 database (after `015`) | `insert_unplaced_scene_checked` (free-limit-checked creation of an Unplaced Scene) and `reorder_chapter_scenes` (atomic, validated Scene reorder); nothing existing changes |
+| `017` | the Rune 2.0 database (after `016`) | `move_scene` (atomic Scene move between Chapters and Unplaced, under the per-account lock, recomputing the ordered total); nothing existing changes |
 
 ## Rules for a new migration
 

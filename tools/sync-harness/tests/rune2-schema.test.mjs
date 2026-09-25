@@ -53,7 +53,7 @@ test('a database built from schema.sql alone is identical to baseline + migratio
   assert.deepEqual(diffCounts(a, b), []);
   const versions = async (db) => (await db.query(`select version, name, note from public.schema_migrations order by version`)).rows;
   assert.deepEqual(await versions(fresh), await versions(migrated));
-  assert.deepEqual((await versions(fresh)).map((r) => r.version).slice(-4), ['013', '014', '015', '016']);
+  assert.deepEqual((await versions(fresh)).map((r) => r.version).slice(-5), ['013', '014', '015', '016', '017']);
 });
 
 test('signup still creates the profile and pricing entitlements on the Rune 2.0 schema', async () => {
@@ -228,6 +228,40 @@ test('016 requires 015, refuses to run twice (including on schema.sql), and chan
   for (const db of [await migratedDb(), await freshRune2Db()]) {
     const before = await captureCatalog(db);
     await assert.rejects(db.exec(readMigration(M016)), /Migration 016 has already been applied/);
+    assert.deepEqual(diffCatalogs(before, await captureCatalog(db)).differences, []);
+  }
+});
+
+// ── 4. migration 017 ──────────────────────────────────────────────────────────
+
+const M017 = '017_atomic_scene_move.sql';
+
+test('017 on 016 adds exactly move_scene, not executable by anon', async () => {
+  const db = await preFoundationDb();
+  await db.exec(readMigration(M015));
+  await db.exec(readMigration(M016));
+  const before = await captureCatalog(db);
+  await db.exec(readMigration(M017));
+  const after = await captureCatalog(db);
+  const { differences } = diffCatalogs(before, after);
+  const keys = differences.map((d) => `${d.section}:${d.kind}:${d.key}`).sort();
+  assert.deepEqual(keys.filter((k) => k.startsWith('functions:')), [
+    'functions:added:move_scene(p_scene_id uuid, p_chapter_id uuid)',
+  ]);
+  assert.deepEqual(keys.filter((k) => !k.startsWith('functions:') && !k.startsWith('function_grants:')), [], fmt(differences));
+
+  const grantees = after.function_grants.filter((g) => g.function.startsWith('move_scene(')).map((g) => g.grantee).sort();
+  assert.ok(!grantees.includes('anon') && !grantees.includes('PUBLIC'), `${grantees}`);
+  assert.ok(grantees.includes('authenticated'));
+});
+
+test('017 requires 016, refuses to run twice (including on schema.sql), and changes nothing when it refuses', async () => {
+  const only015 = await preFoundationDb();
+  await only015.exec(readMigration(M015));
+  await assert.rejects(only015.exec(readMigration(M017)), /requires migration 016/);
+  for (const db of [await migratedDb(), await freshRune2Db()]) {
+    const before = await captureCatalog(db);
+    await assert.rejects(db.exec(readMigration(M017)), /Migration 017 has already been applied/);
     assert.deepEqual(diffCatalogs(before, await captureCatalog(db)).differences, []);
   }
 });

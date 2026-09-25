@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { recalculateProjectWordCount } from "@/lib/projectWordCount";
 import {
@@ -109,6 +110,16 @@ async function readInsertedScene<T extends Scene>(
   return { data: data as T, error: null };
 }
 
+/** Next position at the end of a Chapter (chapterId) or of the Unplaced list (null). */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function nextPosition(supabase: any, manuscriptId: string, chapterId: string | null): Promise<number> {
+  const base = supabase.from("scenes").select("position").eq("manuscript_id", manuscriptId);
+  const { data } = await (chapterId === null ? base.is("chapter_id", null) : base.eq("chapter_id", chapterId))
+    .order("position", { ascending: false })
+    .limit(1);
+  return data && data.length > 0 ? (data[0].position as number) + 1 : 0;
+}
+
 /**
  * Creates an empty Scene at the end of a Chapter, through insert_scene_checked
  * (the free-limit-checked creation path). Its Manuscript is derived from the
@@ -205,25 +216,48 @@ export async function getUnplacedScenes(
 
 // ── Placement ─────────────────────────────────────────────────────────────────
 //
-// Moving a Scene changes only chapter_id and position on the SAME row: the
-// Scene ID, its content, its writing history and any queued offline save
-// (keyed by Scene ID) are untouched. manuscript_id never changes — the
-// database forbids it (scenes_forbid_manuscript_reassignment) and the
-// composite foreign key refuses a Chapter from another Manuscript, so the
-// checks below are for clear errors, not the last line of defence.
+// Every move goes through move_scene (migration 017): one transaction under
+// the per-account lock, so two simultaneous moves can never tie on a position
+// and a refused or failed move changes nothing. It changes only chapter_id and
+// position on the SAME row: the Scene ID, its content, its writing history and
+// any queued offline save (keyed by Scene ID) are untouched. It refuses a
+// Chapter of another Manuscript, and recomputes the ordered manuscript total
+// (projects.word_count) in the same transaction.
 //
 // The row update bumps version/updated_at (increment_scene_version). The
 // editor's autosave treats that as a metadata-only change: its conflict check
 // is content-scoped (word_count), and a version_mismatch simply retries.
 
-/** Next position at the end of a Chapter (chapterId) or of the Unplaced list (null). */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function nextPosition(supabase: any, manuscriptId: string, chapterId: string | null): Promise<number> {
-  const base = supabase.from("scenes").select("position").eq("manuscript_id", manuscriptId);
-  const { data } = await (chapterId === null ? base.is("chapter_id", null) : base.eq("chapter_id", chapterId))
-    .order("position", { ascending: false })
-    .limit(1);
-  return data && data.length > 0 ? (data[0].position as number) + 1 : 0;
+/**
+ * Moves a Scene to the end of a Chapter (chapterId) or of its Manuscript's
+ * Unplaced Scenes (null), atomically, and returns the moved row.
+ */
+async function moveScene<T extends Scene>(
+  sceneId: string,
+  chapterId: string | null
+): Promise<ActionResult<T>> {
+  const { supabase, user } = await getUser();
+  if (!user) return { data: null, error: "Not authenticated" };
+
+  const rpc = await supabase.rpc("move_scene", {
+    p_scene_id: sceneId,
+    p_chapter_id: chapterId,
+  });
+  if (rpc.error) return { data: null, error: rpc.error.message };
+  const result = rpc.data as { status: "ok"; moved: boolean } | { status: "error"; error: string };
+  if (result.status !== "ok") return { data: null, error: result.error };
+
+  const { data, error } = await supabase.from("scenes").select("*").eq("id", sceneId).single();
+  if (error) return { data: null, error: error.message };
+
+  if (result.moved) {
+    const projectId = await getProjectIdForManuscript(supabase, data.manuscript_id);
+    if (projectId) {
+      revalidatePath(`/projects/${projectId}`);
+      revalidatePath("/profile");
+    }
+  }
+  return { data: data as T, error: null };
 }
 
 /**
@@ -234,31 +268,7 @@ async function nextPosition(supabase: any, manuscriptId: string, chapterId: stri
 export async function moveSceneToUnplaced(
   sceneId: string
 ): Promise<ActionResult<UnplacedScene>> {
-  const { supabase, user } = await getUser();
-  if (!user) return { data: null, error: "Not authenticated" };
-
-  const { data: scene } = await supabase
-    .from("scenes")
-    .select("id, manuscript_id, chapter_id")
-    .eq("id", sceneId)
-    .maybeSingle();
-  if (!scene) return { data: null, error: "Scene not found" };
-
-  if (scene.chapter_id !== null) {
-    const position = await nextPosition(supabase, scene.manuscript_id, null);
-    const { error } = await supabase
-      .from("scenes")
-      .update({ chapter_id: null, position })
-      .eq("id", sceneId);
-    if (error) return { data: null, error: error.message };
-
-    const projectId = await getProjectIdForManuscript(supabase, scene.manuscript_id);
-    if (projectId) await recalculateProjectWordCount(supabase, projectId);
-  }
-
-  const { data, error } = await supabase.from("scenes").select("*").eq("id", sceneId).single();
-  if (error) return { data: null, error: error.message };
-  return { data: data as UnplacedScene, error: null };
+  return moveScene<UnplacedScene>(sceneId, null);
 }
 
 /**
@@ -270,39 +280,7 @@ export async function moveSceneToChapter(
   sceneId: string,
   chapterId: string
 ): Promise<ActionResult<PlacedScene>> {
-  const { supabase, user } = await getUser();
-  if (!user) return { data: null, error: "Not authenticated" };
-
-  const [{ data: scene }, { data: chapter }] = await Promise.all([
-    supabase.from("scenes").select("id, manuscript_id, chapter_id").eq("id", sceneId).maybeSingle(),
-    supabase.from("chapters").select("id, manuscript_id").eq("id", chapterId).maybeSingle(),
-  ]);
-  if (!scene) return { data: null, error: "Scene not found" };
-  if (!chapter) return { data: null, error: "Chapter not found" };
-  if (chapter.manuscript_id !== scene.manuscript_id) {
-    return { data: null, error: "A Scene can only move within its own manuscript" };
-  }
-
-  if (scene.chapter_id !== chapterId) {
-    const position = await nextPosition(supabase, scene.manuscript_id, chapterId);
-    const { error } = await supabase
-      .from("scenes")
-      .update({ chapter_id: chapterId, position })
-      .eq("id", sceneId);
-    if (error) return { data: null, error: error.message };
-
-    await supabase
-      .from("chapters")
-      .update({ updated_at: new Date().toISOString() })
-      .eq("id", chapterId);
-
-    const projectId = await getProjectIdForManuscript(supabase, scene.manuscript_id);
-    if (projectId) await recalculateProjectWordCount(supabase, projectId);
-  }
-
-  const { data, error } = await supabase.from("scenes").select("*").eq("id", sceneId).single();
-  if (error) return { data: null, error: error.message };
-  return { data: data as PlacedScene, error: null };
+  return moveScene<PlacedScene>(sceneId, chapterId);
 }
 
 export async function renameScene(
