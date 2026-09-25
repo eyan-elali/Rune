@@ -4,7 +4,7 @@ import { ChapterList } from "@/components/projects/ChapterList";
 import { UnplacedSceneList } from "@/components/projects/UnplacedSceneList";
 import { ProjectHeader } from "@/components/projects/ProjectHeader";
 import type { SubscriptionTier } from "@/lib/subscription";
-import { calculateProjectWordCount } from "@/lib/manuscript";
+import { calculateProjectWordCount, sumSceneWords } from "@/lib/manuscript";
 import { getChaptersWithScenes, getUnplacedSceneSummaries } from "@/lib/manuscriptQueries";
 
 interface ProjectPageProps {
@@ -37,7 +37,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
   // The ordered manuscript total: placed Scenes only. Unplaced words are shown
   // separately below, never added to it.
   const wordCount = calculateProjectWordCount(typedChapters);
-  const unplacedWords = unplaced.reduce((sum, s) => sum + (s.word_count ?? 0), 0);
+  const unplacedWords = sumSceneWords(unplaced);
 
   return (
     <div className="px-10 py-10">

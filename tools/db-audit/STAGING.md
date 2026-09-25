@@ -281,7 +281,7 @@ immediately before each Phase 1 production migration.
 
 ---
 
-## Part 5 — The Rune 2.0 database (migrations 015–017)
+## Part 5 — The Rune 2.0 database (migrations 015–020)
 
 Migration 015 (`015_rune2_manuscript_foundation.sql`) is for the **new, empty
 Rune 2.0 Supabase project only**. It drops and re-creates the manuscript
@@ -300,41 +300,66 @@ S=~/rune-backups/rune2-$(date +%F) && mkdir -p "$S"
 psql "$R2" -X -At -c "select count(*) from auth.users"
 psql "$R2" -X -At -c "select count(*) from public.projects"
 
-# 1. What the result must be: the catalog of baseline + 013–017, built locally
+# 1. What the result must be: the catalog of baseline + 013–020, built locally
 npm --prefix tools/sync-harness run schema -- --check --catalog "$S/rune2-expected.json"
 
 # 2. Capture before
 psql "$R2" -X -q -1 -v ON_ERROR_STOP=1 --csv -f tools/db-audit/catalog.sql > "$S/rune2-before.csv"
 
 # 3. Apply 013 and 014 if the database does not have them yet (each refuses a
-#    second run with "already been applied" — that is fine), then 015, 016 and 017
+#    second run with "already been applied" — that is fine), then 015 through 020
 psql "$R2" -X -1 -v ON_ERROR_STOP=1 -f src/lib/supabase/migrations/013_schema_migrations_ledger.sql
 psql "$R2" -X -1 -v ON_ERROR_STOP=1 -f src/lib/supabase/migrations/014_assert_production_baseline.sql
 psql "$R2" -X -1 -v ON_ERROR_STOP=1 -f src/lib/supabase/migrations/015_rune2_manuscript_foundation.sql
 psql "$R2" -X -1 -v ON_ERROR_STOP=1 -f src/lib/supabase/migrations/016_scene_structure_rpcs.sql
 psql "$R2" -X -1 -v ON_ERROR_STOP=1 -f src/lib/supabase/migrations/017_atomic_scene_move.sql
+psql "$R2" -X -1 -v ON_ERROR_STOP=1 -f src/lib/supabase/migrations/018_atomic_scene_creation.sql
+psql "$R2" -X -1 -v ON_ERROR_STOP=1 -f src/lib/supabase/migrations/019_creation_path_hardening.sql
+psql "$R2" -X -1 -v ON_ERROR_STOP=1 -f src/lib/supabase/migrations/020_manuscript_totals.sql
 
 # 4. Capture after: structure must be IDENTICAL to the local build
 psql "$R2" -X -q -1 -v ON_ERROR_STOP=1 --csv -f tools/db-audit/catalog.sql > "$S/rune2-after.csv"
 node tools/db-audit/diff-catalog.mjs "$S/rune2-expected.json" "$S/rune2-after.csv" --expect schema-only
 
-# 5. 015, 016 and 017 must refuse a second run
+# 5. 015–020 must refuse a second run
 psql "$R2" -X -1 -f src/lib/supabase/migrations/015_rune2_manuscript_foundation.sql   # → "already been applied"
 psql "$R2" -X -1 -f src/lib/supabase/migrations/016_scene_structure_rpcs.sql          # → "already been applied"
 psql "$R2" -X -1 -f src/lib/supabase/migrations/017_atomic_scene_move.sql             # → "already been applied"
+psql "$R2" -X -1 -f src/lib/supabase/migrations/018_atomic_scene_creation.sql        # → "already been applied"
+psql "$R2" -X -1 -f src/lib/supabase/migrations/019_creation_path_hardening.sql       # → "already been applied"
+psql "$R2" -X -1 -f src/lib/supabase/migrations/020_manuscript_totals.sql             # → "already been applied"
 ```
 
 `rune2-after.csv`'s `integrity` section should show `projects_without_manuscript: 0`
 and the Rune 1.x page probes as `skipped: required column missing`. The exact
-structural changes 015–017 make are pinned by `tools/sync-harness/tests/rune2-schema.test.mjs`.
+structural changes 015–020 make are pinned by `tools/sync-harness/tests/rune2-schema.test.mjs`.
 
 A Rune 2.0 database that already has 015 only needs the later migrations:
-016 (two new functions) and 017 (one new function). Neither touches a row, so
-both are safe where test manuscripts already exist. Run steps 1, 2, the lines
-of step 3 it has not received, 4 and 5. Rollback is in each migration's header.
+016 (two new functions), 017 (one new function) and 018 (a new body for
+insert_scene_checked, same signature). None touches a row, so all are safe
+where test manuscripts already exist. Apply 018 before (or with) the app
+deploy that sends `p_position: null`: against a pre-018 function that call
+fails the NOT NULL check rather than creating a Scene. 019 (create_chapter_checked,
+SECURITY DEFINER creation RPCs, no client INSERT on scenes, unique deferrable
+(chapter_id, position)) touches no row, but must be applied by the owner of
+public.scenes (the `postgres` role — it refuses otherwise) and together with
+the app deploy that calls create_chapter_checked: the previous app inserts a
+new Chapter's first Scene directly, which 019 refuses, leaving that Chapter
+empty. It also refuses if two placed Scenes already share a Chapter position
+(renumber them first). 020 (projects.word_count maintained by the
+scenes_refresh_project_word_count trigger, move_scene without its own total
+update, no client INSERT on chapters, unique deferrable (manuscript_id,
+position) for Chapters) must also be applied by the owner (of public.projects
+and public.chapters). It rewrites projects.word_count once to the ordered
+placed-Scene total (a stale cached value changes; no prose does), and refuses
+if two Chapters of one Manuscript share a position. Apply it BEFORE the app
+deploy that stops writing projects.word_count; the previous app keeps working
+on 020 (its recalculation writes the same value, and no current app inserts
+Chapters directly). Run steps 1, 2, the lines of step 3 it has not received,
+4 and 5. Rollback is in each migration's header.
 
 A database created later can instead be built in one step from
-`src/lib/supabase/schema.sql`, which already contains 013–017 and records them
+`src/lib/supabase/schema.sql`, which already contains 013–020 and records them
 in `schema_migrations`.
 
 The application code on the `rune-2` branch targets this schema (Scenes,

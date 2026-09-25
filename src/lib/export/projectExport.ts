@@ -88,12 +88,40 @@ function hasText(node: TNode): boolean {
   return (node.content ?? []).some(hasText);
 }
 
-function endsWithParagraphBlock(scene: PlacedScene): boolean {
-  const root = scene.content as TNode | null;
-  const blocks = root?.content ?? [];
-  const lastBlock = [...blocks].reverse().find(hasText);
+export type ExportedChapter = {
+  chapter: Chapter;
+  /** The Chapter's placed Scenes that have text, in Scene order. */
+  scenes: PlacedScene[];
+};
 
-  return lastBlock?.type === "paragraph";
+/**
+ * What the standard manuscript export prints, in order (architecture §6):
+ *
+ *   * every Chapter with at least one placed Scene, by Chapter position, under
+ *     its heading (a Chapter with no placed Scene is left out, as before);
+ *   * its prose: all its placed Scenes, by Scene position, concatenated. A
+ *     scene break ("* * *") goes between two adjacent Scenes — never before the
+ *     first or after the last. Scenes without text print nothing and take no
+ *     break, so an empty Scene never doubles one;
+ *   * Scene titles are organizational metadata and are never printed;
+ *   * Unplaced Scenes are never exported (they are not in scenesPerChapter:
+ *     loadManuscriptForExport reads placed Scenes only; any Scene whose
+ *     chapter_id is not the Chapter's is ignored regardless).
+ */
+export function planManuscriptExport(
+  chapters: Chapter[],
+  scenesPerChapter: Record<string, PlacedScene[]>
+): ExportedChapter[] {
+  return [...chapters]
+    .sort((a, b) => a.position - b.position)
+    .flatMap((chapter) => {
+      const placed = (scenesPerChapter[chapter.id] ?? []).filter((s) => s.chapter_id === chapter.id);
+      if (placed.length === 0) return [];
+      const scenes = [...placed]
+        .sort((a, b) => a.position - b.position)
+        .filter((s) => hasText((s.content as TNode | null) ?? { type: "doc" }));
+      return [{ chapter, scenes }];
+    });
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -158,17 +186,8 @@ export async function exportProjectAsPdf(
     bodyParagraphCount: 0,
   };
 
-  // Sort chapters by ascending position
-  const sorted = [...chapters].sort((a, b) => a.position - b.position);
-
   let firstChapter = true;
-  for (const chapter of sorted) {
-    // Every placed Scene of the Chapter, in position order.
-    const scenesToExport = [...(scenesPerChapter[chapter.id] ?? [])].sort(
-      (a, b) => a.position - b.position
-    );
-    if (scenesToExport.length === 0) continue;
-
+  for (const { chapter, scenes } of planManuscriptExport(chapters, scenesPerChapter)) {
     // Start every chapter on a fresh page
     if (firstChapter) {
       doc.addPage();
@@ -184,20 +203,16 @@ export async function exportProjectAsPdf(
     renderChapterTitle(state, chapter);
     state.bodyParagraphCount = 0;
 
-    for (let i = 0; i < scenesToExport.length; i++) {
+    scenes.forEach((scene, i) => {
       if (i > 0) {
-        if (endsWithParagraphBlock(scenesToExport[i - 1])) {
-          renderSceneDivider(state);
-        }
+        renderSceneDivider(state);
+        // The first paragraph after a scene break is not indented.
         state.bodyParagraphCount = 0;
       }
-      const root = scenesToExport[i].content as TNode | null;
-      if (root?.content) {
-        for (const node of root.content) {
-          renderNode(state, node);
-        }
+      for (const node of (scene.content as TNode).content ?? []) {
+        renderNode(state, node);
       }
-    }
+    });
   }
 
   const filename = `${slugify(project.title)}-manuscript.pdf`;

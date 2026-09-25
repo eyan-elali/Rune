@@ -44,12 +44,21 @@ export const RUNE2_NOTES = {
   chapters: [
     'Ordered manuscript structure. Belongs to a Manuscript (manuscript_id); its',
     'Project is manuscripts.project_id. Contains no prose.',
+    'Clients cannot INSERT (no privilege, no policy): Chapters are created only by',
+    'create_chapter_checked (always with a first Scene) and duplicate_project_checked.',
+  ],
+  projects: [
+    'word_count is the ORDERED MANUSCRIPT TOTAL (placed Scenes only), maintained',
+    'by the scenes_refresh_project_word_count trigger. Not the free-limit total.',
   ],
   scenes: [
     'Manuscript prose. A Scene BELONGS to one Manuscript (manuscript_id, never',
     'changes) and is PLACED in a Chapter of that Manuscript, or Unplaced when',
     'chapter_id is null. There is no canonical Scene. Scene IDs are stable: a',
     'future Rune 1.x migration keeps every Page ID as its Scene ID.',
+    'Clients cannot INSERT (no privilege, no policy): Scenes are created only by',
+    'insert_scene_checked, insert_unplaced_scene_checked, create_chapter_checked',
+    'and duplicate_project_checked (SECURITY DEFINER, ownership checked in each).',
   ],
   writing_sessions: [
     'Typed-word writing activity. Editor rows are keyed per Scene (scene_id),',
@@ -64,6 +73,10 @@ export const RUNE2_NOTES = {
   'fn:account_word_total': [
     'Free-limit account total: EVERY Scene the caller owns, placed or Unplaced.',
     'Not the ordered manuscript total (placed Scenes only). Never collapse them.',
+  ],
+  'fn:ordered_manuscript_word_total': [
+    'The ordered manuscript total: every placed Scene of the Manuscript. Unplaced',
+    'Scenes excluded. The one SQL definition; projects.word_count stores it.',
   ],
   'fn:increment_game_ticket': [
     'Unused by the app. SECURITY DEFINER without a pinned search_path, trusts',

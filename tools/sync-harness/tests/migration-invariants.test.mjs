@@ -124,16 +124,26 @@ test('conformance: src/lib/manuscript.ts on the mapped placement equals the lega
   assert.deepEqual(baseline.projects.map((p) => legacyOrderedWordTotal(baseline, p.id)), [1450, 100, 1320, 0, 0], 'hollow, ash, tide, bramEmpty, coraEmpty');
 });
 
-test('conformance: the REAL recalculateProjectWordCount on the Rune 2.0 schema stores the legacy ordered total (incl. the stale stored total)', async () => {
-  const target = await rune2FromLegacy(); // it writes projects.word_count
-  const mod = await bundleForTest('src/lib/projectWordCount.ts', { name: 'inv_projectWordCount' });
+test('conformance: the REAL ordered_manuscript_word_total() on the Rune 2.0 schema is the legacy ordered total; the stale stored total is carried, then healed', async () => {
+  const target = await rune2FromLegacy();
+  // As the owner, through the RPC (SECURITY INVOKER: RLS applies).
+  const ordered = async (p) => {
+    const { id } = (await target.query(`select id from public.manuscripts where project_id = $1`, [p.id])).rows[0];
+    return (await createSupabaseAdapter(target, { userId: p.userId }).rpc('ordered_manuscript_word_total', { p_manuscript_id: id })).data;
+  };
+  const stored = async (p) => (await target.query(`select word_count from public.projects where id = $1`, [p.id])).rows[0].word_count;
   for (const p of baseline.projects) {
-    await mod.recalculateProjectWordCount(createSupabaseAdapter(target, { userId: p.userId }), p.id);
-    const r = await target.query(`select word_count from public.projects where id = $1`, [p.id]);
-    assert.equal(r.rows[0].word_count, legacyOrderedWordTotal(baseline, p.id), LABELS[p.id]);
+    assert.equal(await ordered(p), legacyOrderedWordTotal(baseline, p.id), LABELS[p.id]);
   }
-  assert.equal(legacyOrderedWordTotal(baseline, projectId('ash')), 100);
+  // The data move carries projects.word_count verbatim (the recompute is a
+  // separate, reported step) — ash's stale 999 included.
   assert.equal(PROJECTS.ash.storedWordCount, 999, 'the stored cache stays stale in the fixture on purpose');
+  assert.equal(await stored({ id: projectId('ash') }), 999);
+  // Migration 020's backfill statement is that step: every stored total becomes the rule.
+  const backfill = readRepoFile('src/lib/supabase/migrations/020_manuscript_totals.sql').match(/^update public\.projects p[\s\S]*?;$/m)[0];
+  await target.exec(backfill);
+  for (const p of baseline.projects) assert.equal(await stored(p), legacyOrderedWordTotal(baseline, p.id), LABELS[p.id]);
+  assert.equal(legacyOrderedWordTotal(baseline, projectId('ash')), 100);
 });
 
 test('conformance: account totals equal the REAL account_word_total() — every stored Page counts', () => {

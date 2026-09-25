@@ -156,7 +156,7 @@ test('adapter: unsupported shapes fail loudly instead of passing silently', asyn
 
 // ── 3. bundling real Rune code ───────────────────────────────────────────────
 
-test('bundle: real recalculateProjectWordCount runs against PGlite (Rune 2.0 schema) as the owner', async () => {
+test('bundle: real revalidateProjectTotals runs against PGlite (Rune 2.0 schema); the database keeps the ordered total', async () => {
   // The app targets the Rune 2.0 schema; the shim/adapter tests above use the Rune 1.x baseline.
   const r2 = await createTestDb();
   await r2.exec(readRepoFile(RUNE2_SCHEMA));
@@ -171,15 +171,15 @@ test('bundle: real recalculateProjectWordCount runs against PGlite (Rune 2.0 sch
       ('${PG3}', '${m}', null,     'p', 0, 500);
   `);
 
-  const mod = await bundleForTest('src/lib/projectWordCount.ts', { name: 'foundation_projectWordCount' });
-  const sb = createSupabaseAdapter(r2, { userId: A });
-  mod.setServerClient(sb); // unused by this helper (it takes the client as an argument), but proves the export
-
-  await mod.recalculateProjectWordCount(sb, PROJ);
-
   // Every placed Scene counts (100 + 40); the Unplaced Scene (500) does not.
-  const r = await r2.query(`select word_count from public.projects where id = $1`, [PROJ]);
-  assert.equal(r.rows[0].word_count, 140);
+  // The trigger (migration 020) replaced the stale 12345 as the Scenes arrived.
+  const stored = async () => (await r2.query(`select word_count from public.projects where id = $1`, [PROJ])).rows[0].word_count;
+  assert.equal(await stored(), 140);
+
+  const mod = await bundleForTest('src/lib/projectWordCount.ts', { name: 'foundation_projectWordCount' });
+  mod.setServerClient(createSupabaseAdapter(r2, { userId: A })); // unused by this helper, but proves the export
+  mod.revalidateProjectTotals(PROJ);
+  assert.equal(await stored(), 140, 'the app helper never writes the total');
   assert.deepEqual(
     mod.revalidateCalls.map((c) => c.path),
     [`/projects/${PROJ}`, '/profile'],

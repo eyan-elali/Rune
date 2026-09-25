@@ -1,24 +1,18 @@
 import { revalidatePath } from "next/cache";
-import { calculateProjectWordCount } from "@/lib/manuscript";
-import { getChaptersWithScenes } from "@/lib/manuscriptQueries";
 
 /**
- * Recalculates a project's ordered manuscript total — every placed Scene in
- * every Chapter; Unplaced Scenes are excluded — and persists it to
- * projects.word_count, then invalidates the project detail page and profile
- * page caches.
+ * Invalidates the caches that display a project's ordered manuscript total —
+ * the project detail page and the profile page — after a change to its
+ * Scenes.
+ *
+ * It does not write projects.word_count. The database maintains that column
+ * (trigger scenes_refresh_project_word_count, migration 020) in the same
+ * transaction as every Scene insert, save, move and deletion, from
+ * ordered_manuscript_word_total(): every placed Scene, Unplaced Scenes
+ * excluded. The app used to read the Scenes and write the total in separate
+ * requests, which could overwrite a newer total with a stale one.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function recalculateProjectWordCount(supabase: any, projectId: string): Promise<void> {
-  const { data: chapters, error } = await getChaptersWithScenes(supabase, projectId);
-  // A failed read must never overwrite the stored total with a partial one.
-  if (error) return;
-
-  await supabase
-    .from("projects")
-    .update({ word_count: calculateProjectWordCount(chapters) })
-    .eq("id", projectId);
-
+export function revalidateProjectTotals(projectId: string): void {
   revalidatePath(`/projects/${projectId}`);
   revalidatePath("/profile");
 }

@@ -189,27 +189,28 @@ export async function createProjectWithDraft(
     return { data: null, error: "Failed to create manuscript" };
   }
 
-  const { data: chapter, error: chapterError } = await supabase
-    .from("chapters")
-    .insert({ manuscript_id: manuscriptId, title: "Chapter 1", position: 1 })
-    .select()
-    .single();
+  // "Chapter 1" and its empty "Scene 1" in one transaction (migration 019).
+  const { data: created, error: chapterError } = await supabase.rpc("create_chapter_checked", {
+    p_manuscript_id: manuscriptId,
+    p_title: "Chapter 1",
+    p_scene_title: "Scene 1",
+    p_scene_content: null,
+    p_scene_word_count: 0,
+  });
+  if (chapterError) return { data: null, error: chapterError.message };
 
-  if (chapterError || !chapter) {
-    return { data: null, error: chapterError?.message ?? "Failed to create chapter" };
-  }
+  const result = created as
+    | { status: "ok"; chapter: Chapter; scene_id: string }
+    | { status: "word_limit_blocked"; limit: number }
+    | { status: "error"; error: string };
+  if (result.status === "word_limit_blocked") return { data: null, error: "Word limit reached" };
+  if (result.status === "error") return { data: null, error: result.error };
+  const chapter = result.chapter;
 
   const { data: scene, error: sceneError } = await supabase
     .from("scenes")
-    .insert({
-      manuscript_id: manuscriptId,
-      chapter_id: chapter.id,
-      title: "Scene 1",
-      content: null,
-      word_count: 0,
-      position: 0,
-    })
-    .select()
+    .select("*")
+    .eq("id", result.scene_id)
     .single();
 
   if (sceneError || !scene) {

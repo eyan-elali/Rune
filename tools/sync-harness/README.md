@@ -142,6 +142,15 @@ autosave action (`actions/scenes.ts`), `afterSceneSync`, the offline sync
 engine over fake IndexedDB (sync, Keep Local, the `'Scene not found'` →
 `not_found` classification), the writing-credit flush and the export loader.
 
+**`tests/app-manuscript-totals.test.mjs`** (migration 020) proves the counting
+rules agree everywhere (the app's `manuscript.ts`, `ordered_manuscript_word_total()`
+and the stored `projects.word_count`; Unplaced words excluded from the ordered
+total but counted by `account_word_total()`), that the stored total is right after
+every save, creation, move, reorder, deletion and duplication (and heals a stale
+value), the export's Scene order, scene breaks, missing Scene titles and Unplaced
+exclusion, that clients cannot INSERT Chapters, that concurrent Chapter creation
+never ties, and that 020 refuses over tied Chapter positions.
+
 **`tests/app-rune2.test.mjs`** runs the real structure-changing paths on the
 Rune 2.0 schema: project/Chapter/Scene creation, reorder, rename, deletion and
 its total recalculation, the onboarding route (first sentence, skipped

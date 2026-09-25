@@ -87,4 +87,4 @@ Production is still on the Rune 1.x baseline; this engine does not work against 
 
 ## Word count warning
 
-**Never** increment `projects.word_count` by a delta. Always call `recalculateProjectWordCount(supabase, projectId)`, which stores the ordered manuscript total: every placed Scene of every Chapter (Unplaced Scenes excluded). `afterSceneSync` does this after every successful sync.
+**Never** write `projects.word_count` from the app. The database maintains it (trigger `scenes_refresh_project_word_count`, migration 020) in the same transaction as every Scene save, insert, move and deletion: the ordered manuscript total, every placed Scene of every Chapter (Unplaced Scenes excluded). `afterSceneSync` only touches the Chapter and revalidates caches (`revalidateProjectTotals`).

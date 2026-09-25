@@ -53,7 +53,7 @@ test('a database built from schema.sql alone is identical to baseline + migratio
   assert.deepEqual(diffCounts(a, b), []);
   const versions = async (db) => (await db.query(`select version, name, note from public.schema_migrations order by version`)).rows;
   assert.deepEqual(await versions(fresh), await versions(migrated));
-  assert.deepEqual((await versions(fresh)).map((r) => r.version).slice(-5), ['013', '014', '015', '016', '017']);
+  assert.deepEqual((await versions(fresh)).map((r) => r.version).slice(-8), ['013', '014', '015', '016', '017', '018', '019', '020']);
 });
 
 test('signup still creates the profile and pricing entitlements on the Rune 2.0 schema', async () => {
@@ -264,4 +264,91 @@ test('017 requires 016, refuses to run twice (including on schema.sql), and chan
     await assert.rejects(db.exec(readMigration(M017)), /Migration 017 has already been applied/);
     assert.deepEqual(diffCatalogs(before, await captureCatalog(db)).differences, []);
   }
+});
+
+// ── 5. migration 018 ──────────────────────────────────────────────────────────
+
+const M018 = '018_atomic_scene_creation.sql';
+
+test('018 on 017 changes only insert_scene_checked\'s body: same signature, grants unchanged', async () => {
+  const db = await preFoundationDb();
+  for (const m of [M015, M016, M017]) await db.exec(readMigration(m));
+  const before = await captureCatalog(db);
+  await db.exec(readMigration(M018));
+  const after = await captureCatalog(db);
+  const { differences } = diffCatalogs(before, after);
+  const keys = differences.map((d) => `${d.section}:${d.kind}:${d.key}`).sort();
+  assert.deepEqual(keys, [
+    'functions:changed:insert_scene_checked(p_chapter_id uuid, p_title text, p_content jsonb, p_word_count integer, p_position integer)',
+  ], fmt(differences));
+});
+
+test('018 requires 017, refuses to run twice (including on schema.sql), and changes nothing when it refuses', async () => {
+  const only016 = await preFoundationDb();
+  await only016.exec(readMigration(M015));
+  await only016.exec(readMigration(M016));
+  await assert.rejects(only016.exec(readMigration(M018)), /requires migration 017/);
+  for (const db of [await migratedDb(), await freshRune2Db()]) {
+    const before = await captureCatalog(db);
+    await assert.rejects(db.exec(readMigration(M018)), /Migration 018 has already been applied/);
+    assert.deepEqual(diffCatalogs(before, await captureCatalog(db)).differences, []);
+  }
+});
+
+// ── 6. migration 019 ──────────────────────────────────────────────────────────
+
+const M019 = '019_creation_path_hardening.sql';
+const CREATE_CHAPTER = 'create_chapter_checked(p_manuscript_id uuid, p_title text, p_scene_title text, p_scene_content jsonb, p_scene_word_count integer)';
+
+async function db018() {
+  const db = await preFoundationDb();
+  for (const m of [M015, M016, M017, M018]) await db.exec(readMigration(m));
+  return db;
+}
+
+test('019 on 018: create_chapter_checked, SECURITY DEFINER creation RPCs, no client Scene INSERT, unique deferrable (chapter_id, position) — nothing else', async () => {
+  const db = await db018();
+  const before = await captureCatalog(db);
+  await db.exec(readMigration(M019));
+  const { differences } = diffCatalogs(before, await captureCatalog(db));
+  const keys = differences.map((d) => `${d.section}:${d.kind}:${d.key}`).sort();
+  assert.deepEqual(keys, [
+    'constraints:added:scenes.scenes_chapter_id_position_key',
+    `function_grants:added:${CREATE_CHAPTER} authenticated EXECUTE`,
+    `function_grants:added:${CREATE_CHAPTER} postgres EXECUTE`,
+    `function_grants:added:${CREATE_CHAPTER} service_role EXECUTE`,
+    'function_grants:removed:duplicate_project_checked(p_project_id uuid) anon EXECUTE',
+    `functions:added:${CREATE_CHAPTER}`,
+    'functions:changed:duplicate_project_checked(p_project_id uuid)',
+    'functions:changed:insert_scene_checked(p_chapter_id uuid, p_title text, p_content jsonb, p_word_count integer, p_position integer)',
+    'functions:changed:insert_unplaced_scene_checked(p_manuscript_id uuid, p_title text, p_content jsonb, p_word_count integer)',
+    'indexes:added:scenes.scenes_chapter_id_position_key',
+    'indexes:removed:scenes.scenes_chapter_id_position_idx',
+    'policies:removed:scenes.scenes: insert own',
+    'table_grants:removed:scenes anon INSERT',
+    'table_grants:removed:scenes authenticated INSERT',
+  ], fmt(differences));
+});
+
+test('019 requires 018, refuses to run twice (including on schema.sql), and changes nothing when it refuses', async () => {
+  const only017 = await preFoundationDb();
+  for (const m of [M015, M016, M017]) await only017.exec(readMigration(m));
+  await assert.rejects(only017.exec(readMigration(M019)), /requires migration 018/);
+  for (const db of [await migratedDb(), await freshRune2Db()]) {
+    const before = await captureCatalog(db);
+    await assert.rejects(db.exec(readMigration(M019)), /Migration 019 has already been applied/);
+    assert.deepEqual(diffCatalogs(before, await captureCatalog(db)).differences, []);
+  }
+});
+
+test('019 refuses — changing nothing — over placed Scenes that already share a Chapter position', async () => {
+  const db = await db018();
+  const user = await createAuthUser(db, '00000000-0000-4000-8000-0000000019a1');
+  const { id: projectId } = (await db.query(`insert into public.projects (user_id, title) values ($1, 'Tied') returning id`, [user])).rows[0];
+  const { id: m } = (await db.query(`select id from public.manuscripts where project_id = $1`, [projectId])).rows[0];
+  const { id: ch } = (await db.query(`insert into public.chapters (manuscript_id, title, position) values ($1, 'One', 1) returning id`, [m])).rows[0];
+  await db.query(`insert into public.scenes (manuscript_id, chapter_id, title, position) values ($1, $2, 'a', 0), ($1, $2, 'b', 0)`, [m, ch]);
+  const before = await captureCatalog(db);
+  await assert.rejects(db.exec(readMigration(M019)), /1 Chapter position\(s\) are shared by more than one Scene/);
+  assert.deepEqual(diffCatalogs(before, await captureCatalog(db)).differences, []);
 });

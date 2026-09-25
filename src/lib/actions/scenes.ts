@@ -1,8 +1,7 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { recalculateProjectWordCount } from "@/lib/projectWordCount";
+import { revalidateProjectTotals } from "@/lib/projectWordCount";
 import {
   getManuscriptIdForProject,
   getProjectIdForManuscript,
@@ -110,20 +109,13 @@ async function readInsertedScene<T extends Scene>(
   return { data: data as T, error: null };
 }
 
-/** Next position at the end of a Chapter (chapterId) or of the Unplaced list (null). */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function nextPosition(supabase: any, manuscriptId: string, chapterId: string | null): Promise<number> {
-  const base = supabase.from("scenes").select("position").eq("manuscript_id", manuscriptId);
-  const { data } = await (chapterId === null ? base.is("chapter_id", null) : base.eq("chapter_id", chapterId))
-    .order("position", { ascending: false })
-    .limit(1);
-  return data && data.length > 0 ? (data[0].position as number) + 1 : 0;
-}
-
 /**
  * Creates an empty Scene at the end of a Chapter, through insert_scene_checked
- * (the free-limit-checked creation path). Its Manuscript is derived from the
- * Chapter by the database (scenes_fill_manuscript_id).
+ * (the free-limit-checked creation path) in one database call: it refuses a
+ * Chapter the writer cannot see ("Chapter not found"), and picks the position
+ * itself under the per-account lock that move_scene also takes (migration
+ * 018), so simultaneous creations and moves into the Chapter never tie. Its
+ * Manuscript is the Chapter's.
  */
 export async function createScene(
   chapterId: string,
@@ -132,20 +124,14 @@ export async function createScene(
   const { supabase, user } = await getUser();
   if (!user) return { data: null, error: "Not authenticated" };
 
-  const { data: chapter } = await supabase
-    .from("chapters")
-    .select("id, manuscript_id")
-    .eq("id", chapterId)
-    .maybeSingle();
-  if (!chapter) return { data: null, error: "Chapter not found" };
-
-  const position = await nextPosition(supabase, chapter.manuscript_id, chapterId);
   const rpc = await supabase.rpc("insert_scene_checked", {
     p_chapter_id: chapterId,
     p_title: title.trim() || "Untitled",
     p_content: null,
     p_word_count: 0,
-    p_position: position,
+    // The database picks the position (018). null, not a guess: against a
+    // pre-018 function it fails the NOT NULL check instead of risking a tie.
+    p_position: null,
   });
   return readInsertedScene<PlacedScene>(supabase, rpc);
 }
@@ -221,8 +207,8 @@ export async function getUnplacedScenes(
 // and a refused or failed move changes nothing. It changes only chapter_id and
 // position on the SAME row: the Scene ID, its content, its writing history and
 // any queued offline save (keyed by Scene ID) are untouched. It refuses a
-// Chapter of another Manuscript, and recomputes the ordered manuscript total
-// (projects.word_count) in the same transaction.
+// Chapter of another Manuscript. The database recomputes the ordered
+// manuscript total (projects.word_count) in the same transaction (020).
 //
 // The row update bumps version/updated_at (increment_scene_version). The
 // editor's autosave treats that as a metadata-only change: its conflict check
@@ -252,10 +238,7 @@ async function moveScene<T extends Scene>(
 
   if (result.moved) {
     const projectId = await getProjectIdForManuscript(supabase, data.manuscript_id);
-    if (projectId) {
-      revalidatePath(`/projects/${projectId}`);
-      revalidatePath("/profile");
-    }
+    if (projectId) revalidateProjectTotals(projectId);
   }
   return { data: data as T, error: null };
 }
@@ -310,7 +293,8 @@ export async function deleteScene(
   const { supabase, user } = await getUser();
   if (!user) return { error: "Not authenticated" };
 
-  // Capture the Manuscript before deletion for word count recalculation.
+  // Capture the Manuscript before deletion, to revalidate its Project's totals.
+  // The database recomputes projects.word_count as the Scene is deleted.
   const { data: scene } = await supabase
     .from("scenes")
     .select("manuscript_id")
@@ -323,7 +307,7 @@ export async function deleteScene(
   if (scene) {
     const projectId = await getProjectIdForManuscript(supabase, scene.manuscript_id);
     if (projectId) {
-      await recalculateProjectWordCount(supabase, projectId);
+      revalidateProjectTotals(projectId);
     }
   }
 
@@ -422,11 +406,11 @@ export async function syncSceneWithLimitCheck(
 /**
  * Post-sync maintenance called after syncPendingWrite successfully persists a
  * Scene. Touches the Scene's Chapter updated_at (a placed Scene only) and
- * recalculates the project's ordered manuscript total (which also revalidates
- * the project and profile page caches). This is purely for the *display*
- * total (projects.word_count) — unrelated to the account-wide enforcement
- * above, which is always computed live from every Scene, never from this
- * denormalized column.
+ * revalidates the project and profile page caches. The project's ordered
+ * manuscript total (projects.word_count) was already updated by the database
+ * in the save's own transaction (migration 020). That display total is
+ * unrelated to the account-wide enforcement above, which is always computed
+ * live from every Scene, never from this denormalized column.
  */
 export async function afterSceneSync(sceneId: string): Promise<void> {
   const { supabase, user } = await getUser();
@@ -449,6 +433,6 @@ export async function afterSceneSync(sceneId: string): Promise<void> {
 
   const projectId = await getProjectIdForManuscript(supabase, scene.manuscript_id);
   if (projectId) {
-    await recalculateProjectWordCount(supabase, projectId);
+    revalidateProjectTotals(projectId);
   }
 }

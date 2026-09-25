@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { recalculateProjectWordCount } from "@/lib/projectWordCount";
+import { revalidateProjectTotals } from "@/lib/projectWordCount";
 import {
   getChaptersWithScenes,
   getManuscriptIdForProject,
@@ -31,10 +31,20 @@ export async function getChapters(
   return { data, error: null };
 }
 
+type CreateChapterCheckedResult =
+  | { status: "ok"; chapter: Chapter; scene_id: string }
+  | { status: "word_limit_blocked"; limit: number }
+  | { status: "error"; error: string };
+
+/**
+ * Creates a Chapter at the end of the Project's Manuscript with its first,
+ * empty Scene ("Scene 1"), through create_chapter_checked (migration 019):
+ * one database transaction under the per-account lock, which picks the
+ * Chapter's position itself. Either both exist afterwards or neither does.
+ */
 export async function createChapter(
   projectId: string,
-  title: string,
-  position: number
+  title: string
 ): Promise<ActionResult<Chapter>> {
   const { supabase, user } = await getUser();
   if (!user) return { data: null, error: "Not authenticated" };
@@ -42,28 +52,22 @@ export async function createChapter(
   const manuscriptId = await getManuscriptIdForProject(supabase, projectId);
   if (!manuscriptId) return { data: null, error: "Project not found" };
 
-  const { data, error } = await supabase
-    .from("chapters")
-    .insert({ manuscript_id: manuscriptId, title: title.trim(), position })
-    .select()
-    .single();
-
+  const { data, error } = await supabase.rpc("create_chapter_checked", {
+    p_manuscript_id: manuscriptId,
+    p_title: title.trim(),
+    p_scene_title: "Scene 1",
+    p_scene_content: null,
+    p_scene_word_count: 0,
+  });
   if (error) return { data: null, error: error.message };
 
-  // Every new Chapter starts with one empty placed Scene.
-  const { error: sceneError } = await supabase.from("scenes").insert({
-    manuscript_id: manuscriptId,
-    chapter_id: data.id,
-    title: "Scene 1",
-    content: null,
-    word_count: 0,
-    position: 0,
-  });
-
-  if (sceneError) return { data: null, error: sceneError.message };
+  const result = data as CreateChapterCheckedResult;
+  // An empty first Scene is never word-limit blocked; handled for completeness.
+  if (result.status === "word_limit_blocked") return { data: null, error: "Word limit reached" };
+  if (result.status === "error") return { data: null, error: result.error };
 
   revalidatePath(`/projects/${projectId}`);
-  return { data, error: null };
+  return { data: result.chapter, error: null };
 }
 
 export async function updateChapter(
@@ -96,7 +100,7 @@ export async function deleteChapter(
 
   if (error) return { error: error.message };
 
-  await recalculateProjectWordCount(supabase, projectId);
+  revalidateProjectTotals(projectId);
   return { error: null };
 }
 

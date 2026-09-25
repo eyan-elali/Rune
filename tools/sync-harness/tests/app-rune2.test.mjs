@@ -72,10 +72,11 @@ test('createProjectWithDraft: Project → its Manuscript → "Chapter 1" → one
 test('createChapter: a Chapter in the Project\'s Manuscript with one empty Scene; getChapters lists placed Scenes only; another writer is refused', async () => {
   const db = await seededDb();
   signIn(db, ALICE);
-  const r = await chapters.createChapter(projectId('hollow'), '  Chapter 8 ', 8);
+  const r = await chapters.createChapter(projectId('hollow'), '  Chapter 8 ');
   assert.equal(r.error, null, r.error);
   assert.equal(r.data.manuscript_id, await manuscriptOf(db, projectId('hollow')));
   assert.equal(r.data.title, 'Chapter 8');
+  assert.equal(r.data.position, 8, 'the database appends it after hollow.ch6 (position 7)');
   assert.deepEqual(await all(db, `select title, position, word_count from public.scenes where chapter_id = $1`, [r.data.id]),
     [{ title: 'Scene 1', position: 0, word_count: 0 }]);
 
@@ -87,7 +88,7 @@ test('createChapter: a Chapter in the Project\'s Manuscript with one empty Scene
   assert.deepEqual(ch3.scenes, [{ id: pageId('h3a'), word_count: 410 }], 'h3b and h3c are Unplaced and not listed');
 
   signIn(db, BRAM);
-  assert.deepEqual(await chapters.createChapter(projectId('hollow'), 'x', 9), { data: null, error: 'Project not found' });
+  assert.deepEqual(await chapters.createChapter(projectId('hollow'), 'x'), { data: null, error: 'Project not found' });
   assert.deepEqual((await chapters.getChapters(projectId('hollow'))).data, []);
 });
 

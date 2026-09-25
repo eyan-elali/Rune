@@ -188,11 +188,13 @@ test('cross-Manuscript and foreign moves are refused, and nothing changes anywhe
 test('a move that fails part-way rolls back completely: the Scene, both lists and the totals are unchanged', async () => {
   const db = await seededDb();
   signIn(db, ALICE);
-  // Make the LAST write of the move (the ordered-total update) fail.
+  // Make a write AFTER the Scene row update fail: the Project row update its
+  // triggers make (updated_at on every move; the ordered total when placed
+  // words change, migration 020).
   await db.exec(`
     create function public.test_fail_total() returns trigger language plpgsql as $$
     begin raise exception 'simulated failure'; end $$;
-    create trigger test_fail_total before update of word_count on public.projects
+    create trigger test_fail_total before update on public.projects
       for each row execute function public.test_fail_total();`);
   const before = await snapshot(db);
 

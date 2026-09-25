@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { recordAnalyticsEvent, type RecordAnalyticsEventInput } from "@/lib/actions/analytics";
-import { recalculateProjectWordCount } from "@/lib/projectWordCount";
+import { revalidateProjectTotals } from "@/lib/projectWordCount";
 import { getManuscriptIdForProject } from "@/lib/manuscriptQueries";
 
 // The only two themes every account has unlocked. Onboarding never shows
@@ -100,36 +100,23 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Failed to create manuscript" }, { status: 500 });
   }
 
-  const { data: chapter, error: chapterError } = await supabase
-    .from("chapters")
-    .insert({ manuscript_id: manuscriptId, title: "Chapter 1", position: 1 })
-    .select()
-    .single();
-  if (chapterError || !chapter) {
-    await supabase.from("projects").delete().eq("id", project.id);
-    return NextResponse.json(
-      { error: chapterError?.message ?? "Failed to create chapter" },
-      { status: 500 }
-    );
-  }
-
   const sceneContent = firstSentence
     ? sentenceToTiptapContent(firstSentence)
     : null;
   const wordCount = firstSentence ? countWords(firstSentence) : 0;
 
-  // Atomically checks the account-wide free-word limit and creates the first
-  // Scene in one database call (see insert_scene_checked) — this is the
-  // writer's very first Scene, so it's also the first content-adding path
-  // any account ever goes through.
+  // Creates "Chapter 1" and its first Scene in one database transaction (see
+  // create_chapter_checked), which also checks the account-wide free-word
+  // limit — this is the writer's very first Scene, so it's also the first
+  // content-adding path any account ever goes through.
   const { data: insertResult, error: insertError } = await supabase.rpc(
-    "insert_scene_checked",
+    "create_chapter_checked",
     {
-      p_chapter_id: chapter.id,
-      p_title: "Scene 1",
-      p_content: sceneContent,
-      p_word_count: wordCount,
-      p_position: 0,
+      p_manuscript_id: manuscriptId,
+      p_title: "Chapter 1",
+      p_scene_title: "Scene 1",
+      p_scene_content: sceneContent,
+      p_scene_word_count: wordCount,
     }
   );
 
@@ -139,7 +126,7 @@ export async function POST(req: Request) {
   }
 
   const result = insertResult as
-    | { status: "ok"; id: string }
+    | { status: "ok"; chapter: { id: string }; scene_id: string }
     | { status: "word_limit_blocked"; limit: number }
     | { status: "error"; error: string };
 
@@ -157,14 +144,14 @@ export async function POST(req: Request) {
     await supabase.from("projects").delete().eq("id", project.id);
     return NextResponse.json({ error: result.error }, { status: 500 });
   }
+  const chapter = result.chapter;
 
-  // Keep projects.word_count in sync with the first-sentence Scene immediately,
-  // rather than leaving it at its default 0 until the writer's first editor
-  // autosave. This must not go through the editor's save path
-  // (syncSceneWithLimitCheck) — that path is also where the one-time
-  // "first_save" analytics event fires, and it must only fire once the writer
-  // adds words beyond what onboarding itself created.
-  await recalculateProjectWordCount(supabase, project.id);
+  // projects.word_count already includes the first-sentence Scene: the
+  // database updates it in the same transaction (migration 020), without the
+  // editor's save path (syncSceneWithLimitCheck) — that path is where the
+  // one-time "first_save" analytics event fires, and it must only fire once
+  // the writer adds words beyond what onboarding itself created.
+  revalidateProjectTotals(project.id);
 
   // The manuscript itself (project/manuscript/chapter/scene) is now safely persisted.
   // Theme preference and the future letter are secondary — best-effort

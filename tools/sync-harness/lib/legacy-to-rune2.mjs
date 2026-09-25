@@ -11,7 +11,11 @@
 //     Case B: every Page of a Chapter without a canonical Page stays placed;
 //   * Projects and Chapters keep their ids, positions and timestamps; each
 //     Project gets its Manuscript (created by trg_project_manuscript);
-//   * writing history keeps its ids, with scene_id = the old page_id.
+//   * writing history keeps its ids, with scene_id = the old page_id;
+//   * projects.word_count is carried over verbatim, stale values included: the
+//     Scene copy runs with the scenes_refresh_project_word_count trigger
+//     (migration 020) disabled, so recomputing the cache stays a separate,
+//     reported step (checkMigration's structure.project-stored-word-count).
 //
 // Its purpose is to prove, with checkMigration(), that the Rune 2.0 schema can
 // receive real Rune 1.x manuscripts without loss. The real Rune 1.x → Rune 2.0
@@ -68,6 +72,7 @@ export async function prototypeLegacyToRune2(legacyDb, rune2Db, { faults = [] } 
   }
 
   // ── pages → scenes, with the §42 placement ──
+  await rune2Db.exec(`alter table public.scenes disable trigger scenes_refresh_project_word_count`);
   const idMap = new Map();
   const unplaced = new Set();
   for (const p of await rows(`
@@ -92,6 +97,7 @@ export async function prototypeLegacyToRune2(legacyDb, rune2Db, { faults = [] } 
       `insert into public.scenes (${cols.join(', ')}) values (${cols.map((_, i) => (cols[i] === 'content' ? `$${i + 1}::jsonb` : `$${i + 1}`)).join(', ')})`,
       vals);
   }
+  await rune2Db.exec(`alter table public.scenes enable trigger scenes_refresh_project_word_count`);
 
   // ── writing history, still attached to the same prose ids ──
   for (const s of await rows(`

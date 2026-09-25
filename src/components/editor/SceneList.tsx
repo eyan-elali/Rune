@@ -19,6 +19,7 @@ import {
 import { cn } from "@/lib/utils";
 import type { Scene } from "@/lib/types";
 import type { ChapterWithScenes } from "@/lib/manuscriptQueries";
+import { calculateChapterWordCount } from "@/lib/manuscript";
 import { renameScene } from "@/lib/actions/scenes";
 
 // ── Skeleton ──────────────────────────────────────────────────────────────────
@@ -443,10 +444,7 @@ export function SceneList({
             {allChapters.map((chapter) => {
               const isCurrent = chapter.id === currentChapterId;
               const sceneCount = chapter.scenes.length;
-              const wordCount = chapter.scenes.reduce(
-                (sum, p) => sum + (p.word_count ?? 0),
-                0
-              );
+              const wordCount = calculateChapterWordCount(chapter);
 
               return (
                 <li key={chapter.id} className="shrink-0">

@@ -36,6 +36,9 @@ Every database records what it has received in `public.schema_migrations`
 | `015` | the **empty** Rune 2.0 database only | Rune 2.0 manuscript foundation: `manuscripts`, `chapters.manuscript_id`, `scenes` (replaces `pages`), `writing_sessions.scene_id`, `save_scene_checked` / `insert_scene_checked`, no canonical behavior |
 | `016` | the Rune 2.0 database (after `015`) | `insert_unplaced_scene_checked` (free-limit-checked creation of an Unplaced Scene) and `reorder_chapter_scenes` (atomic, validated Scene reorder); nothing existing changes |
 | `017` | the Rune 2.0 database (after `016`) | `move_scene` (atomic Scene move between Chapters and Unplaced, under the per-account lock, recomputing the ordered total); nothing existing changes |
+| `018` | the Rune 2.0 database (after `017`) | `insert_scene_checked` (same signature and result shape) validates the Chapter and appends under the per-account lock; `p_position` is accepted but ignored |
+| `019` | the Rune 2.0 database (after `018`) | `create_chapter_checked` (a Chapter and its first Scene in one transaction); clients can no longer INSERT into `scenes` — only the SECURITY DEFINER creation RPCs can; unique deferrable `(chapter_id, position)` for placed Scenes |
+| `020` | the Rune 2.0 database (after `019`) | `projects.word_count` is maintained by the database (trigger `scenes_refresh_project_word_count`, from `ordered_manuscript_word_total()`: placed Scenes only) and backfilled once; `move_scene` no longer writes it itself; clients can no longer INSERT into `chapters`; unique deferrable `(manuscript_id, position)` for Chapters |
 
 ## Rules for a new migration
 

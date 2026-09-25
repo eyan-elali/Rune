@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { recalculateProjectWordCount } from "@/lib/projectWordCount";
+import { revalidateProjectTotals } from "@/lib/projectWordCount";
 import { getManuscriptIdForProject, getProjectIdForManuscript } from "@/lib/manuscriptQueries";
 
 type ActionResult<T> = { data: T; error: null } | { data: null; error: string };
@@ -116,16 +116,6 @@ export async function appendSprintToProject(
     return { data: null, error: "Chapter not found in this project" };
   }
 
-  // Find next position
-  const { data: existing } = await supabase
-    .from("scenes")
-    .select("position")
-    .eq("chapter_id", chapterId)
-    .order("position", { ascending: false })
-    .limit(1);
-
-  const position = existing && existing.length > 0 ? existing[0].position + 1 : 0;
-
   const now = new Date();
   const title = `Sprint: ${now.toLocaleDateString("en-US", {
     month: "short",
@@ -140,7 +130,8 @@ export async function appendSprintToProject(
     p_title: title,
     p_content: content,
     p_word_count: wordCount,
-    p_position: position,
+    // The database appends to the Chapter under the per-account lock (018).
+    p_position: null,
   });
 
   if (error) return { data: null, error: error.message };
@@ -155,7 +146,7 @@ export async function appendSprintToProject(
   }
   if (result.status === "error") return { data: null, error: result.error };
 
-  await recalculateProjectWordCount(supabase, projectId);
+  revalidateProjectTotals(projectId);
 
   revalidatePath(`/projects/${projectId}`);
   revalidatePath(`/projects/${projectId}/chapters/${chapterId}`);
@@ -226,7 +217,7 @@ export async function appendToExistingScene(
   const projectId = await getProjectIdForManuscript(supabase, scene.manuscript_id);
 
   if (projectId) {
-    await recalculateProjectWordCount(supabase, projectId);
+    revalidateProjectTotals(projectId);
 
     revalidatePath(`/projects/${projectId}`);
     if (scene.chapter_id) {

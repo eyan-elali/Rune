@@ -94,8 +94,17 @@ test('GATE: every command on chapters and scenes resolves ownership through the 
   const policies = (await db.query(`
     select tablename, cmd, roles::text as roles, coalesce(qual, '') || ' ' || coalesce(with_check, '') as expr
     from pg_policies where schemaname = 'public' and tablename in ('manuscripts', 'chapters', 'scenes')`)).rows;
+  // 019 / 020: Scenes and Chapters are created only through the checked RPCs —
+  // no INSERT policy and no INSERT privilege for clients.
+  const COMMANDS = { chapters: ['SELECT', 'UPDATE', 'DELETE'], scenes: ['SELECT', 'UPDATE', 'DELETE'] };
   for (const t of ['chapters', 'scenes']) {
-    for (const cmd of ['SELECT', 'INSERT', 'UPDATE', 'DELETE']) {
+    assert.deepEqual(policies.filter((x) => x.tablename === t && x.cmd === 'INSERT'), [], `${t}: no INSERT policy`);
+    const insert = await one(db, `select has_table_privilege('authenticated', 'public.${t}', 'INSERT') as auth,
+      has_table_privilege('anon', 'public.${t}', 'INSERT') as anon`);
+    assert.deepEqual(insert, { auth: false, anon: false }, `${t}: no INSERT privilege for clients`);
+  }
+  for (const t of ['chapters', 'scenes']) {
+    for (const cmd of COMMANDS[t]) {
       const p = policies.filter((x) => x.tablename === t && x.cmd === cmd);
       assert.equal(p.length, 1, `${t} ${cmd}`);
       assert.match(p[0].expr, /manuscripts m[\s\S]*projects p[\s\S]*m\.id = \w+\.manuscript_id[\s\S]*p\.user_id = \( SELECT auth\.uid\(\)/, `${t} ${cmd}`);
@@ -266,7 +275,10 @@ test('a Scene can only be placed in a Chapter of its own Manuscript — even the
   const alice = as(db, ALICE);
   const hollow = await manuscriptOf(db, projectId('hollow'));
   const r1 = await alice.from('scenes').insert({ manuscript_id: hollow, chapter_id: chapterId('ash.ch1'), title: 'x', position: 9 });
-  assert.equal(r1.error?.code, '23503', 'composite foreign key (chapter_id, manuscript_id)');
+  assert.equal(r1.error?.code, '42501', 'clients cannot insert Scenes at all (019)');
+  await assert.rejects(
+    db.query(`insert into public.scenes (manuscript_id, chapter_id, title, position) values ($1, $2, 'x', 9)`, [hollow, chapterId('ash.ch1')]),
+    (e) => e.code === '23503', 'composite foreign key (chapter_id, manuscript_id) — even for the table owner the creation RPCs run as');
   const r2 = await alice.from('scenes').update({ chapter_id: chapterId('ash.ch2') }).eq('id', PLACED_ALICE).select('id');
   assert.equal(r2.error?.code, '23503');
   const place = await alice.from('scenes').update({ chapter_id: chapterId('hollow.ch1'), position: 1 }).eq('id', UNPLACED_ALICE).select('id, version');
@@ -288,12 +300,15 @@ test('a Scene or Chapter never moves to another Manuscript', async () => {
 });
 
 test('a placed Scene inserted with only chapter_id belongs to its Chapter\'s Manuscript', async () => {
+  // 019: only the creation RPCs (as the table owner) insert Scenes; the
+  // trigger and NOT NULL still hold for them.
   const db = await seededDb();
-  const r = await as(db, ALICE).from('scenes').insert({ chapter_id: chapterId('hollow.ch5'), title: 'Scene 1', position: 0 }).select('manuscript_id').single();
-  assert.equal(r.error, null);
-  assert.equal(r.data.manuscript_id, await manuscriptOf(db, projectId('hollow')));
-  const orphan = await as(db, ALICE).from('scenes').insert({ title: 'nowhere', position: 0 });
-  assert.ok(orphan.error, 'a Scene with neither Manuscript nor Chapter is refused');
+  const r = await one(db, `insert into public.scenes (chapter_id, title, position) values ($1, 'Scene 1', 0) returning manuscript_id`, [chapterId('hollow.ch5')]);
+  assert.equal(r.manuscript_id, await manuscriptOf(db, projectId('hollow')));
+  await assert.rejects(db.query(`insert into public.scenes (title, position) values ('nowhere', 0)`), (e) => e.code === '23502',
+    'a Scene with neither Manuscript nor Chapter is refused');
+  const direct = await as(db, ALICE).from('scenes').insert({ chapter_id: chapterId('hollow.ch5'), title: 'Scene 1', position: 1 });
+  assert.equal(direct.error?.code, '42501', 'and a client cannot insert one directly');
 });
 
 // ── insert and duplicate RPCs ─────────────────────────────────────────────────
@@ -312,7 +327,7 @@ test('insert_scene_checked: a placed Scene in the Chapter\'s Manuscript; blocked
   assert.equal(empty.data?.status, 'ok', 'an empty Scene is never blocked');
 
   const foreign = await bram.rpc('insert_scene_checked', { p_chapter_id: chapterId('hollow.ch5'), p_title: 'x', p_content: null, p_word_count: 0, p_position: 1 });
-  assert.equal(foreign.error?.code, '42501', 'another writer\'s Chapter');
+  assert.deepEqual(foreign.data, { status: 'error', error: 'Chapter not found' }, 'another writer\'s Chapter (018: refused before any write)');
   assert.ok((await as(db, null).rpc('insert_scene_checked', { p_chapter_id: chapterId('tide.ch3'), p_title: 'x', p_content: null, p_word_count: 0, p_position: 1 })).error);
 });
 
@@ -440,17 +455,29 @@ test('REAL autosave action: replays to an Unplaced Scene by ID; version_mismatch
   assert.equal((await one(db, `select word_count from public.scenes where id = $1`, [UNPLACED_BRAM])).word_count, 730, 'only the owner\'s write landed');
 });
 
-test('REAL afterSceneSync: stores the ordered (placed-only) total and touches only a placed Scene\'s Chapter', async () => {
+test('REAL save + afterSceneSync: the save itself stores the ordered (placed-only) total; afterSceneSync only touches a placed Scene\'s Chapter', async () => {
   const db = await seededDb();
   scenesAction.setServerClient(as(db, ALICE));
   const chapterAt = async (label) => (await one(db, `select updated_at::text as t from public.chapters where id = $1`, [chapterId(label)])).t;
+  const stored = async () => (await one(db, `select word_count from public.projects where id = $1`, [projectId('ash')])).word_count;
+  const versionOf = async (label) => (await one(db, `select version from public.scenes where id = $1`, [pageId(label)])).version;
   const before = { ch1: await chapterAt('ash.ch1'), ch2: await chapterAt('ash.ch2') };
+
   await scenesAction.afterSceneSync(pageId('a1a')); // Unplaced, 500 words
-  assert.equal((await one(db, `select word_count from public.projects where id = $1`, [projectId('ash')])).word_count, 100,
-    'the stale 999 becomes the placed total (a1b 0 + a2a 60 + a2b 40); the Unplaced 500 is excluded');
+  assert.equal(await stored(), 999, 'afterSceneSync never writes the total (the fixture\'s stale 999 is untouched)');
   assert.equal(await chapterAt('ash.ch1'), before.ch1, 'an Unplaced Scene touches no Chapter');
+
+  // alice is over her limit, so these saves shrink Scenes (never blocked).
+  const saved = await scenesAction.syncSceneWithLimitCheck(pageId('a2a'), syntheticDoc('a2a', 50), 50, await versionOf('a2a'));
+  assert.equal(saved.status, 'ok');
+  assert.equal(await stored(), 90, 'the save recomputed it in its own transaction: a1b 0 + a2a 50 + a2b 40; the Unplaced 500 excluded');
+  const unplacedSave = await scenesAction.syncSceneWithLimitCheck(pageId('a1a'), syntheticDoc('a1a', 400), 400, await versionOf('a1a'));
+  assert.equal(unplacedSave.status, 'ok');
+  assert.equal(await stored(), 90, 'an Unplaced save leaves the ordered total alone');
+
   await scenesAction.afterSceneSync(pageId('a2a'));
   assert.notEqual(await chapterAt('ash.ch2'), before.ch2);
+  assert.equal(await stored(), 90);
 });
 
 test('REAL sync engine: a cached, queued edit syncs through save_scene_checked; Keep Local works; another writer gets not_found from "Scene not found"', async () => {

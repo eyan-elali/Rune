@@ -19,17 +19,10 @@ export function ChapterList({ chapters, projectId }: ChapterListProps) {
 
   async function handleAddChapter() {
     setAdding(true);
-    const nextPosition =
-      chapters.length > 0
-        ? Math.max(...chapters.map((c) => c.position)) + 1
-        : 1;
     const nextTitleNum = chapters.length + 1;
 
-    await createChapter(
-      projectId,
-      `Chapter ${nextTitleNum}`,
-      nextPosition
-    );
+    // The database places the new Chapter at the end of the Manuscript.
+    await createChapter(projectId, `Chapter ${nextTitleNum}`);
     router.refresh();
     setAdding(false);
   }
