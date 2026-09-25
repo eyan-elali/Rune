@@ -24,6 +24,10 @@
 // can never silently pass on a shape this adapter doesn't really implement.
 import { withRole } from './pg.mjs';
 
+// PostgREST returns a `date` column as its 'YYYY-MM-DD' text, not a timestamp
+// (writing_sessions.session_date: the app compares and sorts these strings).
+const POSTGREST_PARSERS = { 1082: (value) => value };
+
 const IDENT = /^[a-z_][a-z0-9_]*$/;
 const OPS = { eq: '=', neq: '<>', gt: '>', gte: '>=', lt: '<', lte: '<=' };
 
@@ -176,7 +180,7 @@ class Query {
     try { built = this._build(); } catch (e) { return { data: null, error: toError(e), count: null }; }
     try {
       const result = await withRole(this.client.db, this.client.identity, async (tx) => {
-        const res = await tx.query(built.sql, built.params);
+        const res = await tx.query(built.sql, built.params, { parsers: POSTGREST_PARSERS });
         let count = null;
         if (this.countMode) {
           const cParams = [];

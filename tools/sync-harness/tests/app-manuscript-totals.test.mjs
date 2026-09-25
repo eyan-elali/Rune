@@ -384,12 +384,14 @@ test('Chapters: simultaneous creations (and a duplication) never produce tied or
   assert.deepEqual(ties, []);
 
   const con = await one(db, `select pg_get_constraintdef(oid) as def, condeferrable, condeferred from pg_constraint
-    where conname = 'chapters_manuscript_id_position_key'`);
-  assert.deepEqual(con, { def: 'UNIQUE (manuscript_id, "position") DEFERRABLE', condeferrable: true, condeferred: false });
-  // A direct position update that would tie is refused, through the app too.
+    where conname = 'chapters_sibling_position_key'`);
+  assert.deepEqual(con, { def: 'UNIQUE NULLS NOT DISTINCT (manuscript_id, group_id, "position") DEFERRABLE', condeferrable: true, condeferred: false },
+    'per parent since migration 022 (group_id null = top level)');
+  // Writers cannot write a position at all (move_chapter does, migration 022)…
   const tie = await as(db, BRAM).from('chapters').update({ position: 1 }).eq('id', chapterId('tide.ch2')).select('id');
-  assert.equal(tie.error?.code, '23505');
-  assert.match((await chapters.updateChapter(chapterId('tide.ch2'), { position: 1 }, tide)).error, /chapters_manuscript_id_position_key/);
+  assert.equal(tie.error?.code, '42501');
+  // …and a tie is refused whoever writes it.
+  await assert.rejects(db.query(`update public.chapters set position = 1 where id = $1`, [chapterId('tide.ch2')]), /chapters_sibling_position_key/);
   // A full swap in one statement is fine (deferrable, for a future reorder RPC).
   await db.exec(`update public.chapters set position = case id when '${chapterId('tide.ch1')}' then 2 else 1 end
     where id in ('${chapterId('tide.ch1')}', '${chapterId('tide.ch2')}')`);

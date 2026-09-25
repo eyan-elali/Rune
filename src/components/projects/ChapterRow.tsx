@@ -1,22 +1,25 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { GripVertical, Trash2 } from "lucide-react";
 import { updateChapter, deleteChapter, markChapterComplete } from "@/lib/actions/chapters";
 import { calculateChapterWordCount } from "@/lib/manuscript";
 import { useToastStore } from "@/store/toastStore";
+import { forgetStalePlacements } from "@/lib/offline/db";
 import { cn } from "@/lib/utils";
 import type { ChapterWithScenes } from "@/lib/manuscriptQueries";
 
 interface ChapterRowProps {
   chapter: ChapterWithScenes;
   projectId: string;
+  /** Structure controls (Move…), rendered beside the row's other actions. */
+  moveControl?: ReactNode;
 }
 
 const NAV_CLICK_DELAY_MS = 250;
 
-export function ChapterRow({ chapter, projectId }: ChapterRowProps) {
+export function ChapterRow({ chapter, projectId, moveControl }: ChapterRowProps) {
   const router = useRouter();
   const showToast = useToastStore((s) => s.showToast);
   const [isEditing, setIsEditing] = useState(false);
@@ -76,8 +79,21 @@ export function ChapterRow({ chapter, projectId }: ChapterRowProps) {
 
   async function handleDelete(e: React.MouseEvent) {
     e.stopPropagation();
-    if (!confirm(`Delete chapter "${chapter.title}"?`)) return;
-    await deleteChapter(chapter.id, projectId);
+    const message =
+      sceneCount === 0
+        ? `Delete chapter "${chapter.title}"? It has no scenes.`
+        : `Delete chapter "${chapter.title}"?\n\n` +
+          `Its ${sceneCount === 1 ? "scene" : `${sceneCount} scenes`} (${totalWords.toLocaleString()} words) ` +
+          `will move to Unplaced Scenes. No writing is deleted.`;
+    if (!confirm(message)) return;
+    const { error } = await deleteChapter(chapter.id, projectId);
+    if (error) {
+      showToast("Couldn't delete this chapter — nothing was changed.", "error");
+      return;
+    }
+    // The offline cache still files these Scenes under the deleted Chapter.
+    await forgetStalePlacements(projectId, chapter.id, []);
+    if (sceneCount > 0) showToast("Chapter deleted — its scenes are in Unplaced Scenes", "success");
     router.refresh();
   }
 
@@ -151,6 +167,8 @@ export function ChapterRow({ chapter, projectId }: ChapterRowProps) {
         <span>{sceneCount} {sceneCount === 1 ? "scene" : "scenes"}</span>
         <span>{totalWords.toLocaleString()} words</span>
       </div>
+
+      {moveControl}
 
       {/* Completion toggle — text button */}
       <button

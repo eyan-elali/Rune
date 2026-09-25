@@ -67,7 +67,6 @@ export function SceneListSkeleton() {
 
 interface SceneMenuProps {
   scene: Scene;
-  canDelete: boolean;
   onRename: () => void;
   onDelete: () => void;
   /** Chapter view: take this Scene out of narrative order (a Chapter may be left empty). */
@@ -82,7 +81,6 @@ interface SceneMenuProps {
 
 function SceneMenu({
   scene,
-  canDelete,
   onRename,
   onDelete,
   onMoveToUnplaced,
@@ -260,13 +258,12 @@ function SceneMenu({
 
               <button
                 type="button"
-                disabled={!canDelete}
                 onClick={(e) => {
                   e.stopPropagation();
                   setOpen(false);
                   onDelete();
                 }}
-                className="flex w-full items-center gap-2.5 px-3.5 py-2 text-xs transition-colors hover:bg-rune-crimson/10 disabled:pointer-events-none disabled:opacity-40"
+                className="flex w-full items-center gap-2.5 px-3.5 py-2 text-xs transition-colors hover:bg-rune-crimson/10"
                 style={{ color: "var(--color-crimson)" }}
               >
                 <Trash2 size={11} aria-hidden />
@@ -700,7 +697,6 @@ export function SceneList({
                     {!isEditing && (
                       <SceneMenu
                         scene={scene}
-                        canDelete={isUnplacedView || scenes.length > 1}
                         onRename={() => {
                           setEditingId(scene.id);
                           setEditingTitle(scene.title);

@@ -287,28 +287,34 @@ export async function renameScene(
   return { data: data as Scene, error: null };
 }
 
+/**
+ * Permanently deletes one Scene — placed or Unplaced — and its prose. Its
+ * writing history stays (migration 022): the database turns those rows into
+ * Project-level history (scene_id null, same words and days), so Today's
+ * Words, writing days and streaks do not change.
+ * The UI confirms first. Deleting a Chapter's only Scene leaves a valid, empty
+ * Chapter. The database removes the Scene's words from the ordered manuscript
+ * total in the same transaction (migration 020). A Scene that does not exist
+ * or is not the caller's is reported, not silently ignored.
+ */
 export async function deleteScene(
   id: string
 ): Promise<{ error: string | null }> {
   const { supabase, user } = await getUser();
   if (!user) return { error: "Not authenticated" };
 
-  // Capture the Manuscript before deletion, to revalidate its Project's totals.
-  // The database recomputes projects.word_count as the Scene is deleted.
-  const { data: scene } = await supabase
+  const { data, error } = await supabase
     .from("scenes")
-    .select("manuscript_id")
+    .delete()
     .eq("id", id)
-    .single();
-
-  const { error } = await supabase.from("scenes").delete().eq("id", id);
+    .select("manuscript_id");
   if (error) return { error: error.message };
+  const deleted = (data ?? []) as { manuscript_id: string }[];
+  if (deleted.length === 0) return { error: "Scene not found" };
 
-  if (scene) {
-    const projectId = await getProjectIdForManuscript(supabase, scene.manuscript_id);
-    if (projectId) {
-      revalidateProjectTotals(projectId);
-    }
+  const projectId = await getProjectIdForManuscript(supabase, deleted[0].manuscript_id);
+  if (projectId) {
+    revalidateProjectTotals(projectId);
   }
 
   return { error: null };

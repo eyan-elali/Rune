@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { recordAnalyticsEvent, type RecordAnalyticsEventInput } from "@/lib/actions/analytics";
 import { revalidateProjectTotals } from "@/lib/projectWordCount";
-import { getManuscriptIdForProject } from "@/lib/manuscriptQueries";
+import { createProjectChecked } from "@/lib/projectCreation";
 
 // The only two themes every account has unlocked. Onboarding never shows
 // (or trusts the client to send) anything beyond these — validated again
@@ -52,7 +52,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  let body: { title?: string; firstSentence?: string; theme?: string; letter?: string };
+  let body: { title?: string; firstSentence?: string; theme?: string; letter?: string; requestId?: string };
   try {
     body = await req.json();
   } catch {
@@ -76,62 +76,26 @@ export async function POST(req: Request) {
     .eq("id", user.id)
     .single();
 
-  const { data: project, error: projectError } = await supabase
-    .from("projects")
-    .insert({ user_id: user.id, title, cover_color: null })
-    .select()
-    .single();
-  if (projectError || !project) {
-    return NextResponse.json(
-      { error: projectError?.message ?? "Failed to create project" },
-      { status: 500 }
-    );
-  }
-
-  // From here on, any failure rolls back the project (cascades manuscript,
-  // chapter and scene) so a retry starts clean instead of leaving an
-  // orphaned, chapterless project the writer can never reach.
-  //
-  // The Manuscript is created with the Project by the database
-  // (trg_project_manuscript).
-  const manuscriptId = await getManuscriptIdForProject(supabase, project.id);
-  if (!manuscriptId) {
-    await supabase.from("projects").delete().eq("id", project.id);
-    return NextResponse.json({ error: "Failed to create manuscript" }, { status: 500 });
-  }
-
   const sceneContent = firstSentence
     ? sentenceToTiptapContent(firstSentence)
     : null;
   const wordCount = firstSentence ? countWords(firstSentence) : 0;
 
-  // Creates "Chapter 1" and its first Scene in one database transaction (see
-  // create_chapter_checked), which also checks the account-wide free-word
-  // limit — this is the writer's very first Scene, so it's also the first
-  // content-adding path any account ever goes through.
-  const { data: insertResult, error: insertError } = await supabase.rpc(
-    "create_chapter_checked",
-    {
-      p_manuscript_id: manuscriptId,
-      p_title: "Chapter 1",
-      p_scene_title: "Scene 1",
-      p_scene_content: sceneContent,
-      p_scene_word_count: wordCount,
-    }
-  );
-
-  if (insertError) {
-    await supabase.from("projects").delete().eq("id", project.id);
-    return NextResponse.json({ error: insertError.message }, { status: 500 });
-  }
-
-  const result = insertResult as
-    | { status: "ok"; chapter: { id: string }; scene_id: string }
-    | { status: "word_limit_blocked"; limit: number }
-    | { status: "error"; error: string };
+  // Project, Manuscript, "Chapter 1" and its first Scene in ONE database
+  // transaction (create_project_checked, migration 021), which also checks the
+  // account-wide free-word limit — this is the writer's very first Scene, so
+  // it's also the first content-adding path any account ever goes through.
+  // Nothing is left behind if any step fails, and a retry carrying the same
+  // requestId returns the Project the first attempt created (created: false)
+  // instead of creating a second one.
+  const result = await createProjectChecked(supabase, {
+    title,
+    firstSceneContent: sceneContent,
+    firstSceneWordCount: wordCount,
+    requestId: body.requestId,
+  });
 
   if (result.status === "word_limit_blocked") {
-    await supabase.from("projects").delete().eq("id", project.id);
     return NextResponse.json(
       {
         error: `Your first sentence is longer than your ${result.limit.toLocaleString()}-word free allowance.`,
@@ -141,10 +105,9 @@ export async function POST(req: Request) {
     );
   }
   if (result.status === "error") {
-    await supabase.from("projects").delete().eq("id", project.id);
     return NextResponse.json({ error: result.error }, { status: 500 });
   }
-  const chapter = result.chapter;
+  const { project, chapter, created } = result;
 
   // projects.word_count already includes the first-sentence Scene: the
   // database updates it in the same transaction (migration 020), without the
@@ -165,7 +128,19 @@ export async function POST(req: Request) {
     })
     .eq("id", user.id);
 
-  if (letter) {
+  // On a retry (created: false) the first attempt may already have saved the
+  // letter; never store it twice.
+  const letterAlreadySaved =
+    !created &&
+    Boolean(
+      (
+        await supabase
+          .from("future_letters")
+          .select("id", { count: "exact", head: true })
+          .eq("project_id", project.id)
+      ).count
+    );
+  if (letter && !letterAlreadySaved) {
     const { error: letterError } = await supabase.from("future_letters").insert({
       user_id: user.id,
       project_id: project.id,
@@ -181,7 +156,9 @@ export async function POST(req: Request) {
   // client unconditionally navigates to the editor immediately after this
   // response, so recording completion here (rather than waiting for the
   // editor to mount client-side) captures the same moment with a server-
-  // verified user id instead of a client-asserted one.
+  // verified user id instead of a client-asserted one. A retry records
+  // nothing new: project_created is keyed by the Project, and the other two
+  // are one-time events per writer.
   await safeRecordEvent({
     userId: user.id,
     eventName: "project_created",
@@ -209,7 +186,9 @@ export async function POST(req: Request) {
     },
   });
 
+  // chapter is null only on a retry whose Project has since lost its first
+  // Chapter; the client then opens the Project instead.
   return NextResponse.json({
-    data: { projectId: project.id, chapterId: chapter.id },
+    data: { projectId: project.id, chapterId: chapter?.id ?? null },
   });
 }

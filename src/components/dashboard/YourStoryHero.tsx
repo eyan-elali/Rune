@@ -24,6 +24,8 @@ function NewUserHero() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  // Reused by retries: a lost response never leads to a second Project.
+  const requestIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -35,7 +37,8 @@ function NewUserHero() {
     setLoading(true);
     setError(null);
 
-    const result = await createProjectWithDraft(title.trim());
+    requestIdRef.current ??= crypto.randomUUID();
+    const result = await createProjectWithDraft(title.trim(), undefined, requestIdRef.current);
 
     if (!result.data) {
       setError(result.error ?? "Something went wrong");

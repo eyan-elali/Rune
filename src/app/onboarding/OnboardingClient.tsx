@@ -246,6 +246,9 @@ export function OnboardingClient({ authorName, initialTheme }: Props) {
   const titleButtonActive = hasValidTitle && !isExiting;
 
   const hasSubmittedRef = useRef(false);
+  // One id per onboarding: a retry after a lost response returns the Project
+  // the first attempt created instead of creating a second one.
+  const requestIdRef = useRef<string | null>(null);
 
   // ── Restore an interrupted session (refresh, accidental navigation) ──
   useIsomorphicLayoutEffect(() => {
@@ -371,6 +374,7 @@ export function OnboardingClient({ authorName, initialTheme }: Props) {
   const submitOnboarding = useCallback(async () => {
     if (hasSubmittedRef.current) return;
     hasSubmittedRef.current = true;
+    requestIdRef.current ??= crypto.randomUUID();
     setSubmitting(true);
     setSubmitError(null);
 
@@ -379,7 +383,7 @@ export function OnboardingClient({ authorName, initialTheme }: Props) {
     const trimmedLetter = letterContent.trim();
     const minWait = new Promise<void>((r) => setTimeout(r, reducedMotion ? 200 : 1200));
 
-    let json: { data?: { projectId: string; chapterId: string }; error?: string };
+    let json: { data?: { projectId: string; chapterId: string | null }; error?: string };
     try {
       const [result] = await Promise.all([
         fetch("/api/onboarding", {
@@ -390,6 +394,7 @@ export function OnboardingClient({ authorName, initialTheme }: Props) {
             firstSentence: trimmedSentence,
             theme,
             letter: trimmedLetter || undefined,
+            requestId: requestIdRef.current,
           }),
         }).then((r) => r.json()),
         minWait,
@@ -408,7 +413,11 @@ export function OnboardingClient({ authorName, initialTheme }: Props) {
 
     const { projectId, chapterId } = json.data;
     startTransition(() => {
-      router.replace(`/projects/${projectId}/chapters/${chapterId}?tutorial=editor`);
+      router.replace(
+        chapterId
+          ? `/projects/${projectId}/chapters/${chapterId}?tutorial=editor`
+          : `/projects/${projectId}`
+      );
     });
   }, [title, firstSentence, letterContent, theme, reducedMotion, router, startTransition]);
 

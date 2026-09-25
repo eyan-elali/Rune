@@ -61,10 +61,30 @@ export interface Manuscript {
   updated_at: string;
 }
 
+/**
+ * A structural container in a Manuscript ("Part I", "Book Two", "Act I"): one
+ * type for all of them. Contains Chapters and other Groups, never prose or
+ * Scenes. parent_group_id null = directly under the Manuscript. position
+ * orders it among its parent's children, Groups and Chapters together.
+ */
+export interface ManuscriptGroup {
+  id: string;
+  manuscript_id: string;
+  parent_group_id: string | null;
+  /** null = untitled. */
+  title: string | null;
+  position: number;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Chapter {
   id: string;
   manuscript_id: string;
+  /** The Manuscript Group holding it; null = directly under the Manuscript. */
+  group_id: string | null;
   title: string;
+  /** Among its parent's children (Groups and Chapters together), not a manuscript-wide index. */
   position: number;
   is_completed: boolean;
   created_at: string;

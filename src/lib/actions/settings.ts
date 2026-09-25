@@ -82,6 +82,7 @@ export async function exportUserData(): Promise<{
 
   const projectIds = (projects ?? []).map((p: { id: string }) => p.id);
   let manuscripts: unknown[] = [];
+  let manuscriptGroups: unknown[] = [];
   let chapters: unknown[] = [];
   let scenes: unknown[] = [];
 
@@ -94,6 +95,13 @@ export async function exportUserData(): Promise<{
 
     const manuscriptIds = (manuscriptData ?? []).map((m: { id: string }) => m.id);
     if (manuscriptIds.length > 0) {
+      // Parts, Books, Acts… (chapters.group_id refers to these).
+      const { data: groupData } = await supabase
+        .from("manuscript_groups")
+        .select("*")
+        .in("manuscript_id", manuscriptIds);
+      manuscriptGroups = groupData ?? [];
+
       const { data: chapterData } = await supabase
         .from("chapters")
         .select("*")
@@ -115,6 +123,7 @@ export async function exportUserData(): Promise<{
       user_id: user.id,
       projects: projects ?? [],
       manuscripts,
+      manuscript_groups: manuscriptGroups,
       chapters,
       scenes,
     },

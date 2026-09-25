@@ -150,12 +150,31 @@ export function EditorShell({
     return remaining.length;
   }, []);
 
+  // Deleting a Scene is permanent (there is no Trash yet), so it is always
+  // confirmed, and the confirmation offers Unplaced Scenes as the way to set
+  // a Scene aside without losing it. A Chapter's only Scene may be deleted:
+  // the Chapter stays, empty, with its "Add Scene" state.
   const handleDeleteScene = useCallback(
     async (sceneId: string) => {
+      const scene = scenesRef.current.find((p) => p.id === sceneId);
+      if (!scene) return;
+      const words = scene.word_count ?? 0;
+      const message =
+        `Delete “${scene.title}” permanently?` +
+        (words > 0 ? ` Its ${words.toLocaleString()} ${words === 1 ? "word" : "words"} will be lost.` : "") +
+        (chapterId && scenesRef.current.length === 1 ? " This chapter will be left empty." : "") +
+        (chapterId ? "\n\nTo set it aside without deleting it, move it to Unplaced Scenes instead." : "") +
+        "\n\nThis can't be undone.";
+      if (!window.confirm(message)) return;
       const { error } = await deleteScene(sceneId);
-      if (!error) removeFromView(sceneId);
+      if (error) {
+        showToast("Couldn't delete this scene — nothing was changed.", "error");
+        return;
+      }
+      removeFromView(sceneId);
+      router.refresh();
     },
-    [removeFromView]
+    [chapterId, removeFromView, router, showToast]
   );
 
   const handleMoveToUnplaced = useCallback(

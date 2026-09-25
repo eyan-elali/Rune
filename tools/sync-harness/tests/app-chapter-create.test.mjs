@@ -112,8 +112,8 @@ test('createChapter: one checked call creates the Chapter at the end of the Manu
 
 test('create_chapter_checked result shape; the first Chapter of an empty Manuscript is at position 1', async () => {
   const db = await seededDb();
-  signIn(db, CORA);
-  const p = await projects.createProject('Empty book');
+  // A Chapter-less Project (every app path now creates Chapter 1 with it), inserted directly.
+  const p = { data: await one(db, `insert into public.projects (user_id, title) values ($1, 'Empty book') returning id`, [CORA]) };
   const m = await manuscriptOf(db, p.data.id);
   const r = await createChapterRpc(as(db, CORA), m, { title: 'Chapter 1' });
   assert.equal(r.data.status, 'ok');
@@ -141,13 +141,11 @@ test('a failure while creating the first Scene leaves no Chapter behind — crea
   assert.equal(res.status, 500);
   assert.deepEqual(await snapshot(db), beforeCora, 'onboarding: no Project, Manuscript, Chapter or Scene');
 
-  // createProjectWithDraft keeps its existing behavior for the Project, but
-  // never leaves a Scene-less Chapter.
+  // createProjectWithDraft (migration 021): nothing at all, not even the Project.
+  const beforeDraft = await snapshot(db);
   const d = await projects.createProjectWithDraft('Failing draft');
   assert.match(d.error, /simulated Scene failure/);
-  const orphanChapters = await one(db, `select count(*)::int as n from public.chapters c
-    where not exists (select 1 from public.scenes s where s.chapter_id = c.id) and c.id <> $1`, [chapterId('hollow.ch5')]);
-  assert.equal(orphanChapters.n, 0, 'the only Scene-less Chapter is the seeded hollow.ch5');
+  assert.deepEqual(await snapshot(db), beforeDraft, 'createProjectWithDraft: no Project, Manuscript, Chapter or Scene');
 
   // Once the failure is gone, the next Chapter takes the position the failed one never kept.
   await db.exec(`drop trigger test_fail_scene_insert on public.scenes;`);
@@ -320,7 +318,7 @@ test('SECURITY DEFINER creation RPCs still refuse other writers explicitly, and 
 
 // ── 4. placed-position uniqueness ─────────────────────────────────────────────
 
-test('placed positions are unique per Chapter (deferrable); Unplaced lists are not constrained', async () => {
+test('placed positions are unique per Chapter (deferrable); Unplaced positions are unique per Manuscript (migration 022)', async () => {
   const db = await seededDb();
   const con = await one(db, `select pg_get_constraintdef(oid) as def, condeferrable, condeferred from pg_constraint
     where conname = 'scenes_chapter_id_position_key'`);
@@ -333,9 +331,10 @@ test('placed positions are unique per Chapter (deferrable); Unplaced lists are n
   // Placing an Unplaced Scene at a taken position is refused; at a free one it works.
   const h3a = (await one(db, `select position from public.scenes where id = $1`, [pageId('h3a')])).position;
   assert.equal((await alice.from('scenes').update({ chapter_id: chapterId('hollow.ch3'), position: h3a }).eq('id', pageId('h3b')).select('id')).error?.code, '23505');
-  // Unplaced positions may tie (NULL chapter_id): the constraint is for placed Scenes.
-  const unplacedTie = await alice.from('scenes').update({ position: 0 }).eq('id', pageId('h3c')).select('id');
-  assert.equal(unplacedTie.error, null);
+  // Unplaced positions may not tie either (scenes_unplaced_position_excl, migration 022).
+  const taken = (await one(db, `select position from public.scenes where id = $1`, [pageId('h3b')])).position;
+  const unplacedTie = await alice.from('scenes').update({ position: taken }).eq('id', pageId('h3c')).select('id');
+  assert.equal(unplacedTie.error?.code, '23P01', 'exclusion_violation');
   await assertPlacedPositionsValid(db);
 });
 

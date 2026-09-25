@@ -37,8 +37,9 @@ type CreateChapterCheckedResult =
   | { status: "error"; error: string };
 
 /**
- * Creates a Chapter at the end of the Project's Manuscript with its first,
- * empty Scene ("Scene 1"), through create_chapter_checked (migration 019):
+ * Creates a Chapter at the end of the Project's Manuscript (after its last
+ * top-level Group or Chapter) with its first, empty Scene ("Scene 1"),
+ * through create_chapter_checked (migrations 019, 022):
  * one database transaction under the per-account lock, which picks the
  * Chapter's position itself. Either both exist afterwards or neither does.
  */
@@ -70,9 +71,10 @@ export async function createChapter(
   return { data: result.chapter, error: null };
 }
 
+/** Renames a Chapter. Its place in the manuscript changes only through moveChapter (actions/structure.ts). */
 export async function updateChapter(
   id: string,
-  fields: Partial<Pick<Chapter, "title" | "position">>,
+  fields: Partial<Pick<Chapter, "title">>,
   projectId: string
 ): Promise<ActionResult<Chapter>> {
   const { supabase, user } = await getUser();
@@ -90,18 +92,32 @@ export async function updateChapter(
   return { data, error: null };
 }
 
+/**
+ * Deletes a Chapter WITHOUT deleting its prose (delete_chapter, migration
+ * 021): in one transaction its Scenes move, in order, to the end of the
+ * Manuscript's Unplaced Scenes — same Scene IDs, prose and writing history —
+ * and the empty Chapter is removed. Their words leave the ordered manuscript
+ * total. If anything fails, the Chapter and every Scene are unchanged.
+ * Returns the IDs of the Scenes now Unplaced.
+ */
 export async function deleteChapter(
   id: string,
   projectId: string
-): Promise<{ error: string | null }> {
-  const { supabase } = await getUser();
+): Promise<{ error: string | null; unplacedSceneIds?: string[] }> {
+  const { supabase, user } = await getUser();
+  if (!user) return { error: "Not authenticated" };
 
-  const { error } = await supabase.from("chapters").delete().eq("id", id);
-
+  const { data, error } = await supabase.rpc("delete_chapter", { p_chapter_id: id });
   if (error) return { error: error.message };
 
+  const result = data as
+    | { status: "ok"; unplaced_scene_ids: string[] }
+    | { status: "error"; error: string };
+  if (result.status !== "ok") return { error: result.error };
+
   revalidateProjectTotals(projectId);
-  return { error: null };
+  revalidatePath(`/projects/${projectId}/unplaced`);
+  return { error: null, unplacedSceneIds: result.unplaced_scene_ids };
 }
 
 export async function markChapterComplete(

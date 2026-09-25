@@ -122,8 +122,12 @@ test('GATE: every command on chapters and scenes resolves ownership through the 
 test('creating a Project creates exactly one Manuscript, readable only by its owner; writers cannot create, change or delete Manuscripts', async () => {
   const db = await seededDb();
   const alice = as(db, ALICE);
-  const created = await alice.from('projects').insert({ user_id: ALICE, title: 'fresh' }).select('id').single();
-  assert.equal(created.error, null);
+  const direct = await alice.from('projects').insert({ user_id: ALICE, title: 'fresh' }).select('id').single();
+  assert.equal(direct.error?.code, '42501', 'no client INSERT on projects (migration 021)');
+  const rpc = await alice.rpc('create_project_checked', { p_title: 'fresh', p_description: null, p_cover_color: null,
+    p_first_scene_content: null, p_first_scene_word_count: 0, p_request_id: null });
+  assert.equal(rpc.data.status, 'ok');
+  const created = { data: { id: rpc.data.project.id } };
   const mine = await alice.from('manuscripts').select('id, project_id').eq('project_id', created.data.id);
   assert.equal(mine.data.length, 1);
   assert.deepEqual((await as(db, BRAM).from('manuscripts').select('id').eq('project_id', created.data.id)).data, []);
@@ -345,7 +349,7 @@ test('duplicate_project_checked copies Chapters and placed + Unplaced Scenes int
     where s.manuscript_id = $1 order by unplaced, chapter_position, s.position`, [m])).rows;
   assert.deepEqual(scenes.map((s) => [s.unplaced, s.chapter_position, s.position, s.word_count]), [
     [false, 1, 1, 650], [false, 2, 0, 0], [false, 3, 0, 330], [false, 3, 1, 340],
-    [true, null, 0, 700], [true, null, 2, 720],
+    [true, null, 0, 700], [true, null, 1, 720],
   ]);
   assert.ok(scenes.every((s) => s.version === 1), 'copies are new Scenes');
   assert.equal((await as(db, BRAM).rpc('account_word_total')).data, 2740 * 2, 'the limit counts every copied Scene');
@@ -372,7 +376,7 @@ test('a Scene update bumps its version and updated_at, and its Project\'s update
   assert.equal(untouched.t, '2026-08-03 12:30:00.25+00');
 });
 
-test('writing history attaches to Scenes: one row per writer, Scene and day; deleting a Scene deletes its history, as in Rune 1.x', async () => {
+test('writing history attaches to Scenes: one row per writer, Scene and day; deleting a Scene keeps its history as Project-level history (migration 022)', async () => {
   const db = await seededDb();
   const bram = as(db, BRAM);
   const dup = await bram.from('writing_sessions').insert({ user_id: BRAM, project_id: projectId('tide'), scene_id: UNPLACED_BRAM, session_date: '2026-08-05', words_added: 1 });
@@ -382,17 +386,25 @@ test('writing history attaches to Scenes: one row per writer, Scene and day; del
   const projectDay = await bram.from('writing_sessions').insert({ user_id: BRAM, project_id: projectId('tide'), session_date: '2026-08-04', words_added: 1 });
   assert.equal(projectDay.error?.code, '23505', 'writing_sessions_project_unique');
 
+  const before = (await db.query(`select session_date::text as d, sum(words_added)::int as n from public.writing_sessions where user_id = $1 group by 1 order by 1`, [BRAM])).rows;
   await bram.from('scenes').delete().eq('id', UNPLACED_BRAM);
-  const left = (await db.query(`select scene_id, words_added from public.writing_sessions where user_id = $1 order by session_date`, [BRAM])).rows;
-  assert.deepEqual(left, [{ scene_id: null, words_added: 15 }, { scene_id: pageId('t1b'), words_added: 650 }, { scene_id: pageId('t3a'), words_added: 330 }]);
+  const left = (await db.query(`select session_date::text as d, project_id, scene_id, words_added from public.writing_sessions where user_id = $1 order by session_date, scene_id`, [BRAM])).rows;
+  assert.deepEqual(left.filter((r) => r.scene_id === null).map((r) => [r.d, r.project_id]),
+    left.filter((r) => r.scene_id === null).map((r) => [r.d, projectId('tide')]), 'detached rows keep their Project');
+  assert.ok(!left.some((r) => r.scene_id === UNPLACED_BRAM), 'nothing references the deleted Scene');
+  const after = (await db.query(`select session_date::text as d, sum(words_added)::int as n from public.writing_sessions where user_id = $1 group by 1 order by 1`, [BRAM])).rows;
+  assert.deepEqual(after, before, 'every day keeps its words');
 });
 
-test('deleting a Chapter deletes its placed Scenes (as Rune 1.x did) but never the Manuscript\'s Unplaced Scenes', async () => {
+test('a Chapter that still holds a Scene cannot be deleted directly (FK NO ACTION, migration 021); an empty one can', async () => {
   const db = await seededDb();
+  const before = (await db.query(`select * from public.scenes order by id`)).rows;
   const del = await as(db, ALICE).from('chapters').delete().eq('id', chapterId('hollow.ch3')).select('id');
-  assert.equal(del.data.length, 1);
-  const r = (await db.query(`select id from public.scenes where id = any($1::uuid[]) order by id`, [[pageId('h3a'), pageId('h3b'), pageId('h3c')]])).rows;
-  assert.deepEqual(r.map((x) => x.id), [pageId('h3b'), pageId('h3c')], 'h3a (placed) went with the Chapter; its former siblings are Unplaced and stay');
+  assert.equal(del.error?.code, '23503', 'refused: h3a is still placed in it');
+  assert.deepEqual((await db.query(`select * from public.scenes order by id`)).rows, before, 'no Scene touched');
+  assert.equal((await one(db, `select count(*)::int as n from public.chapters where id = $1`, [chapterId('hollow.ch3')])).n, 1);
+  const empty = await as(db, ALICE).from('chapters').delete().eq('id', chapterId('hollow.ch5')).select('id');
+  assert.equal(empty.data.length, 1, 'an empty Chapter is simply removed');
 });
 
 // ── export (formerly FUTURE) ──────────────────────────────────────────────────

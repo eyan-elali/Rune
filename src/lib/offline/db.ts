@@ -417,6 +417,8 @@ export async function getCachedChapterMeta(
         id: entry.id,
         // Entries cached before Rune 2.0 have no manuscript_id; nothing offline reads it.
         manuscript_id: entry.manuscript_id ?? '',
+        // Not cached (the stored shape is unchanged); nothing offline reads it.
+        group_id: null,
         title: entry.title,
         position: entry.position,
         is_completed: entry.is_completed,

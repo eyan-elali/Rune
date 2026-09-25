@@ -5,7 +5,8 @@
 // mapping (architecture doc §42):
 //
 //   * every Page becomes the Scene with the SAME id, content, word count,
-//     position, version and timestamps — empty Pages included;
+//     position, version and timestamps — empty Pages included (an Unplaced
+//     Scene's position is renumbered: see below);
 //   * Case A: in a Chapter with a canonical Page, that Page stays placed and
 //     every non-canonical sibling becomes Unplaced (chapter_id null);
 //     Case B: every Page of a Chapter without a canonical Page stays placed;
@@ -72,23 +73,33 @@ export async function prototypeLegacyToRune2(legacyDb, rune2Db, { faults = [] } 
   }
 
   // ── pages → scenes, with the §42 placement ──
+  // Unplaced positions must be unique per Manuscript (migration 022): the
+  // alternates of different Chapters would otherwise keep tied in-Chapter
+  // positions, so each Unplaced list is numbered 0..n-1 in (old position, id)
+  // order. Placed Scenes keep their positions.
   await rune2Db.exec(`alter table public.scenes disable trigger scenes_refresh_project_word_count`);
   const idMap = new Map();
   const unplaced = new Set();
+  const nextUnplaced = new Map();
   for (const p of await rows(`
       select p.id, p.chapter_id, c.project_id, p.title, p.content, p.word_count, p.position, p.version,
              p.created_at::text as created_at, p.updated_at::text as updated_at,
              (not p.is_canonical and exists (
                 select 1 from public.pages k where k.chapter_id = p.chapter_id and k.is_canonical)) as becomes_unplaced
       from public.pages p join public.chapters c on c.id = p.chapter_id
-      order by p.id`)) {
+      order by p.position, p.id`)) {
     const toUnplaced = p.becomes_unplaced && !fault('keep-alternates');
     const sceneId = fault('new-ids') ? crypto.randomUUID() : p.id;
     idMap.set(p.id, sceneId);
-    if (toUnplaced) unplaced.add(p.id);
+    let position = p.position;
+    if (toUnplaced) {
+      unplaced.add(p.id);
+      position = nextUnplaced.get(p.project_id) ?? 0;
+      nextUnplaced.set(p.project_id, position + 1);
+    }
     const cols = ['id', 'manuscript_id', 'chapter_id', 'title', 'content', 'word_count', 'position'];
     const vals = [sceneId, manuscriptOf.get(p.project_id), toUnplaced ? null : p.chapter_id, p.title,
-      p.content === null ? null : JSON.stringify(p.content), p.word_count, p.position];
+      p.content === null ? null : JSON.stringify(p.content), p.word_count, position];
     if (!fault('reset-sync')) {
       cols.push('version', 'created_at', 'updated_at');
       vals.push(p.version, p.created_at, p.updated_at);

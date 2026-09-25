@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import type { Project, Chapter, PlacedScene } from "@/lib/types";
 import { calculateChapterWordCount, calculateProjectWordCount } from "@/lib/manuscript";
-import { getChaptersWithScenes, getManuscriptIdForProject } from "@/lib/manuscriptQueries";
+import { getChaptersWithScenes } from "@/lib/manuscriptQueries";
+import { createProjectChecked } from "@/lib/projectCreation";
 
 type ActionResult<T> = { data: T; error: null } | { data: null; error: string };
 
@@ -31,28 +32,34 @@ export async function getProjects(): Promise<ActionResult<Project[]>> {
   return { data: data ?? [], error: null };
 }
 
+/**
+ * Creates a Project with its Manuscript, "Chapter 1" and an empty "Scene 1",
+ * atomically (create_project_checked, migration 021). requestId is the
+ * client's id for this creation attempt: a retry with the same id returns the
+ * Project the first attempt created instead of creating another.
+ */
 export async function createProject(
   title: string,
   description?: string,
-  coverColor?: string
+  coverColor?: string,
+  requestId?: string
 ): Promise<ActionResult<Project>> {
   const { supabase, user } = await getUser();
   if (!user) return { data: null, error: "Not authenticated" };
 
-  const { data, error } = await supabase
-    .from("projects")
-    .insert({
-      user_id: user.id,
-      title: title.trim(),
-      description: description?.trim() || null,
-      cover_color: coverColor ?? null,
-    })
-    .select()
-    .single();
+  const result = await createProjectChecked(supabase, {
+    title,
+    description: description?.trim() || null,
+    coverColor: coverColor ?? null,
+    requestId,
+  });
+  // An empty first Scene is never word-limit blocked; handled for completeness.
+  if (result.status === "word_limit_blocked") return { data: null, error: "Word limit reached" };
+  if (result.status === "error") return { data: null, error: result.error };
 
-  if (error) return { data: null, error: error.message };
   revalidatePath("/projects");
-  return { data, error: null };
+  revalidatePath("/dashboard");
+  return { data: result.project, error: null };
 }
 
 export async function updateProject(
@@ -162,63 +169,40 @@ export async function getProjectStats(
   return { chapterCount: chapters.length, totalWords: calculateProjectWordCount(chapters) };
 }
 
+/**
+ * The dashboard's "start your story" form: createProject, returning the first
+ * Chapter and Scene to open in the editor.
+ */
 export async function createProjectWithDraft(
   title: string,
-  coverColor?: string
+  coverColor?: string,
+  requestId?: string
 ): Promise<ActionResult<{ projectId: string; chapterId: string; scene: PlacedScene; chapter: Chapter; project: Project }>> {
   const { supabase, user } = await getUser();
   if (!user) return { data: null, error: "Not authenticated" };
 
-  const { data: project, error: projectError } = await supabase
-    .from("projects")
-    .insert({
-      user_id: user.id,
-      title: title.trim(),
-      cover_color: coverColor ?? null,
-    })
-    .select()
-    .single();
-
-  if (projectError || !project) {
-    return { data: null, error: projectError?.message ?? "Failed to create project" };
-  }
-
-  // Created with the Project by the database (trg_project_manuscript).
-  const manuscriptId = await getManuscriptIdForProject(supabase, project.id);
-  if (!manuscriptId) {
-    return { data: null, error: "Failed to create manuscript" };
-  }
-
-  // "Chapter 1" and its empty "Scene 1" in one transaction (migration 019).
-  const { data: created, error: chapterError } = await supabase.rpc("create_chapter_checked", {
-    p_manuscript_id: manuscriptId,
-    p_title: "Chapter 1",
-    p_scene_title: "Scene 1",
-    p_scene_content: null,
-    p_scene_word_count: 0,
+  const result = await createProjectChecked(supabase, {
+    title,
+    coverColor: coverColor ?? null,
+    requestId,
   });
-  if (chapterError) return { data: null, error: chapterError.message };
-
-  const result = created as
-    | { status: "ok"; chapter: Chapter; scene_id: string }
-    | { status: "word_limit_blocked"; limit: number }
-    | { status: "error"; error: string };
   if (result.status === "word_limit_blocked") return { data: null, error: "Word limit reached" };
   if (result.status === "error") return { data: null, error: result.error };
-  const chapter = result.chapter;
+
+  const { project, chapter, scene_id: sceneId } = result;
+  revalidatePath("/projects");
+  revalidatePath("/dashboard");
+  // Only possible on a retry whose Project has since lost its first Chapter or Scene.
+  if (!chapter || !sceneId) return { data: null, error: "This story already exists — open it from your projects." };
 
   const { data: scene, error: sceneError } = await supabase
     .from("scenes")
     .select("*")
-    .eq("id", result.scene_id)
+    .eq("id", sceneId)
     .single();
-
   if (sceneError || !scene) {
-    return { data: null, error: sceneError?.message ?? "Failed to create scene" };
+    return { data: null, error: sceneError?.message ?? "Failed to load the new scene" };
   }
-
-  revalidatePath("/projects");
-  revalidatePath("/dashboard");
 
   return { data: { projectId: project.id, chapterId: chapter.id, scene, chapter, project }, error: null };
 }

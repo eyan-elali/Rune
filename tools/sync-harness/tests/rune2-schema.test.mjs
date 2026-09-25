@@ -53,7 +53,7 @@ test('a database built from schema.sql alone is identical to baseline + migratio
   assert.deepEqual(diffCounts(a, b), []);
   const versions = async (db) => (await db.query(`select version, name, note from public.schema_migrations order by version`)).rows;
   assert.deepEqual(await versions(fresh), await versions(migrated));
-  assert.deepEqual((await versions(fresh)).map((r) => r.version).slice(-8), ['013', '014', '015', '016', '017', '018', '019', '020']);
+  assert.deepEqual((await versions(fresh)).map((r) => r.version).slice(-10), ['013', '014', '015', '016', '017', '018', '019', '020', '021', '022']);
 });
 
 test('signup still creates the profile and pricing entitlements on the Rune 2.0 schema', async () => {
@@ -351,4 +351,245 @@ test('019 refuses — changing nothing — over placed Scenes that already share
   const before = await captureCatalog(db);
   await assert.rejects(db.exec(readMigration(M019)), /1 Chapter position\(s\) are shared by more than one Scene/);
   assert.deepEqual(diffCatalogs(before, await captureCatalog(db)).differences, []);
+});
+
+// ── 7. migration 021 ──────────────────────────────────────────────────────────
+
+const M021 = '021_project_lifecycle_hardening.sql';
+const CREATE_PROJECT = 'create_project_checked(p_title text, p_description text, p_cover_color text, p_first_scene_content jsonb, p_first_scene_word_count integer, p_request_id uuid)';
+
+async function db020() {
+  const db = await db018();
+  for (const m of [M019, '020_manuscript_totals.sql']) await db.exec(readMigration(m));
+  return db;
+}
+
+test('021 on 020: create_project_checked, delete_chapter, no client Project INSERT or word_count write, non-cascading Scene→Chapter FK — nothing else', async () => {
+  const db = await db020();
+  const before = await captureCatalog(db);
+  await db.exec(readMigration(M021));
+  const { differences } = diffCatalogs(before, await captureCatalog(db));
+  const keys = differences.map((d) => `${d.section}:${d.kind}:${d.key}`).sort();
+  assert.deepEqual(keys, [
+    'columns:added:projects.creation_request_id',
+    'constraints:changed:scenes.scenes_chapter_same_manuscript_fkey',
+    `function_grants:added:${CREATE_PROJECT} authenticated EXECUTE`,
+    `function_grants:added:${CREATE_PROJECT} postgres EXECUTE`,
+    `function_grants:added:${CREATE_PROJECT} service_role EXECUTE`,
+    'function_grants:added:delete_chapter(p_chapter_id uuid) authenticated EXECUTE',
+    'function_grants:added:delete_chapter(p_chapter_id uuid) postgres EXECUTE',
+    'function_grants:added:delete_chapter(p_chapter_id uuid) service_role EXECUTE',
+    'function_grants:added:protect_project_word_count() authenticated EXECUTE',
+    'function_grants:added:protect_project_word_count() postgres EXECUTE',
+    'function_grants:added:protect_project_word_count() service_role EXECUTE',
+    `functions:added:${CREATE_PROJECT}`,
+    'functions:added:delete_chapter(p_chapter_id uuid)',
+    'functions:added:protect_project_word_count()',
+    'indexes:added:projects.projects_user_id_creation_request_id_key',
+    'policies:removed:projects.projects: insert own',
+    'table_grants:removed:projects anon INSERT',
+    'table_grants:removed:projects authenticated INSERT',
+    'triggers:added:projects.projects_protect_word_count',
+  ], fmt(differences));
+  const fk = (await db.query(`select confdeltype from pg_constraint where conname = 'scenes_chapter_same_manuscript_fkey'`)).rows[0];
+  assert.equal(fk.confdeltype, 'a', 'ON DELETE NO ACTION (was CASCADE)');
+});
+
+test('021 requires 020, refuses to run twice (including on schema.sql), and changes nothing when it refuses', async () => {
+  const only019 = await db018();
+  await only019.exec(readMigration(M019));
+  await assert.rejects(only019.exec(readMigration(M021)), /requires migration 020/);
+  for (const db of [await migratedDb(), await freshRune2Db()]) {
+    const before = await captureCatalog(db);
+    await assert.rejects(db.exec(readMigration(M021)), /Migration 021 has already been applied/);
+    assert.deepEqual(diffCatalogs(before, await captureCatalog(db)).differences, []);
+  }
+});
+
+test('021 over existing manuscripts changes no row: every Project, Chapter and Scene is kept as it was', async () => {
+  const db = await db020();
+  const user = await createAuthUser(db, '00000000-0000-4000-8000-0000000021a1');
+  const { id: projectId } = (await db.query(`insert into public.projects (user_id, title) values ($1, 'Kept') returning id`, [user])).rows[0];
+  const { id: m } = (await db.query(`select id from public.manuscripts where project_id = $1`, [projectId])).rows[0];
+  const { id: ch } = (await db.query(`insert into public.chapters (manuscript_id, title, position) values ($1, 'One', 1) returning id`, [m])).rows[0];
+  await db.query(`insert into public.scenes (manuscript_id, chapter_id, title, word_count, position) values ($1, $2, 'a', 7, 0), ($1, null, 'b', 3, 0)`, [m, ch]);
+  const rows = async () => ({
+    projects: (await db.query(`select * from public.projects order by id`)).rows,
+    chapters: (await db.query(`select * from public.chapters order by id`)).rows,
+    scenes: (await db.query(`select * from public.scenes order by id`)).rows,
+  });
+  const before = await rows();
+  await db.exec(readMigration(M021));
+  const after = await rows();
+  assert.deepEqual(after.projects.map(({ creation_request_id, ...p }) => { assert.equal(creation_request_id, null); return p; }), before.projects);
+  assert.deepEqual(after.chapters, before.chapters);
+  assert.deepEqual(after.scenes, before.scenes);
+});
+
+// ── 8. migration 022 ──────────────────────────────────────────────────────────
+
+const M022 = '022_manuscript_groups.sql';
+
+async function db021() {
+  const db = await db020();
+  await db.exec(readMigration(M021));
+  return db;
+}
+
+test('022 on 021: Manuscript Groups, the sibling ordering model, unique Unplaced order, Scene deletion keeps history — nothing else', async () => {
+  const db = await db021();
+  const before = await captureCatalog(db);
+  await db.exec(readMigration(M022));
+  const after = await captureCatalog(db);
+  const { differences } = diffCatalogs(before, after);
+  const keys = differences.map((d) => `${d.section}:${d.kind}:${d.key}`).sort();
+  assert.deepEqual(keys, [
+    'columns:added:chapters.group_id',
+    'columns:added:manuscript_groups.created_at',
+    'columns:added:manuscript_groups.id',
+    'columns:added:manuscript_groups.manuscript_id',
+    'columns:added:manuscript_groups.parent_group_id',
+    'columns:added:manuscript_groups.position',
+    'columns:added:manuscript_groups.title',
+    'columns:added:manuscript_groups.updated_at',
+    'constraints:added:chapters.chapters_group_same_manuscript_fkey',
+    'constraints:added:chapters.chapters_sibling_position_key',
+    'constraints:added:manuscript_groups.manuscript_groups_id_manuscript_id_key',
+    'constraints:added:manuscript_groups.manuscript_groups_manuscript_id_fkey',
+    'constraints:added:manuscript_groups.manuscript_groups_not_own_parent',
+    'constraints:added:manuscript_groups.manuscript_groups_parent_same_manuscript_fkey',
+    'constraints:added:manuscript_groups.manuscript_groups_pkey',
+    'constraints:added:manuscript_groups.manuscript_groups_sibling_position_key',
+    'constraints:added:manuscript_groups.manuscript_groups_title_not_blank',
+    'constraints:added:scenes.scenes_unplaced_position_excl',
+    'constraints:changed:writing_sessions.writing_sessions_scene_id_fkey',
+    'constraints:removed:chapters.chapters_manuscript_id_position_key',
+    'function_grants:added:check_structure_sibling_position() authenticated EXECUTE',
+    'function_grants:added:check_structure_sibling_position() postgres EXECUTE',
+    'function_grants:added:check_structure_sibling_position() service_role EXECUTE',
+    'function_grants:added:create_manuscript_group(p_manuscript_id uuid, p_parent_group_id uuid, p_title text) authenticated EXECUTE',
+    'function_grants:added:create_manuscript_group(p_manuscript_id uuid, p_parent_group_id uuid, p_title text) postgres EXECUTE',
+    'function_grants:added:create_manuscript_group(p_manuscript_id uuid, p_parent_group_id uuid, p_title text) service_role EXECUTE',
+    'function_grants:added:delete_manuscript_group(p_group_id uuid) authenticated EXECUTE',
+    'function_grants:added:delete_manuscript_group(p_group_id uuid) postgres EXECUTE',
+    'function_grants:added:delete_manuscript_group(p_group_id uuid) service_role EXECUTE',
+    'function_grants:added:detach_scene_writing_sessions() authenticated EXECUTE',
+    'function_grants:added:detach_scene_writing_sessions() postgres EXECUTE',
+    'function_grants:added:detach_scene_writing_sessions() service_role EXECUTE',
+    'function_grants:added:forbid_manuscript_group_cycle() authenticated EXECUTE',
+    'function_grants:added:forbid_manuscript_group_cycle() postgres EXECUTE',
+    'function_grants:added:forbid_manuscript_group_cycle() service_role EXECUTE',
+    'function_grants:added:move_chapter(p_chapter_id uuid, p_parent_group_id uuid, p_index integer) authenticated EXECUTE',
+    'function_grants:added:move_chapter(p_chapter_id uuid, p_parent_group_id uuid, p_index integer) postgres EXECUTE',
+    'function_grants:added:move_chapter(p_chapter_id uuid, p_parent_group_id uuid, p_index integer) service_role EXECUTE',
+    'function_grants:added:move_manuscript_group(p_group_id uuid, p_parent_group_id uuid, p_index integer) authenticated EXECUTE',
+    'function_grants:added:move_manuscript_group(p_group_id uuid, p_parent_group_id uuid, p_index integer) postgres EXECUTE',
+    'function_grants:added:move_manuscript_group(p_group_id uuid, p_parent_group_id uuid, p_index integer) service_role EXECUTE',
+    'function_grants:added:next_structure_position(p_manuscript_id uuid, p_parent_group_id uuid) postgres EXECUTE',
+    'function_grants:added:next_structure_position(p_manuscript_id uuid, p_parent_group_id uuid) service_role EXECUTE',
+    'function_grants:added:place_in_manuscript_structure(p_manuscript_id uuid, p_parent_group_id uuid, p_kind text, p_id uuid, p_index integer) postgres EXECUTE',
+    'function_grants:added:place_in_manuscript_structure(p_manuscript_id uuid, p_parent_group_id uuid, p_kind text, p_id uuid, p_index integer) service_role EXECUTE',
+    'function_grants:added:protect_structure_placement() authenticated EXECUTE',
+    'function_grants:added:protect_structure_placement() postgres EXECUTE',
+    'function_grants:added:protect_structure_placement() service_role EXECUTE',
+    'functions:added:check_structure_sibling_position()',
+    'functions:added:create_manuscript_group(p_manuscript_id uuid, p_parent_group_id uuid, p_title text)',
+    'functions:added:delete_manuscript_group(p_group_id uuid)',
+    'functions:added:detach_scene_writing_sessions()',
+    'functions:added:forbid_manuscript_group_cycle()',
+    'functions:added:move_chapter(p_chapter_id uuid, p_parent_group_id uuid, p_index integer)',
+    'functions:added:move_manuscript_group(p_group_id uuid, p_parent_group_id uuid, p_index integer)',
+    'functions:added:next_structure_position(p_manuscript_id uuid, p_parent_group_id uuid)',
+    'functions:added:place_in_manuscript_structure(p_manuscript_id uuid, p_parent_group_id uuid, p_kind text, p_id uuid, p_index integer)',
+    'functions:added:protect_structure_placement()',
+    'functions:changed:create_chapter_checked(p_manuscript_id uuid, p_title text, p_scene_title text, p_scene_content jsonb, p_scene_word_count integer)',
+    'functions:changed:duplicate_project_checked(p_project_id uuid)',
+    'indexes:added:chapters.chapters_sibling_position_key',
+    'indexes:added:manuscript_groups.manuscript_groups_id_manuscript_id_key',
+    'indexes:added:manuscript_groups.manuscript_groups_pkey',
+    'indexes:added:manuscript_groups.manuscript_groups_sibling_position_key',
+    'indexes:added:scenes.scenes_unplaced_position_excl',
+    'indexes:removed:chapters.chapters_manuscript_id_position_key',
+    'policies:added:manuscript_groups.manuscript_groups: select own',
+    'policies:added:manuscript_groups.manuscript_groups: update own',
+    'relations:added:manuscript_groups',
+    'table_grants:added:manuscript_groups anon REFERENCES',
+    'table_grants:added:manuscript_groups anon SELECT',
+    'table_grants:added:manuscript_groups anon TRIGGER',
+    'table_grants:added:manuscript_groups anon TRUNCATE',
+    'table_grants:added:manuscript_groups anon UPDATE',
+    'table_grants:added:manuscript_groups authenticated REFERENCES',
+    'table_grants:added:manuscript_groups authenticated SELECT',
+    'table_grants:added:manuscript_groups authenticated TRIGGER',
+    'table_grants:added:manuscript_groups authenticated TRUNCATE',
+    'table_grants:added:manuscript_groups authenticated UPDATE',
+    'table_grants:added:manuscript_groups service_role DELETE',
+    'table_grants:added:manuscript_groups service_role INSERT',
+    'table_grants:added:manuscript_groups service_role REFERENCES',
+    'table_grants:added:manuscript_groups service_role SELECT',
+    'table_grants:added:manuscript_groups service_role TRIGGER',
+    'table_grants:added:manuscript_groups service_role TRUNCATE',
+    'table_grants:added:manuscript_groups service_role UPDATE',
+    'triggers:added:chapters.chapters_check_sibling_position',
+    'triggers:added:chapters.chapters_protect_placement',
+    'triggers:added:manuscript_groups.manuscript_groups_check_sibling_position',
+    'triggers:added:manuscript_groups.manuscript_groups_forbid_cycle',
+    'triggers:added:manuscript_groups.manuscript_groups_forbid_manuscript_reassignment',
+    'triggers:added:manuscript_groups.manuscript_groups_protect_placement',
+    'triggers:added:scenes.scenes_detach_writing_sessions',
+  ], fmt(differences));
+  const fk = (await db.query(`select confdeltype from pg_constraint where conname = 'writing_sessions_scene_id_fkey'`)).rows[0];
+  assert.equal(fk.confdeltype, 'n', 'ON DELETE SET NULL (was CASCADE)');
+  assert.equal(after.relations.find((r) => r.table === 'manuscript_groups').rls_enabled, true);
+  const grantees = (fn) => after.function_grants.filter((g) => g.function.startsWith(`${fn}(`)).map((g) => g.grantee).sort();
+  for (const fn of ['next_structure_position', 'place_in_manuscript_structure']) {
+    assert.deepEqual(grantees(fn), ['postgres', 'service_role'], `${fn} is internal`);
+  }
+});
+
+test('022 requires 021, refuses to run twice (including on schema.sql), and changes nothing when it refuses', async () => {
+  const only020 = await db020();
+  await assert.rejects(only020.exec(readMigration(M022)), /requires migration 021/);
+  for (const db of [await migratedDb(), await freshRune2Db()]) {
+    const before = await captureCatalog(db);
+    await assert.rejects(db.exec(readMigration(M022)), /Migration 022 has already been applied/);
+    assert.deepEqual(diffCatalogs(before, await captureCatalog(db)).differences, []);
+  }
+});
+
+test('022 over existing manuscripts: every Chapter stays top level where it was; tied Unplaced positions are fixed by moving only the extra Scenes, without a version change', async () => {
+  const db = await db021();
+  const user = await createAuthUser(db, '00000000-0000-4000-8000-0000000022a1');
+  const { id: projectId } = (await db.query(`insert into public.projects (user_id, title) values ($1, 'Kept') returning id`, [user])).rows[0];
+  const { id: m } = (await db.query(`select id from public.manuscripts where project_id = $1`, [projectId])).rows[0];
+  const ch = [];
+  for (const pos of [1, 2]) ch.push((await db.query(`insert into public.chapters (manuscript_id, title, position) values ($1, 'C', $2) returning id`, [m, pos])).rows[0].id);
+  await db.query(`insert into public.scenes (manuscript_id, chapter_id, title, word_count, position) values ($1, $2, 'placed', 7, 0)`, [m, ch[0]]);
+  // Unplaced: a, b tie at 0 (a older); c at 1; d, e tie at 1 too (d older than e); f at 3.
+  const at = (t) => `2026-01-01 00:00:0${t}+00`;
+  const add = async (title, position, t) => (await db.query(`insert into public.scenes (manuscript_id, chapter_id, title, word_count, position, created_at)
+    values ($1, null, $2, 1, $3, $4) returning id`, [m, title, position, at(t)])).rows[0].id;
+  const ids = { a: await add('a', 0, 1), b: await add('b', 0, 2), c: await add('c', 1, 1), d: await add('d', 1, 2), e: await add('e', 1, 3), f: await add('f', 3, 1) };
+  // Give them versions above 1, as real Scenes have.
+  await db.query(`update public.scenes set word_count = word_count + 1 where manuscript_id = $1`, [m]);
+  const rows = async () => (await db.query(`select id, title, position, version, updated_at, chapter_id from public.scenes where manuscript_id = $1 order by title`, [m])).rows;
+  const projectBefore = (await db.query(`select updated_at from public.projects where id = $1`, [projectId])).rows[0];
+  const chaptersBefore = (await db.query(`select * from public.chapters order by id`)).rows;
+  const before = await rows();
+
+  await db.exec(readMigration(M022));
+
+  const after = await rows();
+  const pos = Object.fromEntries(after.map((r) => [r.title, r.position]));
+  assert.deepEqual(pos, { a: 0, c: 1, f: 3, b: 4, d: 5, e: 6, placed: 0 }, 'each tie keeps its oldest Scene; the others go last, in (position, created_at) order');
+  const moved = after.filter((r, i) => r.position !== before[i].position).map((r) => r.title).sort();
+  assert.deepEqual(moved, ['b', 'd', 'e'], 'only the extra Scenes were written');
+  assert.deepEqual(after.map(({ position, ...r }) => r), before.map(({ position, ...r }) => r), 'same ids, versions and updated_at');
+  assert.deepEqual((await db.query(`select updated_at from public.projects where id = $1`, [projectId])).rows[0], projectBefore);
+  assert.deepEqual((await db.query(`select * from public.chapters order by id`)).rows, chaptersBefore.map((c) => ({ ...c, group_id: null })),
+    'Chapters: same rows, top level, same positions');
+  // Triggers are back on.
+  await db.query(`update public.scenes set title = 'a2' where id = $1`, [ids.a]);
+  const a2 = (await db.query(`select version from public.scenes where id = $1`, [ids.a])).rows[0];
+  assert.equal(a2.version, before.find((r) => r.title === 'a').version + 1);
 });

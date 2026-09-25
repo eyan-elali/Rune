@@ -18,7 +18,7 @@ export function ManuscriptExportButton({ project }: Props) {
   async function handleExport() {
     setLoading(true);
     try {
-      const { chapters, scenesPerChapter } = await loadManuscriptForExport(
+      const { chapters, scenesPerChapter, groups } = await loadManuscriptForExport(
         createClient(),
         project.id
       );
@@ -28,7 +28,7 @@ export function ManuscriptExportButton({ project }: Props) {
         return;
       }
 
-      await exportProjectAsPdf(project, chapters, scenesPerChapter);
+      await exportProjectAsPdf(project, chapters, scenesPerChapter, groups);
       showToast("Manuscript exported.", "success");
     } catch {
       showToast("Failed to export manuscript.", "error");

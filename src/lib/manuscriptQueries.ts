@@ -1,7 +1,13 @@
-import type { Chapter, UnplacedScene } from "@/lib/types";
+import type { Chapter, ManuscriptGroup, UnplacedScene } from "@/lib/types";
+import { orderChaptersInManuscript } from "@/lib/manuscriptStructure";
 
 // Rune 2.0 manuscript reads shared by server actions, route handlers and
-// browser components: Project → Manuscript → Chapters → placed Scenes.
+// browser components: Project → Manuscript → (Groups →) Chapters → placed
+// Scenes.
+//
+// Chapter lists are in manuscript READING order (Groups first-to-last, depth
+// first: lib/manuscriptStructure.ts), not by chapters.position, which only
+// orders a Chapter among its own parent's children since migration 022.
 //
 // Chapters belong to a Manuscript (chapters.manuscript_id), not directly to a
 // Project, so every "chapters of this project" read resolves the Project's
@@ -54,8 +60,9 @@ export async function getProjectIdsByManuscript(
 }
 
 /**
- * Every Chapter of the given Projects, by position, each with its placed
- * Scenes (id, word_count) by position. Projects without Chapters map to [].
+ * Every Chapter of the given Projects, in manuscript reading order, each with
+ * its placed Scenes (id, word_count) by position. Projects without Chapters
+ * map to [].
  */
 export async function getChaptersWithScenesByProject(
   supabase: SupabaseLike,
@@ -74,6 +81,12 @@ export async function getChaptersWithScenesByProject(
     .in("manuscript_id", [...manuscripts.data.keys()])
     .order("position", { ascending: true });
   if (chapterError) return { data: byProject, error: chapterError };
+
+  const { data: groups, error: groupError } = await supabase
+    .from("manuscript_groups")
+    .select("id, manuscript_id, parent_group_id, position")
+    .in("manuscript_id", [...manuscripts.data.keys()]);
+  if (groupError) return { data: byProject, error: groupError };
 
   const chapterRows = (chapters ?? []) as Chapter[];
   const scenesByChapter = new Map<string, SceneSummary[]>();
@@ -96,16 +109,38 @@ export async function getChaptersWithScenesByProject(
     if (!projectId) continue;
     byProject[projectId].push({ ...chapter, scenes: scenesByChapter.get(chapter.id) ?? [] });
   }
+  const groupRows = (groups ?? []) as Pick<ManuscriptGroup, "id" | "manuscript_id" | "parent_group_id" | "position">[];
+  for (const [manuscriptId, projectId] of manuscripts.data) {
+    byProject[projectId] = orderChaptersInManuscript(
+      byProject[projectId],
+      groupRows.filter((g) => g.manuscript_id === manuscriptId)
+    );
+  }
   return { data: byProject, error: null };
 }
 
-/** One Project's Chapters by position, each with its placed Scenes. */
+/** One Project's Chapters in manuscript reading order, each with its placed Scenes. */
 export async function getChaptersWithScenes(
   supabase: SupabaseLike,
   projectId: string
 ): Promise<{ data: ChapterWithScenes[]; error: QueryError | null }> {
   const { data, error } = await getChaptersWithScenesByProject(supabase, [projectId]);
   return { data: data[projectId] ?? [], error };
+}
+
+/** The Project's Manuscript Groups (unordered: order them with lib/manuscriptStructure.ts). */
+export async function getManuscriptGroups(
+  supabase: SupabaseLike,
+  projectId: string
+): Promise<{ data: ManuscriptGroup[]; error: QueryError | null }> {
+  const manuscriptId = await getManuscriptIdForProject(supabase, projectId);
+  if (!manuscriptId) return { data: [], error: null };
+  const { data, error } = await supabase
+    .from("manuscript_groups")
+    .select("*")
+    .eq("manuscript_id", manuscriptId);
+  if (error) return { data: [], error };
+  return { data: (data ?? []) as ManuscriptGroup[], error: null };
 }
 
 /** The Project that owns a Manuscript, or null when it is not visible to the caller. */

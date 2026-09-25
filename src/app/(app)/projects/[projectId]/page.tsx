@@ -5,7 +5,11 @@ import { UnplacedSceneList } from "@/components/projects/UnplacedSceneList";
 import { ProjectHeader } from "@/components/projects/ProjectHeader";
 import type { SubscriptionTier } from "@/lib/subscription";
 import { calculateProjectWordCount, sumSceneWords } from "@/lib/manuscript";
-import { getChaptersWithScenes, getUnplacedSceneSummaries } from "@/lib/manuscriptQueries";
+import {
+  getChaptersWithScenes,
+  getManuscriptGroups,
+  getUnplacedSceneSummaries,
+} from "@/lib/manuscriptQueries";
 
 interface ProjectPageProps {
   params: Promise<{ projectId: string }>;
@@ -17,7 +21,13 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
 
   const { data: { user } } = await supabase.auth.getUser();
 
-  const [{ data: project }, { data: chapters }, { data: profileTier }, { data: unplaced }] = await Promise.all([
+  const [
+    { data: project },
+    { data: chapters },
+    { data: profileTier },
+    { data: unplaced },
+    { data: groups },
+  ] = await Promise.all([
     supabase.from("projects").select("*").eq("id", projectId).single(),
     getChaptersWithScenes(supabase, projectId),
     supabase
@@ -26,6 +36,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
       .eq("id", user!.id)
       .single(),
     getUnplacedSceneSummaries(supabase, projectId),
+    getManuscriptGroups(supabase, projectId),
   ]);
 
   if (!project) notFound();
@@ -55,7 +66,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
         <h2 className="!mb-3 text-xs font-medium uppercase tracking-widest text-rune-mist/60">
           Chapters
         </h2>
-        <ChapterList chapters={typedChapters} projectId={projectId} />
+        <ChapterList chapters={typedChapters} groups={groups} projectId={projectId} />
       </section>
 
       {/* Unplaced Scenes — only once the writer has moved something out of a chapter. */}

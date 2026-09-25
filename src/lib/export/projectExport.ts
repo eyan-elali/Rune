@@ -1,4 +1,5 @@
-import type { Project, Chapter, PlacedScene } from "@/lib/types";
+import type { Project, Chapter, ManuscriptGroup, PlacedScene } from "@/lib/types";
+import { orderChaptersInManuscript } from "@/lib/manuscriptStructure";
 import {
   PW,
   PH,
@@ -97,8 +98,10 @@ export type ExportedChapter = {
 /**
  * What the standard manuscript export prints, in order (architecture §6):
  *
- *   * every Chapter with at least one placed Scene, by Chapter position, under
- *     its heading (a Chapter with no placed Scene is left out, as before);
+ *   * every Chapter with at least one placed Scene, in manuscript reading
+ *     order (through its Manuscript Groups: lib/manuscriptStructure.ts), under
+ *     its heading (a Chapter with no placed Scene is left out, as before).
+ *     Group headings are not printed yet (their format is undecided, §4);
  *   * its prose: all its placed Scenes, by Scene position, concatenated. A
  *     scene break ("* * *") goes between two adjacent Scenes — never before the
  *     first or after the last. Scenes without text print nothing and take no
@@ -110,10 +113,10 @@ export type ExportedChapter = {
  */
 export function planManuscriptExport(
   chapters: Chapter[],
-  scenesPerChapter: Record<string, PlacedScene[]>
+  scenesPerChapter: Record<string, PlacedScene[]>,
+  groups: Pick<ManuscriptGroup, "id" | "parent_group_id" | "position">[] = []
 ): ExportedChapter[] {
-  return [...chapters]
-    .sort((a, b) => a.position - b.position)
+  return orderChaptersInManuscript(chapters, groups)
     .flatMap((chapter) => {
       const placed = (scenesPerChapter[chapter.id] ?? []).filter((s) => s.chapter_id === chapter.id);
       if (placed.length === 0) return [];
@@ -128,21 +131,26 @@ export function planManuscriptExport(
 type SupabaseLike = any;
 
 /**
- * Loads what the manuscript export renders: the Project's Chapters by
- * position and their placed Scenes. Unplaced Scenes are never exported.
+ * Loads what the manuscript export renders: the Project's Chapters in
+ * manuscript reading order, its Groups, and the placed Scenes. Unplaced
+ * Scenes are never exported.
  * Throws on a failed read so a partial manuscript is never exported.
  */
 export async function loadManuscriptForExport(
   supabase: SupabaseLike,
   projectId: string
-): Promise<{ chapters: Chapter[]; scenesPerChapter: Record<string, PlacedScene[]> }> {
+): Promise<{
+  chapters: Chapter[];
+  scenesPerChapter: Record<string, PlacedScene[]>;
+  groups: ManuscriptGroup[];
+}> {
   const { data: manuscript, error: manuscriptErr } = await supabase
     .from("manuscripts")
     .select("id")
     .eq("project_id", projectId)
     .maybeSingle();
   if (manuscriptErr) throw manuscriptErr;
-  if (!manuscript) return { chapters: [], scenesPerChapter: {} };
+  if (!manuscript) return { chapters: [], scenesPerChapter: {}, groups: [] };
 
   const { data: chapters, error: chapErr } = await supabase
     .from("chapters")
@@ -150,7 +158,13 @@ export async function loadManuscriptForExport(
     .eq("manuscript_id", manuscript.id)
     .order("position", { ascending: true });
   if (chapErr) throw chapErr;
-  if (!chapters || chapters.length === 0) return { chapters: [], scenesPerChapter: {} };
+  if (!chapters || chapters.length === 0) return { chapters: [], scenesPerChapter: {}, groups: [] };
+
+  const { data: groups, error: groupErr } = await supabase
+    .from("manuscript_groups")
+    .select("*")
+    .eq("manuscript_id", manuscript.id);
+  if (groupErr) throw groupErr;
 
   const { data: scenes, error: sceneErr } = await supabase
     .from("scenes")
@@ -163,13 +177,19 @@ export async function loadManuscriptForExport(
   for (const scene of (scenes ?? []) as PlacedScene[]) {
     (scenesPerChapter[scene.chapter_id] ??= []).push(scene);
   }
-  return { chapters: chapters as Chapter[], scenesPerChapter };
+  const typedGroups = (groups ?? []) as ManuscriptGroup[];
+  return {
+    chapters: orderChaptersInManuscript(chapters as Chapter[], typedGroups),
+    scenesPerChapter,
+    groups: typedGroups,
+  };
 }
 
 export async function exportProjectAsPdf(
   project: Project,
   chapters: Chapter[],
-  scenesPerChapter: Record<string, PlacedScene[]>
+  scenesPerChapter: Record<string, PlacedScene[]>,
+  groups: Pick<ManuscriptGroup, "id" | "parent_group_id" | "position">[] = []
 ): Promise<void> {
   const { default: jsPDF } = await import("jspdf");
 
@@ -187,7 +207,7 @@ export async function exportProjectAsPdf(
   };
 
   let firstChapter = true;
-  for (const { chapter, scenes } of planManuscriptExport(chapters, scenesPerChapter)) {
+  for (const { chapter, scenes } of planManuscriptExport(chapters, scenesPerChapter, groups)) {
     // Start every chapter on a fresh page
     if (firstChapter) {
       doc.addPage();

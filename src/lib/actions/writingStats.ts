@@ -89,12 +89,13 @@ export async function recordWordsWritten(
     .eq("user_id", user.id)
     .eq("session_date", date);
 
+  // Project-level and account-level rows have no Scene: never match a Scene's row.
   const { data: existing } = await (
     sceneId !== null
       ? baseQuery.eq("scene_id", sceneId)
       : projectId
-      ? baseQuery.eq("project_id", projectId)
-      : baseQuery.is("project_id", null)
+      ? baseQuery.eq("project_id", projectId).is("scene_id", null)
+      : baseQuery.is("project_id", null).is("scene_id", null)
   ).maybeSingle();
 
   if (existing) {
@@ -103,13 +104,20 @@ export async function recordWordsWritten(
       .update({ words_added: existing.words_added + wordsAdded })
       .eq("id", existing.id);
   } else {
-    await supabase.from("writing_sessions").insert({
+    const { error: insertError } = await supabase.from("writing_sessions").insert({
       user_id: user.id,
       project_id: projectId,
       scene_id: sceneId,
       session_date: date,
       words_added: wordsAdded,
     });
+    // The Scene was deleted before this credit arrived (e.g. queued offline).
+    // The writing still happened: record it as Project-level history, as the
+    // database does with a deleted Scene's own history (migration 022).
+    if (insertError?.code === "23503" && sceneId !== null) {
+      await recordWordsWritten(projectId, wordsAdded, null, date);
+      return;
+    }
   }
 
   await checkWritingDayMilestones(supabase, user.id);

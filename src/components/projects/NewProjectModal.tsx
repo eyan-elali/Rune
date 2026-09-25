@@ -45,10 +45,14 @@ export function NewProjectModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const titleRef = useRef<HTMLInputElement>(null);
+  // One id per opening of the dialog: resubmitting after a lost response
+  // returns the Project already created instead of creating a second one.
+  const requestIdRef = useRef<string | null>(null);
 
   // Sync form when editing target changes or modal opens
   useEffect(() => {
     if (open) {
+      requestIdRef.current = null;
       setTitle(editing?.title ?? "");
       setDescription(editing?.description ?? "");
       setColor(editing?.cover_color ?? COVER_COLORS[0].value);
@@ -83,7 +87,12 @@ export function NewProjectModal({
           description: description.trim() || null,
           cover_color: color,
         })
-      : await createProject(title.trim(), description.trim() || undefined, color);
+      : await createProject(
+          title.trim(),
+          description.trim() || undefined,
+          color,
+          (requestIdRef.current ??= crypto.randomUUID())
+        );
 
     setLoading(false);
     if (result.error) {
