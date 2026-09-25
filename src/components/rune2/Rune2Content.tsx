@@ -2,13 +2,14 @@
 
 import type { ReactNode } from "react";
 import type { NavEntry, NavKind } from "@/lib/rune2/navigatorModel";
-import { chapterShowsScenes } from "@/lib/rune2/navigatorModel";
+import { writingTargetFor } from "@/lib/rune2/writingTarget";
 import { useRune2Selection } from "./Rune2Selection";
+import { Rune2Writing } from "./Rune2Writing";
 
-// The context bar (a quiet breadcrumb to the selection) and the content area's
-// selection view. The view is temporary scaffolding until the editor arrives:
-// it only proves the navigator's selection is wired to real objects. With
-// nothing selected, the content area shows its route (the Manuscript overview).
+// The context bar (a quiet breadcrumb to the selection) and the content area.
+// Chapters and Scenes open in the writing surface (see writingTarget.ts);
+// a Group shows a structural summary; with nothing selected, the content area
+// shows its route (the Manuscript overview).
 
 const KIND_LABEL: Record<NavKind, string> = {
   group: "Group",
@@ -58,30 +59,19 @@ export function Rune2ContextBar() {
 }
 
 export function Rune2SelectionView({ children }: { children: ReactNode }) {
-  const { selected, index } = useRune2Selection();
-  if (!selected) return <>{children}</>;
-  return <SelectionPreview entry={selected} index={index} />;
+  const { manuscript, selected, index } = useRune2Selection();
+  const target = writingTargetFor(selected, index);
+  return (
+    <>
+      {!target && (selected ? <StructurePreview entry={selected} /> : children)}
+      {/* Always mounted, in the same place: one editor instance for the shell. */}
+      <Rune2Writing projectId={manuscript.project.id} target={target} />
+    </>
+  );
 }
 
-function SelectionPreview({ entry, index }: { entry: NavEntry; index: Map<string, NavEntry> }) {
-  const facts: [string, string][] = [];
-  if (entry.kind === "group") {
-    facts.push(["Contains", plural(entry.childCount, "item")]);
-    facts.push(["Words", plural(entry.words, "word")]);
-  } else if (entry.kind === "chapter") {
-    const scenes = (entry.sceneIds ?? []).map((id) => index.get(id)).filter(Boolean) as NavEntry[];
-    facts.push(["Words", plural(entry.words, "word")]);
-    facts.push([
-      "Scenes",
-      scenes.length === 1 && !chapterShowsScenes({ scenes })
-        ? `1 scene, not shown in the navigator (${scenes[0].title})`
-        : plural(scenes.length, "scene"),
-    ]);
-  } else {
-    facts.push(["Words", plural(entry.words, "word")]);
-    if (entry.kind === "unplacedScene") facts.push(["Placement", "Not in the manuscript’s order"]);
-  }
-
+/** A Group: structure, not prose. A restrained summary until Groups get their own view. */
+function StructurePreview({ entry }: { entry: NavEntry }) {
   return (
     <div className="mx-auto max-w-2xl px-8 pb-16 pt-14">
       <p className="text-xs font-medium" style={{ color: "var(--r2-faint)" }}>
@@ -89,16 +79,11 @@ function SelectionPreview({ entry, index }: { entry: NavEntry; index: Map<string
       </p>
       <h1 className="mt-1 text-2xl font-semibold tracking-tight">{entry.title}</h1>
       <dl className="mt-8 grid grid-cols-[auto_1fr] gap-x-8 gap-y-1.5 text-sm">
-        {facts.map(([term, value]) => (
-          <div key={term} className="contents">
-            <dt style={{ color: "var(--r2-muted)" }}>{term}</dt>
-            <dd className="tabular-nums">{value}</dd>
-          </div>
-        ))}
+        <dt style={{ color: "var(--r2-muted)" }}>Contains</dt>
+        <dd className="tabular-nums">{plural(entry.childCount, "item")}</dd>
+        <dt style={{ color: "var(--r2-muted)" }}>Words</dt>
+        <dd className="tabular-nums">{plural(entry.words, "word")}</dd>
       </dl>
-      <p className="mt-10 text-xs" style={{ color: "var(--r2-faint)" }}>
-        Temporary view — the editor arrives in a later milestone.
-      </p>
     </div>
   );
 }

@@ -188,6 +188,21 @@ export async function reorderScenes(
   return { error: null };
 }
 
+/**
+ * One Scene — placed or Unplaced — with its content, for an editor opening it
+ * by id (the Rune 2.0 writing surface). RLS limits it to the writer's own
+ * Scenes; a Scene that doesn't exist or isn't visible returns an error.
+ */
+export async function getScene(sceneId: string): Promise<ActionResult<Scene>> {
+  const { supabase, user } = await getUser();
+  if (!user) return { data: null, error: "Not authenticated" };
+
+  const { data, error } = await supabase.from("scenes").select("*").eq("id", sceneId).maybeSingle();
+  if (error) return { data: null, error: error.message };
+  if (!data) return { data: null, error: "Scene not found" };
+  return { data: data as Scene, error: null };
+}
+
 /** The Project's Unplaced Scenes, in Unplaced order. */
 export async function getUnplacedScenes(
   projectId: string
