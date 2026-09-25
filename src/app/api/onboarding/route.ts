@@ -126,7 +126,7 @@ export async function POST(req: Request) {
     "insert_scene_checked",
     {
       p_chapter_id: chapter.id,
-      p_title: "Page 1",
+      p_title: "Scene 1",
       p_content: sceneContent,
       p_word_count: wordCount,
       p_position: 0,

@@ -96,7 +96,7 @@ export function PageSourceSelector({ onSelect, className }: PageSourceSelectorPr
             )}
             style={mode !== opt ? { borderColor: "var(--color-border-strong)" } : undefined}
           >
-            {opt === "fresh" ? "Fresh Start" : "Continue a Page"}
+            {opt === "fresh" ? "Fresh Start" : "Continue a Scene"}
           </button>
         ))}
       </div>
@@ -209,12 +209,12 @@ export function PageSourceSelector({ onSelect, className }: PageSourceSelectorPr
                         style={{ border: "1px solid var(--color-border)", background: "var(--color-sepia)" }}
                       >
                         {isPagesPending ? (
-                          <div className="flex justify-center px-4 py-3" aria-label="Loading pages">
+                          <div className="flex justify-center px-4 py-3" aria-label="Loading scenes">
                             <Loader2 className="h-3.5 w-3.5 animate-spin text-[var(--color-gold)]" />
                           </div>
                         ) : chapterPages.length === 0 ? (
                           <p className="px-4 py-2 text-xs" style={{ color: "var(--color-mist)", opacity: 0.4 }}>
-                            No pages
+                            No scenes
                           </p>
                         ) : (
                           chapterPages.map((page, i) => {

@@ -188,7 +188,7 @@ export async function appendToExistingScene(
     .single();
 
   // Arena calls Scenes pages in its UI.
-  if (fetchError || !scene) return { data: null, error: "Page not found" };
+  if (fetchError || !scene) return { data: null, error: "Scene not found" };
 
   const newWordCount = (scene.word_count ?? 0) + additionalWordCount;
 
@@ -220,7 +220,7 @@ export async function appendToExistingScene(
     };
   }
   if (result.status === "version_mismatch") {
-    return { data: null, error: "This page changed elsewhere. Please try again." };
+    return { data: null, error: "This scene changed elsewhere. Please try again." };
   }
   if (result.status === "error") return { data: null, error: result.error };
 

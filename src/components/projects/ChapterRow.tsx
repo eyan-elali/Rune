@@ -148,7 +148,7 @@ export function ChapterRow({ chapter, projectId }: ChapterRowProps) {
 
       {/* Stats */}
       <div className="flex shrink-0 items-center gap-4 text-xs text-rune-mist/40">
-        <span>{pageCount} {pageCount === 1 ? "page" : "pages"}</span>
+        <span>{pageCount} {pageCount === 1 ? "scene" : "scenes"}</span>
         <span>{totalWords.toLocaleString()} words</span>
       </div>
 

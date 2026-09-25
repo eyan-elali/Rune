@@ -12,7 +12,9 @@ import type { Scene, Chapter, Project } from "@/lib/types";
 import type { ChapterWithScenes } from "@/lib/manuscriptQueries";
 import {
   createScene,
+  createUnplacedScene,
   deleteScene,
+  getScenes,
   reorderScenes,
   moveSceneToUnplaced,
   moveSceneToChapter,
@@ -38,11 +40,11 @@ interface EditorShellProps {
   projectId: string;
   /**
    * The Chapter being edited, or null for the Project's Unplaced Scenes. The
-   * Unplaced view edits and saves Scenes exactly like a Chapter; it only has
-   * no adding, reordering or page export.
+   * Unplaced view edits, saves and creates Scenes exactly like a Chapter; it
+   * only has no reordering (no narrative order) and no Scene export.
    */
   chapter: Chapter | null;
-  /** The Chapter's placed Scenes, or the Unplaced Scenes (shown to the writer as pages). */
+  /** The Chapter's placed Scenes, or the Unplaced Scenes. May be empty. */
   initialPages: Scene[];
   /** Scene to open first; defaults to the first one. */
   initialSelectedId?: string;
@@ -110,18 +112,21 @@ export function EditorShell({
     setSelectedPageId(pageId);
   }, []);
 
+  // Appends a new, empty Scene to this Chapter or to the Unplaced Scenes. Both
+  // go through the server's free-limit-checked creation RPCs.
   const handleAddPage = useCallback(async () => {
-    if (!chapterId) return;
-    const { data, error } = await createScene(
-      chapterId,
-      `Page ${pages.length + 1}`
-    );
-    if (data && !error) {
-      await cachePage(data, projectId);
-      setPages((prev) => [...prev, data]);
-      setSelectedPageId(data.id);
+    const title = `Scene ${pagesRef.current.length + 1}`;
+    const { data, error } = chapterId
+      ? await createScene(chapterId, title)
+      : await createUnplacedScene(projectId, title);
+    if (!data || error) {
+      showToast("Couldn't add a scene — try again when you're back online.", "error");
+      return;
     }
-  }, [chapterId, pages.length, projectId]);
+    await cachePage(data, projectId);
+    setPages((prev) => [...prev, data]);
+    setSelectedPageId(data.id);
+  }, [chapterId, projectId, showToast]);
 
   /**
    * Drops a Scene from this view after it was deleted or moved elsewhere. If it
@@ -148,19 +153,16 @@ export function EditorShell({
   const handleDeletePage = useCallback(
     async (pageId: string) => {
       const { error } = await deleteScene(pageId);
-      if (!error) {
-        const left = removeFromView(pageId);
-        if (left === 0 && !chapterId) router.push(`/projects/${projectId}`);
-      }
+      if (!error) removeFromView(pageId);
     },
-    [removeFromView, chapterId, projectId, router]
+    [removeFromView]
   );
 
   const handleMoveToUnplaced = useCallback(
     async (pageId: string) => {
       const { data, error } = await moveSceneToUnplaced(pageId);
       if (error || !data) {
-        showToast("Couldn't move this page — try again when you're back online.", "error");
+        showToast("Couldn't move this scene — try again when you're back online.", "error");
         return;
       }
       await cachePage(data, projectId);
@@ -175,7 +177,7 @@ export function EditorShell({
     async (pageId: string, targetChapterId: string) => {
       const { data, error } = await moveSceneToChapter(pageId, targetChapterId);
       if (error || !data) {
-        showToast("Couldn't move this page — try again when you're back online.", "error");
+        showToast("Couldn't move this scene — try again when you're back online.", "error");
         return;
       }
       await cachePage(data, projectId);
@@ -219,11 +221,33 @@ export function EditorShell({
 
       setPages(reordered);
 
-      const { error } = await reorderScenes(chapterId, orderedPageIds);
+      const { error, stale } = await reorderScenes(chapterId, orderedPageIds);
+      if (stale) {
+        // A Scene moved in or out of this Chapter elsewhere; nothing changed on
+        // the server. Take the server's list, keeping the local copy of any
+        // Scene still here (it may hold content newer than the fetch).
+        const { data: fresh } = await getScenes(chapterId);
+        if (fresh) {
+          const local = new Map(pagesRef.current.map((p) => [p.id, p]));
+          const merged = fresh.map((p) => {
+            const mine = local.get(p.id);
+            return mine ? { ...mine, position: p.position } : p;
+          });
+          setPages(merged);
+          setSelectedPageId((selected) =>
+            merged.some((p) => p.id === selected) ? selected : merged[0]?.id ?? null
+          );
+          await Promise.all(merged.map((p) => cachePage(p, projectId)));
+        } else {
+          setPages(previous);
+        }
+        showToast("This chapter changed elsewhere — its scenes have been refreshed.", "info");
+        return;
+      }
       if (error) {
         setPages(previous);
         showToast(
-          "Couldn't reorder pages — try again when you're back online.",
+          "Couldn't reorder scenes — try again when you're back online.",
           "error"
         );
         return;
@@ -244,12 +268,12 @@ export function EditorShell({
           pages={pages}
           selectedPageId={selectedPageId}
           onSelectPage={handleSelectPage}
-          onAddPage={chapterId ? handleAddPage : undefined}
+          onAddPage={handleAddPage}
           onDeletePage={handleDeletePage}
           onRenamePage={handleRenamePage}
           onReorderPages={chapterId ? handleReorderPages : undefined}
           onMoveToUnplaced={chapterId ? handleMoveToUnplaced : undefined}
-          onMoveToChapter={chapterId ? undefined : handleMoveToChapter}
+          onMoveToChapter={handleMoveToChapter}
           allChapters={allChapters}
           currentChapterId={chapterId}
           unplacedCount={unplacedCount}
@@ -279,6 +303,28 @@ export function EditorShell({
           onPageUpdated={handlePageUpdated}
           onRenamePage={handleRenamePage}
           accountWordTotal={accountWordTotal}
+          emptyState={
+            pages.length === 0 ? (
+              <div className="flex max-w-sm flex-col items-center gap-3 px-6 text-center">
+                <p className="font-rune-serif text-lg" style={{ color: "var(--text-primary)" }}>
+                  {chapter ? "This chapter has no scenes yet" : "No Unplaced Scenes"}
+                </p>
+                <p className="text-sm" style={{ color: "var(--color-mist)" }}>
+                  {chapter
+                    ? "Start a scene here, or move one in from another chapter."
+                    : "A scene kept here stays outside your manuscript’s word count and export until you place it in a chapter."}
+                </p>
+                <button
+                  type="button"
+                  onClick={handleAddPage}
+                  className="mt-1 rounded px-3 py-1.5 text-sm transition-colors duration-100 hover:bg-rune-gold/10 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-rune-gold"
+                  style={{ color: "var(--color-gold)" }}
+                >
+                  {chapter ? "Add Scene" : "New Unplaced Scene"}
+                </button>
+              </div>
+            ) : undefined
+          }
         />
       </div>
     </div>

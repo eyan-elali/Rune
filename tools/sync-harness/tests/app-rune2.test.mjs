@@ -54,7 +54,7 @@ function signIn(db, userId) {
 
 // ── creation ──────────────────────────────────────────────────────────────────
 
-test('createProjectWithDraft: Project → its Manuscript → "Chapter 1" → one empty placed Scene "Page 1"', async () => {
+test('createProjectWithDraft: Project → its Manuscript → "Chapter 1" → one empty placed Scene "Scene 1"', async () => {
   const db = await seededDb();
   signIn(db, CORA);
   const r = await projects.createProjectWithDraft('A new story');
@@ -65,7 +65,7 @@ test('createProjectWithDraft: Project → its Manuscript → "Chapter 1" → one
     { manuscript_id: m, title: 'Chapter 1', position: 1 });
   assert.deepEqual(await all(db, `select id, manuscript_id, chapter_id, title, position, word_count, content, version
     from public.scenes where manuscript_id = $1`, [m]), [{
-    id: r.data.scene.id, manuscript_id: m, chapter_id: r.data.chapterId, title: 'Page 1', position: 0, word_count: 0, content: null, version: 1,
+    id: r.data.scene.id, manuscript_id: m, chapter_id: r.data.chapterId, title: 'Scene 1', position: 0, word_count: 0, content: null, version: 1,
   }]);
 });
 
@@ -77,7 +77,7 @@ test('createChapter: a Chapter in the Project\'s Manuscript with one empty Scene
   assert.equal(r.data.manuscript_id, await manuscriptOf(db, projectId('hollow')));
   assert.equal(r.data.title, 'Chapter 8');
   assert.deepEqual(await all(db, `select title, position, word_count from public.scenes where chapter_id = $1`, [r.data.id]),
-    [{ title: 'Page 1', position: 0, word_count: 0 }]);
+    [{ title: 'Scene 1', position: 0, word_count: 0 }]);
 
   const listed = await chapters.getChapters(projectId('hollow'));
   assert.deepEqual(listed.data.map((c) => c.id),
@@ -94,7 +94,7 @@ test('createChapter: a Chapter in the Project\'s Manuscript with one empty Scene
 test('createScene / reorderScenes / renameScene: positions, the Chapter\'s Manuscript, and chapter-scoped reordering', async () => {
   const db = await seededDb();
   signIn(db, ALICE);
-  const a = await scenes.createScene(chapterId('hollow.ch5'), 'Page 1');
+  const a = await scenes.createScene(chapterId('hollow.ch5'), 'Scene 1');
   const b = await scenes.createScene(chapterId('hollow.ch5'), '   ');
   assert.equal(a.error, null, a.error);
   assert.deepEqual([a.data.position, b.data.position, b.data.title], [0, 1, 'Untitled']);
@@ -139,7 +139,7 @@ test('onboarding: one request creates the Project, its Manuscript, Chapter 1 and
   assert.equal((await one(db, `select manuscript_id from public.chapters where id = $1`, [data.chapterId])).manuscript_id, m);
   const scene = await one(db, `select chapter_id, title, position, word_count, content from public.scenes where manuscript_id = $1`, [m]);
   assert.deepEqual(scene, {
-    chapter_id: data.chapterId, title: 'Page 1', position: 0, word_count: 5,
+    chapter_id: data.chapterId, title: 'Scene 1', position: 0, word_count: 5,
     content: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: sentence }] }] },
   });
   assert.equal(await storedTotal(db, data.projectId), 5);
@@ -192,6 +192,6 @@ test('Arena: appending to an existing Scene uses save_scene_checked, keeps an Un
   signIn(db, ALICE);
   const blocked = await games.appendToExistingScene(pageId('h1a'), '<p>more</p>', 1);
   assert.match(blocked.error, /2,000-word free limit/);
-  assert.deepEqual(await games.appendToExistingScene(pageId('t1c'), '<p>x</p>', 1), { data: null, error: 'Page not found' },
+  assert.deepEqual(await games.appendToExistingScene(pageId('t1c'), '<p>x</p>', 1), { data: null, error: 'Scene not found' },
     'another writer\'s Scene');
 });

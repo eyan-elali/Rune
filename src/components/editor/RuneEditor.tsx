@@ -65,6 +65,11 @@ interface RuneEditorProps {
   onRenamePage: (pageId: string, title: string) => void;
   /** Account-wide manuscript word total at page load — see getAccountWordTotal. */
   accountWordTotal?: number;
+  /**
+   * Shown when no Scene is open (an empty Chapter or Unplaced list). The
+   * editor stays mounted meanwhile, so a Scene just moved away still flushes.
+   */
+  emptyState?: React.ReactNode;
 }
 
 interface ToolbarPos {
@@ -85,6 +90,7 @@ export default function RuneEditor({
   onPageUpdated,
   onRenamePage,
   accountWordTotal = 0,
+  emptyState,
 }: RuneEditorProps) {
   const { setIsSaving, setLastSaved } = useEditorStore();
   const showToast = useToastStore((s) => s.showToast);
@@ -780,9 +786,11 @@ export default function RuneEditor({
   if (!currentPage) {
     return (
       <div className="flex h-full flex-1 items-center justify-center">
-        <p className="text-sm" style={{ color: "var(--color-mist)" }}>
-          No page selected
-        </p>
+        {emptyState ?? (
+          <p className="text-sm" style={{ color: "var(--color-mist)" }}>
+            No scene selected
+          </p>
+        )}
       </div>
     );
   }
@@ -905,7 +913,7 @@ export default function RuneEditor({
                 e.currentTarget.style.borderBottomColor = "transparent";
                 void commitTitle();
               }}
-              aria-label="Page title"
+              aria-label="Scene title"
             />
           </div>
 

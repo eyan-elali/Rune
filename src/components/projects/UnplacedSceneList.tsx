@@ -29,7 +29,7 @@ export function UnplacedSceneList({ scenes, chapters, projectId }: UnplacedScene
     const { data, error } = await moveSceneToChapter(sceneId, chapterId);
     setMovingId(null);
     if (error || !data) {
-      showToast("Couldn't move this page — please try again.", "error");
+      showToast("Couldn't move this scene — please try again.", "error");
       return;
     }
     const target = chapters.find((c) => c.id === chapterId);

@@ -22,7 +22,7 @@ export function ExportButton({ page, chapter, project }: ExportButtonProps) {
     setLoading(true);
     try {
       await exportPageAsPdf(page, chapter, project);
-      showToast("Page exported as PDF", "success");
+      showToast("Scene exported as PDF", "success");
     } catch (err) {
       console.error("PDF export failed:", err);
       showToast("Export failed — please try again", "error");
@@ -36,7 +36,7 @@ export function ExportButton({ page, chapter, project }: ExportButtonProps) {
       type="button"
       onClick={handleExport}
       disabled={!page || loading}
-      aria-label="Export page as PDF"
+      aria-label="Export scene as PDF"
       data-tutorial-id="export-btn"
       className={cn(
         "inline-flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-medium",
@@ -85,7 +85,7 @@ export function ExportButton({ page, chapter, project }: ExportButtonProps) {
       ) : (
         <Download className="h-3 w-3" aria-hidden="true" />
       )}
-      <span>{loading ? "Generating…" : "Export Page"}</span>
+      <span>{loading ? "Generating…" : "Export Scene"}</span>
     </button>
   );
 }

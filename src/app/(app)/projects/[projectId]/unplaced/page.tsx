@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getAccountWordTotal, getUnplacedScenes } from "@/lib/actions/scenes";
@@ -14,7 +13,8 @@ interface UnplacedScenesPageProps {
 
 /**
  * The Project's Unplaced Scenes in the manuscript editor: the same editor,
- * autosave and offline protection as a Chapter, with no narrative order.
+ * autosave and offline protection as a Chapter, with no narrative order. With
+ * none yet, the editor offers to start one here.
  */
 export default async function UnplacedScenesPage({
   params,
@@ -45,27 +45,6 @@ export default async function UnplacedScenesPage({
   }
 
   const scenes = scenesResult.data ?? [];
-
-  if (scenes.length === 0) {
-    return (
-      <div className="flex h-full min-h-96 flex-col items-center justify-center gap-3 px-6 text-center">
-        <p className="font-rune-serif text-lg" style={{ color: "var(--text-primary)" }}>
-          No Unplaced Scenes
-        </p>
-        <p className="max-w-sm text-sm" style={{ color: "var(--color-mist)" }}>
-          A page you move out of a chapter waits here, outside your manuscript&rsquo;s
-          word count and export, until you place it again.
-        </p>
-        <Link
-          href={`/projects/${projectId}`}
-          className="mt-2 text-sm underline-offset-4 hover:underline"
-          style={{ color: "var(--color-gold)" }}
-        >
-          Back to {project.title}
-        </Link>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-0 h-full">

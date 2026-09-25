@@ -2,7 +2,11 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { recalculateProjectWordCount } from "@/lib/projectWordCount";
-import { getProjectIdForManuscript, getUnplacedScenes as queryUnplacedScenes } from "@/lib/manuscriptQueries";
+import {
+  getManuscriptIdForProject,
+  getProjectIdForManuscript,
+  getUnplacedScenes as queryUnplacedScenes,
+} from "@/lib/manuscriptQueries";
 import { recordAnalyticsEvent } from "@/lib/actions/analytics";
 import type { PlacedScene, Scene, UnplacedScene } from "@/lib/types";
 
@@ -73,63 +77,117 @@ export async function getScenes(
   return { data: (data ?? []) as PlacedScene[], error: null };
 }
 
+type CreateSceneResult<T> =
+  | { data: T; error: null }
+  | { data: null; error: string; wordLimitBlocked?: true };
+
+type InsertSceneCheckedResult =
+  | { status: "ok"; id: string }
+  | { status: "word_limit_blocked"; limit: number }
+  | { status: "error"; error: string };
+
 /**
- * Creates an empty Scene at the end of a Chapter. Its Manuscript is derived
- * from the Chapter by the database (scenes_fill_manuscript_id).
+ * Maps an insert_scene_checked / insert_unplaced_scene_checked result to the
+ * new Scene row. Both RPCs run the same server-authoritative free-limit check
+ * under the per-account lock; a new Scene is empty, so it can only be blocked
+ * once creation ever carries words.
+ */
+async function readInsertedScene<T extends Scene>(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  rpc: { data: unknown; error: { message: string } | null }
+): Promise<CreateSceneResult<T>> {
+  if (rpc.error) return { data: null, error: rpc.error.message };
+  const result = rpc.data as InsertSceneCheckedResult;
+  if (result.status === "word_limit_blocked") {
+    return { data: null, error: "Word limit reached", wordLimitBlocked: true };
+  }
+  if (result.status !== "ok") return { data: null, error: result.error };
+
+  const { data, error } = await supabase.from("scenes").select("*").eq("id", result.id).single();
+  if (error) return { data: null, error: error.message };
+  return { data: data as T, error: null };
+}
+
+/**
+ * Creates an empty Scene at the end of a Chapter, through insert_scene_checked
+ * (the free-limit-checked creation path). Its Manuscript is derived from the
+ * Chapter by the database (scenes_fill_manuscript_id).
  */
 export async function createScene(
   chapterId: string,
   title: string
-): Promise<ActionResult<PlacedScene>> {
+): Promise<CreateSceneResult<PlacedScene>> {
   const { supabase, user } = await getUser();
   if (!user) return { data: null, error: "Not authenticated" };
 
-  const { data: existing } = await supabase
-    .from("scenes")
-    .select("position")
-    .eq("chapter_id", chapterId)
-    .order("position", { ascending: false })
-    .limit(1);
+  const { data: chapter } = await supabase
+    .from("chapters")
+    .select("id, manuscript_id")
+    .eq("id", chapterId)
+    .maybeSingle();
+  if (!chapter) return { data: null, error: "Chapter not found" };
 
-  const position =
-    existing && existing.length > 0 ? existing[0].position + 1 : 0;
-
-  const { data, error } = await supabase
-    .from("scenes")
-    .insert({
-      chapter_id: chapterId,
-      title: title.trim() || "Untitled",
-      content: null,
-      word_count: 0,
-      position,
-    })
-    .select()
-    .single();
-
-  if (error) return { data: null, error: error.message };
-  return { data: data as PlacedScene, error: null };
+  const position = await nextPosition(supabase, chapter.manuscript_id, chapterId);
+  const rpc = await supabase.rpc("insert_scene_checked", {
+    p_chapter_id: chapterId,
+    p_title: title.trim() || "Untitled",
+    p_content: null,
+    p_word_count: 0,
+    p_position: position,
+  });
+  return readInsertedScene<PlacedScene>(supabase, rpc);
 }
 
+/**
+ * Creates an empty Scene directly in the Project's Unplaced Scenes, at the end
+ * of that list, through insert_unplaced_scene_checked — the same
+ * free-limit-checked creation path as a placed Scene. Its words never enter
+ * the ordered manuscript total or export until it is placed.
+ */
+export async function createUnplacedScene(
+  projectId: string,
+  title: string
+): Promise<CreateSceneResult<UnplacedScene>> {
+  const { supabase, user } = await getUser();
+  if (!user) return { data: null, error: "Not authenticated" };
+
+  const manuscriptId = await getManuscriptIdForProject(supabase, projectId);
+  if (!manuscriptId) return { data: null, error: "Project not found" };
+
+  const rpc = await supabase.rpc("insert_unplaced_scene_checked", {
+    p_manuscript_id: manuscriptId,
+    p_title: title.trim() || "Untitled",
+    p_content: null,
+    p_word_count: 0,
+  });
+  return readInsertedScene<UnplacedScene>(supabase, rpc);
+}
+
+/**
+ * Puts a Chapter's placed Scenes in the given order (positions 0..n-1), in one
+ * atomic database call (reorder_chapter_scenes). `stale` means the list no
+ * longer matches the Chapter — a Scene moved in or out meanwhile — and nothing
+ * changed; the caller should reload the Chapter.
+ */
 export async function reorderScenes(
   chapterId: string,
   orderedSceneIds: string[]
-): Promise<{ error: string | null }> {
+): Promise<{ error: string | null; stale?: true }> {
   const { supabase, user } = await getUser();
   if (!user) return { error: "Not authenticated" };
 
-  const results = await Promise.all(
-    orderedSceneIds.map((id, index) =>
-      supabase
-        .from("scenes")
-        .update({ position: index, updated_at: new Date().toISOString() })
-        .eq("id", id)
-        .eq("chapter_id", chapterId) // guard against cross-chapter drift
-    )
-  );
+  const { data, error } = await supabase.rpc("reorder_chapter_scenes", {
+    p_chapter_id: chapterId,
+    p_scene_ids: orderedSceneIds,
+  });
+  if (error) return { error: error.message };
 
-  const failed = results.find((r) => r.error);
-  if (failed?.error) return { error: failed.error.message };
-
+  const result = data as { status: "ok" | "stale" | "error"; error?: string };
+  if (result.status === "stale") {
+    return { error: "This chapter changed — reload to see its scenes", stale: true };
+  }
+  if (result.status !== "ok") return { error: result.error ?? "Couldn't reorder scenes" };
   return { error: null };
 }
 

@@ -949,7 +949,7 @@ function SyncTab() {
       showToast(
         cleared > 0
           ? `Cleared ${cleared} cached page${cleared !== 1 ? "s" : ""}.`
-          : "No cached pages to clear.",
+          : "No cached scenes to clear.",
         "success"
       );
     } catch {
@@ -973,7 +973,7 @@ function SyncTab() {
       danger: hasConflicts,
     },
     {
-      label: "Cached pages",
+      label: "Cached scenes",
       value: summary?.cached ?? "—",
       danger: false,
     },
@@ -1026,9 +1026,9 @@ function SyncTab() {
             className="font-rune-serif font-semibold"
             style={{ color: "var(--color-crimson)" }}
           >
-            Some pages need review.
+            Some scenes need review.
           </span>{" "}
-          Open the conflicted page to choose which version to keep.
+          Open the conflicted scene to choose which version to keep.
         </div>
       )}
 
@@ -1048,7 +1048,7 @@ function SyncTab() {
             </Button>
           </SettingRow>
 
-          <SettingRow label="Clear cached pages" description="Frees space — only removes read-only cache, never pending or conflicted writes" last>
+          <SettingRow label="Clear cached scenes" description="Frees space — only removes read-only cache, never pending or conflicted writes" last>
             {!confirmClear ? (
               <Button
                 variant="ghost"
@@ -1138,7 +1138,7 @@ function DataTab() {
           className="mb-4 mt-1 text-xs"
           style={{ color: "var(--color-mist)" }}
         >
-          Download a JSON file of all your projects, chapters, and pages.
+          Download a JSON file of all your projects, chapters, and scenes.
         </p>
         <Button variant="ghost" onClick={handleExport} loading={isExporting}>
           Export data

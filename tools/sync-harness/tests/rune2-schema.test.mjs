@@ -53,7 +53,7 @@ test('a database built from schema.sql alone is identical to baseline + migratio
   assert.deepEqual(diffCounts(a, b), []);
   const versions = async (db) => (await db.query(`select version, name, note from public.schema_migrations order by version`)).rows;
   assert.deepEqual(await versions(fresh), await versions(migrated));
-  assert.deepEqual((await versions(fresh)).map((r) => r.version).slice(-3), ['013', '014', '015']);
+  assert.deepEqual((await versions(fresh)).map((r) => r.version).slice(-4), ['013', '014', '015', '016']);
 });
 
 test('signup still creates the profile and pricing entitlements on the Rune 2.0 schema', async () => {
@@ -195,4 +195,39 @@ test('015 refuses — changing nothing — on a database holding manuscript data
   await history.query(`insert into public.writing_sessions (user_id, words_added) values ('aaaaaaaa-0000-4000-8000-000000000001', 3)`);
   await assert.rejects(history.exec(readMigration(M015)), /public\.writing_sessions has 1 row/);
   assert.ok((await history.query(`select to_regclass('public.pages') as t`)).rows[0].t, 'pages still exists');
+});
+
+// ── 3. migration 016 ──────────────────────────────────────────────────────────
+
+const M016 = '016_scene_structure_rpcs.sql';
+
+test('016 on 015 adds exactly the two Scene-structure RPCs, not executable by anon', async () => {
+  const db = await preFoundationDb();
+  await db.exec(readMigration(M015));
+  const before = await captureCatalog(db);
+  await db.exec(readMigration(M016));
+  const after = await captureCatalog(db);
+  const { differences } = diffCatalogs(before, after);
+  const keys = differences.map((d) => `${d.section}:${d.kind}:${d.key}`).sort();
+  const functions = keys.filter((k) => k.startsWith('functions:'));
+  assert.deepEqual(functions, [
+    'functions:added:insert_unplaced_scene_checked(p_manuscript_id uuid, p_title text, p_content jsonb, p_word_count integer)',
+    'functions:added:reorder_chapter_scenes(p_chapter_id uuid, p_scene_ids uuid[])',
+  ]);
+  assert.deepEqual(keys.filter((k) => !k.startsWith('functions:') && !k.startsWith('function_grants:')), [], fmt(differences));
+
+  const grantees = (fn) => after.function_grants.filter((g) => g.function.startsWith(`${fn}(`)).map((g) => g.grantee).sort();
+  for (const fn of ['insert_unplaced_scene_checked', 'reorder_chapter_scenes']) {
+    assert.ok(!grantees(fn).includes('anon') && !grantees(fn).includes('PUBLIC'), `${fn}: ${grantees(fn)}`);
+    assert.ok(grantees(fn).includes('authenticated'), fn);
+  }
+});
+
+test('016 requires 015, refuses to run twice (including on schema.sql), and changes nothing when it refuses', async () => {
+  await assert.rejects((await preFoundationDb()).exec(readMigration(M016)), /requires migration 015/);
+  for (const db of [await migratedDb(), await freshRune2Db()]) {
+    const before = await captureCatalog(db);
+    await assert.rejects(db.exec(readMigration(M016)), /Migration 016 has already been applied/);
+    assert.deepEqual(diffCatalogs(before, await captureCatalog(db)).differences, []);
+  }
 });

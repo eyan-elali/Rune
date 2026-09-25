@@ -62,7 +62,7 @@ export function OfflinePageMessage() {
           marginBottom: "36px",
         }}
       >
-        Your writing is safe. Return to your last open page to continue.
+        Your writing is safe. Return to your last open scene to continue.
       </p>
 
       <button

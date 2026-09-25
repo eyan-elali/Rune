@@ -15,8 +15,8 @@ interface Step {
 const STEPS: Step[] = [
   {
     spotlightId: "pages-sidebar",
-    heading: "Pages",
-    copy: "Each page is a place to write. Create as many as you need for a chapter.",
+    heading: "Scenes",
+    copy: "Each scene is a place to write. Add as many as a chapter needs.",
     side: "right",
   },
   {

@@ -112,7 +112,7 @@ export function SaveToProject({
           <span style={{ opacity: 0.6 }}>{project.title}</span>
         </p>
         <Button variant="ghost" className="mt-1" onClick={handleAppend}>
-          Append to Page
+          Append to Scene
         </Button>
       </div>
     );

@@ -31,7 +31,7 @@ interface SyncConflictModalProps {
 const KEEP_LOCAL_ERROR_MESSAGES: Record<string, string> = {
   auth: "Your session has expired. Your draft is safe on this device — sign in again, then retry.",
   not_found:
-    "This page no longer exists on the server. Your draft is safe on this device — copy it into another page or contact support.",
+    "This scene no longer exists on the server. Your draft is safe on this device — copy it into another scene or contact support.",
   network: "Could not reach the server. Your draft is safe on this device — check your connection and try again.",
   server:
     "The server rejected the save. Your draft is safe on this device — please try again.",
@@ -88,7 +88,7 @@ export function SyncConflictModal({
         }
         if (!rows || rows.length === 0) {
           setLoadError(
-            "This page no longer exists on the server. Your local draft is safe on this device."
+            "This scene no longer exists on the server. Your local draft is safe on this device."
           );
           return;
         }
@@ -219,7 +219,7 @@ export function SyncConflictModal({
           className="mb-1.5 font-rune-serif text-[1.15rem] leading-snug"
           style={{ color: "var(--text-primary)" }}
         >
-          This page was changed elsewhere while you had an unsynced local draft.
+          This scene was changed elsewhere while you had an unsynced local draft.
         </p>
         <p className="mb-7 text-sm" style={{ color: "var(--color-mist)" }}>
           Choose which version to keep.

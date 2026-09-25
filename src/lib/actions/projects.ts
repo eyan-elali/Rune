@@ -204,7 +204,7 @@ export async function createProjectWithDraft(
     .insert({
       manuscript_id: manuscriptId,
       chapter_id: chapter.id,
-      title: "Page 1",
+      title: "Scene 1",
       content: null,
       word_count: 0,
       position: 0,

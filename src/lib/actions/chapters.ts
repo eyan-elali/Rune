@@ -54,7 +54,7 @@ export async function createChapter(
   const { error: sceneError } = await supabase.from("scenes").insert({
     manuscript_id: manuscriptId,
     chapter_id: data.id,
-    title: "Page 1",
+    title: "Scene 1",
     content: null,
     word_count: 0,
     position: 0,

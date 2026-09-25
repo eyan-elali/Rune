@@ -11,6 +11,8 @@ import {
   Pencil,
   ChevronLeft,
   GripVertical,
+  ArrowUp,
+  ArrowDown,
   Inbox,
   CornerDownRight,
 } from "lucide-react";
@@ -29,7 +31,7 @@ export function PageListSkeleton() {
         background: "var(--bg-sidebar)",
         borderRight: "1px solid var(--color-border)",
       }}
-      aria-label="Pages loading"
+      aria-label="Scenes loading"
       aria-busy="true"
     >
       <div className="flex shrink-0 flex-col">
@@ -38,7 +40,7 @@ export function PageListSkeleton() {
             className="text-xs font-semibold uppercase tracking-widest"
             style={{ color: "var(--color-mist)" }}
           >
-            Pages
+            Scenes
           </span>
         </div>
         <div
@@ -60,19 +62,21 @@ export function PageListSkeleton() {
   );
 }
 
-// ── Per-page context menu ─────────────────────────────────────────────────────
+// ── Per-Scene context menu ─────────────────────────────────────────────────────
 
 interface PageMenuProps {
   page: Scene;
   canDelete: boolean;
   onRename: () => void;
   onDelete: () => void;
-  /** Chapter view: take this page out of narrative order. Disabled for a Chapter's only page. */
+  /** Chapter view: take this Scene out of narrative order (a Chapter may be left empty). */
   onMoveToUnplaced?: () => void;
-  canMoveToUnplaced?: boolean;
-  /** Unplaced view: the Chapters this page can be placed in. */
+  /** The Chapters this Scene can move to (never the one it is in). */
   moveTargets?: { id: string; title: string }[];
   onMoveToChapter?: (chapterId: string) => void;
+  /** Chapter view: keyboard-accessible reordering, beside drag and drop. */
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
 }
 
 function PageMenu({
@@ -81,9 +85,10 @@ function PageMenu({
   onRename,
   onDelete,
   onMoveToUnplaced,
-  canMoveToUnplaced = false,
   moveTargets = [],
   onMoveToChapter,
+  onMoveUp,
+  onMoveDown,
 }: PageMenuProps) {
   const [open, setOpen] = useState(false);
   const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
@@ -167,17 +172,47 @@ function PageMenu({
                 Rename
               </button>
 
+              {onMoveUp && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setOpen(false);
+                    onMoveUp();
+                  }}
+                  className="flex w-full items-center gap-2.5 px-3.5 py-2 text-xs transition-colors hover:bg-rune-gold/10"
+                  style={{ color: "var(--text-primary)" }}
+                >
+                  <ArrowUp size={11} aria-hidden />
+                  Move up
+                </button>
+              )}
+
+              {onMoveDown && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setOpen(false);
+                    onMoveDown();
+                  }}
+                  className="flex w-full items-center gap-2.5 px-3.5 py-2 text-xs transition-colors hover:bg-rune-gold/10"
+                  style={{ color: "var(--text-primary)" }}
+                >
+                  <ArrowDown size={11} aria-hidden />
+                  Move down
+                </button>
+              )}
+
               {onMoveToUnplaced && (
                 <button
                   type="button"
-                  disabled={!canMoveToUnplaced}
-                  title={canMoveToUnplaced ? undefined : "A chapter keeps at least one page"}
                   onClick={(e) => {
                     e.stopPropagation();
                     setOpen(false);
                     onMoveToUnplaced();
                   }}
-                  className="flex w-full items-center gap-2.5 px-3.5 py-2 text-xs transition-colors hover:bg-rune-gold/10 disabled:pointer-events-none disabled:opacity-40"
+                  className="flex w-full items-center gap-2.5 px-3.5 py-2 text-xs transition-colors hover:bg-rune-gold/10"
                   style={{ color: "var(--text-primary)" }}
                 >
                   <Inbox size={11} aria-hidden />
@@ -234,7 +269,7 @@ function PageMenu({
                 style={{ color: "var(--color-crimson)" }}
               >
                 <Trash2 size={11} aria-hidden />
-                Delete Page
+                Delete Scene
               </button>
             </div>
           </div>,
@@ -247,12 +282,12 @@ function PageMenu({
 // ── Main component ────────────────────────────────────────────────────────────
 
 interface PageListProps {
-  /** The Chapter's placed Scenes, or the Unplaced Scenes — shown to the writer as pages. */
+  /** The Chapter's placed Scenes, or the Unplaced Scenes. */
   pages: Scene[];
   selectedPageId: string | null;
   onSelectPage: (pageId: string) => void;
-  /** Absent in the Unplaced view: new pages are only created in a Chapter. */
-  onAddPage?: () => void;
+  /** Adds a Scene at the end of this Chapter, or of the Unplaced Scenes. */
+  onAddPage: () => void;
   onDeletePage: (pageId: string) => void;
   onRenamePage: (pageId: string, title: string) => void;
   /** Absent in the Unplaced view: Unplaced Scenes have no narrative order. */
@@ -328,6 +363,17 @@ export function PageList({
     onReorderPages?.(reordered);
   }
 
+  /** Keyboard/menu reordering: one step up (-1) or down (+1). */
+  function moveBy(pageId: string, delta: -1 | 1) {
+    const ids = pages.map((p) => p.id);
+    const from = ids.indexOf(pageId);
+    const to = from + delta;
+    if (from === -1 || to < 0 || to >= ids.length) return;
+    ids.splice(from, 1);
+    ids.splice(to, 0, pageId);
+    onReorderPages?.(ids);
+  }
+
   function handleDragEnd() {
     setDraggedId(null);
     setDragOverId(null);
@@ -366,8 +412,8 @@ export function PageList({
             <button
               type="button"
               onClick={() => setView("pages")}
-              aria-label="Back to pages"
-              title="Back to pages"
+              aria-label="Back to scenes"
+              title="Back to scenes"
               className="rounded p-0.5 transition-colors duration-100 hover:bg-rune-gold/10"
               style={{ color: "var(--color-mist)" }}
             >
@@ -449,7 +495,7 @@ export function PageList({
                         opacity: isCurrent ? 0.8 : 0.5,
                       }}
                     >
-                      {pageCount} {pageCount === 1 ? "page" : "pages"} ·{" "}
+                      {pageCount} {pageCount === 1 ? "scene" : "scenes"} ·{" "}
                       {wordCount.toLocaleString()} words
                     </span>
                   </div>
@@ -458,53 +504,52 @@ export function PageList({
             })}
           </ul>
 
-          {/* Unplaced Scenes — only once the writer has some (or is in them). */}
-          {(unplacedCount > 0 || isUnplacedView) && (
-            <div className="shrink-0 pb-2">
-              <div
-                className="mx-auto mb-1 h-px w-[92%]"
-                style={{ background: "var(--color-border)" }}
-                aria-hidden
-              />
-              <div
-                className={cn(
-                  "mx-2 flex w-[calc(100%-1rem)] cursor-pointer select-none flex-col rounded-md px-3 py-1.5 transition-all duration-200",
-                  isUnplacedView ? "bg-rune-gold/15 shadow-sm" : "hover:bg-rune-gold/5"
-                )}
-                onClick={() => {
+          {/* Unplaced Scenes — always reachable here, the one place a writer
+              can start a Scene outside the manuscript. */}
+          <div className="shrink-0 pb-2">
+            <div
+              className="mx-auto mb-1 h-px w-[92%]"
+              style={{ background: "var(--color-border)" }}
+              aria-hidden
+            />
+            <div
+              className={cn(
+                "mx-2 flex w-[calc(100%-1rem)] cursor-pointer select-none flex-col rounded-md px-3 py-1.5 transition-all duration-200",
+                isUnplacedView ? "bg-rune-gold/15 shadow-sm" : "hover:bg-rune-gold/5"
+              )}
+              onClick={() => {
+                if (isUnplacedView) setView("pages");
+                else router.push(`/projects/${projectId}/unplaced`);
+              }}
+              role="button"
+              tabIndex={0}
+              aria-current={isUnplacedView ? "page" : undefined}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
                   if (isUnplacedView) setView("pages");
                   else router.push(`/projects/${projectId}/unplaced`);
-                }}
-                role="button"
-                tabIndex={0}
-                aria-current={isUnplacedView ? "page" : undefined}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    if (isUnplacedView) setView("pages");
-                    else router.push(`/projects/${projectId}/unplaced`);
-                  }
+                }
+              }}
+            >
+              <span
+                className="truncate text-sm"
+                style={{ color: "var(--text-primary)", opacity: isUnplacedView ? 1 : 0.65 }}
+              >
+                Unplaced Scenes
+              </span>
+              <span
+                className="mt-0.5 text-[10px] tabular-nums"
+                style={{
+                  color: isUnplacedView ? "var(--color-gold)" : "var(--color-mist)",
+                  opacity: isUnplacedView ? 0.8 : 0.5,
                 }}
               >
-                <span
-                  className="truncate text-sm"
-                  style={{ color: "var(--text-primary)", opacity: isUnplacedView ? 1 : 0.65 }}
-                >
-                  Unplaced Scenes
-                </span>
-                <span
-                  className="mt-0.5 text-[10px] tabular-nums"
-                  style={{
-                    color: isUnplacedView ? "var(--color-gold)" : "var(--color-mist)",
-                    opacity: isUnplacedView ? 0.8 : 0.5,
-                  }}
-                >
-                  {isUnplacedView ? pages.length : unplacedCount}{" "}
-                  {(isUnplacedView ? pages.length : unplacedCount) === 1 ? "page" : "pages"} · not in manuscript
-                </span>
-              </div>
+                {isUnplacedView ? pages.length : unplacedCount}{" "}
+                {(isUnplacedView ? pages.length : unplacedCount) === 1 ? "scene" : "scenes"} · not in manuscript
+              </span>
             </div>
-          )}
+          </div>
         </div>
       </aside>
     );
@@ -521,7 +566,7 @@ export function PageList({
         borderRight: "1px solid var(--color-border)",
         overflow: "visible",
       }}
-      aria-label={isUnplacedView ? "Unplaced Scenes" : "Page list"}
+      aria-label={isUnplacedView ? "Unplaced Scenes" : "Scene list"}
     >
       {/* Header */}
       <div className="flex shrink-0 flex-col">
@@ -531,7 +576,7 @@ export function PageList({
             style={{ color: "var(--color-mist)" }}
             title={isUnplacedView ? "Unplaced Scenes are kept out of your manuscript's word count and export" : undefined}
           >
-            {isUnplacedView ? "Unplaced" : "Pages"}
+            {isUnplacedView ? "Unplaced" : "Scenes"}
           </span>
           {allChapters.length > 0 && (
             <button
@@ -553,14 +598,14 @@ export function PageList({
         />
       </div>
 
-      {/* Page list */}
+      {/* Scene list */}
       <div className="flex min-h-0 flex-1 flex-col">
         <ul
           className="flex flex-1 flex-col overflow-y-auto py-1"
           role="list"
-          aria-label={isUnplacedView ? "Unplaced Scenes" : "Chapter pages"}
+          aria-label={isUnplacedView ? "Unplaced Scenes" : "Chapter scenes"}
         >
-          {pages.map((page) => {
+          {pages.map((page, index) => {
             const isSelected = selectedPageId === page.id;
             const isEditing = editingId === page.id;
 
@@ -638,7 +683,7 @@ export function PageList({
                         onClick={(e) => e.stopPropagation()}
                         className="min-w-0 flex-1 bg-transparent text-sm outline-none"
                         style={{ color: "var(--text-primary)" }}
-                        aria-label="Rename page"
+                        aria-label="Rename scene"
                       />
                     ) : (
                       <span
@@ -667,11 +712,16 @@ export function PageList({
                         onMoveToUnplaced={
                           onMoveToUnplaced ? () => onMoveToUnplaced(page.id) : undefined
                         }
-                        canMoveToUnplaced={pages.length > 1}
-                        moveTargets={allChapters}
+                        moveTargets={allChapters.filter((c) => c.id !== currentChapterId)}
                         onMoveToChapter={
                           onMoveToChapter
                             ? (chapterId) => onMoveToChapter(page.id, chapterId)
+                            : undefined
+                        }
+                        onMoveUp={canReorder && index > 0 ? () => moveBy(page.id, -1) : undefined}
+                        onMoveDown={
+                          canReorder && index < pages.length - 1
+                            ? () => moveBy(page.id, 1)
                             : undefined
                         }
                       />
@@ -701,36 +751,34 @@ export function PageList({
           <li
             className="min-h-[3rem] flex-1 list-none"
             aria-hidden="true"
-            title={onAddPage ? "Double-click to add page" : undefined}
+            title="Double-click to add a scene"
             onDoubleClick={(e) => {
               e.preventDefault();
-              onAddPage?.();
+              onAddPage();
             }}
           />
         </ul>
       </div>
 
       {/* Footer */}
-      {onAddPage && (
-        <div className="flex shrink-0 flex-col">
-          <div
-            className="mx-auto h-px w-[92%] shrink-0"
-            style={{ background: "var(--color-border)" }}
-            aria-hidden
-          />
-          <div className="p-2">
-            <button
-              type="button"
-              onClick={onAddPage}
-              className="flex w-full items-center gap-2 rounded px-3 py-2 text-xs transition-colors duration-100 hover:bg-rune-gold/10"
-              style={{ color: "var(--color-mist)" }}
-            >
-              <Plus size={13} aria-hidden />
-              Add Page
-            </button>
-          </div>
+      <div className="flex shrink-0 flex-col">
+        <div
+          className="mx-auto h-px w-[92%] shrink-0"
+          style={{ background: "var(--color-border)" }}
+          aria-hidden
+        />
+        <div className="p-2">
+          <button
+            type="button"
+            onClick={onAddPage}
+            className="flex w-full items-center gap-2 rounded px-3 py-2 text-xs transition-colors duration-100 hover:bg-rune-gold/10"
+            style={{ color: "var(--color-mist)" }}
+          >
+            <Plus size={13} aria-hidden />
+            Add Scene
+          </button>
         </div>
-      )}
+      </div>
     </aside>
   );
 }

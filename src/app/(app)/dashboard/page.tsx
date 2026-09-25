@@ -90,7 +90,7 @@ export default async function DashboardPage({
         if (!chapter || !project) continue;
         recentPageCards.push({
           pageId: row.id,
-          pageTitle: (row as { title?: string }).title ?? "Untitled Page",
+          pageTitle: (row as { title?: string }).title ?? "Untitled Scene",
           chapterId: chapter.id,
           chapterTitle: chapter.title,
           projectId: project.id,

@@ -27,12 +27,12 @@ export default function NetworkProvider() {
       window.dispatchEvent(new CustomEvent('rune-sync-queue-updated'))
 
       if (synced > 0) {
-        showToast(synced === 1 ? '1 page synced' : `${synced} pages synced`, 'success')
+        showToast(synced === 1 ? '1 scene synced' : `${synced} scenes synced`, 'success')
       }
       if (conflicts > 0) {
-        showToast('Some pages need sync review', 'info')
+        showToast('Some scenes need sync review', 'info')
       } else if (failed > 0) {
-        showToast('Some pages could not sync yet', 'info')
+        showToast('Some scenes could not sync yet', 'info')
       }
     }
 

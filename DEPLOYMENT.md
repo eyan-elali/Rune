@@ -74,7 +74,7 @@ psql "$DB_URL" -X -1 -v ON_ERROR_STOP=1 -f src/lib/supabase/migrations/014_asser
 Compare with
 `node tools/db-audit/diff-catalog.mjs src/lib/supabase/catalog/production-2026-09-24.json <export> --expect schema-only`
 (before 013). The Rune 2.0 database created empty from the old baseline gets
-013–015 by `tools/db-audit/STAGING.md` Part 5.
+013–016 by `tools/db-audit/STAGING.md` Part 5.
 
 ---
 
