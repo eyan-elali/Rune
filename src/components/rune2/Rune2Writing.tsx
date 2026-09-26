@@ -1,42 +1,40 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createScene, getScene } from "@/lib/actions/scenes";
 import { cacheScene, getCachedScene } from "@/lib/offline/db";
 import type { WritingTarget } from "@/lib/rune2/writingTarget";
 import type { Scene } from "@/lib/types";
+import type { SurfaceScene } from "./Rune2Editor";
+import { useRune2Selection } from "./Rune2Selection";
 
-// Hosts the Rune 2.0 writing surface for the current WritingTarget. It opens
-// Scenes by id and hands the editor one at a time; the editor instance stays
-// mounted for the whole shell, so every Scene switch goes through the engine's
-// own switch path (flush the departing Scene by its id, then load the next).
+// Hosts the Rune 2.0 writing surface for the current WritingTarget: loads the
+// Scenes it shows, by id, and hands them to the surface, which gives each its
+// own editor instance (see Rune2Editor).
 //
-// Opened Scenes are kept here, and kept current from the editor's own reports
-// (onSceneUpdated) — the same model as the legacy EditorShell — so returning
-// to a Scene shows what was last typed, not an older server read. The engine
-// then prefers any unsynced local draft over this copy.
+// Opened Scenes are kept here, and kept current from the editors' own reports
+// (onSceneUpdated, and each editor's last content when it leaves the surface)
+// — the same model as the legacy EditorShell — so returning to a Scene shows
+// what was last typed, not an older server read. The engine then prefers any
+// unsynced local draft over this copy.
 
 const Rune2Editor = dynamic(() => import("./Rune2Editor"), { ssr: false });
 
-type LoadState = { id: string; failed: boolean } | null;
-
 export function Rune2Writing({ projectId, target }: { projectId: string; target: WritingTarget | null }) {
   const router = useRouter();
+  const { selected, select, focusSceneId, requestSceneFocus } = useRune2Selection();
   const [scenes, setScenes] = useState<Record<string, Scene>>({});
-  const [load, setLoad] = useState<LoadState>(null);
+  const [failed, setFailed] = useState<Record<string, boolean>>({});
+  const loading = useRef(new Set<string>());
   const [creating, startCreating] = useTransition();
   const [createFailed, setCreateFailed] = useState(false);
 
-  const sceneId = target?.kind === "scene" ? target.sceneId : null;
-  // Null until this exact Scene is loaded: the editor never shows (or accepts
-  // typing into) anything but the Scene the writer asked for.
-  const currentScene = sceneId ? scenes[sceneId] ?? null : null;
-
   const fetchScene = useCallback(
     async (id: string) => {
-      setLoad({ id, failed: false });
+      if (loading.current.has(id)) return;
+      loading.current.add(id);
       let scene: Scene | null = null;
       try {
         const result = await getScene(id);
@@ -49,35 +47,53 @@ export function Rune2Writing({ projectId, target }: { projectId: string; target:
       } catch {
         // Offline or unreachable: fall through to the device's copy.
       }
-      scene ??= await getCachedScene(id);
+      try {
+        scene ??= await getCachedScene(id);
+      } catch {
+        // No device copy either.
+      }
+      loading.current.delete(id);
       if (!scene) {
-        setLoad({ id, failed: true });
+        setFailed((prev) => ({ ...prev, [id]: true }));
         return;
       }
       const loaded = scene;
-      // Never replace a copy the editor has already updated.
+      // Never replace a copy an editor has already updated.
       setScenes((prev) => (prev[id] ? prev : { ...prev, [id]: loaded }));
-      setLoad((prev) => (prev?.id === id ? null : prev));
+      setFailed((prev) => {
+        if (!prev[id]) return prev;
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
     },
     [projectId]
   );
 
+  // Load every shown Scene not yet held (and not already known to fail).
+  const shownIds = target?.kind === "scenes" ? target.scenes.map((s) => s.id) : [];
+  const missingKey = shownIds.filter((id) => !scenes[id] && !failed[id]).join(",");
   useEffect(() => {
-    if (!sceneId || scenes[sceneId]) return;
-    let stale = false;
-    queueMicrotask(() => {
-      if (!stale) void fetchScene(sceneId);
-    });
-    return () => {
-      stale = true;
-    };
-    // Only a change of Scene starts a load; `scenes` changes on every save.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sceneId, fetchScene]);
+    if (!missingKey) return;
+    for (const id of missingKey.split(",")) void fetchScene(id);
+  }, [missingKey, fetchScene]);
+
+  const retry = useCallback(
+    (id: string) => {
+      setFailed((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+    },
+    []
+  );
 
   const handleSceneUpdated = useCallback((id: string, updates: Partial<Scene>) => {
     setScenes((prev) => (prev[id] ? { ...prev, [id]: { ...prev[id], ...updates } } : prev));
   }, []);
+
+  const clearFocusRequest = useCallback(() => requestSceneFocus(null), [requestSceneFocus]);
 
   function startChapter(chapterId: string) {
     setCreateFailed(false);
@@ -94,19 +110,25 @@ export function Rune2Writing({ projectId, target }: { projectId: string; target:
     });
   }
 
-  const failed = sceneId !== null && load?.id === sceneId && load.failed;
+  const surfaceScenes: SurfaceScene[] =
+    target?.kind === "scenes"
+      ? target.scenes.map((s) => ({
+          id: s.id,
+          scene: scenes[s.id] ?? null,
+          failed: failed[s.id] === true,
+          mark: s.mark,
+        }))
+      : [];
 
   const header = target ? (
     <header className="r2-doc-head">
-      {target.kind === "scene" && target.eyebrow && <p className="r2-doc-eyebrow">{target.eyebrow}</p>}
+      {target.kind === "scenes" && target.eyebrow && <p className="r2-doc-eyebrow">{target.eyebrow}</p>}
       <h1 className="r2-doc-title">{target.title}</h1>
-      {target.kind === "scene" && target.note && <p className="r2-doc-note">{target.note}</p>}
     </header>
   ) : null;
 
-  let placeholder = null;
-  if (target?.kind === "emptyChapter") {
-    placeholder = (
+  const placeholder =
+    target?.kind === "emptyChapter" ? (
       <div className="r2-doc-empty">
         <p>This chapter has no scenes.</p>
         <button
@@ -119,23 +141,19 @@ export function Rune2Writing({ projectId, target }: { projectId: string; target:
         </button>
         {createFailed && <p role="alert">Couldn’t start the chapter. Nothing was changed — try again.</p>}
       </div>
-    );
-  } else if (failed && sceneId) {
-    placeholder = (
-      <div className="r2-doc-empty" role="alert">
-        <p>This scene couldn’t be opened.</p>
-        <button type="button" className="r2-button" onClick={() => void fetchScene(sceneId)}>
-          Try again
-        </button>
-      </div>
-    );
-  }
+    ) : null;
 
   return (
     <Rune2Editor
       projectId={projectId}
-      currentScene={currentScene}
+      viewKey={selected?.id ?? null}
+      scenes={surfaceScenes}
+      marks={target?.kind === "scenes" && target.marks}
       onSceneUpdated={handleSceneUpdated}
+      onRetry={retry}
+      onOpenScene={select}
+      focusSceneId={focusSceneId}
+      onFocusHandled={clearFocusRequest}
       header={header}
       placeholder={placeholder}
     />

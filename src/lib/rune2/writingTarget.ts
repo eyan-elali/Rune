@@ -1,30 +1,44 @@
-import { chapterShowsScenes, type NavEntry } from "@/lib/rune2/navigatorModel";
+import { chapterShowsScenes, UNTITLED, type NavEntry } from "@/lib/rune2/navigatorModel";
 
-// What the Rune 2.0 writing surface opens for a navigator selection. The
-// editable document is always one Scene (architecture §7: one Scene per
-// editor instance); this decides which Scene, and how the surface names it.
+// What the Rune 2.0 writing surface opens for a navigator selection. Prose
+// always lives in Scenes, and every Scene is edited by its own editor
+// instance (architecture §7: one Scene per editor instance); this decides
+// which Scenes are shown, in what order, and how the surface names them.
 // Groups and the Manuscript itself are structure, not prose: no target.
+
+export type WritingScene = {
+  id: string;
+  /**
+   * The quiet boundary label above the Scene, shown only when the Chapter
+   * exposes its Scene structure: the Scene's title, or null for an unnamed
+   * Scene (a plain boundary, never "Untitled scene").
+   */
+  mark: string | null;
+};
 
 export type WritingTarget =
   | {
-      kind: "scene";
-      sceneId: string;
-      /** The surface's heading: the Chapter's title when writing "the Chapter". */
+      kind: "scenes";
+      /** "chapter": the whole Chapter, continuous. "scene": one Scene, focused. */
+      view: "chapter" | "scene";
+      scenes: WritingScene[];
+      /** Whether Scene boundaries are drawn (a Chapter with visible Scene structure). */
+      marks: boolean;
+      /** The surface's heading: the Chapter's title for the Chapter, else the Scene's. */
       title: string;
-      /** A quiet line above the heading (the Chapter of a visible Scene, or Unplaced). */
+      /** A quiet line above the heading (a focused Scene's Chapter, or Unplaced). */
       eyebrow: string | null;
-      /** A quiet line below the heading, e.g. which Scene of the Chapter is open. */
-      note: string | null;
+      /** Where "+ Scene" appends a new Scene; null where it doesn't apply (Unplaced). */
+      addSceneTo: string | null;
     }
   | { kind: "emptyChapter"; chapterId: string; title: string };
 
 /**
- * - A Scene or Unplaced Scene opens itself.
- * - A Chapter that hides its Scene structure opens its one Scene, presented
- *   as the Chapter.
- * - A Chapter with several visible Scenes opens its first Scene, keeping the
- *   Chapter as the heading (temporary — Milestone 3 replaces this with the
- *   continuous Chapter surface).
+ * - A Chapter opens as the whole Chapter: every placed Scene, in order, as
+ *   one continuous surface. A Chapter that hides its Scene structure (see
+ *   chapterShowsScenes) shows its one Scene with no boundary at all.
+ * - A Scene opens alone, focused, under its Chapter.
+ * - An Unplaced Scene opens alone.
  * - A Chapter with no Scenes is an empty Chapter.
  */
 export function writingTargetFor(
@@ -38,16 +52,26 @@ export function writingTargetFor(
       return null;
 
     case "unplacedScene":
-      return { kind: "scene", sceneId: selected.id, title: selected.title, eyebrow: "Unplaced", note: null };
+      return {
+        kind: "scenes",
+        view: "scene",
+        scenes: [{ id: selected.id, mark: null }],
+        marks: false,
+        title: selected.title,
+        eyebrow: "Unplaced",
+        addSceneTo: null,
+      };
 
     case "scene": {
       const chapter = selected.path[selected.path.length - 1];
       return {
-        kind: "scene",
-        sceneId: selected.id,
+        kind: "scenes",
+        view: "scene",
+        scenes: [{ id: selected.id, mark: null }],
+        marks: false,
         title: selected.title,
         eyebrow: chapter?.title ?? null,
-        note: null,
+        addSceneTo: chapter?.id ?? null,
       };
     }
 
@@ -56,11 +80,21 @@ export function writingTargetFor(
       if (sceneIds.length === 0) {
         return { kind: "emptyChapter", chapterId: selected.id, title: selected.title };
       }
-      const first = index.get(sceneIds[0]);
-      const note = chapterShowsScenes({ scenes: sceneIds })
-        ? `Scene 1 of ${sceneIds.length}${first ? ` · ${first.title}` : ""}`
-        : null;
-      return { kind: "scene", sceneId: sceneIds[0], title: selected.title, eyebrow: null, note };
+      const marks = chapterShowsScenes({ scenes: sceneIds });
+      return {
+        kind: "scenes",
+        view: "chapter",
+        scenes: sceneIds.map((id) => ({ id, mark: marks ? sceneMark(index.get(id)) : null })),
+        marks,
+        title: selected.title,
+        eyebrow: null,
+        addSceneTo: selected.id,
+      };
     }
   }
+}
+
+function sceneMark(entry: NavEntry | undefined): string | null {
+  if (!entry || entry.title === UNTITLED.scene) return null;
+  return entry.title;
 }

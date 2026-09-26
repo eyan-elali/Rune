@@ -1,13 +1,18 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useEffect, useState, useTransition, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
+import { Plus } from "lucide-react";
+import { createScene } from "@/lib/actions/scenes";
+import { cacheScene } from "@/lib/offline/db";
 import type { NavEntry, NavKind } from "@/lib/rune2/navigatorModel";
 import { writingTargetFor } from "@/lib/rune2/writingTarget";
 import { useRune2Selection } from "./Rune2Selection";
 import { Rune2Writing } from "./Rune2Writing";
 
-// The context bar (a quiet breadcrumb to the selection) and the content area.
-// Chapters and Scenes open in the writing surface (see writingTarget.ts);
+// The context bar (a quiet breadcrumb to the selection, and the selection's
+// few contextual actions) and the content area. Chapters and Scenes open in
+// the writing surface (see writingTarget.ts);
 // a Group shows a structural summary; with nothing selected, the content area
 // shows its route (the Manuscript overview).
 
@@ -23,7 +28,8 @@ function plural(n: number, one: string, many = `${one}s`) {
 }
 
 export function Rune2ContextBar() {
-  const { manuscript, selected, select } = useRune2Selection();
+  const { manuscript, index, selected, select } = useRune2Selection();
+  const target = writingTargetFor(selected, index);
   // id undefined = a label only (Unplaced Scenes is a section, not an object).
   const trail: { id?: string | null; title: string }[] = [{ id: null, title: "Manuscript" }];
   if (selected) {
@@ -54,7 +60,84 @@ export function Rune2ContextBar() {
           })}
         </ol>
       </nav>
+      {target?.kind === "scenes" && target.addSceneTo && (
+        <div className="r2-contextbar-actions">
+          <AddSceneAction chapterId={target.addSceneTo} />
+        </div>
+      )}
     </header>
+  );
+}
+
+/**
+ * "+ Scene": appends an empty Scene to the Chapter in view — the one creation
+ * Phase 1 supports (createScene; the database picks the position). Nothing
+ * existing changes: a Chapter's first Scene keeps its id and prose, and the
+ * Chapter simply has two Scenes now, so its Scene structure shows.
+ *
+ * From the Chapter, the writer stays in the Chapter and the new Scene takes
+ * focus there; from one of its Scenes, the new Scene opens on its own.
+ */
+function AddSceneAction({ chapterId }: { chapterId: string }) {
+  const { manuscript, index, selected, setOpenFor, selectWhenPresent, requestSceneFocus } =
+    useRune2Selection();
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [, startRefresh] = useTransition();
+  const [notice, setNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!notice) return;
+    const timer = setTimeout(() => setNotice(null), 5000);
+    return () => clearTimeout(timer);
+  }, [notice]);
+
+  async function add() {
+    if (busy) return;
+    const chapter = index.get(chapterId);
+    const fromChapter = selected?.id === chapterId;
+    setBusy(true);
+    setNotice(null);
+    try {
+      const r = await createScene(chapterId, `Scene ${(chapter?.childCount ?? 0) + 1}`);
+      if (r.error !== null) {
+        setNotice(r.wordLimitBlocked ? "Your word limit has been reached." : "Couldn’t add a scene.");
+        return;
+      }
+      try {
+        await cacheScene(r.data, manuscript.project.id);
+      } catch {
+        // The surface reads it from the server instead.
+      }
+      setOpenFor([...(chapter?.path.map((p) => p.id) ?? []), chapterId], true);
+      if (!fromChapter) selectWhenPresent(r.data.id);
+      requestSceneFocus(r.data.id);
+    } catch {
+      setNotice("Couldn’t add a scene.");
+    } finally {
+      setBusy(false);
+      startRefresh(() => router.refresh());
+    }
+  }
+
+  return (
+    <>
+      {notice && (
+        <span role="status" className="r2-contextbar-notice">
+          {notice}
+        </span>
+      )}
+      <button
+        type="button"
+        className="r2-action"
+        disabled={busy}
+        onClick={() => void add()}
+        title={`Add a scene to the end of ${index.get(chapterId)?.title ?? "this chapter"}`}
+      >
+        <Plus size={14} strokeWidth={1.75} aria-hidden />
+        Scene
+      </button>
+    </>
   );
 }
 
@@ -64,7 +147,8 @@ export function Rune2SelectionView({ children }: { children: ReactNode }) {
   return (
     <>
       {!target && (selected ? <StructurePreview entry={selected} /> : children)}
-      {/* Always mounted, in the same place: one editor instance for the shell. */}
+      {/* Always mounted, in the same place, so a Scene that stays on screen
+          between views keeps its editor instance. */}
       <Rune2Writing projectId={manuscript.project.id} target={target} />
     </>
   );

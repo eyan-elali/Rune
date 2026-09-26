@@ -1,6 +1,6 @@
 "use client";
 
-import { useEditor } from "@tiptap/react";
+import { useEditor, type FocusPosition } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import CharacterCount from "@tiptap/extension-character-count";
@@ -72,6 +72,12 @@ export interface UseSceneEditorOptions {
   accountWordTotal?: number;
   /** Placeholder shown in an empty Scene. Read once, when the editor is created. */
   placeholder?: string;
+  /**
+   * Where the editor takes focus when it is created; false leaves focus where
+   * it is (several Scene editors on one surface must not compete for it).
+   * Read once, when the editor is created.
+   */
+  autofocus?: FocusPosition;
 }
 
 export interface ToolbarPos {
@@ -85,6 +91,7 @@ export function useSceneEditor({
   onSceneUpdated,
   accountWordTotal = 0,
   placeholder = "Begin your story...",
+  autofocus = "start",
 }: UseSceneEditorOptions) {
   const { setIsSaving, setLastSaved } = useEditorStore();
   const showToast = useToastStore((s) => s.showToast);
@@ -361,7 +368,7 @@ export function useSceneEditor({
       CharacterCount,
     ],
     content: currentScene?.content ?? null,
-    autofocus: "start",
+    autofocus,
     editorProps: {
       // ── Free-tier word-limit input guards ───────────────────────────────────
       // These run BEFORE ProseMirror applies the transaction, so the character

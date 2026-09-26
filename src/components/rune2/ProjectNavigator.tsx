@@ -27,8 +27,9 @@ import { useRune2Selection } from "./Rune2Selection";
 // in reading order, then Unplaced Scenes. Every change goes through the Phase 1
 // server actions — each one atomic in the database — and the tree then
 // re-reads the manuscript (router.refresh). Nothing here holds a second copy
-// of the structure; only UI state (open rows, the row being renamed, titles
-// just renamed but not yet re-read).
+// of the structure; only UI state (open rows — shared through the selection
+// context, since the writing surface's "+ Scene" opens rows too — the row
+// being renamed, titles just renamed but not yet re-read).
 //
 // Not here yet, deliberately: drag-and-drop and other moves (beyond "Move to
 // Unplaced Scenes"), and deleting a Scene — Phase 1 deletion is permanent and
@@ -44,12 +45,11 @@ type MenuState = { label: string; at: { x: number; y: number }; items: Navigator
 const formatCount = (n: number) => n.toLocaleString();
 
 export function ProjectNavigator() {
-  const { manuscript, index, selected, select } = useRune2Selection();
+  const { manuscript, index, selected, select, open, setOpenFor } = useRune2Selection();
   const projectId = manuscript.project.id;
   const router = useRouter();
   const [refreshing, startRefresh] = useTransition();
   const [busy, setBusy] = useState(false);
-  const [open, setOpen] = useState<Record<string, boolean>>({});
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [menu, setMenu] = useState<MenuState | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -69,8 +69,6 @@ export function ProjectNavigator() {
   }, [notice]);
 
   const isOpen = (id: string, fallback: boolean) => open[id] ?? fallback;
-  const setOpenFor = (ids: string[], value: boolean) =>
-    setOpen((prev) => ({ ...prev, ...Object.fromEntries(ids.map((id) => [id, value])) }));
   const titleOf = (entry: NavEntry | undefined, fallback: string) =>
     (entry && renamed[entry.id]) ?? entry?.title ?? fallback;
 
