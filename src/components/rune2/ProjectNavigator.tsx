@@ -12,6 +12,7 @@ import {
   PanelTop,
   MoreHorizontal,
   Pencil,
+  PanelLeft,
   Pilcrow,
   Plus,
   Trash2,
@@ -63,6 +64,8 @@ export function ProjectNavigator() {
     open,
     setOpenFor,
     setRenamedTitle,
+    navCollapsed,
+    toggleNav,
   } = useRune2Selection();
   const projectId = manuscript.project.id;
   const router = useRouter();
@@ -370,11 +373,27 @@ export function ProjectNavigator() {
   const unplacedOpen = isOpen(ROOT_UNPLACED, true);
 
   return (
-    <nav aria-label="Project" className="r2-nav" aria-busy={busy || refreshing}>
+    <nav
+      aria-label="Project"
+      className="r2-nav"
+      aria-busy={busy || refreshing}
+      // Retracted: out of the way and out of the tab order, but still mounted
+      // with its open rows intact.
+      inert={navCollapsed || undefined}
+    >
       <div className="r2-nav-header">
         <span className="r2-nav-project" title={manuscript.project.title}>
           {manuscript.project.title}
         </span>
+        <button
+          type="button"
+          className="r2-icon-button r2-nav-toggle"
+          aria-label="Hide navigator"
+          title="Hide navigator"
+          onClick={toggleNav}
+        >
+          <PanelLeft size={14} strokeWidth={1.75} aria-hidden />
+        </button>
       </div>
       <div className="r2-nav-progress" data-active={busy || refreshing || undefined} aria-hidden />
 

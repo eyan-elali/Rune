@@ -1,14 +1,17 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { X } from "lucide-react";
+import { PanelLeft, X } from "lucide-react";
 import { MANUSCRIPT_TAB, useRune2Selection, type WorkingTab } from "./Rune2Selection";
 
 // The working set: a quiet row of the objects the writer has open in tabs of
-// their own (⌘/Ctrl-click or "Open in new tab" in the navigator). With one tab
-// there is nothing to switch between, so the row isn't shown at all. Tabs
-// name canonical objects by id (see Rune2Selection); a label is always the
-// object's current title. Overflow scrolls sideways — never a second row.
+// their own (⌘/Ctrl-click or "Open in new tab" in the navigator). The row is
+// part of the application frame and is always there, one tab or many; while
+// the writer types it fades with the rest of the top chrome rather than
+// disappearing. Tabs name canonical objects by id (see Rune2Selection); a
+// label is always the object's current title. Overflow scrolls sideways —
+// never a second row. When the navigator is retracted, the control that
+// brings it back sits at the row's start.
 
 function tabLabel(tab: WorkingTab): string {
   return tab.entry?.title ?? "Manuscript";
@@ -22,7 +25,7 @@ function tabPath(tab: WorkingTab): string {
 }
 
 export function Rune2Tabs() {
-  const { tabs, activeTab, activateTab, closeTab } = useRune2Selection();
+  const { tabs, activeTab, activateTab, closeTab, navCollapsed, toggleNav } = useRune2Selection();
   const listRef = useRef<HTMLUListElement>(null);
   // A tab closed from the keyboard hands focus to the tab that takes its place.
   const refocus = useRef(false);
@@ -37,10 +40,19 @@ export function Rune2Tabs() {
     }
   }, [activeTab, tabs.length]);
 
-  if (tabs.length < 2) return null;
-
   return (
     <nav className="r2-tabs" aria-label="Open tabs">
+      {navCollapsed && (
+        <button
+          type="button"
+          className="r2-icon-button r2-tabs-nav-toggle"
+          aria-label="Show navigator"
+          title="Show navigator"
+          onClick={toggleNav}
+        >
+          <PanelLeft size={14} strokeWidth={1.75} aria-hidden />
+        </button>
+      )}
       <ul ref={listRef} role="list">
         {tabs.map((tab) => {
           const active = tab.key === activeTab;
@@ -78,7 +90,7 @@ export function Rune2Tabs() {
                   closeTab(tab.key);
                 }}
               >
-                <X size={12} strokeWidth={2} aria-hidden />
+                <X size={13} strokeWidth={1.75} aria-hidden />
               </button>
             </li>
           );

@@ -28,7 +28,8 @@ import {
 // Also shared here, because actions outside the navigator change them: which
 // navigator rows are open, a request to focus a Scene's prose once its editor
 // appears (a Scene just created from the writing surface), titles renamed but
-// not yet re-read, and which view the right-hand panel shows.
+// not yet re-read, which view the right-hand panel shows, and whether the
+// navigator is retracted.
 
 export { MANUSCRIPT_TAB };
 
@@ -67,6 +68,9 @@ type Rune2SelectionValue = {
   requestSceneFocus: (id: string | null) => void;
   /** Shows a title at once, until the manuscript is re-read. */
   setRenamedTitle: (id: string, title: string) => void;
+  /** Whether the navigator is retracted — presentation state only. */
+  navCollapsed: boolean;
+  toggleNav: () => void;
   /** The one right-hand panel's view, or null when it is closed. */
   panel: PanelView | null;
   /** Opens the panel on a view, switches it, or — for the view showing — closes it. */
@@ -88,6 +92,7 @@ export function Rune2SelectionProvider({
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const [focusSceneId, requestSceneFocus] = useState<string | null>(null);
   const [panel, setPanel] = useState<PanelView | null>(null);
+  const [navCollapsed, setNavCollapsed] = useState(false);
 
   // Titles renamed but not yet re-read; a fresh read supersedes them.
   const [renamed, setRenamed] = useState<Record<string, string>>({});
@@ -147,6 +152,7 @@ export function Rune2SelectionProvider({
     (id: string, title: string) => setRenamed((prev) => ({ ...prev, [id]: title })),
     []
   );
+  const toggleNav = useCallback(() => setNavCollapsed((v) => !v), []);
   const togglePanel = useCallback((view: PanelView) => setPanel((prev) => (prev === view ? null : view)), []);
   const closePanel = useCallback(() => setPanel(null), []);
 
@@ -172,6 +178,8 @@ export function Rune2SelectionProvider({
       focusSceneId,
       requestSceneFocus,
       setRenamedTitle,
+      navCollapsed,
+      toggleNav,
       panel,
       togglePanel,
       closePanel,
@@ -191,6 +199,8 @@ export function Rune2SelectionProvider({
       setOpenFor,
       focusSceneId,
       setRenamedTitle,
+      navCollapsed,
+      toggleNav,
       panel,
       togglePanel,
       closePanel,

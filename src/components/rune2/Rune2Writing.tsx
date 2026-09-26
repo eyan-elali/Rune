@@ -24,7 +24,7 @@ const Rune2Editor = dynamic(() => import("./Rune2Editor"), { ssr: false });
 
 export function Rune2Writing({ projectId, target }: { projectId: string; target: WritingTarget | null }) {
   const router = useRouter();
-  const { index, selected, select, focusSceneId, requestSceneFocus } = useRune2Selection();
+  const { selected, focusSceneId, requestSceneFocus } = useRune2Selection();
   const [scenes, setScenes] = useState<Record<string, Scene>>({});
   const [failed, setFailed] = useState<Record<string, boolean>>({});
   const loading = useRef(new Set<string>());
@@ -117,9 +117,6 @@ export function Rune2Writing({ projectId, target }: { projectId: string; target:
           scene: scenes[s.id] ?? null,
           failed: failed[s.id] === true,
           mark: s.mark,
-          // A named Scene's title shows faintly at its boundary; an unnamed
-          // Scene's "Scene N" only on hover or while writing (rune2.css).
-          named: index.get(s.id)?.named === true,
         }))
       : [];
 
@@ -154,7 +151,6 @@ export function Rune2Writing({ projectId, target }: { projectId: string; target:
       marks={target?.kind === "scenes" && target.marks}
       onSceneUpdated={handleSceneUpdated}
       onRetry={retry}
-      onOpenScene={select}
       focusSceneId={focusSceneId}
       onFocusHandled={clearFocusRequest}
       header={header}

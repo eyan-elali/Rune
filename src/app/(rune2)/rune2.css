@@ -16,10 +16,16 @@
   --r2-field-bg: #fdfdfc;
   --r2-border: #e6e6e3;
   --r2-border-strong: #d9d9d5;
-  /* Ink */
-  --r2-text: #1d2025;
-  --r2-muted: #5f636b;
-  --r2-faint: #91949b;
+  /* Ink — one deliberate hierarchy for the whole shell (Milestone 5.1):
+       1  manuscript, the active title, the active navigation item, headings
+       2  navigator rows, breadcrumbs, top actions, Inspector values
+       3  metadata, counts, placeholders, inactive controls, support text */
+  --r2-ink-1: #1c1f24;
+  --r2-ink-2: #585c64;
+  --r2-ink-3: #8e9198;
+  --r2-text: var(--r2-ink-1);
+  --r2-muted: var(--r2-ink-2);
+  --r2-faint: var(--r2-ink-3);
   /* Neutral interaction tints */
   --r2-hover: rgba(29, 32, 37, 0.05);
   --r2-press: rgba(29, 32, 37, 0.08);
@@ -34,9 +40,15 @@
   --r2-danger: #a33a32;
   --r2-shadow-pop: 0 1px 2px rgba(20, 24, 31, 0.05), 0 8px 24px rgba(20, 24, 31, 0.08);
   --r2-radius: 5px;
+  /* Motion: one family. Quick for hover and press; a slower, settled curve
+     for anything that moves the frame (navigator, panel, chrome fading). */
   --r2-ease: cubic-bezier(0.2, 0, 0, 1);
+  --r2-ease-frame: cubic-bezier(0.32, 0.72, 0, 1);
   --r2-fast: 120ms;
   --r2-medium: 180ms;
+  --r2-frame: 300ms;
+  --r2-fade-out: 460ms;
+  --r2-fade-in: 200ms;
 
   color-scheme: light;
   background: var(--r2-bg);
@@ -64,15 +76,29 @@
 }
 
 .r2-shell {
-  --r2-nav-width: 252px;
+  --r2-nav-full: 252px;
+  /* The navigator's current width: what the writing column centres against. */
+  --r2-nav-width: var(--r2-nav-full);
   --r2-panel-width: 300px;
   position: relative;
   display: grid;
-  /* navigator | content | optional panel (an empty auto column when closed) */
-  grid-template-columns: var(--r2-nav-width) minmax(0, 1fr) auto;
+  /* navigator | content | panel — the side columns size themselves and retract to 0 */
+  grid-template-columns: auto minmax(0, 1fr) auto;
   height: 100dvh;
   overflow: hidden;
   background: var(--r2-shell-bg);
+}
+.r2-shell[data-nav="collapsed"] {
+  --r2-nav-width: 0px;
+}
+
+/* The navigator's column retracts by width; the navigator inside keeps its
+   own width and is clipped, so nothing in it reflows or remounts. */
+.r2-nav-column {
+  width: var(--r2-nav-width);
+  min-height: 0;
+  overflow: hidden;
+  transition: width var(--r2-frame) var(--r2-ease-frame);
 }
 
 /* The content column: tab strip (shell tone) over the content surface. */
@@ -90,6 +116,8 @@
   position: relative;
   display: flex;
   flex-direction: column;
+  width: var(--r2-nav-full);
+  height: 100%;
   min-height: 0;
   background: var(--r2-nav-bg);
   border-right: 1px solid var(--r2-border);
@@ -100,25 +128,44 @@
 .r2-nav-header {
   display: flex;
   align-items: center;
-  height: 44px;
+  gap: 8px;
+  height: 46px;
   flex-shrink: 0;
-  padding: 0 16px;
+  padding: 0 8px 0 16px;
 }
 
 .r2-nav-project {
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
   font-size: 13px;
   font-weight: 600;
   letter-spacing: -0.01em;
-  color: var(--r2-text);
+  color: var(--r2-ink-1);
+}
+/* The collapse control: present, never insistent. */
+.r2-nav-toggle {
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity var(--r2-medium) var(--r2-ease), color var(--r2-fast) var(--r2-ease),
+    background-color var(--r2-fast) var(--r2-ease);
+}
+.r2-nav:hover .r2-nav-toggle,
+.r2-nav-toggle:focus-visible {
+  opacity: 1;
+}
+@media (hover: none) {
+  .r2-nav-toggle {
+    opacity: 1;
+  }
 }
 
 /* A hairline that runs only while a change is saving or the tree re-reads. */
 .r2-nav-progress {
   position: absolute;
-  top: 44px;
+  top: 46px;
   left: 0;
   right: 0;
   height: 1px;
@@ -175,15 +222,17 @@
   margin: 1px 8px;
   padding-right: 4px;
   border-radius: var(--r2-radius);
-  color: var(--r2-text);
+  color: var(--r2-ink-2);
   transition: background-color var(--r2-fast) var(--r2-ease), color var(--r2-fast) var(--r2-ease);
 }
 .r2-row:hover {
+  color: var(--r2-ink-1);
   background: var(--r2-hover);
 }
 .r2-row:active {
   background: var(--r2-press);
 }
+/* Selected: ink, on the faintest wash of ink blue — never a grey table row. */
 .r2-row[data-selected],
 .r2-row[data-selected]:hover {
   background: var(--r2-selected);
@@ -195,11 +244,12 @@
 .r2-row[data-emphasis] .r2-row-label {
   font-weight: 500;
 }
+/* Scenes read as a Chapter's contents: a little lighter, until reached for. */
 .r2-row[data-muted]:not([data-selected]) {
-  color: var(--r2-muted);
+  color: color-mix(in srgb, var(--r2-ink-2) 78%, var(--r2-ink-3));
 }
 .r2-row[data-muted]:not([data-selected]):hover {
-  color: var(--r2-text);
+  color: var(--r2-ink-1);
 }
 
 .r2-row-main {
@@ -235,9 +285,12 @@
 
 .r2-row-icon {
   flex-shrink: 0;
-  color: var(--r2-faint);
+  color: var(--r2-ink-3);
   margin-right: 3px;
   transition: color var(--r2-fast) var(--r2-ease);
+}
+.r2-row:hover .r2-row-icon {
+  color: var(--r2-ink-2);
 }
 .r2-row[data-selected] .r2-row-icon {
   color: var(--r2-accent);
@@ -250,18 +303,18 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 16px;
-  height: 16px;
-  border-radius: 3px;
-  color: var(--r2-faint);
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  color: var(--r2-ink-3);
   transition: color var(--r2-fast) var(--r2-ease), background-color var(--r2-fast) var(--r2-ease);
 }
 button.r2-disclosure:hover {
-  color: var(--r2-text);
+  color: var(--r2-ink-1);
   background: var(--r2-press);
 }
 .r2-disclosure svg {
-  transition: transform 140ms var(--r2-ease);
+  transition: transform var(--r2-medium) var(--r2-ease);
 }
 .r2-disclosure[data-open] svg {
   transform: rotate(90deg);
@@ -289,7 +342,7 @@ button.r2-disclosure:hover {
   width: 22px;
   height: 22px;
   border-radius: 4px;
-  color: var(--r2-muted);
+  color: var(--r2-ink-3);
   transition: color var(--r2-fast) var(--r2-ease), background-color var(--r2-fast) var(--r2-ease);
 }
 .r2-row-action:hover {
@@ -371,17 +424,17 @@ button.r2-disclosure:hover {
 
 .r2-nav-footer {
   flex-shrink: 0;
-  padding: 8px 8px 10px;
+  padding: 10px 8px 12px;
 }
 .r2-nav-footer a {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  height: 26px;
-  padding: 0 8px 0 6px;
+  height: 28px;
+  padding: 0 10px 0 8px;
   border-radius: var(--r2-radius);
-  font-size: 12px;
-  color: var(--r2-faint);
+  font-size: 12.5px;
+  color: var(--r2-ink-3);
   transition: color var(--r2-fast) var(--r2-ease), background-color var(--r2-fast) var(--r2-ease);
 }
 .r2-nav-footer a:hover {
@@ -468,23 +521,35 @@ button.r2-disclosure:hover {
 }
 
 /* ── Working-set tabs ──────────────────────────────────────────────────── */
-/* The topmost band of the content column, in the shell tone. The active tab
-   is a slim surface in the content tone — the same surface as the page below
-   it — so it belongs to the content rather than sitting on top of it.
-   Inactive tabs are quiet text. Overflow scrolls sideways. */
+/* The topmost band of the content column: part of the application frame, in
+   the shell tone, always present (one tab or many). Tabs are set in from the
+   viewport edge with real room around them; the active tab is a slim surface
+   in the content tone — the same surface as the page below it — so it belongs
+   to the content rather than sitting on top of it. Inactive tabs are quiet
+   text. Overflow scrolls sideways. */
 
 .r2-tabs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   flex-shrink: 0;
-  height: 36px;
-  padding: 5px 8px 0;
+  height: 46px;
+  padding: 8px 12px 0;
   background: var(--r2-shell-bg);
   border-bottom: 1px solid var(--r2-border);
+  transition: background-color var(--r2-fade-in) var(--r2-ease-frame),
+    border-color var(--r2-fade-in) var(--r2-ease-frame);
+}
+.r2-tabs-nav-toggle {
+  flex-shrink: 0;
+  margin-right: 2px;
 }
 .r2-tabs ul {
   display: flex;
   align-items: center;
-  gap: 2px;
-  height: 26px;
+  gap: 4px;
+  min-width: 0;
+  height: 30px;
   overflow-x: auto;
   scrollbar-width: none;
 }
@@ -496,33 +561,36 @@ button.r2-disclosure:hover {
   display: flex;
   align-items: center;
   flex-shrink: 0;
-  max-width: 220px;
-  height: 26px;
-  border-radius: var(--r2-radius);
-  font-size: 12.5px;
-  color: var(--r2-muted);
-  transition: background-color var(--r2-fast) var(--r2-ease), color var(--r2-fast) var(--r2-ease),
-    box-shadow var(--r2-fast) var(--r2-ease);
+  max-width: 240px;
+  height: 30px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--r2-ink-2);
+  transition: background-color var(--r2-medium) var(--r2-ease), color var(--r2-medium) var(--r2-ease),
+    box-shadow var(--r2-medium) var(--r2-ease);
 }
 .r2-tab:hover {
-  color: var(--r2-text);
+  color: var(--r2-ink-1);
   background: var(--r2-hover);
 }
 .r2-tab[data-active],
 .r2-tab[data-active]:hover {
-  color: var(--r2-text);
+  color: var(--r2-ink-1);
   background: var(--r2-bg);
-  box-shadow: 0 0 0 1px var(--r2-border);
+  box-shadow: 0 0 0 1px var(--r2-border), 0 1px 2px rgba(20, 24, 31, 0.04);
 }
 .r2-tab-main {
   display: flex;
-  align-items: baseline;
-  gap: 4px;
+  align-items: center;
+  gap: 5px;
   min-width: 0;
   height: 100%;
-  padding: 0 4px 0 10px;
-  border-radius: var(--r2-radius);
+  padding: 0 6px 0 12px;
+  border-radius: 6px;
   white-space: nowrap;
+}
+.r2-tab:not(:hover):not([data-active]) .r2-tab-main {
+  padding-right: 12px;
 }
 .r2-tab-main:focus-visible {
   outline-offset: -2px;
@@ -540,20 +608,28 @@ button.r2-disclosure:hover {
   max-width: 90px;
   overflow: hidden;
   text-overflow: ellipsis;
-  color: var(--r2-faint);
+  color: var(--r2-ink-3);
 }
+/* The close control: room of its own, shown only when the tab is reached for
+   or active. Outside those states its space folds away so the label sits
+   evenly within the tab. */
 .r2-tab-close {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 18px;
-  height: 18px;
-  margin-right: 4px;
+  width: 20px;
+  height: 20px;
+  margin-right: 5px;
   border-radius: 4px;
-  color: var(--r2-faint);
+  color: var(--r2-ink-3);
   opacity: 0;
   transition: opacity var(--r2-fast) var(--r2-ease), color var(--r2-fast) var(--r2-ease),
     background-color var(--r2-fast) var(--r2-ease);
+}
+.r2-tab:not(:hover):not([data-active]) .r2-tab-close:not(:focus-visible) {
+  width: 0;
+  margin-right: 0;
+  overflow: hidden;
 }
 .r2-tab:hover .r2-tab-close,
 .r2-tab[data-active] .r2-tab-close,
@@ -561,12 +637,19 @@ button.r2-disclosure:hover {
   opacity: 1;
 }
 .r2-tab-close:hover {
-  color: var(--r2-text);
+  color: var(--r2-ink-1);
   background: var(--r2-press);
 }
 @media (hover: none) {
   .r2-tab-close {
     opacity: 1;
+  }
+  .r2-tab:not(:hover):not([data-active]) .r2-tab-close:not(:focus-visible) {
+    width: 20px;
+    margin-right: 5px;
+  }
+  .r2-tab:not(:hover):not([data-active]) .r2-tab-main {
+    padding-right: 6px;
   }
 }
 
@@ -577,11 +660,11 @@ button.r2-disclosure:hover {
 .r2-contextbar {
   display: flex;
   align-items: center;
-  height: 42px;
+  height: 44px;
   flex-shrink: 0;
-  padding: 0 12px 0 18px;
+  padding: 0 12px 0 20px;
   font-size: 12.5px;
-  color: var(--r2-muted);
+  color: var(--r2-ink-2);
 }
 .r2-contextbar ol {
   display: flex;
@@ -601,7 +684,7 @@ button.r2-disclosure:hover {
   text-overflow: ellipsis;
 }
 .r2-crumb-project {
-  color: var(--r2-faint);
+  color: var(--r2-ink-3);
 }
 .r2-contextbar li button {
   padding: 2px 5px;
@@ -610,7 +693,7 @@ button.r2-disclosure:hover {
   transition: color var(--r2-fast) var(--r2-ease), background-color var(--r2-fast) var(--r2-ease);
 }
 .r2-contextbar li button:hover {
-  color: var(--r2-text);
+  color: var(--r2-ink-1);
   background: var(--r2-hover);
 }
 .r2-crumb-sep {
@@ -618,7 +701,7 @@ button.r2-disclosure:hover {
   color: var(--r2-border-strong);
 }
 .r2-crumb-current {
-  color: var(--r2-text);
+  color: var(--r2-ink-1);
   font-weight: 500;
 }
 
@@ -639,24 +722,24 @@ button.r2-disclosure:hover {
 .r2-action {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  height: 26px;
-  padding: 0 8px 0 7px;
+  gap: 6px;
+  height: 28px;
+  padding: 0 9px 0 8px;
   border-radius: var(--r2-radius);
   font-size: 12.5px;
-  color: var(--r2-muted);
+  color: var(--r2-ink-2);
   transition: color var(--r2-fast) var(--r2-ease), background-color var(--r2-fast) var(--r2-ease);
 }
 .r2-action svg {
-  color: var(--r2-faint);
+  color: var(--r2-ink-3);
   transition: color var(--r2-fast) var(--r2-ease);
 }
 .r2-action:hover:not(:disabled) {
-  color: var(--r2-text);
+  color: var(--r2-ink-1);
   background: var(--r2-hover);
 }
 .r2-action:hover:not(:disabled) svg {
-  color: var(--r2-muted);
+  color: var(--r2-ink-2);
 }
 .r2-action:active:not(:disabled) {
   background: var(--r2-press);
@@ -693,82 +776,132 @@ button.r2-disclosure:hover {
   background: var(--r2-border);
 }
 
+/* ── Chrome that recedes while writing ─────────────────────────────────── */
+/* Rune gets quieter when the writer starts writing. With `data-writing` on
+   the shell (useWritingChrome) the top chrome fades in place: the tab band
+   loses its tone and its hairline, and the tabs, breadcrumb and actions go
+   to nothing. Nothing collapses or moves — the space is kept, the prose
+   stays exactly where it was — and a reach for the interface brings it all
+   back a little faster than it left. */
+.r2-tabs ul,
+.r2-tabs-nav-toggle,
+.r2-contextbar > * {
+  transition: opacity var(--r2-fade-in) var(--r2-ease-frame);
+}
+.r2-shell[data-writing] .r2-tabs {
+  background: var(--r2-bg);
+  border-bottom-color: transparent;
+  transition-duration: var(--r2-fade-out);
+}
+.r2-shell[data-writing] .r2-tabs ul,
+.r2-shell[data-writing] .r2-tabs-nav-toggle,
+.r2-shell[data-writing] .r2-contextbar > * {
+  opacity: 0;
+  transition-duration: var(--r2-fade-out);
+}
+
 /* ── Right-hand panel ──────────────────────────────────────────────────── */
 /* One panel, beside the content (never over it at desktop widths), in the
    shell tone behind a hairline. Revision Notes and Inspector are views of it. */
 
+/* Always in the tree; open and closed differ only in width. The inner column
+   keeps the panel's full width and is clipped, so its content never reflows
+   as the panel moves, and the manuscript column takes the space in the same
+   movement. Open, the content fades in just behind the movement; closing,
+   it fades a little ahead of it. */
 .r2-panel {
+  width: 0;
+  min-height: 0;
+  overflow: hidden;
+  border-left: 1px solid transparent;
+  background: var(--r2-panel-bg);
+  font-size: 13px;
+  transition: width var(--r2-frame) var(--r2-ease-frame), border-color var(--r2-frame) var(--r2-ease-frame);
+}
+.r2-panel[data-open] {
+  width: var(--r2-panel-width);
+  border-left-color: var(--r2-border);
+}
+/* Closed, it leaves nothing behind — not even its hairline. */
+.r2-panel:not([data-open]) {
+  border-left-width: 0;
+}
+.r2-panel-inner {
   display: flex;
   flex-direction: column;
   width: var(--r2-panel-width);
-  min-height: 0;
-  border-left: 1px solid var(--r2-border);
-  background: var(--r2-panel-bg);
-  font-size: 13px;
-  animation: r2-panel-in var(--r2-medium) var(--r2-ease);
+  height: 100%;
+  opacity: 0;
+  transition: opacity var(--r2-medium) var(--r2-ease-frame);
 }
-@keyframes r2-panel-in {
-  from { opacity: 0; transform: translateX(6px); }
-  to { opacity: 1; transform: none; }
+.r2-panel[data-open] .r2-panel-inner {
+  opacity: 1;
+  transition-duration: var(--r2-frame);
+  transition-delay: 40ms;
 }
 .r2-panel-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 42px;
+  height: 46px;
   flex-shrink: 0;
-  padding: 0 10px 0 18px;
+  padding: 0 12px 0 20px;
 }
 .r2-panel-head h2 {
   font-size: 12.5px;
   font-weight: 600;
   letter-spacing: -0.005em;
-  color: var(--r2-text);
+  color: var(--r2-ink-1);
 }
 .r2-panel-body {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 4px 18px 24px;
+  padding: 2px 20px 28px;
 }
 .r2-panel-caption {
   font-size: 12px;
-  line-height: 1.45;
-  color: var(--r2-faint);
+  line-height: 1.5;
+  color: var(--r2-ink-3);
 }
 .r2-panel-empty,
 .r2-panel-notice {
-  margin-top: 16px;
+  margin-top: 20px;
+  max-width: 28em;
   font-size: 12.5px;
-  line-height: 1.5;
-  color: var(--r2-faint);
+  line-height: 1.55;
+  color: var(--r2-ink-3);
 }
 .r2-panel-notice {
-  color: var(--r2-muted);
+  color: var(--r2-ink-2);
 }
 .r2-panel-link {
   padding: 1px 4px;
   margin: 0 -4px;
   border-radius: 4px;
-  color: var(--r2-text);
+  color: var(--r2-ink-2);
   text-align: left;
-  transition: background-color var(--r2-fast) var(--r2-ease);
+  transition: background-color var(--r2-fast) var(--r2-ease), color var(--r2-fast) var(--r2-ease);
+}
+.r2-panel-link:hover {
+  color: var(--r2-ink-1);
 }
 .r2-panel-link:hover {
   background: var(--r2-hover);
 }
+/* One icon control for the shell: 14px glyph, 1.75 stroke, 26px hit area. */
 .r2-icon-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: 26px;
+  height: 26px;
   border-radius: 4px;
-  color: var(--r2-faint);
+  color: var(--r2-ink-3);
   transition: color var(--r2-fast) var(--r2-ease), background-color var(--r2-fast) var(--r2-ease);
 }
 .r2-icon-button:hover:not(:disabled) {
-  color: var(--r2-text);
+  color: var(--r2-ink-1);
   background: var(--r2-hover);
 }
 .r2-icon-button:active:not(:disabled) {
@@ -778,46 +911,92 @@ button.r2-disclosure:hover {
   opacity: 0.4;
 }
 
-/* Revision Notes */
-.r2-notes-input {
-  display: block;
-  width: 100%;
-  margin-top: 12px;
-  padding: 8px 10px;
-  resize: vertical;
-  border-radius: 6px;
+/* Revision Notes — the composer. A place to write a note: at rest a barely
+   lifted surface with no border; hovered, a hairline says it can be written
+   in; focused, the hairline takes ink and the surface opens up. It grows
+   with the note. The keyboard hint appears only while a note is being
+   written, beneath the surface, never inside it. */
+.r2-composer {
+  position: relative;
+  margin-top: 14px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--r2-field-bg) 70%, var(--r2-panel-bg));
+  box-shadow: inset 0 0 0 1px transparent;
+  transition: background-color var(--r2-medium) var(--r2-ease), box-shadow var(--r2-medium) var(--r2-ease);
+}
+.r2-composer:hover {
   background: var(--r2-field-bg);
   box-shadow: inset 0 0 0 1px var(--r2-border);
+}
+.r2-composer:focus-within,
+.r2-composer[data-filled] {
+  background: var(--r2-field-bg);
+  box-shadow: inset 0 0 0 1px var(--r2-accent-line), 0 1px 2px rgba(20, 24, 31, 0.04);
+}
+.r2-composer-input {
+  display: block;
+  width: 100%;
+  min-height: 42px;
+  padding: 11px 14px;
+  resize: none;
+  border-radius: 8px;
+  background: transparent;
   font: inherit;
   font-size: 13px;
-  line-height: 1.5;
-  color: var(--r2-text);
-  transition: box-shadow var(--r2-fast) var(--r2-ease);
+  line-height: 1.55;
+  color: var(--r2-ink-1);
+  field-sizing: content;
+  transition: min-height var(--r2-frame) var(--r2-ease-frame);
 }
-.r2-notes-input::placeholder {
-  color: var(--r2-faint);
+.r2-composer:focus-within .r2-composer-input,
+.r2-composer[data-filled] .r2-composer-input {
+  min-height: 84px;
 }
-.r2-notes-input:hover:not(:disabled) {
-  box-shadow: inset 0 0 0 1px var(--r2-border-strong);
+.r2-composer-input::placeholder {
+  color: var(--r2-ink-3);
+  transition: color var(--r2-medium) var(--r2-ease);
 }
-.r2-notes-input:focus {
+.r2-composer:hover .r2-composer-input::placeholder {
+  color: var(--r2-ink-2);
+}
+.r2-composer-input:focus {
   outline: none;
-  box-shadow: inset 0 0 0 1px var(--r2-accent-line), 0 0 0 3px var(--r2-accent-soft);
 }
-.r2-notes-input:disabled {
+.r2-composer-input:focus-visible {
+  outline: none;
+}
+.r2-composer-input:disabled {
   opacity: 0.6;
 }
-.r2-notes-hint {
-  margin-top: 6px;
+/* Below the surface, outside its box; what follows moves down to make room. */
+.r2-composer-hint {
+  position: absolute;
+  top: 100%;
+  left: 2px;
+  right: 2px;
+  margin-top: 5px;
   font-size: 11.5px;
-  color: var(--r2-faint);
+  line-height: 16px;
+  color: var(--r2-ink-3);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--r2-medium) var(--r2-ease);
 }
-.r2-notes-list {
-  margin-top: 14px;
+.r2-composer:focus-within .r2-composer-hint {
+  opacity: 1;
+}
+.r2-notes-list,
+.r2-notes .r2-panel-empty,
+.r2-notes .r2-panel-notice {
+  margin-top: 18px;
+  transition: margin-top var(--r2-frame) var(--r2-ease-frame);
+}
+.r2-notes:has(.r2-composer:focus-within) :is(.r2-notes-list, .r2-panel-empty, .r2-panel-notice) {
+  margin-top: 40px;
 }
 .r2-note {
   position: relative;
-  padding: 8px 76px 8px 0;
+  padding: 9px 80px 9px 0;
   border-top: 1px solid var(--r2-border);
 }
 .r2-note:first-child {
@@ -839,7 +1018,7 @@ button.r2-disclosure:hover {
 .r2-note-actions {
   position: absolute;
   top: 6px;
-  right: -6px;
+  right: -8px;
   display: flex;
   gap: 1px;
   opacity: 0;
@@ -855,54 +1034,57 @@ button.r2-disclosure:hover {
   }
 }
 .r2-notes-done {
-  margin-top: 18px;
+  margin-top: 20px;
   font-size: 12.5px;
 }
 .r2-notes-done > .r2-panel-link {
-  color: var(--r2-muted);
+  color: var(--r2-ink-3);
 }
 
 /* Inspector */
+.r2-inspector {
+  padding-top: 4px;
+}
 .r2-inspector-kind {
   font-size: 11.5px;
   font-weight: 500;
   letter-spacing: 0.02em;
-  color: var(--r2-faint);
+  color: var(--r2-ink-3);
 }
 .r2-inspector-title {
-  margin-top: 3px;
+  margin-top: 4px;
   font-size: 15px;
   font-weight: 600;
   line-height: 1.35;
   letter-spacing: -0.01em;
-  color: var(--r2-text);
+  color: var(--r2-ink-1);
   overflow-wrap: anywhere;
 }
 .r2-inspector-hint {
   margin-left: 8px;
   font-size: 11.5px;
   font-weight: 400;
-  color: var(--r2-faint);
+  color: var(--r2-ink-3);
 }
 .r2-inspector-props {
-  margin-top: 16px;
-  padding-top: 12px;
+  margin-top: 18px;
+  padding-top: 14px;
   border-top: 1px solid var(--r2-border);
 }
 .r2-inspector-props > div {
   display: grid;
   grid-template-columns: 84px minmax(0, 1fr);
   gap: 12px;
-  padding: 5px 0;
+  padding: 6px 0;
   line-height: 1.45;
 }
 .r2-inspector-props dt {
-  color: var(--r2-faint);
+  color: var(--r2-ink-3);
 }
 .r2-inspector-props dd {
   min-width: 0;
   overflow-wrap: anywhere;
-  color: var(--r2-text);
+  color: var(--r2-ink-2);
   font-variant-numeric: tabular-nums;
 }
 .r2-inspector-props dd[data-tone="muted"] {
@@ -923,6 +1105,8 @@ button.r2-disclosure:hover {
     right: 0;
     bottom: 0;
     z-index: 20;
+  }
+  .r2-panel[data-open] {
     box-shadow: var(--r2-shadow-pop);
   }
 }
@@ -935,12 +1119,15 @@ button.r2-disclosure:hover {
 
 .r2 {
   --r2-prose-font: "EB Garamond", "Iowan Old Style", Georgia, serif;
-  --r2-prose-size: 21px;
-  --r2-prose-leading: 1.62;
-  --r2-prose-ink: #202329;
-  --r2-prose-measure: 38rem;
+  /* A professional writing editor, not a typeset preview: smaller than the
+     first pass, on a slightly wider measure, so more of the manuscript is in
+     view while a long session stays comfortable. Judged with real prose. */
+  --r2-prose-size: 18.5px;
+  --r2-prose-leading: 1.6;
+  --r2-prose-ink: var(--r2-ink-1);
+  --r2-prose-measure: 41rem;
   /* The writing column, gutters included. */
-  --r2-doc-gutter: 56px;
+  --r2-doc-gutter: 52px;
   --r2-doc-width: calc(var(--r2-prose-measure) + 2 * var(--r2-doc-gutter));
 }
 
@@ -966,9 +1153,9 @@ button.r2-disclosure:hover {
     calc((100vw - var(--r2-nav-width) - var(--r2-doc-width)) / 2),
     calc(100cqw - var(--r2-doc-width))
   );
-  padding: 44px var(--r2-doc-gutter) 30vh;
+  padding: 40px var(--r2-doc-gutter) 30vh;
   cursor: text;
-  transition: margin-left var(--r2-medium) var(--r2-ease);
+  transition: margin-left var(--r2-frame) var(--r2-ease-frame);
 }
 @container (max-width: 640px) {
   .r2-main .r2-doc {
@@ -976,22 +1163,23 @@ button.r2-disclosure:hover {
   }
 }
 
+/* Structural titles stay in Rune's sans: confident, clean, not oversized. */
 .r2-doc-head {
-  margin-bottom: 30px;
+  margin-bottom: 28px;
   cursor: default;
 }
 .r2-doc-eyebrow {
-  margin-bottom: 8px;
+  margin-bottom: 6px;
   font-size: 12.5px;
   font-weight: 500;
-  color: var(--r2-faint);
+  color: var(--r2-ink-3);
 }
 .r2-doc-title {
-  font-size: 26px;
+  font-size: 23px;
   font-weight: 600;
   line-height: 1.25;
-  letter-spacing: -0.018em;
-  color: var(--r2-text);
+  letter-spacing: -0.016em;
+  color: var(--r2-ink-1);
 }
 .r2-doc-note {
   margin-top: 8px;
@@ -1083,14 +1271,13 @@ button.r2-disclosure:hover {
   opacity: 0.75;
 }
 
-/* ── Scene boundaries ──────────────────────────────────────────────────── */
+/* ── Scene breaks ──────────────────────────────────────────────────────── */
 /* A Chapter read as one piece: its Scenes follow one another in the same
-   column, each its own editor, and the reader sees one Chapter of prose.
-   The boundary is whitespace. Above every Scene is a fixed slot for its
-   label (so nothing moves on hover): a named Scene's title shows faintly, an
-   unnamed Scene's "Scene N" not at all — until the Scene is hovered or being
-   written in, when the label comes in and a soft ink hairline appears in the
-   gutter beside the Scene. The gutter is left free for future Scene controls. */
+   column, each its own editor, and the reader sees one Chapter of prose. No
+   labels, rules, ornaments or boxes — the break between Scenes is vertical
+   rhythm alone: clearly more than a paragraph, clearly still one Chapter.
+   Scene identity lives on underneath (each section is its own Scene, named
+   for assistive technology; see Rune2Editor). */
 .r2-doc[data-marks] .r2-prose .ProseMirror {
   min-height: 0;
 }
@@ -1098,73 +1285,10 @@ button.r2-disclosure:hover {
   position: relative;
 }
 .r2-scene + .r2-scene {
-  margin-top: 2.2em;
+  margin-top: 3.1em;
 }
 .r2-scene[data-state="pending"] {
-  min-height: 1.7em;
-}
-.r2-scene-mark {
-  display: flex;
-  align-items: center;
-  height: 18px;
-  margin: 0 0 6px;
-  font-size: 11.5px;
-  font-weight: 500;
-  letter-spacing: 0.015em;
-  color: var(--r2-muted);
-  opacity: 0;
-  cursor: default;
-  transition: opacity var(--r2-medium) var(--r2-ease), color var(--r2-medium) var(--r2-ease);
-}
-.r2-scene-mark[data-named] {
-  color: var(--r2-faint);
-  opacity: 0.85;
-}
-.r2-scene:hover .r2-scene-mark[data-named],
-.r2-scene:focus-within .r2-scene-mark[data-named] {
-  color: var(--r2-muted);
-}
-.r2-scene:hover .r2-scene-mark,
-.r2-scene:focus-within .r2-scene-mark {
-  opacity: 1;
-}
-/* The gutter hairline: beside the Scene, outside the prose measure. */
-.r2-doc[data-marks] .r2-scene::before {
-  content: "";
-  position: absolute;
-  top: 24px;
-  bottom: 0;
-  left: calc(-1 * var(--r2-doc-gutter) / 2);
-  width: 2px;
-  border-radius: 1px;
-  background: var(--r2-accent);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity var(--r2-medium) var(--r2-ease);
-}
-.r2-doc[data-marks] .r2-scene:hover::before {
-  opacity: 0.14;
-}
-.r2-doc[data-marks] .r2-scene:focus-within::before {
-  opacity: 0.32;
-}
-.r2-scene-mark button {
-  max-width: 100%;
-  padding: 1px 5px;
-  margin: 0 -5px;
-  overflow: hidden;
-  border-radius: 4px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  transition: color var(--r2-fast) var(--r2-ease), background-color var(--r2-fast) var(--r2-ease);
-}
-.r2-scene-mark button:hover {
-  color: var(--r2-text);
-  background: var(--r2-hover);
-}
-.r2-scene-mark button:focus-visible {
-  outline: 2px solid var(--r2-accent);
-  outline-offset: 1px;
+  min-height: 1.6em;
 }
 
 /* Word count and save state: present, never asking for attention. */
@@ -1174,9 +1298,9 @@ button.r2-disclosure:hover {
   display: flex;
   justify-content: flex-end;
   gap: 6px;
-  padding: 10px 18px 12px;
+  padding: 10px 20px 12px;
   font-size: 11.5px;
-  color: var(--r2-faint);
+  color: var(--r2-ink-3);
   pointer-events: none;
 }
 .r2-doc-status [data-tone="offline"] {
@@ -1199,20 +1323,20 @@ button.r2-disclosure:hover {
     calc((100vw - var(--r2-nav-width) - var(--r2-doc-width)) / 2),
     calc(100cqw - var(--r2-doc-width))
   );
-  padding: 44px var(--r2-doc-gutter) 64px;
-  transition: margin-left var(--r2-medium) var(--r2-ease);
+  padding: 40px var(--r2-doc-gutter) 64px;
+  transition: margin-left var(--r2-frame) var(--r2-ease-frame);
 }
 .r2-overview-kind {
   font-size: 12.5px;
   font-weight: 500;
-  color: var(--r2-faint);
+  color: var(--r2-ink-3);
 }
 .r2-overview h1 {
   margin-top: 6px;
-  font-size: 26px;
+  font-size: 23px;
   font-weight: 600;
   line-height: 1.25;
-  letter-spacing: -0.018em;
+  letter-spacing: -0.016em;
 }
 .r2-overview dl {
   display: grid;

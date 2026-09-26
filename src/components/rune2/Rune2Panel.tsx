@@ -21,29 +21,46 @@ import { useRune2Selection, type PanelView } from "./Rune2Selection";
 // content, so the content simply narrows (see .r2-shell in rune2.css), and it
 // sits outside the content's subtree, so opening, switching or closing it
 // never remounts an editor.
+//
+// The column is always in the tree: opening and closing animate its width
+// (rune2.css), so the manuscript column widens and narrows in one calm
+// movement rather than jumping. The view's content is mounted while the
+// panel is open and kept through the closing movement, then let go.
 
 const TITLES: Record<PanelView, string> = { notes: "Revision Notes", inspector: "Inspector" };
+const CLOSE_MS = 320;
 
 export function Rune2Panel() {
   const { panel, closePanel } = useRune2Selection();
   const ref = useRef<HTMLElement>(null);
-  if (!panel) return null;
+  // The view shown: the open one, or during the closing movement the last one.
+  const [shown, setShown] = useState<PanelView | null>(panel);
+  if (panel && panel !== shown) setShown(panel);
+  useEffect(() => {
+    if (panel) return;
+    const timer = setTimeout(() => setShown(null), CLOSE_MS);
+    return () => clearTimeout(timer);
+  }, [panel]);
 
   // Escape from inside the panel closes it and returns to the action that opened it.
   // (Focus moves first: the action is outside the panel, so it never lands on
   // the page body while the panel's content unmounts.)
   const close = () => {
-    if (ref.current?.contains(document.activeElement)) {
+    if (panel && ref.current?.contains(document.activeElement)) {
       document.querySelector<HTMLElement>(`[data-panel-action="${panel}"]`)?.focus();
     }
     closePanel();
   };
 
+  const view = panel ?? shown;
   return (
     <aside
       ref={ref}
       className="r2-panel"
-      aria-label={TITLES[panel]}
+      data-open={panel ? "" : undefined}
+      aria-label={view ? TITLES[view] : "Panel"}
+      aria-hidden={!panel || undefined}
+      inert={!panel || undefined}
       onKeyDown={(e) => {
         if (e.key === "Escape" && !e.defaultPrevented) {
           e.preventDefault();
@@ -51,13 +68,17 @@ export function Rune2Panel() {
         }
       }}
     >
-      <header className="r2-panel-head">
-        <h2>{TITLES[panel]}</h2>
-        <button type="button" className="r2-icon-button" aria-label={`Close ${TITLES[panel]}`} onClick={close}>
-          <X size={14} strokeWidth={1.75} aria-hidden />
-        </button>
-      </header>
-      <div className="r2-panel-body">{panel === "notes" ? <NotesView /> : <InspectorView />}</div>
+      {view && (
+        <div className="r2-panel-inner">
+          <header className="r2-panel-head">
+            <h2>{TITLES[view]}</h2>
+            <button type="button" className="r2-icon-button" aria-label={`Close ${TITLES[view]}`} onClick={close}>
+              <X size={14} strokeWidth={1.75} aria-hidden />
+            </button>
+          </header>
+          <div className="r2-panel-body">{view === "notes" ? <NotesView /> : <InspectorView />}</div>
+        </div>
+      )}
     </aside>
   );
 }
@@ -169,26 +190,34 @@ function NotesView() {
     <div className="r2-notes">
       <p className="r2-panel-caption">For the whole manuscript, not this chapter or scene.</p>
 
-      <textarea
-        className="r2-notes-input"
-        placeholder="Add a revision note…"
-        aria-label="New revision note"
-        rows={2}
-        value={draft}
-        disabled={!notes}
-        onChange={(e) => setDraft(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
-            e.preventDefault();
-            add();
-          } else if (e.key === "Escape" && draft) {
-            // First Escape clears the draft; the next one closes the panel.
-            e.preventDefault();
-            setDraft("");
-          }
-        }}
-        maxLength={2000}
-      />
+      {/* The composer: a place to write a note, not a form field. Quiet at
+          rest, discoverable on hover, clearly active while writing; it grows
+          with the note (rune2.css). */}
+      <div className="r2-composer" data-filled={draft ? "" : undefined}>
+        <textarea
+          className="r2-composer-input"
+          placeholder="Leave a note for the next pass…"
+          aria-label="New revision note"
+          rows={1}
+          value={draft}
+          disabled={!notes}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+              e.preventDefault();
+              add();
+            } else if (e.key === "Escape" && draft) {
+              // First Escape clears the draft; the next one closes the panel.
+              e.preventDefault();
+              setDraft("");
+            }
+          }}
+          maxLength={2000}
+        />
+        <p className="r2-composer-hint" aria-hidden>
+          Return to add · Shift-Return for a new line
+        </p>
+      </div>
 
       {notice && (
         <p role="status" className="r2-panel-notice">
@@ -200,7 +229,7 @@ function NotesView() {
         <p className="r2-panel-empty">{loadFailed ? "Couldn’t load revision notes." : "Loading…"}</p>
       ) : ordered.length === 0 ? (
         <p className="r2-panel-empty">
-          {done.length > 0 ? "Nothing open." : "Nothing yet. Notes you leave here stay with the manuscript as you revise."}
+          {done.length > 0 ? "Nothing open." : "Nothing here yet. What you write here stays with the manuscript for your next pass."}
         </p>
       ) : (
         <ul role="list" className="r2-notes-list">
@@ -216,7 +245,7 @@ function NotesView() {
                   disabled={note.id.startsWith("pending-")}
                   onClick={() => complete(note)}
                 >
-                  <Check size={13} strokeWidth={2} aria-hidden />
+                  <Check size={14} strokeWidth={1.75} aria-hidden />
                 </button>
                 <button
                   type="button"
@@ -227,9 +256,9 @@ function NotesView() {
                   onClick={() => togglePin(note)}
                 >
                   {note.is_pinned ? (
-                    <PinOff size={13} strokeWidth={1.75} aria-hidden />
+                    <PinOff size={14} strokeWidth={1.75} aria-hidden />
                   ) : (
-                    <Pin size={13} strokeWidth={1.75} aria-hidden />
+                    <Pin size={14} strokeWidth={1.75} aria-hidden />
                   )}
                 </button>
                 <button
@@ -240,7 +269,7 @@ function NotesView() {
                   disabled={note.id.startsWith("pending-")}
                   onClick={() => remove(note)}
                 >
-                  <Trash2 size={13} strokeWidth={1.75} aria-hidden />
+                  <Trash2 size={14} strokeWidth={1.75} aria-hidden />
                 </button>
               </span>
             </li>
@@ -266,7 +295,7 @@ function NotesView() {
                       title="Delete"
                       onClick={() => remove(note)}
                     >
-                      <Trash2 size={13} strokeWidth={1.75} aria-hidden />
+                      <Trash2 size={14} strokeWidth={1.75} aria-hidden />
                     </button>
                   </span>
                 </li>

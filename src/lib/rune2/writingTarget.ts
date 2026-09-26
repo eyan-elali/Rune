@@ -9,9 +9,10 @@ import { chapterShowsScenes, type NavEntry } from "@/lib/rune2/navigatorModel";
 export type WritingScene = {
   id: string;
   /**
-   * The quiet boundary label above the Scene, shown only when the Chapter
-   * exposes its Scene structure: the Scene's display label — its title, or
-   * for an unnamed Scene its current position ("Scene 2"). Null: no label.
+   * The Scene's name where a Chapter shows several Scenes — its title, or for
+   * an unnamed Scene its current position ("Scene 2"). The surface never
+   * displays it (a Chapter reads as one piece; breaks are whitespace alone);
+   * it names the Scene's section for assistive technology. Null: no name.
    */
   mark: string | null;
 };
@@ -22,7 +23,7 @@ export type WritingTarget =
       /** "chapter": the whole Chapter, continuous. "scene": one Scene, focused. */
       view: "chapter" | "scene";
       scenes: WritingScene[];
-      /** Whether Scene boundaries are drawn (a Chapter with visible Scene structure). */
+      /** Whether the surface holds several Scenes of one Chapter (breaks between them). */
       marks: boolean;
       /** The surface's heading: the Chapter's title for the Chapter, else the Scene's. */
       title: string;

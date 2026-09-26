@@ -41,10 +41,12 @@ export type SurfaceScene = {
   /** Null while the Scene is loading (or failed to load). */
   scene: Scene | null;
   failed: boolean;
-  /** Boundary label (see WritingScene.mark). */
+  /**
+   * The Scene's name (see WritingScene.mark) — for assistive technology only.
+   * A Chapter read as one piece shows no Scene labels: the writer is reading a
+   * Chapter, not managing records. Scene identity lives on underneath.
+   */
   mark: string | null;
-  /** Whether the label is the Scene's own title (shown faintly) or a position fallback (shown on hover/focus). */
-  named: boolean;
 };
 
 export type Rune2EditorProps = {
@@ -52,12 +54,10 @@ export type Rune2EditorProps = {
   /** Changes when the writer opens something else: the surface returns to its top. */
   viewKey: string | null;
   scenes: SurfaceScene[];
-  /** Draw Scene boundaries (a Chapter whose Scene structure is visible). */
+  /** Several Scenes read as one Chapter: each break is whitespace alone. */
   marks: boolean;
   onSceneUpdated: (sceneId: string, updates: Partial<Scene>) => void;
   onRetry: (sceneId: string) => void;
-  /** A boundary label was chosen: open that Scene on its own. */
-  onOpenScene: (sceneId: string) => void;
   /** A Scene whose prose should take focus once its editor is ready. */
   focusSceneId: string | null;
   onFocusHandled: () => void;
@@ -100,7 +100,6 @@ export default function Rune2Editor({
   marks,
   onSceneUpdated,
   onRetry,
-  onOpenScene,
   focusSceneId,
   onFocusHandled,
   header,
@@ -178,18 +177,20 @@ export default function Rune2Editor({
                   key={item.id}
                   projectId={projectId}
                   scene={item.scene}
-                  mark={marks ? item.mark : undefined}
-                  named={item.named}
+                  label={marks ? item.mark : null}
                   onSceneUpdated={onSceneUpdated}
                   onReport={report}
                   handles={handles}
                   focusRequested={focusSceneId === item.id}
                   onFocusHandled={onFocusHandled}
-                  onOpenScene={onOpenScene}
                 />
               ) : (
-                <section key={`pending:${item.id}`} className="r2-scene" data-state="pending">
-                  {marks && <SceneMark label={item.mark} named={item.named} />}
+                <section
+                  key={`pending:${item.id}`}
+                  className="r2-scene"
+                  data-state="pending"
+                  aria-label={(marks && item.mark) || undefined}
+                >
                   {item.failed && (
                     <div className="r2-doc-empty" role="alert">
                       <p>This scene couldn’t be opened.</p>
@@ -251,26 +252,22 @@ export default function Rune2Editor({
 function SceneBlock({
   projectId,
   scene,
-  mark,
-  named,
+  label,
   onSceneUpdated,
   onReport,
   handles,
   focusRequested,
   onFocusHandled,
-  onOpenScene,
 }: {
   projectId: string;
   scene: Scene;
-  /** undefined: no boundary (the Scene is the whole surface, or a hidden-Scene Chapter). */
-  mark: string | null | undefined;
-  named: boolean;
+  /** The Scene's name for assistive technology, in a Chapter of several; never shown. */
+  label: string | null;
   onSceneUpdated: (sceneId: string, updates: Partial<Scene>) => void;
   onReport: (sceneId: string, state: BlockState | null) => void;
   handles: RefObject<Map<string, BlockHandle>>;
   focusRequested: boolean;
   onFocusHandled: () => void;
-  onOpenScene: (sceneId: string) => void;
 }) {
   const sceneId = scene.id;
   const {
@@ -346,8 +343,7 @@ function SceneBlock({
   }, [focusRequested, editor, onFocusHandled]);
 
   return (
-    <section ref={rootRef} className="r2-scene" data-scene-id={sceneId}>
-      {mark !== undefined && <SceneMark label={mark} named={named} onOpen={() => onOpenScene(sceneId)} />}
+    <section ref={rootRef} className="r2-scene" data-scene-id={sceneId} aria-label={label ?? undefined}>
       {editor && <EditorContent editor={editor} className="r2-prose" />}
 
       {conflictModalOpen && (
@@ -359,28 +355,6 @@ function SceneBlock({
         />
       )}
     </section>
-  );
-}
-
-/**
- * The boundary above a Scene in a Chapter that shows its Scenes: a fixed slot
- * holding the Scene's label — a named Scene's title, faint; an unnamed
- * Scene's "Scene N", invisible until the Scene is hovered or being written
- * in (rune2.css). The label opens the Scene on its own. Never part of the
- * prose, and never exported.
- */
-function SceneMark({ label, named, onOpen }: { label: string | null; named: boolean; onOpen?: () => void }) {
-  return (
-    <div className="r2-scene-mark" data-named={named || undefined}>
-      {label !== null &&
-        (onOpen ? (
-          <button type="button" onClick={onOpen} title="Open this scene on its own">
-            {label}
-          </button>
-        ) : (
-          <span>{label}</span>
-        ))}
-    </div>
   );
 }
 

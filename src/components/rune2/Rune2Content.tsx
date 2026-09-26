@@ -96,7 +96,7 @@ export function Rune2ContextBar() {
           onClick={() => togglePanel("inspector")}
           title={panel === "inspector" ? "Close inspector" : "Inspector"}
         >
-          <PanelRight size={15} strokeWidth={1.75} aria-hidden />
+          <PanelRight size={14} strokeWidth={1.75} aria-hidden />
         </button>
       </div>
     </header>
