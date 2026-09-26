@@ -24,24 +24,23 @@ export default async function Rune2ProjectPage({
   ].filter(Boolean);
 
   return (
-    <div className="mx-auto max-w-2xl px-8 pb-16 pt-14">
-      <h1 className="text-2xl font-semibold tracking-tight">{manuscript.project.title}</h1>
+    <div className="r2-overview">
+      <p className="r2-overview-kind">Manuscript</p>
+      <h1>{manuscript.project.title}</h1>
 
-      <dl className="mt-8 grid grid-cols-[auto_1fr] gap-x-8 gap-y-1.5 text-sm">
-        <dt style={{ color: "var(--r2-muted)" }}>Manuscript</dt>
-        <dd className="tabular-nums">{plural(manuscript.manuscriptWords, "word")}</dd>
+      <dl>
+        <dt>Manuscript</dt>
+        <dd>{plural(manuscript.manuscriptWords, "word")}</dd>
         {manuscript.unplaced.length > 0 && (
           <>
-            <dt style={{ color: "var(--r2-muted)" }}>Unplaced Scenes</dt>
-            <dd className="tabular-nums">
+            <dt>Unplaced Scenes</dt>
+            <dd>
               {plural(manuscript.unplacedWords, "word")}
-              <span style={{ color: "var(--r2-faint)" }}>
-                {" "}· {plural(manuscript.unplaced.length, "scene")}
-              </span>
+              <span> · {plural(manuscript.unplaced.length, "scene")}</span>
             </dd>
           </>
         )}
-        <dt style={{ color: "var(--r2-muted)" }}>Structure</dt>
+        <dt>Structure</dt>
         <dd>{structure.join(" · ")}</dd>
       </dl>
     </div>

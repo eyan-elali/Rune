@@ -12,7 +12,7 @@ import { Rune2Writing } from "./Rune2Writing";
 
 // The context bar (a quiet breadcrumb to the selection, and the selection's
 // few contextual actions: "+ Scene" where a placed Scene can be added, then
-// Notes and Inspector, which share the one right-hand panel) and the content
+// Revision Notes and Inspector, which share the one right-hand panel) and the content
 // area. Chapters and Scenes open in
 // the writing surface (see writingTarget.ts);
 // a Group shows a structural summary; with nothing selected, the content area
@@ -70,17 +70,22 @@ export function Rune2ContextBar() {
         </ol>
       </nav>
       <div className="r2-contextbar-actions">
-        {target?.kind === "scenes" && target.addSceneTo && <AddSceneAction chapterId={target.addSceneTo} />}
+        {target?.kind === "scenes" && target.addSceneTo && (
+          <>
+            <AddSceneAction chapterId={target.addSceneTo} />
+            <span className="r2-contextbar-divider" aria-hidden />
+          </>
+        )}
         <button
           type="button"
           className="r2-action"
           data-panel-action="notes"
           aria-pressed={panel === "notes"}
           onClick={() => togglePanel("notes")}
-          title={panel === "notes" ? "Close notes" : "Revision notes"}
+          title={panel === "notes" ? "Close revision notes" : "Revision notes for the whole manuscript"}
         >
           <StickyNote size={14} strokeWidth={1.75} aria-hidden />
-          Notes
+          Revision Notes
         </button>
         <button
           type="button"
@@ -187,16 +192,14 @@ export function Rune2SelectionView({ children }: { children: ReactNode }) {
 /** A Group: structure, not prose. A restrained summary until Groups get their own view. */
 function StructurePreview({ entry }: { entry: NavEntry }) {
   return (
-    <div className="mx-auto max-w-2xl px-8 pb-16 pt-14">
-      <p className="text-xs font-medium" style={{ color: "var(--r2-faint)" }}>
-        {KIND_LABEL[entry.kind]}
-      </p>
-      <h1 className="mt-1 text-2xl font-semibold tracking-tight">{entry.title}</h1>
-      <dl className="mt-8 grid grid-cols-[auto_1fr] gap-x-8 gap-y-1.5 text-sm">
-        <dt style={{ color: "var(--r2-muted)" }}>Contains</dt>
-        <dd className="tabular-nums">{plural(entry.childCount, "item")}</dd>
-        <dt style={{ color: "var(--r2-muted)" }}>Words</dt>
-        <dd className="tabular-nums">{plural(entry.words, "word")}</dd>
+    <div className="r2-overview">
+      <p className="r2-overview-kind">{KIND_LABEL[entry.kind]}</p>
+      <h1>{entry.title}</h1>
+      <dl>
+        <dt>Contains</dt>
+        <dd>{plural(entry.childCount, "item")}</dd>
+        <dt>Words</dt>
+        <dd>{plural(entry.words, "word")}</dd>
       </dl>
     </div>
   );

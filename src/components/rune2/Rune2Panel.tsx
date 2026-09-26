@@ -14,7 +14,7 @@ import type { NavEntry } from "@/lib/rune2/navigatorModel";
 import type { ProjectNote } from "@/lib/types";
 import { useRune2Selection, type PanelView } from "./Rune2Selection";
 
-// The one optional right-hand panel. Notes and Inspector are separate actions
+// The one optional right-hand panel. Revision Notes and Inspector are separate actions
 // in the context bar, but they share this single physical panel: choosing one
 // shows it here, choosing the other switches views, choosing the view showing
 // closes the panel. It is a column of the shell, beside — never over — the
@@ -22,7 +22,7 @@ import { useRune2Selection, type PanelView } from "./Rune2Selection";
 // sits outside the content's subtree, so opening, switching or closing it
 // never remounts an editor.
 
-const TITLES: Record<PanelView, string> = { notes: "Notes", inspector: "Inspector" };
+const TITLES: Record<PanelView, string> = { notes: "Revision Notes", inspector: "Inspector" };
 
 export function Rune2Panel() {
   const { panel, closePanel } = useRune2Selection();
@@ -167,11 +167,11 @@ function NotesView() {
 
   return (
     <div className="r2-notes">
-      <p className="r2-panel-caption">Revision notes for the whole manuscript.</p>
+      <p className="r2-panel-caption">For the whole manuscript, not this chapter or scene.</p>
 
       <textarea
         className="r2-notes-input"
-        placeholder="Add a note…"
+        placeholder="Add a revision note…"
         aria-label="New revision note"
         rows={2}
         value={draft}
@@ -197,9 +197,11 @@ function NotesView() {
       )}
 
       {notes === null ? (
-        <p className="r2-panel-empty">{loadFailed ? "Couldn’t load notes." : "Loading…"}</p>
+        <p className="r2-panel-empty">{loadFailed ? "Couldn’t load revision notes." : "Loading…"}</p>
       ) : ordered.length === 0 ? (
-        <p className="r2-panel-empty">No open notes.</p>
+        <p className="r2-panel-empty">
+          {done.length > 0 ? "Nothing open." : "Nothing yet. Notes you leave here stay with the manuscript as you revise."}
+        </p>
       ) : (
         <ul role="list" className="r2-notes-list">
           {ordered.map((note) => (
@@ -378,7 +380,7 @@ function InspectorView() {
 
   return (
     <div className="r2-inspector">
-      <p className="r2-panel-caption">{kind}</p>
+      <p className="r2-inspector-kind">{kind}</p>
       <p className="r2-inspector-title">
         {title}
         {selected && !selected.named && (selected.kind === "scene" || selected.kind === "unplacedScene") && (

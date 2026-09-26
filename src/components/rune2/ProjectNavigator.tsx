@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState, useTransition, type CSSProperties, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import {
+  ArrowLeft,
   ChevronRight,
   FileText,
   FolderInput,
@@ -41,6 +42,9 @@ import { useRune2Selection } from "./Rune2Selection";
 
 const BASE_PAD = 6;
 const INDENT = 16;
+/* A Scene row has no icon: its label is set in a little further instead, so
+   Scenes read as the Chapter's contents by indentation alone. */
+const ICONLESS_INSET = 19;
 const ROOT_MANUSCRIPT = "root:manuscript";
 const ROOT_UNPLACED = "root:unplaced";
 
@@ -344,7 +348,6 @@ export function ProjectNavigator() {
                       title={sceneEntry.title}
                       depth={depth + 1}
                       parentId={entry.id}
-                      icon={Pilcrow}
                       muted
                       selected={selected?.id === scene.id}
                       renaming={renamingId === scene.id}
@@ -427,7 +430,6 @@ export function ProjectNavigator() {
                           title={entry.title}
                           depth={1}
                           parentId={ROOT_UNPLACED}
-                          icon={Pilcrow}
                           muted
                           selected={selected?.id === scene.id}
                           renaming={renamingId === scene.id}
@@ -453,7 +455,10 @@ export function ProjectNavigator() {
       )}
 
       <div className="r2-nav-footer">
-        <Link href="/dashboard">← Back to Rune</Link>
+        <Link href="/dashboard">
+          <ArrowLeft size={13} strokeWidth={1.75} aria-hidden />
+          Back to Rune
+        </Link>
       </div>
 
       {menu && (
@@ -606,7 +611,8 @@ function NavRow({
   title: string;
   depth: number;
   parentId: string;
-  icon: LucideIcon;
+  /** Chapters and Groups carry an icon; Scenes are known by indentation alone. */
+  icon?: LucideIcon;
   emphasis?: boolean;
   muted?: boolean;
   selected: boolean;
@@ -628,14 +634,14 @@ function NavRow({
       data-emphasis={emphasis || undefined}
       data-muted={muted || undefined}
       data-renaming={renaming || undefined}
-      style={{ paddingLeft: BASE_PAD + depth * INDENT }}
+      style={{ paddingLeft: BASE_PAD + depth * INDENT + (Icon ? 0 : ICONLESS_INSET) }}
       onContextMenu={(e) => {
         e.preventDefault();
         onMore({ x: e.clientX, y: e.clientY });
       }}
     >
       <Disclosure expanded={expanded} label={title} onToggle={onToggle} />
-      <Icon className="r2-row-icon" size={14} strokeWidth={1.75} aria-hidden />
+      {Icon && <Icon className="r2-row-icon" size={14} strokeWidth={1.75} aria-hidden />}
       {renaming ? (
         <RenameInput initial={entry.named ? title : ""} placeholder={entry.named ? undefined : title} label={title} onDone={onRenameDone} />
       ) : (

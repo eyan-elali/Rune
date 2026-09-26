@@ -24,7 +24,7 @@ export function Rune2Shell({
       <div className="r2 r2-shell">
         <ProjectNavigator />
 
-        <div className="flex min-h-0 min-w-0 flex-col">
+        <div className="r2-content">
           <Rune2Tabs />
           <Rune2ContextBar />
           <main className="r2-main min-h-0 flex-1 overflow-y-auto">

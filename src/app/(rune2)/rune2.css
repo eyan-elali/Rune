@@ -1,35 +1,62 @@
-/* Rune 2.0 shell — a blank visual slate, scoped under .r2 so it neither
-   inherits nor affects the legacy themes. A few local values only; the real
-   visual language is discovered in the product (RUNE_2_VISUAL_DIRECTION.md). */
+/* Rune 2.0 shell — scoped under .r2 so it neither inherits nor affects the
+   legacy themes. The visual language is discovered in the product
+   (RUNE_2_VISUAL_DIRECTION.md); Milestone 5 is its first full pass.
+
+   Surfaces: one neutral off-white system. The shell (navigator, tab strip,
+   panel) is a shade deeper than the content surface, so the manuscript sits in
+   the cleanest field without becoming a sheet of paper. Ink blue is kept for
+   focus, selection, the caret and the few active controls. */
 
 .r2 {
-  --r2-bg: #ffffff;
-  --r2-nav-bg: #f8f8f7;
-  --r2-text: #1f2329;
-  --r2-muted: #62666e;
-  --r2-faint: #9a9ea5;
-  --r2-border: #ececea;
-  --r2-hover: rgba(31, 35, 41, 0.045);
-  --r2-press: rgba(31, 35, 41, 0.07);
-  --r2-accent: #2c4a78; /* ink blue — restrained: focus, active, selection */
-  --r2-selected: rgba(44, 74, 120, 0.085);
-  --r2-selected-ink: #203a63;
+  /* Surfaces */
+  --r2-shell-bg: #f4f4f2;
+  --r2-bg: #fbfbfa;
+  --r2-nav-bg: var(--r2-shell-bg);
+  --r2-panel-bg: #f7f7f5;
+  --r2-field-bg: #fdfdfc;
+  --r2-border: #e6e6e3;
+  --r2-border-strong: #d9d9d5;
+  /* Ink */
+  --r2-text: #1d2025;
+  --r2-muted: #5f636b;
+  --r2-faint: #91949b;
+  /* Neutral interaction tints */
+  --r2-hover: rgba(29, 32, 37, 0.05);
+  --r2-press: rgba(29, 32, 37, 0.08);
+  /* Rune ink blue */
+  --r2-accent: #2f4c7c;
+  --r2-accent-ink: #223b63;
+  --r2-accent-soft: rgba(47, 76, 124, 0.09);
+  --r2-accent-soft-hover: rgba(47, 76, 124, 0.13);
+  --r2-accent-line: rgba(47, 76, 124, 0.28);
+  --r2-selected: var(--r2-accent-soft);
+  --r2-selected-ink: var(--r2-accent-ink);
   --r2-danger: #a33a32;
-  --r2-shadow-pop: 0 1px 2px rgba(20, 24, 31, 0.06), 0 6px 20px rgba(20, 24, 31, 0.09);
+  --r2-shadow-pop: 0 1px 2px rgba(20, 24, 31, 0.05), 0 8px 24px rgba(20, 24, 31, 0.08);
   --r2-radius: 5px;
+  --r2-ease: cubic-bezier(0.2, 0, 0, 1);
+  --r2-fast: 120ms;
+  --r2-medium: 180ms;
 
   color-scheme: light;
   background: var(--r2-bg);
   color: var(--r2-text);
   font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
-  scrollbar-color: rgba(31, 35, 41, 0.18) transparent;
+  scrollbar-color: rgba(29, 32, 37, 0.16) transparent;
   -webkit-font-smoothing: antialiased;
 }
 
+.r2 ::-webkit-scrollbar {
+  width: 10px;
+}
 .r2 ::-webkit-scrollbar-thumb {
-  background: rgba(31, 35, 41, 0.18);
+  border: 3px solid transparent;
+  border-radius: 8px;
+  background: rgba(29, 32, 37, 0.16);
+  background-clip: padding-box;
 }
 
+/* Keyboard focus: one ring, everywhere. Pointer focus shows nothing. */
 .r2 :focus-visible {
   outline: 2px solid var(--r2-accent);
   outline-offset: 1px;
@@ -37,13 +64,24 @@
 }
 
 .r2-shell {
-  --r2-panel-width: 320px;
+  --r2-nav-width: 252px;
+  --r2-panel-width: 300px;
   position: relative;
   display: grid;
   /* navigator | content | optional panel (an empty auto column when closed) */
-  grid-template-columns: 260px minmax(0, 1fr) auto;
+  grid-template-columns: var(--r2-nav-width) minmax(0, 1fr) auto;
   height: 100dvh;
   overflow: hidden;
+  background: var(--r2-shell-bg);
+}
+
+/* The content column: tab strip (shell tone) over the content surface. */
+.r2-content {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  background: var(--r2-bg);
 }
 
 /* ── Navigator ─────────────────────────────────────────────────────────── */
@@ -55,7 +93,7 @@
   min-height: 0;
   background: var(--r2-nav-bg);
   border-right: 1px solid var(--r2-border);
-  font-size: 13.5px;
+  font-size: 13px;
   user-select: none;
 }
 
@@ -64,16 +102,17 @@
   align-items: center;
   height: 44px;
   flex-shrink: 0;
-  padding: 0 14px;
+  padding: 0 16px;
 }
 
 .r2-nav-project {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  font-size: 13.5px;
+  font-size: 13px;
   font-weight: 600;
-  letter-spacing: -0.005em;
+  letter-spacing: -0.01em;
+  color: var(--r2-text);
 }
 
 /* A hairline that runs only while a change is saving or the tree re-reads. */
@@ -92,7 +131,7 @@
   inset: 0;
   width: 30%;
   background: var(--r2-accent);
-  opacity: 0.45;
+  opacity: 0.4;
   animation: r2-progress 900ms ease-in-out infinite;
 }
 @keyframes r2-progress {
@@ -108,7 +147,7 @@
 }
 
 .r2-nav-section {
-  margin-top: 14px;
+  margin-top: 16px;
 }
 
 .r2-children {
@@ -117,8 +156,8 @@
 .r2-children::before {
   content: "";
   position: absolute;
-  top: 2px;
-  bottom: 2px;
+  top: 3px;
+  bottom: 3px;
   left: var(--r2-guide);
   width: 1px;
   background: var(--r2-border);
@@ -132,24 +171,35 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  height: 28px;
-  margin: 0 6px;
+  height: 27px;
+  margin: 1px 8px;
   padding-right: 4px;
   border-radius: var(--r2-radius);
   color: var(--r2-text);
+  transition: background-color var(--r2-fast) var(--r2-ease), color var(--r2-fast) var(--r2-ease);
 }
 .r2-row:hover {
   background: var(--r2-hover);
 }
-.r2-row[data-selected] {
+.r2-row:active {
+  background: var(--r2-press);
+}
+.r2-row[data-selected],
+.r2-row[data-selected]:hover {
   background: var(--r2-selected);
   color: var(--r2-selected-ink);
+}
+.r2-row[data-selected] .r2-row-label {
+  font-weight: 500;
 }
 .r2-row[data-emphasis] .r2-row-label {
   font-weight: 500;
 }
 .r2-row[data-muted]:not([data-selected]) {
   color: var(--r2-muted);
+}
+.r2-row[data-muted]:not([data-selected]):hover {
+  color: var(--r2-text);
 }
 
 .r2-row-main {
@@ -187,6 +237,7 @@
   flex-shrink: 0;
   color: var(--r2-faint);
   margin-right: 3px;
+  transition: color var(--r2-fast) var(--r2-ease);
 }
 .r2-row[data-selected] .r2-row-icon {
   color: var(--r2-accent);
@@ -203,18 +254,21 @@
   height: 16px;
   border-radius: 3px;
   color: var(--r2-faint);
+  transition: color var(--r2-fast) var(--r2-ease), background-color var(--r2-fast) var(--r2-ease);
 }
 button.r2-disclosure:hover {
   color: var(--r2-text);
   background: var(--r2-press);
 }
 .r2-disclosure svg {
-  transition: transform 120ms ease;
+  transition: transform 140ms var(--r2-ease);
 }
 .r2-disclosure[data-open] svg {
   transform: rotate(90deg);
 }
 
+/* Row actions: present in the layout only while the row is hovered or
+   focused (so the label keeps its width), fading in rather than popping. */
 .r2-row-actions {
   position: relative;
   z-index: 1;
@@ -222,6 +276,7 @@ button.r2-disclosure:hover {
   align-items: center;
   gap: 1px;
   flex-shrink: 0;
+  animation: r2-fade-in var(--r2-fast) var(--r2-ease);
 }
 .r2-row:hover .r2-row-actions,
 .r2-row:has(:focus-visible) .r2-row-actions {
@@ -235,10 +290,15 @@ button.r2-disclosure:hover {
   height: 22px;
   border-radius: 4px;
   color: var(--r2-muted);
+  transition: color var(--r2-fast) var(--r2-ease), background-color var(--r2-fast) var(--r2-ease);
 }
 .r2-row-action:hover {
   color: var(--r2-text);
   background: var(--r2-press);
+}
+@keyframes r2-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .r2-row-input {
@@ -248,7 +308,7 @@ button.r2-disclosure:hover {
   margin-left: -4px;
   padding: 0 4px;
   border-radius: 4px;
-  background: var(--r2-bg);
+  background: var(--r2-field-bg);
   color: var(--r2-text);
   font: inherit;
   box-shadow: inset 0 0 0 1px var(--r2-accent);
@@ -262,8 +322,9 @@ button.r2-disclosure:hover {
 /* Section roots: Manuscript, Unplaced Scenes. */
 .r2-row--root {
   color: var(--r2-muted);
-  font-size: 12.5px;
+  font-size: 12px;
   font-weight: 500;
+  letter-spacing: 0.01em;
 }
 .r2-row--root[data-selected] {
   color: var(--r2-selected-ink);
@@ -273,6 +334,7 @@ button.r2-disclosure:hover {
   padding-right: 6px;
   font-size: 11.5px;
   font-weight: 400;
+  letter-spacing: 0;
   color: var(--r2-faint);
   font-variant-numeric: tabular-nums;
 }
@@ -309,12 +371,22 @@ button.r2-disclosure:hover {
 
 .r2-nav-footer {
   flex-shrink: 0;
-  padding: 10px 14px 12px;
+  padding: 8px 8px 10px;
+}
+.r2-nav-footer a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 8px 0 6px;
+  border-radius: var(--r2-radius);
   font-size: 12px;
   color: var(--r2-faint);
+  transition: color var(--r2-fast) var(--r2-ease), background-color var(--r2-fast) var(--r2-ease);
 }
 .r2-nav-footer a:hover {
   color: var(--r2-text);
+  background: var(--r2-hover);
 }
 
 /* ── Menu ──────────────────────────────────────────────────────────────── */
@@ -330,6 +402,11 @@ button.r2-disclosure:hover {
   box-shadow: 0 0 0 1px var(--r2-border), var(--r2-shadow-pop);
   font-size: 13px;
   color: var(--r2-text);
+  animation: r2-pop-in var(--r2-fast) var(--r2-ease);
+}
+@keyframes r2-pop-in {
+  from { opacity: 0; transform: translateY(-2px); }
+  to { opacity: 1; transform: none; }
 }
 .r2-menu-item {
   display: flex;
@@ -390,15 +467,120 @@ button.r2-disclosure:hover {
   background: #8f322b;
 }
 
+/* ── Working-set tabs ──────────────────────────────────────────────────── */
+/* The topmost band of the content column, in the shell tone. The active tab
+   is a slim surface in the content tone — the same surface as the page below
+   it — so it belongs to the content rather than sitting on top of it.
+   Inactive tabs are quiet text. Overflow scrolls sideways. */
+
+.r2-tabs {
+  flex-shrink: 0;
+  height: 36px;
+  padding: 5px 8px 0;
+  background: var(--r2-shell-bg);
+  border-bottom: 1px solid var(--r2-border);
+}
+.r2-tabs ul {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 26px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.r2-tabs ul::-webkit-scrollbar {
+  display: none;
+}
+.r2-tab {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  max-width: 220px;
+  height: 26px;
+  border-radius: var(--r2-radius);
+  font-size: 12.5px;
+  color: var(--r2-muted);
+  transition: background-color var(--r2-fast) var(--r2-ease), color var(--r2-fast) var(--r2-ease),
+    box-shadow var(--r2-fast) var(--r2-ease);
+}
+.r2-tab:hover {
+  color: var(--r2-text);
+  background: var(--r2-hover);
+}
+.r2-tab[data-active],
+.r2-tab[data-active]:hover {
+  color: var(--r2-text);
+  background: var(--r2-bg);
+  box-shadow: 0 0 0 1px var(--r2-border);
+}
+.r2-tab-main {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  min-width: 0;
+  height: 100%;
+  padding: 0 4px 0 10px;
+  border-radius: var(--r2-radius);
+  white-space: nowrap;
+}
+.r2-tab-main:focus-visible {
+  outline-offset: -2px;
+}
+.r2-tab-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.r2-tab[data-active] .r2-tab-label {
+  font-weight: 500;
+}
+.r2-tab-context {
+  flex-shrink: 1;
+  min-width: 0;
+  max-width: 90px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--r2-faint);
+}
+.r2-tab-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  margin-right: 4px;
+  border-radius: 4px;
+  color: var(--r2-faint);
+  opacity: 0;
+  transition: opacity var(--r2-fast) var(--r2-ease), color var(--r2-fast) var(--r2-ease),
+    background-color var(--r2-fast) var(--r2-ease);
+}
+.r2-tab:hover .r2-tab-close,
+.r2-tab[data-active] .r2-tab-close,
+.r2-tab-close:focus-visible {
+  opacity: 1;
+}
+.r2-tab-close:hover {
+  color: var(--r2-text);
+  background: var(--r2-press);
+}
+@media (hover: none) {
+  .r2-tab-close {
+    opacity: 1;
+  }
+}
+
 /* ── Context bar ───────────────────────────────────────────────────────── */
+/* A quiet row on the content surface: the breadcrumb orients, the few
+   contextual actions sit at the right in one shared style. */
 
 .r2-contextbar {
   display: flex;
   align-items: center;
-  height: 44px;
+  height: 42px;
   flex-shrink: 0;
-  padding: 0 16px;
-  font-size: 13px;
+  padding: 0 12px 0 18px;
+  font-size: 12.5px;
   color: var(--r2-muted);
 }
 .r2-contextbar ol {
@@ -418,56 +600,73 @@ button.r2-disclosure:hover {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.r2-crumb-project {
+  color: var(--r2-faint);
+}
 .r2-contextbar li button {
-  padding: 2px 4px;
-  margin: 0 -4px;
+  padding: 2px 5px;
+  margin: 0 -5px;
   border-radius: 4px;
+  transition: color var(--r2-fast) var(--r2-ease), background-color var(--r2-fast) var(--r2-ease);
 }
 .r2-contextbar li button:hover {
   color: var(--r2-text);
   background: var(--r2-hover);
 }
 .r2-crumb-sep {
-  padding: 0 8px;
-  color: var(--r2-faint);
+  padding: 0 7px;
+  color: var(--r2-border-strong);
 }
 .r2-crumb-current {
   color: var(--r2-text);
+  font-weight: 500;
 }
 
 /* The selection's few contextual actions, at the bar's right. */
 .r2-contextbar-actions {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 2px;
   margin-left: auto;
   padding-left: 16px;
   flex-shrink: 0;
 }
 .r2-contextbar-notice {
+  margin-right: 8px;
   font-size: 12px;
   color: var(--r2-muted);
 }
 .r2-action {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
   height: 26px;
-  padding: 0 8px 0 6px;
+  padding: 0 8px 0 7px;
   border-radius: var(--r2-radius);
   font-size: 12.5px;
   color: var(--r2-muted);
+  transition: color var(--r2-fast) var(--r2-ease), background-color var(--r2-fast) var(--r2-ease);
+}
+.r2-action svg {
+  color: var(--r2-faint);
+  transition: color var(--r2-fast) var(--r2-ease);
 }
 .r2-action:hover:not(:disabled) {
   color: var(--r2-text);
   background: var(--r2-hover);
+}
+.r2-action:hover:not(:disabled) svg {
+  color: var(--r2-muted);
+}
+.r2-action:active:not(:disabled) {
+  background: var(--r2-press);
 }
 .r2-action:focus-visible {
   outline: 2px solid var(--r2-accent);
   outline-offset: 1px;
 }
 .r2-action:disabled {
-  opacity: 0.6;
+  opacity: 0.5;
 }
 .r2-action--icon {
   width: 28px;
@@ -475,118 +674,28 @@ button.r2-disclosure:hover {
   justify-content: center;
 }
 /* A panel action whose view is showing: ink, quietly. */
-.r2-action[aria-pressed="true"] {
-  color: var(--r2-selected-ink);
-  background: var(--r2-selected);
+.r2-action[aria-pressed="true"],
+.r2-action[aria-pressed="true"]:hover:not(:disabled) {
+  color: var(--r2-accent-ink);
+  background: var(--r2-accent-soft);
+}
+.r2-action[aria-pressed="true"] svg,
+.r2-action[aria-pressed="true"]:hover:not(:disabled) svg {
+  color: var(--r2-accent);
 }
 .r2-action[aria-pressed="true"]:hover:not(:disabled) {
-  color: var(--r2-selected-ink);
-  background: rgba(44, 74, 120, 0.12);
+  background: var(--r2-accent-soft-hover);
 }
-.r2-contextbar-actions .r2-contextbar-notice + .r2-action,
-.r2-contextbar-actions > .r2-action + .r2-action {
-  margin-left: -6px;
-}
-
-/* ── Working-set tabs ──────────────────────────────────────────────────── */
-/* A quiet row of open objects: text, not boxes. The active tab is simply
-   darker, with a short ink hairline beneath; the close control appears on
-   hover or for the active tab. Overflow scrolls sideways. */
-
-.r2-tabs {
-  flex-shrink: 0;
-  padding: 6px 12px 0;
-}
-.r2-tabs ul {
-  display: flex;
-  align-items: stretch;
-  gap: 2px;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-.r2-tabs ul::-webkit-scrollbar {
-  display: none;
-}
-.r2-tab {
-  position: relative;
-  display: flex;
-  align-items: center;
-  flex-shrink: 0;
-  max-width: 220px;
-  height: 28px;
-  border-radius: var(--r2-radius);
-  font-size: 12.5px;
-  color: var(--r2-faint);
-}
-.r2-tab:hover {
-  color: var(--r2-muted);
-  background: var(--r2-hover);
-}
-.r2-tab[data-active] {
-  color: var(--r2-text);
-}
-.r2-tab[data-active]::after {
-  content: "";
-  position: absolute;
-  left: 10px;
-  right: 10px;
-  bottom: -1px;
-  height: 1.5px;
-  border-radius: 1px;
-  background: var(--r2-accent);
-  opacity: 0.55;
-}
-.r2-tab-main {
-  display: flex;
-  align-items: baseline;
-  gap: 4px;
-  min-width: 0;
-  height: 100%;
-  padding: 0 4px 0 10px;
-  border-radius: var(--r2-radius);
-  white-space: nowrap;
-}
-.r2-tab-label {
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.r2-tab-context {
-  flex-shrink: 1;
-  min-width: 0;
-  max-width: 90px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  color: var(--r2-faint);
-}
-.r2-tab-close {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
-  margin-right: 5px;
-  border-radius: 4px;
-  color: var(--r2-faint);
-  opacity: 0;
-}
-.r2-tab:hover .r2-tab-close,
-.r2-tab[data-active] .r2-tab-close,
-.r2-tab-close:focus-visible {
-  opacity: 1;
-}
-.r2-tab-close:hover {
-  color: var(--r2-text);
-  background: var(--r2-press);
-}
-@media (hover: none) {
-  .r2-tab-close {
-    opacity: 1;
-  }
+.r2-contextbar-divider {
+  width: 1px;
+  height: 16px;
+  margin: 0 6px;
+  background: var(--r2-border);
 }
 
 /* ── Right-hand panel ──────────────────────────────────────────────────── */
-/* One panel, beside the content (never over it at desktop widths), divided by
-   a hairline. Notes and Inspector are views of it, not two sidebars. */
+/* One panel, beside the content (never over it at desktop widths), in the
+   shell tone behind a hairline. Revision Notes and Inspector are views of it. */
 
 .r2-panel {
   display: flex;
@@ -594,47 +703,58 @@ button.r2-disclosure:hover {
   width: var(--r2-panel-width);
   min-height: 0;
   border-left: 1px solid var(--r2-border);
-  background: var(--r2-bg);
+  background: var(--r2-panel-bg);
   font-size: 13px;
+  animation: r2-panel-in var(--r2-medium) var(--r2-ease);
+}
+@keyframes r2-panel-in {
+  from { opacity: 0; transform: translateX(6px); }
+  to { opacity: 1; transform: none; }
 }
 .r2-panel-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 44px;
+  height: 42px;
   flex-shrink: 0;
   padding: 0 10px 0 18px;
 }
 .r2-panel-head h2 {
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 600;
-  letter-spacing: -0.003em;
+  letter-spacing: -0.005em;
+  color: var(--r2-text);
 }
 .r2-panel-body {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 2px 18px 24px;
+  padding: 4px 18px 24px;
 }
 .r2-panel-caption {
   font-size: 12px;
+  line-height: 1.45;
   color: var(--r2-faint);
 }
 .r2-panel-empty,
 .r2-panel-notice {
-  margin-top: 14px;
+  margin-top: 16px;
   font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--r2-faint);
+}
+.r2-panel-notice {
   color: var(--r2-muted);
 }
 .r2-panel-link {
   padding: 1px 4px;
   margin: 0 -4px;
   border-radius: 4px;
-  color: var(--r2-muted);
+  color: var(--r2-text);
   text-align: left;
+  transition: background-color var(--r2-fast) var(--r2-ease);
 }
 .r2-panel-link:hover {
-  color: var(--r2-text);
   background: var(--r2-hover);
 }
 .r2-icon-button {
@@ -645,49 +765,65 @@ button.r2-disclosure:hover {
   height: 24px;
   border-radius: 4px;
   color: var(--r2-faint);
+  transition: color var(--r2-fast) var(--r2-ease), background-color var(--r2-fast) var(--r2-ease);
 }
 .r2-icon-button:hover:not(:disabled) {
   color: var(--r2-text);
   background: var(--r2-hover);
 }
+.r2-icon-button:active:not(:disabled) {
+  background: var(--r2-press);
+}
 .r2-icon-button:disabled {
   opacity: 0.4;
 }
 
-/* Notes */
+/* Revision Notes */
 .r2-notes-input {
   display: block;
   width: 100%;
   margin-top: 12px;
-  padding: 7px 9px;
+  padding: 8px 10px;
   resize: vertical;
-  border-radius: var(--r2-radius);
-  background: transparent;
+  border-radius: 6px;
+  background: var(--r2-field-bg);
   box-shadow: inset 0 0 0 1px var(--r2-border);
   font: inherit;
+  font-size: 13px;
   line-height: 1.5;
   color: var(--r2-text);
+  transition: box-shadow var(--r2-fast) var(--r2-ease);
 }
 .r2-notes-input::placeholder {
   color: var(--r2-faint);
 }
+.r2-notes-input:hover:not(:disabled) {
+  box-shadow: inset 0 0 0 1px var(--r2-border-strong);
+}
 .r2-notes-input:focus {
   outline: none;
-  box-shadow: inset 0 0 0 1px rgba(44, 74, 120, 0.45);
+  box-shadow: inset 0 0 0 1px var(--r2-accent-line), 0 0 0 3px var(--r2-accent-soft);
+}
+.r2-notes-input:disabled {
+  opacity: 0.6;
+}
+.r2-notes-hint {
+  margin-top: 6px;
+  font-size: 11.5px;
+  color: var(--r2-faint);
 }
 .r2-notes-list {
-  margin-top: 10px;
+  margin-top: 14px;
 }
 .r2-note {
   position: relative;
-  padding: 8px 0;
+  padding: 8px 76px 8px 0;
   border-top: 1px solid var(--r2-border);
 }
 .r2-note:first-child {
   border-top: 0;
 }
 .r2-note p {
-  padding-right: 4px;
   line-height: 1.5;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -698,13 +834,16 @@ button.r2-disclosure:hover {
 .r2-note[data-done] p {
   color: var(--r2-faint);
   text-decoration: line-through;
-  text-decoration-color: var(--r2-border);
+  text-decoration-color: var(--r2-border-strong);
 }
 .r2-note-actions {
+  position: absolute;
+  top: 6px;
+  right: -6px;
   display: flex;
-  gap: 2px;
-  margin: 4px 0 -2px -6px;
+  gap: 1px;
   opacity: 0;
+  transition: opacity var(--r2-fast) var(--r2-ease);
 }
 .r2-note:hover .r2-note-actions,
 .r2-note:focus-within .r2-note-actions {
@@ -719,14 +858,24 @@ button.r2-disclosure:hover {
   margin-top: 18px;
   font-size: 12.5px;
 }
+.r2-notes-done > .r2-panel-link {
+  color: var(--r2-muted);
+}
 
 /* Inspector */
+.r2-inspector-kind {
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--r2-faint);
+}
 .r2-inspector-title {
-  margin-top: 2px;
+  margin-top: 3px;
   font-size: 15px;
   font-weight: 600;
   line-height: 1.35;
-  letter-spacing: -0.006em;
+  letter-spacing: -0.01em;
+  color: var(--r2-text);
   overflow-wrap: anywhere;
 }
 .r2-inspector-hint {
@@ -736,13 +885,16 @@ button.r2-disclosure:hover {
   color: var(--r2-faint);
 }
 .r2-inspector-props {
-  margin-top: 18px;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--r2-border);
 }
 .r2-inspector-props > div {
   display: grid;
-  grid-template-columns: 92px minmax(0, 1fr);
+  grid-template-columns: 84px minmax(0, 1fr);
   gap: 12px;
   padding: 5px 0;
+  line-height: 1.45;
 }
 .r2-inspector-props dt {
   color: var(--r2-faint);
@@ -750,14 +902,18 @@ button.r2-disclosure:hover {
 .r2-inspector-props dd {
   min-width: 0;
   overflow-wrap: anywhere;
+  color: var(--r2-text);
   font-variant-numeric: tabular-nums;
+}
+.r2-inspector-props dd[data-tone="muted"] {
+  color: var(--r2-muted);
 }
 
 /* Narrower desktops and tablets: a slimmer panel, and below that it lies over
    the content's right edge rather than squeezing the manuscript. */
 @media (max-width: 1200px) {
   .r2-shell {
-    --r2-panel-width: 280px;
+    --r2-panel-width: 272px;
   }
 }
 @media (max-width: 1023px) {
@@ -772,26 +928,24 @@ button.r2-disclosure:hover {
 }
 
 /* ── Writing surface ───────────────────────────────────────────────────── */
-/* The content area itself is the page: no sheet, card or shadow. One
-   readable measure, set in a text serif made for long reading (Newsreader,
-   already loaded by the root layout). A first pass, to be judged in use. */
+/* The content area itself is the page: no sheet, card or shadow. Prose is
+   set in EB Garamond (already loaded by the root stylesheet for the legacy
+   manuscript-font unlocks); the Chapter title and everything structural stay
+   in Rune's sans. A visual test, judged in the browser. */
 
 .r2 {
-  --r2-prose-font: var(--font-newsreader), "Iowan Old Style", Georgia, serif;
-  --r2-prose-size: 20px;
-  --r2-prose-leading: 1.7;
-  --r2-prose-ink: #23262b;
-  --r2-prose-measure: 42rem;
+  --r2-prose-font: "EB Garamond", "Iowan Old Style", Georgia, serif;
+  --r2-prose-size: 21px;
+  --r2-prose-leading: 1.62;
+  --r2-prose-ink: #202329;
+  --r2-prose-measure: 38rem;
+  /* The writing column, gutters included. */
+  --r2-doc-gutter: 56px;
+  --r2-doc-width: calc(var(--r2-prose-measure) + 2 * var(--r2-doc-gutter));
 }
 
 .r2-main {
   container-type: inline-size;
-}
-@container (max-width: 640px) {
-  .r2-main .r2-doc {
-    padding-left: 28px;
-    padding-right: 28px;
-  }
 }
 
 .r2-writing {
@@ -800,30 +954,43 @@ button.r2-disclosure:hover {
   min-height: 100%;
 }
 
+/* Spatial stability: the column is placed where it would sit centred in the
+   content area with the panel closed, and keeps that place when the panel
+   opens as long as it still fits; only when it would be covered does it move,
+   and only as far as it must. Nothing here knows whether the panel is open. */
 .r2-doc {
   flex: 1;
-  width: 100%;
-  max-width: calc(var(--r2-prose-measure) + 96px);
-  margin: 0 auto;
-  padding: 56px 48px 30vh;
+  width: min(100%, var(--r2-doc-width));
+  margin-left: clamp(
+    0px,
+    calc((100vw - var(--r2-nav-width) - var(--r2-doc-width)) / 2),
+    calc(100cqw - var(--r2-doc-width))
+  );
+  padding: 44px var(--r2-doc-gutter) 30vh;
   cursor: text;
+  transition: margin-left var(--r2-medium) var(--r2-ease);
+}
+@container (max-width: 640px) {
+  .r2-main .r2-doc {
+    --r2-doc-gutter: 28px;
+  }
 }
 
 .r2-doc-head {
-  margin-bottom: 36px;
+  margin-bottom: 30px;
   cursor: default;
 }
 .r2-doc-eyebrow {
-  margin-bottom: 6px;
+  margin-bottom: 8px;
   font-size: 12.5px;
+  font-weight: 500;
   color: var(--r2-faint);
 }
 .r2-doc-title {
-  font-family: var(--r2-prose-font);
-  font-size: 34px;
-  font-weight: 500;
-  line-height: 1.2;
-  letter-spacing: -0.012em;
+  font-size: 26px;
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.018em;
   color: var(--r2-text);
 }
 .r2-doc-note {
@@ -837,7 +1004,7 @@ button.r2-disclosure:hover {
   flex-direction: column;
   align-items: flex-start;
   gap: 12px;
-  font-size: 14px;
+  font-size: 13.5px;
   color: var(--r2-muted);
   cursor: default;
 }
@@ -850,7 +1017,7 @@ button.r2-disclosure:hover {
   font-variation-settings: normal;
   font-weight: 400;
   line-height: var(--r2-prose-leading);
-  letter-spacing: 0;
+  letter-spacing: 0.002em;
   color: var(--r2-prose-ink);
   caret-color: var(--r2-accent);
   font-kerning: normal;
@@ -888,7 +1055,7 @@ button.r2-disclosure:hover {
 .r2-prose .ProseMirror blockquote {
   margin: 1em 0;
   padding-left: 1.25em;
-  border-left: 2px solid var(--r2-border);
+  border-left: 2px solid var(--r2-border-strong);
   font-style: normal;
   color: var(--r2-muted);
 }
@@ -903,60 +1070,93 @@ button.r2-disclosure:hover {
   margin: 1.6em auto;
   width: 4em;
   border: 0;
-  border-top: 1px solid var(--r2-border);
+  border-top: 1px solid var(--r2-border-strong);
 }
 .r2-prose .ProseMirror :is(strong, em) {
   color: inherit;
 }
 .r2-prose .ProseMirror ::selection {
-  background: rgba(44, 74, 120, 0.16);
+  background: rgba(47, 76, 124, 0.16);
 }
 .r2-prose .ProseMirror .is-empty.is-editor-empty::before {
   color: var(--r2-faint);
-  opacity: 0.8;
+  opacity: 0.75;
 }
 
+/* ── Scene boundaries ──────────────────────────────────────────────────── */
 /* A Chapter read as one piece: its Scenes follow one another in the same
-   column, each its own editor. The boundary is spacing and a hairline, with
-   the Scene's title (when it has one) — quiet until the Scene is hovered or
-   being written in. No boxes: the prose stays one continuous page. */
+   column, each its own editor, and the reader sees one Chapter of prose.
+   The boundary is whitespace. Above every Scene is a fixed slot for its
+   label (so nothing moves on hover): a named Scene's title shows faintly, an
+   unnamed Scene's "Scene N" not at all — until the Scene is hovered or being
+   written in, when the label comes in and a soft ink hairline appears in the
+   gutter beside the Scene. The gutter is left free for future Scene controls. */
 .r2-doc[data-marks] .r2-prose .ProseMirror {
   min-height: 0;
+}
+.r2-scene {
+  position: relative;
+}
+.r2-scene + .r2-scene {
+  margin-top: 2.2em;
+}
+.r2-scene[data-state="pending"] {
+  min-height: 1.7em;
 }
 .r2-scene-mark {
   display: flex;
   align-items: center;
-  gap: 12px;
-  min-height: 20px;
-  margin-bottom: 14px;
+  height: 18px;
+  margin: 0 0 6px;
   font-size: 11.5px;
-  letter-spacing: 0.01em;
-  color: var(--r2-faint);
-  opacity: 0.7;
+  font-weight: 500;
+  letter-spacing: 0.015em;
+  color: var(--r2-muted);
+  opacity: 0;
   cursor: default;
-  transition: opacity 150ms ease, color 150ms ease;
+  transition: opacity var(--r2-medium) var(--r2-ease), color var(--r2-medium) var(--r2-ease);
 }
-.r2-scene + .r2-scene .r2-scene-mark {
-  margin-top: 52px;
+.r2-scene-mark[data-named] {
+  color: var(--r2-faint);
+  opacity: 0.85;
 }
-.r2-scene-mark::after {
-  content: "";
-  flex: 1;
-  border-top: 1px solid var(--r2-border);
+.r2-scene:hover .r2-scene-mark[data-named],
+.r2-scene:focus-within .r2-scene-mark[data-named] {
+  color: var(--r2-muted);
 }
 .r2-scene:hover .r2-scene-mark,
 .r2-scene:focus-within .r2-scene-mark {
   opacity: 1;
-  color: var(--r2-muted);
+}
+/* The gutter hairline: beside the Scene, outside the prose measure. */
+.r2-doc[data-marks] .r2-scene::before {
+  content: "";
+  position: absolute;
+  top: 24px;
+  bottom: 0;
+  left: calc(-1 * var(--r2-doc-gutter) / 2);
+  width: 2px;
+  border-radius: 1px;
+  background: var(--r2-accent);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--r2-medium) var(--r2-ease);
+}
+.r2-doc[data-marks] .r2-scene:hover::before {
+  opacity: 0.14;
+}
+.r2-doc[data-marks] .r2-scene:focus-within::before {
+  opacity: 0.32;
 }
 .r2-scene-mark button {
-  max-width: 70%;
-  padding: 1px 4px;
-  margin: 0 -4px;
+  max-width: 100%;
+  padding: 1px 5px;
+  margin: 0 -5px;
   overflow: hidden;
   border-radius: 4px;
   text-overflow: ellipsis;
   white-space: nowrap;
+  transition: color var(--r2-fast) var(--r2-ease), background-color var(--r2-fast) var(--r2-ease);
 }
 .r2-scene-mark button:hover {
   color: var(--r2-text);
@@ -965,14 +1165,6 @@ button.r2-disclosure:hover {
 .r2-scene-mark button:focus-visible {
   outline: 2px solid var(--r2-accent);
   outline-offset: 1px;
-}
-.r2-scene[data-state="pending"] {
-  min-height: 1.7em;
-}
-@media (prefers-reduced-motion: reduce) {
-  .r2-scene-mark {
-    transition: none;
-  }
 }
 
 /* Word count and save state: present, never asking for attention. */
@@ -983,7 +1175,7 @@ button.r2-disclosure:hover {
   justify-content: flex-end;
   gap: 6px;
   padding: 10px 18px 12px;
-  font-size: 12px;
+  font-size: 11.5px;
   color: var(--r2-faint);
   pointer-events: none;
 }
@@ -998,6 +1190,47 @@ button.r2-disclosure:hover {
   text-decoration: underline;
 }
 
+/* ── Overview (Manuscript, Group) ──────────────────────────────────────── */
+
+.r2-overview {
+  width: min(100%, var(--r2-doc-width));
+  margin-left: clamp(
+    0px,
+    calc((100vw - var(--r2-nav-width) - var(--r2-doc-width)) / 2),
+    calc(100cqw - var(--r2-doc-width))
+  );
+  padding: 44px var(--r2-doc-gutter) 64px;
+  transition: margin-left var(--r2-medium) var(--r2-ease);
+}
+.r2-overview-kind {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--r2-faint);
+}
+.r2-overview h1 {
+  margin-top: 6px;
+  font-size: 26px;
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.018em;
+}
+.r2-overview dl {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 6px 28px;
+  margin-top: 28px;
+  font-size: 13.5px;
+}
+.r2-overview dt {
+  color: var(--r2-muted);
+}
+.r2-overview dd {
+  font-variant-numeric: tabular-nums;
+}
+.r2-overview dd span {
+  color: var(--r2-faint);
+}
+
 /* ── Buttons and dialog ────────────────────────────────────────────────── */
 
 .r2-button {
@@ -1005,14 +1238,18 @@ button.r2-disclosure:hover {
   align-items: center;
   height: 30px;
   padding: 0 12px;
-  border: 1px solid var(--r2-border);
+  border: 1px solid var(--r2-border-strong);
   border-radius: var(--r2-radius);
   font-size: 13px;
   color: var(--r2-text);
-  background: var(--r2-bg);
+  background: var(--r2-field-bg);
+  transition: background-color var(--r2-fast) var(--r2-ease), border-color var(--r2-fast) var(--r2-ease);
 }
 .r2-button:hover:not(:disabled) {
-  background: var(--r2-hover);
+  background: var(--r2-shell-bg);
+}
+.r2-button:active:not(:disabled) {
+  background: var(--r2-press);
 }
 .r2-button:disabled {
   opacity: 0.6;
@@ -1022,8 +1259,9 @@ button.r2-disclosure:hover {
   color: #fff;
   background: var(--r2-accent);
 }
-.r2-button--primary:hover:not(:disabled) {
-  background: var(--r2-selected-ink);
+.r2-button--primary:hover:not(:disabled),
+.r2-button--primary:active:not(:disabled) {
+  background: var(--r2-accent-ink);
 }
 
 .r2-dialog-backdrop {
@@ -1062,9 +1300,14 @@ button.r2-disclosure:hover {
   margin-top: 20px;
 }
 
+/* ── Motion off ────────────────────────────────────────────────────────── */
+
 @media (prefers-reduced-motion: reduce) {
-  .r2-disclosure svg {
-    transition: none;
+  .r2 *,
+  .r2 *::before,
+  .r2 *::after {
+    transition-duration: 0ms !important;
+    animation-duration: 0ms !important;
   }
   .r2-nav-progress[data-active]::after {
     animation: none;
