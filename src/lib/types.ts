@@ -78,6 +78,27 @@ export interface ManuscriptGroup {
   updated_at: string;
 }
 
+/**
+ * A Workspace Page (Rune 2.0, migration 023): a freeform supporting document
+ * that belongs to one Project. Not a Scene and not manuscript prose — it never
+ * counts toward any word total. Stored in `workspace_documents`, never `pages`.
+ */
+export interface WorkspacePage {
+  id: string;
+  project_id: string;
+  /** null = untitled. */
+  title: string | null;
+  /** TipTap JSON. */
+  content: Record<string, unknown>;
+  /** Bumped by the database on every content change (never by a rename). */
+  version: number;
+  created_at: string;
+  updated_at: string;
+}
+
+/** A Workspace Page without its content — what the navigator lists. */
+export type WorkspacePageSummary = Pick<WorkspacePage, "id" | "title" | "created_at" | "updated_at">;
+
 export interface Chapter {
   id: string;
   manuscript_id: string;

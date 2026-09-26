@@ -1314,6 +1314,143 @@ button.r2-disclosure:hover {
   text-decoration: underline;
 }
 
+/* ── Workspace Page ─────────────────────────────────────────────────────── */
+/* Supporting material, not manuscript prose: the same writing column, but set
+   in Rune's interface sans, a little smaller and denser, with paragraph
+   spacing instead of book indents. The title is edited in place and reads as
+   the document's heading. Typing here does not fade the shell's chrome (that
+   is for writing the manuscript; see useWritingChrome). */
+
+.r2-page {
+  --r2-page-size: 15.5px;
+  --r2-page-leading: 1.65;
+}
+
+.r2-page-head {
+  margin-bottom: 18px;
+}
+.r2-page-title {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  resize: none;
+  overflow: hidden;
+  font: inherit;
+  font-size: 26px;
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.018em;
+  color: var(--r2-ink-1);
+  background: transparent;
+  cursor: text;
+}
+.r2-page-title::placeholder {
+  color: var(--r2-ink-3);
+  opacity: 0.7;
+}
+.r2-page-title:focus-visible {
+  outline: none;
+}
+
+/* Scoped overrides of the legacy global .ProseMirror rules (globals.css). */
+.r2-page-body .ProseMirror {
+  min-height: 12em;
+  font-family: inherit;
+  font-variation-settings: normal;
+  font-weight: 400;
+  letter-spacing: normal;
+  font-size: var(--r2-page-size);
+  line-height: var(--r2-page-leading);
+  color: var(--r2-ink-1);
+  caret-color: var(--r2-accent);
+}
+.r2-page-body .ProseMirror:focus-visible {
+  outline: none;
+}
+.r2-page-body .ProseMirror > * + * {
+  margin-top: 0;
+}
+.r2-page-body .ProseMirror :is(strong, em) {
+  color: inherit;
+}
+.r2-page-body .ProseMirror p {
+  margin: 0 0 0.7em;
+  text-indent: 0;
+}
+.r2-page-body .ProseMirror :is(h1, h2, h3) {
+  margin: 1.4em 0 0.45em;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--r2-ink-1);
+}
+.r2-page-body .ProseMirror > :is(h1, h2, h3):first-child {
+  margin-top: 0;
+}
+.r2-page-body .ProseMirror h1 { font-size: 1.45em; line-height: 1.3; }
+.r2-page-body .ProseMirror h2 { font-size: 1.2em; line-height: 1.35; }
+.r2-page-body .ProseMirror h3 { font-size: 1.02em; line-height: 1.45; }
+.r2-page-body .ProseMirror :is(ul, ol) {
+  margin: 0 0 0.7em;
+  padding-left: 1.4em;
+}
+.r2-page-body .ProseMirror ul { list-style: disc; }
+.r2-page-body .ProseMirror ol { list-style: decimal; }
+.r2-page-body .ProseMirror li p { margin: 0.15em 0; }
+.r2-page-body .ProseMirror blockquote {
+  margin: 0 0 0.7em;
+  padding-left: 1em;
+  border-left: 2px solid var(--r2-border-strong);
+  font-style: normal;
+  color: var(--r2-muted);
+}
+.r2-page-body .ProseMirror hr {
+  margin: 1.4em 0;
+  border: 0;
+  border-top: 1px solid var(--r2-border);
+}
+.r2-page-body .ProseMirror code {
+  padding: 0.1em 0.3em;
+  border-radius: 3px;
+  font-size: 0.9em;
+  background: var(--r2-hover);
+}
+.r2-page-body .ProseMirror pre {
+  margin: 0 0 0.7em;
+  padding: 10px 12px;
+  border-radius: var(--r2-radius);
+  font-size: 0.88em;
+  background: var(--r2-hover);
+  white-space: pre-wrap;
+}
+.r2-page-body .ProseMirror pre code {
+  padding: 0;
+  background: none;
+}
+.r2-page-body .ProseMirror ::selection {
+  background: rgba(47, 76, 124, 0.16);
+}
+.r2-page-body .ProseMirror .is-empty.is-editor-empty::before {
+  color: var(--r2-faint);
+  opacity: 0.75;
+}
+
+/* A conflict or an unreachable Page: the status line asks for a decision. */
+.r2-page-conflict {
+  display: inline-flex;
+  gap: 6px;
+  pointer-events: auto;
+  color: var(--r2-danger);
+}
+.r2-page-conflict button {
+  color: var(--r2-ink-1);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.r2-page-conflict button:disabled {
+  opacity: 0.6;
+}
+
 /* ── Overview (Manuscript, Group) ──────────────────────────────────────── */
 
 .r2-overview {

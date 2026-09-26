@@ -2,7 +2,8 @@
 
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
 import type { ProjectManuscript } from "@/lib/rune2/projectManuscript";
-import { indexManuscript, type NavEntry } from "@/lib/rune2/navigatorModel";
+import type { ProjectWorkspace } from "@/lib/rune2/projectWorkspace";
+import { indexManuscript, indexWorkspace, type NavEntry } from "@/lib/rune2/navigatorModel";
 import {
   closeTab as closeTabIn,
   MANUSCRIPT_TAB,
@@ -23,7 +24,9 @@ import {
 // Unplaced keeps its tab, and a tab whose object is gone disappears, handing
 // its place to a neighbour. Normal navigation replaces the active tab's
 // object; only an explicit "open in new tab" adds a tab. An object is open in
-// at most one tab: opening it again goes to that tab.
+// at most one tab: opening it again goes to that tab. Workspace Pages are
+// objects like any other here: one index holds the Manuscript's objects and
+// the Workspace's, keyed by canonical id.
 //
 // Also shared here, because actions outside the navigator change them: which
 // navigator rows are open, a request to focus a Scene's prose once its editor
@@ -43,6 +46,7 @@ export type WorkingTab = {
 
 type Rune2SelectionValue = {
   manuscript: ProjectManuscript;
+  workspace: ProjectWorkspace;
   index: Map<string, NavEntry>;
   /** The selected object (the active tab's), or null for the Manuscript as a whole. */
   selected: NavEntry | null;
@@ -82,9 +86,11 @@ const Rune2SelectionContext = createContext<Rune2SelectionValue | null>(null);
 
 export function Rune2SelectionProvider({
   manuscript,
+  workspace,
   children,
 }: {
   manuscript: ProjectManuscript;
+  workspace: ProjectWorkspace;
   children: ReactNode;
 }) {
   const [tabState, setTabState] = useState<TabState>({ tabs: [MANUSCRIPT_TAB], active: MANUSCRIPT_TAB });
@@ -96,13 +102,16 @@ export function Rune2SelectionProvider({
 
   // Titles renamed but not yet re-read; a fresh read supersedes them.
   const [renamed, setRenamed] = useState<Record<string, string>>({});
-  const [readManuscript, setReadManuscript] = useState(manuscript);
-  if (readManuscript !== manuscript) {
-    setReadManuscript(manuscript);
+  const [read, setRead] = useState({ manuscript, workspace });
+  if (read.manuscript !== manuscript || read.workspace !== workspace) {
+    setRead({ manuscript, workspace });
     setRenamed({});
   }
 
-  const index = useMemo(() => indexManuscript(manuscript, renamed), [manuscript, renamed]);
+  const index = useMemo(
+    () => new Map([...indexManuscript(manuscript, renamed), ...indexWorkspace(workspace.pages, renamed)]),
+    [manuscript, workspace, renamed]
+  );
   const has = useCallback((key: string) => key === MANUSCRIPT_TAB || index.has(key), [index]);
 
   // Adjusted during render (not in an effect) so the awaited object is
@@ -164,6 +173,7 @@ export function Rune2SelectionProvider({
   const value = useMemo(
     () => ({
       manuscript,
+      workspace,
       index,
       selected,
       select,
@@ -186,6 +196,7 @@ export function Rune2SelectionProvider({
     }),
     [
       manuscript,
+      workspace,
       index,
       selected,
       select,

@@ -53,7 +53,7 @@ test('a database built from schema.sql alone is identical to baseline + migratio
   assert.deepEqual(diffCounts(a, b), []);
   const versions = async (db) => (await db.query(`select version, name, note from public.schema_migrations order by version`)).rows;
   assert.deepEqual(await versions(fresh), await versions(migrated));
-  assert.deepEqual((await versions(fresh)).map((r) => r.version).slice(-10), ['013', '014', '015', '016', '017', '018', '019', '020', '021', '022']);
+  assert.deepEqual((await versions(fresh)).map((r) => r.version).slice(-11), ['013', '014', '015', '016', '017', '018', '019', '020', '021', '022', '023']);
 });
 
 test('signup still creates the profile and pricing entitlements on the Rune 2.0 schema', async () => {
@@ -592,4 +592,69 @@ test('022 over existing manuscripts: every Chapter stays top level where it was;
   await db.query(`update public.scenes set title = 'a2' where id = $1`, [ids.a]);
   const a2 = (await db.query(`select version from public.scenes where id = $1`, [ids.a])).rows[0];
   assert.equal(a2.version, before.find((r) => r.title === 'a').version + 1);
+});
+
+// ── 9. migration 023 ──────────────────────────────────────────────────────────
+
+const M023 = '023_workspace_pages.sql';
+
+async function db022() {
+  const db = await db021();
+  await db.exec(readMigration(M022));
+  return db;
+}
+
+test('023 on 022: Workspace Pages (workspace_documents) and nothing else — no manuscript table, function or policy changes', async () => {
+  const db = await db022();
+  const before = await captureCatalog(db);
+  await db.exec(readMigration(M023));
+  const after = await captureCatalog(db);
+  const { differences } = diffCatalogs(before, after);
+  const keys = differences.map((d) => `${d.section}:${d.kind}:${d.key}`).sort();
+  assert.deepEqual(keys.filter((k) => !k.startsWith('table_grants:') && !k.startsWith('function_grants:')), [
+    'columns:added:workspace_documents.content',
+    'columns:added:workspace_documents.created_at',
+    'columns:added:workspace_documents.id',
+    'columns:added:workspace_documents.project_id',
+    'columns:added:workspace_documents.title',
+    'columns:added:workspace_documents.updated_at',
+    'columns:added:workspace_documents.version',
+    'constraints:added:workspace_documents.workspace_documents_content_is_object',
+    'constraints:added:workspace_documents.workspace_documents_pkey',
+    'constraints:added:workspace_documents.workspace_documents_project_id_fkey',
+    'constraints:added:workspace_documents.workspace_documents_title_check',
+    'functions:added:forbid_project_reassignment()',
+    'functions:added:stamp_workspace_document()',
+    'indexes:added:workspace_documents.workspace_documents_pkey',
+    'indexes:added:workspace_documents.workspace_documents_project_id_created_at_idx',
+    'policies:added:workspace_documents.workspace_documents: insert own',
+    'policies:added:workspace_documents.workspace_documents: select own',
+    'policies:added:workspace_documents.workspace_documents: update own',
+    'relations:added:workspace_documents',
+    'triggers:added:workspace_documents.workspace_documents_forbid_project_reassignment',
+    'triggers:added:workspace_documents.workspace_documents_stamp',
+  ], fmt(differences));
+  // Grants: only on the new table and its two trigger functions; no client DELETE.
+  const grants = keys.filter((k) => k.startsWith('table_grants:') || k.startsWith('function_grants:'));
+  assert.ok(grants.every((k) => /^table_grants:added:workspace_documents |^function_grants:added:(forbid_project_reassignment|stamp_workspace_document)\(\) /.test(k)), grants.join('\n'));
+  for (const role of ['anon', 'authenticated']) {
+    assert.ok(!grants.includes(`table_grants:added:workspace_documents ${role} DELETE`), `${role} cannot DELETE`);
+  }
+  assert.ok(grants.includes('table_grants:added:workspace_documents authenticated INSERT'));
+  assert.ok(grants.includes('table_grants:added:workspace_documents authenticated UPDATE'));
+  assert.equal(after.relations.find((r) => r.table === 'workspace_documents').rls_enabled, true);
+  // Never named like the manuscript's tables.
+  assert.equal(after.relations.some((r) => r.table === 'pages'), false);
+});
+
+test('023 requires 022, refuses to run twice (including on schema.sql), and changes nothing when it refuses', async () => {
+  const only021 = await db021();
+  const before021 = await captureCatalog(only021);
+  await assert.rejects(only021.exec(readMigration(M023)), /requires migration 022/);
+  assert.deepEqual(diffCatalogs(before021, await captureCatalog(only021)).differences, []);
+  for (const db of [await migratedDb(), await freshRune2Db()]) {
+    const before = await captureCatalog(db);
+    await assert.rejects(db.exec(readMigration(M023)), /Migration 023 has already been applied/);
+    assert.deepEqual(diffCatalogs(before, await captureCatalog(db)).differences, []);
+  }
 });

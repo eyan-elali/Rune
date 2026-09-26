@@ -312,15 +312,20 @@ function NotesView() {
 //
 // What the selected object *is*, structurally — only what the Phase 1 model
 // actually holds: title, placement, derived position, words, and whether it
-// is part of the ordered manuscript. Custom Scene properties, relationships
+// is part of the ordered manuscript; for a Workspace Page, where it lives and
+// when it was made and last edited. Custom Scene properties, relationships
 // and backlinks (architecture §8, §17, §24) join here once they exist.
 
 function plural(n: number, one: string, many = `${one}s`) {
   return `${n.toLocaleString()} ${n === 1 ? one : many}`;
 }
 
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+}
+
 function InspectorView() {
-  const { manuscript, index, selected, select } = useRune2Selection();
+  const { manuscript, workspace, index, selected, select } = useRune2Selection();
 
   const location = (entry: NavEntry): ReactNode => {
     const parents = entry.kind === "scene" ? entry.path.slice(0, -1) : entry.path;
@@ -404,6 +409,20 @@ function InspectorView() {
           ["Manuscript", "Not in the total or export"],
         ];
         break;
+      case "workspacePage": {
+        const page = workspace.pages.find((p) => p.id === selected.id);
+        kind = "Page";
+        rows = [
+          ["Location", "Workspace"],
+          ...(page
+            ? [
+                ["Created", formatDate(page.created_at)] as [string, ReactNode],
+                ["Edited", formatDate(page.updated_at)] as [string, ReactNode],
+              ]
+            : []),
+        ];
+        break;
+      }
     }
   }
 

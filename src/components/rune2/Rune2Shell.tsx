@@ -2,6 +2,7 @@
 
 import { useRef, type ReactNode } from "react";
 import type { ProjectManuscript } from "@/lib/rune2/projectManuscript";
+import type { ProjectWorkspace } from "@/lib/rune2/projectWorkspace";
 import { ProjectNavigator } from "./ProjectNavigator";
 import { Rune2ContextBar, Rune2SelectionView } from "./Rune2Content";
 import { Rune2Panel } from "./Rune2Panel";
@@ -19,13 +20,15 @@ import { useWritingChrome } from "./useWritingChrome";
 
 export function Rune2Shell({
   manuscript,
+  workspace,
   children,
 }: {
   manuscript: ProjectManuscript;
+  workspace: ProjectWorkspace;
   children: ReactNode;
 }) {
   return (
-    <Rune2SelectionProvider manuscript={manuscript}>
+    <Rune2SelectionProvider manuscript={manuscript} workspace={workspace}>
       <Frame>{children}</Frame>
     </Rune2SelectionProvider>
   );

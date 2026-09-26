@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   ChevronRight,
+  File as PageIcon,
   FileText,
   FolderInput,
   Layers,
@@ -21,13 +22,16 @@ import {
 import { createChapter, deleteChapter, updateChapter } from "@/lib/actions/chapters";
 import { createScene, createUnplacedScene, moveSceneToUnplaced, renameScene } from "@/lib/actions/scenes";
 import { createGroup, deleteGroup, moveChapter, renameGroup } from "@/lib/actions/structure";
+import { createWorkspacePage, renameWorkspacePage } from "@/lib/actions/workspacePages";
 import { chapterShowsScenes, type NavEntry } from "@/lib/rune2/navigatorModel";
 import type { ManuscriptOutlineNode } from "@/lib/rune2/projectManuscript";
 import { NavigatorMenu, type NavigatorMenuItem } from "./NavigatorMenu";
 import { useRune2Selection } from "./Rune2Selection";
 
 // The Rune 2.0 project navigator: the Manuscript (Groups → Chapters → Scenes)
-// in reading order, then Unplaced Scenes. Every change goes through the Phase 1
+// in reading order, then Unplaced Scenes, then the Workspace (its Pages, a
+// flat list for now). The Workspace stays a single quiet row until the writer
+// has a Page. Every change goes through the Phase 1
 // server actions — each one atomic in the database — and the tree then
 // re-reads the manuscript (router.refresh). Nothing here holds a second copy
 // of the structure; only UI state (open rows and titles just renamed but not
@@ -48,6 +52,7 @@ const INDENT = 16;
 const ICONLESS_INSET = 19;
 const ROOT_MANUSCRIPT = "root:manuscript";
 const ROOT_UNPLACED = "root:unplaced";
+const ROOT_WORKSPACE = "root:workspace";
 
 type MenuState = { label: string; at: { x: number; y: number }; items: NavigatorMenuItem[] };
 
@@ -56,6 +61,7 @@ const formatCount = (n: number) => n.toLocaleString();
 export function ProjectNavigator() {
   const {
     manuscript,
+    workspace,
     index,
     selected,
     select,
@@ -64,6 +70,7 @@ export function ProjectNavigator() {
     open,
     setOpenFor,
     setRenamedTitle,
+    requestSceneFocus,
     navCollapsed,
     toggleNav,
   } = useRune2Selection();
@@ -162,6 +169,17 @@ export function ProjectNavigator() {
       return null;
     });
 
+  // A new Page opens at once, with its title ready to type (see PageTitle).
+  const addPage = () =>
+    run(async () => {
+      const r = await createWorkspacePage(projectId, null);
+      if (r.error !== null) return "Couldn’t create the page.";
+      setOpenFor([ROOT_WORKSPACE], true);
+      selectWhenPresent(r.data.id);
+      requestSceneFocus(r.data.id);
+      return null;
+    });
+
   // ── Rename ──────────────────────────────────────────────────────────────
 
   function commitRename(entry: NavEntry, value: string | null) {
@@ -171,13 +189,19 @@ export function ProjectNavigator() {
     const next = value.trim();
     // Compared with the stored title: typing "Scene 2" over an unnamed Scene's
     // fallback names it for real.
-    if (next === (entry.named ? entry.title : "") || (entry.kind !== "group" && next === "")) return;
+    // Groups and Pages may be untitled; a Chapter or Scene keeps its name.
+    const blankAllowed = entry.kind === "group" || entry.kind === "workspacePage";
+    if (next === (entry.named ? entry.title : "") || (!blankAllowed && next === "")) return;
 
     setRenamedTitle(entry.id, next);
     run(async () => {
       if (entry.kind === "group") {
         const r = await renameGroup(entry.id, next || null, projectId);
         return r.error ? "Couldn’t rename the group." : null;
+      }
+      if (entry.kind === "workspacePage") {
+        const r = await renameWorkspacePage(entry.id, next || null);
+        return r.error ? "Couldn’t rename the page." : null;
       }
       if (entry.kind === "chapter") {
         const r = await updateChapter(entry.id, { title: next }, projectId);
@@ -250,6 +274,8 @@ export function ProjectNavigator() {
           { label: "Move to Unplaced Scenes", icon: FolderInput, onSelect: () => toUnplaced(entry.id) },
         ];
       case "unplacedScene":
+      // No delete for a Page until Trash exists (architecture §26).
+      case "workspacePage":
         return [rename];
     }
   }
@@ -371,6 +397,7 @@ export function ProjectNavigator() {
 
   const manuscriptOpen = isOpen(ROOT_MANUSCRIPT, true);
   const unplacedOpen = isOpen(ROOT_UNPLACED, true);
+  const workspaceOpen = isOpen(ROOT_WORKSPACE, workspace.pages.length > 0);
 
   return (
     <nav
@@ -464,6 +491,50 @@ export function ProjectNavigator() {
               )}
             </li>
           )}
+
+          <li className="r2-nav-section">
+            <RootRow
+              id={ROOT_WORKSPACE}
+              label="Workspace"
+              expanded={workspaceOpen}
+              onToggle={() => setOpenFor([ROOT_WORKSPACE], !workspaceOpen)}
+              onSelect={() => setOpenFor([ROOT_WORKSPACE], !workspaceOpen)}
+              onAdd={addPage}
+              addLabel="New page"
+            />
+            {workspaceOpen &&
+              (workspace.pages.length > 0 ? (
+                <ul role="list">
+                  {workspace.pages.map((page) => {
+                    const entry = index.get(page.id)!;
+                    return (
+                      <li key={page.id}>
+                        <NavRow
+                          entry={entry}
+                          title={entry.title}
+                          depth={1}
+                          parentId={ROOT_WORKSPACE}
+                          icon={PageIcon}
+                          selected={selected?.id === page.id}
+                          renaming={renamingId === page.id}
+                          onSelect={(e) => choose(page.id, e)}
+                          onRename={() => setRenamingId(page.id)}
+                          onRenameDone={(value) => commitRename(entry, value)}
+                          onMore={(at) => openMenu(`${entry.title} actions`, at, moreItems(entry))}
+                        />
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : (
+                <div className="r2-nav-empty">
+                  <span>No pages yet.</span>
+                  <button type="button" onClick={addPage} disabled={busy}>
+                    New page
+                  </button>
+                </div>
+              ))}
+          </li>
         </ul>
       </div>
 
@@ -706,8 +777,9 @@ function RootRow({
 }: {
   id: string;
   label: string;
-  count: number;
-  countLabel: string;
+  /** Omitted: no count (the Workspace has no words). */
+  count?: number;
+  countLabel?: string;
   selected?: boolean;
   expanded: boolean;
   onToggle: () => void;
@@ -736,9 +808,11 @@ function RootRow({
       >
         <span className="r2-row-label">{label}</span>
       </button>
-      <span className="r2-row-count" aria-label={`${formatCount(count)} ${countLabel}`}>
-        {formatCount(count)}
-      </span>
+      {count !== undefined && (
+        <span className="r2-row-count" aria-label={`${formatCount(count)} ${countLabel}`}>
+          {formatCount(count)}
+        </span>
+      )}
       <RowActions label={label} onAdd={onAdd} addLabel={addLabel} />
     </div>
   );

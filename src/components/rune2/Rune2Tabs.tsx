@@ -20,7 +20,12 @@ function tabLabel(tab: WorkingTab): string {
 /** Where the tab's object sits, for its tooltip ("Book One / Chapter 3 / Scene 2"). */
 function tabPath(tab: WorkingTab): string {
   if (!tab.entry) return "Manuscript";
-  const trail = tab.entry.kind === "unplacedScene" ? ["Unplaced Scenes"] : tab.entry.path.map((p) => p.title);
+  const trail =
+    tab.entry.kind === "unplacedScene"
+      ? ["Unplaced Scenes"]
+      : tab.entry.kind === "workspacePage"
+        ? ["Workspace"]
+        : tab.entry.path.map((p) => p.title);
   return [...trail, tab.entry.title].join(" / ");
 }
 

@@ -1,12 +1,16 @@
 import type { ManuscriptOutlineNode, ProjectManuscript } from "@/lib/rune2/projectManuscript";
+import type { WorkspacePageSummary } from "@/lib/types";
 
 // The Rune 2.0 navigator's presentation rules over the Phase 1 manuscript
 // structure (lib/rune2/projectManuscript.ts). It never re-models the
 // manuscript: it only decides what the navigator shows and gives every
 // Group, Chapter and Scene a lookup entry (title, kind, words, ancestry) for
 // selection and breadcrumbs. Structure and word counts only — never prose.
+// Workspace Pages join the same index (indexWorkspace) so selection and tabs
+// treat them like any other object by id; they carry no words and no path,
+// and are never manuscript objects.
 
-export type NavKind = "group" | "chapter" | "scene" | "unplacedScene";
+export type NavKind = "group" | "chapter" | "scene" | "unplacedScene" | "workspacePage";
 
 export type NavEntry = {
   kind: NavKind;
@@ -24,7 +28,7 @@ export type NavEntry = {
    * Unplaced Scenes. Derived, never identity. Groups: within their parent.
    */
   ordinal: number;
-  /** Placed Scenes' words (Group, Chapter, Scene) or the Unplaced Scene's own. */
+  /** Placed Scenes' words (Group, Chapter, Scene) or the Unplaced Scene's own. 0 for a Workspace Page. */
   words: number;
   /** Ancestors from the top of the Manuscript down (Groups, then the Chapter). */
   path: { id: string; kind: NavKind; title: string }[];
@@ -48,6 +52,7 @@ export const UNTITLED = {
   group: "Untitled group",
   chapter: "Untitled chapter",
   scene: "Untitled scene",
+  page: "Untitled",
 } as const;
 
 export function groupTitle(title: string | null | undefined): string {
@@ -55,6 +60,9 @@ export function groupTitle(title: string | null | undefined): string {
 }
 export function chapterTitle(title: string | null | undefined): string {
   return title?.trim() || UNTITLED.chapter;
+}
+export function workspacePageTitle(title: string | null | undefined): string {
+  return title?.trim() || UNTITLED.page;
 }
 export function sceneTitle(title: string | null | undefined): string {
   return title?.trim() || UNTITLED.scene;
@@ -162,5 +170,31 @@ export function indexManuscript(
     });
   });
 
+  return index;
+}
+
+/**
+ * Every Workspace Page, by id — a flat list in creation order for now (the
+ * Workspace tree comes later). `renamed` overlays titles just changed but not
+ * yet re-read, as for the Manuscript.
+ */
+export function indexWorkspace(
+  pages: readonly WorkspacePageSummary[],
+  renamed: Readonly<Record<string, string>> = {}
+): Map<string, NavEntry> {
+  const index = new Map<string, NavEntry>();
+  pages.forEach((page, at) => {
+    const raw = page.id in renamed ? renamed[page.id] : page.title;
+    index.set(page.id, {
+      kind: "workspacePage",
+      id: page.id,
+      title: workspacePageTitle(raw),
+      named: Boolean(raw?.trim()),
+      ordinal: at + 1,
+      words: 0,
+      path: [],
+      childCount: 0,
+    });
+  });
   return index;
 }

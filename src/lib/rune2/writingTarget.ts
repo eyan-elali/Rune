@@ -5,6 +5,7 @@ import { chapterShowsScenes, type NavEntry } from "@/lib/rune2/navigatorModel";
 // instance (architecture §7: one Scene per editor instance); this decides
 // which Scenes are shown, in what order, and how the surface names them.
 // Groups and the Manuscript itself are structure, not prose: no target.
+// Nor is a Workspace Page: it has its own editor (WorkspacePageView).
 
 export type WritingScene = {
   id: string;
@@ -49,7 +50,9 @@ export function writingTargetFor(
   if (!selected) return null;
 
   switch (selected.kind) {
+    // Structure, not prose; a Workspace Page is not manuscript prose at all.
     case "group":
+    case "workspacePage":
       return null;
 
     case "unplacedScene":

@@ -9,20 +9,23 @@ import type { NavEntry, NavKind } from "@/lib/rune2/navigatorModel";
 import { writingTargetFor } from "@/lib/rune2/writingTarget";
 import { useRune2Selection } from "./Rune2Selection";
 import { Rune2Writing } from "./Rune2Writing";
+import { WorkspacePages } from "./WorkspacePages";
 
 // The context bar (a quiet breadcrumb to the selection, and the selection's
 // few contextual actions: "+ Scene" where a placed Scene can be added, then
 // Revision Notes and Inspector, which share the one right-hand panel) and the content
 // area. Chapters and Scenes open in
 // the writing surface (see writingTarget.ts);
-// a Group shows a structural summary; with nothing selected, the content area
-// shows its route (the Manuscript overview).
+// a Group shows a structural summary; a Workspace Page opens in its own
+// editor (WorkspacePages); with nothing selected, the content area shows its
+// route (the Manuscript overview).
 
 const KIND_LABEL: Record<NavKind, string> = {
   group: "Group",
   chapter: "Chapter",
   scene: "Scene",
   unplacedScene: "Unplaced Scene",
+  workspacePage: "Page",
 };
 
 function plural(n: number, one: string, many = `${one}s`) {
@@ -32,8 +35,9 @@ function plural(n: number, one: string, many = `${one}s`) {
 export function Rune2ContextBar() {
   const { manuscript, index, selected, select, openInNewTab, panel, togglePanel } = useRune2Selection();
   const target = writingTargetFor(selected, index);
-  // id undefined = a label only (Unplaced Scenes is a section, not an object).
-  const trail: { id?: string | null; title: string }[] = [{ id: null, title: "Manuscript" }];
+  // id undefined = a label only (Unplaced Scenes and Workspace are sections, not objects).
+  const trail: { id?: string | null; title: string }[] =
+    selected?.kind === "workspacePage" ? [{ title: "Workspace" }] : [{ id: null, title: "Manuscript" }];
   if (selected) {
     if (selected.kind === "unplacedScene") trail.push({ title: "Unplaced Scenes" });
     trail.push(...selected.path.map((p) => ({ id: p.id, title: p.title })));
@@ -181,10 +185,12 @@ export function Rune2SelectionView({ children }: { children: ReactNode }) {
   const target = writingTargetFor(selected, index);
   return (
     <>
-      {!target && (selected ? <StructurePreview entry={selected} /> : children)}
+      {!target && (selected ? selected.kind === "group" && <StructurePreview entry={selected} /> : children)}
       {/* Always mounted, in the same place, so a Scene that stays on screen
           between views keeps its editor instance. */}
       <Rune2Writing projectId={manuscript.project.id} target={target} />
+      {/* Always mounted too: Pages keep their save engines between views. */}
+      <WorkspacePages />
     </>
   );
 }
