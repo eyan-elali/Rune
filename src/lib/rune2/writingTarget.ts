@@ -53,6 +53,7 @@ export function writingTargetFor(
     // Structure, not prose; a Workspace Page is not manuscript prose at all.
     case "group":
     case "workspacePage":
+    case "workspaceFolder":
       return null;
 
     case "unplacedScene":

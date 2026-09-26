@@ -62,6 +62,18 @@ export const RUNE2_NOTES = {
     'deletion (empty only) and moves go through the SECURITY DEFINER functions',
     'create_manuscript_group, delete_manuscript_group, move_manuscript_group.',
   ],
+  workspace_folders: [
+    'Workspace Folder: purely organisational, no content. Belongs directly to its',
+    'Project. Writers read and rename their own; creation and deletion (empty',
+    'only) go through create_workspace_folder and delete_workspace_folder.',
+  ],
+  workspace_nodes: [
+    'The Workspace tree: navigation only, never ownership. One canonical node per',
+    'Page (document_id) or Folder (folder_id), created with the object by',
+    'place_new_workspace_object. Only a Folder has children; no cycles.',
+    'Siblings are numbered 1..n. Clients only read nodes; placement changes',
+    'through create_workspace_document, create_workspace_folder, move_workspace_node.',
+  ],
   projects: [
     'word_count is the ORDERED MANUSCRIPT TOTAL (placed Scenes only), maintained',
     'by the scenes_refresh_project_word_count trigger. Not the free-limit total.',

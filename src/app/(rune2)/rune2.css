@@ -372,6 +372,34 @@ button.r2-disclosure:hover {
   outline: none;
 }
 
+/* Workspace drag and drop: a hairline of ink where the item will land, or a
+   quiet wash on the Folder that will take it. The item being moved dims. */
+.r2-row[data-dragging] {
+  opacity: 0.45;
+}
+.r2-row[data-drop="before"]::before,
+.r2-row[data-drop="after"]::before {
+  content: "";
+  position: absolute;
+  left: var(--r2-drop-inset, 6px);
+  right: 4px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--r2-accent);
+  pointer-events: none;
+}
+.r2-row[data-drop="before"]::before {
+  top: -2px;
+}
+.r2-row[data-drop="after"]::before {
+  bottom: -2px;
+}
+.r2-row[data-drop="inside"] {
+  background: var(--r2-accent-soft);
+  box-shadow: inset 0 0 0 1px var(--r2-accent-line);
+  color: var(--r2-selected-ink);
+}
+
 /* Section roots: Manuscript, Unplaced Scenes. */
 .r2-row--root {
   color: var(--r2-muted);
@@ -409,6 +437,15 @@ button.r2-disclosure:hover {
 }
 .r2-nav-empty button:hover {
   text-decoration: underline;
+}
+
+/* An open Folder with nothing in it: one faint word where its contents would be. */
+.r2-nav-folder-empty {
+  height: 24px;
+  line-height: 24px;
+  font-size: 12px;
+  color: var(--r2-faint);
+  user-select: none;
 }
 
 .r2-nav-notice {
@@ -487,6 +524,20 @@ button.r2-disclosure:hover {
 }
 .r2-menu-item[data-tone="danger"] .r2-menu-icon {
   color: inherit;
+}
+.r2-menu-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.r2-menu-hint {
+  flex-shrink: 0;
+  margin-left: 12px;
+  font-family: inherit;
+  font-size: 11px;
+  color: var(--r2-faint);
 }
 .r2-menu-confirm {
   padding: 8px 8px 4px;

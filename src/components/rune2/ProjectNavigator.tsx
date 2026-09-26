@@ -1,14 +1,29 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, useTransition, type CSSProperties, type ReactNode } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+  type CSSProperties,
+  type HTMLAttributes,
+  type ReactNode,
+} from "react";
 import { useRouter } from "next/navigation";
 import {
+  ArrowDown,
   ArrowLeft,
+  ArrowUp,
   ChevronRight,
   File as PageIcon,
+  FilePlus,
   FileText,
+  Folder,
   FolderInput,
+  FolderOpen,
+  FolderPlus,
   Layers,
   PanelTop,
   MoreHorizontal,
@@ -23,27 +38,41 @@ import { createChapter, deleteChapter, updateChapter } from "@/lib/actions/chapt
 import { createScene, createUnplacedScene, moveSceneToUnplaced, renameScene } from "@/lib/actions/scenes";
 import { createGroup, deleteGroup, moveChapter, renameGroup } from "@/lib/actions/structure";
 import { createWorkspacePage, renameWorkspacePage } from "@/lib/actions/workspacePages";
+import {
+  createWorkspaceFolder,
+  deleteWorkspaceFolder,
+  moveWorkspaceNode,
+  renameWorkspaceFolder,
+} from "@/lib/actions/workspaceTree";
 import { chapterShowsScenes, type NavEntry } from "@/lib/rune2/navigatorModel";
+import { indexBeside, moveDestinations, walkWorkspaceTree, type WorkspaceTreeNode } from "@/lib/rune2/workspaceTree";
 import type { ManuscriptOutlineNode } from "@/lib/rune2/projectManuscript";
 import { NavigatorMenu, type NavigatorMenuItem } from "./NavigatorMenu";
 import { useRune2Selection } from "./Rune2Selection";
 
 // The Rune 2.0 project navigator: the Manuscript (Groups → Chapters → Scenes)
-// in reading order, then Unplaced Scenes, then the Workspace (its Pages, a
-// flat list for now). The Workspace stays a single quiet row until the writer
-// has a Page. Every change goes through the Phase 1
-// server actions — each one atomic in the database — and the tree then
-// re-reads the manuscript (router.refresh). Nothing here holds a second copy
+// in reading order, then Unplaced Scenes, then the Workspace (its Pages and
+// Folders, in the places the writer gave them). The Workspace stays a single
+// quiet row until the writer has a Page, and a flat list of Pages until they
+// make a Folder. Every change goes through the server actions — each one
+// atomic in the database — and the tree then re-reads the project
+// (router.refresh). Nothing here holds a second copy
 // of the structure; only UI state (open rows and titles just renamed but not
 // yet re-read — both shared through the selection context, since the writing
 // surface, tabs and context bar use them too — and the row being renamed).
 //
 // A click opens the object in the active tab (or goes to the tab already
 // showing it); ⌘/Ctrl-click, or "Open in new tab" in its menu, gives it a tab.
+// A Folder is navigation only: a click opens or closes it, it never opens in
+// a tab.
 //
-// Not here yet, deliberately: drag-and-drop and other moves (beyond "Move to
-// Unplaced Scenes"), and deleting a Scene — Phase 1 deletion is permanent and
-// Rune 2.0 deletion should be recoverable (architecture §26, Trash).
+// Workspace items move by "Move up / down / to…" in their menu, ⌥↑ / ⌥↓ on
+// a focused row, or by dragging (before or after a row, or into a Folder).
+//
+// Not here yet, deliberately: moving manuscript structure from the navigator
+// (beyond "Move to Unplaced Scenes"); deleting a Scene, a Page or a Folder
+// that holds anything — Rune 2.0 deletion should be recoverable (architecture
+// §26, Trash), and Trash does not exist yet.
 
 const BASE_PAD = 6;
 const INDENT = 16;
@@ -54,7 +83,8 @@ const ROOT_MANUSCRIPT = "root:manuscript";
 const ROOT_UNPLACED = "root:unplaced";
 const ROOT_WORKSPACE = "root:workspace";
 
-type MenuState = { label: string; at: { x: number; y: number }; items: NavigatorMenuItem[] };
+type MenuState = { key: number; label: string; at: { x: number; y: number }; items: NavigatorMenuItem[] };
+type DropSide = "before" | "after" | "inside";
 
 const formatCount = (n: number) => n.toLocaleString();
 
@@ -81,6 +111,23 @@ export function ProjectNavigator() {
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [menu, setMenu] = useState<MenuState | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [dragging, setDragging] = useState<WorkspaceTreeNode | null>(null);
+  const [drop, setDrop] = useState<{ id: string; side: DropSide } | null>(null);
+  // A row to focus once the tree is re-read (after a keyboard reorder).
+  const refocus = useRef<string | null>(null);
+
+  // Every Workspace item's place: its parent, its siblings and where it is among them.
+  const placed = useMemo(
+    () => new Map(walkWorkspaceTree(workspace.tree).map((at) => [at.node.id, at])),
+    [workspace.tree]
+  );
+
+  useEffect(() => {
+    if (refocus.current && !refreshing) {
+      focusRow(refocus.current);
+      refocus.current = null;
+    }
+  }, [workspace, refreshing]);
 
   useEffect(() => {
     if (!notice) return;
@@ -169,14 +216,31 @@ export function ProjectNavigator() {
       return null;
     });
 
+  /** The Workspace section and every Folder down to (and including) `folder`. */
+  const workspaceOpenPath = (folder: WorkspaceTreeNode | null) => [
+    ROOT_WORKSPACE,
+    ...(folder ? [...(index.get(folder.id)?.path.map((p) => p.id) ?? []), folder.id] : []),
+  ];
+
   // A new Page opens at once, with its title ready to type (see PageTitle).
-  const addPage = () =>
+  // Inside a Folder, it is added at the end of that Folder.
+  const addPage = (folder: WorkspaceTreeNode | null = null) =>
     run(async () => {
-      const r = await createWorkspacePage(projectId, null);
+      const r = await createWorkspacePage(projectId, null, folder?.nodeId ?? null);
       if (r.error !== null) return "Couldn’t create the page.";
-      setOpenFor([ROOT_WORKSPACE], true);
+      setOpenFor(workspaceOpenPath(folder), true);
       selectWhenPresent(r.data.id);
       requestSceneFocus(r.data.id);
+      return null;
+    });
+
+  // A new Folder waits for its name in the tree; it is never selected.
+  const addFolder = (folder: WorkspaceTreeNode | null = null) =>
+    run(async () => {
+      const r = await createWorkspaceFolder(projectId, null, folder?.nodeId ?? null);
+      if (r.error !== null) return "Couldn’t create the folder.";
+      setOpenFor(workspaceOpenPath(folder), true);
+      setRenamingId(r.data.folder.id);
       return null;
     });
 
@@ -189,8 +253,8 @@ export function ProjectNavigator() {
     const next = value.trim();
     // Compared with the stored title: typing "Scene 2" over an unnamed Scene's
     // fallback names it for real.
-    // Groups and Pages may be untitled; a Chapter or Scene keeps its name.
-    const blankAllowed = entry.kind === "group" || entry.kind === "workspacePage";
+    // Groups, Pages and Folders may be untitled; a Chapter or Scene keeps its name.
+    const blankAllowed = entry.kind === "group" || entry.kind === "workspacePage" || entry.kind === "workspaceFolder";
     if (next === (entry.named ? entry.title : "") || (!blankAllowed && next === "")) return;
 
     setRenamedTitle(entry.id, next);
@@ -202,6 +266,10 @@ export function ProjectNavigator() {
       if (entry.kind === "workspacePage") {
         const r = await renameWorkspacePage(entry.id, next || null);
         return r.error ? "Couldn’t rename the page." : null;
+      }
+      if (entry.kind === "workspaceFolder") {
+        const r = await renameWorkspaceFolder(entry.id, next || null);
+        return r.error ? "Couldn’t rename the folder." : null;
       }
       if (entry.kind === "chapter") {
         const r = await updateChapter(entry.id, { title: next }, projectId);
@@ -215,7 +283,7 @@ export function ProjectNavigator() {
   // ── Menus ───────────────────────────────────────────────────────────────
 
   const openMenu = (label: string, at: { x: number; y: number }, items: NavigatorMenuItem[]) =>
-    setMenu({ label, at, items });
+    setMenu((prev) => ({ key: (prev?.key ?? 0) + 1, label, at, items }));
 
   function manuscriptAddItems(): NavigatorMenuItem[] {
     return [
@@ -232,11 +300,59 @@ export function ProjectNavigator() {
     ];
   }
 
-  function moreItems(entry: NavEntry): NavigatorMenuItem[] {
-    return [{ label: "Open in new tab", icon: PanelTop, onSelect: () => openInNewTab(entry.id) }, ...kindItems(entry)];
+  /** "+" on the Workspace, or on a Folder: a Page or a Folder there. */
+  function workspaceAddItems(folder: WorkspaceTreeNode | null): NavigatorMenuItem[] {
+    return [
+      { label: "New page", icon: FilePlus, onSelect: () => addPage(folder) },
+      ...(workspace.organizable
+        ? [{ label: "New folder", icon: FolderPlus, onSelect: () => addFolder(folder) }]
+        : []),
+    ];
   }
 
-  function kindItems(entry: NavEntry): NavigatorMenuItem[] {
+  function moreItems(entry: NavEntry, at?: { x: number; y: number }): NavigatorMenuItem[] {
+    // A Folder never opens in a tab.
+    if (entry.kind === "workspaceFolder") return kindItems(entry, at);
+    return [{ label: "Open in new tab", icon: PanelTop, onSelect: () => openInNewTab(entry.id) }, ...kindItems(entry, at)];
+  }
+
+  /** Move up / down / to… for a Workspace item — only the moves that would change something. */
+  function workspaceMoveItems(entry: NavEntry, point?: { x: number; y: number }): NavigatorMenuItem[] {
+    const at = placed.get(entry.id);
+    if (!at?.node.nodeId || !workspace.organizable) return [];
+    const parentNodeId = at.parent?.nodeId ?? null;
+    const elsewhere = moveDestinations(workspace.tree, at.node).filter((d) => d.parentNodeId !== parentNodeId);
+    return [
+      ...(at.index > 0
+        ? [{ label: "Move up", icon: ArrowUp, hint: "⌥↑", onSelect: () => reorder(entry.id, -1) }]
+        : []),
+      ...(at.index < at.siblings.length - 1
+        ? [{ label: "Move down", icon: ArrowDown, hint: "⌥↓", onSelect: () => reorder(entry.id, 1) }]
+        : []),
+      ...(elsewhere.length > 0
+        ? [
+            {
+              label: "Move to",
+              icon: FolderInput,
+              onSelect: () =>
+                openMenu(
+                  `Move ${entry.title} to`,
+                  point ?? rowPoint(entry.id),
+                  elsewhere.map((d) => ({
+                    key: d.parentNodeId ?? ROOT_WORKSPACE,
+                    label: d.folder ? (index.get(d.folder.id)?.title ?? "Folder") : "Workspace",
+                    icon: d.folder ? Folder : undefined,
+                    inset: d.depth,
+                    onSelect: () => moveTo(at.node, d.parentNodeId, null, d.folder),
+                  }))
+                ),
+            },
+          ]
+        : []),
+    ];
+  }
+
+  function kindItems(entry: NavEntry, at?: { x: number; y: number }): NavigatorMenuItem[] {
     const rename: NavigatorMenuItem = { label: "Rename", icon: Pencil, onSelect: () => setRenamingId(entry.id) };
     switch (entry.kind) {
       case "group":
@@ -274,10 +390,130 @@ export function ProjectNavigator() {
           { label: "Move to Unplaced Scenes", icon: FolderInput, onSelect: () => toUnplaced(entry.id) },
         ];
       case "unplacedScene":
+        return [rename];
       // No delete for a Page until Trash exists (architecture §26).
       case "workspacePage":
-        return [rename];
+        return [rename, ...workspaceMoveItems(entry, at)];
+      case "workspaceFolder": {
+        const folder = placed.get(entry.id)?.node ?? null;
+        return [
+          rename,
+          { label: "New page inside", icon: FilePlus, onSelect: () => addPage(folder) },
+          { label: "New folder inside", icon: FolderPlus, onSelect: () => addFolder(folder) },
+          ...workspaceMoveItems(entry, at),
+          // Only an empty Folder: nothing is ever lost with it, and there is
+          // no Trash yet for anything that holds content.
+          ...(entry.childCount === 0
+            ? [{ label: "Delete folder", icon: Trash2, tone: "danger" as const, onSelect: () => removeFolder(entry.id) }]
+            : []),
+        ];
+      }
     }
+  }
+
+  // ── Workspace moves ─────────────────────────────────────────────────────
+
+  /** Puts a Workspace item at `idx` among `parentNodeId`'s children (null = last). */
+  const moveTo = (
+    node: WorkspaceTreeNode,
+    parentNodeId: string | null,
+    idx: number | null,
+    folder: WorkspaceTreeNode | null
+  ) =>
+    run(async () => {
+      if (!node.nodeId) return null;
+      const r = await moveWorkspaceNode(node.nodeId, parentNodeId, idx);
+      if (r.error !== null) {
+        return r.error === "A Folder cannot move inside itself"
+          ? "A folder can’t go inside itself."
+          : "Couldn’t move that. Nothing was changed.";
+      }
+      // Show where it went.
+      setOpenFor(workspaceOpenPath(folder), true);
+      return null;
+    });
+
+  /** One step up or down among its siblings. */
+  function reorder(id: string, step: -1 | 1, fromKeyboard = false) {
+    const at = placed.get(id);
+    if (!at?.node.nodeId || !workspace.organizable) return;
+    const next = at.index + step;
+    if (next < 0 || next >= at.siblings.length) return;
+    if (fromKeyboard) refocus.current = id;
+    moveTo(at.node, at.parent?.nodeId ?? null, next, at.parent);
+  }
+
+  const removeFolder = (id: string) =>
+    run(async () => {
+      const r = await deleteWorkspaceFolder(id);
+      return r.error ? "Couldn’t delete the folder." : null;
+    });
+
+  // ── Workspace drag and drop ─────────────────────────────────────────────
+
+  /** Whether `node` may be dropped at `side` of `target`. */
+  function canDrop(node: WorkspaceTreeNode, target: WorkspaceTreeNode | null, side: DropSide): boolean {
+    if (!target) return side === "inside";
+    if (!target.nodeId || target.nodeId === node.nodeId) return false;
+    if (side === "inside" && target.kind !== "folder") return false;
+    // Never into itself: nothing inside a moving Folder is a destination.
+    return !(index.get(target.id)?.path.some((p) => p.id === node.id) ?? false);
+  }
+
+  /** The row props that make a Workspace item draggable and a drop target (null target: the Workspace row). */
+  function dragProps(target: WorkspaceTreeNode | null, rowId: string): HTMLAttributes<HTMLDivElement> & { draggable?: boolean } {
+    if (!workspace.organizable) return {};
+    const sideAt = (e: React.DragEvent<HTMLDivElement>): DropSide => {
+      if (!target) return "inside";
+      const r = e.currentTarget.getBoundingClientRect();
+      const y = (e.clientY - r.top) / r.height;
+      if (target.kind === "folder") return y < 0.25 ? "before" : y > 0.75 ? "after" : "inside";
+      return y < 0.5 ? "before" : "after";
+    };
+    return {
+      draggable: Boolean(target?.nodeId) && renamingId !== target?.id && !busy,
+      onDragStart: (e) => {
+        if (!target?.nodeId) return;
+        e.dataTransfer.effectAllowed = "move";
+        e.dataTransfer.setData("text/plain", index.get(target.id)?.title ?? "");
+        setDragging(target);
+      },
+      onDragOver: (e) => {
+        if (!dragging) return;
+        const side = sideAt(e);
+        if (!canDrop(dragging, target, side)) {
+          if (drop?.id === rowId) setDrop(null);
+          return;
+        }
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        if (drop?.id !== rowId || drop.side !== side) setDrop({ id: rowId, side });
+      },
+      onDragLeave: (e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null) && drop?.id === rowId) setDrop(null);
+      },
+      onDrop: (e) => {
+        e.preventDefault();
+        const node = dragging;
+        const side = sideAt(e);
+        setDragging(null);
+        setDrop(null);
+        if (!node || !canDrop(node, target, side)) return;
+        if (!target) {
+          moveTo(node, null, null, null);
+        } else if (side === "inside") {
+          moveTo(node, target.nodeId, null, target);
+        } else {
+          const at = placed.get(target.id);
+          if (!at) return;
+          moveTo(node, at.parent?.nodeId ?? null, indexBeside(at.siblings, node, target, side), at.parent);
+        }
+      },
+      onDragEnd: () => {
+        setDragging(null);
+        setDrop(null);
+      },
+    };
   }
 
   const removeGroup = (id: string) =>
@@ -397,7 +633,71 @@ export function ProjectNavigator() {
 
   const manuscriptOpen = isOpen(ROOT_MANUSCRIPT, true);
   const unplacedOpen = isOpen(ROOT_UNPLACED, true);
-  const workspaceOpen = isOpen(ROOT_WORKSPACE, workspace.pages.length > 0);
+  const workspaceOpen = isOpen(ROOT_WORKSPACE, workspace.tree.length > 0);
+
+  function renderWorkspace(nodes: readonly WorkspaceTreeNode[], depth: number, parentId: string): ReactNode {
+    return nodes.map((node) => {
+      const entry = index.get(node.id);
+      if (!entry) return null;
+      const shared = {
+        entry,
+        title: entry.title,
+        depth,
+        parentId,
+        renaming: renamingId === node.id,
+        onRename: () => setRenamingId(node.id),
+        onRenameDone: (value: string | null) => commitRename(entry, value),
+        onMore: (at: { x: number; y: number }) => openMenu(`${entry.title} actions`, at, moreItems(entry, at)),
+        onReorder: node.nodeId && workspace.organizable ? (step: -1 | 1) => reorder(node.id, step, true) : undefined,
+        rowProps: dragProps(node, node.id),
+        drop: drop?.id === node.id ? drop.side : undefined,
+        dragging: dragging?.nodeId === node.nodeId && node.nodeId !== null,
+      };
+
+      if (node.kind === "folder") {
+        // A Folder is a container: it always shows whether it is open, and a
+        // click opens or closes it — there is nothing to select.
+        const expanded = isOpen(node.id, false);
+        return (
+          <li key={node.id}>
+            <NavRow
+              {...shared}
+              icon={expanded && node.children.length > 0 ? FolderOpen : Folder}
+              selected={false}
+              expanded={expanded}
+              onToggle={() => setOpenFor([node.id], !expanded)}
+              onSelect={() => setOpenFor([node.id], !expanded)}
+              onAdd={(at) => openMenu(`Add to ${entry.title}`, at, workspaceAddItems(node))}
+              addLabel={`Add to ${entry.title}`}
+            />
+            {expanded &&
+              (node.children.length > 0 ? (
+                <Children depth={depth}>{renderWorkspace(node.children, depth + 1, node.id)}</Children>
+              ) : (
+                <p
+                  className="r2-nav-folder-empty"
+                  // Where a child's icon would sit: row margin, indent, disclosure.
+                  style={{ paddingLeft: 8 + BASE_PAD + (depth + 1) * INDENT + 22 }}
+                >
+                  Empty
+                </p>
+              ))}
+          </li>
+        );
+      }
+
+      return (
+        <li key={node.id}>
+          <NavRow
+            {...shared}
+            icon={PageIcon}
+            selected={selected?.id === node.id}
+            onSelect={(e) => choose(node.id, e)}
+          />
+        </li>
+      );
+    });
+  }
 
   return (
     <nav
@@ -499,37 +799,18 @@ export function ProjectNavigator() {
               expanded={workspaceOpen}
               onToggle={() => setOpenFor([ROOT_WORKSPACE], !workspaceOpen)}
               onSelect={() => setOpenFor([ROOT_WORKSPACE], !workspaceOpen)}
-              onAdd={addPage}
-              addLabel="New page"
+              onAdd={(at) => openMenu("Add to the workspace", at, workspaceAddItems(null))}
+              addLabel="Add to the workspace"
+              rowProps={dragProps(null, ROOT_WORKSPACE)}
+              drop={drop?.id === ROOT_WORKSPACE ? drop.side : undefined}
             />
             {workspaceOpen &&
-              (workspace.pages.length > 0 ? (
-                <ul role="list">
-                  {workspace.pages.map((page) => {
-                    const entry = index.get(page.id)!;
-                    return (
-                      <li key={page.id}>
-                        <NavRow
-                          entry={entry}
-                          title={entry.title}
-                          depth={1}
-                          parentId={ROOT_WORKSPACE}
-                          icon={PageIcon}
-                          selected={selected?.id === page.id}
-                          renaming={renamingId === page.id}
-                          onSelect={(e) => choose(page.id, e)}
-                          onRename={() => setRenamingId(page.id)}
-                          onRenameDone={(value) => commitRename(entry, value)}
-                          onMore={(at) => openMenu(`${entry.title} actions`, at, moreItems(entry))}
-                        />
-                      </li>
-                    );
-                  })}
-                </ul>
+              (workspace.tree.length > 0 ? (
+                <ul role="list">{renderWorkspace(workspace.tree, 1, ROOT_WORKSPACE)}</ul>
               ) : (
                 <div className="r2-nav-empty">
                   <span>No pages yet.</span>
-                  <button type="button" onClick={addPage} disabled={busy}>
+                  <button type="button" onClick={() => addPage()} disabled={busy}>
                     New page
                   </button>
                 </div>
@@ -552,7 +833,13 @@ export function ProjectNavigator() {
       </div>
 
       {menu && (
-        <NavigatorMenu label={menu.label} at={menu.at} items={menu.items} onClose={() => setMenu(null)} />
+        <NavigatorMenu
+          key={menu.key}
+          label={menu.label}
+          at={menu.at}
+          items={menu.items}
+          onClose={() => setMenu(null)}
+        />
       )}
     </nav>
   );
@@ -610,6 +897,12 @@ function onRowKeyDown(
 function pointBelow(el: Element) {
   const r = el.getBoundingClientRect();
   return { x: r.left, y: r.bottom + 4 };
+}
+
+/** Below a row, for a menu opened without a pointer. */
+function rowPoint(id: string) {
+  const el = document.querySelector(`.r2-nav [data-row="${CSS.escape(id)}"]`);
+  return el ? pointBelow(el) : { x: 16, y: 80 };
 }
 
 function Disclosure({
@@ -696,6 +989,10 @@ function NavRow({
   onAdd,
   addLabel,
   onMore,
+  onReorder,
+  rowProps,
+  drop,
+  dragging,
 }: {
   entry: NavEntry;
   title: string;
@@ -716,15 +1013,25 @@ function NavRow({
   onAdd?: (at: { x: number; y: number }) => void;
   addLabel?: string;
   onMore: (at: { x: number; y: number }) => void;
+  /** ⌥↑ / ⌥↓: one step among its siblings (Workspace items). */
+  onReorder?: (step: -1 | 1) => void;
+  /** Drag and drop (Workspace items). */
+  rowProps?: HTMLAttributes<HTMLDivElement> & { draggable?: boolean };
+  drop?: DropSide;
+  dragging?: boolean;
 }) {
+  const pad = BASE_PAD + depth * INDENT + (Icon ? 0 : ICONLESS_INSET);
   return (
     <div
+      {...rowProps}
       className="r2-row"
       data-selected={selected || undefined}
       data-emphasis={emphasis || undefined}
       data-muted={muted || undefined}
       data-renaming={renaming || undefined}
-      style={{ paddingLeft: BASE_PAD + depth * INDENT + (Icon ? 0 : ICONLESS_INSET) }}
+      data-drop={drop}
+      data-dragging={dragging || undefined}
+      style={{ paddingLeft: pad, "--r2-drop-inset": `${pad}px` } as CSSProperties}
       onContextMenu={(e) => {
         e.preventDefault();
         onMore({ x: e.clientX, y: e.clientY });
@@ -750,6 +1057,9 @@ function NavRow({
             } else if (e.key === "ContextMenu" || (e.shiftKey && e.key === "F10")) {
               e.preventDefault();
               onMore(pointBelow(e.currentTarget));
+            } else if (onReorder && e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
+              e.preventDefault();
+              onReorder(e.key === "ArrowUp" ? -1 : 1);
             } else {
               onRowKeyDown(e, expanded, onToggle, parentId);
             }
@@ -774,6 +1084,8 @@ function RootRow({
   onSelect,
   onAdd,
   addLabel,
+  rowProps,
+  drop,
 }: {
   id: string;
   label: string;
@@ -786,9 +1098,18 @@ function RootRow({
   onSelect: (e: React.MouseEvent) => void;
   onAdd: (at: { x: number; y: number }) => void;
   addLabel: string;
+  /** A drop target (the Workspace: drop here for its top level). */
+  rowProps?: HTMLAttributes<HTMLDivElement>;
+  drop?: DropSide;
 }) {
   return (
-    <div className="r2-row r2-row--root" data-selected={selected || undefined} style={{ paddingLeft: BASE_PAD }}>
+    <div
+      {...rowProps}
+      className="r2-row r2-row--root"
+      data-selected={selected || undefined}
+      data-drop={drop}
+      style={{ paddingLeft: BASE_PAD }}
+    >
       <Disclosure expanded={expanded} label={label} onToggle={onToggle} />
       <button
         type="button"

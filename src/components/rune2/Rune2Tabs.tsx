@@ -24,7 +24,7 @@ function tabPath(tab: WorkingTab): string {
     tab.entry.kind === "unplacedScene"
       ? ["Unplaced Scenes"]
       : tab.entry.kind === "workspacePage"
-        ? ["Workspace"]
+        ? ["Workspace", ...tab.entry.path.map((p) => p.title)]
         : tab.entry.path.map((p) => p.title);
   return [...trail, tab.entry.title].join(" / ");
 }

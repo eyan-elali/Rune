@@ -26,6 +26,7 @@ const KIND_LABEL: Record<NavKind, string> = {
   scene: "Scene",
   unplacedScene: "Unplaced Scene",
   workspacePage: "Page",
+  workspaceFolder: "Folder",
 };
 
 function plural(n: number, one: string, many = `${one}s`) {
@@ -35,12 +36,15 @@ function plural(n: number, one: string, many = `${one}s`) {
 export function Rune2ContextBar() {
   const { manuscript, index, selected, select, openInNewTab, panel, togglePanel } = useRune2Selection();
   const target = writingTargetFor(selected, index);
-  // id undefined = a label only (Unplaced Scenes and Workspace are sections, not objects).
-  const trail: { id?: string | null; title: string }[] =
-    selected?.kind === "workspacePage" ? [{ title: "Workspace" }] : [{ id: null, title: "Manuscript" }];
+  // id undefined = a label only (Unplaced Scenes and Workspace are sections,
+  // and a Folder is navigation — none of them opens).
+  const inWorkspace = selected?.kind === "workspacePage";
+  const trail: { id?: string | null; title: string }[] = inWorkspace
+    ? [{ title: "Workspace" }]
+    : [{ id: null, title: "Manuscript" }];
   if (selected) {
     if (selected.kind === "unplacedScene") trail.push({ title: "Unplaced Scenes" });
-    trail.push(...selected.path.map((p) => ({ id: p.id, title: p.title })));
+    trail.push(...selected.path.map((p) => (inWorkspace ? { title: p.title } : { id: p.id, title: p.title })));
     trail.push({ id: selected.id, title: selected.title });
   }
 

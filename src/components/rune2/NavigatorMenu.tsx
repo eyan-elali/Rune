@@ -10,6 +10,12 @@ import type { LucideIcon } from "lucide-react";
 
 export type NavigatorMenuItem = {
   label: string;
+  /** Needed when two items can share a label (e.g. two untitled Folders). */
+  key?: string;
+  /** Nesting depth, for a list of places (e.g. "Move to"). */
+  inset?: number;
+  /** A keyboard shortcut for the same action, shown quietly. */
+  hint?: string;
   icon?: LucideIcon;
   onSelect: () => void;
   tone?: "danger";
@@ -134,22 +140,28 @@ export function NavigatorMenu({
           const Icon = item.icon;
           return (
             <button
-              key={item.label}
+              key={item.key ?? item.label}
               type="button"
               role="menuitem"
               data-menu-item
               tabIndex={-1}
               className="r2-menu-item"
               data-tone={item.tone}
+              style={item.inset ? { paddingLeft: 8 + item.inset * 12 } : undefined}
               onClick={() => choose(item)}
             >
               <span className="r2-menu-icon" aria-hidden>
                 {Icon && <Icon size={14} strokeWidth={1.75} />}
               </span>
-              <span>
+              <span className="r2-menu-label">
                 {item.label}
                 {item.confirm && <span aria-hidden>…</span>}
               </span>
+              {item.hint && (
+                <kbd className="r2-menu-hint" aria-hidden>
+                  {item.hint}
+                </kbd>
+              )}
             </button>
           );
         })

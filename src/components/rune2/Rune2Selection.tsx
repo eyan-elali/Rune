@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
 import type { ProjectManuscript } from "@/lib/rune2/projectManuscript";
 import type { ProjectWorkspace } from "@/lib/rune2/projectWorkspace";
-import { indexManuscript, indexWorkspace, type NavEntry } from "@/lib/rune2/navigatorModel";
+import { indexManuscript, indexWorkspace, isSelectable, type NavEntry } from "@/lib/rune2/navigatorModel";
 import {
   closeTab as closeTabIn,
   MANUSCRIPT_TAB,
@@ -26,7 +26,9 @@ import {
 // object; only an explicit "open in new tab" adds a tab. An object is open in
 // at most one tab: opening it again goes to that tab. Workspace Pages are
 // objects like any other here: one index holds the Manuscript's objects and
-// the Workspace's, keyed by canonical id.
+// the Workspace's, keyed by canonical id. Workspace Folders are in the index
+// too (the navigator and Page paths use them) but are navigation only: never
+// selected, never a tab.
 //
 // Also shared here, because actions outside the navigator change them: which
 // navigator rows are open, a request to focus a Scene's prose once its editor
@@ -109,14 +111,21 @@ export function Rune2SelectionProvider({
   }
 
   const index = useMemo(
-    () => new Map([...indexManuscript(manuscript, renamed), ...indexWorkspace(workspace.pages, renamed)]),
+    () => new Map([...indexManuscript(manuscript, renamed), ...indexWorkspace(workspace.tree, renamed)]),
     [manuscript, workspace, renamed]
   );
-  const has = useCallback((key: string) => key === MANUSCRIPT_TAB || index.has(key), [index]);
+  const has = useCallback(
+    (key: string) => {
+      if (key === MANUSCRIPT_TAB) return true;
+      const entry = index.get(key);
+      return entry !== undefined && isSelectable(entry);
+    },
+    [index]
+  );
 
   // Adjusted during render (not in an effect) so the awaited object is
   // selected in the same render that first contains it.
-  if (awaitedId && index.has(awaitedId)) {
+  if (awaitedId && has(awaitedId)) {
     setAwaitedId(null);
     setTabState((prev) => navigateTab(resolveTabs(prev, has), awaitedId));
   }
@@ -126,6 +135,7 @@ export function Rune2SelectionProvider({
 
   const select = useCallback(
     (id: string | null) => {
+      if (id !== null && !has(id)) return;
       setAwaitedId(null);
       requestSceneFocus(null);
       setTabState((prev) => navigateTab(resolveTabs(prev, has), id ?? MANUSCRIPT_TAB));
@@ -134,6 +144,7 @@ export function Rune2SelectionProvider({
   );
   const openInNewTab = useCallback(
     (id: string | null) => {
+      if (id !== null && !has(id)) return;
       setAwaitedId(null);
       requestSceneFocus(null);
       setTabState((prev) => openTab(resolveTabs(prev, has), id ?? MANUSCRIPT_TAB));

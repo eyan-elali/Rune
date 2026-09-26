@@ -99,6 +99,37 @@ export interface WorkspacePage {
 /** A Workspace Page without its content — what the navigator lists. */
 export type WorkspacePageSummary = Pick<WorkspacePage, "id" | "title" | "created_at" | "updated_at">;
 
+/** A Workspace Folder (migration 024): organisational only, no content. Belongs to its Project. */
+export interface WorkspaceFolder {
+  id: string;
+  project_id: string;
+  /** null = untitled. */
+  title: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type WorkspaceFolderSummary = Pick<WorkspaceFolder, "id" | "title">;
+
+export type WorkspaceNodeTarget = "page" | "folder";
+
+/**
+ * One Workspace object's single place in the Workspace tree (table
+ * workspace_nodes). Navigation only: the object belongs to the Project
+ * wherever its node sits. Exactly one of document_id / folder_id is set, matching
+ * target_type.
+ */
+export interface WorkspaceNode {
+  id: string;
+  target_type: WorkspaceNodeTarget;
+  document_id: string | null;
+  folder_id: string | null;
+  /** null = top level of the Workspace. Always a Folder's node otherwise. */
+  parent_node_id: string | null;
+  /** 1..n among its siblings. */
+  position: number;
+}
+
 export interface Chapter {
   id: string;
   manuscript_id: string;

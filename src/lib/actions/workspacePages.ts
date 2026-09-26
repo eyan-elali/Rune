@@ -8,8 +8,9 @@ import type { WorkspacePage } from "@/lib/types";
 // Scene actions: a Page is not manuscript prose, so nothing here touches the
 // Scene save path, the free-word allowance, writing credits or XP.
 //
-// Plain reads and writes under RLS (a writer reaches only their own
-// Projects' Pages). The database owns `version` (bumped on every content
+// Reads, saves and renames are plain statements under RLS (a writer reaches
+// only their own Projects' Pages); creation is one database function, so a
+// new Page always arrives with its place in the Workspace tree (024). The database owns `version` (bumped on every content
 // change, never on a rename) and the timestamps. There is no delete yet:
 // Rune 2.0 deletion is recoverable (Trash), and Trash does not exist.
 
@@ -49,22 +50,29 @@ function isDoc(content: unknown): content is Record<string, unknown> {
   );
 }
 
-/** Creates an empty Page in a Project the writer owns. */
+/**
+ * Creates an empty Page in a Project the writer owns, at the end of
+ * `parentNodeId` (a Folder's Workspace node; null = the Workspace's top level).
+ * The Page and its place in the tree are created together (migration 024).
+ */
 export async function createWorkspacePage(
   projectId: string,
-  title: string | null = null
+  title: string | null = null,
+  parentNodeId: string | null = null
 ): Promise<ActionResult<WorkspacePage>> {
   const { supabase, user } = await getUser();
   if (!user) return { data: null, error: "Not authenticated" };
 
-  const { data, error } = await supabase
-    .from("workspace_documents")
-    .insert({ project_id: projectId, title: pageTitle(title) })
-    .select("*")
-    .single();
-  // RLS refuses another writer's (or a missing) Project.
+  const { data, error } = await supabase.rpc("create_workspace_document", {
+    p_project_id: projectId,
+    p_parent_node_id: parentNodeId,
+    p_title: pageTitle(title),
+  });
   if (error) return { data: null, error: error.message };
-  return { data: data as WorkspacePage, error: null };
+  const result = data as { status: "ok"; page: WorkspacePage } | { status: "error"; error: string };
+  // Another writer's (or a missing) Project, or a Folder not in this Project.
+  if (result.status !== "ok") return { data: null, error: result.error };
+  return { data: result.page, error: null };
 }
 
 export async function getWorkspacePage(pageId: string): Promise<ActionResult<WorkspacePage>> {

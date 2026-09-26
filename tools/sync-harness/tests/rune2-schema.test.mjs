@@ -53,7 +53,7 @@ test('a database built from schema.sql alone is identical to baseline + migratio
   assert.deepEqual(diffCounts(a, b), []);
   const versions = async (db) => (await db.query(`select version, name, note from public.schema_migrations order by version`)).rows;
   assert.deepEqual(await versions(fresh), await versions(migrated));
-  assert.deepEqual((await versions(fresh)).map((r) => r.version).slice(-11), ['013', '014', '015', '016', '017', '018', '019', '020', '021', '022', '023']);
+  assert.deepEqual((await versions(fresh)).map((r) => r.version).slice(-12), ['013', '014', '015', '016', '017', '018', '019', '020', '021', '022', '023', '024']);
 });
 
 test('signup still creates the profile and pricing entitlements on the Rune 2.0 schema', async () => {
@@ -655,6 +655,115 @@ test('023 requires 022, refuses to run twice (including on schema.sql), and chan
   for (const db of [await migratedDb(), await freshRune2Db()]) {
     const before = await captureCatalog(db);
     await assert.rejects(db.exec(readMigration(M023)), /Migration 023 has already been applied/);
+    assert.deepEqual(diffCatalogs(before, await captureCatalog(db)).differences, []);
+  }
+});
+
+// ── 10. migration 024 ─────────────────────────────────────────────────────────
+
+const M024 = '024_workspace_tree.sql';
+
+async function db023() {
+  const db = await db022();
+  await db.exec(readMigration(M023));
+  return db;
+}
+
+test('024 on 023: the Workspace tree (workspace_folders, workspace_nodes) and nothing else — no manuscript table, function or policy changes', async () => {
+  const db = await db023();
+  const before = await captureCatalog(db);
+  await db.exec(readMigration(M024));
+  const after = await captureCatalog(db);
+  const { differences } = diffCatalogs(before, after);
+  const keys = differences.map((d) => `${d.section}:${d.kind}:${d.key}`).sort();
+  const structural = keys.filter((k) => !k.startsWith('table_grants:') && !k.startsWith('function_grants:'));
+  // Only the two new tables, their functions, and one unique key on workspace_documents.
+  for (const k of structural) {
+    assert.ok(
+      /^(columns|constraints|indexes|policies|triggers):added:workspace_(folders|nodes)\./.test(k)
+        || /^relations:added:workspace_(folders|nodes)$/.test(k)
+        || /^functions:added:(stamp_workspace_folder|freeze_workspace_node_target|check_workspace_node_parent|lock_project_workspace|renumber_workspace_siblings|place_workspace_node|place_new_workspace_object|create_workspace_document|create_workspace_folder|move_workspace_node|delete_workspace_folder)\(/.test(k)
+        || k === 'constraints:added:workspace_documents.workspace_documents_id_project_id_key'
+        || k === 'indexes:added:workspace_documents.workspace_documents_id_project_id_key'
+        || k === 'triggers:added:workspace_documents.workspace_documents_place_new',
+      `unexpected change: ${k}`);
+  }
+  for (const k of [
+    'relations:added:workspace_folders',
+    'relations:added:workspace_nodes',
+    'constraints:added:workspace_nodes.workspace_nodes_document_id_key',
+    'constraints:added:workspace_nodes.workspace_nodes_folder_id_key',
+    'constraints:added:workspace_nodes.workspace_nodes_sibling_position_key',
+    'constraints:added:workspace_nodes.workspace_nodes_parent_same_project_fkey',
+    'constraints:added:workspace_nodes.workspace_nodes_document_same_project_fkey',
+    'constraints:added:workspace_nodes.workspace_nodes_folder_same_project_fkey',
+    'constraints:added:workspace_nodes.workspace_nodes_target_matches_type',
+    'triggers:added:workspace_nodes.workspace_nodes_check_parent',
+    'triggers:added:workspace_folders.workspace_folders_place_new',
+    'policies:added:workspace_nodes.workspace_nodes: select own',
+    'policies:added:workspace_folders.workspace_folders: select own',
+    'policies:added:workspace_folders.workspace_folders: update own',
+  ]) assert.ok(structural.includes(k), `missing ${k}`);
+  // No insert/update/delete policy on nodes; no insert/delete policy on folders.
+  assert.ok(!structural.some((k) => /workspace_nodes: (insert|update|delete)|workspace_folders: (insert|delete)/.test(k)));
+
+  const grants = keys.filter((k) => k.startsWith('table_grants:') || k.startsWith('function_grants:'));
+  for (const role of ['anon', 'authenticated']) {
+    for (const priv of ['INSERT', 'UPDATE', 'DELETE']) {
+      assert.ok(!grants.includes(`table_grants:added:workspace_nodes ${role} ${priv}`), `${role} cannot ${priv} nodes`);
+    }
+    for (const priv of ['INSERT', 'DELETE']) {
+      assert.ok(!grants.includes(`table_grants:added:workspace_folders ${role} ${priv}`), `${role} cannot ${priv} folders`);
+    }
+  }
+  assert.ok(grants.includes('table_grants:added:workspace_folders authenticated UPDATE'));
+  for (const t of ['workspace_folders', 'workspace_nodes']) {
+    assert.equal(after.relations.find((r) => r.table === t).rls_enabled, true, `${t} has RLS`);
+  }
+});
+
+test('024 backfill: every existing Page gets one top-level node, 1..n per Project in creation order; no Page changes', async () => {
+  const db = await db023();
+  const alice = await createAuthUser(db, crypto.randomUUID());
+  const bram = await createAuthUser(db, crypto.randomUUID());
+  const project = async (userId, title) =>
+    (await db.query(`insert into public.projects (user_id, title) values ($1, $2) returning id`, [userId, title])).rows[0].id;
+  const hollow = await project(alice, 'Hollow');
+  const tide = await project(bram, 'Tide');
+  // Created out of id order, with explicit creation times (the stamp trigger
+  // sets created_at, so it's adjusted afterwards).
+  const page = async (projectId, title, at) => {
+    const id = (await db.query(`insert into public.workspace_documents (project_id, title) values ($1, $2) returning id`, [projectId, title])).rows[0].id;
+    await db.query(`alter table public.workspace_documents disable trigger workspace_documents_stamp`);
+    await db.query(`update public.workspace_documents set created_at = $2 where id = $1`, [id, at]);
+    await db.query(`alter table public.workspace_documents enable trigger workspace_documents_stamp`);
+    return id;
+  };
+  const c = await page(hollow, 'Third', '2026-09-03');
+  const a = await page(hollow, 'First', '2026-09-01');
+  const b = await page(hollow, 'Second', '2026-09-02');
+  const t = await page(tide, 'Only', '2026-09-01');
+  const pagesBefore = (await db.query(`select * from public.workspace_documents order by id`)).rows;
+
+  await db.exec(readMigration(M024));
+
+  const nodes = (await db.query(
+    `select project_id, target_type, document_id, folder_id, parent_node_id, position from public.workspace_nodes order by project_id, position`)).rows;
+  assert.deepEqual(nodes.filter((n) => n.project_id === hollow).map((n) => [n.document_id, n.position]), [[a, 1], [b, 2], [c, 3]]);
+  assert.deepEqual(nodes.filter((n) => n.project_id === tide).map((n) => [n.document_id, n.position]), [[t, 1]]);
+  assert.ok(nodes.every((n) => n.target_type === 'page' && n.folder_id === null && n.parent_node_id === null));
+  assert.deepEqual((await db.query(`select * from public.workspace_documents order by id`)).rows, pagesBefore,
+    'ids, titles, content, versions and timestamps unchanged');
+});
+
+test('024 requires 023, refuses to run twice (including on schema.sql), and changes nothing when it refuses', async () => {
+  const only022 = await db022();
+  const before022 = await captureCatalog(only022);
+  await assert.rejects(only022.exec(readMigration(M024)), /requires migration 023/);
+  assert.deepEqual(diffCatalogs(before022, await captureCatalog(only022)).differences, []);
+  for (const db of [await migratedDb(), await freshRune2Db()]) {
+    const before = await captureCatalog(db);
+    await assert.rejects(db.exec(readMigration(M024)), /Migration 024 has already been applied/);
     assert.deepEqual(diffCatalogs(before, await captureCatalog(db)).differences, []);
   }
 });

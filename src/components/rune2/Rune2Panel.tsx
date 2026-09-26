@@ -413,7 +413,7 @@ function InspectorView() {
         const page = workspace.pages.find((p) => p.id === selected.id);
         kind = "Page";
         rows = [
-          ["Location", "Workspace"],
+          ["Location", ["Workspace", ...selected.path.map((p) => p.title)].join(" / ")],
           ...(page
             ? [
                 ["Created", formatDate(page.created_at)] as [string, ReactNode],
@@ -423,6 +423,14 @@ function InspectorView() {
         ];
         break;
       }
+      // Never selected (navigation only), but described if it ever were.
+      case "workspaceFolder":
+        kind = "Folder";
+        rows = [
+          ["Location", ["Workspace", ...selected.path.map((p) => p.title)].join(" / ")],
+          ["Contains", plural(selected.childCount, "item")],
+        ];
+        break;
     }
   }
 

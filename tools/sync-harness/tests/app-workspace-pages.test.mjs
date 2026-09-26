@@ -470,7 +470,9 @@ test('shell model: a Page is indexed beside the manuscript, is not a writing tar
     { id: 'p1', title: 'Magic System', created_at: '', updated_at: '' },
     { id: 'p2', title: null, created_at: '', updated_at: '' },
   ];
-  const index = model.indexWorkspace(summaries, { p1: 'Magic Systems' });
+  // A flat Workspace: the tree of Pages with no Folders.
+  const tree = summaries.map((p, i) => ({ nodeId: `n${i}`, kind: 'page', id: p.id, title: p.title, children: [] }));
+  const index = model.indexWorkspace(tree, { p1: 'Magic Systems' });
   assert.deepEqual([...index.values()].map((e) => [e.kind, e.id, e.title, e.named, e.words, e.path.length]), [
     ['workspacePage', 'p1', 'Magic Systems', true, 0, 0],
     ['workspacePage', 'p2', 'Untitled', false, 0, 0],
