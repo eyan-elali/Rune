@@ -109,6 +109,11 @@ async function readInsertedScene<T extends Scene>(
   return { data: data as T, error: null };
 }
 
+/** null = unnamed (blank; scenes.title is NOT NULL). A blank string keeps the old "Untitled". */
+function storedSceneTitle(title: string | null): string {
+  return title === null ? "" : title.trim() || "Untitled";
+}
+
 /**
  * Creates an empty Scene at the end of a Chapter, through insert_scene_checked
  * (the free-limit-checked creation path) in one database call: it refuses a
@@ -116,17 +121,21 @@ async function readInsertedScene<T extends Scene>(
  * itself under the per-account lock that move_scene also takes (migration
  * 018), so simultaneous creations and moves into the Chapter never tie. Its
  * Manuscript is the Chapter's.
+ *
+ * A null title creates an unnamed Scene (stored blank): Rune 2.0 labels it by
+ * its current position ("Scene 2") without storing that label. A blank string
+ * still stores "Untitled", as before, for existing callers.
  */
 export async function createScene(
   chapterId: string,
-  title: string
+  title: string | null
 ): Promise<CreateSceneResult<PlacedScene>> {
   const { supabase, user } = await getUser();
   if (!user) return { data: null, error: "Not authenticated" };
 
   const rpc = await supabase.rpc("insert_scene_checked", {
     p_chapter_id: chapterId,
-    p_title: title.trim() || "Untitled",
+    p_title: storedSceneTitle(title),
     p_content: null,
     p_word_count: 0,
     // The database picks the position (018). null, not a guess: against a
@@ -140,11 +149,12 @@ export async function createScene(
  * Creates an empty Scene directly in the Project's Unplaced Scenes, at the end
  * of that list, through insert_unplaced_scene_checked — the same
  * free-limit-checked creation path as a placed Scene. Its words never enter
- * the ordered manuscript total or export until it is placed.
+ * the ordered manuscript total or export until it is placed. A null title
+ * creates an unnamed Scene, as for createScene.
  */
 export async function createUnplacedScene(
   projectId: string,
-  title: string
+  title: string | null
 ): Promise<CreateSceneResult<UnplacedScene>> {
   const { supabase, user } = await getUser();
   if (!user) return { data: null, error: "Not authenticated" };
@@ -154,7 +164,7 @@ export async function createUnplacedScene(
 
   const rpc = await supabase.rpc("insert_unplaced_scene_checked", {
     p_manuscript_id: manuscriptId,
-    p_title: title.trim() || "Untitled",
+    p_title: storedSceneTitle(title),
     p_content: null,
     p_word_count: 0,
   });

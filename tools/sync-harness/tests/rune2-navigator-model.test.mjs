@@ -69,3 +69,42 @@ test('indexManuscript: every object by id, with kind, display title, words and a
   assert.equal(u1.words, 12);
   assert.deepEqual(u1.path, []);
 });
+
+test('unnamed Scenes are labelled by their current position — presentation only, never stored', () => {
+  const groups = [];
+  const chapters = [
+    chapter('c1', null, 1, 'The Well', [scene('a', 0, 'Arrival'), scene('b', 0, ''), scene('c', 0, '  '), scene('d', 0, 'Untitled scene')]),
+  ];
+  const ms = {
+    project: { id: 'p', title: 'hollow' },
+    outline: structure.buildManuscriptOutline(groups, chapters),
+    groupCount: 0, chapterCount: 1, placedSceneCount: 4,
+    unplaced: [scene('u', 0, ''), scene('v', 0, 'Draft ending')],
+    manuscriptWords: 0, unplacedWords: 0,
+  };
+  const index = model.indexManuscript(ms);
+  assert.deepEqual(['a', 'b', 'c', 'd'].map((id) => index.get(id).title), ['Arrival', 'Scene 2', 'Scene 3', 'Scene 4']);
+  assert.deepEqual(['a', 'b', 'c', 'd'].map((id) => index.get(id).named), [true, false, false, false]);
+  assert.deepEqual(['a', 'b', 'c', 'd'].map((id) => index.get(id).ordinal), [1, 2, 3, 4]);
+  assert.equal(index.get('c1').ordinal, 1);
+  assert.equal(index.get('u').title, 'Untitled scene', 'an Unplaced Scene has no Chapter position');
+  assert.equal(index.get('u').named, false);
+  assert.equal(index.get('v').title, 'Draft ending');
+
+  // Order changes: the labels follow the position, not the Scene.
+  const moved = { ...ms, outline: structure.buildManuscriptOutline(groups, [
+    chapter('c1', null, 1, 'The Well', [scene('c', 0, ''), scene('a', 0, 'Arrival'), scene('b', 0, '')]),
+  ]) };
+  const after = model.indexManuscript(moved);
+  assert.deepEqual(['c', 'a', 'b'].map((id) => after.get(id).title), ['Scene 1', 'Arrival', 'Scene 3']);
+});
+
+test('indexManuscript overlays titles renamed but not yet re-read, everywhere they appear', () => {
+  const index = model.indexManuscript(manuscript(), { c1: 'The Deep Well', s2: 'Descent', part: '', u1: 'Loose end' });
+  assert.equal(index.get('c1').title, 'The Deep Well');
+  assert.equal(index.get('s2').title, 'Descent');
+  assert.equal(index.get('s2').named, true);
+  assert.equal(index.get('s2').path.at(-1).title, 'The Deep Well', 'breadcrumb ancestry uses the new title');
+  assert.equal(index.get('part').title, 'Untitled group');
+  assert.equal(index.get('u1').title, 'Loose end');
+});

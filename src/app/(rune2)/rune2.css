@@ -37,8 +37,11 @@
 }
 
 .r2-shell {
+  --r2-panel-width: 320px;
+  position: relative;
   display: grid;
-  grid-template-columns: 260px minmax(0, 1fr);
+  /* navigator | content | optional panel (an empty auto column when closed) */
+  grid-template-columns: 260px minmax(0, 1fr) auto;
   height: 100dvh;
   overflow: hidden;
 }
@@ -466,6 +469,307 @@ button.r2-disclosure:hover {
 .r2-action:disabled {
   opacity: 0.6;
 }
+.r2-action--icon {
+  width: 28px;
+  padding: 0;
+  justify-content: center;
+}
+/* A panel action whose view is showing: ink, quietly. */
+.r2-action[aria-pressed="true"] {
+  color: var(--r2-selected-ink);
+  background: var(--r2-selected);
+}
+.r2-action[aria-pressed="true"]:hover:not(:disabled) {
+  color: var(--r2-selected-ink);
+  background: rgba(44, 74, 120, 0.12);
+}
+.r2-contextbar-actions .r2-contextbar-notice + .r2-action,
+.r2-contextbar-actions > .r2-action + .r2-action {
+  margin-left: -6px;
+}
+
+/* ── Working-set tabs ──────────────────────────────────────────────────── */
+/* A quiet row of open objects: text, not boxes. The active tab is simply
+   darker, with a short ink hairline beneath; the close control appears on
+   hover or for the active tab. Overflow scrolls sideways. */
+
+.r2-tabs {
+  flex-shrink: 0;
+  padding: 6px 12px 0;
+}
+.r2-tabs ul {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.r2-tabs ul::-webkit-scrollbar {
+  display: none;
+}
+.r2-tab {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  max-width: 220px;
+  height: 28px;
+  border-radius: var(--r2-radius);
+  font-size: 12.5px;
+  color: var(--r2-faint);
+}
+.r2-tab:hover {
+  color: var(--r2-muted);
+  background: var(--r2-hover);
+}
+.r2-tab[data-active] {
+  color: var(--r2-text);
+}
+.r2-tab[data-active]::after {
+  content: "";
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: -1px;
+  height: 1.5px;
+  border-radius: 1px;
+  background: var(--r2-accent);
+  opacity: 0.55;
+}
+.r2-tab-main {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  min-width: 0;
+  height: 100%;
+  padding: 0 4px 0 10px;
+  border-radius: var(--r2-radius);
+  white-space: nowrap;
+}
+.r2-tab-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.r2-tab-context {
+  flex-shrink: 1;
+  min-width: 0;
+  max-width: 90px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--r2-faint);
+}
+.r2-tab-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  margin-right: 5px;
+  border-radius: 4px;
+  color: var(--r2-faint);
+  opacity: 0;
+}
+.r2-tab:hover .r2-tab-close,
+.r2-tab[data-active] .r2-tab-close,
+.r2-tab-close:focus-visible {
+  opacity: 1;
+}
+.r2-tab-close:hover {
+  color: var(--r2-text);
+  background: var(--r2-press);
+}
+@media (hover: none) {
+  .r2-tab-close {
+    opacity: 1;
+  }
+}
+
+/* ── Right-hand panel ──────────────────────────────────────────────────── */
+/* One panel, beside the content (never over it at desktop widths), divided by
+   a hairline. Notes and Inspector are views of it, not two sidebars. */
+
+.r2-panel {
+  display: flex;
+  flex-direction: column;
+  width: var(--r2-panel-width);
+  min-height: 0;
+  border-left: 1px solid var(--r2-border);
+  background: var(--r2-bg);
+  font-size: 13px;
+}
+.r2-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 44px;
+  flex-shrink: 0;
+  padding: 0 10px 0 18px;
+}
+.r2-panel-head h2 {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.003em;
+}
+.r2-panel-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 2px 18px 24px;
+}
+.r2-panel-caption {
+  font-size: 12px;
+  color: var(--r2-faint);
+}
+.r2-panel-empty,
+.r2-panel-notice {
+  margin-top: 14px;
+  font-size: 12.5px;
+  color: var(--r2-muted);
+}
+.r2-panel-link {
+  padding: 1px 4px;
+  margin: 0 -4px;
+  border-radius: 4px;
+  color: var(--r2-muted);
+  text-align: left;
+}
+.r2-panel-link:hover {
+  color: var(--r2-text);
+  background: var(--r2-hover);
+}
+.r2-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  color: var(--r2-faint);
+}
+.r2-icon-button:hover:not(:disabled) {
+  color: var(--r2-text);
+  background: var(--r2-hover);
+}
+.r2-icon-button:disabled {
+  opacity: 0.4;
+}
+
+/* Notes */
+.r2-notes-input {
+  display: block;
+  width: 100%;
+  margin-top: 12px;
+  padding: 7px 9px;
+  resize: vertical;
+  border-radius: var(--r2-radius);
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--r2-border);
+  font: inherit;
+  line-height: 1.5;
+  color: var(--r2-text);
+}
+.r2-notes-input::placeholder {
+  color: var(--r2-faint);
+}
+.r2-notes-input:focus {
+  outline: none;
+  box-shadow: inset 0 0 0 1px rgba(44, 74, 120, 0.45);
+}
+.r2-notes-list {
+  margin-top: 10px;
+}
+.r2-note {
+  position: relative;
+  padding: 8px 0;
+  border-top: 1px solid var(--r2-border);
+}
+.r2-note:first-child {
+  border-top: 0;
+}
+.r2-note p {
+  padding-right: 4px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.r2-note[data-pinned] p {
+  font-weight: 500;
+}
+.r2-note[data-done] p {
+  color: var(--r2-faint);
+  text-decoration: line-through;
+  text-decoration-color: var(--r2-border);
+}
+.r2-note-actions {
+  display: flex;
+  gap: 2px;
+  margin: 4px 0 -2px -6px;
+  opacity: 0;
+}
+.r2-note:hover .r2-note-actions,
+.r2-note:focus-within .r2-note-actions {
+  opacity: 1;
+}
+@media (hover: none) {
+  .r2-note-actions {
+    opacity: 1;
+  }
+}
+.r2-notes-done {
+  margin-top: 18px;
+  font-size: 12.5px;
+}
+
+/* Inspector */
+.r2-inspector-title {
+  margin-top: 2px;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: -0.006em;
+  overflow-wrap: anywhere;
+}
+.r2-inspector-hint {
+  margin-left: 8px;
+  font-size: 11.5px;
+  font-weight: 400;
+  color: var(--r2-faint);
+}
+.r2-inspector-props {
+  margin-top: 18px;
+}
+.r2-inspector-props > div {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  gap: 12px;
+  padding: 5px 0;
+}
+.r2-inspector-props dt {
+  color: var(--r2-faint);
+}
+.r2-inspector-props dd {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Narrower desktops and tablets: a slimmer panel, and below that it lies over
+   the content's right edge rather than squeezing the manuscript. */
+@media (max-width: 1200px) {
+  .r2-shell {
+    --r2-panel-width: 280px;
+  }
+}
+@media (max-width: 1023px) {
+  .r2-panel {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 20;
+    box-shadow: var(--r2-shadow-pop);
+  }
+}
 
 /* ── Writing surface ───────────────────────────────────────────────────── */
 /* The content area itself is the page: no sheet, card or shadow. One
@@ -478,6 +782,16 @@ button.r2-disclosure:hover {
   --r2-prose-leading: 1.7;
   --r2-prose-ink: #23262b;
   --r2-prose-measure: 42rem;
+}
+
+.r2-main {
+  container-type: inline-size;
+}
+@container (max-width: 640px) {
+  .r2-main .r2-doc {
+    padding-left: 28px;
+    padding-right: 28px;
+  }
 }
 
 .r2-writing {

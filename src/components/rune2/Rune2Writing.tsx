@@ -98,7 +98,7 @@ export function Rune2Writing({ projectId, target }: { projectId: string; target:
   function startChapter(chapterId: string) {
     setCreateFailed(false);
     startCreating(async () => {
-      const result = await createScene(chapterId, "Scene 1");
+      const result = await createScene(chapterId, null);
       if (result.error !== null) {
         setCreateFailed(true);
         return;

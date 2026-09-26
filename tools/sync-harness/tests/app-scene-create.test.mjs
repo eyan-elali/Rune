@@ -113,6 +113,22 @@ test('createScene appends an empty Scene to the Chapter in one checked call; the
   await assertAllPositionsValid(db);
 });
 
+test('createScene / createUnplacedScene with a null title create an unnamed Scene: blank, no generated name stored', async () => {
+  const db = await seededDb();
+  signIn(db, BRAM);
+  const ch3 = chapterId('tide.ch3');
+  const placed = await scenes.createScene(ch3, null);
+  assert.equal(placed.error, null, placed.error);
+  assert.equal(placed.data.title, '');
+  const unplaced = await scenes.createUnplacedScene(projectId('tide'), null);
+  assert.equal(unplaced.error, null, unplaced.error);
+  assert.equal(unplaced.data.title, '');
+  assert.equal(unplaced.data.chapter_id, null);
+  // A blank string keeps the old behaviour for existing callers.
+  assert.equal((await scenes.createScene(ch3, '   ')).data.title, 'Untitled');
+  await assertAllPositionsValid(db);
+});
+
 test('insert_scene_checked ignores the caller\'s p_position: a stale client\'s precomputed position still appends', async () => {
   const db = await seededDb();
   const bram = as(db, BRAM);

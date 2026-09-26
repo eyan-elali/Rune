@@ -8,6 +8,7 @@ import {
   FileText,
   FolderInput,
   Layers,
+  PanelTop,
   MoreHorizontal,
   Pencil,
   Pilcrow,
@@ -27,9 +28,12 @@ import { useRune2Selection } from "./Rune2Selection";
 // in reading order, then Unplaced Scenes. Every change goes through the Phase 1
 // server actions — each one atomic in the database — and the tree then
 // re-reads the manuscript (router.refresh). Nothing here holds a second copy
-// of the structure; only UI state (open rows — shared through the selection
-// context, since the writing surface's "+ Scene" opens rows too — the row
-// being renamed, titles just renamed but not yet re-read).
+// of the structure; only UI state (open rows and titles just renamed but not
+// yet re-read — both shared through the selection context, since the writing
+// surface, tabs and context bar use them too — and the row being renamed).
+//
+// A click opens the object in the active tab (or goes to the tab already
+// showing it); ⌘/Ctrl-click, or "Open in new tab" in its menu, gives it a tab.
 //
 // Not here yet, deliberately: drag-and-drop and other moves (beyond "Move to
 // Unplaced Scenes"), and deleting a Scene — Phase 1 deletion is permanent and
@@ -45,7 +49,17 @@ type MenuState = { label: string; at: { x: number; y: number }; items: Navigator
 const formatCount = (n: number) => n.toLocaleString();
 
 export function ProjectNavigator() {
-  const { manuscript, index, selected, select, open, setOpenFor } = useRune2Selection();
+  const {
+    manuscript,
+    index,
+    selected,
+    select,
+    openInNewTab,
+    selectWhenPresent,
+    open,
+    setOpenFor,
+    setRenamedTitle,
+  } = useRune2Selection();
   const projectId = manuscript.project.id;
   const router = useRouter();
   const [refreshing, startRefresh] = useTransition();
@@ -54,14 +68,6 @@ export function ProjectNavigator() {
   const [menu, setMenu] = useState<MenuState | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
-  // Titles renamed here but not yet re-read from the server.
-  const [renamed, setRenamed] = useState<Record<string, string>>({});
-  const [readManuscript, setReadManuscript] = useState(manuscript);
-  if (readManuscript !== manuscript) {
-    setReadManuscript(manuscript);
-    setRenamed({});
-  }
-
   useEffect(() => {
     if (!notice) return;
     const timer = setTimeout(() => setNotice(null), 5000);
@@ -69,8 +75,9 @@ export function ProjectNavigator() {
   }, [notice]);
 
   const isOpen = (id: string, fallback: boolean) => open[id] ?? fallback;
-  const titleOf = (entry: NavEntry | undefined, fallback: string) =>
-    (entry && renamed[entry.id]) ?? entry?.title ?? fallback;
+  /** A row click: ⌘/Ctrl-click opens the object in a tab of its own. */
+  const choose = (id: string | null, e: React.MouseEvent) =>
+    e.metaKey || e.ctrlKey ? openInNewTab(id) : select(id);
 
   /** Runs one change, then re-reads the manuscript. A returned string is shown to the writer. */
   async function run(change: () => Promise<string | null>) {
@@ -87,9 +94,11 @@ export function ProjectNavigator() {
     }
   }
 
+  // A just-created object is selected once the re-read manuscript contains it,
+  // so its tab never points at something not there yet.
   function selectAndReveal(id: string, ancestors: string[], rename: boolean) {
     setOpenFor(ancestors, true);
-    select(id);
+    selectWhenPresent(id);
     if (rename) setRenamingId(id);
   }
 
@@ -122,13 +131,14 @@ export function ProjectNavigator() {
     run(async () => {
       const chapter = index.get(chapterId);
       const count = (chapter?.childCount ?? 0) + 1;
-      const r = await createScene(chapterId, `Scene ${count}`);
+      // Unnamed: it shows as "Scene N" from where it stands, never stored.
+      const r = await createScene(chapterId, null);
       if (r.error !== null) {
         return r.wordLimitBlocked ? "Your word limit has been reached." : "Couldn’t create the scene.";
       }
       // A Chapter's only Scene stays out of sight; the Chapter is what's selected.
       if (chapterShowsScenes({ scenes: Array.from({ length: count }) })) {
-        selectAndReveal(r.data.id, [chapterId], true);
+        selectAndReveal(r.data.id, [chapterId], false);
       } else {
         select(chapterId);
       }
@@ -137,11 +147,11 @@ export function ProjectNavigator() {
 
   const addUnplacedScene = () =>
     run(async () => {
-      const r = await createUnplacedScene(projectId, "Untitled scene");
+      const r = await createUnplacedScene(projectId, null);
       if (r.error !== null) {
         return r.wordLimitBlocked ? "Your word limit has been reached." : "Couldn’t create the scene.";
       }
-      selectAndReveal(r.data.id, [ROOT_UNPLACED], true);
+      selectAndReveal(r.data.id, [ROOT_UNPLACED], false);
       return null;
     });
 
@@ -152,9 +162,11 @@ export function ProjectNavigator() {
     focusRow(entry.id);
     if (value === null) return;
     const next = value.trim();
-    if (next === entry.title || (entry.kind !== "group" && next === "")) return;
+    // Compared with the stored title: typing "Scene 2" over an unnamed Scene's
+    // fallback names it for real.
+    if (next === (entry.named ? entry.title : "") || (entry.kind !== "group" && next === "")) return;
 
-    setRenamed((prev) => ({ ...prev, [entry.id]: next || (entry.kind === "group" ? "Untitled group" : next) }));
+    setRenamedTitle(entry.id, next);
     run(async () => {
       if (entry.kind === "group") {
         const r = await renameGroup(entry.id, next || null, projectId);
@@ -190,6 +202,10 @@ export function ProjectNavigator() {
   }
 
   function moreItems(entry: NavEntry): NavigatorMenuItem[] {
+    return [{ label: "Open in new tab", icon: PanelTop, onSelect: () => openInNewTab(entry.id) }, ...kindItems(entry)];
+  }
+
+  function kindItems(entry: NavEntry): NavigatorMenuItem[] {
     const rename: NavigatorMenuItem = { label: "Rename", icon: Pencil, onSelect: () => setRenamingId(entry.id) };
     switch (entry.kind) {
       case "group":
@@ -268,7 +284,7 @@ export function ProjectNavigator() {
           <li key={entry.id}>
             <NavRow
               entry={entry}
-              title={titleOf(entry, "")}
+              title={entry.title}
               depth={depth}
               parentId={parentId}
               icon={Layers}
@@ -277,8 +293,8 @@ export function ProjectNavigator() {
               expanded={node.children.length > 0 ? expanded : undefined}
               renaming={renamingId === entry.id}
               onToggle={() => setOpenFor([entry.id], !expanded)}
-              onSelect={() => {
-                select(entry.id);
+              onSelect={(e) => {
+                choose(entry.id, e);
                 if (!expanded) setOpenFor([entry.id], true);
               }}
               onRename={() => setRenamingId(entry.id)}
@@ -302,7 +318,7 @@ export function ProjectNavigator() {
         <li key={entry.id}>
           <NavRow
             entry={entry}
-            title={titleOf(entry, "")}
+            title={entry.title}
             depth={depth}
             parentId={parentId}
             icon={FileText}
@@ -310,7 +326,7 @@ export function ProjectNavigator() {
             expanded={showsScenes ? expanded : undefined}
             renaming={renamingId === entry.id}
             onToggle={() => setOpenFor([entry.id], !expanded)}
-            onSelect={() => select(entry.id)}
+            onSelect={(e) => choose(entry.id, e)}
             onRename={() => setRenamingId(entry.id)}
             onRenameDone={(value) => commitRename(entry, value)}
             onAdd={() => addScene(entry.id)}
@@ -325,14 +341,14 @@ export function ProjectNavigator() {
                   <li key={scene.id}>
                     <NavRow
                       entry={sceneEntry}
-                      title={titleOf(sceneEntry, "")}
+                      title={sceneEntry.title}
                       depth={depth + 1}
                       parentId={entry.id}
                       icon={Pilcrow}
                       muted
                       selected={selected?.id === scene.id}
                       renaming={renamingId === scene.id}
-                      onSelect={() => select(scene.id)}
+                      onSelect={(e) => choose(scene.id, e)}
                       onRename={() => setRenamingId(scene.id)}
                       onRenameDone={(value) => commitRename(sceneEntry, value)}
                       onMore={(at) => openMenu(`${sceneEntry.title} actions`, at, moreItems(sceneEntry))}
@@ -370,7 +386,7 @@ export function ProjectNavigator() {
               selected={selected === null}
               expanded={manuscriptOpen}
               onToggle={() => setOpenFor([ROOT_MANUSCRIPT], !manuscriptOpen)}
-              onSelect={() => select(null)}
+              onSelect={(e) => choose(null, e)}
               onAdd={(at) => openMenu("Add to the manuscript", at, manuscriptAddItems())}
               addLabel="Add to the manuscript"
             />
@@ -408,14 +424,14 @@ export function ProjectNavigator() {
                       <li key={scene.id}>
                         <NavRow
                           entry={entry}
-                          title={titleOf(entry, "")}
+                          title={entry.title}
                           depth={1}
                           parentId={ROOT_UNPLACED}
                           icon={Pilcrow}
                           muted
                           selected={selected?.id === scene.id}
                           renaming={renamingId === scene.id}
-                          onSelect={() => select(scene.id)}
+                          onSelect={(e) => choose(scene.id, e)}
                           onRename={() => setRenamingId(scene.id)}
                           onRenameDone={(value) => commitRename(entry, value)}
                           onMore={(at) => openMenu(`${entry.title} actions`, at, moreItems(entry))}
@@ -598,7 +614,7 @@ function NavRow({
   expanded?: boolean;
   renaming: boolean;
   onToggle?: () => void;
-  onSelect: () => void;
+  onSelect: (e: React.MouseEvent) => void;
   onRename: () => void;
   onRenameDone: (value: string | null) => void;
   onAdd?: (at: { x: number; y: number }) => void;
@@ -621,7 +637,7 @@ function NavRow({
       <Disclosure expanded={expanded} label={title} onToggle={onToggle} />
       <Icon className="r2-row-icon" size={14} strokeWidth={1.75} aria-hidden />
       {renaming ? (
-        <RenameInput initial={entry.kind === "group" && title === "Untitled group" ? "" : title} label={title} onDone={onRenameDone} />
+        <RenameInput initial={entry.named ? title : ""} placeholder={entry.named ? undefined : title} label={title} onDone={onRenameDone} />
       ) : (
         <button
           type="button"
@@ -670,7 +686,7 @@ function RootRow({
   selected?: boolean;
   expanded: boolean;
   onToggle: () => void;
-  onSelect: () => void;
+  onSelect: (e: React.MouseEvent) => void;
   onAdd: (at: { x: number; y: number }) => void;
   addLabel: string;
 }) {
@@ -705,10 +721,13 @@ function RootRow({
 
 function RenameInput({
   initial,
+  placeholder,
   label,
   onDone,
 }: {
   initial: string;
+  /** An unnamed object's fallback label, shown until the writer types a name. */
+  placeholder?: string;
   label: string;
   onDone: (value: string | null) => void;
 }) {
@@ -723,6 +742,7 @@ function RenameInput({
     <input
       className="r2-row-input"
       aria-label={`Rename ${label}`}
+      placeholder={placeholder}
       value={value}
       autoFocus
       onFocus={(e) => e.currentTarget.select()}

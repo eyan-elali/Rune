@@ -47,10 +47,10 @@ test('a Chapter that hides its Scene opens that one Scene as the Chapter, with n
   });
 });
 
-test('a Chapter with several Scenes opens all of them, in order, as one continuous Chapter', () => {
+test('a Chapter with several Scenes opens all of them, in order, as one continuous Chapter (an unnamed Scene marked by position)', () => {
   assert.deepEqual(open('c1'), {
     kind: 'scenes', view: 'chapter',
-    scenes: [{ id: 's1', mark: 'Arrival' }, { id: 's2', mark: 'Night' }, { id: 's4', mark: null }],
+    scenes: [{ id: 's1', mark: 'Arrival' }, { id: 's2', mark: 'Night' }, { id: 's4', mark: 'Scene 3' }],
     marks: true, title: 'The Well', eyebrow: null, addSceneTo: 'c1',
   });
 });

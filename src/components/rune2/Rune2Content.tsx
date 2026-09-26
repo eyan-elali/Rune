@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { Plus } from "lucide-react";
+import { PanelRight, Plus, StickyNote } from "lucide-react";
 import { createScene } from "@/lib/actions/scenes";
 import { cacheScene } from "@/lib/offline/db";
 import type { NavEntry, NavKind } from "@/lib/rune2/navigatorModel";
@@ -11,7 +11,9 @@ import { useRune2Selection } from "./Rune2Selection";
 import { Rune2Writing } from "./Rune2Writing";
 
 // The context bar (a quiet breadcrumb to the selection, and the selection's
-// few contextual actions) and the content area. Chapters and Scenes open in
+// few contextual actions: "+ Scene" where a placed Scene can be added, then
+// Notes and Inspector, which share the one right-hand panel) and the content
+// area. Chapters and Scenes open in
 // the writing surface (see writingTarget.ts);
 // a Group shows a structural summary; with nothing selected, the content area
 // shows its route (the Manuscript overview).
@@ -28,7 +30,7 @@ function plural(n: number, one: string, many = `${one}s`) {
 }
 
 export function Rune2ContextBar() {
-  const { manuscript, index, selected, select } = useRune2Selection();
+  const { manuscript, index, selected, select, openInNewTab, panel, togglePanel } = useRune2Selection();
   const target = writingTargetFor(selected, index);
   // id undefined = a label only (Unplaced Scenes is a section, not an object).
   const trail: { id?: string | null; title: string }[] = [{ id: null, title: "Manuscript" }];
@@ -53,18 +55,45 @@ export function Rune2ContextBar() {
                 ) : crumb.id === undefined ? (
                   <span>{crumb.title}</span>
                 ) : (
-                  <button type="button" onClick={() => select(crumb.id ?? null)}>{crumb.title}</button>
+                  <button
+                    type="button"
+                    onClick={(e) =>
+                      e.metaKey || e.ctrlKey ? openInNewTab(crumb.id ?? null) : select(crumb.id ?? null)
+                    }
+                  >
+                    {crumb.title}
+                  </button>
                 )}
               </li>
             );
           })}
         </ol>
       </nav>
-      {target?.kind === "scenes" && target.addSceneTo && (
-        <div className="r2-contextbar-actions">
-          <AddSceneAction chapterId={target.addSceneTo} />
-        </div>
-      )}
+      <div className="r2-contextbar-actions">
+        {target?.kind === "scenes" && target.addSceneTo && <AddSceneAction chapterId={target.addSceneTo} />}
+        <button
+          type="button"
+          className="r2-action"
+          data-panel-action="notes"
+          aria-pressed={panel === "notes"}
+          onClick={() => togglePanel("notes")}
+          title={panel === "notes" ? "Close notes" : "Revision notes"}
+        >
+          <StickyNote size={14} strokeWidth={1.75} aria-hidden />
+          Notes
+        </button>
+        <button
+          type="button"
+          className="r2-action r2-action--icon"
+          data-panel-action="inspector"
+          aria-pressed={panel === "inspector"}
+          aria-label="Inspector"
+          onClick={() => togglePanel("inspector")}
+          title={panel === "inspector" ? "Close inspector" : "Inspector"}
+        >
+          <PanelRight size={15} strokeWidth={1.75} aria-hidden />
+        </button>
+      </div>
     </header>
   );
 }
@@ -99,7 +128,8 @@ function AddSceneAction({ chapterId }: { chapterId: string }) {
     setBusy(true);
     setNotice(null);
     try {
-      const r = await createScene(chapterId, `Scene ${(chapter?.childCount ?? 0) + 1}`);
+      // Unnamed: it shows as "Scene N" from where it stands, never stored.
+      const r = await createScene(chapterId, null);
       if (r.error !== null) {
         setNotice(r.wordLimitBlocked ? "Your word limit has been reached." : "Couldn’t add a scene.");
         return;

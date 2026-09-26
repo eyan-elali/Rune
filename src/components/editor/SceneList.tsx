@@ -688,9 +688,9 @@ export function SceneList({
                           opacity: isSelected ? 1 : 0.65,
                         }}
                         onDoubleClick={(e) => startEditing(scene, e)}
-                        title={scene.title}
+                        title={scene.title || "Untitled"}
                       >
-                        {scene.title}
+                        {scene.title || "Untitled"}
                       </span>
                     )}
 

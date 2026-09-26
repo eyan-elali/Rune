@@ -1,4 +1,4 @@
-import { chapterShowsScenes, UNTITLED, type NavEntry } from "@/lib/rune2/navigatorModel";
+import { chapterShowsScenes, type NavEntry } from "@/lib/rune2/navigatorModel";
 
 // What the Rune 2.0 writing surface opens for a navigator selection. Prose
 // always lives in Scenes, and every Scene is edited by its own editor
@@ -10,8 +10,8 @@ export type WritingScene = {
   id: string;
   /**
    * The quiet boundary label above the Scene, shown only when the Chapter
-   * exposes its Scene structure: the Scene's title, or null for an unnamed
-   * Scene (a plain boundary, never "Untitled scene").
+   * exposes its Scene structure: the Scene's display label — its title, or
+   * for an unnamed Scene its current position ("Scene 2"). Null: no label.
    */
   mark: string | null;
 };
@@ -95,6 +95,5 @@ export function writingTargetFor(
 }
 
 function sceneMark(entry: NavEntry | undefined): string | null {
-  if (!entry || entry.title === UNTITLED.scene) return null;
-  return entry.title;
+  return entry?.title ?? null;
 }
