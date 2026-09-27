@@ -1525,12 +1525,23 @@ button.r2-disclosure:hover {
   font-size: var(--r2-page-size);
   line-height: 1.4;
   color: var(--r2-ink-1);
+  transition: background-color var(--r2-fast) var(--r2-ease);
+}
+.r2-entry-row-title,
+.r2-entry-row-meta {
+  display: block;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  transition: background-color var(--r2-fast) var(--r2-ease);
 }
-.r2-entry-row[data-unnamed] {
+.r2-entry-row[data-unnamed] .r2-entry-row-title {
+  color: var(--r2-ink-3);
+}
+/* The values the list shows: one muted line under the name, never columns. */
+.r2-entry-row-meta {
+  margin-top: 1px;
+  font-size: 12.5px;
+  line-height: 1.45;
   color: var(--r2-ink-3);
 }
 .r2-entry-row:hover {
@@ -1577,6 +1588,430 @@ button.r2-disclosure:hover {
 .r2-entry-collection:hover {
   color: var(--r2-ink-1);
   background: var(--r2-hover);
+}
+
+/* ── Collection properties ───────────────────────────────────────────── */
+/* An Entry's properties sit between its title and its body as a quiet list of
+   facts: a muted label column, the value beside it, no boxes and no field
+   borders until a value is being edited. The body stays the writing surface.
+   The Collection's property settings are a plain list of the same weight,
+   opened on request above the Entries. */
+
+.r2-props {
+  margin: -6px 0 22px;
+  font-size: 13.5px;
+  line-height: 1.45;
+}
+.r2-props[data-empty] {
+  margin: -12px 0 14px;
+}
+.r2-props-list {
+  margin: 0;
+}
+.r2-prop {
+  display: grid;
+  grid-template-columns: minmax(84px, 136px) minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  min-height: 30px;
+}
+.r2-prop-label {
+  padding: 5px 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--r2-ink-3);
+}
+.r2-prop-value {
+  position: relative;
+  min-width: 0;
+  margin: 0;
+  color: var(--r2-ink-1);
+}
+.r2-prop-input,
+.r2-prop-button {
+  display: block;
+  width: calc(100% + 12px);
+  min-height: 30px;
+  margin: 0 -6px;
+  padding: 5px 6px;
+  border: 0;
+  border-radius: var(--r2-radius);
+  resize: none;
+  overflow: hidden;
+  font: inherit;
+  text-align: left;
+  color: inherit;
+  background: transparent;
+  transition: background-color var(--r2-fast) var(--r2-ease);
+}
+.r2-prop-input::placeholder,
+.r2-prop-empty {
+  color: var(--r2-ink-3);
+  opacity: 0.75;
+}
+.r2-prop-input:hover,
+.r2-prop-button:hover {
+  background: var(--r2-hover);
+}
+.r2-prop-input:focus {
+  outline: none;
+  background: var(--r2-field-bg);
+  box-shadow: inset 0 0 0 1px var(--r2-border-strong);
+}
+.r2-prop-input[aria-invalid] {
+  box-shadow: inset 0 0 0 1px var(--r2-danger);
+}
+.r2-prop-date {
+  width: auto;
+  min-width: 11rem;
+}
+.r2-prop-hint {
+  display: block;
+  font-size: 12px;
+  color: var(--r2-danger);
+}
+.r2-prop-check {
+  display: flex;
+  align-items: center;
+  height: 30px;
+  padding: 0 6px;
+  margin-left: -6px;
+  border-radius: var(--r2-radius);
+}
+.r2-prop-check:hover {
+  background: var(--r2-hover);
+}
+.r2-prop-checkbox {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  border: 1px solid var(--r2-border-strong);
+  border-radius: 3px;
+  color: #fff;
+  background: var(--r2-field-bg);
+}
+.r2-prop-check[aria-checked="true"] .r2-prop-checkbox {
+  border-color: var(--r2-accent);
+  background: var(--r2-accent);
+}
+
+/* Chosen options read as words; several are separated by a light comma, and
+   a status carries a small mark. */
+.r2-prop-options {
+  display: inline;
+}
+.r2-prop-option + .r2-prop-option::before {
+  content: ", ";
+  color: var(--r2-ink-3);
+}
+.r2-prop-options[data-type="status"] .r2-prop-option::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin: 0 7px 1px 1px;
+  border-radius: 50%;
+  background: var(--r2-accent-line);
+  vertical-align: middle;
+}
+
+.r2-prop-picker {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: -6px;
+  z-index: 30;
+  width: min(280px, 100%);
+  min-width: 220px;
+  padding: 6px;
+  border: 1px solid var(--r2-border);
+  border-radius: 7px;
+  background: var(--r2-bg);
+  box-shadow: var(--r2-shadow-pop);
+}
+.r2-prop-picker-input {
+  width: 100%;
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--r2-border);
+  border-radius: var(--r2-radius);
+  font: inherit;
+  font-size: 13px;
+  color: var(--r2-ink-1);
+  background: var(--r2-field-bg);
+}
+.r2-prop-picker-input:focus {
+  outline: none;
+  border-color: var(--r2-accent-line);
+}
+.r2-prop-picker-list {
+  max-height: 240px;
+  margin-top: 4px;
+  overflow-y: auto;
+}
+.r2-prop-picker-list li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  padding: 3px 6px;
+  border-radius: var(--r2-radius);
+  font-size: 13px;
+  cursor: pointer;
+}
+.r2-prop-picker-list li[data-active] {
+  background: var(--r2-hover);
+}
+.r2-prop-picker-list li[aria-disabled] {
+  opacity: 0.6;
+}
+.r2-prop-picker-mark {
+  display: inline-flex;
+  width: 14px;
+  color: var(--r2-accent);
+}
+.r2-prop-picker-empty {
+  padding: 6px;
+  font-size: 12.5px;
+  color: var(--r2-ink-3);
+}
+.r2-prop-picker-clear {
+  width: 100%;
+  margin-top: 4px;
+  padding: 5px 6px;
+  border-top: 1px solid var(--r2-border);
+  border-radius: 0;
+  text-align: left;
+  font-size: 12.5px;
+  color: var(--r2-ink-2);
+}
+.r2-prop-picker-clear:hover {
+  color: var(--r2-ink-1);
+}
+
+.r2-prop-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 6px;
+  margin-left: -6px;
+  border-radius: var(--r2-radius);
+  font-size: 12.5px;
+  color: var(--r2-ink-2);
+  transition: color var(--r2-fast) var(--r2-ease), background-color var(--r2-fast) var(--r2-ease), opacity var(--r2-fast) var(--r2-ease);
+}
+.r2-prop-add[data-quiet] {
+  color: var(--r2-ink-3);
+  opacity: 0.7;
+}
+.r2-prop-add:hover,
+.r2-prop-add:focus-visible {
+  color: var(--r2-ink-1);
+  background: var(--r2-hover);
+  opacity: 1;
+}
+.r2-prop-new {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+.r2-prop-new-name,
+.r2-prop-new-type,
+.r2-schema-type,
+.r2-schema-option-add {
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--r2-border-strong);
+  border-radius: var(--r2-radius);
+  font: inherit;
+  font-size: 13px;
+  color: var(--r2-ink-1);
+  background: var(--r2-field-bg);
+}
+.r2-prop-new-name {
+  flex: 1 1 10rem;
+  min-width: 0;
+}
+.r2-prop-new-error,
+.r2-prop-new-hint {
+  flex-basis: 100%;
+  margin: 0;
+}
+.r2-prop-new-hint {
+  font-size: 12px;
+  color: var(--r2-ink-3);
+}
+
+.r2-button--danger {
+  border-color: var(--r2-danger);
+  color: #fff;
+  background: var(--r2-danger);
+}
+.r2-button--danger:hover:not(:disabled),
+.r2-button--danger:active:not(:disabled) {
+  background: #8a2f28;
+}
+
+/* The Collection's property settings. */
+.r2-collection-tools {
+  display: flex;
+  margin: -8px 0 8px;
+}
+.r2-collection-tool {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 8px;
+  margin-left: -8px;
+  border-radius: var(--r2-radius);
+  font-size: 12.5px;
+  color: var(--r2-ink-3);
+  transition: color var(--r2-fast) var(--r2-ease), background-color var(--r2-fast) var(--r2-ease);
+}
+.r2-collection-tool:hover,
+.r2-collection-tool[aria-expanded="true"] {
+  color: var(--r2-ink-1);
+  background: var(--r2-hover);
+}
+.r2-schema {
+  margin: 0 0 22px;
+  padding: 10px 0 12px;
+  border-top: 1px solid var(--r2-border);
+  border-bottom: 1px solid var(--r2-border);
+  font-size: 13px;
+}
+.r2-schema-intro {
+  max-width: 34rem;
+  margin-bottom: 4px;
+  color: var(--r2-ink-2);
+  line-height: 1.5;
+}
+.r2-schema-row {
+  padding: 4px 0;
+}
+.r2-schema-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.r2-schema-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 30px;
+  padding: 0 6px;
+  margin-left: -6px;
+  border: 0;
+  border-radius: var(--r2-radius);
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--r2-ink-1);
+  background: transparent;
+}
+.r2-schema-name:hover {
+  background: var(--r2-hover);
+}
+.r2-schema-name:focus {
+  outline: none;
+  background: var(--r2-field-bg);
+  box-shadow: inset 0 0 0 1px var(--r2-border-strong);
+}
+span.r2-schema-type {
+  display: inline-flex;
+  align-items: center;
+  border-color: transparent;
+  color: var(--r2-ink-3);
+  background: transparent;
+}
+.r2-schema-actions {
+  display: inline-flex;
+  flex: none;
+  gap: 2px;
+}
+.r2-schema-actions .r2-icon-button[aria-pressed="false"] {
+  color: var(--r2-ink-3);
+}
+.r2-schema-options {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 0 4px;
+}
+.r2-schema-option {
+  display: inline-flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 2px 0 8px;
+  border: 1px solid var(--r2-border);
+  border-radius: 13px;
+  background: var(--r2-panel-bg);
+}
+.r2-schema-option input {
+  min-width: 2ch;
+  max-width: 16rem;
+  border: 0;
+  font: inherit;
+  font-size: 12.5px;
+  color: var(--r2-ink-1);
+  background: transparent;
+}
+.r2-schema-option input:focus {
+  outline: none;
+}
+.r2-schema-option:focus-within {
+  border-color: var(--r2-accent-line);
+}
+.r2-schema-option button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  color: var(--r2-ink-3);
+}
+.r2-schema-option button:hover {
+  color: var(--r2-ink-1);
+  background: var(--r2-hover);
+}
+.r2-schema-option-add {
+  width: 9.5rem;
+  height: 26px;
+  border-style: dashed;
+  border-radius: 13px;
+  font-size: 12.5px;
+}
+.r2-schema-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  flex-basis: 100%;
+  margin: 6px 0;
+  padding: 10px 12px;
+  border-left: 2px solid var(--r2-danger);
+  background: var(--r2-panel-bg);
+}
+.r2-schema-confirm p {
+  flex-basis: 100%;
+  color: var(--r2-ink-1);
+  line-height: 1.45;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .r2-prop-input,
+  .r2-prop-button,
+  .r2-prop-add,
+  .r2-collection-tool {
+    transition: none;
+  }
 }
 
 /* ── Overview (Manuscript, Group) ──────────────────────────────────────── */

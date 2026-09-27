@@ -2,17 +2,25 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Plus } from "lucide-react";
+import { Plus, SlidersHorizontal } from "lucide-react";
 import { createCollectionEntry, renameWorkspaceCollection } from "@/lib/actions/workspaceCollections";
+import { listSummary } from "@/lib/rune2/collectionProperties";
 import type { NavEntry } from "@/lib/rune2/navigatorModel";
+import { CollectionSchema } from "./CollectionSchema";
+import { usePropertyStore } from "./PropertyStore";
 import { useRune2Selection } from "./Rune2Selection";
 import { WorkspaceTitle } from "./WorkspaceTitle";
 
 // A Collection in the content area: its title, edited in place, and its
 // Entries as a plain list in creation order — a writer's list of names, not a
-// table. No properties, no columns, no views yet (architecture §12–13, §17):
-// what this view has to prove is that a Collection reads like Rune before any
-// structure is added to it.
+// table. No columns and no views yet (architecture §17): a Collection reads
+// like Rune before any structure is added to it.
+//
+// Properties (migration 026) join quietly: under each name, the values of the
+// properties marked "shown in the list" (the first three by default), as one
+// muted line — "Protagonist · Alive · Drelareth" — and nothing for an Entry
+// that has none. "Properties" opens the Collection's property settings
+// (CollectionSchema) above the list; closed, the view is the Milestone 8 list.
 //
 // A click opens an Entry in the active tab (the Entry's own line back to its
 // Collection returns here); ⌘/Ctrl-click opens it in a tab of its own. "New
@@ -61,8 +69,11 @@ function useNewEntry(collectionId: string) {
 
 export function CollectionView({ entry }: { entry: NavEntry }) {
   const { index, select, openInNewTab } = useRune2Selection();
+  const { available, propertiesOf, values } = usePropertyStore();
   const { add, busy, notice } = useNewEntry(entry.id);
   const listRef = useRef<HTMLDivElement>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const properties = available ? propertiesOf(entry.id) : [];
   const entries = (entry.entryIds ?? []).flatMap((id) => {
     const e = index.get(id);
     return e ? [e] : [];
@@ -80,10 +91,29 @@ export function CollectionView({ entry }: { entry: NavEntry }) {
           onLeave={() => listRef.current?.querySelector<HTMLElement>("button")?.focus()}
         />
 
+        {available && (
+          <div className="r2-collection-tools">
+            <button
+              type="button"
+              className="r2-collection-tool"
+              aria-expanded={settingsOpen}
+              onClick={() => setSettingsOpen((o) => !o)}
+            >
+              <SlidersHorizontal size={13} strokeWidth={1.75} aria-hidden />
+              {properties.length === 0
+                ? "Properties"
+                : `${properties.length} ${properties.length === 1 ? "property" : "properties"}`}
+            </button>
+          </div>
+        )}
+        {available && settingsOpen && <CollectionSchema collectionId={entry.id} collectionTitle={entry.title} />}
+
         <div ref={listRef}>
           {entries.length > 0 ? (
             <ul className="r2-entry-list" aria-label={`Entries in ${entry.title}`}>
-              {entries.map((e) => (
+              {entries.map((e) => {
+                const summary = listSummary(properties, values, e.id);
+                return (
                 <li key={e.id}>
                   <button
                     type="button"
@@ -107,10 +137,12 @@ export function CollectionView({ entry }: { entry: NavEntry }) {
                       }
                     }}
                   >
-                    {e.title}
+                    <span className="r2-entry-row-title">{e.title}</span>
+                    {summary.length > 0 && <span className="r2-entry-row-meta">{summary.join(" · ")}</span>}
                   </button>
                 </li>
-              ))}
+                );
+              })}
             </ul>
           ) : (
             <p className="r2-entry-empty">No entries yet.</p>

@@ -6,6 +6,7 @@ import type { ProjectWorkspace } from "@/lib/rune2/projectWorkspace";
 import { ProjectNavigator } from "./ProjectNavigator";
 import { Rune2ContextBar, Rune2SelectionView } from "./Rune2Content";
 import { Rune2Panel } from "./Rune2Panel";
+import { PropertyStoreProvider } from "./PropertyStore";
 import { Rune2SelectionProvider, useRune2Selection } from "./Rune2Selection";
 import { Rune2Tabs } from "./Rune2Tabs";
 import { useWritingChrome } from "./useWritingChrome";
@@ -29,7 +30,9 @@ export function Rune2Shell({
 }) {
   return (
     <Rune2SelectionProvider manuscript={manuscript} workspace={workspace}>
-      <Frame>{children}</Frame>
+      <PropertyStoreProvider workspace={workspace}>
+        <Frame>{children}</Frame>
+      </PropertyStoreProvider>
     </Rune2SelectionProvider>
   );
 }

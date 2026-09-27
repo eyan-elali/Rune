@@ -149,6 +149,50 @@ export interface CollectionEntry {
 /** An Entry without its content — what its Collection lists. */
 export type CollectionEntrySummary = Pick<CollectionEntry, "id" | "collection_id" | "title" | "created_at" | "updated_at">;
 
+/** A Collection property's type (migration 026). Relationship comes with the relationships milestone. */
+export type CollectionPropertyType = "text" | "number" | "select" | "multi_select" | "status" | "date" | "checkbox";
+
+/** One choice of a select, multi-select or status property. Values refer to it by id. */
+export interface PropertyOption {
+  id: string;
+  name: string;
+}
+
+/**
+ * One property definition of a Collection (migration 026, table
+ * workspace_collection_properties). The Collection defines it once; each Entry
+ * may hold a value for it. Never on Pages, and not yet on Scenes.
+ */
+export interface CollectionProperty {
+  id: string;
+  collection_id: string;
+  project_id: string;
+  name: string;
+  type: CollectionPropertyType;
+  /** Choice types only, in display order; [] otherwise. */
+  options: PropertyOption[];
+  /** 1..n within the Collection. */
+  position: number;
+  /** Whether the Collection's list shows this property's values. */
+  shown_in_list: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * A stored property value, by type: text → string; number → number;
+ * select/status → an option id; multi_select → option ids; date →
+ * "YYYY-MM-DD"; checkbox → true. No value is no row.
+ */
+export type PropertyValue = string | number | boolean | string[];
+
+/** One Entry's value for one property (table workspace_entry_values). */
+export interface EntryPropertyValue {
+  entry_id: string;
+  property_id: string;
+  value: PropertyValue;
+}
+
 export type WorkspaceNodeTarget = "page" | "folder" | "collection";
 
 /**

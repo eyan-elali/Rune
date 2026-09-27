@@ -9,6 +9,7 @@ import { getCollectionEntry, renameCollectionEntry } from "@/lib/actions/workspa
 import type { NavEntry } from "@/lib/rune2/navigatorModel";
 import type { PageSaveStatus } from "@/lib/rune2/workspacePageSaver";
 import { useNetworkStore } from "@/store/networkStore";
+import { EntryProperties } from "./PropertyFields";
 import { useRune2Selection } from "./Rune2Selection";
 import type { PageSession } from "./WorkspacePages";
 import { WorkspaceTitle } from "./WorkspaceTitle";
@@ -22,9 +23,10 @@ import { WorkspaceTitle } from "./WorkspaceTitle";
 // paragraph spacing instead of book indents, so notes read as notes.
 //
 // A Collection Entry is edited by the same editor: an Entry is a title and a
-// freeform body too (its structured properties come later). What differs is
-// its identity and actions — its own table, rename and read — and a quiet line
-// above the title naming its Collection, which opens it.
+// freeform body too. What differs is its identity and actions — its own table,
+// rename and read — a quiet line above the title naming its Collection, which
+// opens it, and between title and body its Collection's properties
+// (EntryProperties): structured facts beside the freeform writing, never in it.
 //
 // No toolbar: Markdown shortcuts (#, -, 1., >) and ⌘B / ⌘I. ⌘S saves now.
 // No AI features of any kind.
@@ -122,6 +124,9 @@ export default function WorkspacePageEditor({ entry, session }: { entry: NavEntr
       >
         {session.kind === "entry" && <EntryCollection entry={entry} />}
         <WorkspaceTitle entry={entry} rename={doc.rename} noun={doc.noun} onLeave={() => editor?.commands.focus("start")} />
+        {session.kind === "entry" && entry.path.length > 0 && (
+          <EntryProperties entryId={entry.id} collectionId={entry.path[entry.path.length - 1].id} />
+        )}
         {editor && <EditorContent editor={editor} className="r2-page-body" />}
       </article>
 

@@ -78,6 +78,18 @@ export const RUNE2_NOTES = {
     'to one Collection for life; project_id is that Collection\'s (composite FK).',
     'version bumps on content changes only. No client DELETE until Trash exists.',
   ],
+  workspace_collection_properties: [
+    'Collection property definition: name (unique per Collection, ignoring case),',
+    'type, owned options (choice types), position 1..n, shown_in_list. Belongs to',
+    'one Collection for life. Clients only read; every change goes through',
+    'create/update/move/delete_workspace_collection_property.',
+  ],
+  workspace_entry_values: [
+    'One Entry\'s value for one property of the SAME Collection (both composite FKs',
+    'share collection_id). No row = no value. Checked against the property\'s type',
+    'and options on every write. Deleted with its property or Entry. Clients only',
+    'read; writes go through set_workspace_entry_value.',
+  ],
   workspace_nodes: [
     'The Workspace tree: navigation only, never ownership. One canonical node per',
     'Page (document_id), Folder (folder_id) or Collection (collection_id), created',

@@ -12,6 +12,7 @@ import {
 } from "@/lib/actions/notes";
 import type { NavEntry } from "@/lib/rune2/navigatorModel";
 import type { ProjectNote } from "@/lib/types";
+import { usePropertyStore } from "./PropertyStore";
 import { useRune2Selection, type PanelView } from "./Rune2Selection";
 
 // The one optional right-hand panel. Revision Notes and Inspector are separate actions
@@ -326,6 +327,7 @@ function formatDate(iso: string): string {
 
 function InspectorView() {
   const { manuscript, workspace, index, selected, select } = useRune2Selection();
+  const { available: propertied, propertiesOf } = usePropertyStore();
 
   const location = (entry: NavEntry): ReactNode => {
     const parents = entry.kind === "scene" ? entry.path.slice(0, -1) : entry.path;
@@ -428,6 +430,9 @@ function InspectorView() {
         rows = [
           ["Location", ["Workspace", ...selected.path.map((p) => p.title)].join(" / ")],
           ["Entries", plural(selected.childCount, "entry", "entries")],
+          ...(propertied
+            ? [["Properties", propertiesOf(selected.id).length.toLocaleString()] as [string, ReactNode]]
+            : []),
         ];
         break;
       case "collectionEntry": {

@@ -63,6 +63,21 @@ function param(value) {
   return value;
 }
 
+const argTypeCache = new WeakMap();
+/** A public function's argument types by name (for encoding RPC arguments as PostgREST would). */
+async function rpcArgTypes(db, fn) {
+  let byDb = argTypeCache.get(db);
+  if (!byDb) argTypeCache.set(db, (byDb = new Map()));
+  if (!byDb.has(fn)) {
+    const res = await db.query(
+      `select a.name, a.type from pg_proc p,
+              unnest(p.proargnames, p.proargtypes::oid[]::regtype[]::text[]) as a(name, type)
+        where p.proname = $1 and p.pronamespace = 'public'::regnamespace`, [fn]);
+    byDb.set(fn, new Map(res.rows.map((r) => [r.name, r.type])));
+  }
+  return byDb.get(fn);
+}
+
 class Query {
   constructor(client, table) {
     this.client = client;
@@ -233,7 +248,12 @@ export function createSupabaseAdapter(db, { userId = null, role = userId ? 'auth
       try {
         const names = Object.keys(args);
         const argSql = names.map((n, i) => `${ident(n, 'argument')} => $${i + 1}`).join(', ');
-        const params = names.map((n) => param(args[n]));
+        // PostgREST hands a json/jsonb argument the JSON value as sent — a
+        // string, array, number or boolean included — so encode those as JSON.
+        const types = await rpcArgTypes(db, fn);
+        const params = names.map((n) => (types.get(n) === 'jsonb' || types.get(n) === 'json') && args[n] !== null && args[n] !== undefined
+          ? JSON.stringify(args[n])
+          : param(args[n]));
         const res = await withRole(db, client.identity, (tx) =>
           tx.query(`select public.${ident(fn, 'function')}(${argSql}) as result`, params)
         );
