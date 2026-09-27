@@ -25,6 +25,8 @@ import {
   FolderOpen,
   FolderPlus,
   Layers,
+  Library,
+  ListPlus,
   PanelTop,
   MoreHorizontal,
   Pencil,
@@ -44,6 +46,12 @@ import {
   moveWorkspaceNode,
   renameWorkspaceFolder,
 } from "@/lib/actions/workspaceTree";
+import {
+  createCollectionEntry,
+  createWorkspaceCollection,
+  deleteWorkspaceCollection,
+  renameWorkspaceCollection,
+} from "@/lib/actions/workspaceCollections";
 import { chapterShowsScenes, type NavEntry } from "@/lib/rune2/navigatorModel";
 import { indexBeside, moveDestinations, walkWorkspaceTree, type WorkspaceTreeNode } from "@/lib/rune2/workspaceTree";
 import type { ManuscriptOutlineNode } from "@/lib/rune2/projectManuscript";
@@ -51,8 +59,10 @@ import { NavigatorMenu, type NavigatorMenuItem } from "./NavigatorMenu";
 import { useRune2Selection } from "./Rune2Selection";
 
 // The Rune 2.0 project navigator: the Manuscript (Groups → Chapters → Scenes)
-// in reading order, then Unplaced Scenes, then the Workspace (its Pages and
-// Folders, in the places the writer gave them). The Workspace stays a single
+// in reading order, then Unplaced Scenes, then the Workspace (its Pages,
+// Folders and Collections, in the places the writer gave them). A
+// Collection's Entries are not listed here — the Collection's own view lists
+// them, so the navigator stays compact however many Entries there are. The Workspace stays a single
 // quiet row until the writer has a Page, and a flat list of Pages until they
 // make a Folder. Every change goes through the server actions — each one
 // atomic in the database — and the tree then re-reads the project
@@ -70,8 +80,8 @@ import { useRune2Selection } from "./Rune2Selection";
 // a focused row, or by dragging (before or after a row, or into a Folder).
 //
 // Not here yet, deliberately: moving manuscript structure from the navigator
-// (beyond "Move to Unplaced Scenes"); deleting a Scene, a Page or a Folder
-// that holds anything — Rune 2.0 deletion should be recoverable (architecture
+// (beyond "Move to Unplaced Scenes"); deleting a Scene, a Page, an Entry, or a
+// Folder or Collection that holds anything — Rune 2.0 deletion should be recoverable (architecture
 // §26, Trash), and Trash does not exist yet.
 
 const BASE_PAD = 6;
@@ -234,6 +244,27 @@ export function ProjectNavigator() {
       return null;
     });
 
+  // A new Collection opens at once, with its title ready to type (its view).
+  const addCollection = (folder: WorkspaceTreeNode | null = null) =>
+    run(async () => {
+      const r = await createWorkspaceCollection(projectId, null, folder?.nodeId ?? null);
+      if (r.error !== null) return "Couldn’t create the collection.";
+      setOpenFor(workspaceOpenPath(folder), true);
+      selectWhenPresent(r.data.collection.id);
+      requestSceneFocus(r.data.collection.id);
+      return null;
+    });
+
+  // A new Entry opens at once, title first, as a new Page does.
+  const addEntry = (collectionId: string) =>
+    run(async () => {
+      const r = await createCollectionEntry(collectionId, null);
+      if (r.error !== null) return "Couldn’t create the entry.";
+      selectWhenPresent(r.data.id);
+      requestSceneFocus(r.data.id);
+      return null;
+    });
+
   // A new Folder waits for its name in the tree; it is never selected.
   const addFolder = (folder: WorkspaceTreeNode | null = null) =>
     run(async () => {
@@ -253,8 +284,12 @@ export function ProjectNavigator() {
     const next = value.trim();
     // Compared with the stored title: typing "Scene 2" over an unnamed Scene's
     // fallback names it for real.
-    // Groups, Pages and Folders may be untitled; a Chapter or Scene keeps its name.
-    const blankAllowed = entry.kind === "group" || entry.kind === "workspacePage" || entry.kind === "workspaceFolder";
+    // Groups and Workspace items may be untitled; a Chapter or Scene keeps its name.
+    const blankAllowed =
+      entry.kind === "group" ||
+      entry.kind === "workspacePage" ||
+      entry.kind === "workspaceFolder" ||
+      entry.kind === "workspaceCollection";
     if (next === (entry.named ? entry.title : "") || (!blankAllowed && next === "")) return;
 
     setRenamedTitle(entry.id, next);
@@ -270,6 +305,10 @@ export function ProjectNavigator() {
       if (entry.kind === "workspaceFolder") {
         const r = await renameWorkspaceFolder(entry.id, next || null);
         return r.error ? "Couldn’t rename the folder." : null;
+      }
+      if (entry.kind === "workspaceCollection") {
+        const r = await renameWorkspaceCollection(entry.id, next || null);
+        return r.error ? "Couldn’t rename the collection." : null;
       }
       if (entry.kind === "chapter") {
         const r = await updateChapter(entry.id, { title: next }, projectId);
@@ -300,12 +339,15 @@ export function ProjectNavigator() {
     ];
   }
 
-  /** "+" on the Workspace, or on a Folder: a Page or a Folder there. */
+  /** "+" on the Workspace, or on a Folder: a Page, Folder or Collection there. */
   function workspaceAddItems(folder: WorkspaceTreeNode | null): NavigatorMenuItem[] {
     return [
       { label: "New page", icon: FilePlus, onSelect: () => addPage(folder) },
       ...(workspace.organizable
         ? [{ label: "New folder", icon: FolderPlus, onSelect: () => addFolder(folder) }]
+        : []),
+      ...(workspace.organizable && workspace.collectable
+        ? [{ label: "New collection", icon: Library, onSelect: () => addCollection(folder) }]
         : []),
     ];
   }
@@ -394,12 +436,36 @@ export function ProjectNavigator() {
       // No delete for a Page until Trash exists (architecture §26).
       case "workspacePage":
         return [rename, ...workspaceMoveItems(entry, at)];
+      case "workspaceCollection":
+        return [
+          rename,
+          { label: "New entry", icon: ListPlus, onSelect: () => addEntry(entry.id) },
+          ...workspaceMoveItems(entry, at),
+          // Only an empty Collection: no Entry is ever lost, and there is no
+          // Trash yet.
+          ...(entry.childCount === 0
+            ? [
+                {
+                  label: "Delete collection",
+                  icon: Trash2,
+                  tone: "danger" as const,
+                  onSelect: () => removeCollection(entry.id),
+                },
+              ]
+            : []),
+        ];
+      // Not listed in the navigator (its Collection lists it).
+      case "collectionEntry":
+        return [rename];
       case "workspaceFolder": {
         const folder = placed.get(entry.id)?.node ?? null;
         return [
           rename,
           { label: "New page inside", icon: FilePlus, onSelect: () => addPage(folder) },
           { label: "New folder inside", icon: FolderPlus, onSelect: () => addFolder(folder) },
+          ...(workspace.collectable
+            ? [{ label: "New collection inside", icon: Library, onSelect: () => addCollection(folder) }]
+            : []),
           ...workspaceMoveItems(entry, at),
           // Only an empty Folder: nothing is ever lost with it, and there is
           // no Trash yet for anything that holds content.
@@ -447,6 +513,13 @@ export function ProjectNavigator() {
     run(async () => {
       const r = await deleteWorkspaceFolder(id);
       return r.error ? "Couldn’t delete the folder." : null;
+    });
+
+  const removeCollection = (id: string) =>
+    run(async () => {
+      const r = await deleteWorkspaceCollection(id);
+      if (r.error === "Only an empty collection can be deleted") return "Only an empty collection can be deleted.";
+      return r.error ? "Couldn’t delete the collection." : null;
     });
 
   // ── Workspace drag and drop ─────────────────────────────────────────────
@@ -682,6 +755,22 @@ export function ProjectNavigator() {
                   Empty
                 </p>
               ))}
+          </li>
+        );
+      }
+
+      if (node.kind === "collection") {
+        // Opens the Collection's view; its Entries are listed there, not here.
+        return (
+          <li key={node.id}>
+            <NavRow
+              {...shared}
+              icon={Library}
+              selected={selected?.id === node.id}
+              onSelect={(e) => choose(node.id, e)}
+              onAdd={() => addEntry(node.id)}
+              addLabel={`New entry in ${entry.title}`}
+            />
           </li>
         );
       }

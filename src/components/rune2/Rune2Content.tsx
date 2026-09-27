@@ -5,10 +5,11 @@ import { useRouter } from "next/navigation";
 import { PanelRight, Plus, StickyNote } from "lucide-react";
 import { createScene } from "@/lib/actions/scenes";
 import { cacheScene } from "@/lib/offline/db";
-import type { NavEntry, NavKind } from "@/lib/rune2/navigatorModel";
+import { isWorkspaceKind, type NavEntry, type NavKind } from "@/lib/rune2/navigatorModel";
 import { writingTargetFor } from "@/lib/rune2/writingTarget";
 import { useRune2Selection } from "./Rune2Selection";
 import { Rune2Writing } from "./Rune2Writing";
+import { CollectionView, NewEntryAction } from "./CollectionView";
 import { WorkspacePages } from "./WorkspacePages";
 
 // The context bar (a quiet breadcrumb to the selection, and the selection's
@@ -16,9 +17,10 @@ import { WorkspacePages } from "./WorkspacePages";
 // Revision Notes and Inspector, which share the one right-hand panel) and the content
 // area. Chapters and Scenes open in
 // the writing surface (see writingTarget.ts);
-// a Group shows a structural summary; a Workspace Page opens in its own
-// editor (WorkspacePages); with nothing selected, the content area shows its
-// route (the Manuscript overview).
+// a Group shows a structural summary; a Workspace Page or Collection Entry
+// opens in its own editor (WorkspacePages); a Collection shows its Entries
+// (CollectionView); with nothing selected, the content area shows its route
+// (the Manuscript overview).
 
 const KIND_LABEL: Record<NavKind, string> = {
   group: "Group",
@@ -27,6 +29,8 @@ const KIND_LABEL: Record<NavKind, string> = {
   unplacedScene: "Unplaced Scene",
   workspacePage: "Page",
   workspaceFolder: "Folder",
+  workspaceCollection: "Collection",
+  collectionEntry: "Entry",
 };
 
 function plural(n: number, one: string, many = `${one}s`) {
@@ -37,14 +41,17 @@ export function Rune2ContextBar() {
   const { manuscript, index, selected, select, openInNewTab, panel, togglePanel } = useRune2Selection();
   const target = writingTargetFor(selected, index);
   // id undefined = a label only (Unplaced Scenes and Workspace are sections,
-  // and a Folder is navigation — none of them opens).
-  const inWorkspace = selected?.kind === "workspacePage";
+  // and a Folder is navigation — none of them opens). An Entry's Collection
+  // opens.
+  const inWorkspace = selected ? isWorkspaceKind(selected.kind) : false;
   const trail: { id?: string | null; title: string }[] = inWorkspace
     ? [{ title: "Workspace" }]
     : [{ id: null, title: "Manuscript" }];
   if (selected) {
     if (selected.kind === "unplacedScene") trail.push({ title: "Unplaced Scenes" });
-    trail.push(...selected.path.map((p) => (inWorkspace ? { title: p.title } : { id: p.id, title: p.title })));
+    trail.push(
+      ...selected.path.map((p) => (p.kind === "workspaceFolder" ? { title: p.title } : { id: p.id, title: p.title }))
+    );
     trail.push({ id: selected.id, title: selected.title });
   }
 
@@ -78,6 +85,12 @@ export function Rune2ContextBar() {
         </ol>
       </nav>
       <div className="r2-contextbar-actions">
+        {selected?.kind === "collectionEntry" && selected.path.length > 0 && (
+          <>
+            <NewEntryAction collectionId={selected.path[selected.path.length - 1].id} />
+            <span className="r2-contextbar-divider" aria-hidden />
+          </>
+        )}
         {target?.kind === "scenes" && target.addSceneTo && (
           <>
             <AddSceneAction chapterId={target.addSceneTo} />
@@ -189,11 +202,15 @@ export function Rune2SelectionView({ children }: { children: ReactNode }) {
   const target = writingTargetFor(selected, index);
   return (
     <>
-      {!target && (selected ? selected.kind === "group" && <StructurePreview entry={selected} /> : children)}
+      {!target &&
+        (selected
+          ? (selected.kind === "group" && <StructurePreview entry={selected} />) ||
+            (selected.kind === "workspaceCollection" && <CollectionView key={selected.id} entry={selected} />)
+          : children)}
       {/* Always mounted, in the same place, so a Scene that stays on screen
           between views keeps its editor instance. */}
       <Rune2Writing projectId={manuscript.project.id} target={target} />
-      {/* Always mounted too: Pages keep their save engines between views. */}
+      {/* Always mounted too: Pages and Entries keep their save engines between views. */}
       <WorkspacePages />
     </>
   );

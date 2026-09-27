@@ -1,7 +1,8 @@
-import type { SaveWorkspacePageResult } from "@/lib/actions/workspacePages";
+import type { SaveContentResult } from "@/lib/rune2/versionedContent";
 
-// The save engine of a Workspace Page — deliberately NOT the manuscript's
-// (useSceneEditor / the Scene offline queue). A Page is not manuscript prose:
+// The save engine of a Workspace Page — and of a Collection Entry, which saves
+// by the same rules — deliberately NOT the manuscript's (useSceneEditor / the
+// Scene offline queue). Neither is manuscript prose:
 // no word-limit guards, no writing credits, no XP, and none of the Scene
 // queue's compatibility contracts. What it shares with the manuscript engine
 // is the discipline:
@@ -46,7 +47,7 @@ export type PageSaverOptions = {
   dirty?: boolean;
   /** A known conflict at start: the server's current version. */
   conflictVersion?: number | null;
-  save: (content: PageDoc, expectedVersion: number) => Promise<SaveWorkspacePageResult>;
+  save: (content: PageDoc, expectedVersion: number) => Promise<SaveContentResult>;
   /** Writes the device copy. Must not throw (failures are the caller's to swallow). */
   persist?: (draft: PageDraft) => void;
   onStatus?: (status: PageSaveStatus) => void;
@@ -211,7 +212,7 @@ export class PageSaver {
     const sent = this._content;
     this.setStatus("saving");
 
-    let result: SaveWorkspacePageResult;
+    let result: SaveContentResult;
     try {
       result = await this.opts.save(sent, this._version);
     } catch (e) {

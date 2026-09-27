@@ -423,6 +423,27 @@ function InspectorView() {
         ];
         break;
       }
+      case "workspaceCollection":
+        kind = "Collection";
+        rows = [
+          ["Location", ["Workspace", ...selected.path.map((p) => p.title)].join(" / ")],
+          ["Entries", plural(selected.childCount, "entry", "entries")],
+        ];
+        break;
+      case "collectionEntry": {
+        const entry = workspace.entries.find((e) => e.id === selected.id);
+        kind = "Entry";
+        rows = [
+          ["Collection", selected.path[selected.path.length - 1]?.title ?? "—"],
+          ...(entry
+            ? [
+                ["Created", formatDate(entry.created_at)] as [string, ReactNode],
+                ["Edited", formatDate(entry.updated_at)] as [string, ReactNode],
+              ]
+            : []),
+        ];
+        break;
+      }
       // Never selected (navigation only), but described if it ever were.
       case "workspaceFolder":
         kind = "Folder";

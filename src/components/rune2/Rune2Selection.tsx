@@ -26,9 +26,10 @@ import {
 // object; only an explicit "open in new tab" adds a tab. An object is open in
 // at most one tab: opening it again goes to that tab. Workspace Pages are
 // objects like any other here: one index holds the Manuscript's objects and
-// the Workspace's, keyed by canonical id. Workspace Folders are in the index
-// too (the navigator and Page paths use them) but are navigation only: never
-// selected, never a tab.
+// the Workspace's, keyed by canonical id — Collections and their Entries
+// included, so an Entry is one tab however it was opened. Workspace Folders
+// are in the index too (the navigator and item paths use them) but are
+// navigation only: never selected, never a tab.
 //
 // Also shared here, because actions outside the navigator change them: which
 // navigator rows are open, a request to focus a Scene's prose once its editor
@@ -111,7 +112,7 @@ export function Rune2SelectionProvider({
   }
 
   const index = useMemo(
-    () => new Map([...indexManuscript(manuscript, renamed), ...indexWorkspace(workspace.tree, renamed)]),
+    () => new Map([...indexManuscript(manuscript, renamed), ...indexWorkspace(workspace.tree, renamed, workspace.entries)]),
     [manuscript, workspace, renamed]
   );
   const has = useCallback(

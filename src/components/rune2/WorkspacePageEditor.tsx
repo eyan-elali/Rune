@@ -3,14 +3,15 @@
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { getWorkspacePage, renameWorkspacePage } from "@/lib/actions/workspacePages";
+import { getCollectionEntry, renameCollectionEntry } from "@/lib/actions/workspaceCollections";
 import type { NavEntry } from "@/lib/rune2/navigatorModel";
 import type { PageSaveStatus } from "@/lib/rune2/workspacePageSaver";
 import { useNetworkStore } from "@/store/networkStore";
 import { useRune2Selection } from "./Rune2Selection";
 import type { PageSession } from "./WorkspacePages";
+import { WorkspaceTitle } from "./WorkspaceTitle";
 
 // The Workspace Page editor: a title and a rich-text body, for supporting
 // material (notes, research, ideas) rather than manuscript prose. It shares
@@ -19,6 +20,11 @@ import type { PageSession } from "./WorkspacePages";
 // workspacePageSaver.ts), there are no word counts, and the body is set in
 // Rune's interface sans rather than the manuscript serif — denser, with
 // paragraph spacing instead of book indents, so notes read as notes.
+//
+// A Collection Entry is edited by the same editor: an Entry is a title and a
+// freeform body too (its structured properties come later). What differs is
+// its identity and actions — its own table, rename and read — and a quiet line
+// above the title naming its Collection, which opens it.
 //
 // No toolbar: Markdown shortcuts (#, -, 1., >) and ⌘B / ⌘I. ⌘S saves now.
 // No AI features of any kind.
@@ -30,11 +36,16 @@ const STATUS_LABEL: Record<Exclude<PageSaveStatus, "conflict" | "unavailable">, 
   retrying: "Saved on this device",
 };
 
-const TITLE_SAVE_DELAY = 700;
+/** What differs between a Page and an Entry, for this editor. */
+const DOCUMENT = {
+  page: { noun: "page", read: getWorkspacePage, rename: renameWorkspacePage },
+  entry: { noun: "entry", read: getCollectionEntry, rename: renameCollectionEntry },
+} as const;
 
 export default function WorkspacePageEditor({ entry, session }: { entry: NavEntry; session: PageSession }) {
   const pageId = entry.id;
   const { saver } = session;
+  const doc = DOCUMENT[session.kind];
   const isOnline = useNetworkStore((s) => s.isOnline);
   const subscribe = useCallback(
     (listener: () => void) => {
@@ -62,7 +73,7 @@ export default function WorkspacePageEditor({ entry, session }: { entry: NavEntr
     content: saver.content,
     immediatelyRender: false,
     autofocus: false,
-    editorProps: { attributes: { "aria-label": `${entry.title} — page` } },
+    editorProps: { attributes: { "aria-label": `${entry.title} — ${doc.noun}` } },
     onUpdate: ({ editor: e }) => saver.change(e.getJSON()),
   });
 
@@ -74,7 +85,7 @@ export default function WorkspacePageEditor({ entry, session }: { entry: NavEntr
   async function takeServerCopy() {
     setResolving(true);
     try {
-      const r = await getWorkspacePage(pageId);
+      const r = await doc.read(pageId);
       if (r.data) {
         saver.acceptServer({ content: r.data.content, version: r.data.version });
         editor?.commands.setContent(r.data.content, { emitUpdate: false });
@@ -109,7 +120,8 @@ export default function WorkspacePageEditor({ entry, session }: { entry: NavEntr
           }
         }}
       >
-        <PageTitle entry={entry} onLeave={() => editor?.commands.focus("start")} />
+        {session.kind === "entry" && <EntryCollection entry={entry} />}
+        <WorkspaceTitle entry={entry} rename={doc.rename} noun={doc.noun} onLeave={() => editor?.commands.focus("start")} />
         {editor && <EditorContent editor={editor} className="r2-page-body" />}
       </article>
 
@@ -127,7 +139,7 @@ export default function WorkspacePageEditor({ entry, session }: { entry: NavEntr
           </span>
         ) : status === "unavailable" ? (
           <span className="r2-page-conflict" role="alert">
-            This page can’t be saved right now. Your writing is kept on this device.
+            This {doc.noun} can’t be saved right now. Your writing is kept on this device.
           </span>
         ) : (
           <span data-tone={status === "retrying" || !isOnline ? "offline" : undefined}>{statusLabel}</span>
@@ -138,100 +150,21 @@ export default function WorkspacePageEditor({ entry, session }: { entry: NavEntr
 }
 
 /**
- * The Page's title, edited in place. The navigator and tabs follow each
- * keystroke (setRenamedTitle); the title is saved after a pause and when the
- * writer leaves the field. Blank is untitled. Enter or ↓ moves into the body.
+ * An Entry's Collection, above its title: where the Entry lives, and the way
+ * back to its list. ⌘/Ctrl-click opens the Collection in a tab of its own.
  */
-function PageTitle({ entry, onLeave }: { entry: NavEntry; onLeave: () => void }) {
-  const { setRenamedTitle, focusSceneId, requestSceneFocus } = useRune2Selection();
-  const router = useRouter();
-  const [, startRefresh] = useTransition();
-  const stored = entry.named ? entry.title : "";
-  const [value, setValue] = useState(stored);
-  const [editing, setEditing] = useState(false);
-  const [failed, setFailed] = useState(false);
-  const saved = useRef(stored);
-  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const ref = useRef<HTMLTextAreaElement>(null);
-
-  // Renamed elsewhere (the navigator) while not being edited here: follow it.
-  const [seen, setSeen] = useState(stored);
-  if (stored !== seen) {
-    setSeen(stored);
-    if (!editing) setValue(stored);
-  }
-  useEffect(() => {
-    if (!editing) saved.current = stored;
-  }, [stored, editing]);
-
-  // A Page just created: name it first.
-  useEffect(() => {
-    if (focusSceneId !== entry.id) return;
-    ref.current?.focus();
-    requestSceneFocus(null);
-  }, [focusSceneId, entry.id, requestSceneFocus]);
-
-  // Grow with the title, never scroll inside it.
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    el.style.height = "auto";
-    el.style.height = `${el.scrollHeight}px`;
-  }, [value]);
-
-  useEffect(() => () => clearTimeout(timer.current), []);
-
-  async function save(next: string, refresh: boolean) {
-    clearTimeout(timer.current);
-    const title = next.trim();
-    if (title === saved.current) {
-      if (refresh) startRefresh(() => router.refresh());
-      return;
-    }
-    saved.current = title;
-    const r = await renameWorkspacePage(entry.id, title || null).catch(() => ({ error: "Network error" }));
-    setFailed(Boolean(r.error));
-    if (r.error) saved.current = "";
-    if (refresh) startRefresh(() => router.refresh());
-  }
-
+function EntryCollection({ entry }: { entry: NavEntry }) {
+  const { select, openInNewTab } = useRune2Selection();
+  const collection = entry.path[entry.path.length - 1];
+  if (!collection) return null;
   return (
-    <header className="r2-doc-head r2-page-head">
-      <textarea
-        ref={ref}
-        className="r2-page-title"
-        aria-label="Page title"
-        placeholder="Untitled"
-        rows={1}
-        maxLength={200}
-        spellCheck
-        value={value}
-        onFocus={() => setEditing(true)}
-        onChange={(e) => {
-          const next = e.target.value.replace(/\n/g, " ");
-          setValue(next);
-          setRenamedTitle(entry.id, next.trim());
-          clearTimeout(timer.current);
-          timer.current = setTimeout(() => void save(next, false), TITLE_SAVE_DELAY);
-        }}
-        onBlur={() => {
-          setEditing(false);
-          void save(value, true);
-        }}
-        onKeyDown={(e) => {
-          const el = e.currentTarget;
-          const atEnd = el.selectionStart === el.value.length && el.selectionEnd === el.value.length;
-          if (e.key === "Enter" || (e.key === "ArrowDown" && atEnd)) {
-            e.preventDefault();
-            onLeave();
-          }
-        }}
-      />
-      {failed && (
-        <p className="r2-doc-note" role="status">
-          The title couldn’t be saved yet. It will be tried again when you leave the title.
-        </p>
-      )}
-    </header>
+    <button
+      type="button"
+      className="r2-entry-collection"
+      onClick={(e) => (e.metaKey || e.ctrlKey ? openInNewTab(collection.id) : select(collection.id))}
+      title={`Open ${collection.title}`}
+    >
+      {collection.title}
+    </button>
   );
 }

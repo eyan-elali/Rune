@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { PanelLeft, X } from "lucide-react";
+import { isWorkspaceKind } from "@/lib/rune2/navigatorModel";
 import { MANUSCRIPT_TAB, useRune2Selection, type WorkingTab } from "./Rune2Selection";
 
 // The working set: a quiet row of the objects the writer has open in tabs of
@@ -23,7 +24,7 @@ function tabPath(tab: WorkingTab): string {
   const trail =
     tab.entry.kind === "unplacedScene"
       ? ["Unplaced Scenes"]
-      : tab.entry.kind === "workspacePage"
+      : isWorkspaceKind(tab.entry.kind)
         ? ["Workspace", ...tab.entry.path.map((p) => p.title)]
         : tab.entry.path.map((p) => p.title);
   return [...trail, tab.entry.title].join(" / ");

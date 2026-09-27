@@ -53,7 +53,7 @@ test('a database built from schema.sql alone is identical to baseline + migratio
   assert.deepEqual(diffCounts(a, b), []);
   const versions = async (db) => (await db.query(`select version, name, note from public.schema_migrations order by version`)).rows;
   assert.deepEqual(await versions(fresh), await versions(migrated));
-  assert.deepEqual((await versions(fresh)).map((r) => r.version).slice(-12), ['013', '014', '015', '016', '017', '018', '019', '020', '021', '022', '023', '024']);
+  assert.deepEqual((await versions(fresh)).map((r) => r.version).slice(-13), ['013', '014', '015', '016', '017', '018', '019', '020', '021', '022', '023', '024', '025']);
 });
 
 test('signup still creates the profile and pricing entitlements on the Rune 2.0 schema', async () => {
@@ -764,6 +764,99 @@ test('024 requires 023, refuses to run twice (including on schema.sql), and chan
   for (const db of [await migratedDb(), await freshRune2Db()]) {
     const before = await captureCatalog(db);
     await assert.rejects(db.exec(readMigration(M024)), /Migration 024 has already been applied/);
+    assert.deepEqual(diffCatalogs(before, await captureCatalog(db)).differences, []);
+  }
+});
+
+// ── 11. migration 025 ─────────────────────────────────────────────────────────
+
+const M025 = '025_workspace_collections.sql';
+
+async function db024() {
+  const db = await db023();
+  await db.exec(readMigration(M024));
+  return db;
+}
+
+test('025 on 024: Collections + Entries, one new node target, and nothing else — no manuscript, Page or Folder change', async () => {
+  const db = await db024();
+  const before = await captureCatalog(db);
+  await db.exec(readMigration(M025));
+  const after = await captureCatalog(db);
+  const { differences } = diffCatalogs(before, after);
+  const keys = differences.map((d) => `${d.section}:${d.kind}:${d.key}`).sort();
+  const structural = keys.filter((k) => !k.startsWith('table_grants:') && !k.startsWith('function_grants:'));
+  for (const k of structural) {
+    assert.ok(
+      /^(columns|constraints|indexes|policies|triggers):added:workspace_(collections|collection_entries)\./.test(k)
+        || /^relations:added:workspace_(collections|collection_entries)$/.test(k)
+        || /^functions:added:(freeze_workspace_entry_collection|create_workspace_collection|delete_workspace_collection)\(/.test(k)
+        // The node gains its Collection target; its type constraints widen.
+        || k === 'columns:added:workspace_nodes.collection_id'
+        || /^(constraints|indexes):added:workspace_nodes\.workspace_nodes_collection_(id_key|same_project_fkey)$/.test(k)
+        || /^constraints:changed:workspace_nodes\.workspace_nodes_target_(type_check|matches_type)$/.test(k)
+        || k === 'triggers:changed:workspace_nodes.workspace_nodes_freeze_target'
+        || /^functions:changed:(freeze_workspace_node_target|place_new_workspace_object)\(\)$/.test(k),
+      `unexpected change: ${k}`);
+  }
+  for (const k of [
+    'relations:added:workspace_collections',
+    'relations:added:workspace_collection_entries',
+    'columns:added:workspace_nodes.collection_id',
+    'constraints:added:workspace_nodes.workspace_nodes_collection_id_key',
+    'constraints:added:workspace_nodes.workspace_nodes_collection_same_project_fkey',
+    'constraints:added:workspace_collection_entries.workspace_collection_entries_collection_same_project_fkey',
+    'triggers:added:workspace_collections.workspace_collections_place_new',
+    'triggers:added:workspace_collection_entries.workspace_collection_entries_stamp',
+    'triggers:added:workspace_collection_entries.workspace_collection_entries_freeze_collection',
+    'policies:added:workspace_collections.workspace_collections: select own',
+    'policies:added:workspace_collections.workspace_collections: update own',
+    'policies:added:workspace_collection_entries.workspace_collection_entries: select own',
+    'policies:added:workspace_collection_entries.workspace_collection_entries: insert own',
+    'policies:added:workspace_collection_entries.workspace_collection_entries: update own',
+  ]) assert.ok(structural.includes(k), `missing ${k}`);
+  assert.ok(!structural.some((k) => /workspace_collections: (insert|delete)|workspace_collection_entries: delete/.test(k)));
+
+  const grants = keys.filter((k) => k.startsWith('table_grants:') || k.startsWith('function_grants:'));
+  for (const role of ['anon', 'authenticated']) {
+    for (const priv of ['INSERT', 'DELETE']) {
+      assert.ok(!grants.includes(`table_grants:added:workspace_collections ${role} ${priv}`), `${role} cannot ${priv} collections`);
+    }
+    assert.ok(!grants.includes(`table_grants:added:workspace_collection_entries ${role} DELETE`), `${role} cannot DELETE entries`);
+  }
+  assert.ok(grants.includes('table_grants:added:workspace_collections authenticated UPDATE'));
+  assert.ok(grants.includes('table_grants:added:workspace_collection_entries authenticated INSERT'));
+  assert.ok(grants.includes('table_grants:added:workspace_collection_entries authenticated UPDATE'));
+  for (const t of ['workspace_collections', 'workspace_collection_entries']) {
+    assert.equal(after.relations.find((r) => r.table === t).rls_enabled, true, `${t} has RLS`);
+  }
+});
+
+test('025 keeps every existing Page, Folder and node exactly as it was', async () => {
+  const db = await db024();
+  const alice = await createAuthUser(db, crypto.randomUUID());
+  const hollow = (await db.query(`insert into public.projects (user_id, title) values ($1, 'Hollow') returning id`, [alice])).rows[0].id;
+  await db.query(`insert into public.workspace_documents (project_id, title) values ($1, 'Ideas'), ($1, 'Rome')`, [hollow]);
+  await db.query(`insert into public.workspace_folders (project_id, title) values ($1, 'Research')`, [hollow]);
+  const snapshot = async () => ({
+    pages: (await db.query(`select * from public.workspace_documents order by id`)).rows,
+    folders: (await db.query(`select * from public.workspace_folders order by id`)).rows,
+    nodes: (await db.query(`select id, project_id, target_type, document_id, folder_id, parent_node_id, position, created_at from public.workspace_nodes order by id`)).rows,
+  });
+  const before = await snapshot();
+  await db.exec(readMigration(M025));
+  assert.deepEqual(await snapshot(), before);
+  assert.equal((await db.query(`select count(*)::int as n from public.workspace_nodes where collection_id is not null`)).rows[0].n, 0);
+});
+
+test('025 requires 024, refuses to run twice (including on schema.sql), and changes nothing when it refuses', async () => {
+  const only023 = await db023();
+  const before023 = await captureCatalog(only023);
+  await assert.rejects(only023.exec(readMigration(M025)), /requires migration 024/);
+  assert.deepEqual(diffCatalogs(before023, await captureCatalog(only023)).differences, []);
+  for (const db of [await migratedDb(), await freshRune2Db()]) {
+    const before = await captureCatalog(db);
+    await assert.rejects(db.exec(readMigration(M025)), /Migration 025 has already been applied/);
     assert.deepEqual(diffCatalogs(before, await captureCatalog(db)).differences, []);
   }
 });

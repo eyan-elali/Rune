@@ -3,27 +3,38 @@
 import dynamic from "next/dynamic";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { getWorkspacePage, saveWorkspacePageContent } from "@/lib/actions/workspacePages";
-import { getPageDraft, putPageDraft } from "@/lib/rune2/workspaceDrafts";
+import { getCollectionEntry, saveCollectionEntryContent } from "@/lib/actions/workspaceCollections";
+import { getPageDraft, putPageDraft, type DraftKind } from "@/lib/rune2/workspaceDrafts";
 import { openPage, PageSaver, type PageDraft, type PageSaveStatus } from "@/lib/rune2/workspacePageSaver";
 import { useNetworkStore } from "@/store/networkStore";
 import { useProfileStore } from "@/store/profileStore";
 import { useRune2Selection } from "./Rune2Selection";
 
-// Hosts Workspace Pages in the content area. Always mounted beside the
-// manuscript writing surface, so the Pages opened in this Project keep their
-// save engines (PageSaver) while the writer moves between tabs: reopening a
-// Page reattaches to its saver — which knows this window's latest content and
-// version — instead of re-reading the server while its own last save may
-// still be landing. A Page's editor itself mounts only while it is shown.
+// Hosts the Workspace's rich-text documents in the content area: Workspace
+// Pages and Collection Entries. They are different objects (own tables, own
+// actions, own device stores) with the same save discipline, so both run on
+// the one PageSaver. Always mounted beside the manuscript writing surface, so
+// the documents opened in this Project keep their save engines while the
+// writer moves between tabs: reopening one reattaches to its saver — which
+// knows this window's latest content and version — instead of re-reading the
+// server while its own last save may still be landing. A document's editor
+// itself mounts only while it is shown.
 //
-// Opening a Page: the server's copy and this device's copy are read together
-// and reconciled by openPage (unsaved writing on the device is never
+// Opening a document: the server's copy and this device's copy are read
+// together and reconciled by openPage (unsaved writing on the device is never
 // discarded). Leaving the Project, hiding the window and reconnecting all
-// flush every Page's unsaved content.
+// flush every document's unsaved content.
 
 const WorkspacePageEditor = dynamic(() => import("./WorkspacePageEditor"), { ssr: false });
 
+/** How each kind of Workspace document is read and saved. */
+const DOCUMENT_IO = {
+  page: { read: getWorkspacePage, save: saveWorkspacePageContent },
+  entry: { read: getCollectionEntry, save: saveCollectionEntryContent },
+} as const;
+
 export type PageSession = {
+  kind: DraftKind;
   saver: PageSaver;
   status: PageSaveStatus;
   listeners: Set<() => void>;
@@ -33,18 +44,18 @@ export type PageSession = {
 type Opening = { state: "failed" } | { state: "ready"; session: PageSession };
 
 /** The server's copy and this device's, read together and reconciled (null: nothing to open). */
-async function readPage(id: string, userId: string) {
+async function readDocument(kind: DraftKind, id: string, userId: string) {
   const [server, draft] = await Promise.all([
-    getWorkspacePage(id).then(
+    DOCUMENT_IO[kind].read(id).then(
       (r) => r.data,
       () => null
     ),
-    getPageDraft(id, userId),
+    getPageDraft(id, userId, kind),
   ]);
   return openPage(server, draft);
 }
 
-/** One Project's opened Pages — an external store the host subscribes to. */
+/** One Project's opened Pages and Entries, by id — an external store the host subscribes to. */
 class PageSessions {
   private openings = new Map<string, Opening>();
   private snapshot: ReadonlyMap<string, Opening> = new Map();
@@ -72,10 +83,10 @@ class PageSessions {
     return [...this.openings.values()].flatMap((o) => (o.state === "ready" ? [o.session] : []));
   }
 
-  async open(id: string, userId: string) {
+  async open(kind: DraftKind, id: string, userId: string) {
     if (this.openings.get(id)?.state === "ready" || this.loading.has(id)) return;
     this.loading.add(id);
-    const start = await readPage(id, userId);
+    const start = await readDocument(kind, id, userId);
     this.loading.delete(id);
     if (!start) {
       this.set(id, { state: "failed" });
@@ -83,14 +94,14 @@ class PageSessions {
     }
 
     const projectId = this.projectId;
-    const persist = (d: PageDraft) => void putPageDraft({ id, userId, projectId, ...d, savedAt: Date.now() });
-    const session: PageSession = { saver: null as unknown as PageSaver, status: "saved", listeners: new Set() };
+    const persist = (d: PageDraft) => void putPageDraft({ id, userId, projectId, ...d, savedAt: Date.now() }, kind);
+    const session: PageSession = { kind, saver: null as unknown as PageSaver, status: "saved", listeners: new Set() };
     session.saver = new PageSaver({
       content: start.content,
       version: start.version,
       dirty: start.dirty,
       conflictVersion: start.conflictVersion,
-      save: (content, expectedVersion) => saveWorkspacePageContent(id, content, expectedVersion),
+      save: (content, expectedVersion) => DOCUMENT_IO[kind].save(id, content, expectedVersion),
       persist,
       onStatus: (status) => {
         session.status = status;
@@ -134,11 +145,13 @@ export function WorkspacePages() {
   const [store] = useState(() => new PageSessions(manuscript.project.id));
   const openings = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
 
-  const pageId = selected?.kind === "workspacePage" ? selected.id : null;
+  const kind: DraftKind | null =
+    selected?.kind === "workspacePage" ? "page" : selected?.kind === "collectionEntry" ? "entry" : null;
+  const pageId = kind ? selected!.id : null;
 
   useEffect(() => {
-    if (pageId && userId) void store.open(pageId, userId);
-  }, [pageId, userId, store]);
+    if (kind && pageId && userId) void store.open(kind, pageId, userId);
+  }, [kind, pageId, userId, store]);
 
   // Back online: retry every Page still waiting to save.
   useEffect(() => {
@@ -162,7 +175,7 @@ export function WorkspacePages() {
     };
   }, [store]);
 
-  if (!pageId || !selected) return null;
+  if (!kind || !pageId || !selected) return null;
   const opened = openings.get(pageId);
 
   if (opened?.state === "failed") {
@@ -170,13 +183,13 @@ export function WorkspacePages() {
       <div className="r2-writing">
         <div className="r2-doc r2-page">
           <div className="r2-doc-empty" role="alert">
-            <p>This page couldn’t be opened.</p>
+            <p>This {kind === "entry" ? "entry" : "page"} couldn’t be opened.</p>
             <button
               type="button"
               className="r2-button"
               onClick={() => {
                 store.reset(pageId);
-                if (userId) void store.open(pageId, userId);
+                if (userId) void store.open(kind, pageId, userId);
               }}
             >
               Try again

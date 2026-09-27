@@ -111,12 +111,50 @@ export interface WorkspaceFolder {
 
 export type WorkspaceFolderSummary = Pick<WorkspaceFolder, "id" | "title">;
 
-export type WorkspaceNodeTarget = "page" | "folder";
+/**
+ * A Workspace Collection (migration 025): many Entries of one writer-defined
+ * kind ("Characters", "Research"). Belongs to its Project and owns its
+ * Entries; Rune gives no Collection a built-in meaning.
+ */
+export interface WorkspaceCollection {
+  id: string;
+  project_id: string;
+  /** null = untitled. */
+  title: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type WorkspaceCollectionSummary = Pick<WorkspaceCollection, "id" | "title">;
+
+/**
+ * One Entry of a Collection (migration 025, table workspace_collection_entries):
+ * a title and freeform rich text. Belongs to exactly one Collection for life.
+ * Not manuscript prose — never counted toward any word total.
+ */
+export interface CollectionEntry {
+  id: string;
+  collection_id: string;
+  project_id: string;
+  /** null = untitled. */
+  title: string | null;
+  /** TipTap JSON. */
+  content: Record<string, unknown>;
+  /** Bumped by the database on every content change (never by a rename). */
+  version: number;
+  created_at: string;
+  updated_at: string;
+}
+
+/** An Entry without its content — what its Collection lists. */
+export type CollectionEntrySummary = Pick<CollectionEntry, "id" | "collection_id" | "title" | "created_at" | "updated_at">;
+
+export type WorkspaceNodeTarget = "page" | "folder" | "collection";
 
 /**
  * One Workspace object's single place in the Workspace tree (table
  * workspace_nodes). Navigation only: the object belongs to the Project
- * wherever its node sits. Exactly one of document_id / folder_id is set, matching
+ * wherever its node sits. Exactly one of document_id / folder_id / collection_id is set, matching
  * target_type.
  */
 export interface WorkspaceNode {
@@ -124,6 +162,8 @@ export interface WorkspaceNode {
   target_type: WorkspaceNodeTarget;
   document_id: string | null;
   folder_id: string | null;
+  /** Set for target_type "collection" (migration 025); absent on a pre-025 read. */
+  collection_id?: string | null;
   /** null = top level of the Workspace. Always a Folder's node otherwise. */
   parent_node_id: string | null;
   /** 1..n among its siblings. */

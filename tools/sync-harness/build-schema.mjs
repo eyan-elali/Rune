@@ -67,10 +67,21 @@ export const RUNE2_NOTES = {
     'Project. Writers read and rename their own; creation and deletion (empty',
     'only) go through create_workspace_folder and delete_workspace_folder.',
   ],
+  workspace_collections: [
+    'Workspace Collection: many Entries of one writer-defined kind. Belongs directly',
+    'to its Project and owns its Entries. Writers read and rename their own;',
+    'creation and deletion (empty only) go through create_workspace_collection and',
+    'delete_workspace_collection. Never a parent in the Workspace tree.',
+  ],
+  workspace_collection_entries: [
+    'Collection Entry: title + freeform rich text (never manuscript prose). Belongs',
+    'to one Collection for life; project_id is that Collection\'s (composite FK).',
+    'version bumps on content changes only. No client DELETE until Trash exists.',
+  ],
   workspace_nodes: [
     'The Workspace tree: navigation only, never ownership. One canonical node per',
-    'Page (document_id) or Folder (folder_id), created with the object by',
-    'place_new_workspace_object. Only a Folder has children; no cycles.',
+    'Page (document_id), Folder (folder_id) or Collection (collection_id), created',
+    'with the object by place_new_workspace_object. Only a Folder has children; no cycles.',
     'Siblings are numbered 1..n. Clients only read nodes; placement changes',
     'through create_workspace_document, create_workspace_folder, move_workspace_node.',
   ],

@@ -1502,6 +1502,83 @@ button.r2-disclosure:hover {
   opacity: 0.6;
 }
 
+/* ── Collections and Entries ─────────────────────────────────────────── */
+/* A Collection is a writer's list of names, not a table: one quiet column of
+   rows in the Page's measure and type, a hairline between them, no columns
+   and no cards. An Entry is a Page with a line back to its Collection. */
+
+.r2-collection {
+  cursor: default;
+}
+.r2-entry-list {
+  margin: 4px 0 6px;
+  border-top: 1px solid var(--r2-border);
+}
+.r2-entry-row {
+  display: block;
+  width: calc(100% + 16px);
+  padding: 9px 8px;
+  margin: 0 -8px;
+  border-bottom: 1px solid var(--r2-border);
+  border-radius: 0;
+  text-align: left;
+  font-size: var(--r2-page-size);
+  line-height: 1.4;
+  color: var(--r2-ink-1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: background-color var(--r2-fast) var(--r2-ease);
+}
+.r2-entry-row[data-unnamed] {
+  color: var(--r2-ink-3);
+}
+.r2-entry-row:hover {
+  background: var(--r2-hover);
+}
+.r2-entry-row:active {
+  background: var(--r2-press);
+}
+.r2-entry-empty {
+  margin: 4px 0 10px;
+  font-size: 13.5px;
+  color: var(--r2-faint);
+}
+.r2-entry-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 8px;
+  margin: 6px 0 0 -8px;
+  border-radius: var(--r2-radius);
+  font-size: 13px;
+  color: var(--r2-ink-2);
+  transition: background-color var(--r2-fast) var(--r2-ease), color var(--r2-fast) var(--r2-ease);
+}
+.r2-entry-add:hover:not(:disabled) {
+  color: var(--r2-ink-1);
+  background: var(--r2-hover);
+}
+.r2-entry-add:disabled {
+  opacity: 0.6;
+}
+.r2-entry-collection {
+  display: inline-block;
+  margin: 0 0 6px -4px;
+  padding: 1px 4px;
+  border-radius: var(--r2-radius);
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--r2-ink-3);
+  cursor: pointer;
+  transition: color var(--r2-fast) var(--r2-ease), background-color var(--r2-fast) var(--r2-ease);
+}
+.r2-entry-collection:hover {
+  color: var(--r2-ink-1);
+  background: var(--r2-hover);
+}
+
 /* ── Overview (Manuscript, Group) ──────────────────────────────────────── */
 
 .r2-overview {
