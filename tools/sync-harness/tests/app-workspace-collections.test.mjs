@@ -324,10 +324,10 @@ test('entries: the database owns version and timestamps; an Entry never changes 
   await assert.rejects(asUser(db, ALICE, (tx) => tx.query(
     `update public.workspace_collection_entries set project_id = $2 where id = $1`, [t.nerai.id, ASH])),
     /cannot move to another Project/);
-  // project_id must be the Collection's own.
+  // project_id must be the Collection’s own (from 030 the insert policy refuses it before the foreign key does).
   await assert.rejects(asUser(db, ALICE, (tx) => tx.query(
     `insert into public.workspace_collection_entries (collection_id, project_id) values ($1, $2)`, [t.characters.collection.id, ASH])),
-    /collection_same_project_fkey/);
+    /collection_same_project_fkey|row-level security/);
 });
 
 test('entries: no client DELETE (no Trash yet); deleting the Project removes Collections, Entries and nodes', async () => {
@@ -365,7 +365,7 @@ test('isolation: another writer can\'t list, read, create in, save, rename or de
   // or under Alice's.
   await assert.rejects(asUser(db, BRAM, (tx) => tx.query(
     `insert into public.workspace_collection_entries (collection_id, project_id) values ($1, $2)`, [t.characters.collection.id, TIDE])),
-    /collection_same_project_fkey/);
+    /collection_same_project_fkey|row-level security/);
   await assert.rejects(asUser(db, BRAM, (tx) => tx.query(
     `insert into public.workspace_collection_entries (collection_id, project_id) values ($1, $2)`, [t.characters.collection.id, HOLLOW])),
     /row-level security/);

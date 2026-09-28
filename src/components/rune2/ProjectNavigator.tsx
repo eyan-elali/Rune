@@ -58,6 +58,7 @@ import { indexBeside, moveDestinations, walkWorkspaceTree, type WorkspaceTreeNod
 import type { ManuscriptOutlineNode } from "@/lib/rune2/projectManuscript";
 import { NavigatorMenu, type NavigatorMenuItem } from "./NavigatorMenu";
 import { useRune2Selection } from "./Rune2Selection";
+import { useTrash } from "./WorkspaceTrash";
 
 // The Rune 2.0 project navigator: the Manuscript (Groups → Chapters → Scenes)
 // in reading order, then Unplaced Scenes, then the Workspace (its Pages,
@@ -80,10 +81,14 @@ import { useRune2Selection } from "./Rune2Selection";
 // Workspace items move by "Move up / down / to…" in their menu, ⌥↑ / ⌥↓ on
 // a focused row, or by dragging (before or after a row, or into a Folder).
 //
+// A Page, Folder, Collection or Scene goes to the Project's Trash from its menu
+// ("Move to Trash", with an Undo in the notice that follows); a Folder's items
+// stay in the Workspace, where the Folder was. Trash itself is the quiet
+// "Trash" at the foot of the navigator (WorkspaceTrash). Before migration 030
+// there is no Trash, and only an empty Folder or Collection can be deleted.
+//
 // Not here yet, deliberately: moving manuscript structure from the navigator
-// (beyond "Move to Unplaced Scenes"); deleting a Scene, a Page, an Entry, or a
-// Folder or Collection that holds anything — Rune 2.0 deletion should be recoverable (architecture
-// §26, Trash), and Trash does not exist yet.
+// (beyond "Move to Unplaced Scenes"), and Trash for Chapters and Groups.
 
 const BASE_PAD = 6;
 const INDENT = 16;
@@ -105,7 +110,7 @@ export function ProjectNavigator() {
     manuscript,
     workspace,
     index,
-    selected,
+    selected: selection,
     select,
     openInNewTab,
     selectWhenPresent,
@@ -116,8 +121,14 @@ export function ProjectNavigator() {
     navCollapsed,
     toggleNav,
     setSearchOpen,
+    trashOpen,
+    setTrashOpen,
   } = useRune2Selection();
   const projectId = manuscript.project.id;
+  // While Trash fills the content column, no row is the one showing: the
+  // footer's "Trash" is. (The selection itself is kept for when Trash closes.)
+  const selected = trashOpen ? undefined : selection;
+  const trash = useTrash();
   const router = useRouter();
   const [refreshing, startRefresh] = useTransition();
   const [busy, setBusy] = useState(false);
@@ -433,20 +444,21 @@ export function ProjectNavigator() {
         return [
           rename,
           { label: "Move to Unplaced Scenes", icon: FolderInput, onSelect: () => toUnplaced(entry.id) },
+          ...trashItems(entry),
         ];
       case "unplacedScene":
-        return [rename];
-      // No delete for a Page until Trash exists (architecture §26).
+        return [rename, ...trashItems(entry)];
       case "workspacePage":
-        return [rename, ...workspaceMoveItems(entry, at)];
+        return [rename, ...workspaceMoveItems(entry, at), ...trashItems(entry)];
       case "workspaceCollection":
         return [
           rename,
           { label: "New entry", icon: ListPlus, onSelect: () => addEntry(entry.id) },
           ...workspaceMoveItems(entry, at),
-          // Only an empty Collection: no Entry is ever lost, and there is no
-          // Trash yet.
-          ...(entry.childCount === 0
+          ...trashItems(entry),
+          // Without Trash (before 030), only an empty Collection: no Entry is
+          // ever lost.
+          ...(!trash.available && entry.childCount === 0
             ? [
                 {
                   label: "Delete collection",
@@ -470,14 +482,42 @@ export function ProjectNavigator() {
             ? [{ label: "New collection inside", icon: Library, onSelect: () => addCollection(folder) }]
             : []),
           ...workspaceMoveItems(entry, at),
-          // Only an empty Folder: nothing is ever lost with it, and there is
-          // no Trash yet for anything that holds content.
-          ...(entry.childCount === 0
+          ...trashItems(entry),
+          // Without Trash (before 030), only an empty Folder.
+          ...(!trash.available && entry.childCount === 0
             ? [{ label: "Delete folder", icon: Trash2, tone: "danger" as const, onSelect: () => removeFolder(entry.id) }]
             : []),
         ];
       }
     }
+  }
+
+  /**
+   * "Move to Trash" for a Page, Folder, Collection or Scene. Recoverable, so
+   * no confirmation — except for a Folder that holds items, which move up into
+   * its place (they are not trashed with it).
+   */
+  function trashItems(entry: NavEntry): NavigatorMenuItem[] {
+    const isScene = entry.kind === "scene" || entry.kind === "unplacedScene";
+    if (!trash.available || (isScene && !trash.scenesAvailable)) return [];
+    const folderItems = entry.kind === "workspaceFolder" ? entry.childCount : 0;
+    return [
+      {
+        label: "Move to Trash",
+        icon: Trash2,
+        tone: "danger",
+        confirm:
+          folderItems > 0
+            ? {
+                message: `Move this folder to Trash? ${
+                  folderItems === 1 ? "Its item stays" : `Its ${folderItems} items stay`
+                } in the Workspace, where the folder was.`,
+                action: "Move to Trash",
+              }
+            : undefined,
+        onSelect: () => run(() => trash.moveToTrash(entry)),
+      },
+    ];
   }
 
   // ── Workspace moves ─────────────────────────────────────────────────────
@@ -926,12 +966,34 @@ export function ProjectNavigator() {
           {notice}
         </p>
       )}
+      {!notice && trash.notice && (
+        <p role="status" className="r2-nav-notice r2-trash-notice">
+          <span>{trash.notice.text}</span>
+          {trash.notice.undo && (
+            <button type="button" onClick={trash.undo}>
+              Undo
+            </button>
+          )}
+        </p>
+      )}
 
       <div className="r2-nav-footer">
         <Link href="/dashboard">
           <ArrowLeft size={13} strokeWidth={1.75} aria-hidden />
           Back to Rune
         </Link>
+        {trash.available && (
+          <button
+            type="button"
+            className="r2-nav-trash"
+            aria-pressed={trashOpen}
+            data-active={trashOpen || undefined}
+            onClick={() => setTrashOpen(!trashOpen)}
+          >
+            <Trash2 size={13} strokeWidth={1.75} aria-hidden />
+            Trash
+          </button>
+        )}
       </div>
 
       {menu && (

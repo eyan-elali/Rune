@@ -309,6 +309,37 @@ export interface WorkspaceNode {
   position: number;
 }
 
+/** What can be put in a Project's Trash (migrations 030–031). */
+export type TrashObjectType = "page" | "folder" | "collection" | "entry" | "scene";
+
+/**
+ * One item of a Project's Trash (list_workspace_trash): titles, where it came
+ * from and counts only — never content.
+ */
+export interface TrashItem {
+  type: TrashObjectType;
+  id: string;
+  title: string | null;
+  trashed_at: string;
+  /** Page / Folder / Collection: the Folder it was in (null: the top level). */
+  from_folder_id: string | null;
+  from_folder_title: string | null;
+  /** Whether that Folder is still there, so a restore returns it there. */
+  from_folder_active: boolean | null;
+  /** Entry: its Collection, and whether that Collection is active (not in Trash). */
+  collection_id: string | null;
+  collection_title: string | null;
+  collection_active: boolean | null;
+  /** Collection: how many Entries it holds (in Trash on their own included). */
+  entries: number | null;
+  /** Collection: Relationships of other Collections that point at it. */
+  properties: number | null;
+  /** Scene: the Chapter it was placed in (null: Unplaced), and whether that Chapter still exists. */
+  from_chapter_id?: string | null;
+  from_chapter_title?: string | null;
+  from_chapter_active?: boolean | null;
+}
+
 export interface Chapter {
   id: string;
   manuscript_id: string;

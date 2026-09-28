@@ -16,8 +16,10 @@ import { normalizeTitle, renameVersioned, saveVersionedContent, type SaveContent
 // Nothing here touches the manuscript, the Scene save path, the free-word
 // allowance, writing credits or XP.
 //
-// Deletion: only an EMPTY Collection, and never an Entry — Rune 2.0 deletion
-// is recoverable (Trash), and Trash does not exist yet.
+// Deletion is recoverable: a Collection (with its Entries) or a single Entry
+// goes to Trash (actions/workspaceTrash.ts, migration 030).
+// deleteWorkspaceCollection — an EMPTY Collection only, destroyed at once —
+// remains for the shell before 030.
 
 type ActionResult<T> = { data: T; error: null } | { data: null; error: string };
 type RpcResult<T> = ({ status: "ok" } & T) | { status: "error"; error: string };

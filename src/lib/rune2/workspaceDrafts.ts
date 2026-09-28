@@ -73,3 +73,15 @@ export async function putPageDraft(draft: StoredPageDraft, kind: DraftKind = "pa
     // Storage unavailable.
   }
 }
+
+/**
+ * Forgets the device copy of a Page or Entry that was permanently deleted
+ * (from Trash): there is nothing left for it to be saved to. Never throws.
+ */
+export async function deletePageDraft(id: string, kind: DraftKind = "page"): Promise<void> {
+  try {
+    await (await db()).delete(STORES[kind], id);
+  } catch {
+    // Storage unavailable.
+  }
+}

@@ -1107,16 +1107,34 @@ Manuscript Group
 
 moves it to project-scoped Trash rather than immediately destroying it.
 
-Deleting a parent hierarchy sends its subtree to Trash together.
+A trashed object keeps its identity: the same ID, content, version, property values and relationships. Restoring brings back the same object, not a copy.
+
+Permanent deletion happens only from Trash, deliberately, after a confirmation that says what will be lost.
+
+The beta supports Trash for:
+
+```text
+Scene (placed or Unplaced)
+Page
+Folder
+Collection
+Collection Entry
+```
+
+Chapter and Manuscript Group Trash are not built yet.
+
+### Ownership hierarchies go to Trash together
+
+Deleting a parent that owns its children sends its subtree to Trash together.
 
 Examples:
 
 ```text
-Page
-└── child Pages
+Collection
+└── Entries, properties, values, Views
 ```
 
-or:
+or, when built:
 
 ```text
 Manuscript Group
@@ -1124,6 +1142,43 @@ Manuscript Group
 ```
 
 are restored together with their original hierarchy.
+
+An Entry trashed on its own before its Collection stays in Trash when the Collection is restored. An Entry cannot be restored while its Collection is in Trash.
+
+### Folders are navigation, not ownership
+
+A Folder only arranges the Workspace (§11, §14). Trashing a Folder does **not** trash what is inside it.
+
+```text
+Research (Folder)          →  Research goes to Trash
+├── Magic Notes                Magic Notes, Maps and Factions
+├── Maps (Folder)              move up into Research's place,
+└── Factions                   in their order, and stay active
+```
+
+A restored Folder comes back empty, in its old place. Its former items stay where they moved.
+
+### Scenes
+
+A trashed Scene leaves its Chapter (or Unplaced Scenes) and the ordered manuscript total. It keeps its ID, prose, word count and version.
+
+Restoring a Scene returns it:
+
+- to its Chapter, in its old place if that place is free, otherwise at the end of the Chapter;
+- to the end of Unplaced Scenes, if its Chapter no longer exists;
+- to Unplaced Scenes, if it was Unplaced.
+
+Trash never changes a Scene's version, so writing saved on a device while the Scene was in Trash saves normally after a restore.
+
+Permanently deleting a Scene removes its prose. Its writing history (sessions, writing days, Today's Words) is kept with the Project.
+
+Trash never appears inside the manuscript prose or the editor.
+
+### Where restored objects return
+
+A Page, Folder or Collection returns to the Folder and position it left, if that Folder still exists. Otherwise it returns to the end of the Workspace's top level.
+
+Restoring from Trash does not reopen the object's old tab. Moving an object to Trash removes its tab from the working set. An immediate Undo restores the object and opens it again.
 
 ---
 

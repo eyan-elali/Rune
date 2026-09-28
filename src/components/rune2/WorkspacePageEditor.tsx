@@ -6,6 +6,7 @@ import Placeholder from "@tiptap/extension-placeholder";
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { getWorkspacePage, renameWorkspacePage } from "@/lib/actions/workspacePages";
 import { getCollectionEntry, renameCollectionEntry } from "@/lib/actions/workspaceCollections";
+import { restoreWorkspaceObject } from "@/lib/actions/workspaceTrash";
 import type { NavEntry } from "@/lib/rune2/navigatorModel";
 import type { PageSaveStatus } from "@/lib/rune2/workspacePageSaver";
 import { useNetworkStore } from "@/store/networkStore";
@@ -31,7 +32,7 @@ import { WorkspaceTitle } from "./WorkspaceTitle";
 // No toolbar: Markdown shortcuts (#, -, 1., >) and ⌘B / ⌘I. ⌘S saves now.
 // No AI features of any kind.
 
-const STATUS_LABEL: Record<Exclude<PageSaveStatus, "conflict" | "unavailable">, string> = {
+const STATUS_LABEL: Record<Exclude<PageSaveStatus, "conflict" | "unavailable" | "trashed">, string> = {
   saved: "Saved",
   pending: "Saving…",
   saving: "Saving…",
@@ -97,8 +98,23 @@ export default function WorkspacePageEditor({ entry, session }: { entry: NavEntr
     }
   }
 
+  // Moved to Trash in another window: nothing more is saved until it is back.
+  // Restoring it here brings back the same object, and this window's writing
+  // (kept on the device meanwhile) saves on the version it is based on.
+  const [restoring, setRestoring] = useState<"idle" | "busy" | "failed">("idle");
+  async function restoreHere() {
+    setRestoring("busy");
+    const r = await restoreWorkspaceObject(session.kind, pageId);
+    if (r.error !== null) {
+      setRestoring("failed");
+      return;
+    }
+    setRestoring("idle");
+    await saver.resume();
+  }
+
   const statusLabel =
-    status === "conflict" || status === "unavailable"
+    status === "conflict" || status === "unavailable" || status === "trashed"
       ? null
       : !isOnline && status === "saved"
         ? "Offline"
@@ -141,6 +157,19 @@ export default function WorkspacePageEditor({ entry, session }: { entry: NavEntr
             <button type="button" disabled={resolving} onClick={() => void takeServerCopy()}>
               Use the other
             </button>
+          </span>
+        ) : status === "trashed" ? (
+          <span className="r2-page-conflict" role="alert">
+            <span>
+              {restoring === "failed"
+                ? `This ${doc.noun} couldn’t be restored here — restore it from Trash.`
+                : `This ${doc.noun} was moved to Trash. Your writing is kept on this device.`}
+            </span>
+            {restoring !== "failed" && (
+              <button type="button" disabled={restoring === "busy"} onClick={() => void restoreHere()}>
+                Restore
+              </button>
+            )}
           </span>
         ) : status === "unavailable" ? (
           <span className="r2-page-conflict" role="alert">

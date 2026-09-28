@@ -47,3 +47,13 @@ export function closeTab(state: TabState, key: string): TabState {
   if (state.active !== key) return { tabs, active: state.active };
   return { tabs, active: tabs[Math.min(at, tabs.length - 1)] };
 }
+
+/**
+ * Removes the tabs of objects that no longer belong in the working set (moved
+ * to Trash) — from the state itself, not only from what resolveTabs shows, so
+ * a later restore never brings a tab back. An active tab among them hands its
+ * place to a neighbour, as closing it would.
+ */
+export function forgetTabs(state: TabState, keys: readonly string[]): TabState {
+  return keys.reduce((s, key) => (s.tabs.includes(key) ? closeTab(s, key) : s), state);
+}

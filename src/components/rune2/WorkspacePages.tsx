@@ -4,11 +4,12 @@ import dynamic from "next/dynamic";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { getWorkspacePage, saveWorkspacePageContent } from "@/lib/actions/workspacePages";
 import { getCollectionEntry, saveCollectionEntryContent } from "@/lib/actions/workspaceCollections";
-import { getPageDraft, putPageDraft, type DraftKind } from "@/lib/rune2/workspaceDrafts";
+import { deletePageDraft, getPageDraft, putPageDraft, type DraftKind } from "@/lib/rune2/workspaceDrafts";
 import { openPage, PageSaver, type PageDraft, type PageSaveStatus } from "@/lib/rune2/workspacePageSaver";
 import { useNetworkStore } from "@/store/networkStore";
 import { useProfileStore } from "@/store/profileStore";
 import { useRune2Selection } from "./Rune2Selection";
+import { useTrash } from "./WorkspaceTrash";
 
 // Hosts the Workspace's rich-text documents in the content area: Workspace
 // Pages and Collection Entries. They are different objects (own tables, own
@@ -24,6 +25,12 @@ import { useRune2Selection } from "./Rune2Selection";
 // together and reconciled by openPage (unsaved writing on the device is never
 // discarded). Leaving the Project, hiding the window and reconnecting all
 // flush every document's unsaved content.
+//
+// Trash (migration 030): before a document is trashed from this window its
+// unsaved content is saved (flush). One trashed elsewhere stops saving
+// ("trashed") and keeps its writing on this device; opening it again after a
+// restore resumes its saver. A permanently deleted one is forgotten, device
+// copy included.
 
 const WorkspacePageEditor = dynamic(() => import("./WorkspacePageEditor"), { ssr: false });
 
@@ -84,7 +91,10 @@ class PageSessions {
   }
 
   async open(kind: DraftKind, id: string, userId: string) {
-    if (this.openings.get(id)?.state === "ready" || this.loading.has(id)) return;
+    const opened = this.openings.get(id);
+    // Selectable again, so active again: a saver stopped by Trash continues.
+    if (opened?.state === "ready" && opened.session.status === "trashed") void opened.session.saver.resume();
+    if (opened?.state === "ready" || this.loading.has(id)) return;
     this.loading.add(id);
     const start = await readDocument(kind, id, userId);
     this.loading.delete(id);
@@ -114,6 +124,28 @@ class PageSessions {
     this.set(id, { state: "ready", session });
   }
 
+  private session(id: string): PageSession | null {
+    const opened = this.openings.get(id);
+    return opened?.state === "ready" ? opened.session : null;
+  }
+
+  /** Saves now whatever of one document is unsaved (nothing if it isn't open here). */
+  flush = async (id: string) => {
+    await this.session(id)?.saver.flush();
+  };
+
+  /** One document is back from Trash: its saver continues. */
+  resume = (id: string) => {
+    void this.session(id)?.saver.resume();
+  };
+
+  /** One document was deleted permanently: stop its saver and forget it, device copy included. */
+  forget = (id: string, kind: DraftKind) => {
+    this.session(id)?.saver.dispose();
+    if (this.openings.has(id)) this.set(id, null);
+    void deletePageDraft(id, kind);
+  };
+
   /** Forgets a failed opening, so the next open() tries again. */
   reset(id: string) {
     if (this.openings.get(id)?.state === "failed") this.set(id, null);
@@ -141,9 +173,15 @@ export function WorkspacePages() {
   const { manuscript, selected } = useRune2Selection();
   const userId = useProfileStore((s) => s.profile?.id);
   const isOnline = useNetworkStore((s) => s.isOnline);
+  const { bindDocuments } = useTrash();
   // The shell is mounted per Project, so one store serves this Project.
   const [store] = useState(() => new PageSessions(manuscript.project.id));
   const openings = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
+
+  useEffect(() => {
+    bindDocuments({ flush: store.flush, resume: store.resume, forget: store.forget });
+    return () => bindDocuments(null);
+  }, [store, bindDocuments]);
 
   const kind: DraftKind | null =
     selected?.kind === "workspacePage" ? "page" : selected?.kind === "collectionEntry" ? "entry" : null;

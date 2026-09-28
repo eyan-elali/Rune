@@ -35,7 +35,12 @@ export type PageSaveStatus =
   /** Changed elsewhere since this content's version. Not saving until resolved. */
   | "conflict"
   /** The Page no longer exists or isn't reachable by this writer. Kept on this device. */
-  | "unavailable";
+  | "unavailable"
+  /**
+   * The Page was moved to Trash (here or in another window). Not saving: its
+   * latest content is kept on this device until it is restored (resume()).
+   */
+  | "trashed";
 
 export type PageDraft = { content: PageDoc; baseVersion: number; dirty: boolean };
 
@@ -112,7 +117,7 @@ export class PageSaver {
     this._dirty = true;
     this.seq += 1;
     this.persist();
-    if (this._status === "conflict" || this._status === "unavailable") return;
+    if (this.halted()) return;
     if (this._status === "saved") this.setStatus("pending");
     // A save in flight schedules the next one when it lands; a retry keeps its
     // backoff; otherwise save after a pause.
@@ -131,7 +136,7 @@ export class PageSaver {
         await this.inFlight;
         continue;
       }
-      if (!this._dirty || this._status === "conflict" || this._status === "unavailable" || this.disposed) return;
+      if (!this._dirty || this.halted() || this.disposed) return;
       const failuresBefore = this.failures;
       await this.run();
       if (this.failures > failuresBefore) return;
@@ -162,6 +167,18 @@ export class PageSaver {
     this.setStatus("saved");
   }
 
+  /**
+   * Saving can continue: the Page is back from Trash (or reachable again).
+   * Whatever is unsaved is saved now, on the version it is based on — Trash
+   * never changes a version, so nothing becomes a conflict.
+   */
+  async resume(): Promise<void> {
+    if (this._status !== "trashed" && this._status !== "unavailable") return;
+    this.failures = 0;
+    this.setStatus(this._dirty ? "pending" : "saved");
+    await this.flush();
+  }
+
   /** Stops timers. Call after flush(); unsaved content stays on the device. */
   dispose(): void {
     this.disposed = true;
@@ -169,6 +186,11 @@ export class PageSaver {
   }
 
   // ── internals ──────────────────────────────────────────────────────────────
+
+  /** Whether saving waits for the writer (a conflict) or for the Page to be reachable. */
+  private halted(): boolean {
+    return this._status === "conflict" || this._status === "unavailable" || this._status === "trashed";
+  }
 
   private persist() {
     this.opts.persist?.({ content: this._content, baseVersion: this._version, dirty: this._dirty });
@@ -197,7 +219,7 @@ export class PageSaver {
 
   private run(): Promise<void> {
     if (this.inFlight) return this.inFlight;
-    if (!this._dirty || this._status === "conflict" || this._status === "unavailable" || this.disposed) {
+    if (!this._dirty || this.halted() || this.disposed) {
       return Promise.resolve();
     }
     this.clearTimer();
@@ -240,6 +262,9 @@ export class PageSaver {
         return;
       case "not_found":
         this.setStatus("unavailable");
+        return;
+      case "trashed":
+        this.setStatus("trashed");
         return;
       case "error": {
         this.failures += 1;

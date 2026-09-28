@@ -53,7 +53,7 @@ test('a database built from schema.sql alone is identical to baseline + migratio
   assert.deepEqual(diffCounts(a, b), []);
   const versions = async (db) => (await db.query(`select version, name, note from public.schema_migrations order by version`)).rows;
   assert.deepEqual(await versions(fresh), await versions(migrated));
-  assert.deepEqual((await versions(fresh)).map((r) => r.version).slice(-17), ['013', '014', '015', '016', '017', '018', '019', '020', '021', '022', '023', '024', '025', '026', '027', '028', '029']);
+  assert.deepEqual((await versions(fresh)).map((r) => r.version).slice(-19), ['013', '014', '015', '016', '017', '018', '019', '020', '021', '022', '023', '024', '025', '026', '027', '028', '029', '030', '031']);
 });
 
 test('signup still creates the profile and pricing entitlements on the Rune 2.0 schema', async () => {
@@ -1173,3 +1173,118 @@ test('029 requires 028, refuses to run twice (including on schema.sql), and chan
     assert.deepEqual(diffCatalogs(before, await captureCatalog(db)).differences, []);
   }
 });
+
+// ── 16. migration 030 ─────────────────────────────────────────────────────────
+
+const M030 = '030_workspace_trash.sql';
+
+async function db029() {
+  const db = await db028();
+  await db.exec(readMigration(M029));
+  return db;
+}
+
+test('030 on 029: Trash columns, active-only policies and the Trash functions — no manuscript table, function or policy change, no row change', async () => {
+  const db = await db029();
+  const before = await captureCatalog(db);
+  const rows = async () => ({
+    scenes: (await db.query(`select * from public.scenes order by id`)).rows,
+    chapters: (await db.query(`select * from public.chapters order by id`)).rows,
+    projects: (await db.query(`select id, word_count from public.projects order by id`)).rows,
+    pages: (await db.query(`select id, title, content, version from public.workspace_documents order by id`)).rows,
+    nodes: (await db.query(`select * from public.workspace_nodes order by id`)).rows,
+  });
+  const beforeRows = await rows();
+  await db.exec(readMigration(M030));
+  const keys = diffCatalogs(before, await captureCatalog(db)).differences.map((d) => `${d.section}:${d.kind}:${d.key}`).sort();
+  const TRASHABLE = '(workspace_documents|workspace_folders|workspace_collections|workspace_collection_entries)';
+  for (const k of keys) {
+    assert.ok(
+      new RegExp(`^columns:added:${TRASHABLE}\\.trashed_(at|from_folder_id|from_position)$`).test(k)
+        || new RegExp(`^(constraints|indexes):added:${TRASHABLE}\\.${TRASHABLE}_trash(ed_idx|_check)$`).test(k)
+        || new RegExp(`^policies:changed:${TRASHABLE}\\.${TRASHABLE}: (select|insert|update) own$`).test(k)
+        || /^policies:changed:object_references\.object_references: select own$/.test(k)
+        || /^functions:added:(workspace_object_active|guard_workspace_trash|owned_workspace_object_project|trash_workspace_object|restore_workspace_object|delete_trashed_workspace_object|list_workspace_trash|workspace_trash_state)\(/.test(k)
+        || /^functions:changed:(set_workspace_entry_value|set_workspace_entry_relationship|search_project_content)\(/.test(k)
+        || /^function_grants:added:(workspace_object_active|guard_workspace_trash|owned_workspace_object_project|trash_workspace_object|restore_workspace_object|delete_trashed_workspace_object|list_workspace_trash|workspace_trash_state)\(.*\) (authenticated|service_role|postgres) EXECUTE$/.test(k)
+        || /^triggers:added:(object_references|workspace_collection_properties|workspace_collection_views)\.\1_guard_trash$/.test(k)
+        || /^relation_counts?:/.test(k),
+      `unexpected change: ${k}`);
+  }
+  assert.ok(keys.includes('columns:added:workspace_documents.trashed_at'));
+  assert.ok(!keys.some((k) => / anon EXECUTE$/.test(k)), 'nothing for anon');
+  assert.ok(!keys.some((k) => /^policies:added:/.test(k)), 'no new policy: the existing ones now require active objects');
+  assert.ok(!keys.some((k) => /(^|[:.])(scenes|chapters|manuscripts|manuscript_groups|projects)[.(]/.test(k.split(':').slice(2).join(':'))),
+    'nothing in the manuscript');
+  assert.deepEqual(await rows(), beforeRows, 'every row as it was: nothing is trashed');
+});
+
+test('030 requires 029, refuses to run twice (including on schema.sql), and changes nothing when it refuses', async () => {
+  const only028 = await db028();
+  const before028 = await captureCatalog(only028);
+  await assert.rejects(only028.exec(readMigration(M030)), /requires migration 029/);
+  assert.deepEqual(diffCatalogs(before028, await captureCatalog(only028)).differences, []);
+  for (const db of [await migratedDb(), await freshRune2Db()]) {
+    const before = await captureCatalog(db);
+    await assert.rejects(db.exec(readMigration(M030)), /Migration 030 has already been applied/);
+    assert.deepEqual(diffCatalogs(before, await captureCatalog(db)).differences, []);
+  }
+});
+
+// ── 17. migration 031 ─────────────────────────────────────────────────────────
+
+const M031 = '031_scene_trash.sql';
+
+async function db030() {
+  const db = await db029();
+  await db.exec(readMigration(M030));
+  return db;
+}
+
+test('031 on 030: Scene Trash — two columns, active-only Scene policies, the Trash functions — and no row, total or RPC signature change', async () => {
+  const db = await db030();
+  const before = await captureCatalog(db);
+  const rows = async () => ({
+    scenes: (await db.query(`select * from public.scenes order by id`)).rows,
+    chapters: (await db.query(`select * from public.chapters order by id`)).rows,
+    projects: (await db.query(`select id, word_count from public.projects order by id`)).rows,
+    sessions: (await db.query(`select * from public.writing_sessions order by id`)).rows,
+  });
+  const beforeRows = await rows();
+  await db.exec(readMigration(M031));
+  const keys = diffCatalogs(before, await captureCatalog(db)).differences.map((d) => `${d.section}:${d.kind}${d.fields ? '[' + d.fields.join(',') + ']' : ''}:${d.key}`).sort();
+  const NEW = '(trash_manuscript_scene|restore_manuscript_scene|delete_trashed_manuscript_scene)';
+  for (const k of keys) {
+    assert.ok(
+      /^columns:added:scenes\.(trashed_at|trashed_from_chapter_id)$/.test(k)
+        || /^(constraints|indexes):added:scenes\.(scenes_trash_check|scenes_trashed_idx)$/.test(k)
+        || /^(constraints|indexes):changed(\[.*\])?:scenes\.scenes_unplaced_position_excl$/.test(k)
+        || /^policies:changed(\[.*\])?:scenes\.scenes: (select|update|delete) own$/.test(k)
+        || new RegExp(`^functions:added:${NEW}\\(`).test(k)
+        || new RegExp(`^function_grants:added:${NEW}\\(.*\\) (service_role|postgres) EXECUTE$`).test(k)
+        || /^functions:changed(\[.*\])?:(increment_scene_version|duplicate_project_checked|search_project_content|workspace_object_active|owned_workspace_object_project|trash_workspace_object|restore_workspace_object|delete_trashed_workspace_object|list_workspace_trash|workspace_trash_state)\(/.test(k)
+        || /^functions:changed\[(definition,)?security_definer\]:account_word_total\(/.test(k)
+        || /^relation_counts?:/.test(k),
+      `unexpected change: ${k}`);
+  }
+  assert.ok(keys.includes('columns:added:scenes.trashed_at'));
+  assert.ok(!keys.some((k) => /^functions:(added|removed):(save_scene_checked|insert_scene_checked|insert_unplaced_scene_checked|account_word_total|move_scene|reorder_chapter_scenes|delete_chapter)\(/.test(k)),
+    'no load-bearing RPC is added, removed or re-signed');
+  assert.ok(!keys.some((k) => / (anon|authenticated) EXECUTE$/.test(k) && k.includes('added')), 'the Scene helpers are internal');
+  assert.deepEqual(await rows(), beforeRows, 'every row, total and session as it was: nothing is trashed');
+  const fn = (await db.query(`select prosecdef from pg_proc where proname = 'account_word_total'`)).rows[0];
+  assert.equal(fn.prosecdef, true, 'account_word_total counts the same rows from every caller');
+});
+
+test('031 requires 030, refuses to run twice (including on schema.sql), and changes nothing when it refuses', async () => {
+  const only029 = await db029();
+  const before029 = await captureCatalog(only029);
+  await assert.rejects(only029.exec(readMigration(M031)), /requires migration 030/);
+  assert.deepEqual(diffCatalogs(before029, await captureCatalog(only029)).differences, []);
+  for (const db of [await migratedDb(), await freshRune2Db()]) {
+    const before = await captureCatalog(db);
+    await assert.rejects(db.exec(readMigration(M031)), /Migration 031 has already been applied/);
+    assert.deepEqual(diffCatalogs(before, await captureCatalog(db)).differences, []);
+  }
+});
+

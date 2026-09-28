@@ -103,11 +103,28 @@
 
 /* The content column: tab strip (shell tone) over the content surface. */
 .r2-content {
+  position: relative;
   display: flex;
   flex-direction: column;
   min-height: 0;
   min-width: 0;
   background: var(--r2-bg);
+}
+/* The selection's layer: tabs, context bar, content. While Trash is open it
+   stays mounted (editors, unsaved writing, scroll) but is not painted, and
+   Trash fills the column in its place. */
+.r2-content-layer {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+.r2-shell[data-trash] .r2-content-layer {
+  visibility: hidden;
+}
+/* The right-hand panel belongs to the selection: hidden with it. */
+.r2-shell[data-trash] .r2-panel {
+  display: none;
 }
 
 /* ── Navigator ─────────────────────────────────────────────────────────── */
@@ -460,10 +477,15 @@ button.r2-disclosure:hover {
 }
 
 .r2-nav-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
   flex-shrink: 0;
   padding: 10px 8px 12px;
 }
-.r2-nav-footer a {
+.r2-nav-footer a,
+.r2-nav-trash {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -474,7 +496,8 @@ button.r2-disclosure:hover {
   color: var(--r2-ink-3);
   transition: color var(--r2-fast) var(--r2-ease), background-color var(--r2-fast) var(--r2-ease);
 }
-.r2-nav-footer a:hover {
+.r2-nav-footer a:hover,
+.r2-nav-trash:hover {
   color: var(--r2-text);
   background: var(--r2-hover);
 }
@@ -1847,13 +1870,14 @@ button.r2-disclosure:hover {
   color: var(--r2-ink-3);
 }
 
-.r2-button--danger {
+/* Compound selectors: .r2-button is declared later and would otherwise win. */
+.r2-button.r2-button--danger {
   border-color: var(--r2-danger);
   color: #fff;
   background: var(--r2-danger);
 }
-.r2-button--danger:hover:not(:disabled),
-.r2-button--danger:active:not(:disabled) {
+.r2-button.r2-button--danger:hover:not(:disabled),
+.r2-button.r2-button--danger:active:not(:disabled) {
   background: #8a2f28;
 }
 
@@ -2920,4 +2944,175 @@ span.r2-schema-type {
   .r2-search-scrim {
     animation: none;
   }
+}
+
+/* ── Trash ─────────────────────────────────────────────────────────────────
+   Out of the way until needed: "Trash" at the foot of the navigator, an Undo
+   in the notice after something is moved there, and the search overlay's
+   frame for the list itself. Each row: what it is and where it came from,
+   with Restore and Delete… quiet until hovered or focused; a permanent
+   deletion asks in place, saying exactly what will be lost. */
+.r2-trash-notice {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.r2-trash-notice span {
+  flex: 1;
+  min-width: 0;
+}
+.r2-trash-notice button {
+  flex-shrink: 0;
+  font-weight: 500;
+  color: var(--r2-accent-ink);
+}
+.r2-trash-notice button:hover {
+  text-decoration: underline;
+}
+.r2-trash {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--r2-bg);
+}
+.r2-trash-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+.r2-trash-column {
+  width: min(640px, 100%);
+  margin: 0 auto;
+  padding: 40px 24px 64px;
+}
+.r2-trash-heading {
+  font-size: 23px;
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.016em;
+  color: var(--r2-ink-1);
+}
+.r2-trash-heading:focus {
+  outline: none;
+}
+.r2-trash-lede {
+  margin: 6px 0 20px;
+  font-size: 13px;
+  color: var(--r2-ink-3);
+}
+.r2-trash-title,
+.r2-trash-meta {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.r2-trash-title {
+  font-size: 13.5px;
+  color: var(--r2-ink-1);
+}
+.r2-trash-meta {
+  font-size: 12px;
+  color: var(--r2-ink-3);
+}
+.r2-trash-empty,
+.r2-trash-status {
+  padding: 12px 0;
+  font-size: 13px;
+  color: var(--r2-ink-3);
+}
+.r2-nav-trash[data-active] {
+  color: var(--r2-text);
+  background: var(--r2-selected);
+}
+.r2-trash-filter {
+  padding: 0 0 10px;
+}
+.r2-trash-filter input {
+  width: 100%;
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--r2-border-strong);
+  border-radius: var(--r2-radius);
+  background: var(--r2-field-bg);
+  font: inherit;
+  font-size: 13px;
+  color: var(--r2-ink-1);
+}
+.r2-trash-list {
+  margin: 0 -10px;
+  padding-top: 4px;
+  border-top: 1px solid var(--r2-border);
+}
+.r2-trash-list li {
+  border-radius: var(--r2-radius);
+}
+.r2-trash-list li:hover,
+.r2-trash-list li:focus-within,
+.r2-trash-list li[data-confirming] {
+  background: var(--r2-hover);
+}
+.r2-trash-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px 6px 10px;
+}
+.r2-trash-icon {
+  flex-shrink: 0;
+  color: var(--r2-ink-3);
+}
+.r2-trash-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.r2-trash-actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: 2px;
+  opacity: 0.55;
+  transition: opacity var(--r2-fast) var(--r2-ease);
+}
+.r2-trash-list li:hover .r2-trash-actions,
+.r2-trash-list li:focus-within .r2-trash-actions {
+  opacity: 1;
+}
+@media (hover: none) {
+  .r2-trash-actions {
+    opacity: 1;
+  }
+}
+.r2-trash-action {
+  height: 26px;
+  padding: 0 8px;
+  border-radius: 4px;
+  font-size: 12.5px;
+  color: var(--r2-ink-2);
+}
+.r2-trash-action:hover:not(:disabled) {
+  color: var(--r2-ink-1);
+  background: var(--r2-press);
+}
+.r2-trash-action[data-tone="danger"]:hover:not(:disabled) {
+  color: var(--r2-danger);
+}
+.r2-trash-action:disabled {
+  opacity: 0.45;
+}
+.r2-trash-confirm {
+  padding: 2px 10px 10px 34px;
+}
+.r2-trash-confirm p {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--r2-ink-1);
+}
+.r2-trash-confirm div {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
 }

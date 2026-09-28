@@ -22,6 +22,10 @@ import { buildWorkspaceTree, type WorkspaceTreeNode } from "./workspaceTree";
 // every backlink is derived. Titles, dates, property values, View
 // configuration and reference ids only — never a Page's, an Entry's or a
 // Scene's rich-text content, which its editor loads by id.
+//
+// Only ACTIVE objects: from migration 030, RLS hides everything in Trash (and
+// every reference with an end in Trash), so none of it is read here. The
+// Trash itself is listed on demand (listWorkspaceTrash).
 
 export type ProjectWorkspace = {
   pages: WorkspacePageSummary[];
@@ -60,12 +64,20 @@ export type ProjectWorkspace = {
    * property, link or backlink is shown or offered.
    */
   referable: boolean;
+  /**
+   * Whether the Workspace has a Trash (migration 030). When not, nothing is
+   * offered to be trashed, and nothing can be deleted but an empty Folder or
+   * Collection (as before).
+   */
+  trashable: boolean;
+  /** Whether manuscript Scenes can go to Trash too (migration 031). */
+  sceneTrashable: boolean;
 };
 
 /** Cached per request so the shell layout and its pages share one read. */
 export const loadProjectWorkspace = cache(async (projectId: string): Promise<ProjectWorkspace> => {
   const supabase = await createClient();
-  const [pagesRead, foldersRead, nodesRead, collectionsRead, entriesRead, propertiesRead, valuesRead, viewsRead, referencesRead] = await Promise.all([
+  const [pagesRead, foldersRead, nodesRead, collectionsRead, entriesRead, propertiesRead, valuesRead, viewsRead, referencesRead, trashRead, sceneTrashRead] = await Promise.all([
     supabase
       .from("workspace_documents")
       .select("id, title, created_at, updated_at")
@@ -96,7 +108,13 @@ export const loadProjectWorkspace = cache(async (projectId: string): Promise<Pro
       .eq("project_id", projectId)
       .order("position", { ascending: true }),
     supabase.from("object_references").select("*").eq("project_id", projectId),
+    // No rows: only whether the column exists (migration 030).
+    supabase.from("workspace_folders").select("trashed_at").eq("project_id", projectId).limit(0),
+    // Likewise for Scene Trash (migration 031).
+    supabase.from("scenes").select("trashed_at").limit(0),
   ]);
+  const trashable = !trashRead.error;
+  const sceneTrashable = trashable && !sceneTrashRead.error;
   const noProperties = {
     properties: [],
     values: [],
@@ -106,7 +124,7 @@ export const loadProjectWorkspace = cache(async (projectId: string): Promise<Pro
     references: [],
     referable: false,
   };
-  const empty = { folders: [], collections: [], entries: [], organizable: false, collectable: false, ...noProperties };
+  const empty = { folders: [], collections: [], entries: [], organizable: false, collectable: false, trashable: false, sceneTrashable, ...noProperties };
   // The Workspace must never keep the writer from the Manuscript: if it can't
   // be read (e.g. before migration 023 is applied), the shell opens without it.
   if (pagesRead.error) {
@@ -157,6 +175,8 @@ export const loadProjectWorkspace = cache(async (projectId: string): Promise<Pro
     tree: buildWorkspaceTree(nodes, pages, folders, collections),
     organizable: true,
     collectable: !collectionsError,
+    trashable,
+    sceneTrashable,
     ...properties,
   };
 });

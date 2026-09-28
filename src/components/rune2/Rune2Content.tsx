@@ -2,15 +2,18 @@
 
 import { useEffect, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { PanelRight, Plus, StickyNote } from "lucide-react";
+import { MoreHorizontal, PanelRight, Plus, StickyNote, Trash2 } from "lucide-react";
 import { createScene } from "@/lib/actions/scenes";
 import { cacheScene } from "@/lib/offline/db";
 import { isWorkspaceKind, type NavEntry, type NavKind } from "@/lib/rune2/navigatorModel";
+import { trashTypeOf } from "@/lib/rune2/trash";
 import { writingTargetFor } from "@/lib/rune2/writingTarget";
+import { NavigatorMenu } from "./NavigatorMenu";
 import { useRune2Selection } from "./Rune2Selection";
 import { Rune2Writing } from "./Rune2Writing";
 import { CollectionView, NewEntryAction } from "./CollectionView";
 import { WorkspacePages } from "./WorkspacePages";
+import { useTrash } from "./WorkspaceTrash";
 
 // The context bar (a quiet breadcrumb to the selection, and the selection's
 // few contextual actions: "+ Scene" where a placed Scene can be added, then
@@ -91,6 +94,12 @@ export function Rune2ContextBar() {
             <span className="r2-contextbar-divider" aria-hidden />
           </>
         )}
+        {selected && trashTypeOf(selected) && selected.kind !== "workspaceFolder" && (
+          <>
+            <ItemMenu entry={selected} />
+            <span className="r2-contextbar-divider" aria-hidden />
+          </>
+        )}
         {target?.kind === "scenes" && target.addSceneTo && (
           <>
             <AddSceneAction chapterId={target.addSceneTo} />
@@ -121,6 +130,72 @@ export function Rune2ContextBar() {
         </button>
       </div>
     </header>
+  );
+}
+
+/**
+ * "⋯" for the item in view (a Page, Collection, Entry or Scene): its quiet
+ * actions — for now, "Move to Trash". An Entry has no navigator row, so this
+ * is where it is trashed from. Hidden before migration 030 (031 for Scenes).
+ */
+function ItemMenu({ entry }: { entry: NavEntry }) {
+  const trash = useTrash();
+  const [at, setAt] = useState<{ x: number; y: number } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!notice) return;
+    const timer = setTimeout(() => setNotice(null), 5000);
+    return () => clearTimeout(timer);
+  }, [notice]);
+
+  const isScene = entry.kind === "scene" || entry.kind === "unplacedScene";
+  if (!trash.available || (isScene && !trash.scenesAvailable)) return null;
+  return (
+    <>
+      {notice && (
+        <span role="status" className="r2-contextbar-notice">
+          {notice}
+        </span>
+      )}
+      <button
+        type="button"
+        className="r2-action r2-action--icon"
+        aria-label={`${entry.title} actions`}
+        aria-haspopup="menu"
+        title="More"
+        disabled={busy}
+        onClick={(e) => {
+          const r = e.currentTarget.getBoundingClientRect();
+          setAt({ x: r.right - 180, y: r.bottom + 4 });
+        }}
+      >
+        <MoreHorizontal size={14} strokeWidth={1.75} aria-hidden />
+      </button>
+      {at && (
+        <NavigatorMenu
+          label={`${entry.title} actions`}
+          at={at}
+          items={[
+            {
+              label: "Move to Trash",
+              icon: Trash2,
+              tone: "danger",
+              onSelect: async () => {
+                setBusy(true);
+                try {
+                  setNotice(await trash.moveToTrash(entry));
+                } finally {
+                  setBusy(false);
+                }
+              },
+            },
+          ]}
+          onClose={() => setAt(null)}
+        />
+      )}
+    </>
   );
 }
 

@@ -12,8 +12,10 @@ import { normalizeTitle, renameVersioned, saveVersionedContent, type SaveContent
 // Reads, saves and renames are plain statements under RLS (a writer reaches
 // only their own Projects' Pages); creation is one database function, so a
 // new Page always arrives with its place in the Workspace tree (024). The database owns `version` (bumped on every content
-// change, never on a rename) and the timestamps. There is no delete yet:
-// Rune 2.0 deletion is recoverable (Trash), and Trash does not exist.
+// change, never on a rename) and the timestamps. Deletion is recoverable:
+// a Page goes to Trash (actions/workspaceTrash.ts, migration 030), where RLS
+// hides it — so a save into a trashed Page matches nothing and reports
+// "trashed" (versionedContent.ts).
 
 type ActionResult<T> = { data: T; error: null } | { data: null; error: string };
 

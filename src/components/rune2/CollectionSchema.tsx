@@ -160,7 +160,7 @@ function SchemaRow({
         {property.type === "relationship" ? (
           <>
             <span className="r2-schema-type" title="Relationship">
-              → {targetPhrase(property, (id) => objects.get(id)?.title ?? "a collection")}
+              → {targetPhrase(property, (id) => objects.get(id)?.title ?? "a collection in Trash")}
             </span>
             <select
               className="r2-schema-type"

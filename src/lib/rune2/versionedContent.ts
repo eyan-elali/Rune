@@ -8,10 +8,14 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 // passes its own authenticated client; RLS decides what it can reach). Never
 // used for manuscript prose: Scenes save through save_scene_checked.
 
-/** One content save. `conflict`: the object changed since `expectedVersion`; nothing was written. */
+/**
+ * One content save. `conflict`: the object changed since `expectedVersion`;
+ * `trashed`: it is in Trash (migration 030) — in both, nothing was written.
+ */
 export type SaveContentResult =
   | { status: "ok"; version: number; updated_at: string }
   | { status: "conflict"; version: number }
+  | { status: "trashed" }
   | { status: "not_found" }
   | { status: "error"; error: string };
 
@@ -65,8 +69,21 @@ export async function saveVersionedContent(
 
   const { data: current, error: readError } = await supabase.from(table).select("version").eq("id", id).maybeSingle();
   if (readError) return { status: "error", error: readError.message };
-  if (!current) return { status: "not_found" };
+  if (!current) return (await inTrash(supabase, table, id)) ? { status: "trashed" } : { status: "not_found" };
   return { status: "conflict", version: current.version as number };
+}
+
+/**
+ * Whether a row the writer can no longer see is in Trash (RLS shows only
+ * active objects from migration 030). False when it is gone, not theirs, or
+ * Trash doesn't exist yet (before 030).
+ */
+async function inTrash(supabase: SupabaseClient, table: VersionedContentTable, id: string): Promise<boolean> {
+  const { data, error } = await supabase.rpc("workspace_trash_state", {
+    p_type: table === "workspace_documents" ? "page" : "entry",
+    p_id: id,
+  });
+  return !error && (data as { state?: string } | null)?.state === "trashed";
 }
 
 /** Renames a row; blank makes it untitled. Never changes its version or content. Null: not found. */

@@ -12,9 +12,10 @@ import type { WorkspaceFolder } from "@/lib/types";
 // per-Project lock. Renaming a Folder is a plain update under RLS, as renaming
 // a Page is. Positions: a node is put at `index` (0-based) among the
 // destination's children; null = last. Reordering is a move within the same
-// parent. Only a Folder holds other items, and only an empty Folder can be
-// deleted: there is no Trash yet, so nothing that holds anything is ever
-// destroyed.
+// parent. Only a Folder holds other items. Deletion is Trash
+// (actions/workspaceTrash.ts, migration 030), where a Folder's items stay in
+// the Workspace; deleteWorkspaceFolder — an EMPTY Folder only — remains for
+// the shell before 030.
 
 type ActionResult<T> = { data: T; error: null } | { data: null; error: string };
 type RpcResult<T> = ({ status: "ok" } & T) | { status: "error"; error: string };

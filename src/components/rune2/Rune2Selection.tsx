@@ -6,6 +6,7 @@ import type { ProjectWorkspace } from "@/lib/rune2/projectWorkspace";
 import { indexManuscript, indexWorkspace, isSelectable, type NavEntry } from "@/lib/rune2/navigatorModel";
 import {
   closeTab as closeTabIn,
+  forgetTabs,
   MANUSCRIPT_TAB,
   navigateTab,
   openTab,
@@ -35,7 +36,15 @@ import {
 // navigator rows are open, a request to focus a Scene's prose once its editor
 // appears (a Scene just created from the writing surface), titles renamed but
 // not yet re-read, which view the right-hand panel shows, whether the
-// navigator is retracted, and whether Project Search is open.
+// navigator is retracted, whether Project Search is open, and whether the
+// content column shows the Project's Trash.
+//
+// Trash is a project-level utility surface, not an object: it never becomes a
+// tab and never changes the working set. While it is open the content column
+// shows it in place of the selection (whose tabs, editors and unsaved writing
+// stay mounted, hidden); closing it shows the same selection again, and any
+// navigation — selecting an object, opening one in a new tab, a tab, a newly
+// created object — leaves Trash for that object.
 
 export { MANUSCRIPT_TAB };
 
@@ -67,6 +76,11 @@ type Rune2SelectionValue = {
   activeTab: string;
   activateTab: (key: string) => void;
   closeTab: (key: string) => void;
+  /**
+   * Takes objects out of the working set for good (moved to Trash): their
+   * tabs are removed, and a later restore does not bring them back.
+   */
+  dropTabs: (ids: readonly string[]) => void;
   /** Open navigator rows (Groups, Chapters, sections) — UI state only. */
   open: Record<string, boolean>;
   setOpenFor: (ids: string[], value: boolean) => void;
@@ -86,6 +100,9 @@ type Rune2SelectionValue = {
   /** Whether Project Search is open — presentation state only. */
   searchOpen: boolean;
   setSearchOpen: (open: boolean | ((open: boolean) => boolean)) => void;
+  /** Whether the content column shows the Project's Trash instead of the selection. */
+  trashOpen: boolean;
+  setTrashOpen: (open: boolean) => void;
 };
 
 const Rune2SelectionContext = createContext<Rune2SelectionValue | null>(null);
@@ -106,6 +123,7 @@ export function Rune2SelectionProvider({
   const [panel, setPanel] = useState<PanelView | null>(null);
   const [navCollapsed, setNavCollapsed] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [trashOpen, setTrashOpen] = useState(false);
 
   // Titles renamed but not yet re-read; a fresh read supersedes them.
   const [renamed, setRenamed] = useState<Record<string, string>>({});
@@ -132,6 +150,7 @@ export function Rune2SelectionProvider({
   // selected in the same render that first contains it.
   if (awaitedId && has(awaitedId)) {
     setAwaitedId(null);
+    setTrashOpen(false);
     setTabState((prev) => navigateTab(resolveTabs(prev, has), awaitedId));
   }
 
@@ -143,6 +162,7 @@ export function Rune2SelectionProvider({
       if (id !== null && !has(id)) return;
       setAwaitedId(null);
       requestSceneFocus(null);
+      setTrashOpen(false);
       setTabState((prev) => navigateTab(resolveTabs(prev, has), id ?? MANUSCRIPT_TAB));
     },
     [has]
@@ -152,6 +172,7 @@ export function Rune2SelectionProvider({
       if (id !== null && !has(id)) return;
       setAwaitedId(null);
       requestSceneFocus(null);
+      setTrashOpen(false);
       setTabState((prev) => openTab(resolveTabs(prev, has), id ?? MANUSCRIPT_TAB));
     },
     [has]
@@ -159,6 +180,7 @@ export function Rune2SelectionProvider({
   const activateTab = useCallback(
     (key: string) => {
       requestSceneFocus(null);
+      setTrashOpen(false);
       setTabState((prev) => navigateTab(resolveTabs(prev, has), key));
     },
     [has]
@@ -167,6 +189,7 @@ export function Rune2SelectionProvider({
     (key: string) => setTabState((prev) => closeTabIn(resolveTabs(prev, has), key)),
     [has]
   );
+  const dropTabs = useCallback((ids: readonly string[]) => setTabState((prev) => forgetTabs(prev, ids)), []);
   const selectWhenPresent = useCallback((id: string) => setAwaitedId(id), []);
   const setOpenFor = useCallback(
     (ids: string[], value: boolean) =>
@@ -199,6 +222,7 @@ export function Rune2SelectionProvider({
       activeTab: resolved.active,
       activateTab,
       closeTab,
+      dropTabs,
       open,
       setOpenFor,
       focusSceneId,
@@ -211,6 +235,8 @@ export function Rune2SelectionProvider({
       closePanel,
       searchOpen,
       setSearchOpen,
+      trashOpen,
+      setTrashOpen,
     }),
     [
       manuscript,
@@ -224,6 +250,7 @@ export function Rune2SelectionProvider({
       resolved.active,
       activateTab,
       closeTab,
+      dropTabs,
       open,
       setOpenFor,
       focusSceneId,
@@ -234,6 +261,7 @@ export function Rune2SelectionProvider({
       togglePanel,
       closePanel,
       searchOpen,
+      trashOpen,
     ]
   );
   return <Rune2SelectionContext.Provider value={value}>{children}</Rune2SelectionContext.Provider>;
