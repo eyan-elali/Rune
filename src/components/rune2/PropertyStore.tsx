@@ -25,7 +25,8 @@ import type { CollectionProperty, CollectionPropertyType, PropertyValue } from "
 // which has its own save engine and device copy.
 
 type Layer<T> = { value: T | null; settled: boolean };
-type Overlay<T> = ReadonlyMap<string, Layer<T>>;
+/** Changes shown ahead of the server read, by key; null = removed. Shared with ViewStore. */
+export type Overlay<T> = ReadonlyMap<string, Layer<T>>;
 
 type PropertyStore = {
   /** Whether properties exist on this database (migration 026 applied). */
@@ -53,7 +54,7 @@ export function usePropertyStore(): PropertyStore {
   return store;
 }
 
-function applyOverlay<T>(base: Map<string, T>, overlay: Overlay<T>): Map<string, T> {
+export function applyOverlay<T>(base: Map<string, T>, overlay: Overlay<T>): Map<string, T> {
   if (overlay.size === 0) return base;
   const next = new Map(base);
   for (const [k, { value }] of overlay) {
@@ -64,13 +65,13 @@ function applyOverlay<T>(base: Map<string, T>, overlay: Overlay<T>): Map<string,
 }
 
 /** Overlay edits: show `value` for each key now (settled: false). */
-function put<T>(overlay: Overlay<T>, entries: [string, T | null][]): Overlay<T> {
+export function put<T>(overlay: Overlay<T>, entries: [string, T | null][]): Overlay<T> {
   const next = new Map(overlay);
   for (const [k, value] of entries) next.set(k, { value, settled: false });
   return next;
 }
 /** The write for these keys is done: show `value` (if given) until the next read. */
-function settle<T>(overlay: Overlay<T>, keys: string[], value?: T | null): Overlay<T> {
+export function settle<T>(overlay: Overlay<T>, keys: string[], value?: T | null): Overlay<T> {
   const next = new Map(overlay);
   for (const k of keys) {
     const layer = next.get(k);
@@ -78,16 +79,16 @@ function settle<T>(overlay: Overlay<T>, keys: string[], value?: T | null): Overl
   }
   return next;
 }
-function drop<T>(overlay: Overlay<T>, keys: string[]): Overlay<T> {
+export function drop<T>(overlay: Overlay<T>, keys: string[]): Overlay<T> {
   const next = new Map(overlay);
   keys.forEach((k) => next.delete(k));
   return next;
 }
-function withoutSettled<T>(overlay: Overlay<T>): Overlay<T> {
+export function withoutSettled<T>(overlay: Overlay<T>): Overlay<T> {
   return new Map([...overlay].filter(([, l]) => !l.settled));
 }
 
-const networkError = { data: null, error: "Network error" } as const;
+export const networkError = { data: null, error: "Network error" } as const;
 
 export function PropertyStoreProvider({ workspace, children }: { workspace: ProjectWorkspace; children: ReactNode }) {
   const router = useRouter();

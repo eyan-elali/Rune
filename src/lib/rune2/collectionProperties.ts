@@ -124,21 +124,36 @@ export function formatValue(property: CollectionProperty, value: PropertyValue |
 }
 
 /**
- * The values a Collection's list shows beside one Entry: its properties
- * marked shown_in_list, in order, empty ones left out. Text is kept to one
- * short phrase so the line never becomes a paragraph.
+ * One Entry's values for `properties`, in that order, as short phrases —
+ * empty ones left out, text kept to one short phrase so the line never
+ * becomes a paragraph. What a List View's line and a Board card show.
+ */
+export function valueLine(
+  properties: readonly CollectionProperty[],
+  values: ReadonlyMap<string, PropertyValue>,
+  entryId: string
+): string[] {
+  return properties.flatMap((p) => {
+    const text = formatValue(p, values.get(valueKey(entryId, p.id)));
+    if (!text) return [];
+    return [p.type === "text" && text.length > 60 ? `${text.slice(0, 59).trimEnd()}…` : text];
+  });
+}
+
+/**
+ * The values a Collection's list showed beside one Entry before saved Views
+ * (027): its properties marked shown_in_list, in order (see valueLine).
  */
 export function listSummary(
   properties: readonly CollectionProperty[],
   values: ReadonlyMap<string, PropertyValue>,
   entryId: string
 ): string[] {
-  return properties.flatMap((p) => {
-    if (!p.shown_in_list) return [];
-    const text = formatValue(p, values.get(valueKey(entryId, p.id)));
-    if (!text) return [];
-    return [p.type === "text" && text.length > 60 ? `${text.slice(0, 59).trimEnd()}…` : text];
-  });
+  return valueLine(
+    properties.filter((p) => p.shown_in_list),
+    values,
+    entryId
+  );
 }
 
 /**

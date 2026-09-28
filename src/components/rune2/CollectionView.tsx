@@ -1,157 +1,143 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
-import { Plus, SlidersHorizontal } from "lucide-react";
-import { createCollectionEntry, renameWorkspaceCollection } from "@/lib/actions/workspaceCollections";
-import { listSummary } from "@/lib/rune2/collectionProperties";
+import { useRef, useState } from "react";
+import { Plus, Rows3, SlidersHorizontal } from "lucide-react";
+import { renameWorkspaceCollection } from "@/lib/actions/workspaceCollections";
+import { arrangeEntries } from "@/lib/rune2/collectionViews";
 import type { NavEntry } from "@/lib/rune2/navigatorModel";
 import { CollectionSchema } from "./CollectionSchema";
+import { BoardView, ListView, TableView } from "./CollectionViewBodies";
 import { usePropertyStore } from "./PropertyStore";
 import { useRune2Selection } from "./Rune2Selection";
+import { useNewEntry } from "./useNewEntry";
+import { AddViewMenu, ViewOptions, ViewSwitcher, viewSummary } from "./ViewControls";
+import { useViewStore } from "./ViewStore";
 import { WorkspaceTitle } from "./WorkspaceTitle";
 
-// A Collection in the content area: its title, edited in place, and its
-// Entries as a plain list in creation order — a writer's list of names, not a
-// table. No columns and no views yet (architecture §17): a Collection reads
-// like Rune before any structure is added to it.
+// A Collection in the content area: its title, edited in place, and its one
+// set of Entries shown through its active saved View (migration 027) — a
+// List (a writer's list of names, the default), a Table or a Board. Every
+// View reads the same Entries and values, so an edit anywhere is everywhere.
 //
-// Properties (migration 026) join quietly: under each name, the values of the
-// properties marked "shown in the list" (the first three by default), as one
-// muted line — "Protagonist · Alive · Drelareth" — and nothing for an Entry
-// that has none. "Properties" opens the Collection's property settings
-// (CollectionSchema) above the list; closed, the view is the Milestone 8 list.
+// Progressive disclosure: a Collection with only its default List looks as it
+// did in Milestone 9 — the list, "New entry", and a quiet tool row. The View
+// switcher appears only once there is a second View; Table and Board are
+// offered from "Add view", not upfront. View settings ("View") and property
+// settings ("Properties") each open inline above the Entries, one at a time.
 //
 // A click opens an Entry in the active tab (the Entry's own line back to its
-// Collection returns here); ⌘/Ctrl-click opens it in a tab of its own. "New
-// entry" creates an untitled Entry at the end and opens it with its title
-// ready to type, as a new Page opens.
+// Collection returns here); ⌘/Ctrl-click or a middle click opens it in a tab
+// of its own. Views never join the working-set tabs: the Collection is the
+// object that is open, and its View is remembered for the session.
 
-/**
- * Creates an Entry at the end of a Collection and opens it, title first.
- * Returns the action and whether it is running; failures show in `notice`.
- */
-function useNewEntry(collectionId: string) {
-  const { selectWhenPresent, requestSceneFocus } = useRune2Selection();
-  const router = useRouter();
-  const [, startRefresh] = useTransition();
-  const [busy, setBusy] = useState(false);
-  const [notice, setNotice] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!notice) return;
-    const timer = setTimeout(() => setNotice(null), 5000);
-    return () => clearTimeout(timer);
-  }, [notice]);
-
-  async function add() {
-    if (busy) return;
-    setBusy(true);
-    setNotice(null);
-    try {
-      const r = await createCollectionEntry(collectionId, null);
-      if (r.error !== null) {
-        setNotice("Couldn’t create the entry.");
-        return;
-      }
-      selectWhenPresent(r.data.id);
-      requestSceneFocus(r.data.id);
-    } catch {
-      setNotice("Couldn’t create the entry.");
-    } finally {
-      setBusy(false);
-      startRefresh(() => router.refresh());
-    }
-  }
-
-  return { add, busy, notice };
-}
+type Panel = "view" | "properties" | null;
 
 export function CollectionView({ entry }: { entry: NavEntry }) {
-  const { index, select, openInNewTab } = useRune2Selection();
-  const { available, propertiesOf, values } = usePropertyStore();
+  const { index } = useRune2Selection();
+  const { available: propertied, propertiesOf, values } = usePropertyStore();
+  const { available: viewable, viewsOf, activeViewOf } = useViewStore();
   const { add, busy, notice } = useNewEntry(entry.id);
-  const listRef = useRef<HTMLDivElement>(null);
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const properties = available ? propertiesOf(entry.id) : [];
-  const entries = (entry.entryIds ?? []).flatMap((id) => {
-    const e = index.get(id);
-    return e ? [e] : [];
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const [panel, setPanel] = useState<Panel>(null);
+  const toggle = (p: Exclude<Panel, null>) => setPanel((open) => (open === p ? null : p));
+
+  const properties = propertied ? propertiesOf(entry.id) : [];
+  const views = viewsOf(entry.id);
+  const view = activeViewOf(entry.id);
+  const entryIds = (entry.entryIds ?? []).filter((id) => index.has(id));
+  const arranged = arrangeEntries(view, {
+    entryIds,
+    properties,
+    values,
+    titleOf: (id) => index.get(id)?.title ?? "",
   });
+  const hiddenCount = entryIds.length - arranged.length;
+  const summary = viewable ? viewSummary(view, properties) : "";
 
   return (
     <div className="r2-writing">
-      <div className="r2-doc r2-page r2-collection">
+      <div className="r2-doc r2-page r2-collection" data-wide={view.type !== "list" || undefined}>
         <WorkspaceTitle
           entry={entry}
           rename={renameWorkspaceCollection}
           noun="collection"
           placeholder="Untitled collection"
           // Out of the title: to the first Entry, or to "New entry".
-          onLeave={() => listRef.current?.querySelector<HTMLElement>("button")?.focus()}
+          onLeave={() => bodyRef.current?.querySelector<HTMLElement>("button, input, textarea")?.focus()}
         />
 
-        {available && (
-          <div className="r2-collection-tools">
-            <button
-              type="button"
-              className="r2-collection-tool"
-              aria-expanded={settingsOpen}
-              onClick={() => setSettingsOpen((o) => !o)}
-            >
-              <SlidersHorizontal size={13} strokeWidth={1.75} aria-hidden />
-              {properties.length === 0
-                ? "Properties"
-                : `${properties.length} ${properties.length === 1 ? "property" : "properties"}`}
-            </button>
+        {propertied && (
+          <div className="r2-collection-bar">
+            {views.length > 1 && <ViewSwitcher collectionId={entry.id} views={views} active={view} />}
+            <div className="r2-collection-tools">
+              {viewable && <AddViewMenu collectionId={entry.id} properties={properties} compact={views.length > 1} />}
+              {viewable && (
+                <button
+                  type="button"
+                  className="r2-collection-tool"
+                  aria-expanded={panel === "view"}
+                  onClick={() => toggle("view")}
+                  title="Shown properties, sort and filters for this view"
+                >
+                  <SlidersHorizontal size={13} strokeWidth={1.75} aria-hidden />
+                  {summary ? `View · ${summary}` : "View"}
+                </button>
+              )}
+              <button
+                type="button"
+                className="r2-collection-tool"
+                aria-expanded={panel === "properties"}
+                onClick={() => toggle("properties")}
+              >
+                <Rows3 size={13} strokeWidth={1.75} aria-hidden />
+                {properties.length === 0
+                  ? "Properties"
+                  : `${properties.length} ${properties.length === 1 ? "property" : "properties"}`}
+              </button>
+            </div>
           </div>
         )}
-        {available && settingsOpen && <CollectionSchema collectionId={entry.id} collectionTitle={entry.title} />}
+        {propertied && panel === "properties" && (
+          <CollectionSchema collectionId={entry.id} collectionTitle={entry.title} />
+        )}
+        {viewable && panel === "view" && (
+          <ViewOptions
+            // A fresh form per View, so a half-typed name never carries over.
+            key={view.id}
+            view={view}
+            views={views}
+            properties={properties}
+            onDeleted={() => setPanel(null)}
+          />
+        )}
 
-        <div ref={listRef}>
-          {entries.length > 0 ? (
-            <ul className="r2-entry-list" aria-label={`Entries in ${entry.title}`}>
-              {entries.map((e) => {
-                const summary = listSummary(properties, values, e.id);
-                return (
-                <li key={e.id}>
-                  <button
-                    type="button"
-                    className="r2-entry-row"
-                    data-unnamed={!e.named || undefined}
-                    onClick={(ev) => (ev.metaKey || ev.ctrlKey ? openInNewTab(e.id) : select(e.id))}
-                    onAuxClick={(ev) => {
-                      if (ev.button === 1) {
-                        ev.preventDefault();
-                        openInNewTab(e.id);
-                      }
-                    }}
-                    onKeyDown={(ev) => {
-                      if (ev.key !== "ArrowDown" && ev.key !== "ArrowUp") return;
-                      const li = ev.currentTarget.parentElement;
-                      const next = ev.key === "ArrowDown" ? li?.nextElementSibling : li?.previousElementSibling;
-                      const target = next?.querySelector<HTMLElement>("button");
-                      if (target) {
-                        ev.preventDefault();
-                        target.focus();
-                      }
-                    }}
-                  >
-                    <span className="r2-entry-row-title">{e.title}</span>
-                    {summary.length > 0 && <span className="r2-entry-row-meta">{summary.join(" · ")}</span>}
-                  </button>
-                </li>
-                );
-              })}
-            </ul>
+        <div ref={bodyRef} className="r2-collection-body">
+          {hiddenCount > 0 && (
+            <p className="r2-view-note">
+              Showing {arranged.length.toLocaleString()} of {entryIds.length.toLocaleString()} entries
+            </p>
+          )}
+          {view.type === "table" ? (
+            <TableView collectionTitle={entry.title} view={view} properties={properties} entryIds={arranged} />
+          ) : view.type === "board" ? (
+            <BoardView
+              collectionId={entry.id}
+              view={view}
+              properties={properties}
+              entryIds={arranged}
+              onChooseGrouping={() => setPanel("view")}
+            />
           ) : (
-            <p className="r2-entry-empty">No entries yet.</p>
+            <ListView collectionTitle={entry.title} view={view} properties={properties} entryIds={arranged} />
           )}
 
-          <button type="button" className="r2-entry-add" disabled={busy} onClick={() => void add()}>
-            <Plus size={14} strokeWidth={1.75} aria-hidden />
-            New entry
-          </button>
+          {entryIds.length === 0 && view.type !== "board" && <p className="r2-entry-empty">No entries yet.</p>}
+          {view.type !== "board" && (
+            <button type="button" className="r2-entry-add" disabled={busy} onClick={() => void add()}>
+              <Plus size={14} strokeWidth={1.75} aria-hidden />
+              New entry
+            </button>
+          )}
           {notice && (
             <p role="status" className="r2-doc-note">
               {notice}

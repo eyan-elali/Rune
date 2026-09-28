@@ -1858,9 +1858,22 @@ button.r2-disclosure:hover {
 }
 
 /* The Collection's property settings. */
+/* One quiet row under the title: the View switcher (once there are two
+   Views) on the left, the tools after it. */
+.r2-collection-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  margin: -8px 0 8px -8px;
+}
 .r2-collection-tools {
   display: flex;
-  margin: -8px 0 8px;
+  align-items: center;
+  gap: 2px;
+}
+.r2-view-switcher + .r2-collection-tools {
+  margin-left: auto;
 }
 .r2-collection-tool {
   display: inline-flex;
@@ -1868,7 +1881,6 @@ button.r2-disclosure:hover {
   gap: 6px;
   height: 28px;
   padding: 0 8px;
-  margin-left: -8px;
   border-radius: var(--r2-radius);
   font-size: 12.5px;
   color: var(--r2-ink-3);
@@ -2005,11 +2017,412 @@ span.r2-schema-type {
   line-height: 1.45;
 }
 
+/* ── Collection Views ────────────────────────────────────────────────── */
+/* Views are ways of reading one Collection, so their chrome stays below the
+   writing's: the switcher is words, the active one in ink with a hairline
+   under it; a Table is rows and hairlines, not a grid; a Board is quiet lanes
+   of plain items. No colour but the ink blue of focus and a status mark.
+   A Table or Board takes a wider column than a List; the List keeps the
+   Page's measure. */
+
+.r2-collection[data-wide] {
+  --r2-doc-width: min(1180px, 100cqw);
+}
+.r2-collection-body {
+  position: relative;
+}
+
+.r2-view-switcher {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+}
+.r2-view-tab {
+  position: relative;
+  height: 28px;
+  padding: 0 8px;
+  border-radius: var(--r2-radius);
+  font-size: 13px;
+  color: var(--r2-ink-3);
+  white-space: nowrap;
+  transition: color var(--r2-fast) var(--r2-ease), background-color var(--r2-fast) var(--r2-ease);
+}
+.r2-view-tab:hover {
+  color: var(--r2-ink-1);
+  background: var(--r2-hover);
+}
+.r2-view-tab[aria-selected="true"] {
+  font-weight: 500;
+  color: var(--r2-ink-1);
+}
+.r2-view-tab[aria-selected="true"]::after {
+  content: "";
+  position: absolute;
+  right: 8px;
+  bottom: 2px;
+  left: 8px;
+  height: 1px;
+  background: var(--r2-ink-1);
+  opacity: 0.55;
+}
+
+.r2-view-add {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+.r2-view-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 30;
+  width: 250px;
+  padding: 4px;
+  border: 1px solid var(--r2-border);
+  border-radius: 7px;
+  background: var(--r2-bg);
+  box-shadow: var(--r2-shadow-pop);
+}
+.r2-view-menu-item {
+  display: block;
+  width: 100%;
+  padding: 6px 8px;
+  border-radius: var(--r2-radius);
+  text-align: left;
+}
+.r2-view-menu-item:hover,
+.r2-view-menu-item:focus-visible {
+  background: var(--r2-hover);
+  outline: none;
+}
+.r2-view-menu-name {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--r2-ink-1);
+}
+.r2-view-menu-hint {
+  display: block;
+  font-size: 12px;
+  color: var(--r2-ink-3);
+}
+.r2-view-add-notice {
+  margin-left: 6px;
+  font-size: 12px;
+  color: var(--r2-danger);
+}
+
+.r2-view-note {
+  margin: 0 0 6px;
+  font-size: 12.5px;
+  color: var(--r2-ink-3);
+}
+
+/* View settings: the same weight as the property settings. */
+.r2-view-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.r2-view-head .r2-schema-name {
+  flex: 1 1 12rem;
+}
+.r2-view-settings {
+  margin: 6px 0 0;
+}
+.r2-view-setting {
+  display: grid;
+  grid-template-columns: minmax(84px, 112px) minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  padding: 5px 0;
+}
+.r2-view-setting dt {
+  padding-top: 6px;
+  color: var(--r2-ink-3);
+}
+.r2-view-setting dd {
+  min-width: 0;
+  margin: 0;
+}
+.r2-view-inline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.r2-view-muted {
+  display: inline-block;
+  padding-top: 6px;
+  color: var(--r2-ink-3);
+}
+.r2-view-props li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 28px;
+}
+.r2-view-prop-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--r2-ink-1);
+}
+.r2-view-props li[data-hidden] .r2-view-prop-name {
+  color: var(--r2-ink-3);
+}
+.r2-view-props .r2-icon-button[aria-pressed="false"] {
+  color: var(--r2-ink-3);
+}
+.r2-view-filters li {
+  margin-bottom: 6px;
+}
+.r2-view-confirm {
+  margin-top: 8px;
+}
+
+/* Table: a hairline under each row, the header in small muted type, no
+   vertical rules and no cell boxes until a value is being edited. */
+.r2-table-wrap {
+  margin: 4px -8px 6px;
+  overflow-x: auto;
+}
+.r2-table {
+  width: 100%;
+  min-width: max-content;
+  border-collapse: collapse;
+  font-size: 13.5px;
+  line-height: 1.45;
+}
+.r2-table th,
+.r2-table td {
+  padding: 0 8px;
+  border-bottom: 1px solid var(--r2-border);
+  text-align: left;
+  vertical-align: top;
+}
+.r2-table thead th {
+  height: 32px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--r2-ink-3);
+  white-space: nowrap;
+  vertical-align: middle;
+}
+.r2-table thead th[data-type="number"] {
+  text-align: right;
+}
+.r2-table-sort {
+  margin-left: 4px;
+  color: var(--r2-ink-2);
+}
+.r2-table td {
+  min-width: 8.5rem;
+  max-width: 22rem;
+  padding-top: 1px;
+  padding-bottom: 1px;
+  color: var(--r2-ink-1);
+}
+.r2-table td .r2-prop-input,
+.r2-table td .r2-prop-button {
+  width: calc(100% + 12px);
+}
+.r2-table td[data-type="number"] .r2-prop-input {
+  text-align: right;
+}
+.r2-table td .r2-prop-check {
+  margin-left: -6px;
+}
+.r2-table-title-col,
+.r2-table-title {
+  width: 1%;
+  min-width: 12rem;
+}
+.r2-table-title {
+  font-weight: 400;
+}
+.r2-table-title button {
+  display: block;
+  width: calc(100% + 12px);
+  max-width: 24rem;
+  min-height: 30px;
+  margin: 1px -6px;
+  padding: 5px 6px;
+  border-radius: var(--r2-radius);
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--r2-page-size);
+  line-height: 1.3;
+  color: var(--r2-ink-1);
+  transition: background-color var(--r2-fast) var(--r2-ease);
+}
+.r2-table-title button[data-unnamed] {
+  color: var(--r2-ink-3);
+}
+.r2-table-title button:hover {
+  background: var(--r2-hover);
+}
+.r2-table tbody tr:hover > * {
+  background: rgba(29, 32, 37, 0.018);
+}
+
+/* A picker over the page (a Table cell's). */
+.r2-prop-picker[data-floating] {
+  position: fixed;
+  right: auto;
+  z-index: 50;
+  width: 280px;
+}
+
+/* Board: lanes side by side, scrolling sideways; each lane a light column
+   with its name and count, its Entries as plain items. */
+.r2-board {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 6px -8px 0;
+  padding: 0 8px 12px;
+  overflow-x: auto;
+}
+.r2-lane {
+  flex: 0 0 248px;
+  min-width: 0;
+  padding: 6px;
+  border-radius: 7px;
+  background: rgba(29, 32, 37, 0.025);
+  transition: background-color var(--r2-fast) var(--r2-ease), box-shadow var(--r2-fast) var(--r2-ease);
+}
+.r2-lane[data-over] {
+  background: var(--r2-accent-soft);
+  box-shadow: inset 0 0 0 1px var(--r2-accent-line);
+}
+.r2-lane--new {
+  flex-basis: 200px;
+  background: transparent;
+}
+.r2-lane-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 2px 4px 6px;
+  font-size: 12.5px;
+}
+.r2-lane-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+  color: var(--r2-ink-1);
+}
+.r2-lane[data-empty-lane] .r2-lane-name {
+  font-weight: 400;
+  color: var(--r2-ink-3);
+}
+.r2-lane-count {
+  font-variant-numeric: tabular-nums;
+  color: var(--r2-ink-3);
+}
+.r2-lane-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.r2-card {
+  display: block;
+  width: 100%;
+  padding: 7px 9px;
+  border: 1px solid var(--r2-border);
+  border-radius: var(--r2-radius);
+  text-align: left;
+  font-size: 13.5px;
+  line-height: 1.35;
+  color: var(--r2-ink-1);
+  background: var(--r2-bg);
+  cursor: pointer;
+  transition: border-color var(--r2-fast) var(--r2-ease), background-color var(--r2-fast) var(--r2-ease);
+}
+.r2-card:hover {
+  border-color: var(--r2-border-strong);
+}
+.r2-card:active {
+  cursor: grabbing;
+}
+.r2-card[data-unnamed] .r2-card-title {
+  color: var(--r2-ink-3);
+}
+.r2-card-title,
+.r2-card-meta {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.r2-card-meta {
+  margin-top: 2px;
+  font-size: 12px;
+  white-space: nowrap;
+  color: var(--r2-ink-3);
+}
+.r2-lane-add {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  width: 100%;
+  height: 28px;
+  margin-top: 4px;
+  padding: 0 6px;
+  border-radius: var(--r2-radius);
+  font-size: 12.5px;
+  color: var(--r2-ink-3);
+  transition: color var(--r2-fast) var(--r2-ease), background-color var(--r2-fast) var(--r2-ease);
+}
+.r2-lane-add:hover:not(:disabled) {
+  color: var(--r2-ink-1);
+  background: var(--r2-hover);
+}
+.r2-lane-input {
+  width: 100%;
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--r2-border-strong);
+  border-radius: var(--r2-radius);
+  font: inherit;
+  font-size: 13px;
+  color: var(--r2-ink-1);
+  background: var(--r2-field-bg);
+}
+.r2-lane-input:focus {
+  outline: none;
+  border-color: var(--r2-accent-line);
+}
+.r2-board-setup {
+  margin: 8px 0;
+  padding: 14px 0;
+  border-top: 1px solid var(--r2-border);
+  font-size: 13.5px;
+  color: var(--r2-ink-2);
+}
+.r2-board-setup p {
+  margin-bottom: 10px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .r2-prop-input,
   .r2-prop-button,
   .r2-prop-add,
-  .r2-collection-tool {
+  .r2-collection-tool,
+  .r2-view-tab,
+  .r2-table-title button,
+  .r2-lane,
+  .r2-card,
+  .r2-lane-add {
     transition: none;
   }
 }

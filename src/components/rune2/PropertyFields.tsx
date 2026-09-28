@@ -85,16 +85,24 @@ function PropertyRow({
   );
 }
 
-function PropertyValueEditor({
+/**
+ * One value, edited in place — the same editor wherever a value appears (an
+ * Entry's properties, a Table cell), writing the one canonical value.
+ * `labelId`: the id(s) naming it. `floating`: its option picker is placed
+ * over the page, for places that clip (a Table scrolls sideways).
+ */
+export function PropertyValueEditor({
   property,
   value,
   labelId,
   onSave,
+  floating = false,
 }: {
   property: CollectionProperty;
   value: PropertyValue | undefined;
   labelId: string;
   onSave: (value: PropertyValue | null) => Promise<void>;
+  floating?: boolean;
 }) {
   switch (property.type) {
     case "text":
@@ -121,7 +129,7 @@ function PropertyValueEditor({
     case "select":
     case "status":
     case "multi_select":
-      return <ChoiceValue property={property} value={value} labelId={labelId} onSave={onSave} />;
+      return <ChoiceValue property={property} value={value} labelId={labelId} onSave={onSave} floating={floating} />;
   }
 }
 
@@ -307,11 +315,13 @@ function ChoiceValue({
   value,
   labelId,
   onSave,
+  floating,
 }: {
   property: CollectionProperty;
   value: PropertyValue | undefined;
   labelId: string;
   onSave: (value: PropertyValue | null) => Promise<void>;
+  floating: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const button = useRef<HTMLButtonElement>(null);
@@ -338,6 +348,7 @@ function ChoiceValue({
           property={property}
           value={value}
           onSave={onSave}
+          floating={floating}
           onClose={(refocus) => {
             setOpen(false);
             if (refocus) button.current?.focus();
@@ -371,14 +382,37 @@ function OptionPicker({
   value,
   onSave,
   onClose,
+  floating,
 }: {
   property: CollectionProperty;
   value: PropertyValue | undefined;
   onSave: (value: PropertyValue | null) => Promise<void>;
   onClose: (refocus: boolean) => void;
+  /** Place the picker over the page under its value (fixed), closing when the page scrolls. */
+  floating: boolean;
 }) {
   const { updateProperty } = usePropertyStore();
   const ref = useRef<HTMLDivElement>(null);
+  const close = useRef(onClose);
+  useEffect(() => {
+    close.current = onClose;
+  });
+
+  useLayoutEffect(() => {
+    const el = ref.current;
+    const anchor = el?.parentElement;
+    if (!floating || !el || !anchor) return;
+    const r = anchor.getBoundingClientRect();
+    el.style.top = `${r.bottom + 4}px`;
+    el.style.left = `${Math.max(8, Math.min(r.left - 6, window.innerWidth - 288))}px`;
+    el.style.visibility = "visible";
+    // A scroll anywhere but inside the picker moves the anchor away: close.
+    const onScroll = (e: Event) => {
+      if (!ref.current?.contains(e.target as Node)) close.current(false);
+    };
+    window.addEventListener("scroll", onScroll, true);
+    return () => window.removeEventListener("scroll", onScroll, true);
+  }, [floating]);
   const listId = useId();
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
@@ -435,7 +469,13 @@ function OptionPicker({
   };
 
   return (
-    <div ref={ref} className="r2-prop-picker">
+    <div
+      ref={ref}
+      className="r2-prop-picker"
+      data-floating={floating ? "" : undefined}
+      // Hidden until placed (useLayoutEffect, before paint).
+      style={floating ? { visibility: "hidden" } : undefined}
+    >
       <input
         autoFocus
         className="r2-prop-picker-input"

@@ -588,7 +588,9 @@ test('Pages, Folders, Collections, Entries, the tree and the manuscript are unto
 
 test('before migration 026: the loader reports no properties, and Collections and Entries work exactly as before', async () => {
   const db = await seededDb();
-  await db.exec(`drop table public.workspace_entry_values; drop table public.workspace_collection_properties;`);
+  // Before 026 there are no Views either (027 requires 026).
+  await db.exec(`drop trigger workspace_collections_default_view on public.workspace_collections; drop table public.workspace_collection_views;
+    drop table public.workspace_entry_values; drop table public.workspace_collection_properties;`);
   signIn(db, ALICE);
   const c = ok(await collections.createWorkspaceCollection(HOLLOW, 'Characters'));
   ok(await collections.createCollectionEntry(c.collection.id, 'Nerai'));

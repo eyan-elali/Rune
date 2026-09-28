@@ -9,6 +9,7 @@ import { Rune2Panel } from "./Rune2Panel";
 import { PropertyStoreProvider } from "./PropertyStore";
 import { Rune2SelectionProvider, useRune2Selection } from "./Rune2Selection";
 import { Rune2Tabs } from "./Rune2Tabs";
+import { ViewStoreProvider } from "./ViewStore";
 import { useWritingChrome } from "./useWritingChrome";
 
 // The Rune 2.0 application shell:
@@ -31,7 +32,9 @@ export function Rune2Shell({
   return (
     <Rune2SelectionProvider manuscript={manuscript} workspace={workspace}>
       <PropertyStoreProvider workspace={workspace}>
-        <Frame>{children}</Frame>
+        <ViewStoreProvider workspace={workspace}>
+          <Frame>{children}</Frame>
+        </ViewStoreProvider>
       </PropertyStoreProvider>
     </Rune2SelectionProvider>
   );

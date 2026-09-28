@@ -173,7 +173,10 @@ export interface CollectionProperty {
   options: PropertyOption[];
   /** 1..n within the Collection. */
   position: number;
-  /** Whether the Collection's list shows this property's values. */
+  /**
+   * Whether the Collection's list showed this property's values (026). Kept
+   * for the previous app; from migration 027 each View's config decides.
+   */
   shown_in_list: boolean;
   created_at: string;
   updated_at: string;
@@ -191,6 +194,49 @@ export interface EntryPropertyValue {
   entry_id: string;
   property_id: string;
   value: PropertyValue;
+}
+
+/** How a saved View presents a Collection's Entries (migration 027). */
+export type CollectionViewType = "list" | "table" | "board";
+
+export type ViewFilterOp = "is" | "is_not" | "is_empty" | "is_not_empty";
+
+/** One filter of a View; all of a View's filters must hold. `value`: an option id ("is"/"is_not" only). */
+export type ViewFilter =
+  | { property: string; op: "is" | "is_not"; value: string }
+  | { property: string; op: "is_empty" | "is_not_empty" };
+
+/**
+ * A View's configuration — never content. Every id is a property (or option)
+ * of the View's own Collection; the database checks it on every write and
+ * prunes it when properties change.
+ */
+export interface CollectionViewConfig {
+  /** Shown properties, in order: List's line, Table's columns, Board's card lines. */
+  properties: string[];
+  /** null: creation order. `by`: "title" or a property id. */
+  sort: { by: string; direction: "asc" | "desc" } | null;
+  filters: ViewFilter[];
+  /** A select or status property (Board lanes); null when there is none to group by. */
+  group_by: string | null;
+}
+
+/**
+ * One saved View of a Collection (migration 027, table
+ * workspace_collection_views). Configuration only: the same Entries and
+ * values appear in every View.
+ */
+export interface WorkspaceCollectionView {
+  id: string;
+  collection_id: string;
+  project_id: string;
+  name: string;
+  type: CollectionViewType;
+  /** 1..n within the Collection; the first is the one a Collection opens in. */
+  position: number;
+  config: CollectionViewConfig;
+  created_at: string;
+  updated_at: string;
 }
 
 export type WorkspaceNodeTarget = "page" | "folder" | "collection";

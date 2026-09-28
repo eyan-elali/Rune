@@ -90,6 +90,13 @@ export const RUNE2_NOTES = {
     'and options on every write. Deleted with its property or Entry. Clients only',
     'read; writes go through set_workspace_entry_value.',
   ],
+  workspace_collection_views: [
+    'Saved View of one Collection (list | table | board): configuration only —',
+    'shown properties, sort, filters, Board grouping — never Entries or values.',
+    'config names only the Collection\'s own properties/options (checked on write,',
+    'pruned when properties change). position 1..n; the last View is kept.',
+    'Clients only read; writes via create/update/move/delete_workspace_collection_view.',
+  ],
   workspace_nodes: [
     'The Workspace tree: navigation only, never ownership. One canonical node per',
     'Page (document_id), Folder (folder_id) or Collection (collection_id), created',

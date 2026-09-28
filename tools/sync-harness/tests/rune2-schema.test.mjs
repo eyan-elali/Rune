@@ -53,7 +53,7 @@ test('a database built from schema.sql alone is identical to baseline + migratio
   assert.deepEqual(diffCounts(a, b), []);
   const versions = async (db) => (await db.query(`select version, name, note from public.schema_migrations order by version`)).rows;
   assert.deepEqual(await versions(fresh), await versions(migrated));
-  assert.deepEqual((await versions(fresh)).map((r) => r.version).slice(-14), ['013', '014', '015', '016', '017', '018', '019', '020', '021', '022', '023', '024', '025', '026']);
+  assert.deepEqual((await versions(fresh)).map((r) => r.version).slice(-15), ['013', '014', '015', '016', '017', '018', '019', '020', '021', '022', '023', '024', '025', '026', '027']);
 });
 
 test('signup still creates the profile and pricing entitlements on the Rune 2.0 schema', async () => {
@@ -938,6 +938,94 @@ test('026 requires 025, refuses to run twice (including on schema.sql), and chan
   for (const db of [await migratedDb(), await freshRune2Db()]) {
     const before = await captureCatalog(db);
     await assert.rejects(db.exec(readMigration(M026)), /Migration 026 has already been applied/);
+    assert.deepEqual(diffCatalogs(before, await captureCatalog(db)).differences, []);
+  }
+});
+
+// ── 13. migration 027 ─────────────────────────────────────────────────────────
+
+const M027 = '027_collection_views.sql';
+
+async function db026() {
+  const db = await db025();
+  await db.exec(readMigration(M026));
+  return db;
+}
+
+test('027 on 026: saved Collection Views, read-only to clients, and nothing else — no manuscript, Page, Folder, node, Entry or value change', async () => {
+  const db = await db026();
+  const before = await captureCatalog(db);
+  await db.exec(readMigration(M027));
+  const after = await captureCatalog(db);
+  const { differences } = diffCatalogs(before, after);
+  const keys = differences.map((d) => `${d.section}:${d.kind}:${d.key}`).sort();
+  const structural = keys.filter((k) => !k.startsWith('table_grants:') && !k.startsWith('function_grants:'));
+  for (const k of structural) {
+    assert.ok(
+      /^(columns|constraints|indexes|policies|triggers):added:workspace_collection_views\./.test(k)
+        || /^relations:added:workspace_collection_views$/.test(k)
+        || /^functions:added:(workspace_view_config_shape_valid|normalize_workspace_view_config|prune_workspace_view_config|default_workspace_view_config|check_workspace_collection_view|create_default_workspace_collection_view|sync_workspace_views_with_property|create_workspace_collection_view|update_workspace_collection_view|move_workspace_collection_view|delete_workspace_collection_view)\(/.test(k)
+        // Views follow their Collection and its properties.
+        || /^triggers:added:workspace_collections\.workspace_collections_default_view$/.test(k)
+        || /^triggers:added:workspace_collection_properties\.workspace_collection_properties_views_(added|changed|removed)$/.test(k),
+      `unexpected change: ${k}`);
+  }
+  for (const k of [
+    'relations:added:workspace_collection_views',
+    'constraints:added:workspace_collection_views.workspace_collection_views_collection_same_project_fkey',
+    'triggers:added:workspace_collection_views.workspace_collection_views_check',
+    'triggers:added:workspace_collections.workspace_collections_default_view',
+    'policies:added:workspace_collection_views.workspace_collection_views: select own',
+  ]) assert.ok(structural.includes(k), `missing ${k}`);
+  assert.ok(!structural.some((k) => /^policies:added:.*: (insert|update|delete)/.test(k)), 'select policies only');
+
+  const grants = keys.filter((k) => k.startsWith('table_grants:') || k.startsWith('function_grants:'));
+  for (const role of ['anon', 'authenticated']) {
+    for (const priv of ['INSERT', 'UPDATE', 'DELETE']) {
+      assert.ok(!grants.includes(`table_grants:added:workspace_collection_views ${role} ${priv}`), `${role} cannot ${priv} views`);
+    }
+  }
+  assert.equal(after.relations.find((r) => r.table === 'workspace_collection_views').rls_enabled, true);
+});
+
+test('027 keeps every existing Collection, Entry, property, value, Page and node exactly as it was, and gives each Collection one List', async () => {
+  const db = await db026();
+  const alice = await createAuthUser(db, crypto.randomUUID());
+  const hollow = (await db.query(`insert into public.projects (user_id, title) values ($1, 'Hollow') returning id`, [alice])).rows[0].id;
+  await db.query(`insert into public.workspace_documents (project_id, title) values ($1, 'Ideas')`, [hollow]);
+  const c = (await db.query(`insert into public.workspace_collections (project_id, title) values ($1, 'Characters') returning id`, [hollow])).rows[0].id;
+  const c2 = (await db.query(`insert into public.workspace_collections (project_id, title) values ($1, 'Places') returning id`, [hollow])).rows[0].id;
+  const e = (await db.query(`insert into public.workspace_collection_entries (collection_id, project_id, title) values ($1, $2, 'Nerai') returning id`, [c, hollow])).rows[0].id;
+  const [role, age] = (await db.query(`insert into public.workspace_collection_properties (collection_id, project_id, name, type, position, shown_in_list)
+     values ($1, $2, 'Role', 'text', 1, true), ($1, $2, 'Age', 'number', 2, false) returning id`, [c, hollow])).rows.map((r) => r.id);
+  await db.query(`insert into public.workspace_entry_values (entry_id, property_id, collection_id, project_id, value) values ($1, $2, $3, $4, '"Hero"')`, [e, role, c, hollow]);
+  const snapshot = async () => ({
+    pages: (await db.query(`select * from public.workspace_documents order by id`)).rows,
+    collections: (await db.query(`select * from public.workspace_collections order by id`)).rows,
+    entries: (await db.query(`select * from public.workspace_collection_entries order by id`)).rows,
+    properties: (await db.query(`select * from public.workspace_collection_properties order by id`)).rows,
+    values: (await db.query(`select * from public.workspace_entry_values order by entry_id`)).rows,
+    nodes: (await db.query(`select * from public.workspace_nodes order by id`)).rows,
+  });
+  const before = await snapshot();
+  await db.exec(readMigration(M027));
+  assert.deepEqual(await snapshot(), before);
+  const views = (await db.query(`select collection_id, name, type, position, config from public.workspace_collection_views order by collection_id = $1 desc`, [c])).rows;
+  assert.deepEqual(views, [
+    { collection_id: c, name: 'List', type: 'list', position: 1, config: { properties: [role], sort: null, filters: [], group_by: null } },
+    { collection_id: c2, name: 'List', type: 'list', position: 1, config: { properties: [], sort: null, filters: [], group_by: null } },
+  ]);
+  assert.ok(age);
+});
+
+test('027 requires 026, refuses to run twice (including on schema.sql), and changes nothing when it refuses', async () => {
+  const only025 = await db025();
+  const before025 = await captureCatalog(only025);
+  await assert.rejects(only025.exec(readMigration(M027)), /requires migration 026/);
+  assert.deepEqual(diffCatalogs(before025, await captureCatalog(only025)).differences, []);
+  for (const db of [await migratedDb(), await freshRune2Db()]) {
+    const before = await captureCatalog(db);
+    await assert.rejects(db.exec(readMigration(M027)), /Migration 027 has already been applied/);
     assert.deepEqual(diffCatalogs(before, await captureCatalog(db)).differences, []);
   }
 });

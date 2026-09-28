@@ -12,10 +12,13 @@ import {
 import type { CollectionProperty, CollectionPropertyType } from "@/lib/types";
 import { AddProperty } from "./PropertyFields";
 import { usePropertyStore } from "./PropertyStore";
+import { useViewStore } from "./ViewStore";
 
 // A Collection's property settings, opened from its view: each property's
-// name, type, order, whether the list shows it, and a choice property's
-// options. The one place a property is renamed, reordered or removed.
+// name, type, order, and a choice property's options. The one place a
+// property is renamed, reordered or removed. Which properties a View shows
+// belongs to the View (migration 027, ViewOptions); only before 027 does
+// this say whether the list shows each one (shown_in_list).
 //
 // Nothing here removes writing. Removing a property removes the values
 // Entries hold for it, so it always asks first and says how many; the server
@@ -74,6 +77,7 @@ function SchemaRow({
   onNotice: (message: string) => void;
 }) {
   const { values, updateProperty, moveProperty, deleteProperty } = usePropertyStore();
+  const { available: viewable } = useViewStore();
   const [name, setName] = useState(property.name);
   const [editing, setEditing] = useState(false);
   const [seen, setSeen] = useState(property.name);
@@ -171,6 +175,7 @@ function SchemaRow({
           </span>
         )}
         <span className="r2-schema-actions">
+          {!viewable && (
           <button
             type="button"
             className="r2-icon-button"
@@ -185,6 +190,7 @@ function SchemaRow({
               <EyeOff size={14} strokeWidth={1.75} aria-hidden />
             )}
           </button>
+          )}
           <button
             type="button"
             className="r2-icon-button"

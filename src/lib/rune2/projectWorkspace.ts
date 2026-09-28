@@ -5,6 +5,7 @@ import type {
   CollectionProperty,
   EntryPropertyValue,
   WorkspaceCollectionSummary,
+  WorkspaceCollectionView,
   WorkspaceFolderSummary,
   WorkspaceNode,
   WorkspacePageSummary,
@@ -13,9 +14,10 @@ import { buildWorkspaceTree, type WorkspaceTreeNode } from "./workspaceTree";
 
 // The Rune 2.0 shell's view of one Project's Workspace: its Pages, Folders and
 // Collections, the tree that places them (migrations 024–025), each
-// Collection's Entries, and its property definitions and the Entries' values
-// (026). Titles, dates and property values only — never a Page's or an
-// Entry's rich-text content, which its editor loads by id.
+// Collection's Entries, its property definitions and the Entries' values
+// (026), and its saved Views (027). Titles, dates, property values and View
+// configuration only — never a Page's or an Entry's rich-text content, which
+// its editor loads by id.
 
 export type ProjectWorkspace = {
   pages: WorkspacePageSummary[];
@@ -40,12 +42,19 @@ export type ProjectWorkspace = {
    * work exactly as before and no property is shown or offered.
    */
   propertied: boolean;
+  /** Every Collection's saved Views (any order; see viewsOf in lib/rune2/collectionViews). */
+  views: WorkspaceCollectionView[];
+  /**
+   * Whether saved Views can be read (migration 027). When not, each
+   * Collection shows its List (from shown_in_list) and no View is offered.
+   */
+  viewable: boolean;
 };
 
 /** Cached per request so the shell layout and its pages share one read. */
 export const loadProjectWorkspace = cache(async (projectId: string): Promise<ProjectWorkspace> => {
   const supabase = await createClient();
-  const [pagesRead, foldersRead, nodesRead, collectionsRead, entriesRead, propertiesRead, valuesRead] = await Promise.all([
+  const [pagesRead, foldersRead, nodesRead, collectionsRead, entriesRead, propertiesRead, valuesRead, viewsRead] = await Promise.all([
     supabase
       .from("workspace_documents")
       .select("id, title, created_at, updated_at")
@@ -69,8 +78,13 @@ export const loadProjectWorkspace = cache(async (projectId: string): Promise<Pro
       .eq("project_id", projectId)
       .order("position", { ascending: true }),
     supabase.from("workspace_entry_values").select("entry_id, property_id, value").eq("project_id", projectId),
+    supabase
+      .from("workspace_collection_views")
+      .select("id, collection_id, project_id, name, type, position, config, created_at, updated_at")
+      .eq("project_id", projectId)
+      .order("position", { ascending: true }),
   ]);
-  const noProperties = { properties: [], values: [], propertied: false };
+  const noProperties = { properties: [], values: [], propertied: false, views: [], viewable: false };
   const empty = { folders: [], collections: [], entries: [], organizable: false, collectable: false, ...noProperties };
   // The Workspace must never keep the writer from the Manuscript: if it can't
   // be read (e.g. before migration 023 is applied), the shell opens without it.
@@ -95,12 +109,18 @@ export const loadProjectWorkspace = cache(async (projectId: string): Promise<Pro
   // Collection is a list of Entries, as in Milestone 8.
   const propertiesError = collectionsError ?? propertiesRead.error ?? valuesRead.error;
   if (propertiesError && !collectionsError) console.error(`[rune2] Could not load collection properties: ${propertiesError.message}`);
+  // Views are optional to properties: without them (before 027), each
+  // Collection shows its List as in Milestone 9.
+  const viewsError = propertiesError ? null : viewsRead.error;
+  if (viewsError) console.error(`[rune2] Could not load collection views: ${viewsError.message}`);
   const properties = propertiesError
     ? noProperties
     : {
         properties: (propertiesRead.data ?? []) as CollectionProperty[],
         values: (valuesRead.data ?? []) as EntryPropertyValue[],
         propertied: true,
+        views: viewsError ? [] : ((viewsRead.data ?? []) as WorkspaceCollectionView[]),
+        viewable: !viewsError,
       };
   return {
     pages,
