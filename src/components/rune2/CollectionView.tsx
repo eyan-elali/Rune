@@ -20,10 +20,12 @@ import { WorkspaceTitle } from "./WorkspaceTitle";
 // View reads the same Entries and values, so an edit anywhere is everywhere.
 //
 // Progressive disclosure: a Collection with only its default List looks as it
-// did in Milestone 9 — the list, "New entry", and a quiet tool row. The View
-// switcher appears only once there is a second View; Table and Board are
-// offered from "Add view", not upfront. View settings ("View") and property
-// settings ("Properties") each open inline above the Entries, one at a time.
+// did in Milestone 9 — the list, "New entry", and a quiet tool row. Once there
+// is a second View, the Views become a local tab row ("List  Table  By Status
+// +") — representations of this one Collection, not working-set tabs; Table
+// and Board are offered from "Add view" / `+`, not upfront. View settings
+// ("View", or double-click a tab) and property settings ("Properties") each
+// open inline above the Entries, one at a time.
 //
 // A click opens an Entry in the active tab (the Entry's own line back to its
 // Collection returns here); ⌘/Ctrl-click or a middle click opens it in a tab
@@ -67,10 +69,16 @@ export function CollectionView({ entry }: { entry: NavEntry }) {
         />
 
         {propertied && (
-          <div className="r2-collection-bar">
-            {views.length > 1 && <ViewSwitcher collectionId={entry.id} views={views} active={view} />}
+          <div className="r2-collection-bar" data-tabs={views.length > 1 || undefined}>
+            {views.length > 1 && (
+              <ViewSwitcher collectionId={entry.id} views={views} active={view} onEdit={() => setPanel("view")}>
+                {viewable && <AddViewMenu collectionId={entry.id} properties={properties} compact />}
+              </ViewSwitcher>
+            )}
             <div className="r2-collection-tools">
-              {viewable && <AddViewMenu collectionId={entry.id} properties={properties} compact={views.length > 1} />}
+              {viewable && views.length === 1 && (
+                <AddViewMenu collectionId={entry.id} properties={properties} compact={false} />
+              )}
               {viewable && (
                 <button
                   type="button"

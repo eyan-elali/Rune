@@ -1,7 +1,20 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
-import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Eye, EyeOff, Plus, Trash2, X } from "lucide-react";
+import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import {
+  ArrowDown,
+  ArrowLeft,
+  ArrowRight,
+  ArrowUp,
+  Columns3,
+  Eye,
+  EyeOff,
+  List,
+  Plus,
+  Table2,
+  Trash2,
+  X,
+} from "lucide-react";
 import {
   filterOpLabel,
   filterOpsFor,
@@ -19,7 +32,7 @@ import type { CollectionProperty, CollectionViewConfig, CollectionViewType, View
 import { useViewStore } from "./ViewStore";
 
 // The quiet controls of a Collection's saved Views (migration 027):
-//   ViewSwitcher — the Views by name, as words in a row, once there are two
+//   ViewSwitcher — the Views as a local tab row, once there are two
 //   AddViewMenu  — List, Table or Board, each with one line saying what it is
 //   ViewOptions  — one View's name, type, order, shown properties, sort,
 //                  filters and (a Board) grouping; opened inline like the
@@ -45,43 +58,114 @@ function useNotice(ms = 5000) {
   return [notice, setNotice] as const;
 }
 
-// ── Switcher ────────────────────────────────────────────────────────────────
+// ── Tabs ────────────────────────────────────────────────────────────────────
+//
+// A Collection's saved Views as a local tab row — different representations
+// of the one Collection, never working-set tabs: switching changes only which
+// View this Collection shows. The row's order is the Views' saved order: drag
+// a tab, or Alt with ←/→, to move it (move_workspace_collection_view).
+// Double-clicking a tab opens its settings. `+` at the end adds a View.
+
+const VIEW_ICON: Record<CollectionViewType, typeof List> = { list: List, table: Table2, board: Columns3 };
+const TAB_DRAG = "application/x-rune-view";
 
 export function ViewSwitcher({
   collectionId,
   views,
   active,
+  onEdit,
+  children,
 }: {
   collectionId: string;
   views: WorkspaceCollectionView[];
   active: WorkspaceCollectionView;
+  /** Opens the settings of the (now active) View. */
+  onEdit?: () => void;
+  /** At the end of the row: the `+`. */
+  children?: ReactNode;
 }) {
-  const { setActiveView } = useViewStore();
+  const { setActiveView, moveView } = useViewStore();
+  const [dragging, setDragging] = useState<string | null>(null);
+  const [over, setOver] = useState<number | null>(null);
+  const focusTab = (id: string) =>
+    requestAnimationFrame(() => document.querySelector<HTMLElement>(`[data-view-tab="${CSS.escape(id)}"]`)?.focus());
+
   const onKey = (e: KeyboardEvent<HTMLButtonElement>, at: number) => {
+    if (e.altKey && (e.key === "ArrowLeft" || e.key === "ArrowRight")) {
+      const to = at + (e.key === "ArrowLeft" ? -1 : 1);
+      if (to < 0 || to >= views.length) return;
+      e.preventDefault();
+      void moveView(views[at], to);
+      focusTab(views[at].id);
+      return;
+    }
     const to = e.key === "ArrowRight" ? at + 1 : e.key === "ArrowLeft" ? at - 1 : e.key === "Home" ? 0 : e.key === "End" ? views.length - 1 : -2;
     if (to === -2) return;
     e.preventDefault();
     const target = views[Math.max(0, Math.min(views.length - 1, to))];
     setActiveView(collectionId, target.id);
-    (e.currentTarget.parentElement?.children[views.indexOf(target)] as HTMLElement | undefined)?.focus();
+    focusTab(target.id);
   };
+
   return (
-    <div className="r2-view-switcher" role="tablist" aria-label="Views">
-      {views.map((v, at) => (
-        <button
-          key={v.id}
-          type="button"
-          role="tab"
-          className="r2-view-tab"
-          aria-selected={v.id === active.id}
-          tabIndex={v.id === active.id ? 0 : -1}
-          title={`${VIEW_TYPE_LABEL[v.type]} view`}
-          onClick={() => setActiveView(collectionId, v.id)}
-          onKeyDown={(e) => onKey(e, at)}
-        >
-          {v.name}
-        </button>
-      ))}
+    <div className="r2-view-tabs">
+      <p id={`${collectionId}-tabs-hint`} className="sr-only">
+        Alt and the left or right arrow move a view. Double-click a view for its settings.
+      </p>
+      <div className="r2-view-switcher" role="tablist" aria-label="Views" aria-describedby={`${collectionId}-tabs-hint`}>
+        {views.map((v, at) => {
+          const Icon = VIEW_ICON[v.type];
+          return (
+            <button
+              key={v.id}
+              type="button"
+              role="tab"
+              className="r2-view-tab"
+              data-view-tab={v.id}
+              aria-selected={v.id === active.id}
+              tabIndex={v.id === active.id ? 0 : -1}
+              data-dragging={dragging === v.id || undefined}
+              data-drop={over === at && dragging !== null && dragging !== v.id ? (views.findIndex((x) => x.id === dragging) < at ? "after" : "before") : undefined}
+              title={`${VIEW_TYPE_LABEL[v.type]} view`}
+              draggable
+              onClick={() => setActiveView(collectionId, v.id)}
+              onDoubleClick={() => {
+                setActiveView(collectionId, v.id);
+                onEdit?.();
+              }}
+              onKeyDown={(e) => onKey(e, at)}
+              onDragStart={(e) => {
+                e.dataTransfer.setData(TAB_DRAG, v.id);
+                e.dataTransfer.effectAllowed = "move";
+                setDragging(v.id);
+              }}
+              onDragEnd={() => {
+                setDragging(null);
+                setOver(null);
+              }}
+              onDragOver={(e) => {
+                if (!e.dataTransfer.types.includes(TAB_DRAG)) return;
+                e.preventDefault();
+                e.dataTransfer.dropEffect = "move";
+                if (over !== at) setOver(at);
+              }}
+              onDrop={(e) => {
+                const id = e.dataTransfer.getData(TAB_DRAG);
+                setDragging(null);
+                setOver(null);
+                const moved = views.find((x) => x.id === id);
+                if (!moved || moved.id === v.id) return;
+                e.preventDefault();
+                void moveView(moved, at);
+              }}
+            >
+              <Icon size={12} strokeWidth={1.75} aria-hidden className="r2-view-tab-icon" />
+              {v.name}
+            </button>
+          );
+        })}
+      </div>
+      {children}
     </div>
   );
 }
@@ -101,7 +185,7 @@ export function AddViewMenu({
 }: {
   collectionId: string;
   properties: CollectionProperty[];
-  /** Icon only (beside a switcher). */
+  /** Icon only (the `+` at the end of the tab row). */
   compact: boolean;
 }) {
   const { createView } = useViewStore();
@@ -143,6 +227,7 @@ export function AddViewMenu({
         aria-controls={open ? menuId : undefined}
         aria-label={compact ? "Add a view" : undefined}
         title="Add a view: list, table or board"
+        data-compact={compact || undefined}
         disabled={busy}
         onClick={() => setOpen((o) => !o)}
       >

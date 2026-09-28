@@ -128,8 +128,8 @@ test('definitions: created in order; the first three shown in the list; names tr
   // The same name is fine in another Collection.
   ok(await props.createCollectionProperty(t.places.collection.id, 'Role', 'text'));
 
-  // Every beta type can be created.
-  for (const type of model.PROPERTY_TYPES) ok(await props.createCollectionProperty(t.cid, `T ${type}`, type));
+  // Every beta type can be created (a Relationship names its target, so it has its own function: app-references).
+  for (const type of model.PROPERTY_TYPES.filter((x) => x !== 'relationship')) ok(await props.createCollectionProperty(t.cid, `T ${type}`, type));
 
   // Options exist only on choice types, even written directly.
   await assert.rejects(db.query(`update public.workspace_collection_properties set options = '[{"id":"a","name":"A"}]' where id = $1`, [t.role.id]),
@@ -588,8 +588,9 @@ test('Pages, Folders, Collections, Entries, the tree and the manuscript are unto
 
 test('before migration 026: the loader reports no properties, and Collections and Entries work exactly as before', async () => {
   const db = await seededDb();
-  // Before 026 there are no Views either (027 requires 026).
-  await db.exec(`drop trigger workspace_collections_default_view on public.workspace_collections; drop table public.workspace_collection_views;
+  // Before 026 there are no Views or references either (027 and 028 require 026).
+  await db.exec(`drop table public.object_references;
+    drop trigger workspace_collections_default_view on public.workspace_collections; drop table public.workspace_collection_views;
     drop table public.workspace_entry_values; drop table public.workspace_collection_properties;`);
   signIn(db, ALICE);
   const c = ok(await collections.createWorkspaceCollection(HOLLOW, 'Characters'));

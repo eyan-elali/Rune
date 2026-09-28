@@ -9,7 +9,7 @@ import {
   updateCollectionView,
   type CollectionViewChanges,
 } from "@/lib/actions/workspaceViews";
-import { fallbackListView, viewsOf as orderedViewsOf } from "@/lib/rune2/collectionViews";
+import { activeView, fallbackListView, viewsOf as orderedViewsOf } from "@/lib/rune2/collectionViews";
 import type { ProjectWorkspace } from "@/lib/rune2/projectWorkspace";
 import type { CollectionViewConfig, CollectionViewType, WorkspaceCollectionView } from "@/lib/types";
 import { applyOverlay, drop, networkError, put, settle, usePropertyStore, withoutSettled, type Overlay } from "./PropertyStore";
@@ -82,8 +82,7 @@ export function ViewStoreProvider({ workspace, children }: { workspace: ProjectW
 
   const activeViewOf = useCallback(
     (collectionId: string) => {
-      const views = viewsOf(collectionId);
-      return views.find((v) => v.id === active.get(collectionId)) ?? views[0];
+      return activeView(viewsOf(collectionId), active.get(collectionId));
     },
     [viewsOf, active]
   );

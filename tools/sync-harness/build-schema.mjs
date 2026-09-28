@@ -97,6 +97,16 @@ export const RUNE2_NOTES = {
     'pruned when properties change). position 1..n; the last View is kept.',
     'Clients only read; writes via create/update/move/delete_workspace_collection_view.',
   ],
+  object_references: [
+    'One forward reference between two canonical objects of the SAME Project —',
+    'an Entry, a Workspace Page or a Scene (source_type/target_type + exactly one',
+    'typed id column each; real FKs, a Scene held to the Project by the check',
+    'trigger). property_id null: a generic reference; set: one value of that',
+    'Relationship property of the source Entry\'s Collection. Backlinks are derived',
+    '(rows by target), never stored. Deleting an end deletes the row, never the',
+    'other end. Clients only read; writes via set_workspace_entry_relationship,',
+    'add_object_reference, remove_object_reference.',
+  ],
   workspace_nodes: [
     'The Workspace tree: navigation only, never ownership. One canonical node per',
     'Page (document_id), Folder (folder_id) or Collection (collection_id), created',

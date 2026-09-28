@@ -11,8 +11,11 @@ import {
   unpinProjectNote,
 } from "@/lib/actions/notes";
 import type { NavEntry } from "@/lib/rune2/navigatorModel";
+import { referenceSubject } from "@/lib/rune2/references";
 import type { ProjectNote } from "@/lib/types";
+import { ObjectLinks } from "./ObjectLinks";
 import { usePropertyStore } from "./PropertyStore";
+import { useReferenceStore } from "./ReferenceStore";
 import { useRune2Selection, type PanelView } from "./Rune2Selection";
 
 // The one optional right-hand panel. Revision Notes and Inspector are separate actions
@@ -314,8 +317,10 @@ function NotesView() {
 // What the selected object *is*, structurally — only what the Phase 1 model
 // actually holds: title, placement, derived position, words, and whether it
 // is part of the ordered manuscript; for a Workspace Page, where it lives and
-// when it was made and last edited. Custom Scene properties, relationships
-// and backlinks (architecture §8, §17, §24) join here once they exist.
+// when it was made and last edited. Then, for an Entry, a Page or a Scene (a
+// Chapter shown as one piece of writing stands for its only Scene), its links
+// and backlinks (028, ObjectLinks) — the Scene's metadata lives here, outside
+// the prose. Custom Scene properties (architecture §8) are not built yet.
 
 function plural(n: number, one: string, many = `${one}s`) {
   return `${n.toLocaleString()} ${n === 1 ? one : many}`;
@@ -328,6 +333,8 @@ function formatDate(iso: string): string {
 function InspectorView() {
   const { manuscript, workspace, index, selected, select } = useRune2Selection();
   const { available: propertied, propertiesOf } = usePropertyStore();
+  const { available: referable } = useReferenceStore();
+  const subject = referable && selected ? referenceSubject(index, selected) : null;
 
   const location = (entry: NavEntry): ReactNode => {
     const parents = entry.kind === "scene" ? entry.path.slice(0, -1) : entry.path;
@@ -477,6 +484,8 @@ function InspectorView() {
           </div>
         ))}
       </dl>
+      {/* A fresh section per object, so an open search never carries over. */}
+      {subject && <ObjectLinks key={subject.id} subject={subject} />}
     </div>
   );
 }

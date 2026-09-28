@@ -1872,7 +1872,7 @@ button.r2-disclosure:hover {
   align-items: center;
   gap: 2px;
 }
-.r2-view-switcher + .r2-collection-tools {
+.r2-view-tabs + .r2-collection-tools {
   margin-left: auto;
 }
 .r2-collection-tool {
@@ -2066,6 +2066,54 @@ span.r2-schema-type {
   height: 1px;
   background: var(--r2-ink-1);
   opacity: 0.55;
+}
+
+/* Saved Views as a local tab row: one quiet line of names over a hairline,
+   the active one underlined on it — representations of this Collection, not
+   working-set tabs (no boxes, no close buttons). `+` sits at the end. */
+.r2-collection-bar[data-tabs] {
+  margin-bottom: 14px;
+  border-bottom: 1px solid var(--r2-border);
+}
+.r2-view-tabs {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+}
+.r2-view-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: default;
+}
+.r2-view-tab-icon {
+  flex: none;
+  color: var(--r2-ink-3);
+}
+.r2-view-tab[aria-selected="true"] .r2-view-tab-icon {
+  color: var(--r2-ink-2);
+}
+.r2-collection-bar[data-tabs] .r2-view-tab {
+  height: 34px;
+  border-radius: var(--r2-radius) var(--r2-radius) 0 0;
+}
+.r2-collection-bar[data-tabs] .r2-view-tab[aria-selected="true"]::after {
+  bottom: -1px;
+  height: 1.5px;
+  opacity: 0.8;
+}
+.r2-view-tab[data-dragging] {
+  opacity: 0.45;
+}
+.r2-view-tab[data-drop="before"] {
+  box-shadow: inset 2px 0 0 var(--r2-accent-line);
+}
+.r2-view-tab[data-drop="after"] {
+  box-shadow: inset -2px 0 0 var(--r2-accent-line);
+}
+.r2-collection-tool[data-compact] {
+  padding: 0 7px;
 }
 
 .r2-view-add {
@@ -2550,5 +2598,202 @@ span.r2-schema-type {
     animation: none;
     width: 100%;
     opacity: 0.25;
+  }
+}
+
+/* ── Relationships and links (migration 028) ─────────────────────────────── */
+
+/* A Relationship's value: its targets as quiet words, each a link to its
+   object; a small + to change them. */
+.r2-prop-relation {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 2px;
+  min-height: 30px;
+}
+.r2-prop-links {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  min-width: 0;
+  margin-left: -5px;
+}
+.r2-prop-link {
+  max-width: 100%;
+  padding: 4px 5px;
+  border-radius: var(--r2-radius);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--r2-accent-ink);
+  text-decoration: underline;
+  text-decoration-color: var(--r2-accent-line);
+  text-underline-offset: 3px;
+  transition: background-color var(--r2-fast) var(--r2-ease), text-decoration-color var(--r2-fast) var(--r2-ease);
+}
+.r2-prop-link:hover {
+  background: var(--r2-hover);
+  text-decoration-color: currentColor;
+}
+.r2-prop-relation-edit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--r2-radius);
+  color: var(--r2-ink-3);
+  opacity: 0;
+  transition: opacity var(--r2-fast) var(--r2-ease), background-color var(--r2-fast) var(--r2-ease);
+}
+.r2-prop-relation:hover .r2-prop-relation-edit,
+.r2-prop-relation-edit:focus-visible,
+.r2-prop-relation-edit[aria-expanded="true"] {
+  opacity: 1;
+}
+.r2-prop-relation-edit:hover {
+  color: var(--r2-ink-1);
+  background: var(--r2-hover);
+}
+/* No hover on touch: the + stays visible. */
+@media (hover: none) {
+  .r2-prop-relation-edit {
+    opacity: 1;
+  }
+}
+.r2-prop-relation > .r2-prop-button {
+  flex: 1 1 auto;
+}
+
+/* The object search: a title, and where it lives in a quieter voice. */
+.r2-object-picker {
+  width: min(320px, 100%);
+  min-width: 240px;
+}
+.r2-prop-picker.r2-object-picker[data-floating] {
+  width: 320px;
+}
+.r2-object-picker-title {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--r2-ink-1);
+}
+.r2-object-picker-hint {
+  flex: 1 0 auto;
+  max-width: 45%;
+  margin-left: auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: right;
+  font-size: 12px;
+  color: var(--r2-ink-3);
+}
+.r2-prop-new-many {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--r2-ink-2);
+}
+
+/* The Inspector's links: Related (the object's own), Referenced by (derived). */
+.r2-links {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--r2-border);
+}
+.r2-links-head {
+  margin: 0 0 4px;
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--r2-ink-3);
+}
+.r2-links-head + .r2-links-add {
+  margin-top: -2px;
+}
+.r2-links-list + .r2-links-head,
+.r2-links-add + .r2-links-head {
+  margin-top: 16px;
+}
+.r2-links-list li {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin: 0 -6px;
+}
+.r2-link {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  min-height: 28px;
+  padding: 4px 6px;
+  border-radius: var(--r2-radius);
+  text-align: left;
+  transition: background-color var(--r2-fast) var(--r2-ease);
+}
+.r2-link:hover {
+  background: var(--r2-hover);
+}
+.r2-link-title {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--r2-ink-1);
+}
+.r2-link-hint {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  color: var(--r2-ink-3);
+}
+.r2-link-remove {
+  flex: none;
+  opacity: 0;
+}
+.r2-links-list li:hover .r2-link-remove,
+.r2-link-remove:focus-visible {
+  opacity: 1;
+}
+@media (hover: none) {
+  .r2-link-remove {
+    opacity: 1;
+  }
+}
+.r2-links-add {
+  position: relative;
+}
+.r2-links-add-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 2px -4px 0;
+  font-size: 12.5px;
+  color: var(--r2-ink-3);
+}
+.r2-links-add .r2-prop-picker {
+  left: -6px;
+  width: 100%;
+  min-width: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .r2-prop-link,
+  .r2-prop-relation-edit,
+  .r2-link,
+  .r2-link-remove {
+    transition: none;
   }
 }

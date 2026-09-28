@@ -4,20 +4,24 @@ import type {
   CollectionEntrySummary,
   CollectionProperty,
   EntryPropertyValue,
+  ObjectReferenceRow,
   WorkspaceCollectionSummary,
   WorkspaceCollectionView,
   WorkspaceFolderSummary,
   WorkspaceNode,
   WorkspacePageSummary,
 } from "@/lib/types";
+import { toReference, type Reference } from "./references";
 import { buildWorkspaceTree, type WorkspaceTreeNode } from "./workspaceTree";
 
 // The Rune 2.0 shell's view of one Project's Workspace: its Pages, Folders and
 // Collections, the tree that places them (migrations 024–025), each
 // Collection's Entries, its property definitions and the Entries' values
-// (026), and its saved Views (027). Titles, dates, property values and View
-// configuration only — never a Page's or an Entry's rich-text content, which
-// its editor loads by id.
+// (026), its saved Views (027), and the Project's references between Entries,
+// Pages and Scenes (028) — Relationship values and generic links, from which
+// every backlink is derived. Titles, dates, property values, View
+// configuration and reference ids only — never a Page's, an Entry's or a
+// Scene's rich-text content, which its editor loads by id.
 
 export type ProjectWorkspace = {
   pages: WorkspacePageSummary[];
@@ -49,12 +53,19 @@ export type ProjectWorkspace = {
    * Collection shows its List (from shown_in_list) and no View is offered.
    */
   viewable: boolean;
+  /** Every reference of the Project (Relationship values and generic links), any order. */
+  references: Reference[];
+  /**
+   * Whether references can be read (migration 028). When not, no Relationship
+   * property, link or backlink is shown or offered.
+   */
+  referable: boolean;
 };
 
 /** Cached per request so the shell layout and its pages share one read. */
 export const loadProjectWorkspace = cache(async (projectId: string): Promise<ProjectWorkspace> => {
   const supabase = await createClient();
-  const [pagesRead, foldersRead, nodesRead, collectionsRead, entriesRead, propertiesRead, valuesRead, viewsRead] = await Promise.all([
+  const [pagesRead, foldersRead, nodesRead, collectionsRead, entriesRead, propertiesRead, valuesRead, viewsRead, referencesRead] = await Promise.all([
     supabase
       .from("workspace_documents")
       .select("id, title, created_at, updated_at")
@@ -72,9 +83,10 @@ export const loadProjectWorkspace = cache(async (projectId: string): Promise<Pro
       .eq("project_id", projectId)
       .order("created_at", { ascending: true })
       .order("id", { ascending: true }),
+    // Every column: the relation_* columns exist only from 028.
     supabase
       .from("workspace_collection_properties")
-      .select("id, collection_id, project_id, name, type, options, position, shown_in_list, created_at, updated_at")
+      .select("*")
       .eq("project_id", projectId)
       .order("position", { ascending: true }),
     supabase.from("workspace_entry_values").select("entry_id, property_id, value").eq("project_id", projectId),
@@ -83,8 +95,17 @@ export const loadProjectWorkspace = cache(async (projectId: string): Promise<Pro
       .select("id, collection_id, project_id, name, type, position, config, created_at, updated_at")
       .eq("project_id", projectId)
       .order("position", { ascending: true }),
+    supabase.from("object_references").select("*").eq("project_id", projectId),
   ]);
-  const noProperties = { properties: [], values: [], propertied: false, views: [], viewable: false };
+  const noProperties = {
+    properties: [],
+    values: [],
+    propertied: false,
+    views: [],
+    viewable: false,
+    references: [],
+    referable: false,
+  };
   const empty = { folders: [], collections: [], entries: [], organizable: false, collectable: false, ...noProperties };
   // The Workspace must never keep the writer from the Manuscript: if it can't
   // be read (e.g. before migration 023 is applied), the shell opens without it.
@@ -113,14 +134,20 @@ export const loadProjectWorkspace = cache(async (projectId: string): Promise<Pro
   // Collection shows its List as in Milestone 9.
   const viewsError = propertiesError ? null : viewsRead.error;
   if (viewsError) console.error(`[rune2] Could not load collection views: ${viewsError.message}`);
+  // References are optional to everything else: without them (before 028),
+  // the Workspace works as in Milestone 10.
+  const referencesError = propertiesError ? null : referencesRead.error;
+  if (referencesError) console.error(`[rune2] Could not load references: ${referencesError.message}`);
   const properties = propertiesError
     ? noProperties
     : {
-        properties: (propertiesRead.data ?? []) as CollectionProperty[],
+        properties: ((propertiesRead.data ?? []) as Partial<CollectionProperty>[]).map(withRelationDefaults),
         values: (valuesRead.data ?? []) as EntryPropertyValue[],
         propertied: true,
         views: viewsError ? [] : ((viewsRead.data ?? []) as WorkspaceCollectionView[]),
         viewable: !viewsError,
+        references: referencesError ? [] : ((referencesRead.data ?? []) as ObjectReferenceRow[]).map(toReference),
+        referable: !referencesError,
       };
   return {
     pages,
@@ -133,3 +160,13 @@ export const loadProjectWorkspace = cache(async (projectId: string): Promise<Pro
     ...properties,
   };
 });
+
+/** A property as read before migration 028 has no relation_* columns: it points nowhere. */
+function withRelationDefaults(p: Partial<CollectionProperty>): CollectionProperty {
+  return {
+    ...(p as CollectionProperty),
+    relation_target: p.relation_target ?? null,
+    relation_collection_id: p.relation_collection_id ?? null,
+    relation_many: p.relation_many ?? false,
+  };
+}

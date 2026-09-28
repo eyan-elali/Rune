@@ -149,8 +149,22 @@ export interface CollectionEntry {
 /** An Entry without its content — what its Collection lists. */
 export type CollectionEntrySummary = Pick<CollectionEntry, "id" | "collection_id" | "title" | "created_at" | "updated_at">;
 
-/** A Collection property's type (migration 026). Relationship comes with the relationships milestone. */
-export type CollectionPropertyType = "text" | "number" | "select" | "multi_select" | "status" | "date" | "checkbox";
+/** A Collection property's type (migration 026; relationship from 028). */
+export type CollectionPropertyType =
+  | "text"
+  | "number"
+  | "select"
+  | "multi_select"
+  | "status"
+  | "date"
+  | "checkbox"
+  | "relationship";
+
+/**
+ * The kinds of object a reference joins (migration 028): a Collection Entry,
+ * a Workspace Page, or a manuscript Scene.
+ */
+export type ReferenceObjectType = "entry" | "page" | "scene";
 
 /** One choice of a select, multi-select or status property. Values refer to it by id. */
 export interface PropertyOption {
@@ -178,6 +192,15 @@ export interface CollectionProperty {
    * for the previous app; from migration 027 each View's config decides.
    */
   shown_in_list: boolean;
+  /**
+   * A Relationship's target (migration 028): Entries of one Collection
+   * (relation_collection_id), Pages, or Scenes. null for every other type —
+   * and on a read before 028.
+   */
+  relation_target: ReferenceObjectType | null;
+  relation_collection_id: string | null;
+  /** Whether an Entry may hold several targets (Relationship only). */
+  relation_many: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -185,7 +208,9 @@ export interface CollectionProperty {
 /**
  * A stored property value, by type: text → string; number → number;
  * select/status → an option id; multi_select → option ids; date →
- * "YYYY-MM-DD"; checkbox → true. No value is no row.
+ * "YYYY-MM-DD"; checkbox → true. No value is no row. A Relationship's value
+ * is its targets' canonical ids, in order — read from object_references,
+ * never stored in workspace_entry_values.
  */
 export type PropertyValue = string | number | boolean | string[];
 
@@ -237,6 +262,30 @@ export interface WorkspaceCollectionView {
   config: CollectionViewConfig;
   created_at: string;
   updated_at: string;
+}
+
+/**
+ * One forward reference between two objects of the same Project (migration
+ * 028, table object_references). Exactly the id column matching each type is
+ * set. property_id null: a generic reference; otherwise one value of that
+ * Relationship property of the source Entry. Backlinks are these rows read by
+ * target — never stored.
+ */
+export interface ObjectReferenceRow {
+  id: string;
+  project_id: string;
+  source_type: ReferenceObjectType;
+  source_entry_id: string | null;
+  source_document_id: string | null;
+  source_scene_id: string | null;
+  target_type: ReferenceObjectType;
+  target_entry_id: string | null;
+  target_document_id: string | null;
+  target_scene_id: string | null;
+  property_id: string | null;
+  /** Order among the source's references (per property, or among its generic ones). */
+  position: number;
+  created_at: string;
 }
 
 export type WorkspaceNodeTarget = "page" | "folder" | "collection";

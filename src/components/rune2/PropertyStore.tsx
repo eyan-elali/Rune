@@ -11,9 +11,15 @@ import {
   type CollectionPropertyChanges,
   type DeleteCollectionPropertyResult,
 } from "@/lib/actions/workspaceProperties";
+import {
+  createRelationshipProperty,
+  updateRelationshipProperty,
+  type RelationshipPropertyChanges,
+} from "@/lib/actions/workspaceReferences";
 import { indexValues, propertiesOf as orderedPropertiesOf, valueKey } from "@/lib/rune2/collectionProperties";
 import type { ProjectWorkspace } from "@/lib/rune2/projectWorkspace";
-import type { CollectionProperty, CollectionPropertyType, PropertyValue } from "@/lib/types";
+import type { CollectionProperty, CollectionPropertyType, PropertyValue, ReferenceObjectType } from "@/lib/types";
+import { useReferenceStore } from "./ReferenceStore";
 
 // The shell's view of Collection properties and Entry values (migration 026),
 // shared by the Collection's list and its Entries. The server read
@@ -23,6 +29,11 @@ import type { CollectionProperty, CollectionPropertyType, PropertyValue } from "
 // its overlay at once, so the screen never keeps a value the server refused.
 // Property values are small metadata saved per change — not the Entry body,
 // which has its own save engine and device copy.
+//
+// A Relationship's value (028) is its targets' ids, kept by the reference
+// store (it is a set of references, not a stored value): `values` shows it
+// under the same key as any other value, and `setValue` hands it there, so a
+// View, a filter or an editor never needs to know the difference.
 
 type Layer<T> = { value: T | null; settled: boolean };
 /** Changes shown ahead of the server read, by key; null = removed. Shared with ViewStore. */
@@ -37,6 +48,16 @@ type PropertyStore = {
   /** Resolves to an error message, or null once saved. */
   setValue: (entryId: string, propertyId: string, value: PropertyValue | null) => Promise<string | null>;
   createProperty: (collectionId: string, name: string, type: CollectionPropertyType) => Promise<string | null>;
+  /** Whether Relationship properties can be made (migration 028 applied). */
+  relatable: boolean;
+  createRelationship: (
+    collectionId: string,
+    name: string,
+    target: ReferenceObjectType,
+    targetCollectionId: string | null,
+    many: boolean
+  ) => Promise<string | null>;
+  updateRelationship: (property: CollectionProperty, changes: RelationshipPropertyChanges) => Promise<string | null>;
   /** Resolves to the property as saved, or an error. */
   updateProperty: (
     property: CollectionProperty,
@@ -93,6 +114,7 @@ export const networkError = { data: null, error: "Network error" } as const;
 export function PropertyStoreProvider({ workspace, children }: { workspace: ProjectWorkspace; children: ReactNode }) {
   const router = useRouter();
   const [, startRefresh] = useTransition();
+  const references = useReferenceStore();
   const [propertyOverlay, setPropertyOverlay] = useState<Overlay<CollectionProperty>>(() => new Map());
   const [valueOverlay, setValueOverlay] = useState<Overlay<PropertyValue>>(() => new Map());
 
@@ -108,7 +130,13 @@ export function PropertyStoreProvider({ workspace, children }: { workspace: Proj
     () => applyOverlay(new Map(workspace.properties.map((p) => [p.id, p])), propertyOverlay),
     [workspace.properties, propertyOverlay]
   );
-  const values = useMemo(() => applyOverlay(indexValues(workspace.values), valueOverlay), [workspace.values, valueOverlay]);
+  const values = useMemo(() => {
+    const stored = applyOverlay(indexValues(workspace.values), valueOverlay);
+    if (references.relationValues.size === 0) return stored;
+    const all = new Map<string, PropertyValue>(stored);
+    for (const [k, ids] of references.relationValues) if (ids.length) all.set(k, ids);
+    return all;
+  }, [workspace.values, valueOverlay, references.relationValues]);
 
   const propertiesOf = useCallback(
     (collectionId: string) => orderedPropertiesOf([...properties.values()], collectionId),
@@ -117,8 +145,13 @@ export function PropertyStoreProvider({ workspace, children }: { workspace: Proj
 
   const refresh = useCallback(() => startRefresh(() => router.refresh()), [router]);
 
+  const { setRelationship } = references;
   const setValue = useCallback<PropertyStore["setValue"]>(
     async (entryId, propertyId, value) => {
+      if (properties.get(propertyId)?.type === "relationship") {
+        const ids = Array.isArray(value) ? value : typeof value === "string" ? [value] : [];
+        return setRelationship(entryId, propertyId, ids);
+      }
       const key = valueKey(entryId, propertyId);
       const empty = value === null || value === "" || value === false || (Array.isArray(value) && value.length === 0);
       setValueOverlay((o) => put(o, [[key, empty ? null : value]]));
@@ -127,13 +160,38 @@ export function PropertyStoreProvider({ workspace, children }: { workspace: Proj
       refresh();
       return r.error;
     },
-    [refresh]
+    [refresh, properties, setRelationship]
   );
 
   const createProperty = useCallback<PropertyStore["createProperty"]>(
     async (collectionId, name, type) => {
       const r = await createCollectionProperty(collectionId, name, type).catch(() => networkError);
       if (r.error === null) setPropertyOverlay((o) => settle(put(o, [[r.data.id, r.data]]), [r.data.id]));
+      refresh();
+      return r.error;
+    },
+    [refresh]
+  );
+
+  const createRelationship = useCallback<PropertyStore["createRelationship"]>(
+    async (collectionId, name, target, targetCollectionId, many) => {
+      const r = await createRelationshipProperty(collectionId, name, target, targetCollectionId, many).catch(
+        () => networkError
+      );
+      if (r.error === null) setPropertyOverlay((o) => settle(put(o, [[r.data.id, r.data]]), [r.data.id]));
+      refresh();
+      return r.error;
+    },
+    [refresh]
+  );
+
+  const updateRelationship = useCallback<PropertyStore["updateRelationship"]>(
+    async (property, changes) => {
+      setPropertyOverlay((o) =>
+        put(o, [[property.id, { ...property, ...(changes.many !== undefined && { relation_many: changes.many }) }]])
+      );
+      const r = await updateRelationshipProperty(property.id, changes).catch(() => networkError);
+      setPropertyOverlay((o) => (r.error !== null ? drop(o, [property.id]) : settle(o, [property.id], r.data)));
       refresh();
       return r.error;
     },
@@ -191,11 +249,26 @@ export function PropertyStoreProvider({ workspace, children }: { workspace: Proj
       values,
       setValue,
       createProperty,
+      relatable: references.available,
+      createRelationship,
+      updateRelationship,
       updateProperty,
       moveProperty,
       deleteProperty,
     }),
-    [workspace.propertied, propertiesOf, values, setValue, createProperty, updateProperty, moveProperty, deleteProperty]
+    [
+      workspace.propertied,
+      propertiesOf,
+      values,
+      setValue,
+      createProperty,
+      references.available,
+      createRelationship,
+      updateRelationship,
+      updateProperty,
+      moveProperty,
+      deleteProperty,
+    ]
   );
 
   return <Context.Provider value={store}>{children}</Context.Provider>;

@@ -34,6 +34,15 @@ export function viewsOf(views: readonly WorkspaceCollectionView[], collectionId:
   return views.filter((v) => v.collection_id === collectionId).sort((a, b) => a.position - b.position);
 }
 
+/**
+ * The View a Collection shows: the one the writer last chose (`chosenId`), if
+ * it still exists — else the first. Choosing a View changes only this; the
+ * Views and their Entries are untouched.
+ */
+export function activeView(views: readonly WorkspaceCollectionView[], chosenId: string | undefined): WorkspaceCollectionView {
+  return views.find((v) => v.id === chosenId) ?? views[0];
+}
+
 /** The id of the stand-in List a Collection shows before migration 027. */
 export function fallbackViewId(collectionId: string): string {
   return `list:${collectionId}`;
@@ -106,7 +115,11 @@ export function filterOpLabel(property: CollectionProperty, op: ViewFilterOp): s
 export function matchesFilter(filter: ViewFilter, property: CollectionProperty, value: PropertyValue | undefined): boolean {
   const isChoice = property.type === "select" || property.type === "status" || property.type === "multi_select";
   const ids = isChoice ? chosenOptions(property, value).map((o) => o.id) : [];
-  const empty = isChoice ? ids.length === 0 : value === undefined;
+  const empty = isChoice
+    ? ids.length === 0
+    : property.type === "relationship"
+      ? !Array.isArray(value) || value.length === 0
+      : value === undefined;
   switch (filter.op) {
     case "is_empty":
       return empty;
@@ -121,9 +134,9 @@ export function matchesFilter(filter: ViewFilter, property: CollectionProperty, 
 
 // ── Sort ────────────────────────────────────────────────────────────────────
 
-/** Properties a View can sort by (title aside): every type but multi-select. */
+/** Properties a View can sort by (title aside): one value each — every type but multi-select and Relationship. */
 export function sortableProperties(properties: readonly CollectionProperty[]): CollectionProperty[] {
-  return properties.filter((p) => p.type !== "multi_select");
+  return properties.filter((p) => p.type !== "multi_select" && p.type !== "relationship");
 }
 
 const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
@@ -145,6 +158,7 @@ function sortKey(property: CollectionProperty, value: PropertyValue | undefined)
     case "date":
       return typeof value === "string" ? value : null;
     case "multi_select":
+    case "relationship":
       return null;
   }
 }
@@ -182,7 +196,7 @@ export function arrangeEntries(view: WorkspaceCollectionView, input: ArrangeInpu
   const sort = view.config.sort;
   if (!sort) return kept;
   const property = sort.by === "title" ? null : byId.get(sort.by);
-  if (sort.by !== "title" && (!property || property.type === "multi_select")) return kept;
+  if (sort.by !== "title" && (!property || !sortableProperties([property]).length)) return kept;
   const sign = sort.direction === "desc" ? -1 : 1;
   const keyed = kept.map((id, at) => ({
     id,

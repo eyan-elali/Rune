@@ -9,9 +9,11 @@ import {
   isChoiceType,
   PROPERTY_TYPE_LABEL,
 } from "@/lib/rune2/collectionProperties";
+import { targetPhrase } from "@/lib/rune2/references";
 import type { CollectionProperty, CollectionPropertyType } from "@/lib/types";
 import { AddProperty } from "./PropertyFields";
 import { usePropertyStore } from "./PropertyStore";
+import { useRune2Selection } from "./Rune2Selection";
 import { useViewStore } from "./ViewStore";
 
 // A Collection's property settings, opened from its view: each property's
@@ -24,7 +26,9 @@ import { useViewStore } from "./ViewStore";
 // Entries hold for it, so it always asks first and says how many; the server
 // refuses if that number has changed meanwhile (delete_workspace_collection_property)
 // and the question is asked again with the new number. Removing an option
-// that Entries use asks first too, and clears it from them.
+// that Entries use asks first too, and clears it from them. A Relationship
+// (028) says what it points to and whether it holds one or several; removing
+// it removes its links, never the objects they pointed to.
 
 function plural(n: number, one: string, many = `${one}s`) {
   return `${n.toLocaleString()} ${n === 1 ? one : many}`;
@@ -76,7 +80,8 @@ function SchemaRow({
   count: number;
   onNotice: (message: string) => void;
 }) {
-  const { values, updateProperty, moveProperty, deleteProperty } = usePropertyStore();
+  const { values, updateProperty, moveProperty, deleteProperty, updateRelationship } = usePropertyStore();
+  const { index: objects } = useRune2Selection();
   const { available: viewable } = useViewStore();
   const [name, setName] = useState(property.name);
   const [editing, setEditing] = useState(false);
@@ -152,7 +157,31 @@ function SchemaRow({
             }
           }}
         />
-        {types.length > 1 ? (
+        {property.type === "relationship" ? (
+          <>
+            <span className="r2-schema-type" title="Relationship">
+              → {targetPhrase(property, (id) => objects.get(id)?.title ?? "a collection")}
+            </span>
+            <select
+              className="r2-schema-type"
+              aria-label={`How many ${property.name} an entry holds`}
+              value={property.relation_many ? "many" : "one"}
+              onChange={(e) =>
+                void updateRelationship(property, { many: e.target.value === "many" }).then((error) => {
+                  if (error)
+                    onNotice(
+                      error === "Some entries hold more than one"
+                        ? "Some entries hold more than one — remove the extras first."
+                        : "That couldn’t be changed."
+                    );
+                })
+              }
+            >
+              <option value="one">One</option>
+              <option value="many">Several</option>
+            </select>
+          </>
+        ) : types.length > 1 ? (
           <select
             className="r2-schema-type"
             aria-label={`Type of ${property.name}`}
@@ -225,7 +254,9 @@ function SchemaRow({
           <p>
             {confirming === 0
               ? `Remove “${property.name}”? No entry has a value for it.`
-              : `Remove “${property.name}”? Its value in ${plural(confirming, "entry", "entries")} will be deleted. This can’t be undone.`}
+              : property.type === "relationship"
+                ? `Remove “${property.name}”? Its links in ${plural(confirming, "entry", "entries")} will be removed — the things they point to stay. This can’t be undone.`
+                : `Remove “${property.name}”? Its value in ${plural(confirming, "entry", "entries")} will be deleted. This can’t be undone.`}
           </p>
           <button
             type="button"

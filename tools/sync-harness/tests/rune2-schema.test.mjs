@@ -53,7 +53,7 @@ test('a database built from schema.sql alone is identical to baseline + migratio
   assert.deepEqual(diffCounts(a, b), []);
   const versions = async (db) => (await db.query(`select version, name, note from public.schema_migrations order by version`)).rows;
   assert.deepEqual(await versions(fresh), await versions(migrated));
-  assert.deepEqual((await versions(fresh)).map((r) => r.version).slice(-15), ['013', '014', '015', '016', '017', '018', '019', '020', '021', '022', '023', '024', '025', '026', '027']);
+  assert.deepEqual((await versions(fresh)).map((r) => r.version).slice(-16), ['013', '014', '015', '016', '017', '018', '019', '020', '021', '022', '023', '024', '025', '026', '027', '028']);
 });
 
 test('signup still creates the profile and pricing entitlements on the Rune 2.0 schema', async () => {
@@ -1026,6 +1026,102 @@ test('027 requires 026, refuses to run twice (including on schema.sql), and chan
   for (const db of [await migratedDb(), await freshRune2Db()]) {
     const before = await captureCatalog(db);
     await assert.rejects(db.exec(readMigration(M027)), /Migration 027 has already been applied/);
+    assert.deepEqual(diffCatalogs(before, await captureCatalog(db)).differences, []);
+  }
+});
+
+// ── 14. migration 028 ─────────────────────────────────────────────────────────
+
+const M028 = '028_references.sql';
+
+async function db027() {
+  const db = await db026();
+  await db.exec(readMigration(M027));
+  return db;
+}
+
+test('028 on 027: object_references and Relationship columns, read-only to clients — no manuscript table, function or policy changes', async () => {
+  const db = await db027();
+  const before = await captureCatalog(db);
+  await db.exec(readMigration(M028));
+  const after = await captureCatalog(db);
+  const { differences } = diffCatalogs(before, after);
+  const keys = differences.map((d) => `${d.section}:${d.kind}:${d.key}`).sort();
+  const structural = keys.filter((k) => !k.startsWith('table_grants:') && !k.startsWith('function_grants:'));
+  for (const k of structural) {
+    assert.ok(
+      /^(columns|constraints|indexes|policies|triggers):added:object_references\./.test(k)
+        || /^relations:added:object_references$/.test(k)
+        || /^functions:added:(reference_object_project|check_object_reference|create_workspace_relationship_property|update_workspace_relationship_property|set_workspace_entry_relationship|add_object_reference|remove_object_reference)\(/.test(k)
+        // The two rules that learn about Relationships.
+        || /^functions:changed:(prune_workspace_view_config|delete_workspace_collection_property)\(/.test(k)
+        // Relationship columns and their checks on the property definitions.
+        || /^columns:added:workspace_collection_properties\.relation_(target|collection_id|many)$/.test(k)
+        || /^constraints:(added|changed):workspace_collection_properties\.workspace_collection_properties_(type_check|relation_check|relation_target_fkey)$/.test(k)
+        || /^indexes:added:workspace_collection_properties\.workspace_collection_properties_relation_collection_id_idx$/.test(k)
+        // The key the references' composite FKs name.
+        || /^(constraints|indexes):added:workspace_collection_entries\.workspace_collection_entries_id_project_id_key$/.test(k),
+      `unexpected change: ${k}`);
+  }
+  for (const k of [
+    'relations:added:object_references',
+    'constraints:added:object_references.object_references_source_scene_id_fkey',
+    'constraints:added:object_references.object_references_target_entry_same_project_fkey',
+    'constraints:added:object_references.object_references_once_key',
+    'triggers:added:object_references.object_references_check',
+    'policies:added:object_references.object_references: select own',
+    'columns:added:workspace_collection_properties.relation_target',
+  ]) assert.ok(structural.includes(k), `missing ${k}`);
+  assert.ok(!structural.some((k) => /^policies:added:.*: (insert|update|delete)/.test(k)), 'select policies only');
+  assert.ok(!structural.some((k) => /(^|[:.])(scenes|chapters|manuscripts|manuscript_groups|projects)[.(]/.test(k.split(':').slice(2).join(':'))),
+    'no manuscript or project object changes');
+
+  const grants = keys.filter((k) => k.startsWith('table_grants:') || k.startsWith('function_grants:'));
+  for (const role of ['anon', 'authenticated']) {
+    for (const priv of ['INSERT', 'UPDATE', 'DELETE']) {
+      assert.ok(!grants.includes(`table_grants:added:object_references ${role} ${priv}`), `${role} cannot ${priv} references`);
+    }
+  }
+  assert.equal(after.relations.find((r) => r.table === 'object_references').rls_enabled, true);
+});
+
+test('028 keeps every existing Scene, Collection, Entry, property, value, View, Page and node exactly as it was', async () => {
+  const db = await db027();
+  const alice = await createAuthUser(db, crypto.randomUUID());
+  const hollow = (await db.query(`insert into public.projects (user_id, title) values ($1, 'Hollow') returning id`, [alice])).rows[0].id;
+  await db.query(`insert into public.workspace_documents (project_id, title) values ($1, 'Ideas')`, [hollow]);
+  const c = (await db.query(`insert into public.workspace_collections (project_id, title) values ($1, 'Characters') returning id`, [hollow])).rows[0].id;
+  const e = (await db.query(`insert into public.workspace_collection_entries (collection_id, project_id, title) values ($1, $2, 'Nerai') returning id`, [c, hollow])).rows[0].id;
+  const role = (await db.query(`insert into public.workspace_collection_properties (collection_id, project_id, name, type, position, shown_in_list)
+     values ($1, $2, 'Role', 'text', 1, true) returning id`, [c, hollow])).rows[0].id;
+  await db.query(`insert into public.workspace_entry_values (entry_id, property_id, collection_id, project_id, value) values ($1, $2, $3, $4, '"Hero"')`, [e, role, c, hollow]);
+  const snapshot = async () => ({
+    scenes: (await db.query(`select * from public.scenes order by id`)).rows,
+    chapters: (await db.query(`select * from public.chapters order by id`)).rows,
+    pages: (await db.query(`select * from public.workspace_documents order by id`)).rows,
+    collections: (await db.query(`select * from public.workspace_collections order by id`)).rows,
+    entries: (await db.query(`select * from public.workspace_collection_entries order by id`)).rows,
+    properties: (await db.query(`select id, collection_id, project_id, name, type, options, position, shown_in_list, created_at, updated_at from public.workspace_collection_properties order by id`)).rows,
+    values: (await db.query(`select * from public.workspace_entry_values order by entry_id`)).rows,
+    views: (await db.query(`select * from public.workspace_collection_views order by id`)).rows,
+    nodes: (await db.query(`select * from public.workspace_nodes order by id`)).rows,
+  });
+  const before = await snapshot();
+  await db.exec(readMigration(M028));
+  assert.deepEqual(await snapshot(), before);
+  assert.deepEqual((await db.query(`select relation_target, relation_collection_id, relation_many from public.workspace_collection_properties`)).rows,
+    [{ relation_target: null, relation_collection_id: null, relation_many: false }]);
+  assert.equal((await db.query(`select count(*)::int as n from public.object_references`)).rows[0].n, 0);
+});
+
+test('028 requires 027, refuses to run twice (including on schema.sql), and changes nothing when it refuses', async () => {
+  const only026 = await db026();
+  const before026 = await captureCatalog(only026);
+  await assert.rejects(only026.exec(readMigration(M028)), /requires migration 027/);
+  assert.deepEqual(diffCatalogs(before026, await captureCatalog(only026)).differences, []);
+  for (const db of [await migratedDb(), await freshRune2Db()]) {
+    const before = await captureCatalog(db);
+    await assert.rejects(db.exec(readMigration(M028)), /Migration 028 has already been applied/);
     assert.deepEqual(diffCatalogs(before, await captureCatalog(db)).differences, []);
   }
 });

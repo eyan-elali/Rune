@@ -1,6 +1,6 @@
 import type { CollectionProperty, CollectionPropertyType, EntryPropertyValue, PropertyValue } from "@/lib/types";
 
-// Collection properties (migration 026) as the shell presents them: labels,
+// Collection properties (migration 026; Relationship from 028) as the shell presents them: labels,
 // how a value reads, which values a Collection's list shows beside an Entry,
 // and which type changes keep every value. Pure — no I/O — so the list, the
 // Entry and the tests share one set of rules. The database is authoritative
@@ -15,6 +15,7 @@ export const PROPERTY_TYPES: readonly CollectionPropertyType[] = [
   "status",
   "date",
   "checkbox",
+  "relationship",
 ];
 
 export const PROPERTY_TYPE_LABEL: Record<CollectionPropertyType, string> = {
@@ -25,6 +26,7 @@ export const PROPERTY_TYPE_LABEL: Record<CollectionPropertyType, string> = {
   status: "Status",
   date: "Date",
   checkbox: "Checkbox",
+  relationship: "Relationship",
 };
 
 /** Types whose values are choices from the property's own options. */
@@ -98,12 +100,20 @@ export function formatDateValue(date: string): string {
   });
 }
 
+/** How a line names a Relationship's target by id; unknown (gone) targets are left out. */
+export type TitleOf = (id: string) => string | undefined;
+
 /**
  * A value as one line of text, or null when there is nothing to show. A
  * checked checkbox reads as the property's name ("POV"), so a list line stays
- * words rather than symbols.
+ * words rather than symbols. A Relationship reads as its targets' current
+ * titles (`titleOf`), never a stored copy.
  */
-export function formatValue(property: CollectionProperty, value: PropertyValue | undefined): string | null {
+export function formatValue(
+  property: CollectionProperty,
+  value: PropertyValue | undefined,
+  titleOf: TitleOf = () => undefined
+): string | null {
   if (value === undefined || value === null) return null;
   switch (property.type) {
     case "text":
@@ -120,6 +130,10 @@ export function formatValue(property: CollectionProperty, value: PropertyValue |
       const names = chosenOptions(property, value).map((o) => o.name);
       return names.length ? names.join(", ") : null;
     }
+    case "relationship": {
+      const names = (Array.isArray(value) ? value : []).flatMap((id) => titleOf(id) ?? []);
+      return names.length ? names.join(", ") : null;
+    }
   }
 }
 
@@ -131,10 +145,11 @@ export function formatValue(property: CollectionProperty, value: PropertyValue |
 export function valueLine(
   properties: readonly CollectionProperty[],
   values: ReadonlyMap<string, PropertyValue>,
-  entryId: string
+  entryId: string,
+  titleOf?: TitleOf
 ): string[] {
   return properties.flatMap((p) => {
-    const text = formatValue(p, values.get(valueKey(entryId, p.id)));
+    const text = formatValue(p, values.get(valueKey(entryId, p.id)), titleOf);
     if (!text) return [];
     return [p.type === "text" && text.length > 60 ? `${text.slice(0, 59).trimEnd()}…` : text];
   });

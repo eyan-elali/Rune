@@ -11,8 +11,12 @@ import {
   PROPERTY_TYPES,
   valueKey,
 } from "@/lib/rune2/collectionProperties";
-import type { CollectionProperty, CollectionPropertyType, PropertyValue } from "@/lib/types";
+import { describeObject, targetSpecOf } from "@/lib/rune2/references";
+import type { CollectionProperty, CollectionPropertyType, PropertyValue, ReferenceObjectType } from "@/lib/types";
+import { ObjectPicker } from "./ObjectPicker";
 import { usePropertyStore } from "./PropertyStore";
+import { useRune2Selection } from "./Rune2Selection";
+import { useOpenObject } from "./useOpenObject";
 
 // An Entry's properties (migration 026): a quiet block between its title and
 // its body — label, value; label, value — like the facts at the head of a
@@ -21,6 +25,10 @@ import { usePropertyStore } from "./PropertyStore";
 // Empty values read as a faint "Empty". A Collection with no properties shows
 // only a faint "Add a property", so a writer who never wants structure never
 // has to look at it.
+//
+// A Relationship (028) shows its targets by their current titles, each one a
+// quiet link that opens it, and chooses them with a search over the objects
+// the writer already has — never a copy, never a foreign-key form.
 //
 // No properties inside the body, and nothing here counts words.
 
@@ -79,7 +87,7 @@ function PropertyRow({
         {property.name}
       </dt>
       <dd className="r2-prop-value">
-        <PropertyValueEditor property={property} value={value} labelId={labelId} onSave={save} />
+        <PropertyValueEditor property={property} value={value} labelId={labelId} onSave={save} ownerId={entryId} />
       </dd>
     </div>
   );
@@ -97,12 +105,15 @@ export function PropertyValueEditor({
   labelId,
   onSave,
   floating = false,
+  ownerId,
 }: {
   property: CollectionProperty;
   value: PropertyValue | undefined;
   labelId: string;
   onSave: (value: PropertyValue | null) => Promise<void>;
   floating?: boolean;
+  /** The Entry the value belongs to (never offered as its own Relationship target). */
+  ownerId?: string;
 }) {
   switch (property.type) {
     case "text":
@@ -130,7 +141,98 @@ export function PropertyValueEditor({
     case "status":
     case "multi_select":
       return <ChoiceValue property={property} value={value} labelId={labelId} onSave={onSave} floating={floating} />;
+    case "relationship":
+      return (
+        <RelationshipValue
+          property={property}
+          value={value}
+          labelId={labelId}
+          onSave={onSave}
+          floating={floating}
+          ownerId={ownerId}
+        />
+      );
   }
+}
+
+/**
+ * A Relationship value: its targets by their current titles, each opening
+ * its object (⌘/Ctrl-click: a tab of its own), and a search to choose them.
+ * A target no longer present is simply not shown.
+ */
+function RelationshipValue({
+  property,
+  value,
+  labelId,
+  onSave,
+  floating,
+  ownerId,
+}: {
+  property: CollectionProperty;
+  value: PropertyValue | undefined;
+  labelId: string;
+  onSave: (value: PropertyValue | null) => Promise<void>;
+  floating: boolean;
+  ownerId?: string;
+}) {
+  const { index } = useRune2Selection();
+  const openObject = useOpenObject();
+  const [open, setOpen] = useState(false);
+  const button = useRef<HTMLButtonElement>(null);
+  const spec = targetSpecOf(property);
+  const ids = Array.isArray(value) ? value : [];
+  const shown = ids.flatMap((id) => {
+    const d = describeObject(index, id);
+    return d ? [{ id, ...d }] : [];
+  });
+  const many = property.relation_many;
+
+  if (!spec) return <span className="r2-prop-empty">—</span>;
+  return (
+    <div className="r2-prop-choice r2-prop-relation">
+      {shown.length > 0 && (
+        <span className="r2-prop-links">
+          {shown.map((t) => (
+            <button key={t.id} type="button" className="r2-prop-link" title={`Open ${t.title} · ${t.hint}`} {...openObject(t.id)}>
+              {t.title}
+            </button>
+          ))}
+        </span>
+      )}
+      <button
+        ref={button}
+        type="button"
+        className={shown.length ? "r2-prop-relation-edit" : "r2-prop-button"}
+        aria-labelledby={shown.length ? undefined : labelId}
+        aria-label={shown.length ? `Change ${property.name}` : undefined}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        title={shown.length ? `Change ${property.name}` : undefined}
+        onClick={() => setOpen((o) => !o)}
+      >
+        {shown.length ? <Plus size={12} strokeWidth={1.75} aria-hidden /> : <span className="r2-prop-empty">Empty</span>}
+      </button>
+      {open && (
+        <ObjectPicker
+          spec={spec}
+          chosen={ids}
+          multi={many}
+          label={property.name}
+          exclude={ownerId ? new Set([ownerId]) : undefined}
+          floating={floating}
+          onChoose={(c) => {
+            if (!many) void onSave(ids[0] === c.id ? null : [c.id]);
+            else void onSave(ids.includes(c.id) ? ids.filter((x) => x !== c.id) : [...ids, c.id]);
+          }}
+          onClear={() => void onSave(null)}
+          onClose={(refocus) => {
+            setOpen(false);
+            if (refocus) button.current?.focus();
+          }}
+        />
+      )}
+    </div>
+  );
 }
 
 /** A text value: grows with its text, Enter commits, Escape restores. */
@@ -572,10 +674,14 @@ function OptionPicker({
  * property settings.
  */
 export function AddProperty({ collectionId, quiet = false }: { collectionId: string; quiet?: boolean }) {
-  const { createProperty } = usePropertyStore();
+  const { createProperty, createRelationship, relatable } = usePropertyStore();
+  const { workspace, index } = useRune2Selection();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [type, setType] = useState<CollectionPropertyType>("text");
+  // A Relationship's target: "entry:<collection id>", "page" or "scene".
+  const [target, setTarget] = useState(`entry:${collectionId}`);
+  const [many, setMany] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const nameId = useId();
@@ -593,7 +699,11 @@ export function AddProperty({ collectionId, quiet = false }: { collectionId: str
     if (!name.trim() || busy) return;
     setBusy(true);
     setError(null);
-    const e = await createProperty(collectionId, name.trim(), type);
+    const [targetType, targetCollection] = target.split(":") as [ReferenceObjectType, string | undefined];
+    const e =
+      type === "relationship"
+        ? await createRelationship(collectionId, name.trim(), targetType, targetCollection ?? null, many)
+        : await createProperty(collectionId, name.trim(), type);
     setBusy(false);
     if (e) {
       setError(e === "A property with this name already exists" ? "There’s already a property with that name." : "Couldn’t add the property.");
@@ -601,8 +711,11 @@ export function AddProperty({ collectionId, quiet = false }: { collectionId: str
     }
     setName("");
     setType("text");
+    setTarget(`entry:${collectionId}`);
+    setMany(true);
     setOpen(false);
   };
+  const collectionTitle = (id: string) => index.get(id)?.title ?? "Untitled collection";
 
   return (
     <form
@@ -637,12 +750,35 @@ export function AddProperty({ collectionId, quiet = false }: { collectionId: str
         value={type}
         onChange={(e) => setType(e.target.value as CollectionPropertyType)}
       >
-        {PROPERTY_TYPES.map((t) => (
+        {PROPERTY_TYPES.filter((t) => t !== "relationship" || relatable).map((t) => (
           <option key={t} value={t}>
             {PROPERTY_TYPE_LABEL[t]}
           </option>
         ))}
       </select>
+      {type === "relationship" && (
+        <>
+          <select
+            className="r2-prop-new-type"
+            aria-label="Points to"
+            title="What this property points to"
+            value={target}
+            onChange={(e) => setTarget(e.target.value)}
+          >
+            {workspace.collections.map((c) => (
+              <option key={c.id} value={`entry:${c.id}`}>
+                {c.id === collectionId ? `${collectionTitle(c.id)} (this collection)` : collectionTitle(c.id)}
+              </option>
+            ))}
+            <option value="page">Pages</option>
+            <option value="scene">Scenes</option>
+          </select>
+          <label className="r2-prop-new-many">
+            <input type="checkbox" checked={many} onChange={(e) => setMany(e.target.checked)} />
+            Several
+          </label>
+        </>
+      )}
       <button type="submit" className="r2-button r2-button--primary" disabled={busy || !name.trim()}>
         Add
       </button>
@@ -655,6 +791,9 @@ export function AddProperty({ collectionId, quiet = false }: { collectionId: str
         </p>
       )}
       {isChoiceType(type) && <p className="r2-prop-new-hint">Options are added as you use it.</p>}
+      {type === "relationship" && (
+        <p className="r2-prop-new-hint">Points to things you already have — renaming them never breaks the link.</p>
+      )}
     </form>
   );
 }

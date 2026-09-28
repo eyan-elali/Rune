@@ -4,6 +4,7 @@ import { useEffect, useId, useState, type DragEvent, type KeyboardEvent, type Mo
 import { Plus } from "lucide-react";
 import { valueKey, valueLine } from "@/lib/rune2/collectionProperties";
 import { boardLanes, groupableProperties, shownProperties, type BoardLane } from "@/lib/rune2/collectionViews";
+import { describeObject } from "@/lib/rune2/references";
 import type { CollectionProperty, PropertyValue, WorkspaceCollectionView } from "@/lib/types";
 import { OptionNames, PropertyValueEditor } from "./PropertyFields";
 import { usePropertyStore } from "./PropertyStore";
@@ -36,6 +37,12 @@ function useOpenEntry() {
   });
 }
 
+/** A Relationship target's current title, for a value line ("Drelareth"); undefined when gone. */
+function useTitleOf() {
+  const { index } = useRune2Selection();
+  return (id: string) => describeObject(index, id)?.title;
+}
+
 /** Up/Down from one row's button to the next row's. */
 function moveBetweenRows(e: KeyboardEvent<HTMLElement>, rowSelector: string) {
   if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
@@ -61,6 +68,7 @@ export function ListView({ collectionTitle, view, properties, entryIds }: BodyPr
   const { index } = useRune2Selection();
   const { values } = usePropertyStore();
   const open = useOpenEntry();
+  const titleOf = useTitleOf();
   const shown = shownProperties(view, properties);
   if (entryIds.length === 0) return null;
   return (
@@ -68,7 +76,7 @@ export function ListView({ collectionTitle, view, properties, entryIds }: BodyPr
       {entryIds.map((id) => {
         const e = index.get(id);
         if (!e) return null;
-        const line = valueLine(shown, values, id);
+        const line = valueLine(shown, values, id, titleOf);
         return (
           <li key={id}>
             <button
@@ -153,6 +161,7 @@ export function TableView({ collectionTitle, view, properties, entryIds }: BodyP
                         value={values.get(valueKey(id, p.id))}
                         labelId={`${colId(p.id)} ${rowId(id)}`}
                         floating
+                        ownerId={id}
                         onSave={async (next) => {
                           const error = await setValue(id, p.id, next);
                           if (error) setNotice(`“${p.name}” couldn’t be saved.`);
@@ -189,6 +198,7 @@ export function BoardView({
   const { index } = useRune2Selection();
   const { values, setValue, createProperty, updateProperty } = usePropertyStore();
   const open = useOpenEntry();
+  const titleOf = useTitleOf();
   const hintId = useId();
   const { add, busy, notice: addNotice } = useNewEntry(collectionId);
   const [notice, setNotice] = useState<string | null>(null);
@@ -316,7 +326,7 @@ export function BoardView({
               {lane.entryIds.map((id) => {
                 const e = index.get(id);
                 if (!e) return null;
-                const line = valueLine(cardProperties, values, id);
+                const line = valueLine(cardProperties, values, id, titleOf);
                 return (
                   <li key={id}>
                     <button
