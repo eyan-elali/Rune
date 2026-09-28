@@ -53,7 +53,7 @@ test('a database built from schema.sql alone is identical to baseline + migratio
   assert.deepEqual(diffCounts(a, b), []);
   const versions = async (db) => (await db.query(`select version, name, note from public.schema_migrations order by version`)).rows;
   assert.deepEqual(await versions(fresh), await versions(migrated));
-  assert.deepEqual((await versions(fresh)).map((r) => r.version).slice(-16), ['013', '014', '015', '016', '017', '018', '019', '020', '021', '022', '023', '024', '025', '026', '027', '028']);
+  assert.deepEqual((await versions(fresh)).map((r) => r.version).slice(-17), ['013', '014', '015', '016', '017', '018', '019', '020', '021', '022', '023', '024', '025', '026', '027', '028', '029']);
 });
 
 test('signup still creates the profile and pricing entitlements on the Rune 2.0 schema', async () => {
@@ -1122,6 +1122,54 @@ test('028 requires 027, refuses to run twice (including on schema.sql), and chan
   for (const db of [await migratedDb(), await freshRune2Db()]) {
     const before = await captureCatalog(db);
     await assert.rejects(db.exec(readMigration(M028)), /Migration 028 has already been applied/);
+    assert.deepEqual(diffCatalogs(before, await captureCatalog(db)).differences, []);
+  }
+});
+
+// ── 15. migration 029 ─────────────────────────────────────────────────────────
+
+const M029 = '029_project_search.sql';
+
+async function db028() {
+  const db = await db027();
+  await db.exec(readMigration(M028));
+  return db;
+}
+
+test('029 on 028: two read-only functions and nothing else — no table, row, policy or manuscript change', async () => {
+  const db = await db028();
+  const before = await captureCatalog(db);
+  const rows = async () => ({
+    scenes: (await db.query(`select * from public.scenes order by id`)).rows,
+    pages: (await db.query(`select * from public.workspace_documents order by id`)).rows,
+    entries: (await db.query(`select * from public.workspace_collection_entries order by id`)).rows,
+  });
+  const beforeRows = await rows();
+  await db.exec(readMigration(M029));
+  const after = await captureCatalog(db);
+  const keys = diffCatalogs(before, after).differences.map((d) => `${d.section}:${d.kind}:${d.key}`).sort();
+  for (const k of keys) {
+    assert.ok(
+      /^functions:added:(rich_text_plain|search_project_content)\(/.test(k)
+        || /^function_grants:added:(rich_text_plain|search_project_content)\(.*\) (authenticated|service_role|postgres) EXECUTE$/.test(k),
+      `unexpected change: ${k}`);
+  }
+  assert.ok(keys.some((k) => k.startsWith('functions:added:search_project_content(')));
+  assert.ok(keys.some((k) => k.startsWith('functions:added:rich_text_plain(')));
+  assert.ok(!keys.some((k) => / anon EXECUTE$/.test(k)), 'anon cannot search');
+  const fn = (await db.query(`select prosecdef, provolatile from pg_proc where proname = 'search_project_content'`)).rows[0];
+  assert.deepEqual(fn, { prosecdef: false, provolatile: 's' }, 'SECURITY INVOKER (the caller\'s own RLS) and STABLE (reads only)');
+  assert.deepEqual(await rows(), beforeRows);
+});
+
+test('029 requires 028, refuses to run twice (including on schema.sql), and changes nothing when it refuses', async () => {
+  const only027 = await db027();
+  const before027 = await captureCatalog(only027);
+  await assert.rejects(only027.exec(readMigration(M029)), /requires migration 028/);
+  assert.deepEqual(diffCatalogs(before027, await captureCatalog(only027)).differences, []);
+  for (const db of [await migratedDb(), await freshRune2Db()]) {
+    const before = await captureCatalog(db);
+    await assert.rejects(db.exec(readMigration(M029)), /Migration 029 has already been applied/);
     assert.deepEqual(diffCatalogs(before, await captureCatalog(db)).differences, []);
   }
 });

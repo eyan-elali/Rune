@@ -33,6 +33,7 @@ import {
   PanelLeft,
   Pilcrow,
   Plus,
+  Search,
   Trash2,
   type LucideIcon,
 } from "lucide-react";
@@ -91,7 +92,8 @@ const INDENT = 16;
 const ICONLESS_INSET = 19;
 const ROOT_MANUSCRIPT = "root:manuscript";
 const ROOT_UNPLACED = "root:unplaced";
-const ROOT_WORKSPACE = "root:workspace";
+/** The Workspace section's row (its open state is keyed by this). */
+export const ROOT_WORKSPACE = "root:workspace";
 
 type MenuState = { key: number; label: string; at: { x: number; y: number }; items: NavigatorMenuItem[] };
 type DropSide = "before" | "after" | "inside";
@@ -113,6 +115,7 @@ export function ProjectNavigator() {
     requestSceneFocus,
     navCollapsed,
     toggleNav,
+    setSearchOpen,
   } = useRune2Selection();
   const projectId = manuscript.project.id;
   const router = useRouter();
@@ -801,6 +804,16 @@ export function ProjectNavigator() {
         <span className="r2-nav-project" title={manuscript.project.title}>
           {manuscript.project.title}
         </span>
+        <button
+          type="button"
+          className="r2-icon-button r2-nav-search"
+          aria-label="Search this project"
+          aria-keyshortcuts="Meta+K Control+K"
+          title="Search"
+          onClick={() => setSearchOpen(true)}
+        >
+          <Search size={14} strokeWidth={1.75} aria-hidden />
+        </button>
         <button
           type="button"
           className="r2-icon-button r2-nav-toggle"

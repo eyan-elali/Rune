@@ -6,6 +6,7 @@ import type { ProjectWorkspace } from "@/lib/rune2/projectWorkspace";
 import { ProjectNavigator } from "./ProjectNavigator";
 import { Rune2ContextBar, Rune2SelectionView } from "./Rune2Content";
 import { Rune2Panel } from "./Rune2Panel";
+import { ProjectSearch } from "./ProjectSearch";
 import { PropertyStoreProvider } from "./PropertyStore";
 import { ReferenceStoreProvider } from "./ReferenceStore";
 import { Rune2SelectionProvider, useRune2Selection } from "./Rune2Selection";
@@ -64,6 +65,7 @@ function Frame({ children }: { children: ReactNode }) {
       </div>
 
       <Rune2Panel />
+      <ProjectSearch />
     </div>
   );
 }

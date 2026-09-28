@@ -1,14 +1,17 @@
 "use client";
 
-import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Check } from "lucide-react";
+import { searchObjects } from "@/lib/rune2/projectSearch";
 import { candidates, type Candidate, type TargetSpec } from "@/lib/rune2/references";
 import { useRune2Selection } from "./Rune2Selection";
 
 // Find an existing object to point to: a Relationship's value (an Entry of
 // one Collection, a Page, a Scene) or a link from the Inspector (any of
-// them). A calm search over the objects the writer already has — by their
-// current titles, with a quiet word on where each lives — never a form. It
+// them). A calm search over the objects the writer already has — Project
+// Search's matching and ranking (lib/rune2/projectSearch.ts), narrowed to
+// the valid targets — by their current titles, with a quiet word on where
+// each lives — never a form. It
 // only chooses among canonical objects; it never creates, renames or copies
 // one. Arrows move, Enter chooses, Escape closes; a multiple choice stays
 // open, a single one closes on choosing.
@@ -73,8 +76,9 @@ export function ObjectPicker({
     return () => document.removeEventListener("pointerdown", onDown);
   }, []);
 
-  const all = candidates(index, spec, "", exclude);
-  const matches = query.trim() ? candidates(index, spec, query, exclude) : all;
+  const objects = useMemo(() => searchObjects(index), [index]);
+  const all = candidates(index, spec, "", exclude, objects);
+  const matches = query.trim() ? candidates(index, spec, query, exclude, objects) : all;
   // Long lists stay quick to scan: the first 60 matches; typing narrows.
   const shown = matches.slice(0, 60);
   const at = Math.min(active, Math.max(shown.length - 1, 0));

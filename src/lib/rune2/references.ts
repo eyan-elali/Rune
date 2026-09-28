@@ -1,6 +1,7 @@
 import type { CollectionProperty, ObjectReferenceRow, ReferenceObjectType } from "@/lib/types";
 import { chapterShowsScenes, type NavEntry } from "./navigatorModel";
 import { valueKey } from "./collectionProperties";
+import { inScope, searchObjects, searchProject, type SearchObject, type SearchScope } from "./projectSearch";
 
 // References between creative objects (migration 028) as the shell presents
 // them: forward references, the Relationship values they carry, backlinks
@@ -208,33 +209,39 @@ export function targetSpecOf(property: CollectionProperty): TargetSpec | null {
 
 export type Candidate = { id: string; type: ReferenceObjectType; title: string; hint: string };
 
+/** The Project Search scope a picker for `spec` searches: only valid targets, never `exclude`. */
+export function targetScope(spec: TargetSpec, exclude: ReadonlySet<string> = new Set()): SearchScope {
+  return {
+    subjects: spec.type === "any" ? ["entry", "page", "scene"] : [spec.type],
+    collectionId: spec.type === "entry" ? spec.collectionId : undefined,
+    exclude,
+    matchContext: true,
+  };
+}
+
 /**
- * The objects a picker offers for `spec`, matching `query` (ignoring case, in
- * the title or the hint), in a stable order: Entries and Pages by their
- * index order, Scenes in reading order, Unplaced last. `exclude`: ids never
- * offered (the object itself).
+ * The objects a picker offers for `spec` — Project Search (lib/rune2/projectSearch.ts)
+ * narrowed to valid targets. With no query: every one, in the Project's order
+ * (Scenes in reading order, Unplaced after placed). With one: those whose
+ * title matches (best first), then those whose place does ("Characters").
+ * `exclude`: ids never offered (the object itself). Each is named as a
+ * reference to it is shown (describeObject), and its id is the target's.
  */
 export function candidates(
   index: ReadonlyMap<string, NavEntry>,
   spec: TargetSpec,
   query = "",
-  exclude: ReadonlySet<string> = new Set()
+  exclude: ReadonlySet<string> = new Set(),
+  objects: readonly SearchObject[] = searchObjects(index)
 ): Candidate[] {
-  const q = query.trim().toLowerCase();
+  const scope = targetScope(spec, exclude);
+  const found = query.trim() ? searchProject(objects, query, scope) : objects.filter((o) => inScope(o, scope));
   const out: Candidate[] = [];
-  for (const entry of index.values()) {
-    if (exclude.has(entry.id)) continue;
-    const type = referenceTypeOf(entry);
-    if (!type) continue;
-    if (spec.type !== "any" && spec.type !== type) continue;
-    if (spec.type === "entry" && entry.path[entry.path.length - 1]?.id !== spec.collectionId) continue;
-    const d = describeObject(index, entry.id);
-    if (!d) continue;
-    if (q && !d.title.toLowerCase().includes(q) && !d.hint.toLowerCase().includes(q)) continue;
-    out.push({ id: entry.id, type, title: d.title, hint: d.hint });
+  for (const o of found) {
+    const d = o.subject && describeObject(index, o.subject.id);
+    if (o.subject && d) out.push({ id: o.subject.id, type: o.subject.type, title: d.title, hint: d.hint });
   }
-  const rank = (c: Candidate) => (c.type === "scene" && c.hint === "Unplaced" ? 1 : 0);
-  return out.map((c, at) => ({ c, at })).sort((a, b) => rank(a.c) - rank(b.c) || a.at - b.at).map(({ c }) => c);
+  return out;
 }
 
 /** A Relationship's target as a phrase: "Entries in Factions", "Pages", "Scenes". */

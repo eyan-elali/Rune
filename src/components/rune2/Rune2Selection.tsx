@@ -34,8 +34,8 @@ import {
 // Also shared here, because actions outside the navigator change them: which
 // navigator rows are open, a request to focus a Scene's prose once its editor
 // appears (a Scene just created from the writing surface), titles renamed but
-// not yet re-read, which view the right-hand panel shows, and whether the
-// navigator is retracted.
+// not yet re-read, which view the right-hand panel shows, whether the
+// navigator is retracted, and whether Project Search is open.
 
 export { MANUSCRIPT_TAB };
 
@@ -83,6 +83,9 @@ type Rune2SelectionValue = {
   /** Opens the panel on a view, switches it, or — for the view showing — closes it. */
   togglePanel: (view: PanelView) => void;
   closePanel: () => void;
+  /** Whether Project Search is open — presentation state only. */
+  searchOpen: boolean;
+  setSearchOpen: (open: boolean | ((open: boolean) => boolean)) => void;
 };
 
 const Rune2SelectionContext = createContext<Rune2SelectionValue | null>(null);
@@ -102,6 +105,7 @@ export function Rune2SelectionProvider({
   const [focusSceneId, requestSceneFocus] = useState<string | null>(null);
   const [panel, setPanel] = useState<PanelView | null>(null);
   const [navCollapsed, setNavCollapsed] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
 
   // Titles renamed but not yet re-read; a fresh read supersedes them.
   const [renamed, setRenamed] = useState<Record<string, string>>({});
@@ -205,6 +209,8 @@ export function Rune2SelectionProvider({
       panel,
       togglePanel,
       closePanel,
+      searchOpen,
+      setSearchOpen,
     }),
     [
       manuscript,
@@ -227,6 +233,7 @@ export function Rune2SelectionProvider({
       panel,
       togglePanel,
       closePanel,
+      searchOpen,
     ]
   );
   return <Rune2SelectionContext.Provider value={value}>{children}</Rune2SelectionContext.Provider>;

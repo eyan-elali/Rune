@@ -2797,3 +2797,127 @@ span.r2-schema-type {
     transition: none;
   }
 }
+
+/* ── Project Search ─────────────────────────────────────────────────────
+   A small overlay over the shell, never a page of its own: one field and a
+   quiet list beneath it. The shell barely dims behind it. Each result is a
+   title, then what it is and where it lives in the third ink; a match in
+   the text adds one line of excerpt. Matched words take a faint ink-blue
+   wash — only here, never in the content. */
+.r2-nav-search {
+  flex-shrink: 0;
+}
+.r2-search-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  background: rgba(20, 24, 31, 0.08);
+  animation: r2-fade-in var(--r2-fast) var(--r2-ease);
+}
+.r2-search {
+  position: fixed;
+  top: min(14vh, 120px);
+  left: 50%;
+  z-index: 71;
+  display: flex;
+  flex-direction: column;
+  width: min(560px, calc(100vw - 32px));
+  max-height: min(68vh, 560px);
+  transform: translateX(-50%);
+  border-radius: 9px;
+  background: var(--r2-bg);
+  box-shadow: 0 0 0 1px var(--r2-border), var(--r2-shadow-pop), 0 18px 48px rgba(20, 24, 31, 0.1);
+  overflow: hidden;
+  animation: r2-search-in var(--r2-medium) var(--r2-ease);
+}
+@keyframes r2-search-in {
+  from { opacity: 0; transform: translate(-50%, -4px); }
+  to { opacity: 1; transform: translateX(-50%); }
+}
+.r2-search-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  height: 48px;
+  padding: 0 16px;
+}
+.r2-search-icon {
+  flex-shrink: 0;
+  color: var(--r2-ink-3);
+}
+.r2-search-field input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  outline: none;
+  background: transparent;
+  font: inherit;
+  font-size: 15px;
+  color: var(--r2-ink-1);
+}
+.r2-search-field input:focus,
+.r2-search-field input:focus-visible {
+  /* The field is the overlay's only stop; the caret shows focus. */
+  outline: none;
+}
+.r2-search-field input::placeholder {
+  color: var(--r2-ink-3);
+}
+.r2-search-results {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 4px 6px 6px;
+  border-top: 1px solid var(--r2-border);
+}
+.r2-search-results li {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 6px 10px;
+  border-radius: var(--r2-radius);
+  cursor: pointer;
+}
+.r2-search-results li[data-active] {
+  background: var(--r2-hover);
+}
+.r2-search-title,
+.r2-search-meta,
+.r2-search-snippet {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.r2-search-title {
+  font-size: 13.5px;
+  color: var(--r2-ink-1);
+}
+.r2-search-meta {
+  font-size: 12px;
+  color: var(--r2-ink-3);
+}
+.r2-search-snippet {
+  margin-top: 2px;
+  font-size: 12.5px;
+  color: var(--r2-ink-2);
+}
+.r2-search mark {
+  border-radius: 2px;
+  background: var(--r2-accent-soft-hover);
+  color: inherit;
+}
+.r2-search-empty,
+.r2-search-note {
+  padding: 12px 16px 14px;
+  border-top: 1px solid var(--r2-border);
+  font-size: 12.5px;
+  color: var(--r2-ink-3);
+}
+@media (prefers-reduced-motion: reduce) {
+  .r2-search,
+  .r2-search-scrim {
+    animation: none;
+  }
+}
