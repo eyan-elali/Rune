@@ -323,7 +323,7 @@ function NotesView() {
 // when it was made and last edited. Then, for an Entry, a Page or a Scene (a
 // Chapter shown as one piece of writing stands for its only Scene), its links
 // and backlinks (028, ObjectLinks) — the Scene's metadata lives here, outside
-// the prose. A Scene (and a Chapter shown as one piece of writing) also shows
+// the prose. A divided Chapter shows only where it is mentioned (035). A Scene (and a Chapter shown as one piece of writing) also shows
 // its Scene properties (032, architecture §8), edited in place and saved on
 // their own — never with the prose, never inside the editor.
 
@@ -493,7 +493,13 @@ function InspectorView() {
       </dl>
       {scene?.type === "scene" && <SceneInspectorProperties key={`props-${scene.id}`} sceneId={scene.id} />}
       {/* A fresh section per object, so an open search never carries over. */}
-      {subject && <ObjectLinks key={subject.id} subject={subject} />}
+      {referable && (subject || selected?.kind === "chapter") && (
+        <ObjectLinks
+          key={subject?.id ?? selected?.id}
+          subject={subject}
+          chapterId={selected?.kind === "chapter" ? selected.id : null}
+        />
+      )}
     </div>
   );
 }

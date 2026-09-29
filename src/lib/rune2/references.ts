@@ -1,7 +1,8 @@
 import type { ObjectReferenceRow, PropertyDefinition, ReferenceObjectType } from "@/lib/types";
 import { chapterShowsScenes, type NavEntry } from "./navigatorModel";
 import { valueKey } from "./collectionProperties";
-import { inScope, searchObjects, searchProject, type SearchObject, type SearchScope } from "./projectSearch";
+import { inScope, searchObjects, searchProject, type SearchKind, type SearchObject, type SearchScope } from "./projectSearch";
+import type { InlineTarget, ReferenceTargetType } from "./workspaceDocument";
 
 // References between creative objects (migration 028) as the shell presents
 // them: forward references, the Relationship values they carry, backlinks
@@ -13,13 +14,25 @@ import { inScope, searchObjects, searchProject, type SearchObject, type SearchSc
 //
 // Backlinks are never stored: an object's backlinks are the references whose
 // target it is (backlinksOf), so they change the moment a reference does.
+//
+// A reference is a LINK (a Relationship value, or an Inspector link — written
+// by its action) or a MENTION (origin "inline", migration 035): an inline
+// reference in a Page's or Entry's text, derived from that text by the
+// database on every save and never written any other way. A mention may
+// point at a Chapter as well as an Entry, Page or Scene.
 
 export type ObjectRef = { type: ReferenceObjectType; id: string };
+/** A reference's target: an Entry, Page or Scene — or, for a mention, a Chapter. */
+export type TargetRef = { type: ReferenceTargetType; id: string };
+
+export type ReferenceOrigin = "link" | "inline";
 
 export type Reference = {
   id: string;
   source: ObjectRef;
-  target: ObjectRef;
+  target: TargetRef;
+  /** "inline": a mention in the source's text (035); "link": everything else. */
+  origin: ReferenceOrigin;
   /**
    * null: a generic reference; otherwise the Relationship property it is a
    * value of — a Collection property of the source Entry, or (032) a Scene
@@ -39,23 +52,31 @@ function end(type: ReferenceObjectType, entry: string | null, document: string |
   return { type, id: (type === "entry" ? entry : type === "page" ? document : scene) ?? "" };
 }
 
-/** A stored row as a reference. */
+/** A stored row as a reference. (Before 035 there is no origin or Chapter end.) */
 export function toReference(row: ObjectReferenceRow): Reference {
   return {
     id: row.id,
     source: end(row.source_type, row.source_entry_id, row.source_document_id, row.source_scene_id),
-    target: end(row.target_type, row.target_entry_id, row.target_document_id, row.target_scene_id),
+    target:
+      row.target_type === "chapter"
+        ? { type: "chapter", id: row.target_chapter_id ?? "" }
+        : end(row.target_type, row.target_entry_id, row.target_document_id, row.target_scene_id),
+    origin: row.origin ?? "link",
     propertyId: row.property_id ?? row.scene_property_id ?? null,
     position: row.position,
   };
 }
 
 /**
- * The list a reference belongs to — one Relationship value, or a source's
- * generic references. A change always replaces one whole list.
+ * The list a reference belongs to — one Relationship value, a source's
+ * generic links, or a source's mentions. A change always replaces one whole list.
  */
-export function listKey(ref: Pick<Reference, "source" | "propertyId">): string {
+export function listKey(ref: Pick<Reference, "source" | "propertyId" | "origin">): string {
+  if (ref.origin === "inline") return inlineListKey(ref.source.id);
   return ref.propertyId ? relationListKey(ref.source.id, ref.propertyId) : genericListKey(ref.source.id);
+}
+export function inlineListKey(sourceId: string): string {
+  return `inline:${sourceId}`;
 }
 export function relationListKey(sourceId: string, propertyId: string): string {
   return `rel:${sourceId}:${propertyId}`;
@@ -83,31 +104,58 @@ export function relationshipValues(refs: readonly Reference[]): Map<string, stri
   return new Map([...lists].map(([k, list]) => [k, list.sort(byPosition).map((r) => r.target.id)]));
 }
 
-/** A source's generic references (not its Relationship values), in order. */
+/** A source's generic links (not its Relationship values, not its mentions), in order. */
 export function relatedOf(refs: readonly Reference[], sourceId: string): Reference[] {
-  return refs.filter((r) => r.propertyId === null && r.source.id === sourceId).sort(byPosition);
+  return refs.filter((r) => r.propertyId === null && r.origin === "link" && r.source.id === sourceId).sort(byPosition);
+}
+
+/** A source's mentions (inline references in its text), in the text's order. */
+export function mentionsOf(refs: readonly Reference[], sourceId: string): Reference[] {
+  return refs.filter((r) => r.origin === "inline" && r.source.id === sourceId).sort(byPosition);
+}
+
+/**
+ * A document's mentions as the shell shows them before the server has them:
+ * derived from its current content (lib/rune2/workspaceDocument.ts), keyed as
+ * pending, in the text's order.
+ */
+export function pendingMentions(source: ObjectRef, targets: readonly InlineTarget[], pendingPrefix: string): Reference[] {
+  return targets.map((target, at) => ({
+    id: `${pendingPrefix}${inlineListKey(source.id)}:${target.type}:${target.id}`,
+    source,
+    target,
+    origin: "inline",
+    propertyId: null,
+    position: at + 1,
+  }));
 }
 
 export type Backlink = {
   source: ObjectRef;
-  /** How the source refers to it: each Relationship property, and null for a generic reference. */
+  /** How the source refers to it by link: each Relationship property, and null for a generic link. */
   via: (string | null)[];
+  /** Whether the source mentions it in its text. */
+  mentioned: boolean;
 };
 
 /**
  * Where an object is referenced from: one Backlink per referring object, in
  * the order `titleOf` sorts them, each saying every way it refers.
+ * `targetIds`: the object's id — and, for a Chapter shown as one piece of
+ * writing, its only Scene's too, since to the writer they are one thing.
  */
 export function backlinksOf(
   refs: readonly Reference[],
-  targetId: string,
+  targetIds: string | readonly string[],
   titleOf: (id: string) => string = () => ""
 ): Backlink[] {
+  const targets = new Set(typeof targetIds === "string" ? [targetIds] : targetIds);
   const bySource = new Map<string, Backlink>();
   for (const r of refs) {
-    if (r.target.id !== targetId) continue;
-    const link = bySource.get(r.source.id) ?? { source: r.source, via: [] };
-    if (!link.via.includes(r.propertyId)) link.via.push(r.propertyId);
+    if (!targets.has(r.target.id)) continue;
+    const link = bySource.get(r.source.id) ?? { source: r.source, via: [], mentioned: false };
+    if (r.origin === "inline") link.mentioned = true;
+    else if (!link.via.includes(r.propertyId)) link.via.push(r.propertyId);
     bySource.set(r.source.id, link);
   }
   const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
@@ -178,6 +226,68 @@ export function describeObject(
 export function openableId(index: ReadonlyMap<string, NavEntry>, id: string): string {
   const entry = index.get(id);
   return (entry && soleSceneChapter(index, entry)?.id) ?? id;
+}
+
+/**
+ * What an inline reference's target is called, and a quiet word on where it
+ * lives — describeObject, plus Chapters ("Chapter 4", in its Group or
+ * "Manuscript"). null when it isn't in the index — in Trash, deleted, or
+ * never of this Project — or isn't of the type the reference says.
+ */
+export function describeTarget(
+  index: ReadonlyMap<string, NavEntry>,
+  target: TargetRef
+): { title: string; hint: string } | null {
+  if (target.type === "chapter") {
+    const chapter = index.get(target.id);
+    if (!chapter || chapter.kind !== "chapter") return null;
+    return { title: chapter.title, hint: chapter.path.length ? chapter.path.map((p) => p.title).join(" / ") : "Manuscript" };
+  }
+  const d = describeObject(index, target.id);
+  return d && d.type === target.type ? { title: d.title, hint: d.hint } : null;
+}
+
+export type MentionScope = ReferenceTargetType | "any";
+export type MentionCandidate = { id: string; type: ReferenceTargetType; title: string; hint: string };
+
+const MENTION_KINDS: Record<MentionScope, readonly SearchKind[]> = {
+  any: ["entry", "page", "scene", "chapter"],
+  entry: ["entry"],
+  page: ["page"],
+  // A Chapter shown as one piece of writing is found as its only Scene.
+  scene: ["scene", "chapter"],
+  chapter: ["chapter"],
+};
+
+/**
+ * What an "@" reference (or "/Reference to …") offers — Project Search
+ * narrowed to the scope, named as the reference will show it. A Chapter is
+ * offered as a Chapter (its canonical manuscript identity); asked for Scenes
+ * only, a Chapter shown as one piece of writing is offered as its only
+ * Scene, as the navigator shows it. `exclude`: ids never offered (the
+ * document itself).
+ */
+export function mentionCandidates(
+  index: ReadonlyMap<string, NavEntry>,
+  scope: MentionScope,
+  query = "",
+  exclude: ReadonlySet<string> = new Set(),
+  objects: readonly SearchObject[] = searchObjects(index)
+): MentionCandidate[] {
+  const search: SearchScope = { kinds: MENTION_KINDS[scope], exclude, matchContext: true };
+  const found = query.trim() ? searchProject(objects, query, search) : objects.filter((o) => inScope(o, search));
+  const out: MentionCandidate[] = [];
+  for (const o of found) {
+    if (o.kind === "chapter" && scope !== "scene") {
+      const d = describeTarget(index, { type: "chapter", id: o.id });
+      if (d) out.push({ id: o.id, type: "chapter", ...d });
+      continue;
+    }
+    if (!o.subject) continue;
+    const d = describeObject(index, o.subject.id);
+    if (d) out.push({ id: o.subject.id, type: o.subject.type, title: d.title, hint: d.hint });
+  }
+  return out;
 }
 
 /**

@@ -348,14 +348,23 @@ export interface ObjectReferenceRow {
   source_entry_id: string | null;
   source_document_id: string | null;
   source_scene_id: string | null;
-  target_type: ReferenceObjectType;
+  /** 'chapter' only for a mention (origin 'inline'; migration 035). */
+  target_type: ReferenceObjectType | "chapter";
   target_entry_id: string | null;
   target_document_id: string | null;
   target_scene_id: string | null;
+  /** A Chapter target (migration 035). Absent before 035. */
+  target_chapter_id?: string | null;
   property_id: string | null;
   /** A Scene property the row is a value of (source 'scene'; migration 032). Absent before 032. */
   scene_property_id?: string | null;
-  /** Order among the source's references (per property, or among its generic ones). */
+  /**
+   * 'link': a Relationship value or a generic link, written by its action;
+   * 'inline': a mention in a Page's or Entry's text, derived from that text
+   * on every save (migration 035). Absent before 035 (every row a link).
+   */
+  origin?: "link" | "inline";
+  /** Order among the source's references (per property, among its links, or among its mentions). */
   position: number;
   created_at: string;
 }

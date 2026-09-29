@@ -12,7 +12,7 @@ import {
   sceneViewLabel,
   unplacedStart,
 } from "@/lib/rune2/sceneViews";
-import type { PropertyValue } from "@/lib/types";
+import type { PropertyValue, SavedView } from "@/lib/types";
 import { CollectionSchema } from "./CollectionSchema";
 import { useLaneTargets } from "./CollectionView";
 import { BoardView, ListView, TableView, type ItemPresenter } from "./CollectionViewBodies";
@@ -42,26 +42,16 @@ import { useViewStore } from "./ViewStore";
 // nothing is saved until they change a View.
 
 export function ManuscriptScenes() {
-  const { index, manuscript } = useRune2Selection();
-  const { sceneAvailable, manuscriptId, propertiesOf, values } = usePropertyStore();
+  const { sceneAvailable, manuscriptId } = usePropertyStore();
   const { viewsOf, activeViewOf, scenesOpen, scenePanel, openScenes, closeScenes, setScenePanel } = useViewStore();
-  const laneTargets = useLaneTargets();
-  const projectId = manuscript.project.id;
-
-  const order = useMemo(() => manuscriptSceneOrder(index), [index]);
-  const sceneIds = useMemo(() => [...order.placed, ...order.unplaced], [order]);
-  const nativeValues = useMemo(() => sceneNativeValues(index, sceneIds), [index, sceneIds]);
-  const allValues = useMemo(() => {
-    const merged = new Map<string, PropertyValue>(values);
-    for (const [k, v] of nativeValues) merged.set(k, v);
-    return merged;
-  }, [values, nativeValues]);
-
-  if (!sceneAvailable || !manuscriptId) return null;
-
-  const views = viewsOf(manuscriptId);
+  const views = manuscriptId ? viewsOf(manuscriptId) : [];
   const saved = views.filter((v) => !isFallbackView(v));
   const open = scenesOpen || saved.length > 0;
+  const view = manuscriptId ? activeViewOf(manuscriptId) : null;
+  // Arranged only while shown: a closed invitation costs nothing.
+  const { properties, sceneIds, arranged, presenter } = useSceneItems(open ? view : null);
+
+  if (!sceneAvailable || !manuscriptId || !view) return null;
 
   if (!open) {
     return (
@@ -74,32 +64,10 @@ export function ManuscriptScenes() {
     );
   }
 
-  const properties = [...propertiesOf(manuscriptId), ...sceneNativeProperties(manuscriptId, projectId)];
   const ownProperties = properties.filter((p) => !("native" in p && p.native));
-  const view = activeViewOf(manuscriptId);
-  const arranged = arrangeItems(view, {
-    entryIds: sceneIds,
-    properties,
-    values: allValues,
-    titleOf: (id) => sceneViewLabel(index, id)?.title ?? "",
-  });
   const hiddenCount = sceneIds.length - arranged.length;
   const summary = viewSummary(view, properties);
   const toggle = (p: "view" | "properties") => setScenePanel((current) => (current === p ? null : p));
-
-  const presenter: ItemPresenter = {
-    noun: "Scenes",
-    titleHeader: "Scene",
-    label: (id) => {
-      const label = sceneViewLabel(index, id);
-      return label && { ...label, number: sceneNumber(index, id) };
-    },
-    openId: (id) => openableId(index, id),
-    values: allValues,
-    laneTargets,
-    sectionStart: unplacedStart(index, arranged, view.config.sort !== null),
-    sectionTitle: "Unplaced Scenes",
-  };
 
   return (
     <div className="r2-writing r2-scenes-wrap">
@@ -186,4 +154,53 @@ export function ManuscriptScenes() {
       </section>
     </div>
   );
+}
+
+/**
+ * The Manuscript's Scenes as a Scene View shows them: the Scene properties
+ * and read-only fields, every Scene in manuscript order arranged by the View,
+ * and how the bodies name ("31.2") and open them (a Chapter's only Scene as
+ * its Chapter). The Manuscript's page and a View embedded in a Page read
+ * exactly this. `view` null: nothing arranged.
+ */
+export function useSceneItems(view: SavedView | null) {
+  const { index, manuscript } = useRune2Selection();
+  const { manuscriptId, propertiesOf, values } = usePropertyStore();
+  const laneTargets = useLaneTargets();
+  const projectId = manuscript.project.id;
+
+  const order = useMemo(() => manuscriptSceneOrder(index), [index]);
+  const sceneIds = useMemo(() => [...order.placed, ...order.unplaced], [order]);
+  const nativeValues = useMemo(() => sceneNativeValues(index, sceneIds), [index, sceneIds]);
+  const allValues = useMemo(() => {
+    const merged = new Map<string, PropertyValue>(values);
+    for (const [k, v] of nativeValues) merged.set(k, v);
+    return merged;
+  }, [values, nativeValues]);
+
+  const properties = manuscriptId
+    ? [...propertiesOf(manuscriptId), ...sceneNativeProperties(manuscriptId, projectId)]
+    : [];
+  const arranged = view
+    ? arrangeItems(view, {
+        entryIds: sceneIds,
+        properties,
+        values: allValues,
+        titleOf: (id) => sceneViewLabel(index, id)?.title ?? "",
+      })
+    : [];
+  const presenter: ItemPresenter = {
+    noun: "Scenes",
+    titleHeader: "Scene",
+    label: (id) => {
+      const label = sceneViewLabel(index, id);
+      return label && { ...label, number: sceneNumber(index, id) };
+    },
+    openId: (id) => openableId(index, id),
+    values: allValues,
+    laneTargets,
+    sectionStart: view ? unplacedStart(index, arranged, view.config.sort !== null) : -1,
+    sectionTitle: "Unplaced Scenes",
+  };
+  return { properties, sceneIds, arranged, presenter };
 }

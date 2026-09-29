@@ -5,6 +5,7 @@ import { Plus, Rows3, SlidersHorizontal } from "lucide-react";
 import { renameWorkspaceCollection } from "@/lib/actions/workspaceCollections";
 import { arrangeEntries, type LaneTargets } from "@/lib/rune2/collectionViews";
 import type { NavEntry } from "@/lib/rune2/navigatorModel";
+import type { SavedView } from "@/lib/types";
 import { CollectionSchema } from "./CollectionSchema";
 import { BoardView, ListView, TableView, type ItemPresenter } from "./CollectionViewBodies";
 import { usePropertyStore } from "./PropertyStore";
@@ -35,38 +36,18 @@ import { WorkspaceTitle } from "./WorkspaceTitle";
 type Panel = "view" | "properties" | null;
 
 export function CollectionView({ entry }: { entry: NavEntry }) {
-  const { index } = useRune2Selection();
-  const { available: propertied, propertiesOf, values } = usePropertyStore();
+  const { available: propertied } = usePropertyStore();
   const { available: viewable, viewsOf, activeViewOf } = useViewStore();
   const { add, busy, notice } = useNewEntry(entry.id);
   const bodyRef = useRef<HTMLDivElement>(null);
-  const laneTargets = useLaneTargets();
   const [panel, setPanel] = useState<Panel>(null);
   const toggle = (p: Exclude<Panel, null>) => setPanel((open) => (open === p ? null : p));
 
-  const properties = propertied ? propertiesOf(entry.id) : [];
   const views = viewsOf(entry.id);
   const view = activeViewOf(entry.id);
-  const entryIds = (entry.entryIds ?? []).filter((id) => index.has(id));
-  const arranged = arrangeEntries(view, {
-    entryIds,
-    properties,
-    values,
-    titleOf: (id) => index.get(id)?.title ?? "",
-  });
+  const { properties, entryIds, arranged, presenter } = useCollectionItems(entry, view);
   const hiddenCount = entryIds.length - arranged.length;
   const summary = viewable ? viewSummary(view, properties) : "";
-  const presenter: ItemPresenter = {
-    noun: "Entries",
-    titleHeader: "Name",
-    label: (id) => {
-      const e = index.get(id);
-      return e ? { title: e.title, named: e.named } : null;
-    },
-    openId: (id) => id,
-    values,
-    laneTargets,
-  };
 
   return (
     <div className="r2-writing">
@@ -169,6 +150,38 @@ export function CollectionView({ entry }: { entry: NavEntry }) {
       </div>
     </div>
   );
+}
+
+/**
+ * A Collection's Entries as one of its Views shows them: the Collection's
+ * properties, its Entries arranged by the View (filtered, sorted), and how
+ * the View bodies name and open them. The Collection's own page and a View
+ * embedded in a Page read exactly this — one arrangement, never a copy.
+ */
+export function useCollectionItems(collection: NavEntry, view: SavedView) {
+  const { index } = useRune2Selection();
+  const { available: propertied, propertiesOf, values } = usePropertyStore();
+  const laneTargets = useLaneTargets();
+  const properties = propertied ? propertiesOf(collection.id) : [];
+  const entryIds = (collection.entryIds ?? []).filter((id) => index.has(id));
+  const arranged = arrangeEntries(view, {
+    entryIds,
+    properties,
+    values,
+    titleOf: (id) => index.get(id)?.title ?? "",
+  });
+  const presenter: ItemPresenter = {
+    noun: "Entries",
+    titleHeader: "Name",
+    label: (id) => {
+      const e = index.get(id);
+      return e ? { title: e.title, named: e.named } : null;
+    },
+    openId: (id) => id,
+    values,
+    laneTargets,
+  };
+  return { properties, entryIds, arranged, presenter };
 }
 
 /**

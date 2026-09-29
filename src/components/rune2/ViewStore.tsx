@@ -54,6 +54,13 @@ type ViewStore = {
   viewsOf: (ownerId: string) => SavedView[];
   /** The View an owner is showing. */
   activeViewOf: (ownerId: string) => SavedView;
+  /**
+   * A saved View by id, whoever owns it — what an embed in a Page shows. null
+   * when there is none: deleted, never saved, or its Collection in Trash.
+   */
+  viewById: (viewId: string) => SavedView | null;
+  /** Every saved View, Collections' and the Manuscript's, in no particular order. */
+  savedViews: SavedView[];
   setActiveView: (ownerId: string, viewId: string) => void;
   /** Creates a View at the end and shows it. Resolves to an error message, or null. */
   createView: (
@@ -62,6 +69,13 @@ type ViewStore = {
     name: string,
     config?: CollectionViewConfig | null
   ) => Promise<string | null>;
+  /** As createView, resolving to the new View's id. */
+  createViewWithId: (
+    ownerId: string,
+    type: CollectionViewType,
+    name: string,
+    config?: CollectionViewConfig | null
+  ) => Promise<{ id: string; error: null } | { id: null; error: string }>;
   updateView: (view: SavedView, changes: CollectionViewChanges) => Promise<string | null>;
   moveView: (view: SavedView, index: number) => Promise<string | null>;
   deleteView: (view: SavedView) => Promise<string | null>;
@@ -135,13 +149,16 @@ export function ViewStoreProvider({ workspace, children }: { workspace: ProjectW
     [viewsOf, active]
   );
 
+  const byId = useMemo(() => new Map(all.map((v) => [v.id, v])), [all]);
+  const viewById = useCallback((viewId: string) => byId.get(viewId) ?? null, [byId]);
+
   const setActiveView = useCallback((ownerId: string, viewId: string) => {
     setActive((m) => new Map(m).set(ownerId, viewId));
   }, []);
 
   const refresh = useCallback(() => startRefresh(() => router.refresh()), [router]);
 
-  const createView = useCallback<ViewStore["createView"]>(
+  const createViewWithId = useCallback<ViewStore["createViewWithId"]>(
     async (ownerId, type, name, config = null) => {
       const r = await (isManuscript(ownerId)
         ? createSceneView(projectId, name, type, config)
@@ -152,9 +169,14 @@ export function ViewStoreProvider({ workspace, children }: { workspace: ProjectW
         setActiveView(ownerId, r.data.id);
       }
       refresh();
-      return r.error;
+      return r.error === null ? { id: r.data.id, error: null } : { id: null, error: r.error };
     },
     [refresh, setActiveView, isManuscript, projectId]
+  );
+
+  const createView = useCallback<ViewStore["createView"]>(
+    async (...args) => (await createViewWithId(...args)).error,
+    [createViewWithId]
   );
 
   const updateView = useCallback<ViewStore["updateView"]>(
@@ -226,8 +248,11 @@ export function ViewStoreProvider({ workspace, children }: { workspace: ProjectW
       sceneAvailable,
       viewsOf,
       activeViewOf,
+      viewById,
+      savedViews: all,
       setActiveView,
       createView,
+      createViewWithId,
       updateView,
       moveView,
       deleteView,
@@ -242,8 +267,11 @@ export function ViewStoreProvider({ workspace, children }: { workspace: ProjectW
       sceneAvailable,
       viewsOf,
       activeViewOf,
+      viewById,
+      all,
       setActiveView,
       createView,
+      createViewWithId,
       updateView,
       moveView,
       deleteView,

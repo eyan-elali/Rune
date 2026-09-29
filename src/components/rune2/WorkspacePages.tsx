@@ -5,6 +5,7 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import { getWorkspacePage, saveWorkspacePageContent } from "@/lib/actions/workspacePages";
 import { getCollectionEntry, saveCollectionEntryContent } from "@/lib/actions/workspaceCollections";
 import { deletePageDraft, getPageDraft, putPageDraft, type DraftKind } from "@/lib/rune2/workspaceDrafts";
+import { toPlainDocument } from "@/lib/rune2/workspaceDocument";
 import { openPage, PageSaver, type PageDraft, type PageSaveStatus } from "@/lib/rune2/workspacePageSaver";
 import { useNetworkStore } from "@/store/networkStore";
 import { useProfileStore } from "@/store/profileStore";
@@ -111,7 +112,9 @@ class PageSessions {
       version: start.version,
       dirty: start.dirty,
       conflictVersion: start.conflictVersion,
-      save: (content, expectedVersion) => DOCUMENT_IO[kind].save(id, content, expectedVersion),
+      // Plain JSON across the wire: the editor's node attributes have no
+      // prototype, which a server action would drop (toPlainDocument).
+      save: (content, expectedVersion) => DOCUMENT_IO[kind].save(id, toPlainDocument(content), expectedVersion),
       persist,
       onStatus: (status) => {
         session.status = status;

@@ -53,7 +53,7 @@ test('a database built from schema.sql alone is identical to baseline + migratio
   assert.deepEqual(diffCounts(a, b), []);
   const versions = async (db) => (await db.query(`select version, name, note from public.schema_migrations order by version`)).rows;
   assert.deepEqual(await versions(fresh), await versions(migrated));
-  assert.deepEqual((await versions(fresh)).map((r) => r.version).slice(-22), ['013', '014', '015', '016', '017', '018', '019', '020', '021', '022', '023', '024', '025', '026', '027', '028', '029', '030', '031', '032', '033', '034']);
+  assert.deepEqual((await versions(fresh)).map((r) => r.version).slice(-23), ['013', '014', '015', '016', '017', '018', '019', '020', '021', '022', '023', '024', '025', '026', '027', '028', '029', '030', '031', '032', '033', '034', '035']);
 });
 
 test('signup still creates the profile and pricing entitlements on the Rune 2.0 schema', async () => {
@@ -1455,6 +1455,67 @@ test('034 requires 033, refuses to run twice (including on schema.sql), and chan
   for (const db of [await migratedDb(), await freshRune2Db()]) {
     const before = await captureCatalog(db);
     await assert.rejects(db.exec(readMigration(M034)), /Migration 034 has already been applied/);
+    assert.deepEqual(diffCatalogs(before, await captureCatalog(db)).differences, []);
+  }
+});
+
+// ── 21. migration 035 ─────────────────────────────────────────────────────────
+
+const M035 = '035_inline_references.sql';
+
+async function db034() {
+  const db = await db033();
+  await db.exec(readMigration(M034));
+  return db;
+}
+
+test('035 on 034: references gain an origin and a Chapter end, mentions are derived by four triggers — nothing else changes', async () => {
+  const db = await db034();
+  const before = await captureCatalog(db);
+  await db.exec(readMigration(M035));
+  const keys = diffCatalogs(before, await captureCatalog(db)).differences.map((d) => `${d.section}:${d.kind}${d.fields ? '[' + d.fields.join(',') + ']' : ''}:${d.key}`).sort();
+  const changed = (f) => `functions:changed[body_md5,definition,body_length]:${f}`;
+  assert.deepEqual(keys.filter((k) => !/^relation_counts?:/.test(k)), [
+    'columns:added:object_references.origin',
+    'columns:added:object_references.target_chapter_id',
+    'constraints:added:object_references.object_references_inline_generic',
+    'constraints:added:object_references.object_references_origin_check',
+    'constraints:added:object_references.object_references_target_chapter_id_fkey',
+    'constraints:changed[definition]:object_references.object_references_once_key',
+    'constraints:changed[definition]:object_references.object_references_target_matches_type',
+    'constraints:changed[definition]:object_references.object_references_target_type_check',
+    // Owner and service role only: never anon or authenticated (and a trigger function can't be called anyway).
+    'function_grants:added:sync_workspace_inline_references() postgres EXECUTE',
+    'function_grants:added:sync_workspace_inline_references() service_role EXECUTE',
+    'functions:added:sync_workspace_inline_references()',
+    changed('add_object_reference(p_source_type text, p_source_id uuid, p_target_type text, p_target_id uuid)'),
+    changed('check_object_reference()'),
+    changed('guard_workspace_trash()'),
+    changed('reference_object_project(p_type text, p_id uuid)'),
+    changed('remove_object_reference(p_reference_id uuid)'),
+    changed('workspace_object_active(p_type text, p_id uuid)'),
+    'indexes:added:object_references.object_references_target_chapter_id_idx',
+    'indexes:changed[definition]:object_references.object_references_once_key',
+    'policies:changed[using]:object_references.object_references: select own',
+    'triggers:added:workspace_collection_entries.workspace_collection_entries_inline_references_insert',
+    'triggers:added:workspace_collection_entries.workspace_collection_entries_inline_references_update',
+    'triggers:added:workspace_documents.workspace_documents_inline_references_insert',
+    'triggers:added:workspace_documents.workspace_documents_inline_references_update',
+  ]);
+  // Existing references are links; the column's default keeps every 028/032 writer's rows links.
+  const col = (await db.query(`select column_default, is_nullable from information_schema.columns
+    where table_schema = 'public' and table_name = 'object_references' and column_name = 'origin'`)).rows[0];
+  assert.deepEqual(col, { column_default: "'link'::text", is_nullable: 'NO' });
+});
+
+test('035 requires 034, refuses to run twice (including on schema.sql), and changes nothing when it refuses', async () => {
+  const only033 = await db033();
+  const before033 = await captureCatalog(only033);
+  await assert.rejects(only033.exec(readMigration(M035)), /requires migration 034/);
+  assert.deepEqual(diffCatalogs(before033, await captureCatalog(only033)).differences, []);
+  for (const db of [await migratedDb(), await freshRune2Db()]) {
+    const before = await captureCatalog(db);
+    await assert.rejects(db.exec(readMigration(M035)), /Migration 035 has already been applied/);
     assert.deepEqual(diffCatalogs(before, await captureCatalog(db)).differences, []);
   }
 });

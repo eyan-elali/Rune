@@ -3493,3 +3493,223 @@ span.r2-schema-type {
     transition: none;
   }
 }
+
+/* ── Connected Workspace Pages ───────────────────────────────────────── */
+/* What a Page or Entry body may hold beyond text (Milestone 16). All of it
+   stays in the Page's voice: a reference reads as a word in ink blue with a
+   hairline under it, never a pill; an aside and a checklist are text with
+   one quiet mark; an embedded View is its own List, Table or Board behind a
+   hairline frame, with a small heading — never a card. The "/" and "@" menus
+   are the object picker's surface. Nothing shows until the writer asks. */
+
+.r2-page-body .ProseMirror .r2-ref {
+  white-space: normal;
+}
+.r2-ref-link {
+  display: inline;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid var(--r2-accent-line);
+  border-radius: 0;
+  font: inherit;
+  line-height: inherit;
+  color: var(--r2-accent-ink);
+  background: none;
+  cursor: pointer;
+  transition: background-color var(--r2-fast) var(--r2-ease), border-color var(--r2-fast) var(--r2-ease);
+}
+.r2-ref-link:hover {
+  border-bottom-color: var(--r2-accent);
+  background: var(--r2-accent-soft);
+}
+.r2-ref[data-selected] .r2-ref-link,
+.r2-ref[data-selected] .r2-ref-missing {
+  background: var(--r2-selected);
+  box-shadow: 0 0 0 1px var(--r2-accent-line);
+}
+/* A target in Trash or deleted: its words stay, marked as no longer a link. */
+.r2-ref-missing {
+  color: var(--r2-ink-3);
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+  cursor: help;
+}
+
+/* Aside: a margin remark in the text's flow. */
+.r2-page-body .ProseMirror .r2-aside {
+  margin: 0 0 0.7em;
+  padding: 8px 12px;
+  border-radius: var(--r2-radius);
+  background: var(--r2-hover);
+  color: var(--r2-ink-2);
+}
+.r2-page-body .ProseMirror .r2-aside > p:last-child {
+  margin-bottom: 0;
+}
+
+/* Checklist: a box before each line; a done line quietens. */
+.r2-page-body .ProseMirror ul[data-type="taskList"] {
+  padding-left: 0.1em;
+  list-style: none;
+}
+.r2-page-body .ProseMirror ul[data-type="taskList"] li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5em;
+}
+.r2-page-body .ProseMirror ul[data-type="taskList"] li > label {
+  flex: 0 0 auto;
+  margin-top: 0.28em;
+  user-select: none;
+}
+.r2-page-body .ProseMirror ul[data-type="taskList"] li > label input {
+  width: 13px;
+  height: 13px;
+  accent-color: var(--r2-accent);
+  cursor: pointer;
+}
+.r2-page-body .ProseMirror ul[data-type="taskList"] li > div {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.r2-page-body .ProseMirror ul[data-type="taskList"] li[data-checked="true"] > div {
+  color: var(--r2-ink-3);
+}
+
+/* An embedded View: a hairline frame, a small heading, the View's own body. */
+.r2-page-body .ProseMirror .r2-embed {
+  margin: 0.4em 0 1em;
+  white-space: normal;
+  cursor: default;
+}
+.r2-embed-frame {
+  padding: 6px 10px 8px;
+  border: 1px solid var(--r2-border);
+  border-radius: 7px;
+  font-size: 13.5px;
+  line-height: 1.45;
+}
+.r2-embed.ProseMirror-selectednode .r2-embed-frame,
+.r2-embed[data-selected] .r2-embed-frame {
+  border-color: var(--r2-accent-line);
+  box-shadow: 0 0 0 1px var(--r2-accent-line);
+}
+.r2-embed-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 26px;
+  font-size: 12.5px;
+  color: var(--r2-ink-3);
+}
+.r2-embed-icon {
+  flex: 0 0 auto;
+  color: var(--r2-ink-3);
+}
+.r2-embed-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+  color: var(--r2-ink-1);
+}
+.r2-embed-owner,
+.r2-embed-count {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.r2-embed-owner::before,
+.r2-embed-count::before {
+  content: "·";
+  margin-right: 6px;
+}
+.r2-embed-open {
+  margin-left: auto;
+  padding: 2px 6px;
+  border-radius: var(--r2-radius);
+  font-size: 12.5px;
+  color: var(--r2-ink-2);
+  transition: background-color var(--r2-fast) var(--r2-ease), color var(--r2-fast) var(--r2-ease);
+}
+.r2-embed-open:hover {
+  color: var(--r2-ink-1);
+  background: var(--r2-hover);
+}
+.r2-embed-frame[data-missing] .r2-embed-remove {
+  margin-left: auto;
+}
+.r2-embed-frame[data-missing] .r2-embed-name {
+  color: var(--r2-ink-2);
+}
+.r2-embed-body .r2-board {
+  max-height: 420px;
+  overflow-y: auto;
+}
+.r2-embed-empty {
+  margin: 4px 0 2px;
+  font-size: 13px;
+  color: var(--r2-faint);
+}
+.r2-embed-more {
+  margin: 6px 0 0 -6px;
+  padding: 3px 6px;
+  border-radius: var(--r2-radius);
+  font-size: 12.5px;
+  color: var(--r2-ink-2);
+}
+.r2-embed-more:hover {
+  color: var(--r2-ink-1);
+  background: var(--r2-hover);
+}
+/* The document's own list and paragraph rules never reach into a View. */
+.r2-page-body .ProseMirror .r2-embed :is(ul, ol) {
+  margin: 0;
+  padding-left: 0;
+  list-style: none;
+}
+.r2-page-body .ProseMirror .r2-embed li {
+  margin: 0;
+}
+.r2-page-body .ProseMirror .r2-embed .r2-entry-list {
+  margin-top: 4px;
+}
+.r2-page-body .ProseMirror .r2-embed .r2-prop-picker-list {
+  margin-top: 4px;
+}
+.r2-page-body .ProseMirror .r2-embed p {
+  text-indent: 0;
+}
+
+/* The "/" and "@" menus. */
+.r2-command-menu .r2-prop-picker-list {
+  max-height: 300px;
+  margin-top: 0;
+}
+.r2-command-menu .r2-prop-picker-input + .r2-prop-picker-list {
+  margin-top: 4px;
+}
+.r2-command-menu-head {
+  padding: 2px 6px 6px;
+  font-size: 12px;
+  color: var(--r2-ink-3);
+}
+.r2-prop-picker-list li.r2-command-menu-group {
+  min-height: 0;
+  padding: 8px 6px 3px;
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--r2-ink-3);
+  cursor: default;
+}
+.r2-prop-picker-list li.r2-command-menu-group:first-child {
+  padding-top: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .r2-ref-link,
+  .r2-embed-open {
+    transition: none;
+  }
+}

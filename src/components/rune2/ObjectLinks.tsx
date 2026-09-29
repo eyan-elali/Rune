@@ -16,13 +16,25 @@ import { useOpenObject } from "./useOpenObject";
 //                    Scenes, added from a search and removed without
 //                    touching either object.
 //   Referenced by  — derived from every reference whose target this is
-//                    (Relationship values and links alike), each saying how.
-//                    Shown only when there is one.
+//                    (Relationship values, links, and mentions in a Page's
+//                    or Entry's text — 035), each saying how. Shown only
+//                    when there is one.
+// A Chapter can't link to anything, but can be mentioned: a divided Chapter
+// shows only its backlinks, and a Chapter shown as one piece of writing
+// shows its only Scene's links with the backlinks of both.
 // For a Scene this is its metadata: nothing here goes near its prose, and a
 // link never changes its content, version or words. A writer who never links
 // anything sees only a faint "Link to…".
 
-export function ObjectLinks({ subject }: { subject: ObjectRef }) {
+export function ObjectLinks({
+  subject,
+  chapterId = null,
+}: {
+  /** The Entry, Page or Scene whose links show; null: backlinks only (a divided Chapter). */
+  subject: ObjectRef | null;
+  /** The Chapter the object is, when it is one: its mentions are backlinks too. */
+  chapterId?: string | null;
+}) {
   const { index } = useRune2Selection();
   const { propertyById } = usePropertyStore();
   const { relatedOf, backlinksOf, addReference, removeReference } = useReferenceStore();
@@ -37,7 +49,7 @@ export function ObjectLinks({ subject }: { subject: ObjectRef }) {
     return () => clearTimeout(timer);
   }, [notice]);
 
-  const related = relatedOf(subject.id).flatMap((r) => {
+  const related = (subject ? relatedOf(subject.id) : []).flatMap((r) => {
     const d = describeObject(index, r.target.id);
     return d ? [{ reference: r, ...d }] : [];
   });
@@ -46,78 +58,87 @@ export function ObjectLinks({ subject }: { subject: ObjectRef }) {
   const sceneOrder = new Map(
     (({ placed, unplaced }) => [...placed, ...unplaced])(manuscriptSceneOrder(index)).map((id, at) => [id, at])
   );
-  const backlinks = backlinksOf(subject.id)
+  const targets = [subject?.id, chapterId].filter((id): id is string => !!id);
+  const backlinks = backlinksOf(targets)
     .map((b, at) => ({ b, at, rank: sceneOrder.get(b.source.id) ?? Number.MAX_SAFE_INTEGER }))
     .sort((x, y) => x.rank - y.rank || x.at - y.at)
     .flatMap(({ b }) => {
       const d = describeObject(index, b.source.id);
       if (!d) return [];
       // How it refers: a Relationship by its property's name (a Collection's or
-      // a Scene property), a plain link as "Link".
-      const names = b.via.map((propertyId) =>
-        propertyId === null ? "Link" : propertyById(propertyId)?.name || "Relationship"
-      );
+      // a Scene property), a plain link as "Link", a mention in its text as "Mention".
+      const names = [
+        ...b.via.map((propertyId) => (propertyId === null ? "Link" : propertyById(propertyId)?.name || "Relationship")),
+        ...(b.mentioned ? ["Mention"] : []),
+      ];
       return [{ id: b.source.id, title: d.title, hint: [d.hint, ...names].join(" · ") }];
     });
 
   const toggle = async (target: ObjectRef) => {
+    if (!subject) return;
     const existing = related.find((r) => r.reference.target.id === target.id);
     const error = existing ? await removeReference(existing.reference) : await addReference(subject, target);
     if (error) setNotice(existing ? "The link couldn’t be removed." : "The link couldn’t be added.");
   };
 
+  if (!subject && backlinks.length === 0) return null;
+
   return (
     <section className="r2-links" aria-label="Links">
-      <h3 className="r2-links-head">Related</h3>
-      {related.length > 0 && (
-        <ul className="r2-links-list">
-          {related.map((r) => (
-            <li key={r.reference.id}>
-              <button type="button" className="r2-link" {...openObject(r.reference.target.id)}>
-                <span className="r2-link-title">{r.title}</span>
-                <span className="r2-link-hint">{r.hint}</span>
-              </button>
-              <button
-                type="button"
-                className="r2-icon-button r2-link-remove"
-                aria-label={`Remove the link to ${r.title}`}
-                title="Remove the link (nothing is deleted)"
-                disabled={isPendingReference(r.reference)}
-                onClick={() => void toggle(r.reference.target)}
-              >
-                <X size={12} strokeWidth={1.75} aria-hidden />
-              </button>
-            </li>
-          ))}
-        </ul>
+      {subject && (
+        <>
+          <h3 className="r2-links-head">Related</h3>
+          {related.length > 0 && (
+            <ul className="r2-links-list">
+              {related.map((r) => (
+                <li key={r.reference.id}>
+                  <button type="button" className="r2-link" {...openObject(r.reference.target.id)}>
+                    <span className="r2-link-title">{r.title}</span>
+                    <span className="r2-link-hint">{r.hint}</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="r2-icon-button r2-link-remove"
+                    aria-label={`Remove the link to ${r.title}`}
+                    title="Remove the link (nothing is deleted)"
+                    disabled={isPendingReference(r.reference)}
+                    onClick={() => void toggle(r.reference.target as ObjectRef)}
+                  >
+                    <X size={12} strokeWidth={1.75} aria-hidden />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <div className="r2-links-add">
+            <button
+              ref={button}
+              type="button"
+              className="r2-panel-link r2-links-add-button"
+              aria-haspopup="listbox"
+              aria-expanded={picking}
+              onClick={() => setPicking((p) => !p)}
+            >
+              <Link2 size={12} strokeWidth={1.75} aria-hidden />
+              Link to…
+            </button>
+            {picking && (
+              <ObjectPicker
+                spec={{ type: "any" }}
+                chosen={related.map((r) => r.reference.target.id)}
+                multi
+                label="Link to"
+                exclude={new Set([subject.id])}
+                onChoose={(c) => void toggle({ type: c.type, id: c.id })}
+                onClose={(refocus) => {
+                  setPicking(false);
+                  if (refocus) button.current?.focus();
+                }}
+              />
+            )}
+          </div>
+        </>
       )}
-      <div className="r2-links-add">
-        <button
-          ref={button}
-          type="button"
-          className="r2-panel-link r2-links-add-button"
-          aria-haspopup="listbox"
-          aria-expanded={picking}
-          onClick={() => setPicking((p) => !p)}
-        >
-          <Link2 size={12} strokeWidth={1.75} aria-hidden />
-          Link to…
-        </button>
-        {picking && (
-          <ObjectPicker
-            spec={{ type: "any" }}
-            chosen={related.map((r) => r.reference.target.id)}
-            multi
-            label="Link to"
-            exclude={new Set([subject.id])}
-            onChoose={(c) => void toggle({ type: c.type, id: c.id })}
-            onClose={(refocus) => {
-              setPicking(false);
-              if (refocus) button.current?.focus();
-            }}
-          />
-        )}
-      </div>
 
       {backlinks.length > 0 && (
         <>

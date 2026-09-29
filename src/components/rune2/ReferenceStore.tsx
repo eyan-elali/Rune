@@ -8,7 +8,9 @@ import type { ProjectWorkspace } from "@/lib/rune2/projectWorkspace";
 import {
   backlinksOf as deriveBacklinks,
   genericListKey,
+  inlineListKey,
   listKey,
+  pendingMentions,
   referenceTypeOf,
   relatedOf as orderedRelatedOf,
   relationListKey,
@@ -18,6 +20,7 @@ import {
   type ObjectRef,
   type Reference,
 } from "@/lib/rune2/references";
+import { sameTargets, type InlineTarget } from "@/lib/rune2/workspaceDocument";
 import type { ReferenceObjectType } from "@/lib/types";
 import { drop, networkError, put, settle, withoutSettled, type Overlay } from "./PropertyStore";
 import { useRune2Selection } from "./Rune2Selection";
@@ -34,6 +37,13 @@ import { useRune2Selection } from "./Rune2Selection";
 // list, and every derived view (values, links, backlinks) reads the same
 // effective rows. Nothing here reads or writes any object's content: a Scene
 // linked here keeps its prose, version and words exactly as they were.
+//
+// Mentions (inline references in a Page's or Entry's text, 035) are never
+// written from here: the database derives them from the document on every
+// save. The editor only tells the store what its text mentions now
+// (showMentions), so backlinks follow the writing at once — offline too —
+// and, once that text is saved (mentionsSaved), the workspace is re-read and
+// the server's derived rows take over.
 
 type ReferenceStore = {
   /** Whether references exist on this database (migration 028 applied). */
@@ -44,8 +54,19 @@ type ReferenceStore = {
   setRelationship: (sourceId: string, propertyId: string, targetIds: string[]) => Promise<string | null>;
   /** An object's generic links, in order. */
   relatedOf: (sourceId: string) => Reference[];
-  /** Where an object is referenced from — Relationship values and links alike. */
-  backlinksOf: (targetId: string) => Backlink[];
+  /**
+   * Where an object is referenced from — Relationship values, links and
+   * mentions alike. Several ids: one object as the writer sees it (a Chapter
+   * and its only Scene).
+   */
+  backlinksOf: (targetIds: string | readonly string[]) => Backlink[];
+  /** What a document's text mentions now, shown ahead of its save. */
+  showMentions: (source: ObjectRef, targets: InlineTarget[]) => void;
+  /**
+   * A document's text — with mentions changed since it was last saved — was
+   * saved: the workspace is re-read, and its mentions are the server's.
+   */
+  mentionsSaved: (sourceId: string) => void;
   addReference: (source: ObjectRef, target: ObjectRef) => Promise<string | null>;
   removeReference: (reference: Reference) => Promise<string | null>;
 };
@@ -88,7 +109,7 @@ export function ReferenceStoreProvider({ workspace, children }: { workspace: Pro
   const relationValues = useMemo(() => relationshipValues(references), [references]);
   const relatedOf = useCallback((sourceId: string) => orderedRelatedOf(references, sourceId), [references]);
   const backlinksOf = useCallback(
-    (targetId: string) => deriveBacklinks(references, targetId, (id) => index.get(id)?.title ?? ""),
+    (targetIds: string | readonly string[]) => deriveBacklinks(references, targetIds, (id) => index.get(id)?.title ?? ""),
     [references, index]
   );
 
@@ -109,7 +130,9 @@ export function ReferenceStoreProvider({ workspace, children }: { workspace: Pro
       const shown = (ids: string[]): Reference[] =>
         ids.flatMap((id, at) => {
           const type = typeOf(id);
-          return type ? [{ id: `${PENDING}${key}:${id}`, source, target: { type, id }, propertyId, position: at + 1 }] : [];
+          return type
+            ? [{ id: `${PENDING}${key}:${id}`, source, target: { type, id }, origin: "link" as const, propertyId, position: at + 1 }]
+            : [];
         });
       setOverlay((o) => put(o, [[key, shown(targetIds)]]));
       const write = source.type === "scene" ? setSceneRelationship : setEntryRelationship;
@@ -130,6 +153,7 @@ export function ReferenceStoreProvider({ workspace, children }: { workspace: Pro
         id: `${PENDING}${key}:${target.id}`,
         source,
         target,
+        origin: "link",
         propertyId: null,
         position: (current[current.length - 1]?.position ?? 0) + 1,
       };
@@ -161,6 +185,29 @@ export function ReferenceStoreProvider({ workspace, children }: { workspace: Pro
     [refresh, references]
   );
 
+  // Only the text changes a document's mentions: shown from it at once, and
+  // replaced by the server's derived rows on the first read after its save.
+  const showMentions = useCallback<ReferenceStore["showMentions"]>(
+    (source, targets) => {
+      const key = inlineListKey(source.id);
+      setOverlay((o) => {
+        const shown = o.get(key);
+        const current = shown ? (shown.value ?? []) : references.filter((r) => listKey(r) === key);
+        if (sameTargets(current.map((r) => r.target), targets)) return o;
+        return put(o, [[key, pendingMentions(source, targets, PENDING)]]);
+      });
+    },
+    [references]
+  );
+
+  const mentionsSaved = useCallback<ReferenceStore["mentionsSaved"]>(
+    (sourceId) => {
+      setOverlay((o) => settle(o, [inlineListKey(sourceId)]));
+      refresh();
+    },
+    [refresh]
+  );
+
   const store = useMemo<ReferenceStore>(
     () => ({
       available: workspace.referable,
@@ -168,10 +215,22 @@ export function ReferenceStoreProvider({ workspace, children }: { workspace: Pro
       setRelationship,
       relatedOf,
       backlinksOf,
+      showMentions,
+      mentionsSaved,
       addReference,
       removeReference,
     }),
-    [workspace.referable, relationValues, setRelationship, relatedOf, backlinksOf, addReference, removeReference]
+    [
+      workspace.referable,
+      relationValues,
+      setRelationship,
+      relatedOf,
+      backlinksOf,
+      showMentions,
+      mentionsSaved,
+      addReference,
+      removeReference,
+    ]
   );
 
   return <Context.Provider value={store}>{children}</Context.Provider>;
