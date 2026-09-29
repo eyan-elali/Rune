@@ -254,7 +254,7 @@ test('restore: the older text becomes the current one — same Scene, new versio
   assert.deepEqual((await sceneRow(db, id)).content, beforeRestore.content);
 });
 
-test('restore is guarded: a stale version, the current text, the allowance, another writer — nothing is written', async () => {
+test('restore is guarded: a stale version, the current text, another writer — nothing is written; the old allowance no longer guards it', async () => {
   const db = await seededDb();
   const id = pageId('h4a');
   await save(db, id, 'Short.');
@@ -265,11 +265,13 @@ test('restore is guarded: a stale version, the current text, the allowance, anot
 
   // A save after the history was read wins; the restore does not overwrite it.
   assert.equal((await history.restoreSceneRevision(older.id, h.scene.version - 1)).status, 'version_mismatch');
-
-  // alice is over her free allowance: bringing back 200 words is adding words.
-  assert.equal((await history.restoreSceneRevision(older.id, h.scene.version)).status, 'word_limit_blocked');
   assert.deepEqual(await sceneRow(db, id), before);
   assert.equal(await revisionCount(db), count, 'no restore revision for a restore that did not happen');
+
+  // alice is far over the old free allowance: bringing back 200 words is no longer blocked (037).
+  const grown = await history.restoreSceneRevision(older.id, h.scene.version);
+  assert.equal(grown.status, 'ok', JSON.stringify(grown));
+  assert.equal(grown.scene.word_count, older.word_count);
 
   // Restoring the text the Scene already holds does nothing.
   await pass(db, 40);

@@ -1,15 +1,17 @@
 // Project creation + deletion hardening (Rune 2.0 Phase 1, Task 8, migration
-// 021): the REAL createProject / createProjectWithDraft / onboarding /
-// deleteScene / deleteChapter code, and the offline sync engine, against the
-// Rune 2.0 schema in real Postgres + RLS.
+// 021, 037): the REAL createProject / createProjectWithDraft / onboarding /
+// Scene Trash / removeChapterKeepScenes code, and the offline sync engine,
+// against the Rune 2.0 schema in real Postgres + RLS.
 //
 //   * create_project_checked: Project → Manuscript → Chapter 1 → Scene 1 in
 //     one transaction, deduplicated by a client request id
 //   * clients cannot INSERT projects or write projects.word_count
-//   * deleteScene: permanent, confirmed in the UI; the only Scene of a
-//     Chapter may go (the Chapter stays, empty)
-//   * delete_chapter: the Chapter's Scenes move to Unplaced (same rows), then
-//     the empty Chapter is deleted; the Scene→Chapter FK no longer cascades
+//   * permanent Scene deletion only from Trash (037: no client DELETE); the
+//     only Scene of a Chapter may go (the Chapter stays, empty)
+//   * delete_chapter ("remove chapter, keep its scenes"): the Chapter's
+//     Scenes move to Unplaced (same rows), then the empty Chapter is deleted;
+//     the Scene→Chapter FK no longer cascades
+//   * no free-word limit (037): creation with words is never blocked
 //
 // Data: the synthetic legacy fixture moved into the Rune 2.0 schema
 // (lib/legacy-to-rune2.mjs). alice (starter_2k, 3035 words: over her 2,000)
@@ -73,7 +75,7 @@ async function assertIntegrity(db) {
 
 const BROWSER = path.join(HARNESS_DIR, 'mocks/supabaseBrowser.js');
 let legacy;
-let projects, chapters, scenes, onboarding, engine, offline;
+let projects, chapters, scenes, trash, onboarding, engine, offline;
 before(async () => {
   legacy = await createTestDb();
   await legacy.exec(readRepoFile(LEGACY_BASELINE));
@@ -81,6 +83,7 @@ before(async () => {
   projects = await bundleForTest('src/lib/actions/projects.ts', { name: 'life_projects' });
   chapters = await bundleForTest('src/lib/actions/chapters.ts', { name: 'life_chapters' });
   scenes = await bundleForTest('src/lib/actions/scenes.ts', { name: 'life_scenes' });
+  trash = await bundleForTest('src/lib/actions/workspaceTrash.ts', { name: 'life_trash' });
   onboarding = await bundleForTest('src/app/api/onboarding/route.ts', { name: 'life_onboarding' });
   engine = await bundleForTest('src/lib/offline/syncEngine.ts', { name: 'life_syncEngine', aliases: { '@/lib/supabase/client': BROWSER } });
   offline = await bundleForTest('src/lib/offline/db.ts', { name: 'life_offline_db' });
@@ -108,8 +111,16 @@ async function seededDb() {
 function signIn(db, userId) {
   const sb = as(db, userId);
   globalThis.__runeBrowserClient = sb;
-  for (const mod of [projects, chapters, scenes, onboarding, engine]) mod.setServerClient(sb);
+  for (const mod of [projects, chapters, scenes, trash, onboarding, engine]) mod.setServerClient(sb);
   return sb;
+}
+
+/** Permanent Scene deletion, the only way there is (037): to Trash, then deleted from Trash. */
+async function purgeScene(id) {
+  const t = await trash.trashWorkspaceObject('scene', id);
+  if (t.error !== null) return { error: t.error };
+  const d = await trash.deleteTrashedWorkspaceObject('scene', id);
+  return { error: d.error };
 }
 
 const postOnboarding = async (body) => {
@@ -195,22 +206,22 @@ test('a failure at ANY creation step leaves nothing: no Project, Manuscript, Cha
   }
 });
 
-test('free limit: onboarding\'s first sentence over the limit creates nothing; an empty first Scene is never blocked', async () => {
+test('no free limit (037): onboarding\'s first sentence and a first Scene with words are never blocked, even far past the old allowance', async () => {
   const db = await seededDb();
-  signIn(db, ALICE); // 3035 words, limit 2000
-  const before = await snapshot(db);
+  signIn(db, ALICE); // 3035 words — over the old 2,000 allowance
   const o = await postOnboarding({ title: 'Over', firstSentence: 'Too many words already.', requestId: REQ(20) });
-  assert.equal(o.status, 403);
-  assert.equal(o.json.code, 'FREE_WORD_LIMIT_REACHED');
-  assert.deepEqual(await snapshot(db), before);
-  const rpc = await as(db, ALICE).rpc('create_project_checked', { p_title: 'Over', p_description: null, p_cover_color: null,
+  assert.equal(o.status, 200, JSON.stringify(o.json));
+  const created = await one(db, `select s.word_count from public.projects p join public.manuscripts m on m.project_id = p.id
+    join public.scenes s on s.manuscript_id = m.id where p.id = $1`, [o.json.data.projectId]);
+  assert.equal(created?.word_count, 4, 'the first sentence is saved as written');
+  const rpc = await as(db, ALICE).rpc('create_project_checked', { p_title: 'Over again', p_description: null, p_cover_color: null,
     p_first_scene_content: syntheticDoc('x', 3), p_first_scene_word_count: 3, p_request_id: null });
-  assert.deepEqual(rpc.data, { status: 'word_limit_blocked', limit: 2000 });
-  assert.deepEqual(await snapshot(db), before);
+  assert.equal(rpc.data.status, 'ok');
 
   const p = await projects.createProject('Empty is fine', undefined, undefined, REQ(21));
   assert.equal(p.error, null, 'no words, never blocked');
-  assert.equal(await accountTotal(db, ALICE), 3035);
+  assert.equal(await accountTotal(db, ALICE), 3035 + 4 + 3, 'account_word_total is only a metric now');
+  await assertIntegrity(db);
 });
 
 test('create_project_checked refuses an empty title, anon, and a caller who is not signed in — writing nothing', async () => {
@@ -300,11 +311,11 @@ test('clients cannot insert Projects or write projects.word_count; every other P
 
 // ── 4. Scene deletion ─────────────────────────────────────────────────────────
 
-test('deleteScene: removes exactly that Scene; its writing history stays (migration 022); totals follow; nothing else changes', async () => {
+test('permanent Scene deletion (from Trash): removes exactly that Scene; its writing history stays (migration 022); totals follow; nothing else changes', async () => {
   const db = await seededDb();
   signIn(db, ALICE);
   const before = await snapshot(db);
-  const r = await scenes.deleteScene(pageId('h4c'));
+  const r = await purgeScene(pageId('h4c'));
   assert.deepEqual(r, { error: null });
   const after = await snapshot(db);
   assert.deepEqual(after.scenes, before.scenes.filter((s) => s.id !== pageId('h4c')));
@@ -319,7 +330,7 @@ test('deleteScene: removes exactly that Scene; its writing history stays (migrat
   assert.equal(await accountTotal(db, ALICE), 3035 - 150);
 
   // An Unplaced Scene: the ordered total does not move, the account total does.
-  await scenes.deleteScene(pageId('h3b'));
+  assert.deepEqual(await purgeScene(pageId('h3b')), { error: null });
   assert.equal(await storedTotal(db, projectId('hollow')), 1450 - 150);
   assert.equal(await accountTotal(db, ALICE), 3035 - 150 - 380);
   await assertIntegrity(db);
@@ -328,7 +339,7 @@ test('deleteScene: removes exactly that Scene; its writing history stays (migrat
 test('deleting the only Scene of a Chapter leaves a valid, empty Chapter that takes new Scenes', async () => {
   const db = await seededDb();
   signIn(db, ALICE);
-  assert.deepEqual(await scenes.deleteScene(pageId('h1a')), { error: null });
+  assert.deepEqual(await purgeScene(pageId('h1a')), { error: null });
   assert.deepEqual((await chapters.getChapters(projectId('hollow'))).data.find((c) => c.id === chapterId('hollow.ch1')).scenes, [],
     'the Chapter stays, with no Scenes');
   assert.equal(await storedTotal(db, projectId('hollow')), 1450 - 120);
@@ -338,20 +349,22 @@ test('deleting the only Scene of a Chapter leaves a valid, empty Chapter that ta
   await assertIntegrity(db);
 });
 
-test('deleteScene refuses another writer\'s Scene and a missing one, changing nothing', async () => {
+test('Scene deletion refuses another writer\'s Scene and a missing one, and clients cannot delete directly — changing nothing', async () => {
   const db = await seededDb();
   const before = await snapshot(db);
   signIn(db, BRAM);
-  assert.deepEqual(await scenes.deleteScene(pageId('h1a')), { error: 'Scene not found' });
-  assert.deepEqual(await scenes.deleteScene('00000000-0000-4000-8000-000000000000'), { error: 'Scene not found' });
+  assert.deepEqual(await purgeScene(pageId('h1a')), { error: 'Item not found' });
+  assert.deepEqual(await purgeScene('00000000-0000-4000-8000-000000000000'), { error: 'Item not found' });
+  const direct = await as(db, ALICE).from('scenes').delete().eq('id', pageId('h1a')).select('id');
+  assert.match(direct.error?.message ?? '', /permission denied/, 'no client DELETE (037): only from Trash');
   signIn(db, null);
-  assert.deepEqual(await scenes.deleteScene(pageId('t1b')), { error: 'Not authenticated' });
+  assert.deepEqual(await purgeScene(pageId('t1b')), { error: 'Not authenticated' });
   assert.deepEqual(await snapshot(db), before);
 });
 
-// ── 5. Chapter deletion ───────────────────────────────────────────────────────
+// ── 5. Removing a Chapter, keeping its Scenes (delete_chapter; not Trash) ───────────────────────────────────────────────────────
 
-test('deleteChapter: every Scene moves to the end of Unplaced, in order — same IDs, prose and writing history — then the Chapter goes', async () => {
+test('removeChapterKeepScenes: every Scene moves to the end of Unplaced, in order — same IDs, prose and writing history — then the Chapter goes', async () => {
   const db = await seededDb();
   const sb = signIn(db, ALICE);
   const before = await snapshot(db);
@@ -359,7 +372,7 @@ test('deleteChapter: every Scene moves to the end of Unplaced, in order — same
   const unplacedBefore = await unplacedIds(db, projectId('hollow'));
 
   sb.calls.length = 0;
-  const r = await chapters.deleteChapter(chapterId('hollow.ch4'), projectId('hollow'));
+  const r = await chapters.removeChapterKeepScenes(chapterId('hollow.ch4'), projectId('hollow'));
   assert.deepEqual(r, { error: null, unplacedSceneIds: moving });
   assert.deepEqual(sb.calls.map((c) => `${c.kind}:${c.name}`), ['rpc:delete_chapter'], 'one atomic call');
 
@@ -384,31 +397,31 @@ test('deleteChapter: every Scene moves to the end of Unplaced, in order — same
   await assertIntegrity(db);
 });
 
-test('deleteChapter: an empty Chapter is simply removed; simultaneous deletions never tie Unplaced positions', async () => {
+test('removeChapterKeepScenes: an empty Chapter is simply removed; simultaneous deletions never tie Unplaced positions', async () => {
   const db = await seededDb();
   signIn(db, ALICE);
-  assert.deepEqual(await chapters.deleteChapter(chapterId('hollow.ch5'), projectId('hollow')), { error: null, unplacedSceneIds: [] });
+  assert.deepEqual(await chapters.removeChapterKeepScenes(chapterId('hollow.ch5'), projectId('hollow')), { error: null, unplacedSceneIds: [] });
   const results = await Promise.all(['hollow.ch1', 'hollow.ch2', 'hollow.ch3', 'hollow.ch6'].map((c) =>
-    chapters.deleteChapter(chapterId(c), projectId('hollow'))));
+    chapters.removeChapterKeepScenes(chapterId(c), projectId('hollow'))));
   for (const r of results) assert.equal(r.error, null, r.error);
   assert.equal(await storedTotal(db, projectId('hollow')), 350, 'only ch4 is left');
   assert.equal((await unplacedIds(db, projectId('hollow'))).length, 4 + 4);
   await assertIntegrity(db);
 });
 
-test('deleteChapter refuses another writer\'s Chapter and a missing one, changing nothing', async () => {
+test('removeChapterKeepScenes refuses another writer\'s Chapter and a missing one, changing nothing', async () => {
   const db = await seededDb();
   const before = await snapshot(db);
   signIn(db, BRAM);
-  assert.deepEqual(await chapters.deleteChapter(chapterId('hollow.ch4'), projectId('hollow')), { error: 'Chapter not found' });
-  assert.deepEqual(await chapters.deleteChapter('00000000-0000-4000-8000-000000000000', projectId('tide')), { error: 'Chapter not found' });
+  assert.deepEqual(await chapters.removeChapterKeepScenes(chapterId('hollow.ch4'), projectId('hollow')), { error: 'Chapter not found' });
+  assert.deepEqual(await chapters.removeChapterKeepScenes('00000000-0000-4000-8000-000000000000', projectId('tide')), { error: 'Chapter not found' });
   assert.ok((await as(db, null).rpc('delete_chapter', { p_chapter_id: chapterId('tide.ch3') })).error, 'anon has no EXECUTE');
   signIn(db, null);
-  assert.deepEqual(await chapters.deleteChapter(chapterId('tide.ch3'), projectId('tide')), { error: 'Not authenticated' });
+  assert.deepEqual(await chapters.removeChapterKeepScenes(chapterId('tide.ch3'), projectId('tide')), { error: 'Not authenticated' });
   assert.deepEqual(await snapshot(db), before);
 });
 
-test('a Chapter deletion that fails part-way rolls back completely: the Chapter and every Scene unchanged', async () => {
+test('a Chapter removal that fails part-way rolls back completely: the Chapter and every Scene unchanged', async () => {
   for (const failure of [
     // after every Scene has moved, when the Chapter row is deleted
     `create trigger test_fail before delete on public.chapters for each row execute function public.test_fail();`,
@@ -421,7 +434,7 @@ test('a Chapter deletion that fails part-way rolls back completely: the Chapter 
       begin raise exception 'simulated failure'; end $$; ${failure}`);
     signIn(db, ALICE);
     const before = await snapshot(db);
-    const r = await chapters.deleteChapter(chapterId('hollow.ch4'), projectId('hollow'));
+    const r = await chapters.removeChapterKeepScenes(chapterId('hollow.ch4'), projectId('hollow'));
     assert.match(r.error, /simulated failure/);
     assert.deepEqual(await snapshot(db), before, 'nothing moved, nothing deleted, totals unchanged');
   }
@@ -440,14 +453,14 @@ test('deleting a Project still removes its whole Manuscript (the non-cascading S
 
 // ── 6. offline ────────────────────────────────────────────────────────────────
 
-test('REAL sync engine: prose queued offline for a Scene lands on that same Scene after its Chapter is deleted', async () => {
+test('REAL sync engine: prose queued offline for a Scene lands on that same Scene after its Chapter is removed', async () => {
   const db = await seededDb();
   signIn(db, BRAM);
   const t3a = (await one(db, `select * from public.scenes where id = $1`, [pageId('t3a')]));
   await offline.cacheScene(t3a, projectId('tide'));
   await engine.writeToPendingQueue(pageId('t3a'), BRAM, syntheticDoc('offline-t3a', 345), 345);
 
-  const r = await chapters.deleteChapter(chapterId('tide.ch3'), projectId('tide'));
+  const r = await chapters.removeChapterKeepScenes(chapterId('tide.ch3'), projectId('tide'));
   assert.deepEqual(r.unplacedSceneIds, [pageId('t3a'), pageId('t3b')]);
   await offline.forgetStalePlacements(projectId('tide'), chapterId('tide.ch3'), []); // as ChapterRow does
   assert.equal(await storedTotal(db, projectId('tide')), 1320 - 670);

@@ -35,10 +35,7 @@ export async function POST(req: Request) {
 
   const result = await importManuscript(supabase, body.payload as ImportPayload, body.requestId ?? "");
   if (result.error !== null) {
-    return NextResponse.json(
-      { error: result.error, wordLimitBlocked: result.wordLimitBlocked ?? false },
-      { status: result.wordLimitBlocked ? 402 : 422 }
-    );
+    return NextResponse.json({ error: result.error }, { status: 422 });
   }
   revalidatePath("/projects");
   revalidatePath("/dashboard");

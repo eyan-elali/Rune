@@ -7,15 +7,14 @@ import { getManuscriptIdForProject, getProjectIdForManuscript } from "@/lib/manu
 
 type ActionResult<T> = { data: T; error: null } | { data: null; error: string };
 
+// Rune 2.0 has no free-word limit (migration 037): these RPCs never block.
 type SaveSceneCheckedResult =
   | { status: "ok"; updated_at: string; version: number }
-  | { status: "word_limit_blocked"; limit: number }
   | { status: "version_mismatch" }
   | { status: "error"; error: string };
 
 type InsertSceneCheckedResult =
   | { status: "ok"; id: string }
-  | { status: "word_limit_blocked"; limit: number }
   | { status: "error"; error: string };
 
 export async function createGameSession(
@@ -138,13 +137,7 @@ export async function appendSprintToProject(
 
   const result = data as InsertSceneCheckedResult;
 
-  if (result.status === "word_limit_blocked") {
-    return {
-      data: null,
-      error: `This would put you over your ${result.limit.toLocaleString()}-word free limit. Upgrade to Scribe to keep writing.`,
-    };
-  }
-  if (result.status === "error") return { data: null, error: result.error };
+  if (result.status !== "ok") return { data: null, error: result.error ?? "Couldn’t add the scene" };
 
   revalidateProjectTotals(projectId);
 
@@ -203,16 +196,10 @@ export async function appendToExistingScene(
 
   const result = data as SaveSceneCheckedResult;
 
-  if (result.status === "word_limit_blocked") {
-    return {
-      data: null,
-      error: `This would put you over your ${result.limit.toLocaleString()}-word free limit. Upgrade to Scribe to keep writing.`,
-    };
-  }
   if (result.status === "version_mismatch") {
     return { data: null, error: "This scene changed elsewhere. Please try again." };
   }
-  if (result.status === "error") return { data: null, error: result.error };
+  if (result.status !== "ok") return { data: null, error: result.error ?? "Couldn’t save the scene" };
 
   const projectId = await getProjectIdForManuscript(supabase, scene.manuscript_id);
 

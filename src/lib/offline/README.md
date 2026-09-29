@@ -52,7 +52,7 @@ Outcomes:
 |---|---|
 | `ok` | Deleted (or left `pending` if newer content arrived) |
 | `version_mismatch` | `pending`, `retryCount + 1`, one retry scheduled after 2 s |
-| `word_limit_blocked` | `pending`; `rune-word-limit-blocked` event dispatched |
+| `word_limit_blocked` (only from a Rune 2.0 database before migration 037, which retired the limit) | `pending`; `rune-word-limit-blocked` event dispatched (no listener since 037: the write stays queued and retries) |
 | `error` / thrown exception | `pending` with `lastError` |
 | No auth session, read error, or Scene row missing (deleted / not visible via RLS) | `failed` with `lastError` — prose is preserved |
 

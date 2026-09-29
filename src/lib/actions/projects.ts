@@ -53,9 +53,7 @@ export async function createProject(
     coverColor: coverColor ?? null,
     requestId,
   });
-  // An empty first Scene is never word-limit blocked; handled for completeness.
-  if (result.status === "word_limit_blocked") return { data: null, error: "Word limit reached" };
-  if (result.status === "error") return { data: null, error: result.error };
+  if (result.status !== "ok") return { data: null, error: result.error ?? "Couldn’t create the project" };
 
   revalidatePath("/projects");
   revalidatePath("/dashboard");
@@ -85,20 +83,14 @@ export async function updateProject(
 
 type DuplicateProjectCheckedResult =
   | { status: "ok"; project: Project }
-  | { status: "word_limit_blocked"; limit: number }
   | { status: "error"; error: string };
 
 /**
- * Duplicates a project — its Manuscript's Chapters and every Scene, placed
- * and Unplaced — subject to the account-wide free-word limit. Delegates the
- * entire operation to duplicate_project_checked(): ownership verification,
- * the word-limit check (counting every copied Scene), and every row copy
- * happen inside that single atomic database call, sharing the same
- * per-account advisory lock as Scene saves/inserts. This closes the earlier
- * check-then-write race, where a concurrent editor save (or another
- * duplication) could read the same "remaining" figure and jointly exceed
- * the account-wide limit — and guarantees no partial duplicate is ever left
- * behind if something fails partway through.
+ * Duplicates a project — its Manuscript's Groups, active Chapters and every
+ * active Scene, placed and Unplaced (never its Trash) — through
+ * duplicate_project_checked(): ownership verification and every row copy
+ * happen inside that single atomic database call, under the same per-account
+ * lock as Scene saves, so no partial duplicate is ever left behind.
  */
 export async function duplicateProject(
   projectId: string
@@ -114,13 +106,7 @@ export async function duplicateProject(
 
   const result = data as DuplicateProjectCheckedResult;
 
-  if (result.status === "word_limit_blocked") {
-    return {
-      data: null,
-      error: `Duplicating this project would put you over your ${result.limit.toLocaleString()}-word free limit. Upgrade to Scribe to keep writing.`,
-    };
-  }
-  if (result.status === "error") return { data: null, error: result.error };
+  if (result.status !== "ok") return { data: null, error: result.error ?? "Couldn’t duplicate the project" };
 
   revalidatePath("/projects");
   // No XP awarded for duplication — only manual typing earns progression.
@@ -186,8 +172,7 @@ export async function createProjectWithDraft(
     coverColor: coverColor ?? null,
     requestId,
   });
-  if (result.status === "word_limit_blocked") return { data: null, error: "Word limit reached" };
-  if (result.status === "error") return { data: null, error: result.error };
+  if (result.status !== "ok") return { data: null, error: result.error ?? "Couldn’t create the project" };
 
   const { project, chapter, scene_id: sceneId } = result;
   revalidatePath("/projects");

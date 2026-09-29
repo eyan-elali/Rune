@@ -12,7 +12,7 @@ import {
   type ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
-import { FileText, Folder, Library, Pilcrow, StickyNote, X, type LucideIcon } from "lucide-react";
+import { File as PageIcon, FileText, Folder, Library, Pilcrow, StickyNote, X, type LucideIcon } from "lucide-react";
 import {
   deleteTrashedWorkspaceObject,
   listWorkspaceTrash,
@@ -25,8 +25,9 @@ import { deletionWarning, TRASH_NOUN, trashContext, trashedWhen, trashItemTitle,
 import type { TrashItem, TrashObjectType } from "@/lib/types";
 import { useRune2Selection } from "./Rune2Selection";
 
-// The Project's Trash (migrations 030–031): recoverable deletion of Workspace
-// Pages, Folders, Collections and Entries, and of manuscript Scenes. Out of the way until needed: a
+// The Project's Trash (migrations 030, 031, 037): recoverable deletion of
+// Workspace Pages, Folders, Collections and Entries, and of manuscript Scenes
+// and Chapters (a Chapter with its Scenes). Out of the way until needed: a
 // "Move to Trash" in an item's menu, a quiet "Trash" at the foot of the
 // navigator, and the Trash surface itself — listing what is there, each item
 // restored as the same object or deleted permanently after a confirmation.
@@ -48,7 +49,8 @@ import { useRune2Selection } from "./Rune2Selection";
 // the item is restored. Permanent deletion forgets the device copy too.
 //
 // A Folder is navigation: trashing one keeps its items in the Workspace, in
-// its place. Nothing here touches the manuscript.
+// its place. A Chapter is manuscript: it goes with its Scenes, as one piece,
+// and comes back with them. Trash is never Unplaced Scenes.
 
 /** What a Workspace document's open editor sessions can be asked to do (WorkspacePages). */
 export type DocumentSessions = {
@@ -67,6 +69,8 @@ type TrashValue = {
   available: boolean;
   /** Whether Scenes can go to Trash too (migration 031). */
   scenesAvailable: boolean;
+  /** Whether Chapters can go to Trash, with their Scenes (migration 037). */
+  chaptersAvailable: boolean;
   /** Moves a Workspace item to Trash. A returned string is a failure to show. */
   moveToTrash: (entry: NavEntry) => Promise<string | null>;
   notice: Notice | null;
@@ -102,17 +106,30 @@ export function TrashProvider({ children }: { children: ReactNode }) {
       // Whatever is unsaved in this window reaches the server first. A Scene's
       // writing is in its offline queue: sync it (a failure leaves it queued,
       // and it saves once the Scene is restored).
-      const unsaved = type === "collection" ? (entry.entryIds ?? []) : type === "folder" ? [] : [entry.id];
-      if (type === "scene") await syncPendingWrite(entry.id).catch(() => undefined);
-      else await Promise.all(unsaved.map((id) => documents.current?.flush(id)));
+      const unsaved =
+        type === "collection"
+          ? (entry.entryIds ?? [])
+          : type === "folder"
+            ? []
+            : type === "chapter"
+              ? (entry.sceneIds ?? [])
+              : [entry.id];
+      if (type === "scene" || type === "chapter") {
+        await Promise.all(unsaved.map((id) => syncPendingWrite(id).catch(() => undefined)));
+      } else {
+        await Promise.all(unsaved.map((id) => documents.current?.flush(id)));
+      }
       const r = await trashWorkspaceObject(type, entry.id);
       if (r.error !== null) return "Couldn’t move that to Trash. Nothing was changed.";
-      dropTabs(unsaved);
+      dropTabs(type === "chapter" ? [entry.id, ...unsaved] : unsaved);
+      const scenes = entry.sceneIds?.length ?? 0;
       setNotice({
         text:
           type === "folder" && r.data.moved > 0
             ? `“${entry.title}” moved to Trash. ${r.data.moved === 1 ? "Its item stays" : "Its items stay"} in the Workspace.`
-            : `“${entry.title}” moved to Trash.`,
+            : type === "chapter" && scenes > 0
+              ? `“${entry.title}” moved to Trash with its ${scenes === 1 ? "scene" : `${scenes} scenes`}.`
+              : `“${entry.title}” moved to Trash.`,
         undo: { type, id: entry.id },
       });
       refresh();
@@ -146,6 +163,7 @@ export function TrashProvider({ children }: { children: ReactNode }) {
     () => ({
       available: workspace.trashable,
       scenesAvailable: workspace.sceneTrashable,
+      chaptersAvailable: workspace.chapterTrashable,
       moveToTrash,
       notice,
       dismissNotice,
@@ -154,7 +172,17 @@ export function TrashProvider({ children }: { children: ReactNode }) {
       documents,
       refresh,
     }),
-    [workspace.trashable, workspace.sceneTrashable, moveToTrash, notice, dismissNotice, undo, bindDocuments, refresh]
+    [
+      workspace.trashable,
+      workspace.sceneTrashable,
+      workspace.chapterTrashable,
+      moveToTrash,
+      notice,
+      dismissNotice,
+      undo,
+      bindDocuments,
+      refresh,
+    ]
   );
 
   return <TrashContext.Provider value={value}>{children}</TrashContext.Provider>;
@@ -168,12 +196,14 @@ export function useTrash(): TrashValue {
 
 // ── The Trash surface ───────────────────────────────────────────────────────
 
+// As in the navigator.
 const ICON: Record<TrashObjectType, LucideIcon> = {
-  page: FileText,
+  page: PageIcon,
   folder: Folder,
   collection: Library,
   entry: StickyNote,
   scene: Pilcrow,
+  chapter: FileText,
 };
 
 type Listing = { state: "loading" } | { state: "failed" } | { state: "ready"; items: TrashItem[] };
@@ -237,14 +267,19 @@ export function TrashView() {
       return;
     }
     documents.current?.resume(item.id);
+    const title = trashItemTitle(item);
     setStatus(
-      r.data.location === "top"
-        ? `“${trashItemTitle(item)}” is back, at the top of the Workspace — its folder is gone.`
-        : r.data.location === "unplaced"
-          ? `“${trashItemTitle(item)}” is back, in Unplaced Scenes — its chapter is gone.`
-          : item.type === "scene"
-            ? `“${trashItemTitle(item)}” is back in the manuscript.`
-            : `“${trashItemTitle(item)}” is back in the Workspace.`
+      item.type === "chapter"
+        ? r.data.location === "top"
+          ? `“${title}” is back, at the end of the manuscript — its group is gone.`
+          : `“${title}” is back in the manuscript${(item.scenes ?? 0) > 0 ? ", with its scenes" : ""}.`
+        : r.data.location === "top"
+          ? `“${title}” is back, at the top of the Workspace — its folder is gone.`
+          : r.data.location === "unplaced"
+            ? `“${title}” is back, in Unplaced Scenes — its chapter isn’t in the manuscript.`
+            : item.type === "scene"
+              ? `“${title}” is back in the manuscript.`
+              : `“${title}” is back in the Workspace.`
     );
     refresh();
     await load();

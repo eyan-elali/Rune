@@ -26,7 +26,7 @@ import { createTestDb, readRepoFile, asUser, LEGACY_BASELINE, RUNE2_SCHEMA } fro
 import { createSupabaseAdapter } from '../lib/supabase-adapter.mjs';
 import { bundleForTest } from '../lib/bundle.mjs';
 import { prototypeLegacyToRune2 } from '../lib/legacy-to-rune2.mjs';
-import { USERS, pageId, projectId, seedFixture } from '../fixtures/manuscript-fixture.mjs';
+import { USERS, chapterId, pageId, projectId, seedFixture } from '../fixtures/manuscript-fixture.mjs';
 
 const ALICE = USERS.alice.id;
 const BRAM = USERS.bram.id;
@@ -585,7 +585,8 @@ test('ownership and Project isolation: another writer can do nothing to Trash; e
   refused(await trash.restoreWorkspaceObject('page', t.magic.id), 'Item not found');
   refused(await trash.deleteTrashedWorkspaceObject('page', t.magic.id), 'Item not found');
   refused(await trash.trashWorkspaceObject('scene', pageId('h1a')), 'Item not found');
-  refused(await trash.trashWorkspaceObject('chapter', pageId('h1a')), 'Unknown item type');
+  refused(await trash.trashWorkspaceObject('chapter', chapterId('hollow.ch1')), 'Item not found');
+  refused(await trash.trashWorkspaceObject('group', pageId('h1a')), 'Unknown item type');
   assert.deepEqual(ok(await trash.listWorkspaceTrash(TIDE)), []);
   const state = await asUser(db, BRAM, async (tx) => (await tx.query(`select public.workspace_trash_state('page', $1) as s`, [t.magic.id])).rows[0].s);
   assert.deepEqual(state, { status: 'ok', state: 'missing' }, 'another writer learns nothing');
@@ -700,7 +701,17 @@ test('wording: what an item is, where it came from, and exactly what a permanent
   assert.equal(trashModel.trashTypeOf({ kind: 'workspacePage' }), 'page');
   assert.equal(trashModel.trashTypeOf({ kind: 'collectionEntry' }), 'entry');
   assert.equal(trashModel.trashTypeOf({ kind: 'scene' }), 'scene', 'Scenes have Trash (031)');
-  assert.equal(trashModel.trashTypeOf({ kind: 'chapter' }), null, 'Chapters have no Trash yet');
+  assert.equal(trashModel.trashTypeOf({ kind: 'chapter' }), 'chapter', 'Chapters have Trash, with their Scenes (037)');
+  assert.equal(trashModel.trashTypeOf({ kind: 'group' }), null, 'Groups have no Trash');
+  assert.equal(trashModel.TRASH_NOUN.chapter, 'Chapter');
+  const chapter = { ...base, type: 'chapter', title: 'The Harbour', from_group_id: null, from_group_title: null, from_group_active: null, scenes: 3, words: 1200 };
+  assert.equal(trashModel.trashItemTitle({ type: 'chapter', title: '' }), 'Untitled chapter');
+  assert.equal(trashModel.trashContext(chapter), '3 scenes');
+  assert.equal(trashModel.trashContext({ ...chapter, scenes: 1, from_group_id: 'g', from_group_title: 'Part One', from_group_active: true }), '1 scene · from Part One');
+  assert.equal(trashModel.trashContext({ ...chapter, from_group_id: 'g', from_group_title: 'Part One', from_group_active: false }), '3 scenes · from a group that is gone');
+  assert.equal(trashModel.deletionWarning(chapter),
+    'Delete “The Harbour” and its 3 scenes permanently? Their prose and scene properties (1,200 words) can’t be recovered. Your writing history is kept.');
+  assert.equal(trashModel.deletionWarning({ ...chapter, scenes: 0, words: 0 }), 'Delete the chapter “The Harbour” permanently?');
   assert.equal(trashModel.trashItemTitle({ type: 'page', title: null }), 'Untitled');
   assert.equal(trashModel.trashContext({ ...base, type: 'page' }), 'from the Workspace');
   assert.equal(trashModel.trashContext({ ...base, type: 'page', from_folder_id: 'f', from_folder_title: 'Research', from_folder_active: true }), 'from Research');

@@ -391,7 +391,7 @@ export interface WorkspaceNode {
 }
 
 /** What can be put in a Project's Trash (migrations 030–031). */
-export type TrashObjectType = "page" | "folder" | "collection" | "entry" | "scene";
+export type TrashObjectType = "page" | "folder" | "collection" | "entry" | "scene" | "chapter";
 
 /**
  * One item of a Project's Trash (list_workspace_trash): titles, where it came
@@ -415,10 +415,18 @@ export interface TrashItem {
   entries: number | null;
   /** Collection: Relationships of other Collections that point at it. */
   properties: number | null;
-  /** Scene: the Chapter it was placed in (null: Unplaced), and whether that Chapter still exists. */
+  /** Scene: the Chapter it was placed in (null: Unplaced), and whether that Chapter is still there, active. */
   from_chapter_id?: string | null;
   from_chapter_title?: string | null;
   from_chapter_active?: boolean | null;
+  /** Chapter (037): the Group it sat in (null: the top level), and whether that Group still exists. */
+  from_group_id?: string | null;
+  from_group_title?: string | null;
+  from_group_active?: boolean | null;
+  /** Chapter: the Scenes in Trash with it. */
+  scenes?: number | null;
+  /** Chapter: its Scenes' words; Scene: its own. */
+  words?: number | null;
 }
 
 export interface Chapter {

@@ -14,7 +14,7 @@ import type { NavEntry } from "@/lib/rune2/navigatorModel";
 import { referenceSubject } from "@/lib/rune2/references";
 import type { ProjectNote } from "@/lib/types";
 import { SceneSuggestions } from "./CollectionSchema";
-import { MilestonesSection } from "./ManuscriptMilestones";
+import { MilestonesSection, ObjectMilestonesSection } from "./ManuscriptMilestones";
 import { ObjectLinks } from "./ObjectLinks";
 import { AddProperty, ItemProperties } from "./PropertyFields";
 import { usePropertyStore } from "./PropertyStore";
@@ -329,7 +329,10 @@ function NotesView() {
 // its Scene properties (032, architecture §8), edited in place and saved on
 // their own — never with the prose, never inside the editor. A Scene's
 // History and the Manuscript's Milestones (036) open from here too: quiet
-// links, never controls in the manuscript editor.
+// links, never controls in the manuscript editor. Two separate things, kept
+// apart: a Scene's History (versions the database kept on its own) and the
+// named Milestones that hold this Scene or Chapter (037), each opening the
+// read-only Milestone at it.
 
 function plural(n: number, one: string, many = `${one}s`) {
   return `${n.toLocaleString()} ${n === 1 ? one : many}`;
@@ -341,6 +344,8 @@ function formatDate(iso: string): string {
 
 function InspectorView() {
   const { manuscript, workspace, index, selected, select } = useRune2Selection();
+  // Listing an object's Milestones needs migration 037.
+  const milestoneLookup = workspace.chapterTrashable;
   const { available: propertied, propertiesOf } = usePropertyStore();
   const { available: referable } = useReferenceStore();
   const subject = referable && selected ? referenceSubject(index, selected) : null;
@@ -497,6 +502,12 @@ function InspectorView() {
       </dl>
       {scene?.type === "scene" && (
         <SceneHistorySection key={`history-${scene.id}`} sceneId={scene.id} projectId={manuscript.project.id} />
+      )}
+      {milestoneLookup && selected?.kind === "chapter" && (
+        <ObjectMilestonesSection key={`milestones-${selected.id}`} kind="chapter" id={selected.id} />
+      )}
+      {milestoneLookup && (selected?.kind === "scene" || selected?.kind === "unplacedScene") && (
+        <ObjectMilestonesSection key={`milestones-${selected.id}`} kind="scene" id={selected.id} />
       )}
       {!selected && <MilestonesSection projectId={manuscript.project.id} />}
       {scene?.type === "scene" && <SceneInspectorProperties key={`props-${scene.id}`} sceneId={scene.id} />}

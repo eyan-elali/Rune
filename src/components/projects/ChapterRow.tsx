@@ -3,7 +3,9 @@
 import { useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { GripVertical, Trash2 } from "lucide-react";
-import { updateChapter, deleteChapter, markChapterComplete } from "@/lib/actions/chapters";
+import { updateChapter, markChapterComplete } from "@/lib/actions/chapters";
+import { trashWorkspaceObject } from "@/lib/actions/workspaceTrash";
+import { syncPendingWrite } from "@/lib/offline/syncEngine";
 import { calculateChapterWordCount } from "@/lib/manuscript";
 import { useToastStore } from "@/store/toastStore";
 import { forgetStalePlacements } from "@/lib/offline/db";
@@ -77,23 +79,27 @@ export function ChapterRow({ chapter, projectId, moveControl }: ChapterRowProps)
     }
   }
 
-  async function handleDelete(e: React.MouseEvent) {
+  // Moving a Chapter to Trash takes its Scenes with it (migration 037); it is
+  // restored, or deleted permanently, from the project's Trash.
+  async function handleTrash(e: React.MouseEvent) {
     e.stopPropagation();
     const message =
       sceneCount === 0
-        ? `Delete chapter "${chapter.title}"? It has no scenes.`
-        : `Delete chapter "${chapter.title}"?\n\n` +
-          `Its ${sceneCount === 1 ? "scene" : `${sceneCount} scenes`} (${totalWords.toLocaleString()} words) ` +
-          `will move to Unplaced Scenes. No writing is deleted.`;
+        ? `Move chapter "${chapter.title}" to Trash?`
+        : `Move chapter "${chapter.title}" to Trash?\n\n` +
+          `Its ${sceneCount === 1 ? "scene goes" : `${sceneCount} scenes go`} with it (${totalWords.toLocaleString()} words). ` +
+          `You can restore it from Trash.`;
     if (!confirm(message)) return;
-    const { error } = await deleteChapter(chapter.id, projectId);
-    if (error) {
-      showToast("Couldn't delete this chapter — nothing was changed.", "error");
+    // Whatever of its Scenes is still waiting to save reaches the server first.
+    await Promise.all((chapter.scenes ?? []).map((s) => syncPendingWrite(s.id).catch(() => undefined)));
+    const { error } = await trashWorkspaceObject("chapter", chapter.id);
+    if (error !== null) {
+      showToast("Couldn't move this chapter to Trash — nothing was changed.", "error");
       return;
     }
-    // The offline cache still files these Scenes under the deleted Chapter.
+    // The offline cache still files these Scenes under the trashed Chapter.
     await forgetStalePlacements(projectId, chapter.id, []);
-    if (sceneCount > 0) showToast("Chapter deleted — its scenes are in Unplaced Scenes", "success");
+    showToast("Chapter moved to Trash", "success");
     router.refresh();
   }
 
@@ -182,11 +188,12 @@ export function ChapterRow({ chapter, projectId, moveControl }: ChapterRowProps)
         {isCompleted ? "Completed ✦" : "Mark as completed"}
       </button>
 
-      {/* Delete */}
+      {/* Move to Trash */}
       <button
         type="button"
-        aria-label="Delete chapter"
-        onClick={handleDelete}
+        aria-label="Move chapter to Trash"
+        title="Move to Trash"
+        onClick={handleTrash}
         className="shrink-0 rounded p-1 text-rune-mist/0 transition-all group-hover:text-rune-mist/30 hover:!text-rune-crimson"
       >
         <Trash2 size={14} />

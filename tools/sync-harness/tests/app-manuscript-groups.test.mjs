@@ -81,7 +81,7 @@ async function assertStructure(db) {
 
 const BROWSER = path.join(HARNESS_DIR, 'mocks/supabaseBrowser.js');
 let legacy;
-let structure, chapters, scenes, projects, writingStats, exporter, engine, offline;
+let structure, chapters, scenes, projects, writingStats, exporter, engine, offline, trash;
 before(async () => {
   legacy = await createTestDb();
   await legacy.exec(readRepoFile(LEGACY_BASELINE));
@@ -89,6 +89,7 @@ before(async () => {
   structure = await bundleForTest('src/lib/actions/structure.ts', { name: 'groups_structure' });
   chapters = await bundleForTest('src/lib/actions/chapters.ts', { name: 'groups_chapters' });
   scenes = await bundleForTest('src/lib/actions/scenes.ts', { name: 'groups_scenes' });
+  trash = await bundleForTest('src/lib/actions/workspaceTrash.ts', { name: 'groups_trash' });
   projects = await bundleForTest('src/lib/actions/projects.ts', { name: 'groups_projects' });
   writingStats = await bundleForTest('src/lib/actions/writingStats.ts', { name: 'groups_writingStats' });
   exporter = await bundleForTest('src/lib/export/projectExport.ts', {
@@ -113,7 +114,7 @@ async function seededDb() {
 function signIn(db, userId) {
   const sb = as(db, userId);
   globalThis.__runeBrowserClient = sb;
-  for (const mod of [structure, chapters, scenes, projects, writingStats, exporter, engine]) mod.setServerClient?.(sb);
+  for (const mod of [structure, chapters, scenes, projects, writingStats, exporter, engine, trash]) mod.setServerClient?.(sb);
   return sb;
 }
 
@@ -436,7 +437,7 @@ test('Unplaced Scenes: unique positions per Manuscript under simultaneous moves,
     scenes.moveSceneToUnplaced(pageId('h4a')),
     scenes.createUnplacedScene(HOLLOW, 'A loose scene'),
     scenes.createUnplacedScene(HOLLOW, 'Another'),
-    chapters.deleteChapter(CH(6), HOLLOW),
+    chapters.removeChapterKeepScenes(CH(6), HOLLOW),
     scenes.moveSceneToChapter(pageId('h3c'), CH(2)),
   ]);
   for (const r of results) assert.equal(r.error, null, r.error);
@@ -457,6 +458,17 @@ test('Unplaced Scenes: unique positions per Manuscript under simultaneous moves,
   await assertStructure(db);
 });
 
+/**
+ * Permanent deletion of a Scene: only from Trash (migration 037) — to Trash,
+ * then deleted there. Same database effect as the old direct delete.
+ */
+async function purgeScene(id) {
+  const t = await trash.trashWorkspaceObject('scene', id);
+  if (t.error !== null) return { error: t.error };
+  const d = await trash.deleteTrashedWorkspaceObject('scene', id);
+  return { error: d.error };
+}
+
 // ── 7. Scene deletion keeps writing history ───────────────────────────────────
 
 test('deleting a Scene keeps its writing history: same words, days, Project and writer; merged into an existing Project-level row; never a Scene title or prose', async () => {
@@ -468,14 +480,14 @@ test('deleting a Scene keeps its writing history: same words, days, Project and 
 
   // 2026-08-02: h3a 25, h4c 150, no Project-level row. The first deletion
   // detaches h4c's row in place (same row id)…
-  assert.deepEqual(await scenes.deleteScene(pageId('h4c')), { error: null });
+  assert.deepEqual(await purgeScene(pageId('h4c')), { error: null });
   assert.deepEqual(await sessionsOn(ALICE, '2026-08-02'), [
     { id: (await one(db, `select id from public.writing_sessions where scene_id = $1 and session_date = '2026-08-02'`, [pageId('h3a')])).id,
       project_id: HOLLOW, scene_id: pageId('h3a'), words_added: 25 },
     { id: s4, project_id: HOLLOW, scene_id: null, words_added: 150 },
   ]);
   // …the second merges into it (one Project-level row per writer, Project and day).
-  assert.deepEqual(await scenes.deleteScene(pageId('h3a')), { error: null });
+  assert.deepEqual(await purgeScene(pageId('h3a')), { error: null });
   assert.deepEqual(await sessionsOn(ALICE, '2026-08-02'), [{ id: s4, project_id: HOLLOW, scene_id: null, words_added: 175 }]);
   assert.deepEqual((await sessionsOn(ALICE, '2026-08-01')).map((r) => [r.scene_id, r.words_added]), [[pageId('h3b'), 380], [null, 410]],
     'h3a\'s other day kept too');
@@ -484,7 +496,7 @@ test('deleting a Scene keeps its writing history: same words, days, Project and 
   await db.query(`insert into public.writing_sessions (user_id, project_id, scene_id, session_date, words_added) values ($1, $2, $3, '2026-08-04', 7)`,
     [BRAM, projectId('tide'), pageId('t1b')]);
   signIn(db, BRAM);
-  assert.deepEqual(await scenes.deleteScene(pageId('t1b')), { error: null });
+  assert.deepEqual(await purgeScene(pageId('t1b')), { error: null });
   assert.deepEqual((await sessionsOn(BRAM, '2026-08-04')).map((r) => [r.project_id, r.scene_id, r.words_added]), [[projectId('tide'), null, 22]]);
   assert.deepEqual((await sessionsOn(BRAM, '2026-08-05')).map((r) => [r.scene_id, r.words_added]), [[null, 650], [pageId('t1c'), 720]]);
 
@@ -492,7 +504,7 @@ test('deleting a Scene keeps its writing history: same words, days, Project and 
   await db.query(`insert into public.writing_sessions (user_id, project_id, scene_id, session_date, words_added) values ($1, null, $2, '2026-08-10', 9)`,
     [ALICE, pageId('h1a')]);
   signIn(db, ALICE);
-  assert.deepEqual(await scenes.deleteScene(pageId('h1a')), { error: null });
+  assert.deepEqual(await purgeScene(pageId('h1a')), { error: null });
   assert.deepEqual((await sessionsOn(ALICE, '2026-08-10')).map((r) => [r.project_id, r.scene_id, r.words_added]), [[HOLLOW, null, 9]]);
 
   const columns = (await all(db, `select column_name from information_schema.columns where table_name = 'writing_sessions' order by 1`)).map((c) => c.column_name);
@@ -521,8 +533,8 @@ test('Today\'s Words, streaks, daily history and all-time words do not drop when
   assert.equal(before.today, 47);
   assert.equal(before.streak.currentStreak, 2);
 
-  assert.deepEqual(await scenes.deleteScene(pageId('h6c')), { error: null });
-  assert.deepEqual(await scenes.deleteScene(pageId('h2a')), { error: null });
+  assert.deepEqual(await purgeScene(pageId('h6c')), { error: null });
+  assert.deepEqual(await purgeScene(pageId('h2a')), { error: null });
   assert.deepEqual(await stats(), before, 'nothing about the writer\'s history changed');
   assert.deepEqual((await all(db, `select words_added from public.writing_sessions where user_id = $1 and session_date = $2`, [ALICE, today]))
     .map((r) => r.words_added), [47], 'today is one Project-level row');

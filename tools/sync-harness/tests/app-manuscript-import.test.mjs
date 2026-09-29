@@ -649,7 +649,7 @@ test('atomic: a failure in the middle of the import leaves nothing behind — no
   assert.equal(retry.status, 200);
 });
 
-test('refused imports write nothing: invalid structure, empty, too deep, over the free word limit, malformed body, signed out', async () => {
+test('refused imports write nothing: invalid structure, empty, too deep, malformed body, signed out — and no word limit refuses one', async () => {
   const db = await seededDb();
   const before = await worldBefore(db);
   const scene = (words) => ({ title: null, paragraphs: [[Array.from({ length: words }, (_, i) => `w${i}`).join(' ')]] });
@@ -666,12 +666,8 @@ test('refused imports write nothing: invalid structure, empty, too deep, over th
     assert.equal(r.status, 422, JSON.stringify(payload).slice(0, 80));
     assert.match(r.body.error, /Nothing was created/);
   }
-  // dana is a new free writer (starter_2k): 2,500 words would pass her limit.
+  // dana is a new free writer (starter_2k); her import is imported below — no word limit (037).
   const big = { title: 'Big', items: [{ kind: 'chapter', title: 'A', scenes: [scene(2500)] }], unplaced: [] };
-  const blocked = await postImport(db, DANA, big);
-  assert.equal(blocked.status, 402);
-  assert.equal(blocked.body.wordLimitBlocked, true);
-  assert.match(blocked.body.error, /2,000-word limit/);
   // Malformed and unauthenticated requests.
   route.setServerClient(as(db, CORA));
   const bad = await route.POST(new Request('http://rune.test/x', { method: 'POST', body: '{not json' }));
@@ -682,8 +678,11 @@ test('refused imports write nothing: invalid structure, empty, too deep, over th
   const anon = await route.POST(new Request('http://rune.test/x', { method: 'POST', body: JSON.stringify({ payload: big }) }));
   assert.equal(anon.status, 401);
   assert.deepEqual(await worldBefore(db), before, 'nothing written by any refusal');
-  // Under the limit, a free writer can import.
-  assert.equal((await postImport(db, DANA, { ...big, items: [{ kind: 'chapter', title: 'A', scenes: [scene(300)] }] })).status, 200);
+  // Past the old 2,000-word allowance, a new free writer's import is created whole (no 402, no limit).
+  const imported = await postImport(db, DANA, big);
+  assert.equal(imported.status, 200, JSON.stringify(imported.body));
+  assert.equal(imported.body.wordLimitBlocked, undefined);
+  assert.equal((await manuscriptRows(db, imported.body.projectId)).scenes.reduce((n, s) => n + s.word_count, 0), 2500);
 });
 
 // ── 7. Ownership and isolation ────────────────────────────────────────────────

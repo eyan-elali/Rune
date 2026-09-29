@@ -6,8 +6,8 @@ import type { Scene } from "@/lib/types";
 
 // Scene History (migration 036): earlier texts of one Scene, kept by the
 // database on the save path. Reading never changes anything; restoring is a
-// new save of the old text through save_scene_checked (version guard,
-// allowance, word counts), after the text it replaces is kept. No revision is
+// new save of the old text through save_scene_checked (version guard and
+// word counts; never a word limit), after the text it replaces is kept. No revision is
 // ever rewound or deleted, and nothing here writes writing history.
 
 type ActionResult<T> = { data: T; error: null } | { data: null; error: string };
@@ -50,7 +50,6 @@ export type RestoreSceneRevisionResult =
   | { status: "unchanged" }
   /** The Scene changed since its history was read; nothing was written. */
   | { status: "version_mismatch" }
-  | { status: "word_limit_blocked" }
   | { status: "error"; error: string };
 
 /**
@@ -72,10 +71,10 @@ export async function restoreSceneRevision(
   if (error) return { status: "error", error: error.message };
   const result = data as
     | { status: "ok"; scene_id: string }
-    | { status: "unchanged" | "version_mismatch" | "word_limit_blocked" }
+    | { status: "unchanged" | "version_mismatch" }
     | { status: "error"; error: string };
-  if (result.status === "error") return { status: "error", error: result.error };
-  if (result.status !== "ok") return { status: result.status };
+  if (result.status === "unchanged" || result.status === "version_mismatch") return { status: result.status };
+  if (result.status !== "ok") return { status: "error", error: "error" in result ? result.error : "The version couldn’t be restored" };
 
   // The whole Scene as the server now holds it, for the editor and the
   // device's confirmed baseline.

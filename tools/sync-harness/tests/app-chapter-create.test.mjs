@@ -183,28 +183,31 @@ test('create_chapter_checked refuses another writer\'s Manuscript, a missing one
   assert.deepEqual(await snapshot(db), before);
 });
 
-// ── 2. free-limit enforcement ─────────────────────────────────────────────────
+// ── 2. no free-word limit (037) ───────────────────────────────────────────────
 
-test('free limit: a Chapter whose first Scene carries words is refused over the limit, and nothing is created', async () => {
+test('no free limit: a Chapter whose first Scene carries words is created — Chapter and Scene together — even far past the old allowance', async () => {
   const db = await seededDb();
-  const before = await snapshot(db);
   const hollow = await manuscriptOf(db, projectId('hollow'));
-  assert.deepEqual((await createChapterRpc(as(db, ALICE), hollow, { words: 5 })).data, { status: 'word_limit_blocked', limit: 2000 });
-  assert.deepEqual(await snapshot(db), before, 'no Chapter without its Scene');
-  // An empty first Scene is never blocked, even over the limit.
+  const before = (await chaptersOf(db, hollow)).length;
+  const r = (await createChapterRpc(as(db, ALICE), hollow, { words: 5 })).data;
+  assert.equal(r.status, 'ok', JSON.stringify(r));
+  assert.equal((await chaptersOf(db, hollow)).length, before + 1);
+  assert.equal((await one(db, `select count(*)::int as n from public.scenes where chapter_id = $1`, [r.chapter.id])).n, 1, 'never a Chapter without its Scene');
   signIn(db, ALICE);
-  assert.equal((await chapters.createChapter(projectId('hollow'), 'Chapter 7')).error, null);
-  assert.equal(await accountTotal(db, ALICE), 3035);
+  assert.equal((await chapters.createChapter(projectId('hollow'), 'Chapter 8')).error, null);
+  assert.equal(await accountTotal(db, ALICE), 3035 + 5, 'the account total is still measured (a metric)');
 });
 
-test('free limit: simultaneous Chapter creations carrying words cannot jointly exceed it', async () => {
+test('no free limit: simultaneous Chapter creations carrying words both succeed, in distinct positions', async () => {
   const db = await seededDb();
   const tide = await manuscriptOf(db, projectId('tide'));
-  // bram: 2740 of 15,000. Each fits alone; together they do not.
+  // bram: 2740 words; together these pass the old 15,000 legacy allowance.
   const [a, b] = await Promise.all([createChapterRpc(as(db, BRAM), tide, { words: 7000 }), createChapterRpc(as(db, BRAM), tide, { words: 7000 })]);
-  assert.deepEqual([a.data.status, b.data.status].sort(), ['ok', 'word_limit_blocked']);
-  assert.equal(await accountTotal(db, BRAM), 2740 + 7000);
-  assert.equal((await chaptersOf(db, tide)).length, 4, 'exactly one new Chapter');
+  assert.deepEqual([a.data.status, b.data.status], ['ok', 'ok']);
+  assert.equal(await accountTotal(db, BRAM), 2740 + 14000);
+  const list = await chaptersOf(db, tide);
+  assert.equal(list.length, 5, 'exactly two new Chapters');
+  assert.equal(new Set(list.map((c) => c.position)).size, list.length, 'never tied');
 });
 
 test('free limit: the direct-insert bypass is gone — an over-limit writer cannot add words by writing to the table', async () => {
@@ -237,7 +240,7 @@ test('direct Scene inserts are refused for every client, into every list, includ
   assert.deepEqual(await snapshot(db), before);
 });
 
-test('reads, updates and deletes of Scenes are unchanged: the owner can, another writer cannot', async () => {
+test('reads and updates of Scenes are unchanged: the owner can, another writer cannot; no client deletes (037: Trash only)', async () => {
   const db = await seededDb();
   const alice = as(db, ALICE);
   const bram = as(db, BRAM);
@@ -245,8 +248,11 @@ test('reads, updates and deletes of Scenes are unchanged: the owner can, another
   assert.deepEqual((await bram.from('scenes').select('id').eq('id', pageId('h1a'))).data, []);
   assert.equal((await alice.from('scenes').update({ title: 'Renamed' }).eq('id', pageId('h1a')).select('id')).data.length, 1);
   assert.deepEqual((await bram.from('scenes').update({ title: 'hijack' }).eq('id', pageId('h1a')).select('id')).data, []);
-  assert.deepEqual((await bram.from('scenes').delete().eq('id', pageId('h1a')).select('id')).data, []);
-  assert.equal((await alice.from('scenes').delete().eq('id', pageId('h3b')).select('id')).data.length, 1);
+  assert.equal((await bram.from('scenes').delete().eq('id', pageId('h1a')).select('id')).error?.code, '42501');
+  assert.equal((await alice.from('scenes').delete().eq('id', pageId('h3b')).select('id')).error?.code, '42501', 'not even the owner: Trash only');
+  assert.equal((await alice.rpc('trash_workspace_object', { p_type: 'scene', p_id: pageId('h3b') })).data.status, 'ok');
+  assert.equal((await alice.rpc('delete_trashed_workspace_object', { p_type: 'scene', p_id: pageId('h3b') })).data.status, 'ok');
+  assert.equal(await one(db, `select id from public.scenes where id = $1`, [pageId('h3b')]), undefined);
 });
 
 test('every approved creation path still works: placed, Unplaced, Chapter + Scene, duplicate, onboarding, Arena', async () => {

@@ -13,13 +13,14 @@ import type { ChapterWithScenes } from "@/lib/manuscriptQueries";
 import {
   createScene,
   createUnplacedScene,
-  deleteScene,
   getScenes,
   reorderScenes,
   moveSceneToUnplaced,
   moveSceneToChapter,
 } from "@/lib/actions/scenes";
 import { cacheScene, cacheChapterMeta, forgetStalePlacements } from "@/lib/offline/db";
+import { syncPendingWrite } from "@/lib/offline/syncEngine";
+import { trashWorkspaceObject } from "@/lib/actions/workspaceTrash";
 import { useEditorStore } from "@/store/editorStore";
 import { isManuscriptEditorPath } from "@/lib/utils";
 import { useModeStore } from "@/store/modeStore";
@@ -54,8 +55,6 @@ interface EditorShellProps {
   unplacedCount?: number;
   showTutorial?: boolean;
   forceTutorial?: boolean;
-  /** Account-wide manuscript word total at page load — see getAccountWordTotal. */
-  accountWordTotal?: number;
 }
 
 export function EditorShell({
@@ -68,7 +67,6 @@ export function EditorShell({
   unplacedCount = 0,
   showTutorial = false,
   forceTutorial = false,
-  accountWordTotal = 0,
 }: EditorShellProps) {
   const chapterId = chapter?.id ?? null;
   const router = useRouter();
@@ -150,31 +148,25 @@ export function EditorShell({
     return remaining.length;
   }, []);
 
-  // Deleting a Scene is permanent (there is no Trash yet), so it is always
-  // confirmed, and the confirmation offers Unplaced Scenes as the way to set
-  // a Scene aside without losing it. A Chapter's only Scene may be deleted:
-  // the Chapter stays, empty, with its "Add Scene" state.
+  // "Delete" is Move to Trash (migration 031): recoverable, so unconfirmed.
+  // Permanent deletion happens only from the project's Trash. A Chapter's only
+  // Scene may go: the Chapter stays, empty, with its "Add Scene" state.
   const handleDeleteScene = useCallback(
     async (sceneId: string) => {
       const scene = scenesRef.current.find((p) => p.id === sceneId);
       if (!scene) return;
-      const words = scene.word_count ?? 0;
-      const message =
-        `Delete “${scene.title}” permanently?` +
-        (words > 0 ? ` Its ${words.toLocaleString()} ${words === 1 ? "word" : "words"} will be lost.` : "") +
-        (chapterId && scenesRef.current.length === 1 ? " This chapter will be left empty." : "") +
-        (chapterId ? "\n\nTo set it aside without deleting it, move it to Unplaced Scenes instead." : "") +
-        "\n\nThis can't be undone.";
-      if (!window.confirm(message)) return;
-      const { error } = await deleteScene(sceneId);
-      if (error) {
-        showToast("Couldn't delete this scene — nothing was changed.", "error");
+      // Whatever is still waiting to save reaches the server first.
+      await syncPendingWrite(sceneId).catch(() => undefined);
+      const { error } = await trashWorkspaceObject("scene", sceneId);
+      if (error !== null) {
+        showToast("Couldn't move this scene to Trash — nothing was changed.", "error");
         return;
       }
       removeFromView(sceneId);
+      showToast(`“${scene.title}” moved to Trash`, "success");
       router.refresh();
     },
-    [chapterId, removeFromView, router, showToast]
+    [removeFromView, router, showToast]
   );
 
   const handleMoveToUnplaced = useCallback(
@@ -321,7 +313,6 @@ export function EditorShell({
           currentScene={currentScene}
           onSceneUpdated={handleSceneUpdated}
           onRenameScene={handleRenameScene}
-          accountWordTotal={accountWordTotal}
           emptyState={
             scenes.length === 0 ? (
               <div className="flex max-w-sm flex-col items-center gap-3 px-6 text-center">

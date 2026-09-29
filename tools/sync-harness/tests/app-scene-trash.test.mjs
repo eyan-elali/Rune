@@ -144,7 +144,7 @@ test('placed Scene: its old place taken → the end of its Chapter; its Chapter 
   // Chapter gone: deleting it moves its active Scenes to Unplaced; the trashed one waits.
   const words = await projectWords(db);
   ok(await trash.trashWorkspaceObject('scene', pageId('h4b')));
-  assert.equal((await chapters.deleteChapter(chapterId('hollow.ch4'), HOLLOW)).error, null);
+  assert.equal((await chapters.removeChapterKeepScenes(chapterId('hollow.ch4'), HOLLOW)).error, null);
   const item = ok(await trash.listWorkspaceTrash(HOLLOW)).find((i) => i.id === pageId('h4b'));
   assert.equal(item.from_chapter_active, false);
   assert.equal(trashModel.trashContext(item), 'from a chapter that is gone');
@@ -293,11 +293,11 @@ test('duplication copies only active Scenes; ownership: another writer can do no
 
   await asUser(db, ALICE, async (tx) => {
     assert.equal((await tx.query(`select id from public.scenes where id = $1`, [pageId('h3b')])).rows.length, 0, 'hidden from its own writer too');
-    const deleted = await tx.query(`delete from public.scenes where id = $1`, [pageId('h3b')]);
-    assert.equal(deleted.affectedRows ?? 0, 0, 'no direct delete of a trashed Scene');
     const state2 = (await tx.query(`select public.workspace_trash_state('scene', $1) as s`, [pageId('h3b')])).rows[0].s;
     assert.deepEqual(state2, { status: 'ok', state: 'trashed' });
   });
+  await assert.rejects(asUser(db, ALICE, (tx) => tx.query(`delete from public.scenes where id = $1`, [pageId('h3b')])), /permission denied/,
+    'no direct delete of a Scene, trashed or not (037): permanent deletion only from Trash');
   await assert.rejects(asUser(db, ALICE, (tx) => tx.query(`update public.scenes set trashed_at = now(), chapter_id = null where id = $1`, [pageId('h4c')])),
     /row-level security/);
   assert.ok(await one(db, `select id from public.scenes where id = $1 and trashed_at is not null`, [pageId('h3b')]));
@@ -327,7 +327,7 @@ test('wording: a Scene’s title and what its permanent deletion loses', () => {
     collection_id: null, collection_title: null, collection_active: null, entries: null, properties: null };
   assert.equal(trashModel.trashTypeOf({ kind: 'scene' }), 'scene');
   assert.equal(trashModel.trashTypeOf({ kind: 'unplacedScene' }), 'scene');
-  assert.equal(trashModel.trashTypeOf({ kind: 'chapter' }), null, 'no Chapter Trash yet');
+  assert.equal(trashModel.trashTypeOf({ kind: 'chapter' }), 'chapter', 'a Chapter goes to Trash with its Scenes (037)');
   assert.equal(trashModel.trashItemTitle({ type: 'scene', title: 'Untitled scene' }), 'Untitled scene');
   assert.equal(trashModel.trashItemTitle({ type: 'scene', title: '' }), 'Untitled scene');
   assert.equal(trashModel.trashItemTitle({ type: 'scene', title: 'The Crossing' }), 'The Crossing');

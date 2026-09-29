@@ -14,8 +14,9 @@ export type ChapterWithSceneStats = {
 //   * Chapter total: every Scene placed in the Chapter.
 //   * ordered manuscript total: every placed Scene of every Chapter.
 //     Unplaced Scenes are excluded.
-//   * account / free-limit total: every Scene, placed or Unplaced — only
-//     account_word_total() in the database, never computed here.
+//   * account total: every Scene, placed or Unplaced — only
+//     account_word_total() in the database, never computed here. A metric
+//     only: since migration 037 nothing gates writing on it.
 //
 // Writing activity (Today's Words, sessions, streaks, XP) is counted from
 // writing_sessions, not from any of these.
@@ -32,7 +33,7 @@ export function calculateChapterWordCount(chapter: ChapterWithSceneStats): numbe
 
 /**
  * The ordered manuscript total: every placed Scene of every Chapter.
- * Unplaced Scenes are excluded. This is NOT the free-limit account total
+ * Unplaced Scenes are excluded. This is NOT the account total
  * (account_word_total counts every Scene, placed or Unplaced).
  */
 export function calculateProjectWordCount(chapters: ChapterWithSceneStats[]): number {

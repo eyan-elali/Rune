@@ -3,7 +3,8 @@
 // Rune 2.0 schema in real Postgres + RLS.
 //
 //   * one rule: Chapter total = its placed Scenes; ordered manuscript total =
-//     every placed Scene; the account / free-limit total = every Scene
+//     every placed Scene; the account total = every Scene (a metric only:
+//     since migration 037 there is no free-word limit)
 //   * projects.word_count is the ordered total after every create, save, move,
 //     reorder, delete and duplication — maintained by the database
 //   * export: placed Scenes in order, a scene break between adjacent Scenes,
@@ -43,7 +44,7 @@ const versionOf = async (db, id) => (await one(db, `select version from public.s
 const wordsOf = async (db, id) => (await one(db, `select word_count from public.scenes where id = $1`, [id])).word_count;
 
 let legacy;
-let manuscript, queries, chapters, projects, scenes, games, onboarding, exporter;
+let manuscript, queries, chapters, projects, scenes, trash, games, onboarding, exporter;
 before(async () => {
   legacy = await createTestDb();
   await legacy.exec(readRepoFile(LEGACY_BASELINE));
@@ -53,6 +54,7 @@ before(async () => {
   chapters = await bundleForTest('src/lib/actions/chapters.ts', { name: 'tot_chapters' });
   projects = await bundleForTest('src/lib/actions/projects.ts', { name: 'tot_projects' });
   scenes = await bundleForTest('src/lib/actions/scenes.ts', { name: 'tot_scenes' });
+  trash = await bundleForTest('src/lib/actions/workspaceTrash.ts', { name: 'tot_trash' });
   games = await bundleForTest('src/lib/actions/games.ts', { name: 'tot_games' });
   onboarding = await bundleForTest('src/app/api/onboarding/route.ts', { name: 'tot_onboarding' });
   exporter = await bundleForTest('src/lib/export/projectExport.ts', {
@@ -69,8 +71,16 @@ async function seededDb() {
 
 function signIn(db, userId) {
   const sb = as(db, userId);
-  for (const mod of [chapters, projects, scenes, games, onboarding]) mod.setServerClient(sb);
+  for (const mod of [chapters, projects, scenes, trash, games, onboarding]) mod.setServerClient(sb);
   return sb;
+}
+
+/** Permanent Scene deletion, the only way there is (037): to Trash, then deleted from Trash. */
+async function purgeScene(id) {
+  const t = await trash.trashWorkspaceObject('scene', id);
+  if (t.error !== null) return { error: t.error };
+  const d = await trash.deleteTrashedWorkspaceObject('scene', id);
+  return { error: d.error };
 }
 
 /**
@@ -103,7 +113,7 @@ test('counting: the app rule, the SQL rule and the stored total agree for every 
   assert.deepEqual([await unplaced('hollow', ALICE), await unplaced('ash', ALICE), await unplaced('tide', BRAM)], [380 + 95 + 250 + 260, 500, 700 + 720]);
 });
 
-test('counting: the account / free-limit total still counts every Scene, placed and Unplaced — it is not the ordered total', async () => {
+test('counting: the account total still counts every Scene, placed and Unplaced — it is not the ordered total, and gates nothing', async () => {
   const db = await seededDb();
   assert.equal(await accountTotal(db, ALICE), 3035, 'hollow 1450 + 985 Unplaced, ash 100 + 500 Unplaced');
   assert.equal(await accountTotal(db, BRAM), 2740, 'tide 1320 + 1420 Unplaced');
@@ -112,10 +122,11 @@ test('counting: the account / free-limit total still counts every Scene, placed 
   assert.equal((await scenes.moveSceneToUnplaced(pageId('t3a'))).error, null);
   assert.equal(await stored(db, projectId('tide')), 990);
   assert.equal(await accountTotal(db, BRAM), 2740);
-  // An over-limit writer stays blocked whatever is placed: alice's placed words alone (1550) are under 2,000.
+  // A metric only (037): alice, far past the old 2,000 allowance, still grows her Scenes.
   signIn(db, ALICE);
-  const blocked = await scenes.syncSceneWithLimitCheck(pageId('h1a'), syntheticDoc('h1a', 121), 121, await versionOf(db, pageId('h1a')));
-  assert.equal(blocked.status, 'word_limit_blocked');
+  const grown = await scenes.syncSceneWithLimitCheck(pageId('h1a'), syntheticDoc('h1a', 121), 121, await versionOf(db, pageId('h1a')));
+  assert.equal(grown.status, 'ok');
+  assert.equal(await accountTotal(db, ALICE), 3036);
 });
 
 test('counting: writing-activity semantics are untouched — no totals path writes writing_sessions', async () => {
@@ -125,7 +136,7 @@ test('counting: writing-activity semantics are untouched — no totals path writ
   const before = await history();
   await scenes.syncSceneWithLimitCheck(pageId('t3a'), syntheticDoc('t3a', 400), 400, await versionOf(db, pageId('t3a')));
   await scenes.moveSceneToUnplaced(pageId('t3a'));
-  await scenes.deleteScene(pageId('t1a'));
+  assert.deepEqual(await purgeScene(pageId('t1a')), { error: null });
   assert.deepEqual((await history()).filter((r) => r.scene_id !== pageId('t1a')), before.filter((r) => r.scene_id !== pageId('t1a')),
     'only the deleted Scene\'s own rows go (cascade, as before)');
 });
@@ -163,9 +174,9 @@ test('stored total: correct after every save, creation, move, reorder, deletion 
   await step('move Chapter → Chapter', () => scenes.moveSceneToChapter(pageId('t1b'), chapterId('tide.ch3')), 0);
   const ch3 = (await all(db, `select id from public.scenes where chapter_id = $1 order by position`, [chapterId('tide.ch3')])).map((r) => r.id);
   await step('reorder a Chapter', () => scenes.reorderScenes(chapterId('tide.ch3'), [...ch3].reverse()), 0);
-  await step('delete a placed Scene (343)', () => scenes.deleteScene(pageId('t3b')), -343);
-  await step('delete an Unplaced Scene', () => scenes.deleteScene(pageId('t1a')), 0);
-  await step('delete a Chapter with a 720-word Scene', () => chapters.deleteChapter(chapterId('tide.ch2'), tide), -720);
+  await step('delete a placed Scene (343), through Trash', () => purgeScene(pageId('t3b')), -343);
+  await step('delete an Unplaced Scene, through Trash', () => purgeScene(pageId('t1a')), 0);
+  await step('remove a Chapter with a 720-word Scene, keeping its Scenes', () => chapters.removeChapterKeepScenes(chapterId('tide.ch2'), tide), -720);
   assert.equal(expected, 1320 + 70 + 5 + 3 + 7 + 720 - 400 - 343 - 720);
 
   const dup = await projects.duplicateProject(tide);
@@ -202,7 +213,7 @@ test('stored total: a stale value heals on the next placed-word change (the whol
   await scenes.renameScene(pageId('a2a'), 'Renamed');
   await scenes.syncSceneWithLimitCheck(pageId('a1a'), syntheticDoc('a1a', 400), 400, await versionOf(db, pageId('a1a')));
   assert.equal(await stored(db, projectId('ash')), 7, 'no placed-word change, no recompute');
-  await scenes.deleteScene(pageId('a2b'));
+  assert.deepEqual(await purgeScene(pageId('a2b')), { error: null });
   await assertTotalsAgree(db, projectId('ash'), ALICE, 50, 'healed by the deletion');
 });
 
@@ -223,7 +234,7 @@ test('stored total: interleaved saves, moves, post-sync maintenance and deletion
     scenes.syncSceneWithLimitCheck(pageId('t1b'), syntheticDoc('t1b', 600), 600, v1b),
     scenes.moveSceneToChapter(pageId('t1c'), chapterId('tide.ch3')),
     scenes.moveSceneToUnplaced(pageId('t2a')),
-    scenes.deleteScene(pageId('t1a')),
+    purgeScene(pageId('t1a')),
   ]);
   for (const r of results) assert.ok(!r?.error && r?.status !== 'error', JSON.stringify(r));
   const placed = await one(db, `select coalesce(sum(word_count), 0)::int as n from public.scenes s join public.manuscripts m on m.id = s.manuscript_id
@@ -359,7 +370,7 @@ test('Chapters: checked creation still works — createChapter, createProjectWit
   assert.deepEqual(
     (await all(db, `select title, position from public.chapters where manuscript_id = $1 order by position`, [await manuscriptOf(db, dup.data.id)])),
     (await all(db, `select title, position from public.chapters where manuscript_id = $1 order by position`, [await manuscriptOf(db, projectId('tide'))])));
-  assert.equal((await chapters.deleteChapter(c.data.id, projectId('bramEmpty'))).error, null);
+  assert.equal((await chapters.removeChapterKeepScenes(c.data.id, projectId('bramEmpty'))).error, null);
 
   signIn(db, CORA);
   assert.equal((await projects.createProjectWithDraft('Draft')).data.chapter.position, 1);
@@ -384,14 +395,15 @@ test('Chapters: simultaneous creations (and a duplication) never produce tied or
   assert.deepEqual(ties, []);
 
   const con = await one(db, `select pg_get_constraintdef(oid) as def, condeferrable, condeferred from pg_constraint
-    where conname = 'chapters_sibling_position_key'`);
-  assert.deepEqual(con, { def: 'UNIQUE NULLS NOT DISTINCT (manuscript_id, group_id, "position") DEFERRABLE', condeferrable: true, condeferred: false },
-    'per parent since migration 022 (group_id null = top level)');
+    where conname = 'chapters_sibling_position_excl'`);
+  assert.deepEqual([con.condeferrable, con.condeferred], [true, false]);
+  assert.match(con.def, /^EXCLUDE USING btree \(manuscript_id WITH =, COALESCE\(group_id, '00000000-0000-0000-0000-000000000000'::uuid\) WITH =, "position" WITH =\) WHERE \(\(trashed_at IS NULL\)\) DEFERRABLE$/,
+    'per parent since migration 022 (group_id null = top level), over active Chapters since 037');
   // Writers cannot write a position at all (move_chapter does, migration 022)…
   const tie = await as(db, BRAM).from('chapters').update({ position: 1 }).eq('id', chapterId('tide.ch2')).select('id');
   assert.equal(tie.error?.code, '42501');
   // …and a tie is refused whoever writes it.
-  await assert.rejects(db.query(`update public.chapters set position = 1 where id = $1`, [chapterId('tide.ch2')]), /chapters_sibling_position_key/);
+  await assert.rejects(db.query(`update public.chapters set position = 1 where id = $1`, [chapterId('tide.ch2')]), /chapters_sibling_position_excl/);
   // A full swap in one statement is fine (deferrable, for a future reorder RPC).
   await db.exec(`update public.chapters set position = case id when '${chapterId('tide.ch1')}' then 2 else 1 end
     where id in ('${chapterId('tide.ch1')}', '${chapterId('tide.ch2')}')`);

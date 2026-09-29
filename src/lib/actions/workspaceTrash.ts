@@ -3,24 +3,29 @@
 import { createClient } from "@/lib/supabase/server";
 import type { TrashItem, TrashObjectType } from "@/lib/types";
 
-// The Project's Trash (migrations 030–031): recoverable deletion of Workspace
-// Pages, Folders, Collections and Entries, and of manuscript Scenes. Every
-// change is one database function, with ownership checked there:
+// The Project's Trash (migrations 030, 031, 037): recoverable deletion of
+// Workspace Pages, Folders, Collections and Entries, and of manuscript Scenes
+// and Chapters. Every change is one database function, with ownership checked
+// there:
 //   * trash   — the object leaves the Workspace or the manuscript (a Page,
 //               Folder or Collection leaves the tree; a Folder's items move up
-//               into its place; a Scene leaves its Chapter or Unplaced Scenes)
-//               but keeps its id, content, version, values, Views and references;
+//               into its place; a Scene leaves its Chapter or Unplaced Scenes;
+//               a Chapter leaves the manuscript WITH its Scenes) but keeps its
+//               id, content, version, values, Views and references;
 //   * restore — the same object comes back where it was, or at the top of the
 //               Workspace if that Folder is gone (a Scene: into its Chapter,
-//               or to Unplaced Scenes if that Chapter is gone);
+//               or to Unplaced Scenes if that Chapter is gone or in Trash; a
+//               Chapter: into its Group at its old place, with its Scenes, or
+//               at the end of the manuscript if that Group is gone);
 //   * delete  — only from Trash, and irreversible.
 // A Scene's version, words and writing history are never changed by Trash;
-// only its placement is (a trashed Scene leaves the ordered total).
+// only its placement is (a trashed Scene leaves the ordered total). Trash is
+// never Unplaced Scenes: those are active manuscript material.
 
 type ActionResult<T> = { data: T; error: null } | { data: null; error: string };
 type RpcResult<T> = ({ status: "ok" } & T) | { status: "error"; error: string };
 
-const TYPES: readonly TrashObjectType[] = ["page", "folder", "collection", "entry", "scene"];
+const TYPES: readonly TrashObjectType[] = ["page", "folder", "collection", "entry", "scene", "chapter"];
 
 async function getUser() {
   const supabase = await createClient();
@@ -49,9 +54,11 @@ export async function trashWorkspaceObject(type: TrashObjectType, id: string): P
 
 /**
  * Restores an object from Trash. `location`: "original" (where it was),
- * "top" (its Folder is gone, so the top of the Workspace) or "unplaced" (a
- * Scene whose Chapter is gone). An Entry whose Collection is in Trash is
- * refused: "Restore its collection first".
+ * "top" (its Folder is gone, so the top of the Workspace; a Chapter whose
+ * Group is gone, so the end of the manuscript) or "unplaced" (a Scene whose
+ * Chapter is gone or in Trash). An Entry whose Collection is in Trash is
+ * refused: "Restore its collection first"; a Scene that went to Trash with its
+ * Chapter: "Restore its chapter first".
  */
 export async function restoreWorkspaceObject(
   type: TrashObjectType,

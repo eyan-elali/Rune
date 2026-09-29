@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { getScenes, getAccountWordTotal } from "@/lib/actions/scenes";
+import { getScenes } from "@/lib/actions/scenes";
 import { getChapters } from "@/lib/actions/chapters";
 import { getUnplacedSceneSummaries } from "@/lib/manuscriptQueries";
 import { isNetworkError } from "@/lib/networkError";
@@ -22,13 +22,12 @@ export default async function ChapterEditorPage({
   const forceTutorial = tutorial === "returning";
   const supabase = await createClient();
 
-  const [chapterResult, projectResult, scenesResult, chaptersResult, accountWordTotal, unplacedResult] =
+  const [chapterResult, projectResult, scenesResult, chaptersResult, unplacedResult] =
     await Promise.all([
       supabase.from("chapters").select("*").eq("id", chapterId).single(),
       supabase.from("projects").select("*").eq("id", projectId).single(),
       getScenes(chapterId),
       getChapters(projectId),
-      getAccountWordTotal(),
       getUnplacedSceneSummaries(supabase, projectId),
     ]);
 
@@ -57,7 +56,6 @@ export default async function ChapterEditorPage({
         unplacedCount={unplacedResult.data.length}
         showTutorial={showTutorial}
         forceTutorial={forceTutorial}
-        accountWordTotal={accountWordTotal}
       />
     </div>
   );

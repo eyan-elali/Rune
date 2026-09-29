@@ -7,7 +7,7 @@ import { normalizeTitle, renameVersioned, saveVersionedContent, type SaveContent
 // Workspace Pages (migration 023, table workspace_documents): freeform
 // supporting documents that belong to one Project. Deliberately apart from the
 // Scene actions: a Page is not manuscript prose, so nothing here touches the
-// Scene save path, the free-word allowance, writing credits or XP.
+// Scene save path, writing credits or XP.
 //
 // Reads, saves and renames are plain statements under RLS (a writer reaches
 // only their own Projects' Pages); creation is one database function, so a

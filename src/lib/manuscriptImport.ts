@@ -20,7 +20,7 @@ import type { ImportItemPayload, ImportParagraph, ImportPayload, ImportScenePayl
 //
 // Never logs prose.
 
-type ActionResult<T> = { data: T; error: null } | { data: null; error: string; wordLimitBlocked?: boolean };
+type ActionResult<T> = { data: T; error: null } | { data: null; error: string };
 
 // Works with the server Supabase client (route handlers).
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -129,15 +129,7 @@ export async function importManuscript(
   if (error) return { data: null, error: "The import couldn’t be saved. Nothing was created." };
   const result = data as
     | { status: "ok"; created: boolean; project: { id: string } }
-    | { status: "word_limit_blocked"; limit: number }
     | { status: "error"; error: string };
-  if (result.status === "word_limit_blocked") {
-    return {
-      data: null,
-      error: `This manuscript would take your account past its ${result.limit.toLocaleString()}-word limit. Nothing was created.`,
-      wordLimitBlocked: true,
-    };
-  }
-  if (result.status !== "ok") return { data: null, error: `${result.error}. Nothing was created.` };
+  if (result.status !== "ok") return { data: null, error: `${result.error ?? "The import couldn’t be saved"}. Nothing was created.` };
   return { data: { projectId: result.project.id, created: result.created }, error: null };
 }

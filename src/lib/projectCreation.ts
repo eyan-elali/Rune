@@ -4,7 +4,8 @@ import type { Chapter, Project } from "@/lib/types";
 // dashboard's first-story form and onboarding: create_project_checked
 // (migration 021) creates the Project, its Manuscript, "Chapter 1" and its
 // first Scene "Scene 1" in one database transaction, under the per-account
-// lock and the free-word limit. Either all four exist afterwards or none do.
+// lock. Either all four exist afterwards or none do. (Rune 2.0 has no
+// free-word limit: migration 037.)
 //
 // requestId identifies ONE creation attempt (a client-generated UUID reused
 // by its retries). If the Project already exists for it — the first response
@@ -35,7 +36,6 @@ export type CreateProjectResult =
       chapter: Chapter | null;
       scene_id: string | null;
     }
-  | { status: "word_limit_blocked"; limit: number }
   | { status: "error"; error: string };
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

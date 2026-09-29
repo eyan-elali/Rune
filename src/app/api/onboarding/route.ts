@@ -82,10 +82,7 @@ export async function POST(req: Request) {
   const wordCount = firstSentence ? countWords(firstSentence) : 0;
 
   // Project, Manuscript, "Chapter 1" and its first Scene in ONE database
-  // transaction (create_project_checked, migration 021), which also checks the
-  // account-wide free-word limit — this is the writer's very first Scene, so
-  // it's also the first content-adding path any account ever goes through.
-  // Nothing is left behind if any step fails, and a retry carrying the same
+  // transaction (create_project_checked, migration 021). Nothing is left behind if any step fails, and a retry carrying the same
   // requestId returns the Project the first attempt created (created: false)
   // instead of creating a second one.
   const result = await createProjectChecked(supabase, {
@@ -95,17 +92,8 @@ export async function POST(req: Request) {
     requestId: body.requestId,
   });
 
-  if (result.status === "word_limit_blocked") {
-    return NextResponse.json(
-      {
-        error: `Your first sentence is longer than your ${result.limit.toLocaleString()}-word free allowance.`,
-        code: "FREE_WORD_LIMIT_REACHED",
-      },
-      { status: 403 }
-    );
-  }
-  if (result.status === "error") {
-    return NextResponse.json({ error: result.error }, { status: 500 });
+  if (result.status !== "ok") {
+    return NextResponse.json({ error: result.error ?? "Couldn’t create the project" }, { status: 500 });
   }
   const { project, chapter, created } = result;
 

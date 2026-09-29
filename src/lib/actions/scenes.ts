@@ -20,39 +20,12 @@ async function getUser() {
   return { supabase, user };
 }
 
-/**
- * Account-wide, server-authoritative *stored-word* total for the signed-in
- * user — every Scene they own, placed or Unplaced, summed across every
- * project, backed by the account_word_total() database function. This is
- * deliberately NOT the same figure as a project's displayed manuscript total
- * (projects.word_count / calculateProjectWordCount in src/lib/manuscript.ts,
- * which counts placed Scenes only) — the free-tier allowance is measured
- * against everything Rune is storing for the writer, so moving prose to
- * Unplaced Scenes can never lower it. Returns 0 for Scribe subscribers
- * without querying at all, since the value is meaningless once the account
- * is unrestricted.
- *
- * This is a display/UX value only — safe to call directly from client
- * components for the editor's remaining-words estimate. The actual limit is
- * enforced server-side, atomically, by save_scene_checked/insert_scene_checked
- * (see below) — never by this function or its caller.
- */
-export async function getAccountWordTotal(): Promise<number> {
-  const { supabase, user } = await getUser();
-  if (!user) return 0;
-
-  const { data: profileRow } = await supabase
-    .from("profiles")
-    .select("subscription_tier")
-    .eq("id", user.id)
-    .single();
-
-  if ((profileRow?.subscription_tier ?? "free") !== "free") return 0;
-
-  const { data, error } = await supabase.rpc("account_word_total");
-  if (error || typeof data !== "number") return 0;
-  return data;
-}
+// Rune 2.0 has no free-word limit (migration 037): the "checked" RPCs below
+// keep their names, signatures and result shapes for stale clients and queued
+// offline saves, but never block writing. Only a database from before 037 can
+// still answer 'word_limit_blocked'; the save path keeps that answer (the
+// offline queue keeps the prose and retries), and creation treats it as a
+// failure that changed nothing.
 
 type SaveSceneCheckedResult =
   | { status: "ok"; updated_at: string; version: number }
@@ -77,20 +50,13 @@ export async function getScenes(
   return { data: (data ?? []) as PlacedScene[], error: null };
 }
 
-type CreateSceneResult<T> =
-  | { data: T; error: null }
-  | { data: null; error: string; wordLimitBlocked?: true };
+type CreateSceneResult<T> = { data: T; error: null } | { data: null; error: string };
 
-type InsertSceneCheckedResult =
-  | { status: "ok"; id: string }
-  | { status: "word_limit_blocked"; limit: number }
-  | { status: "error"; error: string };
+type InsertSceneCheckedResult = { status: "ok"; id: string } | { status: "error"; error: string };
 
 /**
  * Maps an insert_scene_checked / insert_unplaced_scene_checked result to the
- * new Scene row. Both RPCs run the same server-authoritative free-limit check
- * under the per-account lock; a new Scene is empty, so it can only be blocked
- * once creation ever carries words.
+ * new Scene row.
  */
 async function readInsertedScene<T extends Scene>(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -99,10 +65,7 @@ async function readInsertedScene<T extends Scene>(
 ): Promise<CreateSceneResult<T>> {
   if (rpc.error) return { data: null, error: rpc.error.message };
   const result = rpc.data as InsertSceneCheckedResult;
-  if (result.status === "word_limit_blocked") {
-    return { data: null, error: "Word limit reached", wordLimitBlocked: true };
-  }
-  if (result.status !== "ok") return { data: null, error: result.error };
+  if (result.status !== "ok") return { data: null, error: result.error ?? "Couldn’t create the scene" };
 
   const { data, error } = await supabase.from("scenes").select("*").eq("id", result.id).single();
   if (error) return { data: null, error: error.message };
@@ -116,8 +79,8 @@ function storedSceneTitle(title: string | null): string {
 
 /**
  * Creates an empty Scene at the end of a Chapter, through insert_scene_checked
- * (the free-limit-checked creation path) in one database call: it refuses a
- * Chapter the writer cannot see ("Chapter not found"), and picks the position
+ * in one database call: it refuses a Chapter the writer cannot see or that is
+ * in Trash ("Chapter not found"), and picks the position
  * itself under the per-account lock that move_scene also takes (migration
  * 018), so simultaneous creations and moves into the Chapter never tie. Its
  * Manuscript is the Chapter's.
@@ -147,8 +110,7 @@ export async function createScene(
 
 /**
  * Creates an empty Scene directly in the Project's Unplaced Scenes, at the end
- * of that list, through insert_unplaced_scene_checked — the same
- * free-limit-checked creation path as a placed Scene. Its words never enter
+ * of that list, through insert_unplaced_scene_checked. Its words never enter
  * the ordered manuscript total or export until it is placed. A null title
  * creates an unnamed Scene, as for createScene.
  */
@@ -271,7 +233,7 @@ async function moveScene<T extends Scene>(
 /**
  * Moves a Scene out of narrative order into its Manuscript's Unplaced Scenes,
  * at the end of that list. Its words leave the ordered manuscript total and
- * export; they still count toward the account total (account_word_total).
+ * export; it stays active manuscript prose (Unplaced is not Trash).
  */
 export async function moveSceneToUnplaced(
   sceneId: string
@@ -289,6 +251,42 @@ export async function moveSceneToChapter(
   chapterId: string
 ): Promise<ActionResult<PlacedScene>> {
   return moveScene<PlacedScene>(sceneId, chapterId);
+}
+
+/**
+ * Puts a Scene at `index` (0-based; null = last) among a Chapter's Scenes
+ * (chapterId) or among the Unplaced Scenes (null) — a reorder in place, a move
+ * between Chapters, or into or out of Unplaced Scenes — through place_scene
+ * (migration 037): one statement under the per-account lock, the destination
+ * renumbered 0..n-1. The same Scene row moves: its id, prose, history,
+ * properties, references and writing history are untouched, and no words are
+ * counted as written. A Chapter in Trash, or of another Manuscript, is refused.
+ */
+export async function placeScene(
+  sceneId: string,
+  chapterId: string | null,
+  index: number | null
+): Promise<{ error: string | null; moved?: boolean }> {
+  const { supabase, user } = await getUser();
+  if (!user) return { error: "Not authenticated" };
+
+  const { data, error } = await supabase.rpc("place_scene", {
+    p_scene_id: sceneId,
+    p_chapter_id: chapterId,
+    p_index: index,
+  });
+  if (error) return { error: error.message };
+  const result = data as
+    | { status: "ok"; moved: boolean; chapter_changed: boolean }
+    | { status: "error"; error: string };
+  if (result.status !== "ok") return { error: result.error };
+
+  if (result.chapter_changed) {
+    const { data: scene } = await supabase.from("scenes").select("manuscript_id").eq("id", sceneId).maybeSingle();
+    const projectId = scene ? await getProjectIdForManuscript(supabase, scene.manuscript_id) : null;
+    if (projectId) revalidateProjectTotals(projectId);
+  }
+  return { error: null, moved: result.moved };
 }
 
 export async function renameScene(
@@ -312,48 +310,16 @@ export async function renameScene(
   return { data: data as Scene, error: null };
 }
 
-/**
- * Permanently deletes one Scene — placed or Unplaced — and its prose. Its
- * writing history stays (migration 022): the database turns those rows into
- * Project-level history (scene_id null, same words and days), so Today's
- * Words, writing days and streaks do not change.
- * The UI confirms first. Deleting a Chapter's only Scene leaves a valid, empty
- * Chapter. The database removes the Scene's words from the ordered manuscript
- * total in the same transaction (migration 020). A Scene that does not exist
- * or is not the caller's is reported, not silently ignored.
- */
-export async function deleteScene(
-  id: string
-): Promise<{ error: string | null }> {
-  const { supabase, user } = await getUser();
-  if (!user) return { error: "Not authenticated" };
-
-  const { data, error } = await supabase
-    .from("scenes")
-    .delete()
-    .eq("id", id)
-    .select("manuscript_id");
-  if (error) return { error: error.message };
-  const deleted = (data ?? []) as { manuscript_id: string }[];
-  if (deleted.length === 0) return { error: "Scene not found" };
-
-  const projectId = await getProjectIdForManuscript(supabase, deleted[0].manuscript_id);
-  if (projectId) {
-    revalidateProjectTotals(projectId);
-  }
-
-  return { error: null };
-}
+// A Scene is never deleted here. "Move to Trash" (actions/workspaceTrash.ts)
+// is the only way out of the manuscript, and permanent deletion happens only
+// from Trash (migration 037 took clients' direct DELETE away).
 
 /**
- * Server-side word limit check + version-guarded Scene update for the live
- * editor's autosave path (both the immediate online save and the
- * reconnect/flush-queue path call this). Delegates the check-and-write to
- * save_scene_checked(), a single atomic database function — the limit check
- * and the update used to be two separate round trips here, which let two
- * concurrent saves on different Scenes read the same "remaining" figure and
- * jointly exceed the account-wide limit. The database function closes that
- * race with a per-account advisory lock.
+ * Version-guarded Scene update for the live editor's autosave path (both the
+ * immediate online save and the reconnect/flush-queue path call this),
+ * through save_scene_checked(), one atomic database function under the
+ * per-account lock. The name is historical: nothing is limit-checked since
+ * migration 037.
  *
  * Returns a discriminated union so the caller can handle each case without
  * needing to inspect raw DB error codes.
@@ -439,9 +405,7 @@ export async function syncSceneWithLimitCheck(
  * Scene. Touches the Scene's Chapter updated_at (a placed Scene only) and
  * revalidates the project and profile page caches. The project's ordered
  * manuscript total (projects.word_count) was already updated by the database
- * in the save's own transaction (migration 020). That display total is
- * unrelated to the account-wide enforcement above, which is always computed
- * live from every Scene, never from this denormalized column.
+ * in the save's own transaction (migration 020).
  */
 export async function afterSceneSync(sceneId: string): Promise<void> {
   const { supabase, user } = await getUser();

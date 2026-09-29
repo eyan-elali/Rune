@@ -248,9 +248,9 @@ test('Workspace Pages never touch the manuscript: Scenes, Chapters, totals, acco
 
   assert.deepEqual(await manuscriptState(db), before);
 
-  // The free-word allowance still counts Scenes only: alice's Scene save path is unaffected.
-  signIn(db, ALICE);
-  assert.equal(await scenes.getAccountWordTotal(), before.accountTotals.alice);
+  // The account total (a metric since 037) still counts Scenes only: a Page's words never reach it.
+  const aliceTotal = await asUser(db, ALICE, async (tx) => (await tx.query(`select public.account_word_total() as n`)).rows[0].n);
+  assert.equal(aliceTotal, before.accountTotals.alice);
 });
 
 // ── 4. the save engine ─────────────────────────────────────────────────────────

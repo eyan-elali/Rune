@@ -1,4 +1,5 @@
 import { buildManuscriptOutline, type OutlineNode } from "@/lib/manuscriptStructure";
+import { chapterShowsScenes, chapterTitle, groupTitle, sceneLabel } from "./navigatorModel";
 
 // Scene History and Manuscript Milestones (migration 036): the shapes the
 // database returns, and the pure rules the History and Milestone views use.
@@ -137,3 +138,98 @@ export function milestoneReadingOrder(snapshot: MilestoneSnapshot): {
   };
 }
 
+
+/**
+ * A Milestone that holds one live Scene or Chapter (list_object_milestones,
+ * migration 037), for its Inspector: where it stood then. For a Scene,
+ * `chapter_id` / `chapter_title` are its Chapter then (null: Unplaced), and
+ * `title` / `word_count` its text's; for a Chapter, its title then and its
+ * Scenes' count and words.
+ */
+export type ObjectMilestone = {
+  id: string;
+  name: string;
+  created_at: string;
+  chapter_id: string | null;
+  chapter_title: string | null;
+  word_count: number;
+  title?: string;
+  scene_count?: number;
+};
+
+/** Where an object stood in a Milestone, in a few words: "in Chapter 3", "unplaced". */
+export function objectMilestonePlace(kind: "scene" | "chapter", m: ObjectMilestone): string {
+  if (kind === "chapter") {
+    const scenes = m.scene_count ?? 0;
+    return `${scenes.toLocaleString()} ${scenes === 1 ? "scene" : "scenes"} · ${wordsLabel(m.word_count)}`;
+  }
+  const where = m.chapter_id === null ? "unplaced" : `in ${chapterTitle(m.chapter_title)}`;
+  return `${where} · ${wordsLabel(m.word_count)}`;
+}
+
+/** A Chapter or Scene of a Milestone to open the snapshot at. */
+export type MilestoneTarget = { kind: "chapter" | "scene"; id: string };
+
+/** The element id of a Chapter or Scene inside the Milestone view. */
+export function milestoneAnchor(target: MilestoneTarget): string {
+  return `r2-milestone-${target.kind}-${target.id}`;
+}
+
+/**
+ * One row of a Milestone's navigator: its Groups, Chapters and Scenes as the
+ * manuscript was, then its Unplaced Scenes. A Chapter lists its Scenes only
+ * when it held more than one (the live navigator's rule, chapterShowsScenes).
+ * A Group is a heading, not a place to jump to.
+ */
+export type MilestoneNavRow =
+  | { kind: "group"; id: string; label: string; depth: number }
+  | { kind: "chapter"; id: string; label: string; depth: number; words: number }
+  | { kind: "scene"; id: string; label: string; depth: number; words: number; chapterId: string | null }
+  | { kind: "unplacedHeading"; id: "unplaced"; label: string; depth: 0 };
+
+export function milestoneNavigator(order: ReturnType<typeof milestoneReadingOrder>): MilestoneNavRow[] {
+  const rows: MilestoneNavRow[] = [];
+  const visit = (nodes: MilestoneOutlineNode[]) =>
+    nodes.forEach((node) => {
+      if (node.kind === "group") {
+        rows.push({ kind: "group", id: node.group.id, label: groupTitle(node.group.title), depth: node.depth });
+        visit(node.children);
+        return;
+      }
+      const { chapter } = node;
+      rows.push({
+        kind: "chapter",
+        id: chapter.id,
+        label: chapterTitle(chapter.title),
+        depth: node.depth,
+        words: chapter.scenes.reduce((n, s) => n + s.word_count, 0),
+      });
+      if (chapterShowsScenes(chapter)) {
+        chapter.scenes.forEach((s, at) =>
+          rows.push({
+            kind: "scene",
+            id: s.scene_id,
+            label: sceneLabel(s.title, at + 1),
+            depth: node.depth + 1,
+            words: s.word_count,
+            chapterId: chapter.id,
+          })
+        );
+      }
+    });
+  visit(order.outline);
+  if (order.unplaced.length > 0) {
+    rows.push({ kind: "unplacedHeading", id: "unplaced", label: "Unplaced Scenes", depth: 0 });
+    order.unplaced.forEach((s) =>
+      rows.push({ kind: "scene", id: s.scene_id, label: sceneLabel(s.title, null), depth: 1, words: s.word_count, chapterId: null })
+    );
+  }
+  return rows;
+}
+
+/** Whether the snapshot holds the target (every Chapter and Scene in it is anchored). */
+export function milestoneHas(snapshot: MilestoneSnapshot, target: MilestoneTarget): boolean {
+  return target.kind === "chapter"
+    ? snapshot.milestone.structure.chapters.some((c) => c.id === target.id)
+    : snapshot.scenes.some((s) => s.scene_id === target.id);
+}

@@ -190,15 +190,14 @@ test('creation racing move_scene into the same Chapter never ties', async () => 
   await assertAllPositionsValid(db);
 });
 
-test('simultaneous creations carrying words cannot jointly exceed the free limit', async () => {
+test('simultaneous creations carrying words both land (no free limit, 037), in distinct positions', async () => {
   const db = await seededDb();
   const ch3 = chapterId('tide.ch3');
-  // bram: 2740 of 15,000. Each fits alone; together they do not.
+  // bram: 2740 words; together these pass the old 15,000 legacy allowance.
   const [a, b] = await Promise.all([insert(as(db, BRAM), ch3, { words: 7000 }), insert(as(db, BRAM), ch3, { words: 7000 })]);
-  assert.deepEqual([a.data.status, b.data.status].sort(), ['ok', 'word_limit_blocked']);
-  assert.deepEqual([a, b].find((r) => r.data.status === 'word_limit_blocked').data, { status: 'word_limit_blocked', limit: 15000 });
-  assert.equal(await accountTotal(db, BRAM), 2740 + 7000);
-  assert.equal((await inChapter(db, ch3)).length, 3, 'exactly one new Scene');
+  assert.deepEqual([a.data.status, b.data.status], ['ok', 'ok']);
+  assert.equal(await accountTotal(db, BRAM), 2740 + 14000);
+  assert.equal((await inChapter(db, ch3)).length, 4, 'exactly two new Scenes');
   await assertAllPositionsValid(db);
 });
 
@@ -217,18 +216,20 @@ test('insert_scene_checked holds the per-account advisory lock (the one move_sce
 
 // ── refusals and failures ─────────────────────────────────────────────────────
 
-test('free limit: an over-limit writer\'s creation with words is refused and inserts nothing; an empty Scene is never blocked', async () => {
+test('no free limit (037): a writer far past the old allowance creates Scenes with words — directly and from Arena', async () => {
   const db = await seededDb();
-  signIn(db, ALICE); // 3035 of 2000
+  signIn(db, ALICE); // 3035 words; the old starter allowance was 2,000
   const ch5 = chapterId('hollow.ch5');
-  const before = await snapshot(db);
-  assert.deepEqual((await insert(as(db, ALICE), ch5, { words: 5 })).data, { status: 'word_limit_blocked', limit: 2000 });
-  assert.match((await games.appendSprintToProject(projectId('hollow'), ch5, 5, '<p>a b c d e</p>')).error, /2,000-word free limit/);
-  assert.deepEqual(await snapshot(db), before, 'nothing inserted');
+  const direct = (await insert(as(db, ALICE), ch5, { words: 5 })).data;
+  assert.equal(direct.status, 'ok', JSON.stringify(direct));
+  const sprint = await games.appendSprintToProject(projectId('hollow'), ch5, 5, '<p>a b c d e</p>');
+  assert.equal(sprint.error, null, sprint.error);
 
-  const r = await scenes.createScene(ch5, 'Scene 1');
+  const r = await scenes.createScene(ch5, 'Scene 3');
   assert.equal(r.error, null, r.error);
-  assert.equal(await accountTotal(db, ALICE), 3035);
+  assert.equal(await accountTotal(db, ALICE), 3035 + 10);
+  assert.deepEqual((await inChapter(db, ch5)).map((x) => x.position), [0, 1, 2], 'appended, never tied');
+  await assertAllPositionsValid(db);
 });
 
 test('cross-writer and cross-Manuscript creation is refused, and nothing changes anywhere', async () => {

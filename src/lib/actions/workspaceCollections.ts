@@ -13,8 +13,8 @@ import { normalizeTitle, renameVersioned, saveVersionedContent, type SaveContent
 // An Entry's body is saved exactly as a Workspace Page's is (the shared
 // versioned-content rules in lib/rune2/versionedContent.ts): a conditional
 // update on the database-owned `version`, bumped by content changes only.
-// Nothing here touches the manuscript, the Scene save path, the free-word
-// allowance, writing credits or XP.
+// Nothing here touches the manuscript, the Scene save path, writing credits
+// or XP.
 //
 // Deletion is recoverable: a Collection (with its Entries) or a single Entry
 // goes to Trash (actions/workspaceTrash.ts, migration 030).

@@ -13,7 +13,6 @@ import {
 import { useRouter } from "next/navigation";
 import { useSceneEditor, type DisplaySyncStatus } from "@/components/editor/useSceneEditor";
 import { SyncConflictModal } from "@/components/editor/SyncConflictModal";
-import { createCheckoutSession } from "@/lib/actions/billing";
 import { useNetworkStore } from "@/store/networkStore";
 import type { Scene } from "@/lib/types";
 
@@ -67,8 +66,8 @@ export type Rune2EditorProps = {
   placeholder?: ReactNode;
 };
 
-type BlockState = { words: number; syncStatus: DisplaySyncStatus; wordLimit: number | null };
-type BlockHandle = { focusEnd: () => void; openConflict: () => void; closeWordLimit: () => void };
+type BlockState = { words: number; syncStatus: DisplaySyncStatus };
+type BlockHandle = { focusEnd: () => void; openConflict: () => void };
 
 const STATUS_LABEL: Record<Exclude<DisplaySyncStatus, "conflict">, string> = {
   synced: "Saved",
@@ -86,12 +85,6 @@ const STATUS_RANK: Record<DisplaySyncStatus, number> = {
   offline_dirty: 3,
   conflict: 4,
 };
-
-function getPromotekitReferral(): string {
-  if (typeof window === "undefined") return "";
-  const referral = (window as Window & { promotekit_referral?: unknown }).promotekit_referral;
-  return typeof referral === "string" ? referral : "";
-}
 
 export default function Rune2Editor({
   projectId,
@@ -121,8 +114,7 @@ export default function Rune2Editor({
       if (
         current &&
         current.words === state.words &&
-        current.syncStatus === state.syncStatus &&
-        current.wordLimit === state.wordLimit
+        current.syncStatus === state.syncStatus
       ) {
         return prev;
       }
@@ -138,7 +130,6 @@ export default function Rune2Editor({
   // Every Scene shown counts: live words for an open Scene, its last known
   // count while it loads.
   const words = scenes.reduce((n, s) => n + (blocks[s.id]?.words ?? s.scene?.word_count ?? 0), 0);
-  const wordLimit = shown.find((b) => b.wordLimit !== null)?.wordLimit ?? null;
 
   useRefreshAfterSave(syncStatus);
 
@@ -232,14 +223,6 @@ export default function Rune2Editor({
           )}
         </div>
       )}
-
-      {wordLimit !== null && (
-        <WordLimitDialog
-          projectId={projectId}
-          wordLimit={wordLimit}
-          onClose={() => handles.current.forEach((h) => h.closeWordLimit())}
-        />
-      )}
     </div>
   );
 }
@@ -247,7 +230,7 @@ export default function Rune2Editor({
 /**
  * One Scene's editor: its own engine instance, created for this Scene and
  * never switched to another. Reports its live words and save state to the
- * surface, which shows one status line and one word-limit notice for all.
+ * surface, which shows one status line for all.
  */
 function SceneBlock({
   projectId,
@@ -273,9 +256,6 @@ function SceneBlock({
   const {
     editor,
     syncStatus,
-    wordLimit,
-    wordLimitModalOpen,
-    setWordLimitModalOpen,
     conflictModalOpen,
     setConflictModalOpen,
     resolveConflictKeptLocal,
@@ -295,8 +275,8 @@ function SceneBlock({
   });
 
   useEffect(() => {
-    onReport(sceneId, { words, syncStatus, wordLimit: wordLimitModalOpen ? wordLimit : null });
-  }, [onReport, sceneId, words, syncStatus, wordLimitModalOpen, wordLimit]);
+    onReport(sceneId, { words, syncStatus });
+  }, [onReport, sceneId, words, syncStatus]);
   useEffect(() => () => onReport(sceneId, null), [onReport, sceneId]);
 
   useEffect(() => {
@@ -304,12 +284,11 @@ function SceneBlock({
     map.set(sceneId, {
       focusEnd: () => editor?.commands.focus("end"),
       openConflict: () => setConflictModalOpen(true),
-      closeWordLimit: () => setWordLimitModalOpen(false),
     });
     return () => {
       map.delete(sceneId);
     };
-  }, [handles, sceneId, editor, setConflictModalOpen, setWordLimitModalOpen]);
+  }, [handles, sceneId, editor, setConflictModalOpen]);
 
   // Leaving the surface: the engine's unmount path has already queued and
   // synced any unsaved tail by this Scene's id; hand the host the content
@@ -380,64 +359,4 @@ function useRefreshAfterSave(syncStatus: DisplaySyncStatus) {
     }, 1500);
     return () => clearTimeout(timer);
   }, [syncStatus, router]);
-}
-
-/**
- * The free-word allowance notice (legacy pricing, still enforced — CLAUDE.md
- * §8). The engine opens it when its input guards or the server block growth;
- * the manuscript stays readable, editable downward, and exportable.
- */
-function WordLimitDialog({
-  projectId,
-  wordLimit,
-  onClose,
-}: {
-  projectId: string;
-  wordLimit: number;
-  onClose: () => void;
-}) {
-  const [pending, setPending] = useState(false);
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
-
-  return (
-    <div className="r2-dialog-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="r2-dialog" role="dialog" aria-modal="true" aria-labelledby="r2-word-limit-title">
-        <h2 id="r2-word-limit-title">You’ve reached your free words</h2>
-        <p>
-          You’ve written your {wordLimit.toLocaleString()} free words. Your manuscript is safe, and
-          you can export it anytime. Continue with Scribe to keep writing without limits.
-        </p>
-        <div className="r2-dialog-actions">
-          <button type="button" className="r2-button" onClick={onClose}>
-            Not now
-          </button>
-          <a className="r2-button" href={`/projects/${projectId}`}>
-            Export manuscript
-          </a>
-          <button
-            type="button"
-            className="r2-button r2-button--primary"
-            disabled={pending}
-            autoFocus
-            onClick={() => {
-              setPending(true);
-              void createCheckoutSession("scribe", "monthly", getPromotekitReferral()).then(({ url }) => {
-                if (url) window.location.href = url;
-                else setPending(false);
-              });
-            }}
-          >
-            {pending ? "Opening…" : "Continue with Scribe"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
 }

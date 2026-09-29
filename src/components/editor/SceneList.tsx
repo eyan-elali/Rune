@@ -267,7 +267,7 @@ function SceneMenu({
                 style={{ color: "var(--color-crimson)" }}
               >
                 <Trash2 size={11} aria-hidden />
-                Delete Scene
+                Move to Trash
               </button>
             </div>
           </div>,

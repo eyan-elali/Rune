@@ -96,12 +96,16 @@ test('GATE: every command on chapters and scenes resolves ownership through the 
     from pg_policies where schemaname = 'public' and tablename in ('manuscripts', 'chapters', 'scenes')`)).rows;
   // 019 / 020: Scenes and Chapters are created only through the checked RPCs —
   // no INSERT policy and no INSERT privilege for clients.
-  const COMMANDS = { chapters: ['SELECT', 'UPDATE', 'DELETE'], scenes: ['SELECT', 'UPDATE', 'DELETE'] };
+  // 037: nor deleted — permanent deletion only through the Trash functions
+  // (and delete_chapter, SECURITY DEFINER). No DELETE policy or privilege.
+  const COMMANDS = { chapters: ['SELECT', 'UPDATE'], scenes: ['SELECT', 'UPDATE'] };
   for (const t of ['chapters', 'scenes']) {
-    assert.deepEqual(policies.filter((x) => x.tablename === t && x.cmd === 'INSERT'), [], `${t}: no INSERT policy`);
-    const insert = await one(db, `select has_table_privilege('authenticated', 'public.${t}', 'INSERT') as auth,
-      has_table_privilege('anon', 'public.${t}', 'INSERT') as anon`);
-    assert.deepEqual(insert, { auth: false, anon: false }, `${t}: no INSERT privilege for clients`);
+    for (const cmd of ['INSERT', 'DELETE']) {
+      assert.deepEqual(policies.filter((x) => x.tablename === t && x.cmd === cmd), [], `${t}: no ${cmd} policy`);
+      const priv = await one(db, `select has_table_privilege('authenticated', 'public.${t}', '${cmd}') as auth,
+        has_table_privilege('anon', 'public.${t}', '${cmd}') as anon`);
+      assert.deepEqual(priv, { auth: false, anon: false }, `${t}: no ${cmd} privilege for clients`);
+    }
   }
   for (const t of ['chapters', 'scenes']) {
     for (const cmd of COMMANDS[t]) {
@@ -225,17 +229,17 @@ test('save_scene_checked keeps the Rune 1.x status contract: ok / version_mismat
   assert.deepEqual(missing.data, { status: 'error', error: 'Scene not found' });
 });
 
-test('Unplaced Scenes still count toward the free limit — no bypass; shrinking is never blocked', async () => {
+test('no free-word limit (037): placed and Unplaced Scenes grow and shrink freely; account_word_total still counts every Scene', async () => {
   const db = await seededDb();
   const alice = as(db, ALICE);
   assert.equal((await alice.rpc('account_word_total')).data, 3035, 'every Scene, placed or Unplaced');
   const grow = await SAVE(alice, UNPLACED_ALICE, syntheticDoc('grow', 381), 381, 3);
-  assert.deepEqual(grow.data, { status: 'word_limit_blocked', limit: 2000 });
+  assert.equal(grow.data.status, 'ok', 'past the old 2,000-word allowance: never blocked');
   const growPlaced = await SAVE(alice, PLACED_ALICE, syntheticDoc('grow', 121), 121, 4);
-  assert.equal(growPlaced.data.status, 'word_limit_blocked');
-  const shrink = await SAVE(alice, UNPLACED_ALICE, syntheticDoc('shrink', 300), 300, 3);
+  assert.equal(growPlaced.data.status, 'ok');
+  const shrink = await SAVE(alice, UNPLACED_ALICE, syntheticDoc('shrink', 300), 300, 4);
   assert.equal(shrink.data.status, 'ok');
-  assert.equal((await alice.rpc('account_word_total')).data, 2955);
+  assert.equal((await alice.rpc('account_word_total')).data, 3035 - 380 + 300 + 1, 'a metric: every Scene counted');
   const bram = await SAVE(as(db, BRAM), UNPLACED_BRAM, syntheticDoc('grow', 5000), 5000, 4);
   assert.equal(bram.data.status, 'ok', 'legacy_15k: 2740 - 720 + 5000 = 7020 is under 15,000');
 });
@@ -325,10 +329,12 @@ test('insert_scene_checked: a placed Scene in the Chapter\'s Manuscript; blocked
   const row = await one(db, `select manuscript_id, chapter_id, version from public.scenes where id = $1`, [ok.data.id]);
   assert.deepEqual(row, { manuscript_id: await manuscriptOf(db, projectId('tide')), chapter_id: chapterId('tide.ch3'), version: 1 });
 
-  const blocked = await as(db, ALICE).rpc('insert_scene_checked', { p_chapter_id: chapterId('hollow.ch5'), p_title: 'x', p_content: syntheticDoc('x', 5), p_word_count: 5, p_position: 0 });
-  assert.deepEqual(blocked.data, { status: 'word_limit_blocked', limit: 2000 });
+  const withWords = await as(db, ALICE).rpc('insert_scene_checked', { p_chapter_id: chapterId('hollow.ch5'), p_title: 'x', p_content: syntheticDoc('x', 5), p_word_count: 5, p_position: 0 });
+  assert.equal(withWords.data?.status, 'ok', 'no free-word limit (037): alice, far past the old allowance, is never blocked');
   const empty = await as(db, ALICE).rpc('insert_scene_checked', { p_chapter_id: chapterId('hollow.ch5'), p_title: 'x', p_content: null, p_word_count: 0, p_position: 0 });
-  assert.equal(empty.data?.status, 'ok', 'an empty Scene is never blocked');
+  assert.equal(empty.data?.status, 'ok');
+  assert.deepEqual((await db.query(`select position from public.scenes where chapter_id = $1 order by position`, [chapterId('hollow.ch5')])).rows.map((r) => r.position),
+    [0, 1], 'appended, never tied');
 
   const foreign = await bram.rpc('insert_scene_checked', { p_chapter_id: chapterId('hollow.ch5'), p_title: 'x', p_content: null, p_word_count: 0, p_position: 1 });
   assert.deepEqual(foreign.data, { status: 'error', error: 'Chapter not found' }, 'another writer\'s Chapter (018: refused before any write)');
@@ -355,10 +361,12 @@ test('duplicate_project_checked copies Chapters and placed + Unplaced Scenes int
   assert.equal((await as(db, BRAM).rpc('account_word_total')).data, 2740 * 2, 'the limit counts every copied Scene');
 });
 
-test('duplicate_project_checked counts Unplaced Scenes against the limit', async () => {
+test('duplicate_project_checked is never blocked by a word limit (037), and only for the owner', async () => {
   const db = await seededDb();
   const r = await as(db, ALICE).rpc('duplicate_project_checked', { p_project_id: projectId('ash') });
-  assert.deepEqual(r.data, { status: 'word_limit_blocked', limit: 2000 });
+  assert.equal(r.data?.status, 'ok', 'alice is past the old allowance: copied anyway');
+  const m = await manuscriptOf(db, r.data.project.id);
+  assert.equal((await one(db, `select count(*)::int as n from public.scenes where manuscript_id = $1`, [m])).n, 4, 'placed and Unplaced Scenes copied');
   const other = await as(db, BRAM).rpc('duplicate_project_checked', { p_project_id: projectId('ash') });
   assert.deepEqual(other.data, { status: 'error', error: 'Project not found' });
 });
@@ -387,7 +395,10 @@ test('writing history attaches to Scenes: one row per writer, Scene and day; del
   assert.equal(projectDay.error?.code, '23505', 'writing_sessions_project_unique');
 
   const before = (await db.query(`select session_date::text as d, sum(words_added)::int as n from public.writing_sessions where user_id = $1 group by 1 order by 1`, [BRAM])).rows;
-  await bram.from('scenes').delete().eq('id', UNPLACED_BRAM);
+  // 037: a Scene is deleted only from Trash.
+  assert.equal((await bram.from('scenes').delete().eq('id', UNPLACED_BRAM).select('id')).error?.code, '42501', 'no direct delete');
+  assert.equal((await bram.rpc('trash_workspace_object', { p_type: 'scene', p_id: UNPLACED_BRAM })).data.status, 'ok');
+  assert.equal((await bram.rpc('delete_trashed_workspace_object', { p_type: 'scene', p_id: UNPLACED_BRAM })).data.status, 'ok');
   const left = (await db.query(`select session_date::text as d, project_id, scene_id, words_added from public.writing_sessions where user_id = $1 order by session_date, scene_id`, [BRAM])).rows;
   assert.deepEqual(left.filter((r) => r.scene_id === null).map((r) => [r.d, r.project_id]),
     left.filter((r) => r.scene_id === null).map((r) => [r.d, projectId('tide')]), 'detached rows keep their Project');
@@ -396,15 +407,17 @@ test('writing history attaches to Scenes: one row per writer, Scene and day; del
   assert.deepEqual(after, before, 'every day keeps its words');
 });
 
-test('a Chapter that still holds a Scene cannot be deleted directly (FK NO ACTION, migration 021); an empty one can', async () => {
+test('a Chapter that still holds a Scene cannot be deleted (FK NO ACTION, migration 021) — and clients cannot delete Chapters at all (037)', async () => {
   const db = await seededDb();
   const before = (await db.query(`select * from public.scenes order by id`)).rows;
-  const del = await as(db, ALICE).from('chapters').delete().eq('id', chapterId('hollow.ch3')).select('id');
-  assert.equal(del.error?.code, '23503', 'refused: h3a is still placed in it');
+  const client = await as(db, ALICE).from('chapters').delete().eq('id', chapterId('hollow.ch5')).select('id');
+  assert.equal(client.error?.code, '42501', 'no client DELETE: Trash or delete_chapter only');
+  await assert.rejects(db.query(`delete from public.chapters where id = $1`, [chapterId('hollow.ch3')]), (e) => e.code === '23503',
+    'refused even for the table owner: h3a is still placed in it');
   assert.deepEqual((await db.query(`select * from public.scenes order by id`)).rows, before, 'no Scene touched');
   assert.equal((await one(db, `select count(*)::int as n from public.chapters where id = $1`, [chapterId('hollow.ch3')])).n, 1);
-  const empty = await as(db, ALICE).from('chapters').delete().eq('id', chapterId('hollow.ch5')).select('id');
-  assert.equal(empty.data.length, 1, 'an empty Chapter is simply removed');
+  const empty = await db.query(`delete from public.chapters where id = $1`, [chapterId('hollow.ch5')]);
+  assert.equal(empty.affectedRows, 1, 'an empty Chapter can be removed (delete_chapter / Trash run as the owner)');
 });
 
 // ── export (formerly FUTURE) ──────────────────────────────────────────────────
@@ -462,7 +475,13 @@ test('REAL autosave action: replays to an Unplaced Scene by ID; version_mismatch
   assert.equal(ok.version, 5);
   assert.deepEqual(await one(db, `select chapter_id, word_count from public.scenes where id = $1`, [UNPLACED_BRAM]), { chapter_id: null, word_count: 730 });
   assert.deepEqual(await save(BRAM, UNPLACED_BRAM, 731, 4), { status: 'version_mismatch' });
-  assert.deepEqual(await save(ALICE, PLACED_ALICE, 121, 4), { status: 'word_limit_blocked' }, 'alice is over her 2,000-word limit');
+  // 037: no free-word limit — alice, far past the old allowance, saves growth.
+  const grown = await save(ALICE, PLACED_ALICE, 121, 4);
+  assert.equal(grown.status, 'ok', JSON.stringify(grown));
+  // The action still passes 'word_limit_blocked' through (the offline queue keeps
+  // the prose): a database from before 037 can still answer it.
+  await db.exec(`create or replace function public.free_word_limit_for_caller() returns integer language sql stable set search_path to '' as $$ select 2000 $$`);
+  assert.deepEqual(await save(ALICE, PLACED_ALICE, 122, grown.version), { status: 'word_limit_blocked' }, 'a pre-037 limit answer keeps its contract');
   assert.deepEqual(await save(ALICE, UNPLACED_BRAM, 1, null), { status: 'error', error: 'Scene not found' });
   assert.equal((await one(db, `select word_count from public.scenes where id = $1`, [UNPLACED_BRAM])).word_count, 730, 'only the owner\'s write landed');
 });

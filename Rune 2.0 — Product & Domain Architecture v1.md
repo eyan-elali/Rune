@@ -1115,13 +1115,16 @@ The beta supports Trash for:
 
 ```text
 Scene (placed or Unplaced)
+Chapter (with its Scenes)
 Page
 Folder
 Collection
 Collection Entry
 ```
 
-Chapter and Manuscript Group Trash are not built yet.
+Manuscript Group Trash is not built. Only an empty Group can be deleted; a Group whose Chapters are all in Trash counts as empty.
+
+Trash is never Unplaced Scenes. Unplaced Scenes are active manuscript material with no narrative placement; moving a Scene there is a move, not a deletion, and "Move to Trash" never sends anything there.
 
 ### Ownership hierarchies go to Trash together
 
@@ -1134,7 +1137,14 @@ Collection
 └── Entries, properties, values, Views
 ```
 
-or, when built:
+or
+
+```text
+Chapter
+└── its active Scenes
+```
+
+or, if ever built:
 
 ```text
 Manuscript Group
@@ -1171,6 +1181,23 @@ Restoring a Scene returns it:
 Trash never changes a Scene's version, so writing saved on a device while the Scene was in Trash saves normally after a restore.
 
 Permanently deleting a Scene removes its prose. Its writing history (sessions, writing days, Today's Words) is kept with the Project.
+
+### Chapters
+
+A Chapter goes to Trash with its active Scenes, as one piece of the manuscript: one Trash item, listed with its Scene count and words. The Chapter and each Scene keep their IDs, prose, words, version, Scene History, properties, references (dormant while in Trash) and writing history. Nothing is renumbered away.
+
+Restoring the Chapter returns it:
+
+- to its Group, at its old place among that Group's Groups and Chapters (or the nearest place that still exists), with its Scenes inside it in their order;
+- to the end of the manuscript's top level, if its Group no longer exists.
+
+A Scene that went to Trash with its Chapter is restored or permanently deleted only with it. A Scene trashed on its own before its Chapter stays its own Trash item; restoring it while its Chapter is in Trash puts it in Unplaced Scenes.
+
+Permanently deleting a Chapter from Trash deletes it and the Scenes trashed with it; their writing history is kept.
+
+"Remove chapter, keep its scenes" is a separate, explicit action, not deletion: the Chapter's Scenes move, in order, to Unplaced Scenes, and the empty Chapter is removed.
+
+Writers cannot delete a Scene or Chapter directly. Permanent deletion happens only from Trash.
 
 Trash never appears inside the manuscript prose or the editor.
 
@@ -1300,7 +1327,8 @@ Nothing in the architecture should make Version History hard to add later. In pa
 Version History arrived as two small safety systems, not version control. There are no branches, merges or diffs to manage.
 
 - **Scene History.** The database keeps earlier texts of each Scene on the save path itself. It keeps the text being replaced when the writer returns after a pause of 30 minutes or more, and about once an hour during long sittings. It never keeps a copy per save. The writer opens it from the Scene's Inspector, reads a version read-only, and restores it. A restore is a new save of that text through the normal Scene save path, and the replaced text is kept first. It uses the same Scene ID, creates no writing-session credit, and never rewinds history. Retention keeps every version from the last 30 days, then one per day, and at most 200 per Scene.
-- **Manuscript Milestones.** The writer names the whole manuscript at a moment ("Draft 1"). A Milestone captures Groups, Chapters, placed and Unplaced Scenes, their order and prose, in one transaction, and changes nothing live. It is read-only and never a branch. Whole-manuscript restore is deferred. A single Scene's text from a Milestone is restored through that Scene's History. Workspace content is not captured.
+- **Manuscript Milestones.** The writer names the whole manuscript at a moment ("Draft 1"). A Milestone captures Groups, Chapters, placed and Unplaced Scenes, their order and prose, in one transaction, and changes nothing live. Chapters and Scenes in Trash are not captured. It is read-only and never a branch. Whole-manuscript restore is deferred. A single Scene's text from a Milestone is restored through that Scene's History. Workspace content is not captured.
+- **Reading a Milestone.** A Milestone opens with its own read-only navigator: its Groups, Chapters, Scenes and Unplaced Scenes as they were, each a way straight to that part of the snapshot. A live Scene's or Chapter's Inspector lists the named Milestones that hold it, apart from the Scene's automatic History, and each opens the Milestone at that Scene or Chapter.
 - History is not a live object. It is never searched, never linked, never counted and never exported. A trashed Scene keeps its history. Permanently deleting a Scene deletes its history, except the versions a Milestone uses.
 
 ### Revision Notes
@@ -2001,6 +2029,8 @@ These are business and migration decisions. They must be settled before billing 
 
 Word-limit enforcement is deeply built into the current system (§45). Dropping the product requirement does **not** mean removing that enforcement immediately.
 
+**Status on the Rune 2.0 database (migration 037):** the free-word limit no longer gates anything. Writing, Scene and Chapter creation, Project creation, import, duplication, Scene History restore and Trash restore are never blocked by a word count. The checked RPCs keep their names, signatures and result shapes for stale clients and queued offline saves; their one limit resolver answers "no limit". `account_word_total` remains as an account metric. The editor's input guards and the free-word notices are gone from the Rune 2.0 app. Billing surfaces (the pricing table, Settings, the returning-writer pricing notice) still describe the old model and are replaced with the trial and billing work in Beta Completion. Production (Rune 1.x) is unchanged.
+
 ---
 
 # 44. Progress without XP or Levels
@@ -2075,6 +2105,7 @@ Retirement is staged:
 - Later stages are designed in their own explicit tasks, once the billing decisions in §43 are made. Changing enforcement behavior and removing contracts are separate steps.
 - A contract can be removed only once no deployed client and no queued offline save can still depend on it.
 - While enforcement remains, the manuscript migration must not change what it counts. The current account total counts every stored Page, whatever its canonical state. Moving prose to Unplaced Scenes must neither lower a writer's total nor create a way around the current limit.
+- Stage reached on the Rune 2.0 database (migration 037): enforcement is off (the limit resolver answers "no limit"); the contracts stay. Removing the contracts themselves is a later step.
 
 ### XP and Levels
 

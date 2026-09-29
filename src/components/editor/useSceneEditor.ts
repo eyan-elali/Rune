@@ -8,7 +8,6 @@ import { isHistoryTransaction } from "@tiptap/pm/history";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getLocalDateString } from "@/lib/utils";
-import { getAccountWordTotal } from "@/lib/actions/scenes";
 import { recordWordsWritten } from "@/lib/actions/writingStats";
 import { writeToPendingQueue, syncPendingWrite } from "@/lib/offline/syncEngine";
 import { getOfflineDB, getPendingWrite, storeOfflineWritingCredit, SCENE_CACHE_STORE } from "@/lib/offline/db";
@@ -20,19 +19,19 @@ import { useEditorStore } from "@/store/editorStore";
 import { useModeStore } from "@/store/modeStore";
 import { useProfileStore } from "@/store/profileStore";
 import { useToastStore } from "@/store/toastStore";
-import { WORD_LIMITS } from "@/lib/pricing";
 import type { Scene, UserPreferences } from "@/lib/types";
 import { SCENE_RESTORED_EVENT } from "@/lib/sceneRestoredEvent";
 
 // The manuscript editor's engine, shared by every editor surface (the legacy
 // RuneEditor and the Rune 2.0 writing surface): TipTap setup, per-keystroke
 // IndexedDB writes, the debounced sync, conflict baselines, the typed-word
-// ledger, the free-tier input guards, and the flushes on Scene switch and
-// unmount. Moved here verbatim from RuneEditor.tsx — presentation stays with
+// ledger, and the flushes on Scene switch and unmount. (Rune 2.0 has no
+// free-word limit — migration 037 — so there are no input guards: writing
+// is never blocked.) Moved here verbatim from RuneEditor.tsx — presentation stays with
 // each surface. One Scene per editor instance: the caller switches Scenes by
 // changing `currentScene`, and the departing Scene is flushed by its own id.
 //
-// Depends on the profile store (user id, tier, cohort, preferences) and the
+// Depends on the profile store (user id, preferences) and the
 // network store being hydrated, as the (app) and (rune2) layouts do.
 
 export type DisplaySyncStatus = 'synced' | 'online_dirty' | 'offline_dirty' | 'syncing' | 'conflict'
@@ -69,8 +68,6 @@ export interface UseSceneEditorOptions {
   projectId: string;
   currentScene: Scene | null;
   onSceneUpdated: (sceneId: string, updates: Partial<Scene>) => void;
-  /** Account-wide manuscript word total at page load — see getAccountWordTotal. */
-  accountWordTotal?: number;
   /** Placeholder shown in an empty Scene. Read once, when the editor is created. */
   placeholder?: string;
   /**
@@ -90,7 +87,6 @@ export function useSceneEditor({
   projectId,
   currentScene,
   onSceneUpdated,
-  accountWordTotal = 0,
   placeholder = "Begin your story...",
   autofocus = "start",
 }: UseSceneEditorOptions) {
@@ -100,12 +96,6 @@ export function useSceneEditor({
   const setStoredProfile = useProfileStore((s) => s.setProfile);
   const setPendingLevelUp = useProfileStore((s) => s.setPendingLevelUp);
   const userId = useProfileStore((s) => s.profile?.id);
-  const subscriptionTier = useProfileStore((s) => s.subscriptionTier);
-  const pricingCohort = useProfileStore((s) => s.pricingCohort);
-  // Client-side value is UX-only — the server (syncSceneWithLimitCheck)
-  // always re-derives tier + cohort independently and is the actual authority.
-  const wordLimit =
-    subscriptionTier === "scribe" ? Infinity : WORD_LIMITS[pricingCohort ?? "starter_2k"];
   const isFocusMode = useModeStore((s) => s.mode === "focus");
   const isOnline = useNetworkStore((s) => s.isOnline);
   const prefs = (rawPrefs ?? {}) as Partial<UserPreferences>;
@@ -119,22 +109,9 @@ export function useSceneEditor({
     setSyncStatus(s);
   }
   const [conflictModalOpen, setConflictModalOpen] = useState(false);
-  const [wordLimitModalOpen, setWordLimitModalOpen] = useState(false);
   const [toolbarPos, setToolbarPos] = useState<ToolbarPos | null>(null);
   const [xpFlash, setXpFlash] = useState<{ id: number; amount: number } | null>(null);
   const xpFlashTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  // Account-wide manuscript word total. Initialized from the server-rendered
-  // baseline (accountWordTotal), then kept fresh two ways: an immediate
-  // optimistic adjustment by this scene's own save delta (handleSave below —
-  // mirrors how lastSavedWordCountRef itself advances), and an async re-fetch
-  // via getAccountWordTotal() after each save/sync settles, so drift from
-  // another tab/device/Arena session self-corrects without ever polling on
-  // every keystroke. Switching between scenes within the same loaded chapter
-  // doesn't need a re-fetch: this ref already reflects the whole account:
-  // only lastSavedWordCountRef (reset on scene switch below) needs to change.
-  const accountWordTotalRef = useRef(accountWordTotal);
-
-
 
   const currentSceneRef = useRef<Scene | null>(currentScene);
   const onSceneUpdatedRef = useRef(onSceneUpdated);
@@ -156,17 +133,11 @@ export function useSceneEditor({
   // it can't retroactively "absorb" pasted words on a later save or keystroke.
   // Consumed (reduced) only when a save successfully credits XP/writing-stats.
   const pendingEligibleWordsRef = useRef(0);
-  const wordLimitBlockedRef = useRef(false);
-  // Tracks live editor word count between saves so handleTextInput / handleKeyDown
-  // can gate input before a character appears, not just at the next debounce cycle.
-  const currentWordCountRef = useRef<number>(currentScene?.word_count ?? 0);
   const sessionId = useRef(crypto.randomUUID());
   const isOnlineRef = useRef(isOnline);
   const prevIsOnlineRef = useRef(isOnline);
   const userIdRef = useRef(userId);
   const projectIdRef = useRef(projectId);
-  const subscriptionTierRef = useRef(subscriptionTier);
-  const wordLimitRef = useRef(wordLimit);
 
   useEffect(() => {
     const delay = prefs.autoSaveDelay ?? 1500;
@@ -184,20 +155,6 @@ export function useSceneEditor({
   useEffect(() => { isOnlineRef.current = isOnline; }, [isOnline]);
   useEffect(() => { userIdRef.current = userId; }, [userId]);
   useEffect(() => { projectIdRef.current = projectId; }, [projectId]);
-  useEffect(() => { subscriptionTierRef.current = subscriptionTier; }, [subscriptionTier]);
-  useEffect(() => { wordLimitRef.current = wordLimit; }, [wordLimit]);
-  // A boundary re-sync — fires whenever the server-rendered baseline changes
-  // (project/chapter navigation re-renders ChapterEditorPage with a fresh
-  // getAccountWordTotal() value), correcting any drift accumulated since.
-  useEffect(() => { accountWordTotalRef.current = accountWordTotal; }, [accountWordTotal]);
-
-  const refreshAccountWordTotal = useCallback(() => {
-    if (subscriptionTierRef.current !== 'free') return;
-    void getAccountWordTotal().then((total) => {
-      accountWordTotalRef.current = total;
-    });
-  }, []);
-
 
   useEffect(() => {
     onSceneUpdatedRef.current = onSceneUpdated;
@@ -221,9 +178,6 @@ export function useSceneEditor({
           setSyncStatusAndRef(mapDisplayStatus(afterStatus, true));
           if (!afterStatus && pendingBefore) {
             expectedServerWordCountRef.current = pendingBefore.wordCount;
-            // Reconnect-sync boundary — reconcile the account-wide total
-            // after content written while offline actually lands server-side.
-            refreshAccountWordTotal();
           }
         } else if (dbStatus === 'syncing') {
           setSyncStatusAndRef('syncing');
@@ -236,7 +190,7 @@ export function useSceneEditor({
         setSyncStatusAndRef(mapDisplayStatus(dbStatus, isOnline));
       });
     }
-  }, [isOnline, currentScene?.id, refreshAccountWordTotal]);
+  }, [isOnline, currentScene?.id]);
 
   useEffect(() => {
     function handleSyncQueueUpdated() {
@@ -251,42 +205,10 @@ export function useSceneEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Show the word-limit modal when the offline sync engine blocks a write that
-  // would push the account over its free-word allowance.
-  useEffect(() => {
-    function handleWordLimitBlocked() {
-      setWordLimitModalOpen(true);
-      // The account total is at (or was already past) the limit — refresh
-      // so the client's optimistic estimate matches the server's authority
-      // instead of drifting further out of sync on the next keystroke.
-      refreshAccountWordTotal();
-    }
-    window.addEventListener('rune-word-limit-blocked', handleWordLimitBlocked);
-    return () => window.removeEventListener('rune-word-limit-blocked', handleWordLimitBlocked);
-  }, [refreshAccountWordTotal]);
-
   const handleSave = useCallback(async (content: Record<string, unknown>, wordCount: number, creditableWords: number) => {
     const scene = currentSceneRef.current;
     const uid = userIdRef.current;
     if (!scene || !uid) return;
-
-    const delta = wordCount - lastSavedWordCountRef.current;
-
-    // Free-tier word limit check — only block growth, never block edits/deletions.
-    // This is a client-side UX guard only: the server (save_scene_checked, via
-    // syncSceneWithLimitCheck below) always re-derives the account-wide total
-    // independently and is the actual authority.
-    if (subscriptionTierRef.current === 'free' && delta > 0) {
-      const otherAccountWords = accountWordTotalRef.current - lastSavedWordCountRef.current;
-      if (otherAccountWords + wordCount > wordLimitRef.current) {
-        wordLimitBlockedRef.current = true;
-        setWordLimitModalOpen(true);
-        setIsSaving(false);
-        return;
-      }
-    }
-    // Save is proceeding — clear any previous limit block
-    wordLimitBlockedRef.current = false;
 
     try {
       await writeToPendingQueue(scene.id, uid, content, wordCount);
@@ -302,12 +224,6 @@ export function useSceneEditor({
     // let a later increase (e.g. a redo restoring deleted content) be measured
     // against a too-low remembered total and misread as fresh growth.
     lastSavedWordCountRef.current = wordCount;
-    // Mirror the same advance into the account-wide total — an optimistic,
-    // immediate correction so the next keystroke's guard doesn't lag behind
-    // this save. The async refresh below (after the sync actually confirms)
-    // corrects for any drift this optimism can't see, like a concurrent
-    // save on a different scene/tab/device.
-    accountWordTotalRef.current = accountWordTotalRef.current + delta;
 
     if (creditableWords > 0) {
       if (isOnlineRef.current) {
@@ -340,11 +256,6 @@ export function useSceneEditor({
         // server now actually holds, so the next save's conflict check
         // compares against reality instead of the pre-edit word count.
         expectedServerWordCountRef.current = wordCount;
-        // Server-reconciliation boundary — corrects accountWordTotalRef for
-        // any drift the optimistic adjustment above couldn't see (a
-        // concurrent save on a different scene, tab, device, or Arena
-        // session since this scene was last loaded).
-        refreshAccountWordTotal();
       }
     });
 
@@ -370,62 +281,6 @@ export function useSceneEditor({
     ],
     content: currentScene?.content ?? null,
     autofocus,
-    editorProps: {
-      // ── Free-tier word-limit input guards ───────────────────────────────────
-      // These run BEFORE ProseMirror applies the transaction, so the character
-      // never appears in the editor at all. Returning `true` from any handler
-      // signals to ProseMirror "I handled this — skip default behaviour."
-      //
-      // Helper: true when the account-wide total (every project the writer
-      // owns, not just this one) is at or above the limit for free users.
-      // Uses refs so all handlers always read live values. This is a
-      // client-side estimate only — the server (save_scene_checked, via
-      // syncSceneWithLimitCheck) always re-derives the account-wide total
-      // independently and is the actual authority.
-
-      handleTextInput: (_view, _from, _to, _text) => {
-        if (subscriptionTierRef.current !== 'free') return false;
-        const otherAccountWords =
-          accountWordTotalRef.current - lastSavedWordCountRef.current;
-        if (otherAccountWords + currentWordCountRef.current >= wordLimitRef.current) {
-          setWordLimitModalOpen(true);
-          return true; // block the insertion
-        }
-        return false;
-      },
-
-      handleKeyDown: (_view, event) => {
-        // Only intercept Enter — everything else (arrows, backspace, delete,
-        // Ctrl/Cmd shortcuts) must continue to work normally.
-        if (event.key !== 'Enter') return false;
-        if (subscriptionTierRef.current !== 'free') return false;
-        const otherAccountWords =
-          accountWordTotalRef.current - lastSavedWordCountRef.current;
-        if (otherAccountWords + currentWordCountRef.current >= wordLimitRef.current) {
-          setWordLimitModalOpen(true);
-          return true; // block the new paragraph
-        }
-        return false;
-      },
-
-      handlePaste: (_view) => {
-        // At the limit, block paste before any content reaches the document.
-        if (subscriptionTierRef.current === 'free') {
-          const otherAccountWords =
-            accountWordTotalRef.current - lastSavedWordCountRef.current;
-          if (otherAccountWords + currentWordCountRef.current >= wordLimitRef.current) {
-            setWordLimitModalOpen(true);
-            return true; // block paste
-          }
-        }
-        // Under limit (or Scribe): let the paste through. Pasted words still count
-        // toward the manuscript word total; XP/writing-stats eligibility is
-        // classified below in onTransaction from ProseMirror's own paste metadata
-        // rather than estimated here from raw clipboard text.
-        return false;
-      },
-
-    },
     onTransaction({ transaction }) {
       // Programmatic content loads (scene switch, hydration, sync reconciliation,
       // conflict resolution) all run with isLoadingRef true — never eligible.
@@ -463,32 +318,17 @@ export function useSceneEditor({
     onUpdate({ editor }) {
       if (isLoadingRef.current) return;
 
-      // Keep the live word count ref in sync so editorProps handlers always have
-      // a fresh value without computing it inside every keypress handler.
-      currentWordCountRef.current =
-        (editor.storage.characterCount?.words?.() as number | undefined) ?? 0;
-
-      // Per-keystroke IDB write (best-effort). Skipped for free users when the
-      // current word count would push the account over the limit — prevents
-      // over-limit content from reaching the offline queue and syncing to the
-      // server after a "Maybe Later" dismissal or on reconnect.
+      // Per-keystroke IDB write (best-effort).
       const sceneNow = currentSceneRef.current;
       const uidNow = userIdRef.current;
       if (sceneNow && uidNow) {
         const contentNow = editor.getJSON() as Record<string, unknown>;
         const wcNow = (editor.storage.characterCount?.words?.() as number | undefined) ?? 0;
 
-        const isOverLimit =
-          subscriptionTierRef.current === 'free' &&
-          wcNow > lastSavedWordCountRef.current &&
-          accountWordTotalRef.current - lastSavedWordCountRef.current + wcNow > wordLimitRef.current;
-
-        if (!isOverLimit) {
-          try {
-            void writeToPendingQueue(sceneNow.id, uidNow, contentNow, wcNow);
-          } catch (err) {
-            console.error('[offline] onUpdate: per-keystroke IDB write failed:', err);
-          }
+        try {
+          void writeToPendingQueue(sceneNow.id, uidNow, contentNow, wcNow);
+        } catch (err) {
+          console.error('[offline] onUpdate: per-keystroke IDB write failed:', err);
         }
 
         if (syncStatusRef.current !== 'conflict') {
@@ -523,28 +363,24 @@ export function useSceneEditor({
 
         await handleSaveRef.current(content, wordCount, creditableWords);
 
-        // Only consume the ledger and award XP when the save was not blocked by
-        // the word limit — a blocked cycle leaves it fully intact for retry.
-        if (!wordLimitBlockedRef.current) {
-          pendingEligibleWordsRef.current = Math.max(0, pendingEligibleWordsRef.current - creditableWords);
-          if (creditableWords > 0) {
-            const xpGain = xpRewardForWords(creditableWords);
-            void awardProjectXp(xpGain, { mode: "project" }, sessionId.current).then((result) => {
-              if (result.data) {
-                setStoredProfile(result.data);
-                if (result.data.leveledUp) {
-                  setPendingLevelUp({ newLevel: result.data.newLevel, newUnlockables: result.data.newUnlockables });
-                } else if (result.data.newUnlockables.length > 0) {
-                  showToast(unlockToastMessage(result.data.newUnlockables), "success");
-                }
-                if (!isFocusModeRef.current) {
-                  setXpFlash({ id: Date.now(), amount: xpGain });
-                  clearTimeout(xpFlashTimerRef.current);
-                  xpFlashTimerRef.current = setTimeout(() => setXpFlash(null), 2200);
-                }
+        pendingEligibleWordsRef.current = Math.max(0, pendingEligibleWordsRef.current - creditableWords);
+        if (creditableWords > 0) {
+          const xpGain = xpRewardForWords(creditableWords);
+          void awardProjectXp(xpGain, { mode: "project" }, sessionId.current).then((result) => {
+            if (result.data) {
+              setStoredProfile(result.data);
+              if (result.data.leveledUp) {
+                setPendingLevelUp({ newLevel: result.data.newLevel, newUnlockables: result.data.newUnlockables });
+              } else if (result.data.newUnlockables.length > 0) {
+                showToast(unlockToastMessage(result.data.newUnlockables), "success");
               }
-            });
-          }
+              if (!isFocusModeRef.current) {
+                setXpFlash({ id: Date.now(), amount: xpGain });
+                clearTimeout(xpFlashTimerRef.current);
+                xpFlashTimerRef.current = setTimeout(() => setXpFlash(null), 2200);
+              }
+            }
+          });
         }
       }, Math.max(autoSaveDelayRef.current, 2500));
     },
@@ -623,9 +459,7 @@ export function useSceneEditor({
     currentSceneRef.current = currentScene ?? null;
     lastSavedWordCountRef.current = currentScene?.word_count ?? 0;
     expectedServerWordCountRef.current = currentScene?.word_count ?? 0;
-    currentWordCountRef.current = currentScene?.word_count ?? 0;
     pendingEligibleWordsRef.current = 0;
-    wordLimitBlockedRef.current = false;
 
     isLoadingRef.current = true;
     editor.commands.setContent(currentScene?.content ?? null);
@@ -818,9 +652,7 @@ export function useSceneEditor({
         isLoadingRef.current = false;
         lastSavedWordCountRef.current = restored.word_count;
         expectedServerWordCountRef.current = restored.word_count;
-        currentWordCountRef.current = restored.word_count;
         pendingEligibleWordsRef.current = 0;
-        wordLimitBlockedRef.current = false;
         setSyncStatusAndRef('synced');
         onSceneUpdatedRef.current(restored.id, restored);
       })();
@@ -836,9 +668,6 @@ export function useSceneEditor({
     isFocusMode,
     xpFlash,
     toolbarPos,
-    wordLimit,
-    wordLimitModalOpen,
-    setWordLimitModalOpen,
     conflictModalOpen,
     setConflictModalOpen,
     resolveConflictKeptLocal,

@@ -77,6 +77,13 @@ export type ProjectWorkspace = {
   trashable: boolean;
   /** Whether manuscript Scenes can go to Trash too (migration 031). */
   sceneTrashable: boolean;
+  /**
+   * Whether migration 037 is in: Chapters go to Trash with their Scenes, a
+   * Scene can be put anywhere among a Chapter's or the Unplaced Scenes
+   * (place_scene), and the Inspector can list an object's Milestones. When
+   * not, none of these is offered.
+   */
+  chapterTrashable: boolean;
   /** The Project's Manuscript (the owner of its Scene properties and Scene Views), or null if unreadable. */
   manuscriptId: string | null;
   /** The Manuscript's Scene property definitions (any order; see propertiesOf). */
@@ -108,6 +115,7 @@ export const loadProjectWorkspace = cache(async (projectId: string): Promise<Pro
     referencesRead,
     trashRead,
     sceneTrashRead,
+    chapterTrashRead,
     manuscriptRead,
     scenePropertiesRead,
     sceneValuesRead,
@@ -147,6 +155,8 @@ export const loadProjectWorkspace = cache(async (projectId: string): Promise<Pro
     supabase.from("workspace_folders").select("trashed_at").eq("project_id", projectId).limit(0),
     // Likewise for Scene Trash (migration 031).
     supabase.from("scenes").select("trashed_at").limit(0),
+    // And for Chapter Trash (migration 037).
+    supabase.from("chapters").select("trashed_at").limit(0),
     supabase.from("manuscripts").select("id").eq("project_id", projectId).maybeSingle(),
     supabase
       .from("scene_property_definitions")
@@ -177,6 +187,7 @@ export const loadProjectWorkspace = cache(async (projectId: string): Promise<Pro
         };
   const trashable = !trashRead.error;
   const sceneTrashable = trashable && !sceneTrashRead.error;
+  const chapterTrashable = sceneTrashable && !chapterTrashRead.error;
   const noProperties = {
     properties: [],
     values: [],
@@ -194,6 +205,7 @@ export const loadProjectWorkspace = cache(async (projectId: string): Promise<Pro
     collectable: false,
     trashable: false,
     sceneTrashable,
+    chapterTrashable: false,
     ...noProperties,
     ...scenes,
   };
@@ -249,6 +261,7 @@ export const loadProjectWorkspace = cache(async (projectId: string): Promise<Pro
     collectable: !collectionsError,
     trashable,
     sceneTrashable,
+    chapterTrashable,
     ...properties,
     ...scenes,
   };

@@ -33,7 +33,6 @@ export async function getChapters(
 
 type CreateChapterCheckedResult =
   | { status: "ok"; chapter: Chapter; scene_id: string }
-  | { status: "word_limit_blocked"; limit: number }
   | { status: "error"; error: string };
 
 /**
@@ -63,9 +62,7 @@ export async function createChapter(
   if (error) return { data: null, error: error.message };
 
   const result = data as CreateChapterCheckedResult;
-  // An empty first Scene is never word-limit blocked; handled for completeness.
-  if (result.status === "word_limit_blocked") return { data: null, error: "Word limit reached" };
-  if (result.status === "error") return { data: null, error: result.error };
+  if (result.status !== "ok") return { data: null, error: result.error ?? "Couldn’t create the chapter" };
 
   revalidatePath(`/projects/${projectId}`);
   return { data: result.chapter, error: null };
@@ -93,14 +90,16 @@ export async function updateChapter(
 }
 
 /**
- * Deletes a Chapter WITHOUT deleting its prose (delete_chapter, migration
- * 021): in one transaction its Scenes move, in order, to the end of the
- * Manuscript's Unplaced Scenes — same Scene IDs, prose and writing history —
- * and the empty Chapter is removed. Their words leave the ordered manuscript
- * total. If anything fails, the Chapter and every Scene are unchanged.
- * Returns the IDs of the Scenes now Unplaced.
+ * "Remove chapter, keep its scenes" — NOT deletion and NOT Trash (moving a
+ * Chapter to Trash takes its Scenes with it: actions/workspaceTrash.ts). Through
+ * delete_chapter (migrations 021, 037), in one transaction, the Chapter's
+ * Scenes move, in order, to the end of the Manuscript's Unplaced Scenes —
+ * same Scene IDs, prose, history and writing history — and the now empty
+ * Chapter is removed. Their words leave the ordered manuscript total. If
+ * anything fails, the Chapter and every Scene are unchanged. Returns the IDs
+ * of the Scenes now Unplaced.
  */
-export async function deleteChapter(
+export async function removeChapterKeepScenes(
   id: string,
   projectId: string
 ): Promise<{ error: string | null; unplacedSceneIds?: string[] }> {

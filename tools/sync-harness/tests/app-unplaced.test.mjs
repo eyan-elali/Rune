@@ -188,31 +188,32 @@ test('cross-Manuscript moves are refused: the writer\'s own other project, anoth
 
 // ── counting ──────────────────────────────────────────────────────────────────
 
-test('the ordered total excludes Unplaced Scenes; the free-limit account total includes them, so moving never changes it', async () => {
+test('the ordered total excludes Unplaced Scenes; the account total (a metric since 037) includes them, so moving never changes it', async () => {
   const db = await seededDb();
   signIn(db, ALICE);
   assert.equal(await accountTotal(db, ALICE), 3035);
-  assert.equal(await scenes.getAccountWordTotal(), 3035, 'the editor\'s display figure is the same account total');
 
   await scenes.moveSceneToUnplaced(pageId('h1a')); // 120 placed words
   assert.equal(await storedTotal(db, projectId('hollow')), 1450 - 120);
   const { data: chs } = await chapters.getChapters(projectId('hollow'));
   assert.equal(chs.flatMap((c) => c.scenes).reduce((s, x) => s + x.word_count, 0), 1450 - 120, 'placed Scenes only');
-  assert.equal(await accountTotal(db, ALICE), 3035, 'unplacing does not lower the free-limit total');
+  assert.equal(await accountTotal(db, ALICE), 3035, 'unplacing does not lower the account total');
 
   await scenes.moveSceneToChapter(pageId('a1a'), chapterId('ash.ch2')); // 500 Unplaced words
   assert.equal(await storedTotal(db, projectId('ash')), 100 + 500);
   assert.equal(await accountTotal(db, ALICE), 3035, 'placing does not raise it');
 });
 
-test('an over-limit free writer cannot grow an Unplaced Scene (no bypass) but can always shrink it', async () => {
+test('no free limit (037): a writer past the old allowance grows and shrinks an Unplaced Scene freely', async () => {
   const db = await seededDb();
   signIn(db, ALICE);
   const moved = (await scenes.moveSceneToUnplaced(pageId('h4a'))).data;
-  assert.deepEqual(await scenes.syncSceneWithLimitCheck(pageId('h4a'), syntheticDoc('grow', 210), 210, moved.version),
-    { status: 'word_limit_blocked' });
-  const shrink = await scenes.syncSceneWithLimitCheck(pageId('h4a'), syntheticDoc('shrink', 150), 150, moved.version);
+  const grow = await scenes.syncSceneWithLimitCheck(pageId('h4a'), syntheticDoc('grow', 210), 210, moved.version);
+  assert.equal(grow.status, 'ok', JSON.stringify(grow));
+  const shrink = await scenes.syncSceneWithLimitCheck(pageId('h4a'), syntheticDoc('shrink', 150), 150, grow.version);
   assert.equal(shrink.status, 'ok');
+  assert.deepEqual(await one(db, `select chapter_id, word_count from public.scenes where id = $1`, [pageId('h4a')]),
+    { chapter_id: null, word_count: 150 }, 'still Unplaced');
 });
 
 // ── editing and saving ────────────────────────────────────────────────────────

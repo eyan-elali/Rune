@@ -655,9 +655,11 @@ These must be settled before billing changes ship.
 
 The Rune 2.0 migration initially keeps the load-bearing RPC signatures and database contracts, so stale clients and queued offline saves keep working. Enforcement is retired in later stages, each through its own explicit task.
 
+**Stage reached on the `rune-2` branch (Rune 2.0 database, migration 037):** enforcement is off. `free_word_limit_for_caller()` answers "no limit", so no save, creation, import, duplication or restore is gated; the checked RPCs keep their signatures and result shapes; `account_word_total` stays as a metric; the editor input guards and free-word notices are removed. Billing surfaces (pricing table, Settings, the returning-writer notice) still describe the old model until Beta Completion billing work. Production (`main`, Rune 1.x) still enforces the model below.
+
 ### Current implementation reality
 
-Everything below describes the word-allowance pricing that is currently approved and implemented. It remains in force, and stays compatibility-sensitive, until Rune 2.0 billing work explicitly replaces it.
+Everything below describes the word-allowance pricing that is currently approved and implemented in production (`main`). It remains in force there, and stays compatibility-sensitive, until Rune 2.0 billing work explicitly replaces it.
 
 #### New writers
 

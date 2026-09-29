@@ -9,7 +9,6 @@ import { SyncConflictModal } from "./SyncConflictModal";
 import { useSceneEditor } from "./useSceneEditor";
 import { useProfileStore } from "@/store/profileStore";
 import { useToastStore } from "@/store/toastStore";
-import { createCheckoutSession } from "@/lib/actions/billing";
 import type { Scene, UserPreferences } from "@/lib/types";
 
 interface RuneEditorProps {
@@ -19,19 +18,11 @@ interface RuneEditorProps {
   currentScene: Scene | null;
   onSceneUpdated: (sceneId: string, updates: Partial<Scene>) => void;
   onRenameScene: (sceneId: string, title: string) => void;
-  /** Account-wide manuscript word total at page load — see getAccountWordTotal. */
-  accountWordTotal?: number;
   /**
    * Shown when no Scene is open (an empty Chapter or Unplaced list). The
    * editor stays mounted meanwhile, so a Scene just moved away still flushes.
    */
   emptyState?: React.ReactNode;
-}
-
-function getPromotekitReferral(): string {
-  if (typeof window === 'undefined') return ''
-  const referral = (window as Window & { promotekit_referral?: unknown }).promotekit_referral
-  return typeof referral === 'string' ? referral : ''
 }
 
 // The legacy Rune editor surface. The saving, offline and sync engine lives in
@@ -41,7 +32,6 @@ export default function RuneEditor({
   currentScene,
   onSceneUpdated,
   onRenameScene,
-  accountWordTotal = 0,
   emptyState,
 }: RuneEditorProps) {
   const {
@@ -51,23 +41,19 @@ export default function RuneEditor({
     isFocusMode,
     xpFlash,
     toolbarPos,
-    wordLimit,
-    wordLimitModalOpen,
-    setWordLimitModalOpen,
     conflictModalOpen,
     setConflictModalOpen,
     resolveConflictKeptLocal,
     resolveConflictKeptServer,
     currentSceneRef,
     isOnlineRef,
-  } = useSceneEditor({ projectId, currentScene, onSceneUpdated, accountWordTotal });
+  } = useSceneEditor({ projectId, currentScene, onSceneUpdated });
   const showToast = useToastStore((s) => s.showToast);
   const rawPrefs = useProfileStore((s) => s.profile?.preferences);
   const prefs = (rawPrefs ?? {}) as Partial<UserPreferences>;
   const fontSize = prefs.fontSize ?? 18;
   const lineHeight = prefs.lineHeight ?? 1.9;
   const wideEditor = prefs.wideEditor ?? false;
-  const [upgradePending, setUpgradePending] = useState(false);
   const [titleDraft, setTitleDraft] = useState(currentScene?.title ?? "");
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
@@ -300,81 +286,6 @@ export default function RuneEditor({
           onKeepServer={resolveConflictKeptServer}
           onClose={() => setConflictModalOpen(false)}
         />
-      )}
-
-      {/* Free-tier word limit modal */}
-      {wordLimitModalOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{ background: 'rgba(0,0,0,0.6)' }}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="word-limit-heading"
-        >
-          <div
-            className="relative w-full max-w-md rounded-xl px-8 py-10 text-center shadow-2xl"
-            style={{ background: 'var(--surface-card)', border: '1px solid var(--color-border-strong)' }}
-          >
-            <div
-              className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full"
-              style={{ background: 'color-mix(in srgb, var(--color-gold) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--color-gold) 35%, transparent)' }}
-              aria-hidden
-            >
-              <span className="text-2xl">✦</span>
-            </div>
-            <h2
-              id="word-limit-heading"
-              className="mb-3 font-rune-serif text-2xl"
-              style={{ color: 'var(--text-primary)' }}
-            >
-              Ready to keep writing?
-            </h2>
-            <p
-              className="mb-2 text-sm leading-relaxed"
-              style={{ color: 'var(--color-mist)' }}
-            >
-              You&rsquo;ve reached your {wordLimit.toLocaleString()} free words. Your manuscript is safe, and you can export it anytime.
-            </p>
-            <p
-              className="mb-8 text-sm leading-relaxed"
-              style={{ color: 'var(--color-mist)' }}
-            >
-              Continue with Scribe to keep writing in Rune without limits.
-            </p>
-            <div className="flex flex-col gap-3">
-              <button
-                type="button"
-                disabled={upgradePending}
-                onClick={() => {
-                  setUpgradePending(true);
-                  void createCheckoutSession('scribe', 'monthly', getPromotekitReferral()).then(({ url }) => {
-                    if (url) window.location.href = url;
-                    else setUpgradePending(false);
-                  });
-                }}
-                className="w-full rounded-lg px-5 py-3 text-sm font-medium transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rune-gold"
-                style={{ background: 'var(--color-gold)', color: 'var(--color-ink)' }}
-              >
-                {upgradePending ? 'Loading…' : 'Continue with Scribe'}
-              </button>
-              <a
-                href={`/projects/${projectId}`}
-                className="w-full rounded-lg border px-5 py-3 text-sm font-medium transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rune-gold"
-                style={{ borderColor: 'var(--color-border-strong)', color: 'var(--text-primary)' }}
-              >
-                Export Manuscript
-              </a>
-              <button
-                type="button"
-                onClick={() => setWordLimitModalOpen(false)}
-                className="w-full px-5 py-2 text-sm transition-opacity hover:opacity-70 focus-visible:outline-none"
-                style={{ color: 'var(--color-mist)' }}
-              >
-                Maybe Later
-              </button>
-            </div>
-          </div>
-        </div>
       )}
 
       {/* Floating Word Count Pill + XP flash — hidden during onboarding */}

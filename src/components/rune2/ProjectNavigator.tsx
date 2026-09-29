@@ -37,8 +37,8 @@ import {
   Trash2,
   type LucideIcon,
 } from "lucide-react";
-import { createChapter, deleteChapter, updateChapter } from "@/lib/actions/chapters";
-import { createScene, createUnplacedScene, moveSceneToUnplaced, renameScene } from "@/lib/actions/scenes";
+import { createChapter, removeChapterKeepScenes, updateChapter } from "@/lib/actions/chapters";
+import { createScene, createUnplacedScene, moveSceneToUnplaced, placeScene, renameScene } from "@/lib/actions/scenes";
 import { createGroup, deleteGroup, moveChapter, renameGroup } from "@/lib/actions/structure";
 import { createWorkspacePage, renameWorkspacePage } from "@/lib/actions/workspacePages";
 import {
@@ -53,7 +53,14 @@ import {
   deleteWorkspaceCollection,
   renameWorkspaceCollection,
 } from "@/lib/actions/workspaceCollections";
-import { chapterShowsScenes, type NavEntry } from "@/lib/rune2/navigatorModel";
+import {
+  chapterDestinations,
+  chapterShowsScenes,
+  indexBeside as indexAmong,
+  manuscriptPlaces,
+  sceneDestinations,
+  type NavEntry,
+} from "@/lib/rune2/navigatorModel";
 import { indexBeside, moveDestinations, walkWorkspaceTree, type WorkspaceTreeNode } from "@/lib/rune2/workspaceTree";
 import type { ManuscriptOutlineNode } from "@/lib/rune2/projectManuscript";
 import { NavigatorMenu, type NavigatorMenuItem } from "./NavigatorMenu";
@@ -78,17 +85,25 @@ import { useTrash } from "./WorkspaceTrash";
 // A Folder is navigation only: a click opens or closes it, it never opens in
 // a tab.
 //
-// Workspace items move by "Move up / down / to…" in their menu, ⌥↑ / ⌥↓ on
-// a focused row, or by dragging (before or after a row, or into a Folder).
+// Workspace items, Chapters and Scenes move by "Move up / down / to…" in their
+// menu, ⌥↑ / ⌥↓ on a focused row, or by dragging: a Workspace item before or
+// after a row or into a Folder; a Chapter before or after a Chapter or Group,
+// or into a Group; a Scene before or after a Scene, into a Chapter, or into
+// Unplaced Scenes. Each move is one atomic database function (move_chapter,
+// place_scene) that keeps the object's id and everything it holds. Placing a
+// Scene anywhere (place_scene) needs migration 037; before it, a placed Scene
+// can only be moved to Unplaced Scenes.
 //
-// A Page, Folder, Collection or Scene goes to the Project's Trash from its menu
-// ("Move to Trash", with an Undo in the notice that follows); a Folder's items
-// stay in the Workspace, where the Folder was. Trash itself is the quiet
-// "Trash" at the foot of the navigator (WorkspaceTrash). Before migration 030
-// there is no Trash, and only an empty Folder or Collection can be deleted.
+// A Page, Folder, Collection, Scene or Chapter goes to the Project's Trash from
+// its menu ("Move to Trash", with an Undo in the notice that follows); a
+// Folder's items stay in the Workspace, where the Folder was; a Chapter's
+// Scenes go with it. Trash itself is the quiet "Trash" at the foot of the
+// navigator (WorkspaceTrash). Trash is never Unplaced Scenes: "Remove chapter,
+// keep its scenes" is a separate, explicit action. Before migration 030 there
+// is no Trash, and only an empty Folder or Collection can be deleted.
 //
-// Not here yet, deliberately: moving manuscript structure from the navigator
-// (beyond "Move to Unplaced Scenes"), and Trash for Chapters and Groups.
+// Not here, deliberately: moving Groups (move_manuscript_group exists) and
+// Trash for Groups — only an empty Group can be deleted.
 
 const BASE_PAD = 6;
 const INDENT = 16;
@@ -102,6 +117,10 @@ export const ROOT_WORKSPACE = "root:workspace";
 
 type MenuState = { key: number; label: string; at: { x: number; y: number }; items: NavigatorMenuItem[] };
 type DropSide = "before" | "after" | "inside";
+/** A manuscript row being dragged: a Chapter or a Scene (placed or Unplaced). */
+type ManuscriptDrag = { kind: "chapter" | "scene"; id: string };
+/** A manuscript row a drag can land on. */
+type ManuscriptTarget = { kind: "group" | "chapter" | "scene" | "unplaced"; id: string };
 
 const formatCount = (n: number) => n.toLocaleString();
 
@@ -136,7 +155,10 @@ export function ProjectNavigator() {
   const [menu, setMenu] = useState<MenuState | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [dragging, setDragging] = useState<WorkspaceTreeNode | null>(null);
+  const [mdrag, setMdrag] = useState<ManuscriptDrag | null>(null);
   const [drop, setDrop] = useState<{ id: string; side: DropSide } | null>(null);
+  // Scenes can be put anywhere (place_scene) from migration 037.
+  const placeable = trash.chaptersAvailable;
   // A row to focus once the tree is re-read (after a keyboard reorder).
   const refocus = useRef<string | null>(null);
 
@@ -145,13 +167,15 @@ export function ProjectNavigator() {
     () => new Map(walkWorkspaceTree(workspace.tree).map((at) => [at.node.id, at])),
     [workspace.tree]
   );
+  // And every Group's, Chapter's and Scene's, in the manuscript.
+  const places = useMemo(() => manuscriptPlaces(manuscript), [manuscript]);
 
   useEffect(() => {
     if (refocus.current && !refreshing) {
       focusRow(refocus.current);
       refocus.current = null;
     }
-  }, [workspace, refreshing]);
+  }, [workspace, manuscript, refreshing]);
 
   useEffect(() => {
     if (!notice) return;
@@ -219,7 +243,7 @@ export function ProjectNavigator() {
       // Unnamed: it shows as "Scene N" from where it stands, never stored.
       const r = await createScene(chapterId, null);
       if (r.error !== null) {
-        return r.wordLimitBlocked ? "Your word limit has been reached." : "Couldn’t create the scene.";
+        return "Couldn’t create the scene.";
       }
       // A Chapter's only Scene stays out of sight; the Chapter is what's selected.
       if (chapterShowsScenes({ scenes: Array.from({ length: count }) })) {
@@ -234,7 +258,7 @@ export function ProjectNavigator() {
     run(async () => {
       const r = await createUnplacedScene(projectId, null);
       if (r.error !== null) {
-        return r.wordLimitBlocked ? "Your word limit has been reached." : "Couldn’t create the scene.";
+        return "Couldn’t create the scene.";
       }
       selectAndReveal(r.data.id, [ROOT_UNPLACED], false);
       return null;
@@ -424,30 +448,32 @@ export function ProjectNavigator() {
         return [
           rename,
           { label: "New scene", icon: Pilcrow, onSelect: () => addScene(entry.id) },
-          {
-            label: "Delete chapter",
-            icon: Trash2,
-            tone: "danger",
-            confirm: {
-              message:
-                entry.childCount === 0
-                  ? "Delete this empty chapter?"
-                  : `Delete this chapter? ${
-                      entry.childCount === 1 ? "Its writing moves" : `Its ${entry.childCount} scenes move`
-                    } to Unplaced Scenes — nothing is lost.`,
-              action: "Delete chapter",
-            },
-            onSelect: () => removeChapter(entry.id, entry.childCount),
-          },
+          ...chapterMoveItems(entry, at),
+          ...trashItems(entry),
+          // Not deletion, and not Trash: the Chapter goes, its Scenes stay as
+          // Unplaced Scenes. (Before 037, the only way to remove a Chapter.)
+          ...(entry.childCount > 0 || !trash.chaptersAvailable
+            ? [
+                {
+                  label: entry.childCount > 0 ? "Remove chapter, keep its scenes" : "Remove chapter",
+                  icon: FolderInput,
+                  confirm: {
+                    message:
+                      entry.childCount === 0
+                        ? "Remove this empty chapter?"
+                        : `Remove this chapter? ${
+                            entry.childCount === 1 ? "Its scene moves" : `Its ${entry.childCount} scenes move`
+                          } to Unplaced Scenes, and the chapter itself is removed.`,
+                    action: "Remove chapter",
+                  },
+                  onSelect: () => removeChapter(entry.id, entry.childCount),
+                },
+              ]
+            : []),
         ];
       case "scene":
-        return [
-          rename,
-          { label: "Move to Unplaced Scenes", icon: FolderInput, onSelect: () => toUnplaced(entry.id) },
-          ...trashItems(entry),
-        ];
       case "unplacedScene":
-        return [rename, ...trashItems(entry)];
+        return [rename, ...sceneMoveItems(entry, at), ...trashItems(entry)];
       case "workspacePage":
         return [rename, ...workspaceMoveItems(entry, at), ...trashItems(entry)];
       case "workspaceCollection":
@@ -493,13 +519,19 @@ export function ProjectNavigator() {
   }
 
   /**
-   * "Move to Trash" for a Page, Folder, Collection or Scene. Recoverable, so
-   * no confirmation — except for a Folder that holds items, which move up into
-   * its place (they are not trashed with it).
+   * "Move to Trash" for a Page, Folder, Collection, Scene or Chapter (with its
+   * Scenes). Recoverable, so no confirmation — except for a Folder that holds
+   * items, which move up into its place (they are not trashed with it).
    */
   function trashItems(entry: NavEntry): NavigatorMenuItem[] {
     const isScene = entry.kind === "scene" || entry.kind === "unplacedScene";
-    if (!trash.available || (isScene && !trash.scenesAvailable)) return [];
+    if (
+      !trash.available ||
+      (isScene && !trash.scenesAvailable) ||
+      (entry.kind === "chapter" && !trash.chaptersAvailable)
+    ) {
+      return [];
+    }
     const folderItems = entry.kind === "workspaceFolder" ? entry.childCount : 0;
     return [
       {
@@ -640,22 +672,208 @@ export function ProjectNavigator() {
 
   const removeChapter = (id: string, sceneCount: number) =>
     run(async () => {
-      const r = await deleteChapter(id, projectId);
-      if (r.error) return "Couldn’t delete the chapter.";
+      const r = await removeChapterKeepScenes(id, projectId);
+      if (r.error) return "Couldn’t remove the chapter.";
       if (sceneCount === 0) return null;
       setOpenFor([ROOT_UNPLACED], true);
       return sceneCount === 1
-        ? "The chapter’s writing is now in Unplaced Scenes."
-        : "The chapter’s scenes are now in Unplaced Scenes.";
+        ? "The chapter is gone; its scene is in Unplaced Scenes."
+        : "The chapter is gone; its scenes are in Unplaced Scenes.";
     });
 
-  const toUnplaced = (sceneId: string) =>
+  // ── Manuscript moves ────────────────────────────────────────────────────
+
+  /** The title of a move destination, as the navigator shows it. */
+  const titleOf = (id: string | null, fallback: string) => (id ? (index.get(id)?.title ?? fallback) : fallback);
+
+  /** Puts a Chapter at `idx` among `parentGroupId`'s children (null: the top level; idx null: last). */
+  const moveChapterTo = (id: string, parentGroupId: string | null, idx: number | null) =>
     run(async () => {
-      const r = await moveSceneToUnplaced(sceneId);
-      if (r.error !== null) return "Couldn’t move the scene.";
-      setOpenFor([ROOT_UNPLACED], true);
+      const r = await moveChapter(id, parentGroupId, idx, projectId);
+      if (r.error !== null) return "Couldn’t move the chapter. Nothing was changed.";
+      setOpenFor([ROOT_MANUSCRIPT, ...(parentGroupId ? [...(index.get(parentGroupId)?.path.map((p) => p.id) ?? []), parentGroupId] : [])], true);
       return null;
     });
+
+  /** Puts a Scene at `idx` among a Chapter's Scenes (null: Unplaced Scenes; idx null: last). */
+  const moveSceneTo = (id: string, chapterId: string | null, idx: number | null) =>
+    run(async () => {
+      const r = placeable
+        ? await placeScene(id, chapterId, idx)
+        : chapterId === null
+          ? await moveSceneToUnplaced(id)
+          : { error: "Scenes can’t be placed yet" };
+      if (r.error !== null) return "Couldn’t move the scene. Nothing was changed.";
+      setOpenFor(chapterId ? [ROOT_MANUSCRIPT, ...(index.get(chapterId)?.path.map((p) => p.id) ?? []), chapterId] : [ROOT_UNPLACED], true);
+      return null;
+    });
+
+  /** One step up or down among its siblings, for a Chapter or Scene (⌥↑ / ⌥↓, or its menu). */
+  function reorderManuscript(entry: NavEntry, step: -1 | 1, fromKeyboard = false) {
+    const at = places.get(entry.id);
+    if (!at) return;
+    const next = at.index + step;
+    if (next < 0 || next >= at.siblings.length) return;
+    if (entry.kind === "chapter") {
+      if (fromKeyboard) refocus.current = entry.id;
+      moveChapterTo(entry.id, at.parentId, next);
+    } else if ((entry.kind === "scene" || entry.kind === "unplacedScene") && placeable) {
+      if (fromKeyboard) refocus.current = entry.id;
+      moveSceneTo(entry.id, at.parentId, next);
+    }
+  }
+
+  /** Move up / down / to… for a Chapter: among its siblings, to the top level or into any Group. */
+  function chapterMoveItems(entry: NavEntry, point?: { x: number; y: number }): NavigatorMenuItem[] {
+    const at = places.get(entry.id);
+    if (!at) return [];
+    const elsewhere = chapterDestinations(manuscript.outline, at.parentId);
+    return [
+      ...(at.index > 0
+        ? [{ label: "Move up", icon: ArrowUp, hint: "⌥↑", onSelect: () => reorderManuscript(entry, -1) }]
+        : []),
+      ...(at.index < at.siblings.length - 1
+        ? [{ label: "Move down", icon: ArrowDown, hint: "⌥↓", onSelect: () => reorderManuscript(entry, 1) }]
+        : []),
+      ...(elsewhere.length > 0
+        ? [
+            {
+              label: "Move to",
+              icon: FolderInput,
+              onSelect: () =>
+                openMenu(
+                  `Move ${entry.title} to`,
+                  point ?? rowPoint(entry.id),
+                  elsewhere.map((d) => ({
+                    key: d.groupId ?? ROOT_MANUSCRIPT,
+                    label: titleOf(d.groupId, "Manuscript (top level)"),
+                    icon: d.groupId ? Layers : undefined,
+                    inset: d.depth,
+                    onSelect: () => moveChapterTo(entry.id, d.groupId, null),
+                  }))
+                ),
+            },
+          ]
+        : []),
+    ];
+  }
+
+  /**
+   * Move up / down / to… for a Scene: within its Chapter or the Unplaced
+   * Scenes, to another Chapter, or out to Unplaced Scenes (never Trash).
+   * Before 037, only a placed Scene's "Move to Unplaced Scenes".
+   */
+  function sceneMoveItems(entry: NavEntry, point?: { x: number; y: number }): NavigatorMenuItem[] {
+    const at = places.get(entry.id);
+    if (!at) return [];
+    const placedScene = entry.kind === "scene";
+    const toUnplaced: NavigatorMenuItem = {
+      label: "Move to Unplaced Scenes",
+      icon: FolderInput,
+      onSelect: () => moveSceneTo(entry.id, null, null),
+    };
+    if (!placeable) return placedScene ? [toUnplaced] : [];
+    const chapters = sceneDestinations(manuscript.outline, at.parentId).filter((d) => d.chapterId !== null);
+    return [
+      ...(at.index > 0
+        ? [{ label: "Move up", icon: ArrowUp, hint: "⌥↑", onSelect: () => reorderManuscript(entry, -1) }]
+        : []),
+      ...(at.index < at.siblings.length - 1
+        ? [{ label: "Move down", icon: ArrowDown, hint: "⌥↓", onSelect: () => reorderManuscript(entry, 1) }]
+        : []),
+      ...(chapters.length > 0
+        ? [
+            {
+              label: placedScene ? "Move to another chapter" : "Move to a chapter",
+              icon: FileText,
+              onSelect: () =>
+                openMenu(
+                  `Move ${entry.title} to`,
+                  point ?? rowPoint(entry.id),
+                  chapters.map((d) => ({
+                    key: d.chapterId!,
+                    label: titleOf(d.chapterId, "Chapter"),
+                    inset: d.depth,
+                    onSelect: () => moveSceneTo(entry.id, d.chapterId, null),
+                  }))
+                ),
+            },
+          ]
+        : []),
+      ...(placedScene ? [toUnplaced] : []),
+    ];
+  }
+
+  // ── Manuscript drag and drop ────────────────────────────────────────────
+
+  /** Whether the dragged Chapter or Scene may be dropped at `side` of `target`. */
+  function canDropManuscript(drag: ManuscriptDrag, target: ManuscriptTarget, side: DropSide): boolean {
+    if (target.id === drag.id) return false;
+    if (drag.kind === "chapter") {
+      if (target.kind === "group") return true;
+      return target.kind === "chapter" && side !== "inside";
+    }
+    if (target.kind === "scene") return side !== "inside";
+    return (target.kind === "chapter" || target.kind === "unplaced") && side === "inside";
+  }
+
+  /** The row props that make a Chapter or Scene draggable, and any manuscript row a drop target. */
+  function manuscriptDragProps(target: ManuscriptTarget): HTMLAttributes<HTMLDivElement> & { draggable?: boolean } {
+    const movable = target.kind === "chapter" || (target.kind === "scene" && placeable);
+    const sideAt = (e: React.DragEvent<HTMLDivElement>): DropSide => {
+      if (!mdrag || target.kind === "unplaced") return "inside";
+      if (mdrag.kind === "scene" && target.kind === "chapter") return "inside";
+      const r = e.currentTarget.getBoundingClientRect();
+      const y = (e.clientY - r.top) / r.height;
+      if (target.kind === "group") return y < 0.25 ? "before" : y > 0.75 ? "after" : "inside";
+      return y < 0.5 ? "before" : "after";
+    };
+    return {
+      draggable: movable && renamingId !== target.id && !busy,
+      onDragStart: (e) => {
+        if (!movable) return;
+        e.dataTransfer.effectAllowed = "move";
+        e.dataTransfer.setData("text/plain", index.get(target.id)?.title ?? "");
+        setMdrag({ kind: target.kind === "chapter" ? "chapter" : "scene", id: target.id });
+      },
+      onDragOver: (e) => {
+        if (!mdrag) return;
+        const side = sideAt(e);
+        if (!canDropManuscript(mdrag, target, side)) {
+          if (drop?.id === target.id) setDrop(null);
+          return;
+        }
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        if (drop?.id !== target.id || drop.side !== side) setDrop({ id: target.id, side });
+      },
+      onDragLeave: (e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null) && drop?.id === target.id) setDrop(null);
+      },
+      onDrop: (e) => {
+        e.preventDefault();
+        const drag = mdrag;
+        const side = sideAt(e);
+        setMdrag(null);
+        setDrop(null);
+        if (!drag || !canDropManuscript(drag, target, side)) return;
+        if (drag.kind === "chapter") {
+          if (side === "inside") return moveChapterTo(drag.id, target.id, null);
+          const at = places.get(target.id);
+          if (at) moveChapterTo(drag.id, at.parentId, indexAmong(at.siblings, drag.id, target.id, side));
+          return;
+        }
+        if (target.kind === "unplaced") return moveSceneTo(drag.id, null, null);
+        if (target.kind === "chapter") return moveSceneTo(drag.id, target.id, null);
+        const at = places.get(target.id);
+        if (at && side !== "inside") moveSceneTo(drag.id, at.parentId, indexAmong(at.siblings, drag.id, target.id, side));
+      },
+      onDragEnd: () => {
+        setMdrag(null);
+        setDrop(null);
+      },
+    };
+  }
 
   // ── Tree ────────────────────────────────────────────────────────────────
 
@@ -686,7 +904,9 @@ export function ProjectNavigator() {
               onRenameDone={(value) => commitRename(entry, value)}
               onAdd={(at) => openMenu(`Add to ${entry.title}`, at, groupAddItems(entry.id))}
               addLabel={`Add to ${entry.title}`}
-              onMore={(at) => openMenu(`${entry.title} actions`, at, moreItems(entry))}
+              onMore={(at) => openMenu(`${entry.title} actions`, at, moreItems(entry, at))}
+              rowProps={manuscriptDragProps({ kind: "group", id: entry.id })}
+              drop={drop?.id === entry.id ? drop.side : undefined}
             />
             {expanded && node.children.length > 0 && (
               <Children depth={depth}>{renderOutline(node.children, entry.id)}</Children>
@@ -716,7 +936,11 @@ export function ProjectNavigator() {
             onRenameDone={(value) => commitRename(entry, value)}
             onAdd={() => addScene(entry.id)}
             addLabel={`New scene in ${entry.title}`}
-            onMore={(at) => openMenu(`${entry.title} actions`, at, moreItems(entry))}
+            onMore={(at) => openMenu(`${entry.title} actions`, at, moreItems(entry, at))}
+            onReorder={(step) => reorderManuscript(entry, step, true)}
+            rowProps={manuscriptDragProps({ kind: "chapter", id: entry.id })}
+            drop={drop?.id === entry.id ? drop.side : undefined}
+            dragging={mdrag?.id === entry.id}
           />
           {showsScenes && expanded && (
             <Children depth={depth}>
@@ -735,7 +959,11 @@ export function ProjectNavigator() {
                       onSelect={(e) => choose(scene.id, e)}
                       onRename={() => setRenamingId(scene.id)}
                       onRenameDone={(value) => commitRename(sceneEntry, value)}
-                      onMore={(at) => openMenu(`${sceneEntry.title} actions`, at, moreItems(sceneEntry))}
+                      onMore={(at) => openMenu(`${sceneEntry.title} actions`, at, moreItems(sceneEntry, at))}
+                      onReorder={placeable ? (step) => reorderManuscript(sceneEntry, step, true) : undefined}
+                      rowProps={manuscriptDragProps({ kind: "scene", id: scene.id })}
+                      drop={drop?.id === scene.id ? drop.side : undefined}
+                      dragging={mdrag?.id === scene.id}
                     />
                   </li>
                 );
@@ -906,6 +1134,8 @@ export function ProjectNavigator() {
                 onSelect={() => setOpenFor([ROOT_UNPLACED], !unplacedOpen)}
                 onAdd={addUnplacedScene}
                 addLabel="New unplaced scene"
+                rowProps={manuscriptDragProps({ kind: "unplaced", id: ROOT_UNPLACED })}
+                drop={drop?.id === ROOT_UNPLACED ? drop.side : undefined}
               />
               {unplacedOpen && (
                 <ul role="list">
@@ -924,7 +1154,11 @@ export function ProjectNavigator() {
                           onSelect={(e) => choose(scene.id, e)}
                           onRename={() => setRenamingId(scene.id)}
                           onRenameDone={(value) => commitRename(entry, value)}
-                          onMore={(at) => openMenu(`${entry.title} actions`, at, moreItems(entry))}
+                          onMore={(at) => openMenu(`${entry.title} actions`, at, moreItems(entry, at))}
+                          onReorder={placeable ? (step) => reorderManuscript(entry, step, true) : undefined}
+                          rowProps={manuscriptDragProps({ kind: "scene", id: scene.id })}
+                          drop={drop?.id === scene.id ? drop.side : undefined}
+                          dragging={mdrag?.id === scene.id}
                         />
                       </li>
                     );
@@ -1177,9 +1411,9 @@ function NavRow({
   onAdd?: (at: { x: number; y: number }) => void;
   addLabel?: string;
   onMore: (at: { x: number; y: number }) => void;
-  /** ⌥↑ / ⌥↓: one step among its siblings (Workspace items). */
+  /** ⌥↑ / ⌥↓: one step among its siblings (Workspace items, Chapters, Scenes). */
   onReorder?: (step: -1 | 1) => void;
-  /** Drag and drop (Workspace items). */
+  /** Drag and drop (Workspace items, Chapters, Scenes; Groups and Unplaced Scenes as targets). */
   rowProps?: HTMLAttributes<HTMLDivElement> & { draggable?: boolean };
   drop?: DropSide;
   dragging?: boolean;

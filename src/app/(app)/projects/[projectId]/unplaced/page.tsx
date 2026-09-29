@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { getAccountWordTotal, getUnplacedScenes } from "@/lib/actions/scenes";
+import { getUnplacedScenes } from "@/lib/actions/scenes";
 import { getChapters } from "@/lib/actions/chapters";
 import { isNetworkError } from "@/lib/networkError";
 import { EditorShell } from "@/components/editor/EditorShell";
@@ -24,11 +24,10 @@ export default async function UnplacedScenesPage({
   const { scene } = await searchParams;
   const supabase = await createClient();
 
-  const [projectResult, scenesResult, chaptersResult, accountWordTotal] = await Promise.all([
+  const [projectResult, scenesResult, chaptersResult] = await Promise.all([
     supabase.from("projects").select("*").eq("id", projectId).single(),
     getUnplacedScenes(projectId),
     getChapters(projectId),
-    getAccountWordTotal(),
   ]);
 
   const { data: project, error: projectError } = projectResult;
@@ -56,7 +55,6 @@ export default async function UnplacedScenesPage({
         project={project}
         allChapters={chaptersResult.data ?? []}
         unplacedCount={scenes.length}
-        accountWordTotal={accountWordTotal}
       />
     </div>
   );

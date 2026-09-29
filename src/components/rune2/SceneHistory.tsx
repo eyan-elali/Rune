@@ -16,25 +16,84 @@ import { useNetworkStore } from "@/store/networkStore";
 import { ProseSnapshot } from "./ProseSnapshot";
 
 // Scene History (migration 036): a quiet way into a Scene's earlier texts,
-// from the Inspector — never inside the manuscript editor. The dialog lists
-// them by when they were saved, previews one read-only, and restores it: a
+// from the Inspector — never inside the manuscript editor. The Inspector shows
+// the few most recent ones the database kept on its own; the dialog lists
+// them all by when they were saved, previews one read-only, and restores it: a
 // new save of that text (the text it replaces stays in History). Nothing here
-// is version control; there is nothing to manage.
+// is version control; there is nothing to manage. Named Milestones are a
+// separate thing, listed apart (ObjectMilestonesSection).
+
+/** How many recent automatic versions the Inspector lists before "All versions". */
+const RECENT = 3;
 
 export function SceneHistorySection({ sceneId, projectId }: { sceneId: string; projectId: string }) {
-  const [open, setOpen] = useState(false);
-  const opener = useRef<HTMLButtonElement>(null);
+  // null: the dialog is closed; "": open on the list; otherwise open on that version.
+  const [openAt, setOpenAt] = useState<string | null>(null);
+  const [recent, setRecent] = useState<SceneHistory["revisions"] | null>(null);
+  const [total, setTotal] = useState(0);
+  const opener = useRef<HTMLElement | null>(null);
+
+  const load = useCallback(() => {
+    void listSceneHistory(sceneId).then((r) => {
+      if (r.error !== null) return;
+      // Automatic history only: a version kept for a Milestone is listed under Milestones.
+      const automatic = r.data.revisions.filter((v) => v.reason !== "milestone");
+      setRecent(automatic.slice(0, RECENT));
+      setTotal(r.data.revisions.length);
+    });
+  }, [sceneId]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const open = (at: string, from: HTMLElement) => {
+    opener.current = from;
+    setOpenAt(at);
+  };
+
   return (
-    <section className="r2-history-entry" aria-label="Scene history">
-      <button ref={opener} type="button" className="r2-panel-link" aria-haspopup="dialog" onClick={() => setOpen(true)}>
-        Scene history
+    <section className="r2-history-entry" aria-labelledby={`r2-history-head-${sceneId}`}>
+      <h3 id={`r2-history-head-${sceneId}`} className="r2-links-head">
+        History
+      </h3>
+      {recent && recent.length > 0 && (
+        <ul className="r2-milestone-list" aria-label="Recent versions">
+          {recent.map((v) => (
+            <li key={v.id}>
+              <button
+                type="button"
+                className="r2-milestone-item"
+                aria-haspopup="dialog"
+                onClick={(e) => open(v.id, e.currentTarget)}
+              >
+                <span className="r2-milestone-name">{historyTime(v.saved_at)}</span>
+                <span className="r2-milestone-meta">
+                  {wordsLabel(v.word_count)}
+                  {v.current && " · same as now"}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {recent && recent.length === 0 && <p className="r2-panel-empty">No earlier versions yet.</p>}
+      <button
+        type="button"
+        className="r2-panel-link"
+        aria-haspopup="dialog"
+        onClick={(e) => open("", e.currentTarget)}
+      >
+        {total > RECENT ? "All versions…" : "Scene history…"}
       </button>
-      {open && (
+      {openAt !== null && (
         <SceneHistoryDialog
           sceneId={sceneId}
           projectId={projectId}
+          initialRevisionId={openAt || null}
           onClose={() => {
-            setOpen(false);
+            setOpenAt(null);
+            load();
             opener.current?.focus();
           }}
         />
@@ -48,10 +107,13 @@ type Notice = { tone: "info" | "alert"; text: string };
 function SceneHistoryDialog({
   sceneId,
   projectId,
+  initialRevisionId,
   onClose,
 }: {
   sceneId: string;
   projectId: string;
+  /** A version to show at once, chosen in the Inspector. */
+  initialRevisionId: string | null;
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -81,11 +143,15 @@ function SceneHistoryDialog({
     void listSceneHistory(sceneId).then((r) => {
       if (!live) return;
       if (r.error !== null) setLoadError(r.error);
-      else setHistory(r.data);
+      else {
+        setHistory(r.data);
+        if (initialRevisionId && r.data.revisions.some((v) => v.id === initialRevisionId)) select(initialRevisionId);
+      }
     });
     return () => {
       live = false;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sceneId]);
 
   useEffect(() => {
@@ -135,9 +201,6 @@ function SceneHistoryDialog({
         case "version_mismatch":
           await load();
           setNotice({ tone: "alert", text: "The scene changed since this history was opened. Nothing was restored; the list is up to date now." });
-          return;
-        case "word_limit_blocked":
-          setNotice({ tone: "alert", text: "Restoring this version would go past your free words. The scene is unchanged." });
           return;
         case "error":
           setNotice({ tone: "alert", text: "The version couldn’t be restored. The scene is unchanged." });

@@ -2,7 +2,12 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { getManuscriptIdForProject } from "@/lib/manuscriptQueries";
-import { milestoneName, type MilestoneSnapshot, type MilestoneSummary } from "@/lib/rune2/history";
+import {
+  milestoneName,
+  type MilestoneSnapshot,
+  type MilestoneSummary,
+  type ObjectMilestone,
+} from "@/lib/rune2/history";
 
 // Named Manuscript Milestones (migration 036): the whole manuscript — Groups,
 // Chapters, placed and Unplaced Scenes, their order and prose — captured by
@@ -58,6 +63,18 @@ export async function createManuscriptMilestone(projectId: string, name: string)
 export async function getManuscriptMilestone(milestoneId: string): Promise<ActionResult<MilestoneSnapshot>> {
   const r = await call<MilestoneSnapshot>("get_manuscript_milestone", { p_milestone_id: milestoneId });
   return r.error !== null ? r : { data: { milestone: r.data.milestone, scenes: r.data.scenes }, error: null };
+}
+
+/**
+ * The named Milestones that hold this Scene or Chapter, newest first, with
+ * where it stood in each (list_object_milestones, migration 037). Read-only.
+ */
+export async function listObjectMilestones(
+  type: "scene" | "chapter",
+  id: string
+): Promise<ActionResult<ObjectMilestone[]>> {
+  const r = await call<{ milestones: ObjectMilestone[] }>("list_object_milestones", { p_type: type, p_id: id });
+  return r.error !== null ? r : { data: r.data.milestones, error: null };
 }
 
 /** Deletes one named Milestone. The live manuscript is untouched. */

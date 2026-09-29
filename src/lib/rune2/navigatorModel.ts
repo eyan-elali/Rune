@@ -290,3 +290,84 @@ export function indexWorkspace(
   visit(tree, []);
   return index;
 }
+
+// ── Moving manuscript structure ─────────────────────────────────────────────
+//
+// Where each Chapter and Scene sits, so the navigator can offer only the moves
+// that change something (Move up / down / to…, ⌥↑ / ⌥↓, drag and drop). The
+// moves themselves are single database functions (move_chapter, place_scene);
+// these rules only decide what to ask for.
+
+/**
+ * A Chapter's or Scene's place: its parent (a Chapter's Group, null = the top
+ * level; a Scene's Chapter, null = Unplaced Scenes), that parent's children in
+ * order (a Chapter's siblings are Groups and Chapters together), and its index.
+ */
+export type ManuscriptPlace = { parentId: string | null; siblings: string[]; index: number };
+
+export function manuscriptPlaces(
+  manuscript: Pick<ProjectManuscript, "outline" | "unplaced">
+): Map<string, ManuscriptPlace> {
+  const places = new Map<string, ManuscriptPlace>();
+  const visit = (nodes: ManuscriptOutlineNode[], parentId: string | null) => {
+    const siblings = nodes.map((n) => (n.kind === "group" ? n.group.id : n.chapter.id));
+    nodes.forEach((node, index) => {
+      if (node.kind === "group") {
+        places.set(node.group.id, { parentId, siblings, index });
+        visit(node.children, node.group.id);
+        return;
+      }
+      places.set(node.chapter.id, { parentId, siblings, index });
+      const scenes = node.chapter.scenes.map((s) => s.id);
+      scenes.forEach((id, at) => places.set(id, { parentId: node.chapter.id, siblings: scenes, index: at }));
+    });
+  };
+  visit(manuscript.outline, null);
+  const unplaced = manuscript.unplaced.map((s) => s.id);
+  unplaced.forEach((id, at) => places.set(id, { parentId: null, siblings: unplaced, index: at }));
+  return places;
+}
+
+/**
+ * The index (among the others, `moving` left out) that puts `moving` just
+ * before or after `target` in `siblings` — `moving` may already be among them.
+ */
+export function indexBeside(
+  siblings: readonly string[],
+  moving: string,
+  target: string,
+  side: "before" | "after"
+): number {
+  const others = siblings.filter((id) => id !== moving);
+  const at = others.indexOf(target);
+  return side === "before" ? at : at + 1;
+}
+
+/** Where a Chapter can go: the top level (groupId null) and every Group, in reading order, except where it is. */
+export function chapterDestinations(
+  outline: ManuscriptOutlineNode[],
+  currentParentId: string | null
+): { groupId: string | null; depth: number }[] {
+  const out: { groupId: string | null; depth: number }[] = [{ groupId: null, depth: 0 }];
+  const visit = (nodes: ManuscriptOutlineNode[]) =>
+    nodes.forEach((n) => {
+      if (n.kind !== "group") return;
+      out.push({ groupId: n.group.id, depth: n.depth + 1 });
+      visit(n.children);
+    });
+  visit(outline);
+  return out.filter((d) => d.groupId !== currentParentId);
+}
+
+/** Where a Scene can go: every Chapter in reading order, then Unplaced Scenes (null), except where it is. */
+export function sceneDestinations(
+  outline: ManuscriptOutlineNode[],
+  currentChapterId: string | null
+): { chapterId: string | null; depth: number }[] {
+  const out: { chapterId: string | null; depth: number }[] = [];
+  const visit = (nodes: ManuscriptOutlineNode[]) =>
+    nodes.forEach((n) => (n.kind === "group" ? visit(n.children) : out.push({ chapterId: n.chapter.id, depth: n.depth })));
+  visit(outline);
+  out.push({ chapterId: null, depth: 0 });
+  return out.filter((d) => d.chapterId !== currentChapterId);
+}

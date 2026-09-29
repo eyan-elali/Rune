@@ -53,7 +53,7 @@ test('a database built from schema.sql alone is identical to baseline + migratio
   assert.deepEqual(diffCounts(a, b), []);
   const versions = async (db) => (await db.query(`select version, name, note from public.schema_migrations order by version`)).rows;
   assert.deepEqual(await versions(fresh), await versions(migrated));
-  assert.deepEqual((await versions(fresh)).map((r) => r.version).slice(-24), ['013', '014', '015', '016', '017', '018', '019', '020', '021', '022', '023', '024', '025', '026', '027', '028', '029', '030', '031', '032', '033', '034', '035', '036']);
+  assert.deepEqual((await versions(fresh)).map((r) => r.version).slice(-25), ['013', '014', '015', '016', '017', '018', '019', '020', '021', '022', '023', '024', '025', '026', '027', '028', '029', '030', '031', '032', '033', '034', '035', '036', '037']);
 });
 
 test('signup still creates the profile and pricing entitlements on the Rune 2.0 schema', async () => {
@@ -1575,6 +1575,90 @@ test('036 requires 035, refuses to run twice (including on schema.sql), and chan
   for (const db of [await migratedDb(), await freshRune2Db()]) {
     const before = await captureCatalog(db);
     await assert.rejects(db.exec(readMigration(M036)), /Migration 036 has already been applied/);
+    assert.deepEqual(diffCatalogs(before, await captureCatalog(db)).differences, []);
+  }
+});
+
+// ── migration 037 ─────────────────────────────────────────────────────────────
+
+const M037 = '037_manuscript_workflow.sql';
+
+async function db036() {
+  const db = await db035();
+  await db.exec(readMigration(M036));
+  return db;
+}
+
+test('037 on 036: Chapter Trash, no client deletes, place_scene, Milestone lookups, no free-word limit — save_scene_checked untouched, no row changes', async () => {
+  const db = await db036();
+  const before = await captureCatalog(db);
+  const rows = async () => ({
+    scenes: (await db.query(`select * from public.scenes order by id`)).rows,
+    chapters: (await db.query(`select id, manuscript_id, group_id, title, position from public.chapters order by id`)).rows,
+    projects: (await db.query(`select id, word_count from public.projects order by id`)).rows,
+  });
+  const beforeRows = await rows();
+  const saveBody = async () => (await db.query(`select prosrc from pg_proc where proname = 'save_scene_checked'`)).rows[0].prosrc;
+  const saveBefore = await saveBody();
+  await db.exec(readMigration(M037));
+  const keys = diffCatalogs(before, await captureCatalog(db)).differences.map((d) => `${d.section}:${d.kind}${d.fields ? '[' + d.fields.join(',') + ']' : ''}:${d.key}`).sort();
+  const changes = keys.filter((k) => !/^relation_counts?:/.test(k));
+  const NEW = ['delete_trashed_manuscript_chapter', 'list_object_milestones', 'place_scene', 'restore_manuscript_chapter', 'trash_manuscript_chapter'];
+  const REDEFINED = [
+    'check_structure_sibling_position', 'create_manuscript_milestone', 'delete_chapter', 'delete_trashed_manuscript_scene',
+    'delete_trashed_workspace_object', 'duplicate_project_checked', 'free_word_limit_for_caller', 'insert_scene_checked',
+    'list_workspace_trash', 'move_chapter', 'next_structure_position', 'owned_workspace_object_project',
+    'place_in_manuscript_structure', 'restore_manuscript_scene', 'restore_workspace_object', 'trash_workspace_object',
+    'workspace_object_active', 'workspace_trash_state',
+  ];
+  assert.deepEqual(changes.filter((k) => /^(columns|constraints|indexes|policies|table_grants|triggers|relations):/.test(k)), [
+    'columns:added:chapters.trashed_at',
+    'columns:added:chapters.trashed_from_group_id',
+    'columns:added:chapters.trashed_from_index',
+    'columns:added:scenes.trashed_with_chapter',
+    'constraints:added:chapters.chapters_sibling_position_excl',
+    'constraints:added:chapters.chapters_trash_check',
+    'constraints:added:chapters.chapters_trashed_from_check',
+    'constraints:added:scenes.scenes_trashed_with_chapter_check',
+    'constraints:removed:chapters.chapters_sibling_position_key',
+    'indexes:added:chapters.chapters_sibling_position_excl',
+    'indexes:added:chapters.chapters_trashed_idx',
+    'indexes:removed:chapters.chapters_sibling_position_key',
+    'policies:changed[using,with_check]:chapters.chapters: update own',
+    'policies:changed[using]:chapters.chapters: select own',
+    'policies:removed:chapters.chapters: delete own',
+    'policies:removed:scenes.scenes: delete own',
+    'table_grants:removed:chapters anon DELETE',
+    'table_grants:removed:chapters authenticated DELETE',
+    'table_grants:removed:scenes anon DELETE',
+    'table_grants:removed:scenes authenticated DELETE',
+  ]);
+  const fns = changes.filter((k) => k.startsWith('functions:'));
+  assert.deepEqual(fns.filter((k) => k.startsWith('functions:added:')).map((k) => k.split(':')[2].split('(')[0]), NEW);
+  assert.deepEqual(fns.filter((k) => k.startsWith('functions:changed')).map((k) => k.split(':')[2].split('(')[0]).sort(), REDEFINED);
+  assert.ok(fns.some((k) => /^functions:changed\[[^\]]*security_definer[^\]]*\]:delete_chapter\(/.test(k)), 'delete_chapter becomes SECURITY DEFINER');
+  assert.ok(!fns.some((k) => /^functions:removed:/.test(k)), 'no function removed or re-signed');
+  assert.ok(!fns.some((k) => /:(save_scene_checked|insert_unplaced_scene_checked|create_chapter_checked|create_project_checked|import_manuscript_checked|account_word_total|restore_scene_revision|move_scene|reorder_chapter_scenes)\(/.test(k)),
+    'these keep their bodies: the retired limit is resolved in free_word_limit_for_caller alone');
+  assert.equal(await saveBody(), saveBefore, 'save_scene_checked is byte-for-byte unchanged');
+  const grants = changes.filter((k) => k.startsWith('function_grants:'));
+  assert.ok(grants.every((k) => k.includes(':added:')), 'no grant removed');
+  assert.deepEqual(grants.filter((k) => / anon /.test(k)), [], 'anon executes nothing new');
+  assert.deepEqual(grants.filter((k) => / authenticated /.test(k)).map((k) => k.split(':')[2].split('(')[0]), ['list_object_milestones', 'place_scene'],
+    'the Chapter Trash functions are internal: reached only through the Trash functions');
+  assert.deepEqual(await rows(), beforeRows, 'no row, position or total changes');
+  const limit = (await db.query(`select pg_get_functiondef('public.free_word_limit_for_caller()'::regprocedure) as d`)).rows[0].d;
+  assert.match(limit, /return null;/, 'the one limit resolver answers "no limit"');
+});
+
+test('037 requires 036, refuses to run twice (including on schema.sql), and changes nothing when it refuses', async () => {
+  const only035 = await db035();
+  const before035 = await captureCatalog(only035);
+  await assert.rejects(only035.exec(readMigration(M037)), /requires migration 036/);
+  assert.deepEqual(diffCatalogs(before035, await captureCatalog(only035)).differences, []);
+  for (const db of [await migratedDb(), await freshRune2Db()]) {
+    const before = await captureCatalog(db);
+    await assert.rejects(db.exec(readMigration(M037)), /Migration 037 has already been applied/);
     assert.deepEqual(diffCatalogs(before, await captureCatalog(db)).differences, []);
   }
 });

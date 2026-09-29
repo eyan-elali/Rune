@@ -234,7 +234,7 @@ function AddSceneAction({ chapterId }: { chapterId: string }) {
       // Unnamed: it shows as "Scene N" from where it stands, never stored.
       const r = await createScene(chapterId, null);
       if (r.error !== null) {
-        setNotice(r.wordLimitBlocked ? "Your word limit has been reached." : "Couldn’t add a scene.");
+        setNotice("Couldn’t add a scene.");
         return;
       }
       try {

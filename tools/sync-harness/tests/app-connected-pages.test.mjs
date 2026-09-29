@@ -505,7 +505,8 @@ test('permanent deletion of a target removes its reference, never the writer\'s 
 
   ok(await trash.trashWorkspaceObject('page', t.magic.id));
   ok(await trash.deleteTrashedWorkspaceObject('page', t.magic.id));
-  const del = await chapters.deleteChapter(ch5, HOLLOW);
+  // "Remove chapter, keep its scenes" deletes the Chapter itself (not Trash: 037).
+  const del = await chapters.removeChapterKeepScenes(ch5, HOLLOW);
   assert.equal(del.error, null, del.error);
   assert.deepEqual((await mentionRows(db, t.notes.id)).map((r) => targetOf(r).id), [t.nerai.id]);
   assert.deepEqual(ok(await pages.getWorkspacePage(t.notes.id)).content, content, 'the text keeps every reference node and its label');

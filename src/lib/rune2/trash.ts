@@ -1,7 +1,7 @@
 import type { TrashItem, TrashObjectType } from "@/lib/types";
 import { sceneIsNamed, UNTITLED, type NavEntry, type NavKind } from "./navigatorModel";
 
-// How the Project's Trash (migrations 030–031) is worded: what can go there, where
+// How the Project's Trash (migrations 030, 031, 037) is worded: what can go there, where
 // an item came from, how long ago, and exactly what a permanent deletion
 // loses. Pure — shared by the Trash overlay and the tests. Titles and counts
 // only, never content.
@@ -13,9 +13,10 @@ const TYPE_OF: Partial<Record<NavKind, TrashObjectType>> = {
   collectionEntry: "entry",
   scene: "scene",
   unplacedScene: "scene",
+  chapter: "chapter",
 };
 
-/** The Trash type of an index entry, or null if it can't go to Trash (a Chapter or Group: no Trash yet). */
+/** The Trash type of an index entry, or null if it can't go to Trash (a Group: no Trash). */
 export function trashTypeOf(entry: Pick<NavEntry, "kind">): TrashObjectType | null {
   return TYPE_OF[entry.kind] ?? null;
 }
@@ -26,6 +27,7 @@ export const TRASH_NOUN: Record<TrashObjectType, string> = {
   collection: "Collection",
   entry: "Entry",
   scene: "Scene",
+  chapter: "Chapter",
 };
 
 const FALLBACK: Record<TrashObjectType, string> = {
@@ -34,6 +36,7 @@ const FALLBACK: Record<TrashObjectType, string> = {
   collection: UNTITLED.collection,
   entry: UNTITLED.entry,
   scene: UNTITLED.scene,
+  chapter: UNTITLED.chapter,
 };
 
 /** An item's title, or its kind's "Untitled …" (a Scene's stored placeholder title reads as untitled too). */
@@ -64,9 +67,17 @@ export function trashContext(item: TrashItem): string {
       return plural(item.entries ?? 0, "entry", "entries");
     case "scene":
       if (!item.from_chapter_id) return "from Unplaced Scenes";
-      return item.from_chapter_active
-        ? `from ${item.from_chapter_title?.trim() || UNTITLED.chapter}`
-        : "from a chapter that is gone";
+      if (item.from_chapter_active) return `from ${item.from_chapter_title?.trim() || UNTITLED.chapter}`;
+      // Still there, in Trash itself: a restore goes to Unplaced Scenes meanwhile.
+      if (item.from_chapter_title != null) return `from ${item.from_chapter_title.trim() || UNTITLED.chapter}, which is in Trash`;
+      return "from a chapter that is gone";
+    case "chapter": {
+      const scenes = plural(item.scenes ?? 0, "scene");
+      if (!item.from_group_id) return scenes;
+      return item.from_group_active
+        ? `${scenes} · from ${item.from_group_title?.trim() || UNTITLED.group}`
+        : `${scenes} · from a group that is gone`;
+    }
     default:
       if (!item.from_folder_id) return "from the Workspace";
       return item.from_folder_active
@@ -87,6 +98,14 @@ export function deletionWarning(item: TrashItem): string {
       return `Delete the folder “${title}” permanently?`;
     case "scene":
       return `Delete “${title}” permanently? Its prose and scene properties can’t be recovered. Your writing history is kept.`;
+    case "chapter": {
+      const scenes = item.scenes ?? 0;
+      return scenes === 0
+        ? `Delete the chapter “${title}” permanently?`
+        : `Delete “${title}” and its ${plural(scenes, "scene")} permanently? ${
+            scenes === 1 ? "Its prose and scene properties" : "Their prose and scene properties"
+          } (${plural(item.words ?? 0, "word")}) can’t be recovered. Your writing history is kept.`;
+    }
     case "collection": {
       const entries = item.entries ?? 0;
       const lead =

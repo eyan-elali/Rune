@@ -26,7 +26,7 @@ const manuscriptOf = async (db, pid) => (await one(db, `select id from public.ma
 const storedTotal = async (db, pid) => (await one(db, `select word_count from public.projects where id = $1`, [pid])).word_count;
 
 let legacy;
-let projects, chapters, scenes, games, onboarding;
+let projects, chapters, scenes, trash, games, onboarding;
 before(async () => {
   legacy = await createTestDb();
   await legacy.exec(readRepoFile(LEGACY_BASELINE));
@@ -35,6 +35,7 @@ before(async () => {
   projects = await bundleForTest('src/lib/actions/projects.ts', { name: 'app_projects' });
   chapters = await bundleForTest('src/lib/actions/chapters.ts', { name: 'app_chapters' });
   scenes = await bundleForTest('src/lib/actions/scenes.ts', { name: 'app_scenes' });
+  trash = await bundleForTest('src/lib/actions/workspaceTrash.ts', { name: 'app_trash' });
   games = await bundleForTest('src/lib/actions/games.ts', { name: 'app_games' });
   onboarding = await bundleForTest('src/app/api/onboarding/route.ts', { name: 'app_onboarding' });
 });
@@ -48,7 +49,7 @@ async function seededDb() {
 
 function signIn(db, userId) {
   const sb = as(db, userId);
-  for (const mod of [projects, chapters, scenes, games, onboarding]) mod.setServerClient(sb);
+  for (const mod of [projects, chapters, scenes, trash, games, onboarding]) mod.setServerClient(sb);
   return sb;
 }
 
@@ -112,13 +113,17 @@ test('createScene / reorderScenes / renameScene: positions, the Chapter\'s Manus
   assert.ok((await scenes.renameScene(a.data.id, 'hijack')).error, 'another writer cannot rename it');
 });
 
-test('deleteScene recalculates the ordered total: deleting a placed Scene lowers it, deleting an Unplaced Scene does not', async () => {
+test('permanent Scene deletion (through Trash) recalculates the ordered total: a placed Scene lowers it, an Unplaced Scene does not', async () => {
   const db = await seededDb();
   signIn(db, ALICE);
+  const purge = async (id) => {
+    assert.equal((await trash.trashWorkspaceObject('scene', id)).error, null);
+    return { error: (await trash.deleteTrashedWorkspaceObject('scene', id)).error };
+  };
   assert.equal(await storedTotal(db, projectId('hollow')), 1450);
-  assert.deepEqual(await scenes.deleteScene(pageId('h4a')), { error: null });
+  assert.deepEqual(await purge(pageId('h4a')), { error: null });
   assert.equal(await storedTotal(db, projectId('hollow')), 1450 - 200);
-  assert.deepEqual(await scenes.deleteScene(pageId('h3b')), { error: null });
+  assert.deepEqual(await purge(pageId('h3b')), { error: null });
   assert.equal(await storedTotal(db, projectId('hollow')), 1250, 'Unplaced words were never in the ordered total');
   assert.equal((await one(db, `select count(*)::int as n from public.scenes where id = any($1::uuid[])`, [[pageId('h4a'), pageId('h3b')]])).n, 0);
 });
@@ -156,16 +161,17 @@ test('onboarding: skipping the first sentence creates a valid empty Scene', asyn
   assert.deepEqual(await one(db, `select word_count, content from public.scenes where chapter_id = $1`, [data.chapterId]), { word_count: 0, content: null });
 });
 
-test('onboarding: a first sentence over the free limit is refused and leaves no project, Manuscript or Chapter behind', async () => {
+test('onboarding: a first sentence is never blocked by a word limit (037) — one Project, Manuscript, Chapter and Scene', async () => {
   const db = await seededDb();
-  signIn(db, ALICE); // already over her 2,000-word allowance
+  signIn(db, ALICE); // already far over the old 2,000-word allowance
   const count = () => one(db, `select (select count(*) from public.projects)::int as p, (select count(*) from public.manuscripts)::int as m,
     (select count(*) from public.chapters)::int as c, (select count(*) from public.scenes)::int as s`);
   const beforeCounts = await count();
-  const res = await postOnboarding({ title: 'Blocked', firstSentence: 'Too many words already.' });
-  assert.equal(res.status, 403);
-  assert.equal((await res.json()).code, 'FREE_WORD_LIMIT_REACHED');
-  assert.deepEqual(await count(), beforeCounts);
+  const res = await postOnboarding({ title: 'Not blocked', firstSentence: 'Too many words already.' });
+  assert.equal(res.status, 200);
+  const { data } = await res.json();
+  assert.deepEqual(await count(), { p: beforeCounts.p + 1, m: beforeCounts.m + 1, c: beforeCounts.c + 1, s: beforeCounts.s + 1 });
+  assert.equal(await storedTotal(db, data.projectId), 4);
 });
 
 // ── Arena ─────────────────────────────────────────────────────────────────────
@@ -182,7 +188,7 @@ test('Arena: a sprint becomes a new placed Scene at the end of the Chapter (inse
     { data: null, error: 'Chapter not found in this project' });
 });
 
-test('Arena: appending to an existing Scene uses save_scene_checked, keeps an Unplaced Scene Unplaced, and respects the free limit', async () => {
+test('Arena: appending to an existing Scene uses save_scene_checked, keeps an Unplaced Scene Unplaced, and is never word-limited (037)', async () => {
   const db = await seededDb();
   signIn(db, BRAM);
   const r = await games.appendToExistingScene(pageId('t1c'), '<p>moth ink</p>', 2);
@@ -190,9 +196,9 @@ test('Arena: appending to an existing Scene uses save_scene_checked, keeps an Un
   assert.deepEqual(await one(db, `select chapter_id, word_count from public.scenes where id = $1`, [pageId('t1c')]), { chapter_id: null, word_count: 722 });
   assert.equal(await storedTotal(db, projectId('tide')), 1320, 'Unplaced words stay out of the ordered total');
 
-  signIn(db, ALICE);
-  const blocked = await games.appendToExistingScene(pageId('h1a'), '<p>more</p>', 1);
-  assert.match(blocked.error, /2,000-word free limit/);
+  signIn(db, ALICE); // far over the old 2,000-word allowance
+  assert.deepEqual(await games.appendToExistingScene(pageId('h1a'), '<p>more</p>', 1), { data: { id: pageId('h1a') }, error: null });
+  assert.equal((await one(db, `select word_count from public.scenes where id = $1`, [pageId('h1a')])).word_count, 121);
   assert.deepEqual(await games.appendToExistingScene(pageId('t1c'), '<p>x</p>', 1), { data: null, error: 'Scene not found' },
     'another writer\'s Scene');
 });

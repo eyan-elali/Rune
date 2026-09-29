@@ -120,10 +120,9 @@ export function SyncConflictModal({
     setResolving("local");
     try {
       const result = await forceWriteLocalContent(sceneId);
+      // Only a database from before migration 037 can still answer this.
       if (result.status === "word_limit_blocked") {
-        setResolveError(
-          "This would put you over your free-word limit. Your draft is safe — continue with Scribe to save it, or export it."
-        );
+        setResolveError("Your draft is safe on this device, but it couldn’t be saved just now. Try again in a moment.");
         setResolving(null);
         return;
       }

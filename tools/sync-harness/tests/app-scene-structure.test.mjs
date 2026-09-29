@@ -208,28 +208,29 @@ test('direct Unplaced creation: appended to the Project\'s Unplaced Scenes via t
     { p_manuscript_id: r.data.manuscript_id, p_title: 'x', p_content: null, p_word_count: 0 })).error, 'anon cannot call it');
 });
 
-test('free limit on direct Unplaced creation: enforced server-side, same as placed creation; an over-limit writer can create empty but not grow', async () => {
+test('no free limit on direct Unplaced creation (037): same as placed creation; a writer past the old allowance creates and grows Scenes', async () => {
   const db = await seededDb();
-  signIn(db, ALICE); // 3035 of 2000
+  signIn(db, ALICE); // 3035 words; the old starter allowance was 2,000
   const hollowMs = await manuscriptOf(db, projectId('hollow'));
   const rpc = (sb, words) => sb.rpc('insert_unplaced_scene_checked',
     { p_manuscript_id: hollowMs, p_title: 'x', p_content: words ? syntheticDoc('x', words) : null, p_word_count: words });
   const count = async () => (await one(db, `select count(*)::int as n from public.scenes where manuscript_id = $1`, [hollowMs])).n;
   const n = await count();
 
-  // Creation carrying words is checked exactly like insert_scene_checked.
-  assert.deepEqual((await rpc(as(db, ALICE), 5)).data, { status: 'word_limit_blocked', limit: 2000 });
-  assert.deepEqual((await as(db, ALICE).rpc('insert_scene_checked',
-    { p_chapter_id: chapterId('hollow.ch5'), p_title: 'x', p_content: syntheticDoc('x', 5), p_word_count: 5, p_position: 0 })).data,
-  { status: 'word_limit_blocked', limit: 2000 }, 'the placed path, for comparison');
-  assert.equal(await count(), n, 'nothing inserted');
+  // Creation carrying words behaves exactly like insert_scene_checked: never blocked.
+  assert.equal((await rpc(as(db, ALICE), 5)).data.status, 'ok');
+  assert.equal((await as(db, ALICE).rpc('insert_scene_checked',
+    { p_chapter_id: chapterId('hollow.ch5'), p_title: 'x', p_content: syntheticDoc('x', 5), p_word_count: 5, p_position: 0 })).data.status,
+  'ok', 'the placed path, for comparison');
+  assert.equal(await count(), n + 2);
 
-  // The app creates empty Scenes; growing one is blocked by save_scene_checked.
+  // An empty Scene, then grown through save_scene_checked.
   const r = await scenes.createUnplacedScene(projectId('hollow'), 'Scene 5');
   assert.equal(r.error, null, r.error);
-  assert.deepEqual(await scenes.syncSceneWithLimitCheck(r.data.id, syntheticDoc('grow', 3), 3, r.data.version),
-    { status: 'word_limit_blocked' });
-  assert.equal(await accountTotal(db, ALICE), 3035);
+  assert.equal((await scenes.syncSceneWithLimitCheck(r.data.id, syntheticDoc('grow', 3), 3, r.data.version)).status, 'ok');
+  assert.equal(await accountTotal(db, ALICE), 3035 + 13);
+  const unplaced = (await all(db, `select position from public.scenes where manuscript_id = $1 and chapter_id is null and trashed_at is null`, [hollowMs])).map((x) => x.position);
+  assert.equal(new Set(unplaced).size, unplaced.length, 'Unplaced positions never tie');
 
   // Under the limit (bram, legacy 15k) a Scene with words can be created directly.
   const bramOk = await as(db, BRAM).rpc('insert_unplaced_scene_checked',
