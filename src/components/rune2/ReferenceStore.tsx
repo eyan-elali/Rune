@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useMemo, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { addObjectReference, removeObjectReference, setEntryRelationship } from "@/lib/actions/workspaceReferences";
+import { setSceneRelationship } from "@/lib/actions/sceneProperties";
 import type { ProjectWorkspace } from "@/lib/rune2/projectWorkspace";
 import {
   backlinksOf as deriveBacklinks,
@@ -28,8 +29,8 @@ import { useRune2Selection } from "./Rune2Selection";
 // overlay, is written by its action, and the workspace is re-read; a refused
 // write drops its overlay at once.
 //
-// A change always replaces one whole list — one Entry's value for one
-// Relationship, or one object's generic links — so the overlay is keyed by
+// A change always replaces one whole list — one Entry's or Scene's value for
+// one Relationship (a Scene's, 032), or one object's generic links — so the overlay is keyed by
 // list, and every derived view (values, links, backlinks) reads the same
 // effective rows. Nothing here reads or writes any object's content: a Scene
 // linked here keeps its prose, version and words exactly as they were.
@@ -37,10 +38,10 @@ import { useRune2Selection } from "./Rune2Selection";
 type ReferenceStore = {
   /** Whether references exist on this database (migration 028 applied). */
   available: boolean;
-  /** Every Relationship value by valueKey(entryId, propertyId): target ids in order. */
+  /** Every Relationship value by valueKey(sourceId, propertyId): target ids in order. */
   relationValues: ReadonlyMap<string, string[]>;
-  /** Sets one Entry's whole Relationship value. Resolves to an error message, or null. */
-  setRelationship: (entryId: string, propertyId: string, targetIds: string[]) => Promise<string | null>;
+  /** Sets one Entry's or Scene's whole Relationship value. Resolves to an error message, or null. */
+  setRelationship: (sourceId: string, propertyId: string, targetIds: string[]) => Promise<string | null>;
   /** An object's generic links, in order. */
   relatedOf: (sourceId: string) => Reference[];
   /** Where an object is referenced from — Relationship values and links alike. */
@@ -102,16 +103,17 @@ export function ReferenceStoreProvider({ workspace, children }: { workspace: Pro
   );
 
   const setRelationship = useCallback<ReferenceStore["setRelationship"]>(
-    async (entryId, propertyId, targetIds) => {
-      const key = relationListKey(entryId, propertyId);
-      const source: ObjectRef = { type: "entry", id: entryId };
+    async (sourceId, propertyId, targetIds) => {
+      const key = relationListKey(sourceId, propertyId);
+      const source: ObjectRef = { type: typeOf(sourceId) === "scene" ? "scene" : "entry", id: sourceId };
       const shown = (ids: string[]): Reference[] =>
         ids.flatMap((id, at) => {
           const type = typeOf(id);
           return type ? [{ id: `${PENDING}${key}:${id}`, source, target: { type, id }, propertyId, position: at + 1 }] : [];
         });
       setOverlay((o) => put(o, [[key, shown(targetIds)]]));
-      const r = await setEntryRelationship(entryId, propertyId, targetIds).catch(() => networkError);
+      const write = source.type === "scene" ? setSceneRelationship : setEntryRelationship;
+      const r = await write(sourceId, propertyId, targetIds).catch(() => networkError);
       setOverlay((o) => (r.error !== null ? drop(o, [key]) : settle(o, [key], shown(r.data.targets))));
       refresh();
       return r.error;

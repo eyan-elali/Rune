@@ -12,7 +12,7 @@ import {
   valueKey,
 } from "@/lib/rune2/collectionProperties";
 import { describeObject, targetSpecOf } from "@/lib/rune2/references";
-import type { CollectionProperty, CollectionPropertyType, PropertyValue, ReferenceObjectType } from "@/lib/types";
+import type { CollectionPropertyType, PropertyDefinition, PropertyValue, ReferenceObjectType } from "@/lib/types";
 import { ObjectPicker } from "./ObjectPicker";
 import { usePropertyStore } from "./PropertyStore";
 import { useRune2Selection } from "./Rune2Selection";
@@ -31,9 +31,25 @@ import { useOpenObject } from "./useOpenObject";
 // the writer already has — never a copy, never a foreign-key form.
 //
 // No properties inside the body, and nothing here counts words.
+//
+// A Scene's properties (032) use the same rows and editors, in the Inspector
+// — never inside the prose. Their values are saved on their own
+// (scene_property_values, object_references), never with the Scene's
+// content: changing "Status" never touches the words being written beside it.
 
 export function EntryProperties({ entryId, collectionId }: { entryId: string; collectionId: string }) {
-  const { available, propertiesOf, values } = usePropertyStore();
+  const { available } = usePropertyStore();
+  if (!available) return null;
+  return <ItemProperties itemId={entryId} ownerId={collectionId} />;
+}
+
+/**
+ * One item's properties — an Entry's (its Collection's properties) or a
+ * Scene's (its Manuscript's) — label, value; each edited in place.
+ * `empty`: shown instead of the faint "Add a property" when there are none.
+ */
+export function ItemProperties({ itemId, ownerId, empty }: { itemId: string; ownerId: string; empty?: ReactNode }) {
+  const { propertiesOf, values } = usePropertyStore();
   const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
@@ -42,19 +58,18 @@ export function EntryProperties({ entryId, collectionId }: { entryId: string; co
     return () => clearTimeout(timer);
   }, [notice]);
 
-  if (!available) return null;
-  const properties = propertiesOf(collectionId);
+  const properties = propertiesOf(ownerId);
 
   return (
     <section className="r2-props" aria-label="Properties" data-empty={properties.length === 0 || undefined}>
       {properties.length > 0 && (
         <dl className="r2-props-list">
           {properties.map((p) => (
-            <PropertyRow key={p.id} property={p} entryId={entryId} value={values.get(valueKey(entryId, p.id))} onError={setNotice} />
+            <PropertyRow key={p.id} property={p} itemId={itemId} value={values.get(valueKey(itemId, p.id))} onError={setNotice} />
           ))}
         </dl>
       )}
-      <AddProperty collectionId={collectionId} quiet />
+      {properties.length === 0 && empty ? empty : <AddProperty ownerId={ownerId} quiet />}
       {notice && (
         <p role="status" className="r2-doc-note">
           {notice}
@@ -66,19 +81,19 @@ export function EntryProperties({ entryId, collectionId }: { entryId: string; co
 
 function PropertyRow({
   property,
-  entryId,
+  itemId,
   value,
   onError,
 }: {
-  property: CollectionProperty;
-  entryId: string;
+  property: PropertyDefinition;
+  itemId: string;
   value: PropertyValue | undefined;
   onError: (message: string) => void;
 }) {
   const { setValue } = usePropertyStore();
   const labelId = useId();
   const save = async (next: PropertyValue | null) => {
-    const error = await setValue(entryId, property.id, next);
+    const error = await setValue(itemId, property.id, next);
     if (error) onError(`“${property.name}” couldn’t be saved.`);
   };
   return (
@@ -87,7 +102,7 @@ function PropertyRow({
         {property.name}
       </dt>
       <dd className="r2-prop-value">
-        <PropertyValueEditor property={property} value={value} labelId={labelId} onSave={save} ownerId={entryId} />
+        <PropertyValueEditor property={property} value={value} labelId={labelId} onSave={save} ownerId={itemId} />
       </dd>
     </div>
   );
@@ -107,12 +122,12 @@ export function PropertyValueEditor({
   floating = false,
   ownerId,
 }: {
-  property: CollectionProperty;
+  property: PropertyDefinition;
   value: PropertyValue | undefined;
   labelId: string;
   onSave: (value: PropertyValue | null) => Promise<void>;
   floating?: boolean;
-  /** The Entry the value belongs to (never offered as its own Relationship target). */
+  /** The Entry or Scene the value belongs to (never offered as its own Relationship target). */
   ownerId?: string;
 }) {
   switch (property.type) {
@@ -168,7 +183,7 @@ function RelationshipValue({
   floating,
   ownerId,
 }: {
-  property: CollectionProperty;
+  property: PropertyDefinition;
   value: PropertyValue | undefined;
   labelId: string;
   onSave: (value: PropertyValue | null) => Promise<void>;
@@ -419,7 +434,7 @@ function ChoiceValue({
   onSave,
   floating,
 }: {
-  property: CollectionProperty;
+  property: PropertyDefinition;
   value: PropertyValue | undefined;
   labelId: string;
   onSave: (value: PropertyValue | null) => Promise<void>;
@@ -462,7 +477,7 @@ function ChoiceValue({
 }
 
 /** Chosen options as text: a status carries a small mark; several read as a list. */
-export function OptionNames({ property, names }: { property: CollectionProperty; names: string[] }): ReactNode {
+export function OptionNames({ property, names }: { property: PropertyDefinition; names: string[] }): ReactNode {
   return (
     <span className="r2-prop-options" data-type={property.type}>
       {names.map((n, i) => (
@@ -486,7 +501,7 @@ function OptionPicker({
   onClose,
   floating,
 }: {
-  property: CollectionProperty;
+  property: PropertyDefinition;
   value: PropertyValue | undefined;
   onSave: (value: PropertyValue | null) => Promise<void>;
   onClose: (refocus: boolean) => void;
@@ -669,18 +684,22 @@ function OptionPicker({
 }
 
 /**
- * "Add a property": a name and a type, added at the end of the Collection's
- * properties. `quiet`: the faint form in an Entry; otherwise the Collection's
- * property settings.
+ * "Add a property": a name and a type, added at the end of the owner's
+ * properties — a Collection's, or (given the Manuscript's id) its Scene
+ * properties. `quiet`: the faint form in an Entry or the Inspector;
+ * otherwise the property settings.
  */
-export function AddProperty({ collectionId, quiet = false }: { collectionId: string; quiet?: boolean }) {
-  const { createProperty, createRelationship, relatable } = usePropertyStore();
+export function AddProperty({ ownerId, quiet = false }: { ownerId: string; quiet?: boolean }) {
+  const { createProperty, createRelationship, relatable, manuscriptId } = usePropertyStore();
   const { workspace, index } = useRune2Selection();
+  const forScenes = ownerId === manuscriptId;
+  // A Scene's Relationship points, by default, to the first Collection (Characters, say).
+  const defaultTarget = forScenes ? (workspace.collections[0] ? `entry:${workspace.collections[0].id}` : "page") : `entry:${ownerId}`;
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [type, setType] = useState<CollectionPropertyType>("text");
   // A Relationship's target: "entry:<collection id>", "page" or "scene".
-  const [target, setTarget] = useState(`entry:${collectionId}`);
+  const [target, setTarget] = useState(defaultTarget);
   const [many, setMany] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -702,8 +721,8 @@ export function AddProperty({ collectionId, quiet = false }: { collectionId: str
     const [targetType, targetCollection] = target.split(":") as [ReferenceObjectType, string | undefined];
     const e =
       type === "relationship"
-        ? await createRelationship(collectionId, name.trim(), targetType, targetCollection ?? null, many)
-        : await createProperty(collectionId, name.trim(), type);
+        ? await createRelationship(ownerId, name.trim(), targetType, targetCollection ?? null, many)
+        : await createProperty(ownerId, name.trim(), type);
     setBusy(false);
     if (e) {
       setError(e === "A property with this name already exists" ? "There’s already a property with that name." : "Couldn’t add the property.");
@@ -711,7 +730,7 @@ export function AddProperty({ collectionId, quiet = false }: { collectionId: str
     }
     setName("");
     setType("text");
-    setTarget(`entry:${collectionId}`);
+    setTarget(defaultTarget);
     setMany(true);
     setOpen(false);
   };
@@ -767,7 +786,7 @@ export function AddProperty({ collectionId, quiet = false }: { collectionId: str
           >
             {workspace.collections.map((c) => (
               <option key={c.id} value={`entry:${c.id}`}>
-                {c.id === collectionId ? `${collectionTitle(c.id)} (this collection)` : collectionTitle(c.id)}
+                {c.id === ownerId ? `${collectionTitle(c.id)} (this collection)` : collectionTitle(c.id)}
               </option>
             ))}
             <option value="page">Pages</option>

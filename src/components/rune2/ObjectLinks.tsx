@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link2, X } from "lucide-react";
 import { describeObject, type ObjectRef } from "@/lib/rune2/references";
+import { manuscriptSceneOrder } from "@/lib/rune2/sceneViews";
 import { ObjectPicker } from "./ObjectPicker";
 import { usePropertyStore } from "./PropertyStore";
 import { isPendingReference, useReferenceStore } from "./ReferenceStore";
@@ -23,7 +24,7 @@ import { useOpenObject } from "./useOpenObject";
 
 export function ObjectLinks({ subject }: { subject: ObjectRef }) {
   const { index } = useRune2Selection();
-  const { propertiesOf } = usePropertyStore();
+  const { propertyById } = usePropertyStore();
   const { relatedOf, backlinksOf, addReference, removeReference } = useReferenceStore();
   const openObject = useOpenObject();
   const [picking, setPicking] = useState(false);
@@ -40,18 +41,24 @@ export function ObjectLinks({ subject }: { subject: ObjectRef }) {
     const d = describeObject(index, r.target.id);
     return d ? [{ reference: r, ...d }] : [];
   });
-  const backlinks = backlinksOf(subject.id).flatMap((b) => {
-    const d = describeObject(index, b.source.id);
-    if (!d) return [];
-    // How it refers: a Relationship by its property's name, a plain link as "Link".
-    const collectionId = b.source.type === "entry" ? index.get(b.source.id)?.path.at(-1)?.id : undefined;
-    const names = b.via.map((propertyId) =>
-      propertyId === null
-        ? "Link"
-        : (collectionId && propertiesOf(collectionId).find((p) => p.id === propertyId)?.name) || "Relationship"
-    );
-    return [{ id: b.source.id, title: d.title, hint: [d.hint, ...names].join(" · ") }];
-  });
+  // Scenes first, in manuscript order (where the object appears in the story),
+  // then everything else by title.
+  const sceneOrder = new Map(
+    (({ placed, unplaced }) => [...placed, ...unplaced])(manuscriptSceneOrder(index)).map((id, at) => [id, at])
+  );
+  const backlinks = backlinksOf(subject.id)
+    .map((b, at) => ({ b, at, rank: sceneOrder.get(b.source.id) ?? Number.MAX_SAFE_INTEGER }))
+    .sort((x, y) => x.rank - y.rank || x.at - y.at)
+    .flatMap(({ b }) => {
+      const d = describeObject(index, b.source.id);
+      if (!d) return [];
+      // How it refers: a Relationship by its property's name (a Collection's or
+      // a Scene property), a plain link as "Link".
+      const names = b.via.map((propertyId) =>
+        propertyId === null ? "Link" : propertyById(propertyId)?.name || "Relationship"
+      );
+      return [{ id: b.source.id, title: d.title, hint: [d.hint, ...names].join(" · ") }];
+    });
 
   const toggle = async (target: ObjectRef) => {
     const existing = related.find((r) => r.reference.target.id === target.id);

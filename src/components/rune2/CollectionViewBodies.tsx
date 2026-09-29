@@ -1,40 +1,77 @@
 "use client";
 
-import { useEffect, useId, useState, type DragEvent, type KeyboardEvent, type MouseEvent } from "react";
+import { Fragment, useEffect, useId, useState, type DragEvent, type KeyboardEvent, type MouseEvent } from "react";
 import { Plus } from "lucide-react";
-import { valueKey, valueLine } from "@/lib/rune2/collectionProperties";
-import { boardLanes, groupableProperties, shownProperties, type BoardLane } from "@/lib/rune2/collectionViews";
+import { formatValue, isChoiceType, valueKey, valueLine } from "@/lib/rune2/collectionProperties";
+import {
+  boardLanes,
+  boardMoveValue,
+  groupableProperties,
+  isNative,
+  shownProperties,
+  type BoardLane,
+  type LaneTargets,
+} from "@/lib/rune2/collectionViews";
 import { describeObject } from "@/lib/rune2/references";
-import type { CollectionProperty, PropertyValue, WorkspaceCollectionView } from "@/lib/types";
+import type { PropertyDefinition, PropertyValue, SavedView } from "@/lib/types";
 import { OptionNames, PropertyValueEditor } from "./PropertyFields";
 import { usePropertyStore } from "./PropertyStore";
 import { useRune2Selection } from "./Rune2Selection";
 import { useNewEntry } from "./useNewEntry";
 
-// The three ways a Collection View shows the same Entries (migration 027).
-// Each is given the Entries already arranged (filtered, sorted) by the View,
-// and reads and writes the one set of values in the property store — there is
-// nothing view-specific to keep in step.
+// The three ways a saved View shows its items — a Collection's Entries
+// (migration 027) or a Manuscript's Scenes (032), through one set of bodies.
+// Each is given the items already arranged (filtered, sorted) by the View,
+// an ItemPresenter saying how its owner names and opens an item, and reads
+// and writes the one set of values in the property store — there is nothing
+// view-specific to keep in step.
 //
 //   List  — the writer's list of names; under each, one muted line of the
 //           View's shown properties. Never columns.
-//   Table — a row per Entry: its name, then the shown properties as columns,
-//           each value edited in place with the Entry's own editors.
-//   Board — a lane per option of a select or status property (and one for
-//           none); moving a card between lanes sets that value.
+//   Table — a row per item: its name, then the shown properties as columns,
+//           each value edited in place with the item's own editors (a
+//           read-only field — a Scene's words or placement — is only shown).
+//   Board — a lane per option of a select or status property, or per Entry a
+//           Relationship points to (and one for none); moving a card between
+//           lanes sets that value — only that value.
 
-/** Open an Entry: here, or (⌘/Ctrl-click, middle click) in a tab of its own. */
-function useOpenEntry() {
+/** How a View's owner presents its items. */
+export type ItemPresenter = {
+  /** Plural noun for labels: "Entries", "Scenes". */
+  noun: string;
+  /** The Table's first column: "Name", "Scene". */
+  titleHeader: string;
+  /**
+   * An item's name as shown, and quiet context: `number` before it (a Scene's
+   * "31.2"), `context` after it (its Chapter, "Unplaced"). null: not shown.
+   */
+  label: (id: string) => { title: string; named: boolean; number?: string | null; context?: string | null } | null;
+  /** The object an item opens as (a Chapter's only Scene opens as its Chapter). */
+  openId: (id: string) => string;
+  /** Every value by valueKey — stored ones and the owner's read-only fields. */
+  values: ReadonlyMap<string, PropertyValue>;
+  /** Lanes for a Board grouped by a Relationship: the target Collection's Entries. */
+  laneTargets: LaneTargets;
+  /** Where the arranged items start a separate section (-1: none), and its heading. */
+  sectionStart?: number;
+  sectionTitle?: string;
+};
+
+/** Open an item: here, or (⌘/Ctrl-click, middle click) in a tab of its own. */
+function useOpenItem(presenter: ItemPresenter) {
   const { select, openInNewTab } = useRune2Selection();
-  return (id: string) => ({
-    onClick: (e: MouseEvent) => (e.metaKey || e.ctrlKey ? openInNewTab(id) : select(id)),
-    onAuxClick: (e: MouseEvent) => {
-      if (e.button === 1) {
-        e.preventDefault();
-        openInNewTab(id);
-      }
-    },
-  });
+  return (id: string) => {
+    const target = presenter.openId(id);
+    return {
+      onClick: (e: MouseEvent) => (e.metaKey || e.ctrlKey ? openInNewTab(target) : select(target)),
+      onAuxClick: (e: MouseEvent) => {
+        if (e.button === 1) {
+          e.preventDefault();
+          openInNewTab(target);
+        }
+      },
+    };
+  };
 }
 
 /** A Relationship target's current title, for a value line ("Drelareth"); undefined when gone. */
@@ -47,7 +84,11 @@ function useTitleOf() {
 function moveBetweenRows(e: KeyboardEvent<HTMLElement>, rowSelector: string) {
   if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
   const row = e.currentTarget.closest(rowSelector);
-  const next = e.key === "ArrowDown" ? row?.nextElementSibling : row?.previousElementSibling;
+  let next = e.key === "ArrowDown" ? row?.nextElementSibling : row?.previousElementSibling;
+  // Skip a section heading row.
+  while (next && !next.querySelector("[data-entry-open]")) {
+    next = e.key === "ArrowDown" ? next.nextElementSibling : next.previousElementSibling;
+  }
   const target = next?.querySelector<HTMLElement>("[data-entry-open]");
   if (target) {
     e.preventDefault();
@@ -56,41 +97,59 @@ function moveBetweenRows(e: KeyboardEvent<HTMLElement>, rowSelector: string) {
 }
 
 type BodyProps = {
-  view: WorkspaceCollectionView;
-  properties: CollectionProperty[];
-  /** The View's Entries, arranged. */
+  view: SavedView;
+  properties: PropertyDefinition[];
+  /** The View's items, arranged. */
   entryIds: string[];
+  presenter: ItemPresenter;
 };
+
+/** The quiet number before a name ("31.2"), when the owner has one. */
+function ItemNumber({ number }: { number?: string | null }) {
+  if (!number) return null;
+  return <span className="r2-item-number">{number}</span>;
+}
 
 // ── List ────────────────────────────────────────────────────────────────────
 
-export function ListView({ collectionTitle, view, properties, entryIds }: BodyProps & { collectionTitle: string }) {
-  const { index } = useRune2Selection();
-  const { values } = usePropertyStore();
-  const open = useOpenEntry();
+export function ListView({ ownerTitle, view, properties, entryIds, presenter }: BodyProps & { ownerTitle: string }) {
+  const open = useOpenItem(presenter);
   const titleOf = useTitleOf();
   const shown = shownProperties(view, properties);
   if (entryIds.length === 0) return null;
   return (
-    <ul className="r2-entry-list" aria-label={`Entries in ${collectionTitle}`}>
-      {entryIds.map((id) => {
-        const e = index.get(id);
-        if (!e) return null;
-        const line = valueLine(shown, values, id, titleOf);
+    <ul className="r2-entry-list" aria-label={`${presenter.noun} in ${ownerTitle}`}>
+      {entryIds.map((id, at) => {
+        const item = presenter.label(id);
+        if (!item) return null;
+        const line = [
+          ...(item.context ? [item.context] : []),
+          ...valueLine(shown, presenter.values, id, titleOf),
+        ];
         return (
-          <li key={id}>
-            <button
-              type="button"
-              className="r2-entry-row"
-              data-entry-open=""
-              data-unnamed={!e.named || undefined}
-              {...open(id)}
-              onKeyDown={(ev) => moveBetweenRows(ev, "li")}
-            >
-              <span className="r2-entry-row-title">{e.title}</span>
-              {line.length > 0 && <span className="r2-entry-row-meta">{line.join(" · ")}</span>}
-            </button>
-          </li>
+          <Fragment key={id}>
+            {at === presenter.sectionStart && at >= 0 && (
+              <li className="r2-entry-section" aria-hidden>
+                {presenter.sectionTitle}
+              </li>
+            )}
+            <li>
+              <button
+                type="button"
+                className="r2-entry-row"
+                data-entry-open=""
+                data-unnamed={!item.named || undefined}
+                {...open(id)}
+                onKeyDown={(ev) => moveBetweenRows(ev, "li")}
+              >
+                <span className="r2-entry-row-title">
+                  <ItemNumber number={item.number} />
+                  {item.title}
+                </span>
+                {line.length > 0 && <span className="r2-entry-row-meta">{line.join(" · ")}</span>}
+              </button>
+            </li>
+          </Fragment>
         );
       })}
     </ul>
@@ -99,10 +158,10 @@ export function ListView({ collectionTitle, view, properties, entryIds }: BodyPr
 
 // ── Table ───────────────────────────────────────────────────────────────────
 
-export function TableView({ collectionTitle, view, properties, entryIds }: BodyProps & { collectionTitle: string }) {
-  const { index } = useRune2Selection();
-  const { values, setValue } = usePropertyStore();
-  const open = useOpenEntry();
+export function TableView({ ownerTitle, view, properties, entryIds, presenter }: BodyProps & { ownerTitle: string }) {
+  const { setValue } = usePropertyStore();
+  const open = useOpenItem(presenter);
+  const titleOf = useTitleOf();
   const tableId = useId();
   const [notice, setNotice] = useState<string | null>(null);
   const shown = shownProperties(view, properties);
@@ -123,14 +182,15 @@ export function TableView({ collectionTitle, view, properties, entryIds }: BodyP
   return (
     <>
       <div className="r2-table-wrap">
-        <table className="r2-table" aria-label={`${view.name} — ${collectionTitle}`}>
+        <table className="r2-table" aria-label={`${view.name} — ${ownerTitle}`}>
           <thead>
             <tr>
               <th scope="col" id={colId("title")} className="r2-table-title-col">
-                Name{sortMark("title")}
+                {presenter.titleHeader}
+                {sortMark("title")}
               </th>
               {shown.map((p) => (
-                <th key={p.id} scope="col" id={colId(p.id)} data-type={p.type}>
+                <th key={p.id} scope="col" id={colId(p.id)} data-type={p.type} data-native={isNative(p) || undefined}>
                   {p.name}
                   {sortMark(p.id)}
                 </th>
@@ -138,38 +198,53 @@ export function TableView({ collectionTitle, view, properties, entryIds }: BodyP
             </tr>
           </thead>
           <tbody>
-            {entryIds.map((id) => {
-              const e = index.get(id);
-              if (!e) return null;
+            {entryIds.map((id, at) => {
+              const item = presenter.label(id);
+              if (!item) return null;
               return (
-                <tr key={id}>
-                  <th scope="row" id={rowId(id)} className="r2-table-title">
-                    <button
-                      type="button"
-                      data-entry-open=""
-                      data-unnamed={!e.named || undefined}
-                      {...open(id)}
-                      onKeyDown={(ev) => moveBetweenRows(ev, "tr")}
-                    >
-                      {e.title}
-                    </button>
-                  </th>
-                  {shown.map((p) => (
-                    <td key={p.id} data-type={p.type} className="r2-prop-value">
-                      <PropertyValueEditor
-                        property={p}
-                        value={values.get(valueKey(id, p.id))}
-                        labelId={`${colId(p.id)} ${rowId(id)}`}
-                        floating
-                        ownerId={id}
-                        onSave={async (next) => {
-                          const error = await setValue(id, p.id, next);
-                          if (error) setNotice(`“${p.name}” couldn’t be saved.`);
-                        }}
-                      />
-                    </td>
-                  ))}
-                </tr>
+                <Fragment key={id}>
+                  {at === presenter.sectionStart && at >= 0 && (
+                    <tr className="r2-table-section" aria-hidden>
+                      <td colSpan={shown.length + 1}>{presenter.sectionTitle}</td>
+                    </tr>
+                  )}
+                  <tr>
+                    <th scope="row" id={rowId(id)} className="r2-table-title">
+                      <button
+                        type="button"
+                        data-entry-open=""
+                        data-unnamed={!item.named || undefined}
+                        title={item.context ?? undefined}
+                        {...open(id)}
+                        onKeyDown={(ev) => moveBetweenRows(ev, "tr")}
+                      >
+                        <ItemNumber number={item.number} />
+                        {item.title}
+                      </button>
+                    </th>
+                    {shown.map((p) =>
+                      isNative(p) ? (
+                        <td key={p.id} data-type={p.type} data-native="" className="r2-prop-value">
+                          <span className="r2-prop-static">{formatValue(p, presenter.values.get(valueKey(id, p.id)), titleOf) ?? "—"}</span>
+                        </td>
+                      ) : (
+                        <td key={p.id} data-type={p.type} className="r2-prop-value">
+                          <PropertyValueEditor
+                            property={p}
+                            value={presenter.values.get(valueKey(id, p.id))}
+                            labelId={`${colId(p.id)} ${rowId(id)}`}
+                            floating
+                            ownerId={id}
+                            onSave={async (next) => {
+                              const error = await setValue(id, p.id, next);
+                              if (error) setNotice(`“${p.name}” couldn’t be saved.`);
+                            }}
+                          />
+                        </td>
+                      )
+                    )}
+                  </tr>
+                </Fragment>
               );
             })}
           </tbody>
@@ -189,21 +264,29 @@ export function TableView({ collectionTitle, view, properties, entryIds }: BodyP
 const DRAG_TYPE = "application/x-rune-entry";
 
 export function BoardView({
-  collectionId,
+  ownerId,
+  addToCollection,
   view,
   properties,
   entryIds,
+  presenter,
   onChooseGrouping,
-}: BodyProps & { collectionId: string; onChooseGrouping: () => void }) {
-  const { index } = useRune2Selection();
-  const { values, setValue, createProperty, updateProperty } = usePropertyStore();
-  const open = useOpenEntry();
+}: BodyProps & {
+  /** The Collection or Manuscript whose properties the Board groups by. */
+  ownerId: string;
+  /** A Collection: each lane can add a new Entry there. (A Scene is never created from a View.) */
+  addToCollection?: string;
+  onChooseGrouping: () => void;
+}) {
+  const { setValue, createProperty, updateProperty } = usePropertyStore();
+  const open = useOpenItem(presenter);
   const titleOf = useTitleOf();
   const hintId = useId();
-  const { add, busy, notice: addNotice } = useNewEntry(collectionId);
+  const { add, busy, notice: addNotice } = useNewEntry(addToCollection ?? "");
   const [notice, setNotice] = useState<string | null>(null);
   const [over, setOver] = useState<string | null>(null);
   const [newLane, setNewLane] = useState<string | null>(null);
+  const values = presenter.values;
 
   useEffect(() => {
     if (!notice) return;
@@ -211,13 +294,13 @@ export function BoardView({
     return () => clearTimeout(timer);
   }, [notice]);
 
-  const board = boardLanes(view, properties, values, entryIds);
+  const board = boardLanes(view, properties, values, entryIds, presenter.laneTargets);
 
   if (!board) {
     const groupable = groupableProperties(properties);
     return (
       <div className="r2-board-setup">
-        <p>A board sorts entries into columns by a Status or Select property.</p>
+        <p>A board sorts {presenter.noun.toLowerCase()} into columns by a Status, a Select, or a Relationship to a collection.</p>
         {groupable.length > 0 ? (
           <button type="button" className="r2-button" onClick={onChooseGrouping}>
             Choose a property
@@ -227,8 +310,12 @@ export function BoardView({
             type="button"
             className="r2-button"
             onClick={async () => {
-              // The new property becomes this Board's grouping (027's trigger).
-              const e = await createProperty(collectionId, properties.some((p) => p.name.toLowerCase() === "status") ? "Stage" : "Status", "status");
+              // The new property becomes this Board's grouping (the Views' trigger).
+              const e = await createProperty(
+                ownerId,
+                properties.some((p) => p.name.toLowerCase() === "status") ? "Stage" : "Status",
+                "status"
+              );
               if (e) setNotice("Couldn’t add the property.");
             }}
           >
@@ -248,27 +335,32 @@ export function BoardView({
   const cardProperties = shownProperties(view, properties).filter((p) => p.id !== property.id);
   const laneKey = (lane: BoardLane) => lane.optionId ?? "";
 
-  /** Moves an Entry to a lane: sets (or, for the empty lane, clears) the grouping value. */
-  const move = async (entryId: string, lane: BoardLane) => {
-    const current = values.get(valueKey(entryId, property.id));
-    const inLane = lane.optionId === null ? !lanes.slice(1).some((l) => l.optionId === current) : current === lane.optionId;
-    if (inLane) return;
-    const error = await setValue(entryId, property.id, lane.optionId as PropertyValue | null);
-    if (error) setNotice(`“${index.get(entryId)?.title ?? "The entry"}” couldn’t be moved.`);
+  /**
+   * Moves an item from one lane to another: sets (or, for the empty lane,
+   * clears) the grouped value — nothing else about the item changes, and a
+   * Scene keeps its place in the manuscript.
+   */
+  const move = async (itemId: string, from: string | null, lane: BoardLane) => {
+    const next = boardMoveValue(property, values.get(valueKey(itemId, property.id)), from, lane.optionId);
+    if (next === undefined) return;
+    const error = await setValue(itemId, property.id, next);
+    if (error) setNotice(`“${presenter.label(itemId)?.title ?? "That item"}” couldn’t be moved.`);
   };
 
-  const focusCard = (entryId: string) =>
+  const focusCard = (itemId: string, laneId: string | null) =>
     requestAnimationFrame(() =>
-      document.querySelector<HTMLElement>(`[data-board-entry="${CSS.escape(entryId)}"]`)?.focus()
+      document
+        .querySelector<HTMLElement>(`[data-board-entry="${CSS.escape(itemId)}"][data-board-lane="${CSS.escape(laneId ?? "")}"]`)
+        ?.focus()
     );
 
-  const onCardKey = (e: KeyboardEvent<HTMLButtonElement>, entryId: string, at: number) => {
+  const onCardKey = (e: KeyboardEvent<HTMLButtonElement>, itemId: string, at: number) => {
     if (e.altKey && (e.key === "ArrowLeft" || e.key === "ArrowRight")) {
       const target = lanes[at + (e.key === "ArrowLeft" ? -1 : 1)];
       if (!target) return;
       e.preventDefault();
-      void move(entryId, target);
-      focusCard(entryId);
+      void move(itemId, lanes[at].optionId, target);
+      focusCard(itemId, target.optionId);
       return;
     }
     moveBetweenRows(e, "li");
@@ -285,7 +377,7 @@ export function BoardView({
   return (
     <>
       <p id={hintId} className="sr-only">
-        Alt and the left or right arrow move an entry to the next column.
+        Alt and the left or right arrow move a card to the next column.
       </p>
       <div className="r2-board" aria-label={`${view.name}, by ${property.name}`} role="group">
         {lanes.map((lane, at) => (
@@ -305,15 +397,16 @@ export function BoardView({
               if (!e.currentTarget.contains(e.relatedTarget as Node)) setOver((o) => (o === laneKey(lane) ? null : o));
             }}
             onDrop={(e: DragEvent) => {
-              const id = e.dataTransfer.getData(DRAG_TYPE);
+              const raw = e.dataTransfer.getData(DRAG_TYPE);
               setOver(null);
-              if (!id) return;
+              if (!raw) return;
               e.preventDefault();
-              void move(id, lane);
+              const { id, from } = JSON.parse(raw) as { id: string; from: string | null };
+              void move(id, from, lane);
             }}
           >
             <header className="r2-lane-head">
-              {lane.optionId === null ? (
+              {lane.optionId === null || property.type === "relationship" ? (
                 <span className="r2-lane-name">{lane.name}</span>
               ) : (
                 <span className="r2-lane-name">
@@ -324,9 +417,12 @@ export function BoardView({
             </header>
             <ul className="r2-lane-cards">
               {lane.entryIds.map((id) => {
-                const e = index.get(id);
-                if (!e) return null;
-                const line = valueLine(cardProperties, values, id, titleOf);
+                const item = presenter.label(id);
+                if (!item) return null;
+                const line = [
+                  ...(item.context ? [item.context] : []),
+                  ...valueLine(cardProperties, values, id, titleOf),
+                ];
                 return (
                   <li key={id}>
                     <button
@@ -334,65 +430,77 @@ export function BoardView({
                       className="r2-card"
                       data-entry-open=""
                       data-board-entry={id}
-                      data-unnamed={!e.named || undefined}
+                      data-board-lane={lane.optionId ?? ""}
+                      data-unnamed={!item.named || undefined}
                       aria-describedby={hintId}
                       draggable
                       onDragStart={(ev) => {
-                        ev.dataTransfer.setData(DRAG_TYPE, id);
+                        ev.dataTransfer.setData(DRAG_TYPE, JSON.stringify({ id, from: lane.optionId }));
                         ev.dataTransfer.effectAllowed = "move";
                       }}
                       onDragEnd={() => setOver(null)}
                       {...open(id)}
                       onKeyDown={(ev) => onCardKey(ev, id, at)}
                     >
-                      <span className="r2-card-title">{e.title}</span>
+                      <span className="r2-card-title">
+                        <ItemNumber number={item.number} />
+                        {item.title}
+                      </span>
                       {line.length > 0 && <span className="r2-card-meta">{line.join(" · ")}</span>}
                     </button>
                   </li>
                 );
               })}
             </ul>
-            <button
-              type="button"
-              className="r2-lane-add"
-              disabled={busy}
-              aria-label={`New entry in ${lane.name}`}
-              onClick={() =>
-                void add(lane.optionId === null ? undefined : { propertyId: property.id, value: lane.optionId })
-              }
-            >
-              <Plus size={13} strokeWidth={1.75} aria-hidden />
-              New
-            </button>
+            {addToCollection && (
+              <button
+                type="button"
+                className="r2-lane-add"
+                disabled={busy}
+                aria-label={`New entry in ${lane.name}`}
+                onClick={() =>
+                  void add(
+                    lane.optionId === null
+                      ? undefined
+                      : { propertyId: property.id, value: property.type === "relationship" ? [lane.optionId] : lane.optionId }
+                  )
+                }
+              >
+                <Plus size={13} strokeWidth={1.75} aria-hidden />
+                New
+              </button>
+            )}
           </section>
         ))}
-        <div className="r2-lane r2-lane--new">
-          {newLane === null ? (
-            <button type="button" className="r2-lane-add" onClick={() => setNewLane("")}>
-              <Plus size={13} strokeWidth={1.75} aria-hidden />
-              Add a column
-            </button>
-          ) : (
-            <input
-              autoFocus
-              className="r2-lane-input"
-              aria-label={`New ${property.name} option`}
-              placeholder={`New ${property.type === "status" ? "status" : "option"}…`}
-              maxLength={100}
-              value={newLane}
-              onChange={(e) => setNewLane(e.target.value)}
-              onBlur={() => void addLane()}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") e.currentTarget.blur();
-                else if (e.key === "Escape") {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setNewLane(null);
-                }
-              }}
-            />
-          )}
-        </div>
+        {isChoiceType(property.type) && (
+          <div className="r2-lane r2-lane--new">
+            {newLane === null ? (
+              <button type="button" className="r2-lane-add" onClick={() => setNewLane("")}>
+                <Plus size={13} strokeWidth={1.75} aria-hidden />
+                Add a column
+              </button>
+            ) : (
+              <input
+                autoFocus
+                className="r2-lane-input"
+                aria-label={`New ${property.name} option`}
+                placeholder={`New ${property.type === "status" ? "status" : "option"}…`}
+                maxLength={100}
+                value={newLane}
+                onChange={(e) => setNewLane(e.target.value)}
+                onBlur={() => void addLane()}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") e.currentTarget.blur();
+                  else if (e.key === "Escape") {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setNewLane(null);
+                  }
+                }}
+              />
+            )}
+          </div>
+        )}
       </div>
       {(notice || addNotice) && (
         <p role="status" className="r2-doc-note">

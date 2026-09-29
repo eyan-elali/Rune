@@ -175,7 +175,8 @@ export interface PropertyOption {
 /**
  * One property definition of a Collection (migration 026, table
  * workspace_collection_properties). The Collection defines it once; each Entry
- * may hold a value for it. Never on Pages, and not yet on Scenes.
+ * may hold a value for it. Never on Pages; Scenes have their own
+ * (SceneProperty, migration 032).
  */
 export interface CollectionProperty {
   id: string;
@@ -206,6 +207,36 @@ export interface CollectionProperty {
 }
 
 /**
+ * One Scene property of a Manuscript (migration 032, table
+ * scene_property_definitions): the same shape and rules as a Collection
+ * property, owned by the Manuscript and available to all of its Scenes. Its
+ * values sit beside the prose (scene_property_values), never in it.
+ *
+ * `native`: set only in the shell, on the read-only fields every Scene has
+ * ("words", "placement") that a Scene View shows, sorts and filters like a
+ * property — never stored as a property, never edited.
+ */
+export interface SceneProperty {
+  id: string;
+  manuscript_id: string;
+  project_id: string;
+  name: string;
+  type: CollectionPropertyType;
+  options: PropertyOption[];
+  /** 1..n within the Manuscript. */
+  position: number;
+  relation_target: ReferenceObjectType | null;
+  relation_collection_id: string | null;
+  relation_many: boolean;
+  created_at: string;
+  updated_at: string;
+  native?: true;
+}
+
+/** A property of either owner: a Collection's (for its Entries) or a Manuscript's (for its Scenes). */
+export type PropertyDefinition = CollectionProperty | SceneProperty;
+
+/**
  * A stored property value, by type: text → string; number → number;
  * select/status → an option id; multi_select → option ids; date →
  * "YYYY-MM-DD"; checkbox → true. No value is no row. A Relationship's value
@@ -221,14 +252,28 @@ export interface EntryPropertyValue {
   value: PropertyValue;
 }
 
-/** How a saved View presents a Collection's Entries (migration 027). */
+/** One Scene's value for one Scene property (table scene_property_values, migration 032). */
+export interface ScenePropertyValue {
+  scene_id: string;
+  property_id: string;
+  value: PropertyValue;
+}
+
+/** How a saved View presents a Collection's Entries (migration 027) or a Manuscript's Scenes (032). */
 export type CollectionViewType = "list" | "table" | "board";
 
-export type ViewFilterOp = "is" | "is_not" | "is_empty" | "is_not_empty";
+export type ViewFilterOp = "is" | "is_not" | "is_empty" | "is_not_empty" | "contains" | "gt" | "lt";
 
-/** One filter of a View; all of a View's filters must hold. `value`: an option id ("is"/"is_not" only). */
+/**
+ * One filter of a View; all of a View's filters must hold.
+ *   is / is_not    — a choice's option id, or a Relationship's target id (includes)
+ *   contains       — text (032)
+ *   gt / lt        — a number, or a date "YYYY-MM-DD" (032)
+ */
 export type ViewFilter =
   | { property: string; op: "is" | "is_not"; value: string }
+  | { property: string; op: "contains"; value: string }
+  | { property: string; op: "gt" | "lt"; value: number | string }
   | { property: string; op: "is_empty" | "is_not_empty" };
 
 /**
@@ -239,10 +284,10 @@ export type ViewFilter =
 export interface CollectionViewConfig {
   /** Shown properties, in order: List's line, Table's columns, Board's card lines. */
   properties: string[];
-  /** null: creation order. `by`: "title" or a property id. */
+  /** null: creation order (Scenes: manuscript order). `by`: "title" or a property id. */
   sort: { by: string; direction: "asc" | "desc" } | null;
   filters: ViewFilter[];
-  /** A select or status property (Board lanes); null when there is none to group by. */
+  /** A select, status or Relationship-to-Entries property (Board lanes); null when there is none to group by. */
   group_by: string | null;
 }
 
@@ -265,6 +310,26 @@ export interface WorkspaceCollectionView {
 }
 
 /**
+ * One saved View of a Manuscript's Scenes (migration 032, table scene_views):
+ * configuration only, like a Collection View. Its config may also name the
+ * read-only Scene fields "words" and "placement"; sort null is manuscript order.
+ */
+export interface SceneView {
+  id: string;
+  manuscript_id: string;
+  project_id: string;
+  name: string;
+  type: CollectionViewType;
+  position: number;
+  config: CollectionViewConfig;
+  created_at: string;
+  updated_at: string;
+}
+
+/** A saved View of either owner. */
+export type SavedView = WorkspaceCollectionView | SceneView;
+
+/**
  * One forward reference between two objects of the same Project (migration
  * 028, table object_references). Exactly the id column matching each type is
  * set. property_id null: a generic reference; otherwise one value of that
@@ -283,6 +348,8 @@ export interface ObjectReferenceRow {
   target_document_id: string | null;
   target_scene_id: string | null;
   property_id: string | null;
+  /** A Scene property the row is a value of (source 'scene'; migration 032). Absent before 032. */
+  scene_property_id?: string | null;
   /** Order among the source's references (per property, or among its generic ones). */
   position: number;
   created_at: string;

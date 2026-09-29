@@ -332,5 +332,5 @@ test('wording: a Scene’s title and what its permanent deletion loses', () => {
   assert.equal(trashModel.trashItemTitle({ type: 'scene', title: '' }), 'Untitled scene');
   assert.equal(trashModel.trashItemTitle({ type: 'scene', title: 'The Crossing' }), 'The Crossing');
   assert.equal(trashModel.deletionWarning({ ...base, type: 'scene', title: 'The Crossing' }),
-    'Delete “The Crossing” permanently? Its prose can’t be recovered. Your writing history is kept.');
+    'Delete “The Crossing” permanently? Its prose and scene properties can’t be recovered. Your writing history is kept.');
 });

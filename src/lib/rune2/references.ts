@@ -1,4 +1,4 @@
-import type { CollectionProperty, ObjectReferenceRow, ReferenceObjectType } from "@/lib/types";
+import type { ObjectReferenceRow, PropertyDefinition, ReferenceObjectType } from "@/lib/types";
 import { chapterShowsScenes, type NavEntry } from "./navigatorModel";
 import { valueKey } from "./collectionProperties";
 import { inScope, searchObjects, searchProject, type SearchObject, type SearchScope } from "./projectSearch";
@@ -20,7 +20,11 @@ export type Reference = {
   id: string;
   source: ObjectRef;
   target: ObjectRef;
-  /** null: a generic reference; otherwise the Relationship property it is a value of. */
+  /**
+   * null: a generic reference; otherwise the Relationship property it is a
+   * value of — a Collection property of the source Entry, or (032) a Scene
+   * property of the source Scene. Property ids are unique across both.
+   */
   propertyId: string | null;
   position: number;
 };
@@ -41,7 +45,7 @@ export function toReference(row: ObjectReferenceRow): Reference {
     id: row.id,
     source: end(row.source_type, row.source_entry_id, row.source_document_id, row.source_scene_id),
     target: end(row.target_type, row.target_entry_id, row.target_document_id, row.target_scene_id),
-    propertyId: row.property_id,
+    propertyId: row.property_id ?? row.scene_property_id ?? null,
     position: row.position,
   };
 }
@@ -53,8 +57,8 @@ export function toReference(row: ObjectReferenceRow): Reference {
 export function listKey(ref: Pick<Reference, "source" | "propertyId">): string {
   return ref.propertyId ? relationListKey(ref.source.id, ref.propertyId) : genericListKey(ref.source.id);
 }
-export function relationListKey(entryId: string, propertyId: string): string {
-  return `rel:${entryId}:${propertyId}`;
+export function relationListKey(sourceId: string, propertyId: string): string {
+  return `rel:${sourceId}:${propertyId}`;
 }
 export function genericListKey(sourceId: string): string {
   return `src:${sourceId}`;
@@ -63,9 +67,9 @@ export function genericListKey(sourceId: string): string {
 const byPosition = (a: Reference, b: Reference) => a.position - b.position;
 
 /**
- * Every Relationship value by valueKey(entryId, propertyId): its targets'
- * ids, in order — the same shape as a multi-select's value, so Views, filters
- * and property editors read it like any other value.
+ * Every Relationship value by valueKey(sourceId, propertyId) — an Entry's or
+ * a Scene's: its targets' ids, in order — the same shape as a multi-select's
+ * value, so Views, filters and property editors read it like any other value.
  */
 export function relationshipValues(refs: readonly Reference[]): Map<string, string[]> {
   const lists = new Map<string, Reference[]>();
@@ -199,7 +203,7 @@ export type TargetSpec =
   /** Any Entry, Page or Scene (a generic reference). */
   | { type: "any" };
 
-export function targetSpecOf(property: CollectionProperty): TargetSpec | null {
+export function targetSpecOf(property: PropertyDefinition): TargetSpec | null {
   if (property.type !== "relationship" || !property.relation_target) return null;
   if (property.relation_target === "entry") {
     return property.relation_collection_id ? { type: "entry", collectionId: property.relation_collection_id } : null;
@@ -245,7 +249,7 @@ export function candidates(
 }
 
 /** A Relationship's target as a phrase: "Entries in Factions", "Pages", "Scenes". */
-export function targetPhrase(property: CollectionProperty, collectionTitle: (id: string) => string): string {
+export function targetPhrase(property: PropertyDefinition, collectionTitle: (id: string) => string): string {
   switch (property.relation_target) {
     case "entry":
       return `Entries in ${collectionTitle(property.relation_collection_id ?? "")}`;

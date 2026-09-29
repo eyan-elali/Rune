@@ -379,7 +379,7 @@ test('collection: permanent deletion takes its Entries, properties, values and V
   ok(await trash.trashWorkspaceObject('collection', t.factions.id));
   const listed = ok(await trash.listWorkspaceTrash(HOLLOW)).find((i) => i.id === t.factions.id);
   assert.deepEqual([listed.entries, listed.properties], [1, 1]);
-  assert.match(trashModel.deletionWarning(listed), /and its 1 entry permanently\? .* A relationship in other collections that points here will be removed too\./);
+  assert.match(trashModel.deletionWarning(listed), /and its 1 entry permanently\? .* A relationship elsewhere that points here will be removed too\./);
 
   assert.deepEqual(ok(await trash.deleteTrashedWorkspaceObject('collection', t.factions.id)), { entries: 1, properties: 1 });
   for (const table of ['workspace_collection_entries', 'workspace_collection_properties', 'workspace_entry_values', 'workspace_collection_views']) {

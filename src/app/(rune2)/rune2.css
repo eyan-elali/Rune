@@ -3116,3 +3116,135 @@ span.r2-schema-type {
   gap: 8px;
   margin-top: 8px;
 }
+
+/* ── Scene properties and Scene Views (migration 032) ─────────────────── */
+/* The Manuscript's Scenes seen another way, on its own page under the
+   overview. Until asked for, one quiet line; then the same chrome as a
+   Collection's Views. A Scene's number ("31.2") is derived, quiet, and set
+   apart from its name. The prose editor never shows any of this. */
+
+.r2-scenes-invite {
+  width: min(100%, var(--r2-doc-width));
+  margin-left: clamp(
+    0px,
+    calc((100vw - var(--r2-nav-width) - var(--r2-doc-width)) / 2),
+    calc(100cqw - var(--r2-doc-width))
+  );
+  margin-top: -40px;
+  padding: 0 var(--r2-doc-gutter) 48px;
+  transition: margin-left var(--r2-frame) var(--r2-ease-frame);
+}
+.r2-scenes-invite .r2-collection-tool {
+  margin-left: -8px;
+  color: var(--r2-ink-3);
+}
+.r2-scenes-wrap {
+  min-height: 0;
+}
+.r2-scenes {
+  padding-top: 0;
+}
+.r2-scenes-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+  padding-top: 18px;
+  border-top: 1px solid var(--r2-border);
+}
+.r2-scenes-title {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--r2-ink-1);
+}
+
+.r2-item-number {
+  display: inline-block;
+  min-width: 2.4em;
+  margin-right: 8px;
+  font-size: 0.86em;
+  font-variant-numeric: tabular-nums;
+  color: var(--r2-ink-3);
+}
+.r2-entry-section {
+  padding: 18px 0 6px;
+  border-bottom: 1px solid var(--r2-border);
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--r2-ink-3);
+  list-style: none;
+}
+.r2-table-section td {
+  padding-top: 16px;
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--r2-ink-3);
+}
+.r2-table thead th[data-native],
+.r2-table td[data-native] {
+  color: var(--r2-ink-2);
+}
+.r2-prop-static {
+  display: block;
+  padding: 5px 0;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.r2-view-filter-input {
+  width: 9rem;
+}
+
+/* Suggested first Scene properties: plain words, never pre-made. */
+.r2-schema-suggest {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  margin: 2px 0 6px;
+  font-size: 12.5px;
+  color: var(--r2-ink-3);
+}
+.r2-schema-suggestion {
+  height: 26px;
+  padding: 0 8px;
+  border: 1px solid var(--r2-border);
+  border-radius: var(--r2-radius);
+  font-size: 12.5px;
+  color: var(--r2-ink-2);
+  transition: color var(--r2-fast) var(--r2-ease), background-color var(--r2-fast) var(--r2-ease);
+}
+.r2-schema-suggestion:hover:not(:disabled),
+.r2-schema-suggestion:focus-visible {
+  color: var(--r2-ink-1);
+  background: var(--r2-hover);
+}
+
+/* A Scene's properties in the Inspector: the Entry's label/value block, narrowed. */
+.r2-scene-props {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--r2-border);
+}
+.r2-scene-props .r2-props,
+.r2-scene-props .r2-props[data-empty] {
+  margin: 0;
+  font-size: 13px;
+}
+.r2-scene-props .r2-prop {
+  grid-template-columns: minmax(64px, 96px) minmax(0, 1fr);
+  gap: 8px;
+}
+.r2-scene-props-edit {
+  margin-top: 6px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .r2-scenes-invite,
+  .r2-schema-suggestion {
+    transition: none;
+  }
+}

@@ -2,22 +2,33 @@ import type {
   CollectionProperty,
   CollectionViewConfig,
   CollectionViewType,
+  PropertyDefinition,
   PropertyValue,
+  SavedView,
+  SceneView,
   ViewFilter,
   ViewFilterOp,
   WorkspaceCollectionView,
 } from "@/lib/types";
 import { chosenOptions, valueKey } from "./collectionProperties";
 
-// Saved Collection Views (migration 027) as the shell presents them: which
-// Entries a View shows and in what order, which properties it shows, and a
-// Board's lanes. Pure — no I/O — so List, Table, Board and the tests share one
-// set of rules. A View only arranges; every View reads the same Entries and
-// the same values, so an edit made in one is already in all the others.
+// Saved Views as the shell presents them — a Collection's over its Entries
+// (migration 027) and a Manuscript's over its Scenes (032): which items a View
+// shows and in what order, which properties it shows, and a Board's lanes.
+// Pure — no I/O — so List, Table, Board and the tests share one set of rules,
+// whoever owns the View. A View only arranges; every View reads the same items
+// and the same values, so an edit made in one is already in all the others.
 //
-// The database keeps each config pointing only at the Collection's current
-// properties; these helpers still skip anything unknown, so a screen showing
-// a moment-old config never breaks.
+// The engine never knows what an item is. It is given item ids in their
+// natural order (a Collection's creation order; a Manuscript's reading order),
+// the owner's properties and one map of values. Read-only fields an owner
+// offers (a Scene's word count and placement) arrive as `native` properties
+// with their values in the same map, so they are shown, sorted and filtered by
+// the same code and never edited.
+//
+// The database keeps each config pointing only at the owner's current fields
+// (prune_view_config); these helpers still skip anything unknown, so a screen
+// showing a moment-old config never breaks.
 
 export const VIEW_TYPES: readonly CollectionViewType[] = ["list", "table", "board"];
 
@@ -29,23 +40,38 @@ export const VIEW_TYPE_LABEL: Record<CollectionViewType, string> = {
 
 export const EMPTY_VIEW_CONFIG: CollectionViewConfig = { properties: [], sort: null, filters: [], group_by: null };
 
-/** A Collection's Views in their order. */
-export function viewsOf(views: readonly WorkspaceCollectionView[], collectionId: string): WorkspaceCollectionView[] {
-  return views.filter((v) => v.collection_id === collectionId).sort((a, b) => a.position - b.position);
+/** Whether a View is a Manuscript's Scene View (032) rather than a Collection's. */
+export function isSceneView(view: SavedView): view is SceneView {
+  return "manuscript_id" in view;
+}
+
+/** The Collection or Manuscript a View belongs to. */
+export function viewOwner(view: SavedView): string {
+  return isSceneView(view) ? view.manuscript_id : view.collection_id;
+}
+
+/** A Collection's (or Manuscript's) Views in their order. */
+export function viewsOf<V extends SavedView>(views: readonly V[], ownerId: string): V[] {
+  return views.filter((v) => viewOwner(v) === ownerId).sort((a, b) => a.position - b.position);
 }
 
 /**
- * The View a Collection shows: the one the writer last chose (`chosenId`), if
- * it still exists — else the first. Choosing a View changes only this; the
- * Views and their Entries are untouched.
+ * The View an owner shows: the one the writer last chose (`chosenId`), if it
+ * still exists — else the first. Choosing a View changes only this; the Views
+ * and their items are untouched.
  */
-export function activeView(views: readonly WorkspaceCollectionView[], chosenId: string | undefined): WorkspaceCollectionView {
+export function activeView<V extends SavedView>(views: readonly V[], chosenId: string | undefined): V {
   return views.find((v) => v.id === chosenId) ?? views[0];
 }
 
 /** The id of the stand-in List a Collection shows before migration 027. */
 export function fallbackViewId(collectionId: string): string {
   return `list:${collectionId}`;
+}
+
+/** Whether a View is an unsaved stand-in (never written to the database as it is). */
+export function isFallbackView(view: SavedView): boolean {
+  return view.id.startsWith("list:");
 }
 
 /**
@@ -70,7 +96,7 @@ export function fallbackListView(collectionId: string, properties: readonly Coll
 }
 
 /** The View's shown properties, in its order (unknown ids skipped). */
-export function shownProperties(view: WorkspaceCollectionView, properties: readonly CollectionProperty[]): CollectionProperty[] {
+export function shownProperties<P extends PropertyDefinition>(view: SavedView, properties: readonly P[]): P[] {
   const byId = new Map(properties.map((p) => [p.id, p]));
   return view.config.properties.flatMap((id) => {
     const p = byId.get(id);
@@ -78,27 +104,54 @@ export function shownProperties(view: WorkspaceCollectionView, properties: reado
   });
 }
 
-/** The Collection's properties the View doesn't show, in the Collection's order. */
-export function hiddenProperties(view: WorkspaceCollectionView, properties: readonly CollectionProperty[]): CollectionProperty[] {
+/** The owner's properties the View doesn't show, in the owner's order. */
+export function hiddenProperties<P extends PropertyDefinition>(view: SavedView, properties: readonly P[]): P[] {
   const shown = new Set(view.config.properties);
   return properties.filter((p) => !shown.has(p.id));
 }
 
-// ── Filters ─────────────────────────────────────────────────────────────────
-
-/** The filters a property offers: choices "is"/"is not"; a checkbox checked/unchecked; anything empty/not empty. */
-export function filterOpsFor(property: CollectionProperty): ViewFilterOp[] {
-  if (property.type === "select" || property.type === "status" || property.type === "multi_select") {
-    return ["is", "is_not", "is_empty", "is_not_empty"];
-  }
-  if (property.type === "checkbox") return ["is_not_empty", "is_empty"];
-  return ["is_not_empty", "is_empty"];
+/** Whether a field is read-only (a Scene's word count or placement): shown, sorted, filtered — never edited or grouped by. */
+export function isNative(property: PropertyDefinition): boolean {
+  return "native" in property && property.native === true;
 }
 
-/** How a filter reads: "is", "is not", "is empty", "is checked"… */
-export function filterOpLabel(property: CollectionProperty, op: ViewFilterOp): string {
+// ── Filters ─────────────────────────────────────────────────────────────────
+
+/**
+ * The filters a property offers:
+ *   choices          is / is not (a multi-select: includes), empty, not empty
+ *   Relationship     includes / doesn't include one target, empty, not empty
+ *   text             contains, empty, not empty
+ *   number, date     greater / less than (after / before), empty, not empty
+ *   checkbox         checked / not checked
+ * A read-only field has no empty filter (a Scene always has a word count and
+ * a placement).
+ */
+export function filterOpsFor(property: PropertyDefinition): ViewFilterOp[] {
+  const empties: ViewFilterOp[] = isNative(property) ? [] : ["is_not_empty", "is_empty"];
+  switch (property.type) {
+    case "select":
+    case "status":
+    case "multi_select":
+      return ["is", "is_not", ...(isNative(property) ? [] : (["is_empty", "is_not_empty"] as ViewFilterOp[]))];
+    case "relationship":
+      return ["is", "is_not", ...empties];
+    case "text":
+      return ["contains", ...empties];
+    case "number":
+    case "date":
+      return ["gt", "lt", ...empties];
+    case "checkbox":
+      return ["is_not_empty", "is_empty"];
+  }
+}
+
+/** How a filter reads: "is", "is not", "includes", "is after", "is checked"… */
+export function filterOpLabel(property: PropertyDefinition, op: ViewFilterOp): string {
   if (property.type === "checkbox") return op === "is_not_empty" ? "is checked" : "is not checked";
-  if (property.type === "multi_select" && (op === "is" || op === "is_not")) return op === "is" ? "includes" : "doesn’t include";
+  const many = property.type === "multi_select" || (property.type === "relationship" && property.relation_many);
+  if (many && (op === "is" || op === "is_not")) return op === "is" ? "includes" : "doesn’t include";
+  if (property.type === "date" && (op === "gt" || op === "lt")) return op === "gt" ? "is after" : "is before";
   switch (op) {
     case "is":
       return "is";
@@ -108,18 +161,29 @@ export function filterOpLabel(property: CollectionProperty, op: ViewFilterOp): s
       return "is empty";
     case "is_not_empty":
       return "is not empty";
+    case "contains":
+      return "contains";
+    case "gt":
+      return "is more than";
+    case "lt":
+      return "is less than";
   }
 }
 
+/** The ids a value names: a choice's known options, a Relationship's targets. */
+function idsOf(property: PropertyDefinition, value: PropertyValue | undefined): string[] {
+  if (property.type === "relationship") return Array.isArray(value) ? value : [];
+  if (property.type === "select" || property.type === "status" || property.type === "multi_select") {
+    return chosenOptions(property, value).map((o) => o.id);
+  }
+  return [];
+}
+
 /** Whether a value passes one filter. A value naming an unknown option counts as empty. */
-export function matchesFilter(filter: ViewFilter, property: CollectionProperty, value: PropertyValue | undefined): boolean {
-  const isChoice = property.type === "select" || property.type === "status" || property.type === "multi_select";
-  const ids = isChoice ? chosenOptions(property, value).map((o) => o.id) : [];
-  const empty = isChoice
-    ? ids.length === 0
-    : property.type === "relationship"
-      ? !Array.isArray(value) || value.length === 0
-      : value === undefined;
+export function matchesFilter(filter: ViewFilter, property: PropertyDefinition, value: PropertyValue | undefined): boolean {
+  const ids = idsOf(property, value);
+  const listed = property.type === "relationship" || property.type === "select" || property.type === "status" || property.type === "multi_select";
+  const empty = listed ? ids.length === 0 : value === undefined;
   switch (filter.op) {
     case "is_empty":
       return empty;
@@ -129,20 +193,34 @@ export function matchesFilter(filter: ViewFilter, property: CollectionProperty, 
       return ids.includes(filter.value);
     case "is_not":
       return !ids.includes(filter.value);
+    case "contains":
+      return typeof value === "string" && value.toLowerCase().includes(filter.value.trim().toLowerCase());
+    case "gt":
+    case "lt": {
+      if (property.type === "number") {
+        if (typeof value !== "number" || typeof filter.value !== "number") return false;
+        return filter.op === "gt" ? value > filter.value : value < filter.value;
+      }
+      if (property.type === "date") {
+        if (typeof value !== "string" || typeof filter.value !== "string") return false;
+        return filter.op === "gt" ? value > filter.value : value < filter.value;
+      }
+      return false;
+    }
   }
 }
 
 // ── Sort ────────────────────────────────────────────────────────────────────
 
 /** Properties a View can sort by (title aside): one value each — every type but multi-select and Relationship. */
-export function sortableProperties(properties: readonly CollectionProperty[]): CollectionProperty[] {
+export function sortableProperties<P extends PropertyDefinition>(properties: readonly P[]): P[] {
   return properties.filter((p) => p.type !== "multi_select" && p.type !== "relationship");
 }
 
 const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
 
 /** A comparable key for a value, or null when empty (empties sort last either way). */
-function sortKey(property: CollectionProperty, value: PropertyValue | undefined): string | number | null {
+function sortKey(property: PropertyDefinition, value: PropertyValue | undefined): string | number | null {
   if (value === undefined) return null;
   switch (property.type) {
     case "number":
@@ -168,22 +246,26 @@ function compareKeys(a: string | number, b: string | number): number {
   return collator.compare(String(a), String(b));
 }
 
-// ── Arranging Entries ───────────────────────────────────────────────────────
+// ── Arranging items ─────────────────────────────────────────────────────────
 
 export type ArrangeInput = {
-  /** The Collection's Entries in creation order. */
+  /**
+   * The owner's items in their natural order: a Collection's Entries in
+   * creation order; a Manuscript's Scenes in manuscript order (placed, in
+   * reading order, then Unplaced). `sort: null` keeps this order.
+   */
   entryIds: readonly string[];
-  properties: readonly CollectionProperty[];
+  properties: readonly PropertyDefinition[];
   values: ReadonlyMap<string, PropertyValue>;
-  /** An Entry's title as shown ("Untitled" included). */
+  /** An item's title as shown ("Untitled" included). */
   titleOf: (entryId: string) => string;
 };
 
 /**
- * The Entries a View shows, in its order: those passing every filter, sorted
- * by its sort (ties, and no sort, keep creation order; empty values last).
+ * The items a View shows, in its order: those passing every filter, sorted
+ * by its sort (ties, and no sort, keep the natural order; empty values last).
  */
-export function arrangeEntries(view: WorkspaceCollectionView, input: ArrangeInput): string[] {
+export function arrangeEntries(view: SavedView, input: ArrangeInput): string[] {
   const byId = new Map(input.properties.map((p) => [p.id, p]));
   const filters = view.config.filters.flatMap((f) => {
     const property = byId.get(f.property);
@@ -213,47 +295,103 @@ export function arrangeEntries(view: WorkspaceCollectionView, input: ArrangeInpu
   return keyed.map((k) => k.id);
 }
 
+/** The same rule under the owner-neutral name. */
+export const arrangeItems = arrangeEntries;
+
 // ── Board ───────────────────────────────────────────────────────────────────
 
-/** Properties a Board can group by: one value each — select and status. */
-export function groupableProperties(properties: readonly CollectionProperty[]): CollectionProperty[] {
-  return properties.filter((p) => p.type === "select" || p.type === "status");
+/**
+ * Properties a Board can group by: select and status (one lane per option),
+ * and a Relationship to a Collection's Entries (one lane per Entry). Never a
+ * read-only field: moving a card sets the value it is grouped by.
+ */
+export function groupableProperties<P extends PropertyDefinition>(properties: readonly P[]): P[] {
+  return properties.filter(
+    (p) =>
+      !isNative(p) &&
+      (p.type === "select" || p.type === "status" || (p.type === "relationship" && p.relation_target === "entry"))
+  );
 }
 
 export type BoardLane = {
-  /** The option id, or null for the lane of Entries with no value. */
+  /** The option id (or, grouped by a Relationship, the target id), or null for the lane of items with no value. */
   optionId: string | null;
   name: string;
   entryIds: string[];
 };
 
-/** The name of the lane of Entries without a value: "No status", "No Affiliation". */
-export function emptyLaneName(property: CollectionProperty): string {
+/** The name of the lane of items without a value: "No status", "No POV". */
+export function emptyLaneName(property: PropertyDefinition): string {
   return property.type === "status" ? "No status" : `No ${property.name}`;
 }
 
+/** A Relationship's possible lanes: the target Collection's Entries, in its order, by current title. */
+export type LaneTargets = (property: PropertyDefinition) => { id: string; name: string }[];
+
 /**
- * A Board's lanes for arranged Entries: the empty lane first, then one per
- * option in the property's order. An Entry whose value names an unknown
- * option is in the empty lane. null when the View groups by nothing usable.
+ * A Board's lanes for arranged items: the empty lane first, then one per
+ * option in the property's order — or, grouped by a Relationship, one per
+ * Entry of its Collection (`laneTargets`). An item whose value names nothing
+ * known is in the empty lane. An item holding several Relationship targets
+ * appears in each of their lanes: it is one item, shown wherever it belongs.
+ * null when the View groups by nothing usable.
  */
 export function boardLanes(
-  view: WorkspaceCollectionView,
-  properties: readonly CollectionProperty[],
+  view: SavedView,
+  properties: readonly PropertyDefinition[],
   values: ReadonlyMap<string, PropertyValue>,
-  arranged: readonly string[]
-): { property: CollectionProperty; lanes: BoardLane[] } | null {
+  arranged: readonly string[],
+  laneTargets: LaneTargets = () => []
+): { property: PropertyDefinition; lanes: BoardLane[] } | null {
   const property = properties.find((p) => p.id === view.config.group_by);
-  if (!property || (property.type !== "select" && property.type !== "status")) return null;
+  if (!property || !groupableProperties([property]).length) return null;
   const empty: BoardLane = { optionId: null, name: emptyLaneName(property), entryIds: [] };
-  const lanes = property.options.map((o): BoardLane => ({ optionId: o.id, name: o.name, entryIds: [] }));
+  const choices = property.type === "relationship" ? laneTargets(property) : property.options;
+  const lanes = choices.map((o): BoardLane => ({ optionId: o.id, name: o.name, entryIds: [] }));
   const byOption = new Map(lanes.map((l) => [l.optionId, l]));
   for (const id of arranged) {
     const value = values.get(valueKey(id, property.id));
-    const lane = (typeof value === "string" && byOption.get(value)) || empty;
-    lane.entryIds.push(id);
+    const ids = property.type === "relationship" ? (Array.isArray(value) ? value : []) : typeof value === "string" ? [value] : [];
+    const found = ids.flatMap((x) => byOption.get(x) ?? []);
+    if (found.length === 0) empty.entryIds.push(id);
+    for (const lane of found) lane.entryIds.push(id);
   }
   return { property, lanes: [empty, ...lanes] };
+}
+
+/**
+ * The value an item takes when its card moves from one lane to another, or
+ * undefined when nothing changes. It only ever changes the grouped property's
+ * value — never anything else about the item, and never its place in the
+ * manuscript or its Collection.
+ *   select / status, a one-value Relationship: the target lane's option
+ *     (or target), or none in the empty lane;
+ *   a several-value Relationship: the lane it left is replaced by the lane it
+ *     joins (moving into the empty lane removes only the one it left); its
+ *     other targets stay.
+ */
+export function boardMoveValue(
+  property: PropertyDefinition,
+  current: PropertyValue | undefined,
+  from: string | null,
+  to: string | null
+): PropertyValue | null | undefined {
+  if (from === to) return undefined;
+  if (property.type === "relationship") {
+    const ids = Array.isArray(current) ? current : [];
+    if (!property.relation_many) {
+      if (to === null) return ids.length ? null : undefined;
+      return ids.length === 1 && ids[0] === to ? undefined : [to];
+    }
+    const kept = ids.filter((id) => id !== from && id !== to);
+    const at = from === null ? kept.length : Math.max(0, ids.indexOf(from));
+    const next = to === null ? kept : [...kept.slice(0, at), to, ...kept.slice(at)];
+    if (next.length === ids.length && next.every((id, i) => id === ids[i])) return undefined;
+    return next.length ? next : null;
+  }
+  const value = typeof current === "string" ? current : null;
+  if (value === to) return undefined;
+  return to;
 }
 
 // ── Config edits ────────────────────────────────────────────────────────────
@@ -276,7 +414,7 @@ export function withPropertyMoved(config: CollectionViewConfig, propertyId: stri
 }
 
 /** A new View's name: List/Table by type, a Board by what it groups ("By Status"). */
-export function newViewName(type: CollectionViewType, groupBy: CollectionProperty | undefined): string {
+export function newViewName(type: CollectionViewType, groupBy: PropertyDefinition | undefined): string {
   if (type === "board" && groupBy) return `By ${groupBy.name}`;
   return VIEW_TYPE_LABEL[type];
 }

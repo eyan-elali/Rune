@@ -53,7 +53,7 @@ test('a database built from schema.sql alone is identical to baseline + migratio
   assert.deepEqual(diffCounts(a, b), []);
   const versions = async (db) => (await db.query(`select version, name, note from public.schema_migrations order by version`)).rows;
   assert.deepEqual(await versions(fresh), await versions(migrated));
-  assert.deepEqual((await versions(fresh)).map((r) => r.version).slice(-19), ['013', '014', '015', '016', '017', '018', '019', '020', '021', '022', '023', '024', '025', '026', '027', '028', '029', '030', '031']);
+  assert.deepEqual((await versions(fresh)).map((r) => r.version).slice(-20), ['013', '014', '015', '016', '017', '018', '019', '020', '021', '022', '023', '024', '025', '026', '027', '028', '029', '030', '031', '032']);
 });
 
 test('signup still creates the profile and pricing entitlements on the Rune 2.0 schema', async () => {
@@ -1288,3 +1288,69 @@ test('031 requires 030, refuses to run twice (including on schema.sql), and chan
   }
 });
 
+// ── 18. migration 032 ─────────────────────────────────────────────────────────
+
+const M032 = '032_scene_properties_views.sql';
+
+async function db031() {
+  const db = await db030();
+  await db.exec(readMigration(M031));
+  return db;
+}
+
+test('032 on 031: three Scene metadata tables, the View rules and Scene Relationship values — and no Scene, Chapter, total or manuscript RPC change', async () => {
+  const db = await db031();
+  const before = await captureCatalog(db);
+  const rows = async () => ({
+    scenes: (await db.query(`select * from public.scenes order by id`)).rows,
+    chapters: (await db.query(`select * from public.chapters order by id`)).rows,
+    projects: (await db.query(`select id, word_count from public.projects order by id`)).rows,
+    references: (await db.query(`select * from public.object_references order by id`)).rows,
+    views: (await db.query(`select * from public.workspace_collection_views order by id`)).rows,
+  });
+  const beforeRows = await rows();
+  await db.exec(readMigration(M032));
+  const keys = diffCatalogs(before, await captureCatalog(db)).differences.map((d) => `${d.section}:${d.kind}${d.fields ? '[' + d.fields.join(',') + ']' : ''}:${d.key}`).sort();
+  const TABLES = '(scene_property_definitions|scene_property_values|scene_views)';
+  const NEW = '(prune_view_config|manuscript_scene_view_fields|prune_scene_view_config|default_scene_view_config|check_scene_property_definition|check_scene_property_value|check_scene_view|sync_scene_views_with_property|owned_project_manuscript|create_scene_property|create_scene_relationship_property|update_scene_property|move_scene_property|delete_scene_property|set_scene_property_value|set_scene_relationship|create_scene_view|update_scene_view|move_scene_view|delete_scene_view)';
+  for (const k of keys) {
+    assert.ok(
+      new RegExp(`^(columns|constraints|indexes|policies|triggers):added:${TABLES}\\.`).test(k)
+        || new RegExp(`^relations:added:${TABLES}$`).test(k)
+        || new RegExp(`^table_grants:added:${TABLES} (anon|authenticated|service_role) [A-Z]+$`).test(k)
+        || /^columns:added:object_references\.scene_property_id$/.test(k)
+        || /^(constraints|indexes):added:object_references\.object_references_(property_source_check|scene_property_id_fkey|scene_property_id_idx)$/.test(k)
+        || /^constraints:removed:object_references\.object_references_property_from_entry$/.test(k)
+        || /^(constraints|indexes):changed(\[.*\])?:object_references\.object_references_once_key$/.test(k)
+        || /^triggers:changed(\[.*\])?:workspace_collection_properties\.workspace_collection_properties_views_changed$/.test(k)
+        || new RegExp(`^functions:added:${NEW}\\(`).test(k)
+        || new RegExp(`^function_grants:added:${NEW}\\(.*\\) (authenticated|service_role|postgres) EXECUTE$`).test(k)
+        || /^functions:changed(\[.*\])?:(workspace_view_config_shape_valid|prune_workspace_view_config|check_object_reference|add_object_reference|remove_object_reference|list_workspace_trash|delete_trashed_workspace_object)\(/.test(k)
+        || /^relation_counts?:/.test(k),
+      `unexpected change: ${k}`);
+  }
+  assert.ok(keys.includes('relations:added:scene_property_definitions'));
+  assert.ok(!keys.some((k) => /^table_grants:added:.* (anon|authenticated) (INSERT|UPDATE|DELETE)$/.test(k)), 'clients only read');
+  assert.ok(keys.includes('columns:added:object_references.scene_property_id'));
+  assert.ok(!keys.some((k) => / anon EXECUTE$/.test(k)), 'nothing for anon');
+  assert.ok(!keys.some((k) => /^function_grants:added:owned_project_manuscript\(.*\) authenticated/.test(k)), 'the ownership helper is internal');
+  assert.ok(!keys.some((k) => /(^|[:.])(scenes|chapters|manuscripts|manuscript_groups|projects|writing_sessions)[.(]/.test(k.split(':').slice(2).join(':'))),
+    'no manuscript table, policy or trigger');
+  assert.ok(!keys.some((k) => /^functions:(added|removed|changed)[^:]*:(save_scene_checked|insert_scene_checked|insert_unplaced_scene_checked|account_word_total|ordered_manuscript_word_total|move_scene|reorder_chapter_scenes|delete_chapter|increment_scene_version|duplicate_project_checked)\(/.test(k)),
+    'no manuscript RPC is added, removed or redefined');
+  assert.deepEqual(await rows(), beforeRows, 'every Scene, Chapter, total, reference and Collection View as it was');
+  const rls = (await db.query(`select relname, relrowsecurity from pg_class where relname in ('scene_property_definitions', 'scene_property_values', 'scene_views') order by relname`)).rows;
+  assert.deepEqual(rls.map((r) => r.relrowsecurity), [true, true, true], 'RLS on every new table');
+});
+
+test('032 requires 031, refuses to run twice (including on schema.sql), and changes nothing when it refuses', async () => {
+  const only030 = await db030();
+  const before030 = await captureCatalog(only030);
+  await assert.rejects(only030.exec(readMigration(M032)), /requires migration 031/);
+  assert.deepEqual(diffCatalogs(before030, await captureCatalog(only030)).differences, []);
+  for (const db of [await migratedDb(), await freshRune2Db()]) {
+    const before = await captureCatalog(db);
+    await assert.rejects(db.exec(readMigration(M032)), /Migration 032 has already been applied/);
+    assert.deepEqual(diffCatalogs(before, await captureCatalog(db)).differences, []);
+  }
+});

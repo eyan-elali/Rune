@@ -13,10 +13,13 @@ import {
 import type { NavEntry } from "@/lib/rune2/navigatorModel";
 import { referenceSubject } from "@/lib/rune2/references";
 import type { ProjectNote } from "@/lib/types";
+import { SceneSuggestions } from "./CollectionSchema";
 import { ObjectLinks } from "./ObjectLinks";
+import { AddProperty, ItemProperties } from "./PropertyFields";
 import { usePropertyStore } from "./PropertyStore";
 import { useReferenceStore } from "./ReferenceStore";
 import { useRune2Selection, type PanelView } from "./Rune2Selection";
+import { useViewStore } from "./ViewStore";
 
 // The one optional right-hand panel. Revision Notes and Inspector are separate actions
 // in the context bar, but they share this single physical panel: choosing one
@@ -320,7 +323,9 @@ function NotesView() {
 // when it was made and last edited. Then, for an Entry, a Page or a Scene (a
 // Chapter shown as one piece of writing stands for its only Scene), its links
 // and backlinks (028, ObjectLinks) — the Scene's metadata lives here, outside
-// the prose. Custom Scene properties (architecture §8) are not built yet.
+// the prose. A Scene (and a Chapter shown as one piece of writing) also shows
+// its Scene properties (032, architecture §8), edited in place and saved on
+// their own — never with the prose, never inside the editor.
 
 function plural(n: number, one: string, many = `${one}s`) {
   return `${n.toLocaleString()} ${n === 1 ? one : many}`;
@@ -335,6 +340,8 @@ function InspectorView() {
   const { available: propertied, propertiesOf } = usePropertyStore();
   const { available: referable } = useReferenceStore();
   const subject = referable && selected ? referenceSubject(index, selected) : null;
+  // The Scene whose properties show: the selected Scene, or a Chapter's only Scene.
+  const scene = selected ? referenceSubject(index, selected) : null;
 
   const location = (entry: NavEntry): ReactNode => {
     const parents = entry.kind === "scene" ? entry.path.slice(0, -1) : entry.path;
@@ -484,8 +491,63 @@ function InspectorView() {
           </div>
         ))}
       </dl>
+      {scene?.type === "scene" && <SceneInspectorProperties key={`props-${scene.id}`} sceneId={scene.id} />}
       {/* A fresh section per object, so an open search never carries over. */}
       {subject && <ObjectLinks key={subject.id} subject={subject} />}
     </div>
+  );
+}
+
+/**
+ * A Scene's properties in the Inspector: the Manuscript's Scene properties,
+ * each value edited in place. With none defined, a faint way to start —
+ * never a form the writer must fill. "Edit scene properties" opens the
+ * Manuscript's property settings (rename, reorder, options, remove).
+ */
+function SceneInspectorProperties({ sceneId }: { sceneId: string }) {
+  const { sceneAvailable, manuscriptId, propertiesOf } = usePropertyStore();
+  const { select } = useRune2Selection();
+  const { openScenes } = useViewStore();
+  const [notice, setNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!notice) return;
+    const timer = setTimeout(() => setNotice(null), 5000);
+    return () => clearTimeout(timer);
+  }, [notice]);
+
+  if (!sceneAvailable || !manuscriptId) return null;
+  const count = propertiesOf(manuscriptId).length;
+  return (
+    <section className="r2-scene-props" aria-label="Scene properties">
+      <h3 className="r2-links-head">Scene properties</h3>
+      <ItemProperties
+        itemId={sceneId}
+        ownerId={manuscriptId}
+        empty={
+          <>
+            <SceneSuggestions ownerId={manuscriptId} onNotice={setNotice} />
+            <AddProperty ownerId={manuscriptId} quiet />
+          </>
+        }
+      />
+      {count > 0 && (
+        <button
+          type="button"
+          className="r2-panel-link r2-scene-props-edit"
+          onClick={() => {
+            select(null);
+            openScenes("properties");
+          }}
+        >
+          Edit scene properties
+        </button>
+      )}
+      {notice && (
+        <p role="status" className="r2-panel-notice">
+          {notice}
+        </p>
+      )}
+    </section>
   );
 }

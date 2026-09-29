@@ -28,20 +28,24 @@ import {
   withPropertyMoved,
   withPropertyShown,
 } from "@/lib/rune2/collectionViews";
-import type { CollectionProperty, CollectionViewConfig, CollectionViewType, ViewFilter, ViewFilterOp, WorkspaceCollectionView } from "@/lib/types";
+import { parseNumberInput } from "@/lib/rune2/collectionProperties";
+import { candidates, targetSpecOf } from "@/lib/rune2/references";
+import type { CollectionViewConfig, CollectionViewType, PropertyDefinition, SavedView, ViewFilter, ViewFilterOp } from "@/lib/types";
+import { useRune2Selection } from "./Rune2Selection";
 import { useViewStore } from "./ViewStore";
 
-// The quiet controls of a Collection's saved Views (migration 027):
+// The quiet controls of saved Views — a Collection's (migration 027) and a
+// Manuscript's Scene Views (032), whose owner is passed as `ownerId`:
 //   ViewSwitcher — the Views as a local tab row, once there are two
 //   AddViewMenu  — List, Table or Board, each with one line saying what it is
 //   ViewOptions  — one View's name, type, order, shown properties, sort,
 //                  filters and (a Board) grouping; opened inline like the
 //                  property settings, never a dialog
-// Everything here is configuration; nothing edits an Entry or a value, and
+// Everything here is configuration; nothing edits an item or a value, and
 // deleting a View says so.
 
 /** What a View is doing beyond showing everything: "Sorted · 2 filters". Empty when nothing. */
-export function viewSummary(view: WorkspaceCollectionView, properties: readonly CollectionProperty[]): string {
+export function viewSummary(view: SavedView, properties: readonly PropertyDefinition[]): string {
   const known = new Set(properties.map((p) => p.id));
   const filters = view.config.filters.filter((f) => known.has(f.property)).length;
   const sorted = view.config.sort && (view.config.sort.by === "title" || known.has(view.config.sort.by));
@@ -60,9 +64,9 @@ function useNotice(ms = 5000) {
 
 // ── Tabs ────────────────────────────────────────────────────────────────────
 //
-// A Collection's saved Views as a local tab row — different representations
-// of the one Collection, never working-set tabs: switching changes only which
-// View this Collection shows. The row's order is the Views' saved order: drag
+// An owner's saved Views as a local tab row — different representations of
+// the one Collection (or Manuscript), never working-set tabs: switching
+// changes only which View it shows. The row's order is the Views' saved order: drag
 // a tab, or Alt with ←/→, to move it (move_workspace_collection_view).
 // Double-clicking a tab opens its settings. `+` at the end adds a View.
 
@@ -70,15 +74,15 @@ const VIEW_ICON: Record<CollectionViewType, typeof List> = { list: List, table: 
 const TAB_DRAG = "application/x-rune-view";
 
 export function ViewSwitcher({
-  collectionId,
+  ownerId,
   views,
   active,
   onEdit,
   children,
 }: {
-  collectionId: string;
-  views: WorkspaceCollectionView[];
-  active: WorkspaceCollectionView;
+  ownerId: string;
+  views: SavedView[];
+  active: SavedView;
   /** Opens the settings of the (now active) View. */
   onEdit?: () => void;
   /** At the end of the row: the `+`. */
@@ -103,16 +107,16 @@ export function ViewSwitcher({
     if (to === -2) return;
     e.preventDefault();
     const target = views[Math.max(0, Math.min(views.length - 1, to))];
-    setActiveView(collectionId, target.id);
+    setActiveView(ownerId, target.id);
     focusTab(target.id);
   };
 
   return (
     <div className="r2-view-tabs">
-      <p id={`${collectionId}-tabs-hint`} className="sr-only">
+      <p id={`${ownerId}-tabs-hint`} className="sr-only">
         Alt and the left or right arrow move a view. Double-click a view for its settings.
       </p>
-      <div className="r2-view-switcher" role="tablist" aria-label="Views" aria-describedby={`${collectionId}-tabs-hint`}>
+      <div className="r2-view-switcher" role="tablist" aria-label="Views" aria-describedby={`${ownerId}-tabs-hint`}>
         {views.map((v, at) => {
           const Icon = VIEW_ICON[v.type];
           return (
@@ -128,9 +132,9 @@ export function ViewSwitcher({
               data-drop={over === at && dragging !== null && dragging !== v.id ? (views.findIndex((x) => x.id === dragging) < at ? "after" : "before") : undefined}
               title={`${VIEW_TYPE_LABEL[v.type]} view`}
               draggable
-              onClick={() => setActiveView(collectionId, v.id)}
+              onClick={() => setActiveView(ownerId, v.id)}
               onDoubleClick={() => {
-                setActiveView(collectionId, v.id);
+                setActiveView(ownerId, v.id);
                 onEdit?.();
               }}
               onKeyDown={(e) => onKey(e, at)}
@@ -175,16 +179,16 @@ export function ViewSwitcher({
 const VIEW_TYPE_HINT: Record<CollectionViewType, string> = {
   list: "Names, with a quiet line of details",
   table: "Rows and columns, edited in place",
-  board: "Columns by a Status or Select property",
+  board: "Columns by a Status, Select or Relationship",
 };
 
 export function AddViewMenu({
-  collectionId,
+  ownerId,
   properties,
   compact,
 }: {
-  collectionId: string;
-  properties: CollectionProperty[];
+  ownerId: string;
+  properties: PropertyDefinition[];
   /** Icon only (the `+` at the end of the tab row). */
   compact: boolean;
 }) {
@@ -211,7 +215,7 @@ export function AddViewMenu({
     setOpen(false);
     const groupable = groupableProperties(properties);
     const group = groupable.find((p) => p.type === "status") ?? groupable[0];
-    const error = await createView(collectionId, type, newViewName(type, group));
+    const error = await createView(ownerId, type, newViewName(type, group));
     setBusy(false);
     if (error) setNotice("Couldn’t add the view.");
   };
@@ -287,20 +291,116 @@ const SHOWN_LABEL: Record<CollectionViewType, string> = {
   board: "On cards",
 };
 
-/** A new filter on `property`: its first option for a choice, otherwise "not empty". */
-function newFilter(property: CollectionProperty): ViewFilter {
-  const ops = filterOpsFor(property);
-  if (ops[0] === "is" && property.options[0]) return { property: property.id, op: "is", value: property.options[0].id };
-  return { property: property.id, op: ops.includes("is") ? "is_not_empty" : ops[0] as "is_empty" | "is_not_empty" };
+/** The choices an "is" filter on `property` offers: its options, or a Relationship's possible targets. */
+function useFilterChoices() {
+  const { index } = useRune2Selection();
+  return (property: PropertyDefinition): { id: string; name: string }[] => {
+    if (property.type !== "relationship") return property.options;
+    const spec = targetSpecOf(property);
+    return spec ? candidates(index, spec).map((c) => ({ id: c.id, name: c.title })) : [];
+  };
 }
 
-/** `filter` with a new op (keeping or choosing a value as the op needs). */
-function withOp(filter: ViewFilter, property: CollectionProperty, op: ViewFilterOp): ViewFilter | null {
-  if (op === "is" || op === "is_not") {
-    const value = "value" in filter ? filter.value : property.options[0]?.id;
-    return value ? { property: filter.property, op, value } : null;
+/**
+ * A new filter on `property`: its first choice for a choice or Relationship
+ * (when it has one), a threshold of 0 for a number, today for a date, and
+ * otherwise "not empty" (a read-only field has no empty filter).
+ */
+function newFilter(property: PropertyDefinition, choices: { id: string }[]): ViewFilter | null {
+  for (const op of filterOpsFor(property)) {
+    const next = withOp({ property: property.id, op: "is_not_empty" }, property, op, choices);
+    if (next && (op !== "is" || choices.length)) return next;
   }
-  return { property: filter.property, op };
+  return null;
+}
+
+/** `filter` with a new op (keeping or choosing a value as the op needs), or null when none fits. */
+function withOp(filter: ViewFilter, property: PropertyDefinition, op: ViewFilterOp, choices: { id: string }[]): ViewFilter | null {
+  const kept = "value" in filter ? filter.value : undefined;
+  switch (op) {
+    case "is":
+    case "is_not": {
+      const value = typeof kept === "string" && choices.some((c) => c.id === kept) ? kept : choices[0]?.id;
+      return value ? { property: filter.property, op, value } : null;
+    }
+    case "contains":
+      return { property: filter.property, op, value: filter.op === "contains" ? filter.value : "" };
+    case "gt":
+    case "lt": {
+      if (property.type === "date") {
+        const value = typeof kept === "string" && /^\d{4}-\d{2}-\d{2}$/.test(kept) ? kept : new Date().toISOString().slice(0, 10);
+        return { property: filter.property, op, value };
+      }
+      return { property: filter.property, op, value: typeof kept === "number" ? kept : 0 };
+    }
+    default:
+      return { property: filter.property, op };
+  }
+}
+
+/** A filter's value: a choice, some text, a number or a date — committed when the writer leaves it. */
+function FilterValue({
+  filter,
+  property,
+  choices,
+  onChange,
+}: {
+  filter: ViewFilter;
+  property: PropertyDefinition;
+  choices: { id: string; name: string }[];
+  onChange: (next: ViewFilter) => void;
+}) {
+  const [draft, setDraft] = useState("value" in filter ? String(filter.value) : "");
+  if (!("value" in filter)) return null;
+  if (filter.op === "is" || filter.op === "is_not") {
+    return (
+      <select
+        className="r2-schema-type"
+        aria-label={property.type === "relationship" ? "Item" : "Option"}
+        value={filter.value}
+        onChange={(e) => onChange({ ...filter, value: e.target.value })}
+      >
+        {!choices.some((c) => c.id === filter.value) && <option value={filter.value}>An item in Trash</option>}
+        {choices.map((o) => (
+          <option key={o.id} value={o.id}>
+            {o.name}
+          </option>
+        ))}
+      </select>
+    );
+  }
+  const commit = () => {
+    if (filter.op === "contains") {
+      if (draft.trim() && draft.trim() !== filter.value) onChange({ ...filter, value: draft.trim() });
+      else setDraft(filter.value);
+      return;
+    }
+    if (filter.op !== "gt" && filter.op !== "lt") return;
+    if (property.type === "date") {
+      if (/^\d{4}-\d{2}-\d{2}$/.test(draft) && draft !== filter.value) onChange({ ...filter, value: draft });
+      else setDraft(String(filter.value));
+      return;
+    }
+    const n = parseNumberInput(draft);
+    if (n !== null && n !== filter.value) onChange({ ...filter, value: n });
+    else setDraft(String(filter.value));
+  };
+  return (
+    <input
+      className="r2-schema-type r2-view-filter-input"
+      aria-label={filter.op === "contains" ? "Text" : property.type === "date" ? "Date" : "Number"}
+      type={property.type === "date" && filter.op !== "contains" ? "date" : "text"}
+      inputMode={property.type === "number" ? "decimal" : undefined}
+      placeholder={filter.op === "contains" ? "Some words…" : undefined}
+      maxLength={200}
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") e.currentTarget.blur();
+      }}
+    />
+  );
 }
 
 export function ViewOptions({
@@ -308,13 +408,20 @@ export function ViewOptions({
   views,
   properties,
   onDeleted,
+  naturalOrder = "Order created",
+  itemNoun = "entry",
 }: {
-  view: WorkspaceCollectionView;
-  views: WorkspaceCollectionView[];
-  properties: CollectionProperty[];
+  view: SavedView;
+  views: SavedView[];
+  properties: PropertyDefinition[];
   onDeleted: () => void;
+  /** How `sort: null` reads: "Order created" (Entries), "Manuscript order" (Scenes). */
+  naturalOrder?: string;
+  /** "entry", "scene": what the View shows, for its delete question. */
+  itemNoun?: string;
 }) {
   const { updateView, moveView, deleteView } = useViewStore();
+  const choicesOf = useFilterChoices();
   const [notice, setNotice] = useNotice(6000);
   const [name, setName] = useState(view.name);
   const [confirming, setConfirming] = useState(false);
@@ -428,8 +535,8 @@ export function ViewOptions({
       {confirming && (
         <div className="r2-schema-confirm r2-view-confirm" role="group" aria-label="Delete this view">
           <p>
-            Delete the “{view.name}” view? Only this way of showing the collection goes — every entry and its values
-            stay, and the other views are unchanged.
+            Delete the “{view.name}” view? Only this way of showing them goes — every {itemNoun} and its values stay,
+            and the other views are unchanged.
           </p>
           <button type="button" className="r2-button r2-button--danger" disabled={busy} onClick={() => void remove()}>
             Delete view
@@ -460,7 +567,7 @@ export function ViewOptions({
                   ))}
                 </select>
               ) : (
-                <span className="r2-view-muted">Add a Status or Select property to group by.</span>
+                <span className="r2-view-muted">Add a Status, Select or Relationship property to group by.</span>
               )}
             </dd>
           </div>
@@ -544,7 +651,7 @@ export function ViewOptions({
                 })
               }
             >
-              <option value="">Order created</option>
+              <option value="">{naturalOrder}</option>
               <option value="title">Name</option>
               {sortable.map((p) => (
                 <option key={p.id} value={p.id}>
@@ -576,6 +683,7 @@ export function ViewOptions({
                 {config.filters.map((f, i) => {
                   const property = byId.get(f.property);
                   if (!property) return null;
+                  const choices = choicesOf(property);
                   const replace = (next: ViewFilter | null) =>
                     next && void save({ ...config, filters: config.filters.map((x, j) => (j === i ? next : x)) });
                   return (
@@ -586,7 +694,7 @@ export function ViewOptions({
                         value={property.id}
                         onChange={(e) => {
                           const p = byId.get(e.target.value);
-                          if (p) replace(newFilter(p));
+                          if (p) replace(newFilter(p, choicesOf(p)));
                         }}
                       >
                         {properties.map((p) => (
@@ -599,30 +707,18 @@ export function ViewOptions({
                         className="r2-schema-type"
                         aria-label="Condition"
                         value={f.op}
-                        onChange={(e) => replace(withOp(f, property, e.target.value as ViewFilterOp))}
+                        onChange={(e) => replace(withOp(f, property, e.target.value as ViewFilterOp, choices))}
                       >
                         {filterOpsFor(property)
-                          .filter((op) => (op !== "is" && op !== "is_not") || property.options.length > 0)
+                          .filter((op) => (op !== "is" && op !== "is_not") || choices.length > 0 || f.op === op)
                           .map((op) => (
                             <option key={op} value={op}>
                               {filterOpLabel(property, op)}
                             </option>
                           ))}
                       </select>
-                      {"value" in f && (
-                        <select
-                          className="r2-schema-type"
-                          aria-label="Option"
-                          value={f.value}
-                          onChange={(e) => replace({ ...f, value: e.target.value })}
-                        >
-                          {property.options.map((o) => (
-                            <option key={o.id} value={o.id}>
-                              {o.name}
-                            </option>
-                          ))}
-                        </select>
-                      )}
+                      {/* A fresh field per filter kind, so a draft never carries over. */}
+                      <FilterValue key={`${f.property}-${f.op}`} filter={f} property={property} choices={choices} onChange={replace} />
                       <button
                         type="button"
                         className="r2-icon-button"
@@ -641,7 +737,10 @@ export function ViewOptions({
                 <button
                   type="button"
                   className="r2-prop-add"
-                  onClick={() => void save({ ...config, filters: [...config.filters, newFilter(properties[0])] })}
+                  onClick={() => {
+                    const first = properties.map((p) => newFilter(p, choicesOf(p))).find((f) => f !== null);
+                    if (first) void save({ ...config, filters: [...config.filters, first] });
+                  }}
                 >
                   <Plus size={13} strokeWidth={1.75} aria-hidden />
                   Add a filter

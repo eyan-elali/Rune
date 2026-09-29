@@ -7,10 +7,11 @@ import {
   countOptionUses,
   countValues,
   isChoiceType,
+  isSceneProperty,
   PROPERTY_TYPE_LABEL,
 } from "@/lib/rune2/collectionProperties";
 import { targetPhrase } from "@/lib/rune2/references";
-import type { CollectionProperty, CollectionPropertyType } from "@/lib/types";
+import type { CollectionPropertyType, PropertyDefinition } from "@/lib/types";
 import { AddProperty } from "./PropertyFields";
 import { usePropertyStore } from "./PropertyStore";
 import { useRune2Selection } from "./Rune2Selection";
@@ -29,14 +30,26 @@ import { useViewStore } from "./ViewStore";
 // that Entries use asks first too, and clears it from them. A Relationship
 // (028) says what it points to and whether it holds one or several; removing
 // it removes its links, never the objects they pointed to.
+//
+// The same settings serve the Manuscript's Scene properties (032), given the
+// Manuscript's id: the facts a writer wants to keep about each Scene. Nothing
+// here ever touches a Scene's prose; removing a Scene property removes only
+// the values Scenes hold for it.
 
 function plural(n: number, one: string, many = `${one}s`) {
   return `${n.toLocaleString()} ${n === 1 ? one : many}`;
 }
 
-export function CollectionSchema({ collectionId, collectionTitle }: { collectionId: string; collectionTitle: string }) {
-  const { propertiesOf } = usePropertyStore();
-  const properties = propertiesOf(collectionId);
+/** Two quiet starting points for Scene properties — suggestions, never created for the writer. */
+const SCENE_SUGGESTIONS: { name: string; type: CollectionPropertyType }[] = [
+  { name: "Synopsis", type: "text" },
+  { name: "Status", type: "status" },
+];
+
+export function CollectionSchema({ ownerId, ownerTitle }: { ownerId: string; ownerTitle: string }) {
+  const { propertiesOf, manuscriptId } = usePropertyStore();
+  const properties = propertiesOf(ownerId);
+  const forScenes = ownerId === manuscriptId;
   const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
@@ -46,12 +59,22 @@ export function CollectionSchema({ collectionId, collectionTitle }: { collection
   }, [notice]);
 
   return (
-    <section className="r2-schema" aria-label={`Properties of ${collectionTitle}`}>
+    <section className="r2-schema" aria-label={`Properties of ${ownerTitle}`}>
       {properties.length === 0 ? (
-        <p className="r2-schema-intro">
-          Properties are the facts every entry can hold — a role, a status, a date. They’re optional; add them only if
-          they help.
-        </p>
+        forScenes ? (
+          <>
+            <p className="r2-schema-intro">
+              Scene properties are the facts you want to keep about each scene — a point of view, a place, who is in
+              it, how far along it is. They sit beside your prose, never in it, and they’re optional.
+            </p>
+            <SceneSuggestions ownerId={ownerId} onNotice={setNotice} />
+          </>
+        ) : (
+          <p className="r2-schema-intro">
+            Properties are the facts every entry can hold — a role, a status, a date. They’re optional; add them only if
+            they help.
+          </p>
+        )
       ) : (
         <ol className="r2-schema-list">
           {properties.map((p, i) => (
@@ -59,7 +82,7 @@ export function CollectionSchema({ collectionId, collectionTitle }: { collection
           ))}
         </ol>
       )}
-      <AddProperty collectionId={collectionId} />
+      <AddProperty ownerId={ownerId} />
       {notice && (
         <p role="status" className="r2-doc-note">
           {notice}
@@ -69,13 +92,44 @@ export function CollectionSchema({ collectionId, collectionTitle }: { collection
   );
 }
 
+/** "Start with Synopsis · Status": one click adds that property; nothing is added until the writer asks. */
+export function SceneSuggestions({ ownerId, onNotice }: { ownerId: string; onNotice: (message: string) => void }) {
+  const { createProperty, propertiesOf } = usePropertyStore();
+  const [busy, setBusy] = useState(false);
+  const taken = new Set(propertiesOf(ownerId).map((p) => p.name.toLowerCase()));
+  const offered = SCENE_SUGGESTIONS.filter((s) => !taken.has(s.name.toLowerCase()));
+  if (offered.length === 0) return null;
+  return (
+    <p className="r2-schema-suggest">
+      <span>Start with</span>
+      {offered.map((s) => (
+        <button
+          key={s.name}
+          type="button"
+          className="r2-schema-suggestion"
+          disabled={busy}
+          title={`Add a ${PROPERTY_TYPE_LABEL[s.type]} property called ${s.name}`}
+          onClick={async () => {
+            setBusy(true);
+            const error = await createProperty(ownerId, s.name, s.type);
+            setBusy(false);
+            if (error) onNotice("Couldn’t add the property.");
+          }}
+        >
+          {s.name}
+        </button>
+      ))}
+    </p>
+  );
+}
+
 function SchemaRow({
   property,
   index,
   count,
   onNotice,
 }: {
-  property: CollectionProperty;
+  property: PropertyDefinition;
   index: number;
   count: number;
   onNotice: (message: string) => void;
@@ -127,6 +181,8 @@ function SchemaRow({
   };
 
   const valueCount = countValues(values, property.id);
+  const scene = isSceneProperty(property);
+  const [one, many] = scene ? ["scene", "scenes"] : ["entry", "entries"];
 
   return (
     <li className="r2-schema-row">
@@ -164,14 +220,14 @@ function SchemaRow({
             </span>
             <select
               className="r2-schema-type"
-              aria-label={`How many ${property.name} an entry holds`}
+              aria-label={`How many ${property.name} ${scene ? "a scene" : "an entry"} holds`}
               value={property.relation_many ? "many" : "one"}
               onChange={(e) =>
                 void updateRelationship(property, { many: e.target.value === "many" }).then((error) => {
                   if (error)
                     onNotice(
-                      error === "Some entries hold more than one"
-                        ? "Some entries hold more than one — remove the extras first."
+                      error === "Some entries hold more than one" || error === "Some scenes hold more than one"
+                        ? `Some ${many} hold more than one — remove the extras first.`
                         : "That couldn’t be changed."
                     );
                 })
@@ -204,7 +260,7 @@ function SchemaRow({
           </span>
         )}
         <span className="r2-schema-actions">
-          {!viewable && (
+          {!viewable && !scene && "shown_in_list" in property && (
           <button
             type="button"
             className="r2-icon-button"
@@ -253,10 +309,10 @@ function SchemaRow({
         <div className="r2-schema-confirm" role="alertdialog" aria-label={`Remove ${property.name}?`}>
           <p>
             {confirming === 0
-              ? `Remove “${property.name}”? No entry has a value for it.`
+              ? `Remove “${property.name}”? No ${one} has a value for it.`
               : property.type === "relationship"
-                ? `Remove “${property.name}”? Its links in ${plural(confirming, "entry", "entries")} will be removed — the things they point to stay. This can’t be undone.`
-                : `Remove “${property.name}”? Its value in ${plural(confirming, "entry", "entries")} will be deleted. This can’t be undone.`}
+                ? `Remove “${property.name}”? Its links in ${plural(confirming, one, many)} will be removed — the things they point to stay. This can’t be undone.`
+                : `Remove “${property.name}”? Its value in ${plural(confirming, one, many)} will be deleted.${scene ? " Your prose is untouched." : ""} This can’t be undone.`}
           </p>
           <button
             type="button"
@@ -279,7 +335,7 @@ function SchemaRow({
 }
 
 /** A choice property's options: rename in place, remove (asking first when used), add. */
-function OptionsEditor({ property, onNotice }: { property: CollectionProperty; onNotice: (message: string) => void }) {
+function OptionsEditor({ property, onNotice }: { property: PropertyDefinition; onNotice: (message: string) => void }) {
   const { values, updateProperty } = usePropertyStore();
   const [adding, setAdding] = useState("");
   const [confirm, setConfirm] = useState<{ id: string; uses: number } | null>(null);
@@ -336,7 +392,7 @@ function OptionsEditor({ property, onNotice }: { property: CollectionProperty; o
         <div className="r2-schema-confirm" role="alertdialog" aria-label="Remove option?">
           <p>
             Remove “{property.options.find((o) => o.id === confirm.id)?.name}”? It will be cleared from{" "}
-            {plural(confirm.uses, "entry", "entries")}.
+            {isSceneProperty(property) ? plural(confirm.uses, "scene") : plural(confirm.uses, "entry", "entries")}.
           </p>
           <button type="button" className="r2-button r2-button--danger" autoFocus onClick={() => void removeOption(confirm.id)}>
             Remove

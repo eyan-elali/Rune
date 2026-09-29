@@ -1,11 +1,22 @@
-import type { CollectionProperty, CollectionPropertyType, EntryPropertyValue, PropertyValue } from "@/lib/types";
+import type {
+  CollectionProperty,
+  CollectionPropertyType,
+  EntryPropertyValue,
+  PropertyDefinition,
+  PropertyValue,
+  SceneProperty,
+  ScenePropertyValue,
+} from "@/lib/types";
 
-// Collection properties (migration 026; Relationship from 028) as the shell presents them: labels,
-// how a value reads, which values a Collection's list shows beside an Entry,
-// and which type changes keep every value. Pure — no I/O — so the list, the
-// Entry and the tests share one set of rules. The database is authoritative
-// for what a valid value is (workspace_property_value_valid); these helpers
-// only read and summarise what it stored.
+// Properties as the shell presents them — a Collection's for its Entries
+// (migration 026; Relationship from 028) and a Manuscript's for its Scenes
+// (032), which follow the same rules: labels, how a value reads, which values
+// a list shows beside an item, and which type changes keep every value. Pure
+// — no I/O — so the lists, the Entry, the Inspector and the tests share one
+// set of rules. The database is authoritative for what a valid value is
+// (workspace_property_value_valid); these helpers only read and summarise
+// what it stored. A property's "owner" is its Collection or its Manuscript;
+// values are keyed by the item that holds them (an Entry or a Scene).
 
 export const PROPERTY_TYPES: readonly CollectionPropertyType[] = [
   "text",
@@ -45,29 +56,45 @@ export function convertibleTypes(type: CollectionPropertyType): CollectionProper
   return [type];
 }
 
-/** A Collection's properties in their order. */
-export function propertiesOf(properties: readonly CollectionProperty[], collectionId: string): CollectionProperty[] {
-  return properties.filter((p) => p.collection_id === collectionId).sort((a, b) => a.position - b.position);
+/** Whether a property is a Manuscript's Scene property (032) rather than a Collection's. */
+export function isSceneProperty(property: PropertyDefinition): property is SceneProperty {
+  return "manuscript_id" in property;
 }
 
-/** Key for one Entry's value of one property. */
-export function valueKey(entryId: string, propertyId: string): string {
-  return `${entryId}:${propertyId}`;
+/** The Collection or Manuscript a property belongs to. */
+export function ownerOf(property: PropertyDefinition): string {
+  return isSceneProperty(property) ? property.manuscript_id : property.collection_id;
 }
 
-/** Every stored value by valueKey. */
-export function indexValues(values: readonly EntryPropertyValue[]): Map<string, PropertyValue> {
-  return new Map(values.map((v) => [valueKey(v.entry_id, v.property_id), v.value]));
+/** A Collection's (or a Manuscript's) properties in their order. */
+export function propertiesOf<P extends PropertyDefinition>(properties: readonly P[], ownerId: string): P[] {
+  return properties.filter((p) => ownerOf(p) === ownerId).sort((a, b) => a.position - b.position);
 }
 
-/** How many Entries hold a value for a property (what deleting it would remove). */
+/** Key for one Entry's (or Scene's) value of one property. */
+export function valueKey(itemId: string, propertyId: string): string {
+  return `${itemId}:${propertyId}`;
+}
+
+/** Every stored value by valueKey — Entries' and Scenes' alike. */
+export function indexValues(
+  values: readonly EntryPropertyValue[],
+  sceneValues: readonly ScenePropertyValue[] = []
+): Map<string, PropertyValue> {
+  return new Map([
+    ...values.map((v): [string, PropertyValue] => [valueKey(v.entry_id, v.property_id), v.value]),
+    ...sceneValues.map((v): [string, PropertyValue] => [valueKey(v.scene_id, v.property_id), v.value]),
+  ]);
+}
+
+/** How many items hold a value for a property (what deleting it would remove). */
 export function countValues(values: ReadonlyMap<string, PropertyValue>, propertyId: string): number {
   let n = 0;
   for (const key of values.keys()) if (key.endsWith(`:${propertyId}`)) n++;
   return n;
 }
 
-/** How many Entries use a property's option (what removing the option would clear). */
+/** How many items use a property's option (what removing the option would clear). */
 export function countOptionUses(
   values: ReadonlyMap<string, PropertyValue>,
   propertyId: string,
@@ -82,7 +109,7 @@ export function countOptionUses(
 }
 
 /** The names of the options a value chose, in the property's option order; unknown ids are skipped. */
-export function chosenOptions(property: CollectionProperty, value: PropertyValue | undefined) {
+export function chosenOptions(property: PropertyDefinition, value: PropertyValue | undefined) {
   if (value === undefined) return [];
   const ids = Array.isArray(value) ? value : [value];
   return property.options.filter((o) => ids.includes(o.id));
@@ -110,7 +137,7 @@ export type TitleOf = (id: string) => string | undefined;
  * titles (`titleOf`), never a stored copy.
  */
 export function formatValue(
-  property: CollectionProperty,
+  property: PropertyDefinition,
   value: PropertyValue | undefined,
   titleOf: TitleOf = () => undefined
 ): string | null {
@@ -138,18 +165,18 @@ export function formatValue(
 }
 
 /**
- * One Entry's values for `properties`, in that order, as short phrases —
+ * One item's values for `properties`, in that order, as short phrases —
  * empty ones left out, text kept to one short phrase so the line never
  * becomes a paragraph. What a List View's line and a Board card show.
  */
 export function valueLine(
-  properties: readonly CollectionProperty[],
+  properties: readonly PropertyDefinition[],
   values: ReadonlyMap<string, PropertyValue>,
-  entryId: string,
+  itemId: string,
   titleOf?: TitleOf
 ): string[] {
   return properties.flatMap((p) => {
-    const text = formatValue(p, values.get(valueKey(entryId, p.id)), titleOf);
+    const text = formatValue(p, values.get(valueKey(itemId, p.id)), titleOf);
     if (!text) return [];
     return [p.type === "text" && text.length > 60 ? `${text.slice(0, 59).trimEnd()}…` : text];
   });

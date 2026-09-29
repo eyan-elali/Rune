@@ -315,7 +315,7 @@ test('relationship: cardinality and target change only without losing a value; d
     'every Character stays');
 });
 
-test('relationship in Views: joins a Table, filters empty / not empty, never sorts or groups', async () => {
+test('relationship in Views: joins a Table, filters empty / not empty / by target, groups only when it points to Entries, never sorts', async () => {
   const db = await seededDb();
   const t = await hollow(db);
   const table = ok(await views.createCollectionView(t.characters.id, 'Table', 'table'));
@@ -326,8 +326,13 @@ test('relationship in Views: joins a Table, filters empty / not empty, never sor
 
   const cfg = (c) => ({ properties: [], sort: null, filters: [], group_by: null, ...c });
   refused(await views.updateCollectionView(table.id, { config: cfg({ sort: { by: t.affiliation.id, direction: 'asc' } }) }), 'Invalid view configuration');
-  refused(await views.updateCollectionView(table.id, { config: cfg({ group_by: t.affiliation.id }) }), 'Invalid view configuration');
-  refused(await views.updateCollectionView(table.id, { config: cfg({ filters: [{ property: t.affiliation.id, op: 'is', value: t.drelareth.id }] }) }), 'Invalid view configuration');
+  // From 032: a Relationship to Entries groups a Board (a lane per Entry) and
+  // filters by one target; one to Pages or Scenes never groups, and a target
+  // must be an id.
+  ok(await views.updateCollectionView(table.id, { config: cfg({ group_by: t.affiliation.id }) }));
+  refused(await views.updateCollectionView(table.id, { config: cfg({ group_by: t.appears.id }) }), 'Invalid view configuration');
+  ok(await views.updateCollectionView(table.id, { config: cfg({ filters: [{ property: t.affiliation.id, op: 'is', value: t.drelareth.id }] }) }));
+  refused(await views.updateCollectionView(table.id, { config: cfg({ filters: [{ property: t.affiliation.id, op: 'is', value: 'Drelareth' }] }) }), 'Invalid view configuration');
   ok(await views.updateCollectionView(table.id, { config: cfg({ filters: [{ property: t.affiliation.id, op: 'is_not_empty' }] }) }));
 
   ok(await refs.setEntryRelationship(t.nerai.id, t.affiliation.id, [t.drelareth.id]));
@@ -340,7 +345,7 @@ test('relationship in Views: joins a Table, filters empty / not empty, never sor
   assert.deepEqual(viewModel.arrangeEntries({ ...view, config: cfg({ filters: [{ property: t.affiliation.id, op: 'is_empty' }] }) }, input),
     [t.alaric.id, t.djal.id]);
   assert.ok(!viewModel.sortableProperties(properties).some((p) => p.type === 'relationship'));
-  assert.deepEqual(viewModel.filterOpsFor(properties.find((p) => p.id === t.affiliation.id)), ['is_not_empty', 'is_empty']);
+  assert.deepEqual(viewModel.filterOpsFor(properties.find((p) => p.id === t.affiliation.id)), ['is', 'is_not', 'is_not_empty', 'is_empty'], 'a Relationship also filters by one target (032)');
   const line = propModel.valueLine(properties.filter((p) => p.id === t.affiliation.id), values, t.nerai.id, () => 'Drelareth');
   assert.deepEqual(line, ['Drelareth']);
 });

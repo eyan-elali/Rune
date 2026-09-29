@@ -3,10 +3,10 @@
 import { useRef, useState } from "react";
 import { Plus, Rows3, SlidersHorizontal } from "lucide-react";
 import { renameWorkspaceCollection } from "@/lib/actions/workspaceCollections";
-import { arrangeEntries } from "@/lib/rune2/collectionViews";
+import { arrangeEntries, type LaneTargets } from "@/lib/rune2/collectionViews";
 import type { NavEntry } from "@/lib/rune2/navigatorModel";
 import { CollectionSchema } from "./CollectionSchema";
-import { BoardView, ListView, TableView } from "./CollectionViewBodies";
+import { BoardView, ListView, TableView, type ItemPresenter } from "./CollectionViewBodies";
 import { usePropertyStore } from "./PropertyStore";
 import { useRune2Selection } from "./Rune2Selection";
 import { useNewEntry } from "./useNewEntry";
@@ -40,6 +40,7 @@ export function CollectionView({ entry }: { entry: NavEntry }) {
   const { available: viewable, viewsOf, activeViewOf } = useViewStore();
   const { add, busy, notice } = useNewEntry(entry.id);
   const bodyRef = useRef<HTMLDivElement>(null);
+  const laneTargets = useLaneTargets();
   const [panel, setPanel] = useState<Panel>(null);
   const toggle = (p: Exclude<Panel, null>) => setPanel((open) => (open === p ? null : p));
 
@@ -55,6 +56,17 @@ export function CollectionView({ entry }: { entry: NavEntry }) {
   });
   const hiddenCount = entryIds.length - arranged.length;
   const summary = viewable ? viewSummary(view, properties) : "";
+  const presenter: ItemPresenter = {
+    noun: "Entries",
+    titleHeader: "Name",
+    label: (id) => {
+      const e = index.get(id);
+      return e ? { title: e.title, named: e.named } : null;
+    },
+    openId: (id) => id,
+    values,
+    laneTargets,
+  };
 
   return (
     <div className="r2-writing">
@@ -71,13 +83,13 @@ export function CollectionView({ entry }: { entry: NavEntry }) {
         {propertied && (
           <div className="r2-collection-bar" data-tabs={views.length > 1 || undefined}>
             {views.length > 1 && (
-              <ViewSwitcher collectionId={entry.id} views={views} active={view} onEdit={() => setPanel("view")}>
-                {viewable && <AddViewMenu collectionId={entry.id} properties={properties} compact />}
+              <ViewSwitcher ownerId={entry.id} views={views} active={view} onEdit={() => setPanel("view")}>
+                {viewable && <AddViewMenu ownerId={entry.id} properties={properties} compact />}
               </ViewSwitcher>
             )}
             <div className="r2-collection-tools">
               {viewable && views.length === 1 && (
-                <AddViewMenu collectionId={entry.id} properties={properties} compact={false} />
+                <AddViewMenu ownerId={entry.id} properties={properties} compact={false} />
               )}
               {viewable && (
                 <button
@@ -106,7 +118,7 @@ export function CollectionView({ entry }: { entry: NavEntry }) {
           </div>
         )}
         {propertied && panel === "properties" && (
-          <CollectionSchema collectionId={entry.id} collectionTitle={entry.title} />
+          <CollectionSchema ownerId={entry.id} ownerTitle={entry.title} />
         )}
         {viewable && panel === "view" && (
           <ViewOptions
@@ -126,17 +138,19 @@ export function CollectionView({ entry }: { entry: NavEntry }) {
             </p>
           )}
           {view.type === "table" ? (
-            <TableView collectionTitle={entry.title} view={view} properties={properties} entryIds={arranged} />
+            <TableView ownerTitle={entry.title} view={view} properties={properties} entryIds={arranged} presenter={presenter} />
           ) : view.type === "board" ? (
             <BoardView
-              collectionId={entry.id}
+              ownerId={entry.id}
+              addToCollection={entry.id}
               view={view}
               properties={properties}
               entryIds={arranged}
+              presenter={presenter}
               onChooseGrouping={() => setPanel("view")}
             />
           ) : (
-            <ListView collectionTitle={entry.title} view={view} properties={properties} entryIds={arranged} />
+            <ListView ownerTitle={entry.title} view={view} properties={properties} entryIds={arranged} presenter={presenter} />
           )}
 
           {entryIds.length === 0 && view.type !== "board" && <p className="r2-entry-empty">No entries yet.</p>}
@@ -155,6 +169,21 @@ export function CollectionView({ entry }: { entry: NavEntry }) {
       </div>
     </div>
   );
+}
+
+/**
+ * A Board grouped by a Relationship has a lane per Entry of the Collection it
+ * points to: those Entries, in that Collection's order, by current title.
+ */
+export function useLaneTargets(): LaneTargets {
+  const { index } = useRune2Selection();
+  return (property) => {
+    const collection = property.relation_collection_id ? index.get(property.relation_collection_id) : undefined;
+    return (collection?.entryIds ?? []).flatMap((id) => {
+      const e = index.get(id);
+      return e ? [{ id, name: e.title }] : [];
+    });
+  };
 }
 
 /** "+ Entry" in the context bar while an Entry is open: another Entry in the same Collection. */

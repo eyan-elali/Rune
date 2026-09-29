@@ -12,6 +12,7 @@ import { NavigatorMenu } from "./NavigatorMenu";
 import { useRune2Selection } from "./Rune2Selection";
 import { Rune2Writing } from "./Rune2Writing";
 import { CollectionView, NewEntryAction } from "./CollectionView";
+import { ManuscriptScenes } from "./ManuscriptScenes";
 import { WorkspacePages } from "./WorkspacePages";
 import { useTrash } from "./WorkspaceTrash";
 
@@ -23,7 +24,8 @@ import { useTrash } from "./WorkspaceTrash";
 // a Group shows a structural summary; a Workspace Page or Collection Entry
 // opens in its own editor (WorkspacePages); a Collection shows its Entries
 // (CollectionView); with nothing selected, the content area shows its route
-// (the Manuscript overview).
+// (the Manuscript overview), and under it the Manuscript's Scene Views
+// (ManuscriptScenes) — one quiet line until the writer asks for them.
 
 const KIND_LABEL: Record<NavKind, string> = {
   group: "Group",
@@ -281,7 +283,12 @@ export function Rune2SelectionView({ children }: { children: ReactNode }) {
         (selected
           ? (selected.kind === "group" && <StructurePreview entry={selected} />) ||
             (selected.kind === "workspaceCollection" && <CollectionView key={selected.id} entry={selected} />)
-          : children)}
+          : (
+            <>
+              {children}
+              <ManuscriptScenes />
+            </>
+          ))}
       {/* Always mounted, in the same place, so a Scene that stays on screen
           between views keeps its editor instance. */}
       <Rune2Writing projectId={manuscript.project.id} target={target} />

@@ -86,7 +86,7 @@ export function deletionWarning(item: TrashItem): string {
     case "folder":
       return `Delete the folder “${title}” permanently?`;
     case "scene":
-      return `Delete “${title}” permanently? Its prose can’t be recovered. Your writing history is kept.`;
+      return `Delete “${title}” permanently? Its prose and scene properties can’t be recovered. Your writing history is kept.`;
     case "collection": {
       const entries = item.entries ?? 0;
       const lead =
@@ -96,7 +96,7 @@ export function deletionWarning(item: TrashItem): string {
       const props = item.properties ?? 0;
       return props === 0
         ? lead
-        : `${lead} ${props === 1 ? "A relationship" : `${props} relationships`} in other collections that ${
+        : `${lead} ${props === 1 ? "A relationship" : `${props} relationships`} elsewhere that ${
             props === 1 ? "points" : "point"
           } here will be removed too.`;
     }
