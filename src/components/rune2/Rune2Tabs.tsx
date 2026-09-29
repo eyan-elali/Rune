@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { PanelLeft, X } from "lucide-react";
 import { isWorkspaceKind } from "@/lib/rune2/navigatorModel";
+import { ReadingTabLabel } from "./ReadingMode";
 import { MANUSCRIPT_TAB, useRune2Selection, type WorkingTab } from "./Rune2Selection";
 
 // The working set: a quiet row of the objects the writer has open in tabs of
@@ -15,11 +16,12 @@ import { MANUSCRIPT_TAB, useRune2Selection, type WorkingTab } from "./Rune2Selec
 // brings it back sits at the row's start.
 
 function tabLabel(tab: WorkingTab): string {
-  return tab.entry?.title ?? "Manuscript";
+  return tab.entry?.title ?? (tab.reading ? "Reading" : "Manuscript");
 }
 
 /** Where the tab's object sits, for its tooltip ("Book One / Chapter 3 / Scene 2"). */
 function tabPath(tab: WorkingTab): string {
+  if (tab.reading) return "Reading Mode — read-only";
   if (!tab.entry) return "Manuscript";
   const trail =
     tab.entry.kind === "unplacedScene"
@@ -83,7 +85,7 @@ export function Rune2Tabs() {
                 }}
               >
                 {context && <span className="r2-tab-context">{context} ·</span>}
-                <span className="r2-tab-label">{label}</span>
+                <span className="r2-tab-label">{tab.reading ? <ReadingTabLabel source={tab.reading} /> : label}</span>
               </button>
               <button
                 type="button"

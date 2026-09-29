@@ -163,6 +163,14 @@ export const RUNE2_NOTES = {
     '(chapter_id null = Unplaced, position) and text (revision_id → scene_revisions).',
     'Clients only read.',
   ],
+  scene_revision_notes: [
+    'Scene revision note (038): one plain-text note per Scene, anchored by scene_id,',
+    'beside the prose and never in it — not counted, exported, searched or captured',
+    'by Milestones, and writing it never touches the Scene row. Follows the Scene',
+    'through moves; kept through Trash (hidden while the Scene is trashed); deleted',
+    'with the Scene. Written only by save_scene_revision_note (version-checked; a',
+    'blank note removes the row). Clients only read.',
+  ],
   projects: [
     'word_count is the ORDERED MANUSCRIPT TOTAL (placed Scenes only), maintained',
     'by the scenes_refresh_project_word_count trigger. Not the free-limit total.',

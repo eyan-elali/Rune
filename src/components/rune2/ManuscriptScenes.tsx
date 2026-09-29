@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { LayoutList, Rows3, SlidersHorizontal, X } from "lucide-react";
+import { BookOpen, LayoutList, Rows3, SlidersHorizontal, X } from "lucide-react";
 import { arrangeItems, isFallbackView } from "@/lib/rune2/collectionViews";
 import { openableId } from "@/lib/rune2/references";
 import {
@@ -37,6 +37,9 @@ import { useViewStore } from "./ViewStore";
 // loaded to draw it. Manuscript order is placed Scenes in reading order, then
 // the Unplaced ones under their own heading; it is derived, never stored.
 //
+// "Read" opens the View in Reading Mode: the same Scenes, the View's filters
+// and order, read continuously from their canonical text — never copied.
+//
 // Progressive disclosure: a writer who has no Scene View sees one quiet line
 // ("View scenes as a list, table or board"); nothing else changes, and
 // nothing is saved until they change a View.
@@ -44,6 +47,7 @@ import { useViewStore } from "./ViewStore";
 export function ManuscriptScenes() {
   const { sceneAvailable, manuscriptId } = usePropertyStore();
   const { viewsOf, activeViewOf, scenesOpen, scenePanel, openScenes, closeScenes, setScenePanel } = useViewStore();
+  const { openReading } = useRune2Selection();
   const views = manuscriptId ? viewsOf(manuscriptId) : [];
   const saved = views.filter((v) => !isFallbackView(v));
   const open = scenesOpen || saved.length > 0;
@@ -114,6 +118,17 @@ export function ManuscriptScenes() {
                 ? "Scene properties"
                 : `${ownProperties.length} scene ${ownProperties.length === 1 ? "property" : "properties"}`}
             </button>
+            {arranged.length > 0 && (
+              <button
+                type="button"
+                className="r2-collection-tool"
+                onClick={() => openReading({ kind: "view", viewId: view.id })}
+                title="Read these scenes one after another — read-only, in a tab of its own"
+              >
+                <BookOpen size={13} strokeWidth={1.75} aria-hidden />
+                Read
+              </button>
+            )}
           </div>
         </div>
         {scenePanel === "properties" && <CollectionSchema ownerId={manuscriptId} ownerTitle="Scenes" />}

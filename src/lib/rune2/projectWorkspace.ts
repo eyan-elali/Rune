@@ -84,6 +84,11 @@ export type ProjectWorkspace = {
    * not, none of these is offered.
    */
   chapterTrashable: boolean;
+  /**
+   * Whether Scenes can carry revision notes (migration 038). When not, the
+   * Inspector and Reading Mode offer no Scene note.
+   */
+  sceneNotable: boolean;
   /** The Project's Manuscript (the owner of its Scene properties and Scene Views), or null if unreadable. */
   manuscriptId: string | null;
   /** The Manuscript's Scene property definitions (any order; see propertiesOf). */
@@ -120,6 +125,7 @@ export const loadProjectWorkspace = cache(async (projectId: string): Promise<Pro
     scenePropertiesRead,
     sceneValuesRead,
     sceneViewsRead,
+    sceneNotesRead,
   ] = await Promise.all([
     supabase
       .from("workspace_documents")
@@ -169,7 +175,10 @@ export const loadProjectWorkspace = cache(async (projectId: string): Promise<Pro
       .select("id, manuscript_id, project_id, name, type, position, config, created_at, updated_at")
       .eq("project_id", projectId)
       .order("position", { ascending: true }),
+    // No rows: only whether Scene revision notes exist (migration 038).
+    supabase.from("scene_revision_notes").select("scene_id").limit(0),
   ]);
+  const sceneNotable = !sceneNotesRead.error;
   // Scene metadata is optional to everything else: without it (before 032),
   // the manuscript and the Workspace work exactly as before.
   const manuscriptId = (manuscriptRead.data?.id as string | undefined) ?? null;
@@ -206,6 +215,7 @@ export const loadProjectWorkspace = cache(async (projectId: string): Promise<Pro
     trashable: false,
     sceneTrashable,
     chapterTrashable: false,
+    sceneNotable,
     ...noProperties,
     ...scenes,
   };
@@ -262,6 +272,7 @@ export const loadProjectWorkspace = cache(async (projectId: string): Promise<Pro
     trashable,
     sceneTrashable,
     chapterTrashable,
+    sceneNotable,
     ...properties,
     ...scenes,
   };

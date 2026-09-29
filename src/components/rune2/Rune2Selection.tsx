@@ -1,9 +1,10 @@
 "use client";
 
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from "react";
 import type { ProjectManuscript } from "@/lib/rune2/projectManuscript";
 import type { ProjectWorkspace } from "@/lib/rune2/projectWorkspace";
 import { indexManuscript, indexWorkspace, isSelectable, type NavEntry } from "@/lib/rune2/navigatorModel";
+import { readingSourceOf, readingTabKey, type ReadingPosition, type ReadingSource } from "@/lib/rune2/reading";
 import {
   closeTab as closeTabIn,
   forgetTabs,
@@ -45,6 +46,17 @@ import {
 // stay mounted, hidden); closing it shows the same selection again, and any
 // navigation — selecting an object, opening one in a new tab, a tab, a newly
 // created object — leaves Trash for that object.
+//
+// Reading Mode (Milestone 18) is a way of seeing the manuscript, not an
+// object: its tab key names what is read (the whole manuscript, or one Scene
+// View — lib/rune2/reading.ts), and at most one tab reads each. While a
+// Reading tab is active nothing is selected (`selected` is null) and
+// `reading` says what is read. Opening a Scene from Reading Mode gives it a
+// tab of its own, so the Reading tab stays where it was. Where the writer had
+// read to is remembered per source for the session, so a Reading tab reopened
+// — or shown again after editing — returns there, and reads the Scenes'
+// current text again. The Inspector, while reading, describes the Scene being
+// read (`readingAt`), or one the writer chose to stay on (`readingFocus`).
 
 export { MANUSCRIPT_TAB };
 
@@ -52,8 +64,10 @@ export type PanelView = "notes" | "inspector";
 
 export type WorkingTab = {
   key: string;
-  /** The tab's object, or null for the Manuscript. */
+  /** The tab's object, or null for the Manuscript or a Reading tab. */
   entry: NavEntry | null;
+  /** What a Reading tab reads; null for every other tab. */
+  reading: ReadingSource | null;
 };
 
 type Rune2SelectionValue = {
@@ -103,6 +117,26 @@ type Rune2SelectionValue = {
   /** Whether the content column shows the Project's Trash instead of the selection. */
   trashOpen: boolean;
   setTrashOpen: (open: boolean) => void;
+  /** What the active Reading tab reads, or null when no Reading tab is active. */
+  reading: ReadingSource | null;
+  /**
+   * Opens Reading Mode for `source` in a tab of its own (or goes to its tab),
+   * at the Group, Chapter or Scene `at` when given — else where the writer
+   * last was in it.
+   */
+  openReading: (source: ReadingSource, at?: string | null) => void;
+  /** A block to go to when Reading Mode shows (then forgotten), set by openReading. */
+  readingJump: { key: string; anchor: string } | null;
+  clearReadingJump: () => void;
+  /** Where the writer had read to in a source this session. */
+  readingPositionOf: (key: string) => ReadingPosition | null;
+  rememberReadingPosition: (key: string, position: ReadingPosition) => void;
+  /** The Scene being read now (updated when reading settles on another Scene). */
+  readingAt: string | null;
+  setReadingAt: (id: string | null) => void;
+  /** A Scene the Inspector stays on while reading, whatever is read; null: it follows `readingAt`. */
+  readingFocus: string | null;
+  setReadingFocus: (id: string | null) => void;
 };
 
 const Rune2SelectionContext = createContext<Rune2SelectionValue | null>(null);
@@ -124,6 +158,11 @@ export function Rune2SelectionProvider({
   const [navCollapsed, setNavCollapsed] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [trashOpen, setTrashOpen] = useState(false);
+  const [readingJump, setReadingJump] = useState<{ key: string; anchor: string } | null>(null);
+  const [readingAt, setReadingAt] = useState<string | null>(null);
+  const [readingFocus, setReadingFocus] = useState<string | null>(null);
+  // Positions only: never shown, so kept without re-rendering.
+  const readingPositions = useRef(new Map<string, ReadingPosition>());
 
   // Titles renamed but not yet re-read; a fresh read supersedes them.
   const [renamed, setRenamed] = useState<Record<string, string>>({});
@@ -139,7 +178,7 @@ export function Rune2SelectionProvider({
   );
   const has = useCallback(
     (key: string) => {
-      if (key === MANUSCRIPT_TAB) return true;
+      if (key === MANUSCRIPT_TAB || readingSourceOf(key)) return true;
       const entry = index.get(key);
       return entry !== undefined && isSelectable(entry);
     },
@@ -155,7 +194,8 @@ export function Rune2SelectionProvider({
   }
 
   const resolved = resolveTabs(tabState, has);
-  const selected = resolved.active === MANUSCRIPT_TAB ? null : (index.get(resolved.active) ?? null);
+  const reading = useMemo(() => readingSourceOf(resolved.active), [resolved.active]);
+  const selected = resolved.active === MANUSCRIPT_TAB || reading ? null : (index.get(resolved.active) ?? null);
 
   const select = useCallback(
     (id: string | null) => {
@@ -203,9 +243,30 @@ export function Rune2SelectionProvider({
   const toggleNav = useCallback(() => setNavCollapsed((v) => !v), []);
   const togglePanel = useCallback((view: PanelView) => setPanel((prev) => (prev === view ? null : view)), []);
   const closePanel = useCallback(() => setPanel(null), []);
+  const openReading = useCallback(
+    (source: ReadingSource, at: string | null = null) => {
+      const key = readingTabKey(source);
+      setAwaitedId(null);
+      requestSceneFocus(null);
+      setTrashOpen(false);
+      setReadingFocus(null);
+      setReadingJump(at ? { key, anchor: at } : null);
+      setTabState((prev) => openTab(resolveTabs(prev, has), key));
+    },
+    [has]
+  );
+  const clearReadingJump = useCallback(() => setReadingJump(null), []);
+  const readingPositionOf = useCallback((key: string) => readingPositions.current.get(key) ?? null, []);
+  const rememberReadingPosition = useCallback((key: string, position: ReadingPosition) => {
+    readingPositions.current.set(key, position);
+  }, []);
 
   const tabs = useMemo(
-    () => resolved.tabs.map((key) => ({ key, entry: key === MANUSCRIPT_TAB ? null : (index.get(key) ?? null) })),
+    () =>
+      resolved.tabs.map((key) => {
+        const source = readingSourceOf(key);
+        return { key, entry: key === MANUSCRIPT_TAB || source ? null : (index.get(key) ?? null), reading: source };
+      }),
     [resolved.tabs, index]
   );
 
@@ -237,6 +298,16 @@ export function Rune2SelectionProvider({
       setSearchOpen,
       trashOpen,
       setTrashOpen,
+      reading,
+      openReading,
+      readingJump,
+      clearReadingJump,
+      readingPositionOf,
+      rememberReadingPosition,
+      readingAt,
+      setReadingAt,
+      readingFocus,
+      setReadingFocus,
     }),
     [
       manuscript,
@@ -262,6 +333,14 @@ export function Rune2SelectionProvider({
       closePanel,
       searchOpen,
       trashOpen,
+      reading,
+      openReading,
+      readingJump,
+      clearReadingJump,
+      readingPositionOf,
+      rememberReadingPosition,
+      readingAt,
+      readingFocus,
     ]
   );
   return <Rune2SelectionContext.Provider value={value}>{children}</Rune2SelectionContext.Provider>;

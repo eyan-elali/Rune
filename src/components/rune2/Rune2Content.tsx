@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { MoreHorizontal, PanelRight, Plus, StickyNote, Trash2 } from "lucide-react";
+import { BookOpen, MoreHorizontal, PanelRight, Plus, StickyNote, Trash2 } from "lucide-react";
 import { createScene } from "@/lib/actions/scenes";
 import { cacheScene } from "@/lib/offline/db";
 import { isWorkspaceKind, type NavEntry, type NavKind } from "@/lib/rune2/navigatorModel";
@@ -13,6 +13,7 @@ import { useRune2Selection } from "./Rune2Selection";
 import { Rune2Writing } from "./Rune2Writing";
 import { CollectionView, NewEntryAction } from "./CollectionView";
 import { ManuscriptScenes } from "./ManuscriptScenes";
+import { ReadingMode, useReadingTitle } from "./ReadingMode";
 import { WorkspacePages } from "./WorkspacePages";
 import { useTrash } from "./WorkspaceTrash";
 
@@ -25,7 +26,9 @@ import { useTrash } from "./WorkspaceTrash";
 // opens in its own editor (WorkspacePages); a Collection shows its Entries
 // (CollectionView); with nothing selected, the content area shows its route
 // (the Manuscript overview), and under it the Manuscript's Scene Views
-// (ManuscriptScenes) — one quiet line until the writer asks for them.
+// (ManuscriptScenes) — one quiet line until the writer asks for them. A
+// Reading tab shows Reading Mode (read-only; see ReadingMode), and "Read"
+// in the context bar opens it at the Group, Chapter or Scene in view.
 
 const KIND_LABEL: Record<NavKind, string> = {
   group: "Group",
@@ -43,8 +46,16 @@ function plural(n: number, one: string, many = `${one}s`) {
 }
 
 export function Rune2ContextBar() {
-  const { manuscript, index, selected, select, openInNewTab, panel, togglePanel } = useRune2Selection();
+  const { manuscript, index, selected, select, openInNewTab, panel, togglePanel, reading, openReading } =
+    useRune2Selection();
+  const readingTitle = useReadingTitle(reading);
   const target = writingTargetFor(selected, index);
+  // "Read" from the Manuscript, or from a Group, Chapter or placed Scene: the
+  // whole manuscript, opened at that place. (An Unplaced Scene is not part of it.)
+  const readFrom =
+    !reading && (!selected || selected.kind === "group" || selected.kind === "chapter" || selected.kind === "scene")
+      ? (selected?.id ?? null)
+      : undefined;
   // id undefined = a label only (Unplaced Scenes and Workspace are sections,
   // and a Folder is navigation — none of them opens). An Entry's Collection
   // opens.
@@ -59,6 +70,7 @@ export function Rune2ContextBar() {
     );
     trail.push({ id: selected.id, title: selected.title });
   }
+  if (reading) trail.push({ title: readingTitle });
 
   return (
     <header className="r2-contextbar">
@@ -99,6 +111,24 @@ export function Rune2ContextBar() {
         {selected && trashTypeOf(selected) && selected.kind !== "workspaceFolder" && (
           <>
             <ItemMenu entry={selected} />
+            <span className="r2-contextbar-divider" aria-hidden />
+          </>
+        )}
+        {readFrom !== undefined && manuscript.placedSceneCount > 0 && (
+          <>
+            <button
+              type="button"
+              className="r2-action"
+              onClick={() => openReading({ kind: "manuscript" }, readFrom)}
+              title={
+                selected
+                  ? `Read the manuscript from ${selected.title} — read-only, in a tab of its own`
+                  : "Read the whole manuscript — read-only, in a tab of its own"
+              }
+            >
+              <BookOpen size={14} strokeWidth={1.75} aria-hidden />
+              Read
+            </button>
             <span className="r2-contextbar-divider" aria-hidden />
           </>
         )}
@@ -275,11 +305,13 @@ function AddSceneAction({ chapterId }: { chapterId: string }) {
 }
 
 export function Rune2SelectionView({ children }: { children: ReactNode }) {
-  const { manuscript, selected, index } = useRune2Selection();
+  const { manuscript, selected, index, reading, activeTab } = useRune2Selection();
   const target = writingTargetFor(selected, index);
   return (
     <>
+      {reading && <ReadingMode key={activeTab} source={reading} />}
       {!target &&
+        !reading &&
         (selected
           ? (selected.kind === "group" && <StructurePreview entry={selected} />) ||
             (selected.kind === "workspaceCollection" && <CollectionView key={selected.id} entry={selected} />)

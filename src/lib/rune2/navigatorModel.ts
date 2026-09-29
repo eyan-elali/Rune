@@ -371,3 +371,41 @@ export function sceneDestinations(
   out.push({ chapterId: null, depth: 0 });
   return out.filter((d) => d.chapterId !== currentChapterId);
 }
+
+/** A Group and every Group inside it, at any depth — the places it can never move into. */
+export function groupSubtreeIds(outline: ManuscriptOutlineNode[], groupId: string): Set<string> {
+  const ids = new Set<string>();
+  const collect = (nodes: ManuscriptOutlineNode[]) =>
+    nodes.forEach((n) => {
+      if (n.kind !== "group") return;
+      ids.add(n.group.id);
+      collect(n.children);
+    });
+  const find = (nodes: ManuscriptOutlineNode[]): boolean =>
+    nodes.some((n) => {
+      if (n.kind !== "group") return false;
+      if (n.group.id === groupId) {
+        ids.add(groupId);
+        collect(n.children);
+        return true;
+      }
+      return find(n.children);
+    });
+  if (!find(outline)) ids.add(groupId);
+  return ids;
+}
+
+/**
+ * Where a Group can go: the top level (groupId null) and every Group in
+ * reading order — except itself and the Groups inside it (never a cycle), and
+ * except where it is now. The database refuses a cycle too
+ * (move_manuscript_group); this only offers the moves that make sense.
+ */
+export function groupDestinations(
+  outline: ManuscriptOutlineNode[],
+  groupId: string,
+  currentParentId: string | null
+): { groupId: string | null; depth: number }[] {
+  const inside = groupSubtreeIds(outline, groupId);
+  return chapterDestinations(outline, currentParentId).filter((d) => d.groupId === null || !inside.has(d.groupId));
+}

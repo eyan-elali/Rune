@@ -53,7 +53,7 @@ test('a database built from schema.sql alone is identical to baseline + migratio
   assert.deepEqual(diffCounts(a, b), []);
   const versions = async (db) => (await db.query(`select version, name, note from public.schema_migrations order by version`)).rows;
   assert.deepEqual(await versions(fresh), await versions(migrated));
-  assert.deepEqual((await versions(fresh)).map((r) => r.version).slice(-25), ['013', '014', '015', '016', '017', '018', '019', '020', '021', '022', '023', '024', '025', '026', '027', '028', '029', '030', '031', '032', '033', '034', '035', '036', '037']);
+  assert.deepEqual((await versions(fresh)).map((r) => r.version).slice(-26), ['013', '014', '015', '016', '017', '018', '019', '020', '021', '022', '023', '024', '025', '026', '027', '028', '029', '030', '031', '032', '033', '034', '035', '036', '037', '038']);
 });
 
 test('signup still creates the profile and pricing entitlements on the Rune 2.0 schema', async () => {
@@ -1659,6 +1659,53 @@ test('037 requires 036, refuses to run twice (including on schema.sql), and chan
   for (const db of [await migratedDb(), await freshRune2Db()]) {
     const before = await captureCatalog(db);
     await assert.rejects(db.exec(readMigration(M037)), /Migration 037 has already been applied/);
+    assert.deepEqual(diffCatalogs(before, await captureCatalog(db)).differences, []);
+  }
+});
+
+// ── migration 038 ─────────────────────────────────────────────────────────────
+
+const M038 = '038_scene_revision_notes.sql';
+
+async function db037() {
+  const db = await db036();
+  await db.exec(readMigration(M037));
+  return db;
+}
+
+test('038 on 037: Scene revision notes — one new table and one function; no existing table, function, policy or row changes', async () => {
+  const db = await db037();
+  const before = await captureCatalog(db);
+  const rows = async () => ({
+    scenes: (await db.query(`select * from public.scenes order by id`)).rows,
+    projects: (await db.query(`select id, word_count, updated_at from public.projects order by id`)).rows,
+  });
+  const beforeRows = await rows();
+  await db.exec(readMigration(M038));
+  const keys = diffCatalogs(before, await captureCatalog(db)).differences.map((d) => `${d.section}:${d.kind}${d.fields ? '[' + d.fields.join(',') + ']' : ''}:${d.key}`).sort();
+  const changes = keys.filter((k) => !/^relation_counts?:/.test(k));
+  assert.deepEqual(changes.filter((k) => !/:(added):/.test(k)), [], 'only additions');
+  assert.deepEqual(changes.filter((k) => /^(relations|policies|triggers):/.test(k)), [
+    'policies:added:scene_revision_notes.scene_revision_notes: select own',
+    'relations:added:scene_revision_notes',
+  ], 'no trigger anywhere: a note never reaches the Scene row');
+  assert.deepEqual(changes.filter((k) => k.startsWith('functions:')).map((k) => k.split(':')[2].split('(')[0]), ['save_scene_revision_note']);
+  const grants = changes.filter((k) => k.startsWith('function_grants:'));
+  assert.deepEqual(grants.filter((k) => / anon /.test(k)), [], 'anon executes nothing new');
+  assert.ok(grants.some((k) => /save_scene_revision_note.* authenticated EXECUTE/.test(k)));
+  const tableGrants = changes.filter((k) => k.startsWith('table_grants:') && /scene_revision_notes (anon|authenticated) (INSERT|UPDATE|DELETE)/.test(k));
+  assert.deepEqual(tableGrants, [], 'clients never write the table');
+  assert.deepEqual(await rows(), beforeRows, 'no row changes');
+});
+
+test('038 requires 037, refuses to run twice (including on schema.sql), and changes nothing when it refuses', async () => {
+  const only036 = await db036();
+  const before036 = await captureCatalog(only036);
+  await assert.rejects(only036.exec(readMigration(M038)), /requires migration 037/);
+  assert.deepEqual(diffCatalogs(before036, await captureCatalog(only036)).differences, []);
+  for (const db of [await migratedDb(), await freshRune2Db()]) {
+    const before = await captureCatalog(db);
+    await assert.rejects(db.exec(readMigration(M038)), /Migration 038 has already been applied/);
     assert.deepEqual(diffCatalogs(before, await captureCatalog(db)).differences, []);
   }
 });

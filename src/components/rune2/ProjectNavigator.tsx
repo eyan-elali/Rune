@@ -39,7 +39,7 @@ import {
 } from "lucide-react";
 import { createChapter, removeChapterKeepScenes, updateChapter } from "@/lib/actions/chapters";
 import { createScene, createUnplacedScene, moveSceneToUnplaced, placeScene, renameScene } from "@/lib/actions/scenes";
-import { createGroup, deleteGroup, moveChapter, renameGroup } from "@/lib/actions/structure";
+import { createGroup, deleteGroup, moveChapter, moveGroup, renameGroup } from "@/lib/actions/structure";
 import { createWorkspacePage, renameWorkspacePage } from "@/lib/actions/workspacePages";
 import {
   createWorkspaceFolder,
@@ -56,6 +56,8 @@ import {
 import {
   chapterDestinations,
   chapterShowsScenes,
+  groupDestinations,
+  groupSubtreeIds,
   indexBeside as indexAmong,
   manuscriptPlaces,
   sceneDestinations,
@@ -65,6 +67,7 @@ import { indexBeside, moveDestinations, walkWorkspaceTree, type WorkspaceTreeNod
 import type { ManuscriptOutlineNode } from "@/lib/rune2/projectManuscript";
 import { NavigatorMenu, type NavigatorMenuItem } from "./NavigatorMenu";
 import { useRune2Selection } from "./Rune2Selection";
+import { useDragAutoScroll } from "./useDragAutoScroll";
 import { useTrash } from "./WorkspaceTrash";
 
 // The Rune 2.0 project navigator: the Manuscript (Groups → Chapters → Scenes)
@@ -85,14 +88,18 @@ import { useTrash } from "./WorkspaceTrash";
 // A Folder is navigation only: a click opens or closes it, it never opens in
 // a tab.
 //
-// Workspace items, Chapters and Scenes move by "Move up / down / to…" in their
-// menu, ⌥↑ / ⌥↓ on a focused row, or by dragging: a Workspace item before or
-// after a row or into a Folder; a Chapter before or after a Chapter or Group,
-// or into a Group; a Scene before or after a Scene, into a Chapter, or into
-// Unplaced Scenes. Each move is one atomic database function (move_chapter,
-// place_scene) that keeps the object's id and everything it holds. Placing a
-// Scene anywhere (place_scene) needs migration 037; before it, a placed Scene
-// can only be moved to Unplaced Scenes.
+// Workspace items, Groups, Chapters and Scenes move by "Move up / down / to…"
+// in their menu, ⌥↑ / ⌥↓ on a focused row, or by dragging: a Workspace item
+// before or after a row or into a Folder; a Group or Chapter before or after a
+// Chapter or Group, or into a Group (never a Group into itself or one of its
+// own Groups); a Scene before or after a Scene, into a Chapter, or into
+// Unplaced Scenes. Each move is one atomic database function
+// (move_manuscript_group, move_chapter, place_scene) that keeps the object's
+// id and everything it holds. Placing a Scene anywhere (place_scene) needs
+// migration 037; before it, a placed Scene can only be moved to Unplaced
+// Scenes. While anything is dragged, holding the pointer near the top or
+// bottom of the tree scrolls it (useDragAutoScroll), so a far row is reachable
+// in one drag.
 //
 // A Page, Folder, Collection, Scene or Chapter goes to the Project's Trash from
 // its menu ("Move to Trash", with an Undo in the notice that follows); a
@@ -102,8 +109,7 @@ import { useTrash } from "./WorkspaceTrash";
 // keep its scenes" is a separate, explicit action. Before migration 030 there
 // is no Trash, and only an empty Folder or Collection can be deleted.
 //
-// Not here, deliberately: moving Groups (move_manuscript_group exists) and
-// Trash for Groups — only an empty Group can be deleted.
+// Not here, deliberately: Trash for Groups — only an empty Group can be deleted.
 
 const BASE_PAD = 6;
 const INDENT = 16;
@@ -117,8 +123,8 @@ export const ROOT_WORKSPACE = "root:workspace";
 
 type MenuState = { key: number; label: string; at: { x: number; y: number }; items: NavigatorMenuItem[] };
 type DropSide = "before" | "after" | "inside";
-/** A manuscript row being dragged: a Chapter or a Scene (placed or Unplaced). */
-type ManuscriptDrag = { kind: "chapter" | "scene"; id: string };
+/** A manuscript row being dragged: a Group, a Chapter or a Scene (placed or Unplaced). */
+type ManuscriptDrag = { kind: "group" | "chapter" | "scene"; id: string };
 /** A manuscript row a drag can land on. */
 type ManuscriptTarget = { kind: "group" | "chapter" | "scene" | "unplaced"; id: string };
 
@@ -142,6 +148,7 @@ export function ProjectNavigator() {
     setSearchOpen,
     trashOpen,
     setTrashOpen,
+    reading,
   } = useRune2Selection();
   const projectId = manuscript.project.id;
   // While Trash fills the content column, no row is the one showing: the
@@ -161,6 +168,9 @@ export function ProjectNavigator() {
   const placeable = trash.chaptersAvailable;
   // A row to focus once the tree is re-read (after a keyboard reorder).
   const refocus = useRef<string | null>(null);
+  // The tree's scrolling list: it scrolls under a drag held near its edges.
+  const scrollRef = useRef<HTMLDivElement>(null);
+  useDragAutoScroll(scrollRef, dragging !== null || mdrag !== null);
 
   // Every Workspace item's place: its parent, its siblings and where it is among them.
   const placed = useMemo(
@@ -439,6 +449,7 @@ export function ProjectNavigator() {
         return [
           rename,
           ...groupAddItems(entry.id),
+          ...groupMoveItems(entry, at),
           // Phase 1 deletes only an empty Group; there is no Trash yet.
           ...(entry.childCount === 0
             ? [{ label: "Delete group", icon: Trash2, tone: "danger" as const, onSelect: () => removeGroup(entry.id) }]
@@ -695,6 +706,19 @@ export function ProjectNavigator() {
       return null;
     });
 
+  /** Puts a Group — with everything in it — at `idx` among `parentGroupId`'s children (null: the top level; idx null: last). */
+  const moveGroupTo = (id: string, parentGroupId: string | null, idx: number | null) =>
+    run(async () => {
+      const r = await moveGroup(id, parentGroupId, idx, projectId);
+      if (r.error !== null) {
+        return r.error === "A Group cannot move inside itself"
+          ? "A group can’t go inside itself."
+          : "Couldn’t move the group. Nothing was changed.";
+      }
+      setOpenFor([ROOT_MANUSCRIPT, ...(parentGroupId ? [...(index.get(parentGroupId)?.path.map((p) => p.id) ?? []), parentGroupId] : [])], true);
+      return null;
+    });
+
   /** Puts a Scene at `idx` among a Chapter's Scenes (null: Unplaced Scenes; idx null: last). */
   const moveSceneTo = (id: string, chapterId: string | null, idx: number | null) =>
     run(async () => {
@@ -708,13 +732,16 @@ export function ProjectNavigator() {
       return null;
     });
 
-  /** One step up or down among its siblings, for a Chapter or Scene (⌥↑ / ⌥↓, or its menu). */
+  /** One step up or down among its siblings, for a Group, Chapter or Scene (⌥↑ / ⌥↓, or its menu). */
   function reorderManuscript(entry: NavEntry, step: -1 | 1, fromKeyboard = false) {
     const at = places.get(entry.id);
     if (!at) return;
     const next = at.index + step;
     if (next < 0 || next >= at.siblings.length) return;
-    if (entry.kind === "chapter") {
+    if (entry.kind === "group") {
+      if (fromKeyboard) refocus.current = entry.id;
+      moveGroupTo(entry.id, at.parentId, next);
+    } else if (entry.kind === "chapter") {
       if (fromKeyboard) refocus.current = entry.id;
       moveChapterTo(entry.id, at.parentId, next);
     } else if ((entry.kind === "scene" || entry.kind === "unplacedScene") && placeable) {
@@ -750,6 +777,45 @@ export function ProjectNavigator() {
                     icon: d.groupId ? Layers : undefined,
                     inset: d.depth,
                     onSelect: () => moveChapterTo(entry.id, d.groupId, null),
+                  }))
+                ),
+            },
+          ]
+        : []),
+    ];
+  }
+
+  /**
+   * Move up / down / to… for a Group: among its siblings (Groups and Chapters
+   * together), to the top level, or into another Group — never into itself or
+   * a Group inside it.
+   */
+  function groupMoveItems(entry: NavEntry, point?: { x: number; y: number }): NavigatorMenuItem[] {
+    const at = places.get(entry.id);
+    if (!at) return [];
+    const elsewhere = groupDestinations(manuscript.outline, entry.id, at.parentId);
+    return [
+      ...(at.index > 0
+        ? [{ label: "Move up", icon: ArrowUp, hint: "⌥↑", onSelect: () => reorderManuscript(entry, -1) }]
+        : []),
+      ...(at.index < at.siblings.length - 1
+        ? [{ label: "Move down", icon: ArrowDown, hint: "⌥↓", onSelect: () => reorderManuscript(entry, 1) }]
+        : []),
+      ...(elsewhere.length > 0
+        ? [
+            {
+              label: "Move to",
+              icon: FolderInput,
+              onSelect: () =>
+                openMenu(
+                  `Move ${entry.title} to`,
+                  point ?? rowPoint(entry.id),
+                  elsewhere.map((d) => ({
+                    key: d.groupId ?? ROOT_MANUSCRIPT,
+                    label: titleOf(d.groupId, "Manuscript (top level)"),
+                    icon: d.groupId ? Layers : undefined,
+                    inset: d.depth,
+                    onSelect: () => moveGroupTo(entry.id, d.groupId, null),
                   }))
                 ),
             },
@@ -806,9 +872,18 @@ export function ProjectNavigator() {
 
   // ── Manuscript drag and drop ────────────────────────────────────────────
 
-  /** Whether the dragged Chapter or Scene may be dropped at `side` of `target`. */
+  /** Whether the dragged Group, Chapter or Scene may be dropped at `side` of `target`. */
   function canDropManuscript(drag: ManuscriptDrag, target: ManuscriptTarget, side: DropSide): boolean {
     if (target.id === drag.id) return false;
+    if (drag.kind === "group") {
+      if (target.kind !== "group" && target.kind !== "chapter") return false;
+      if (target.kind === "chapter" && side === "inside") return false;
+      // Never into itself or anything inside it: not beside its own rows, not into them.
+      const inside = groupSubtreeIds(manuscript.outline, drag.id);
+      const parent = places.get(target.id)?.parentId ?? null;
+      if (side === "inside") return !inside.has(target.id);
+      return !(parent !== null && inside.has(parent));
+    }
     if (drag.kind === "chapter") {
       if (target.kind === "group") return true;
       return target.kind === "chapter" && side !== "inside";
@@ -817,9 +892,9 @@ export function ProjectNavigator() {
     return (target.kind === "chapter" || target.kind === "unplaced") && side === "inside";
   }
 
-  /** The row props that make a Chapter or Scene draggable, and any manuscript row a drop target. */
+  /** The row props that make a Group, Chapter or Scene draggable, and any manuscript row a drop target. */
   function manuscriptDragProps(target: ManuscriptTarget): HTMLAttributes<HTMLDivElement> & { draggable?: boolean } {
-    const movable = target.kind === "chapter" || (target.kind === "scene" && placeable);
+    const movable = target.kind === "group" || target.kind === "chapter" || (target.kind === "scene" && placeable);
     const sideAt = (e: React.DragEvent<HTMLDivElement>): DropSide => {
       if (!mdrag || target.kind === "unplaced") return "inside";
       if (mdrag.kind === "scene" && target.kind === "chapter") return "inside";
@@ -834,7 +909,7 @@ export function ProjectNavigator() {
         if (!movable) return;
         e.dataTransfer.effectAllowed = "move";
         e.dataTransfer.setData("text/plain", index.get(target.id)?.title ?? "");
-        setMdrag({ kind: target.kind === "chapter" ? "chapter" : "scene", id: target.id });
+        setMdrag({ kind: target.kind === "group" || target.kind === "chapter" ? target.kind : "scene", id: target.id });
       },
       onDragOver: (e) => {
         if (!mdrag) return;
@@ -857,6 +932,12 @@ export function ProjectNavigator() {
         setMdrag(null);
         setDrop(null);
         if (!drag || !canDropManuscript(drag, target, side)) return;
+        if (drag.kind === "group") {
+          if (side === "inside") return moveGroupTo(drag.id, target.id, null);
+          const at = places.get(target.id);
+          if (at) moveGroupTo(drag.id, at.parentId, indexAmong(at.siblings, drag.id, target.id, side));
+          return;
+        }
         if (drag.kind === "chapter") {
           if (side === "inside") return moveChapterTo(drag.id, target.id, null);
           const at = places.get(target.id);
@@ -905,8 +986,10 @@ export function ProjectNavigator() {
               onAdd={(at) => openMenu(`Add to ${entry.title}`, at, groupAddItems(entry.id))}
               addLabel={`Add to ${entry.title}`}
               onMore={(at) => openMenu(`${entry.title} actions`, at, moreItems(entry, at))}
+              onReorder={(step) => reorderManuscript(entry, step, true)}
               rowProps={manuscriptDragProps({ kind: "group", id: entry.id })}
               drop={drop?.id === entry.id ? drop.side : undefined}
+              dragging={mdrag?.id === entry.id}
             />
             {expanded && node.children.length > 0 && (
               <Children depth={depth}>{renderOutline(node.children, entry.id)}</Children>
@@ -1094,7 +1177,7 @@ export function ProjectNavigator() {
       </div>
       <div className="r2-nav-progress" data-active={busy || refreshing || undefined} aria-hidden />
 
-      <div className="r2-nav-scroll">
+      <div ref={scrollRef} className="r2-nav-scroll">
         <ul role="list">
           <li>
             <RootRow
@@ -1102,7 +1185,7 @@ export function ProjectNavigator() {
               label="Manuscript"
               count={manuscript.manuscriptWords}
               countLabel="words in the manuscript"
-              selected={selected === null}
+              selected={selected === null && !reading}
               expanded={manuscriptOpen}
               onToggle={() => setOpenFor([ROOT_MANUSCRIPT], !manuscriptOpen)}
               onSelect={(e) => choose(null, e)}

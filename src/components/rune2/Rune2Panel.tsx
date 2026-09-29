@@ -11,7 +11,7 @@ import {
   unpinProjectNote,
 } from "@/lib/actions/notes";
 import type { NavEntry } from "@/lib/rune2/navigatorModel";
-import { referenceSubject } from "@/lib/rune2/references";
+import { openableId, referenceSubject } from "@/lib/rune2/references";
 import type { ProjectNote } from "@/lib/types";
 import { SceneSuggestions } from "./CollectionSchema";
 import { MilestonesSection, ObjectMilestonesSection } from "./ManuscriptMilestones";
@@ -20,6 +20,7 @@ import { AddProperty, ItemProperties } from "./PropertyFields";
 import { usePropertyStore } from "./PropertyStore";
 import { useReferenceStore } from "./ReferenceStore";
 import { SceneHistorySection } from "./SceneHistory";
+import { SceneNoteSection } from "./SceneNote";
 import { useRune2Selection, type PanelView } from "./Rune2Selection";
 import { useViewStore } from "./ViewStore";
 
@@ -94,11 +95,11 @@ export function Rune2Panel() {
 
 // ── Notes ─────────────────────────────────────────────────────────────────
 //
-// Rune's durable notes today are Revision Notes: a project-wide checklist
-// (project_notes), kept as it is for Rune 2.0 (architecture §30). The panel
-// shows those, for the whole manuscript. There is no Scene- or Chapter-level
-// note in the data model yet, so the panel does not pretend there is one.
-// Notes are never manuscript prose: separate table, separate words.
+// Revision Notes: a project-wide checklist (project_notes), kept as it is for
+// Rune 2.0 (architecture §30). The panel shows those, for the whole
+// manuscript. A single Scene's revision note (migration 038) lives in that
+// Scene's Inspector instead (SceneNote). Notes are never manuscript prose:
+// separate tables, separate words.
 
 function NotesView() {
   const { manuscript } = useRune2Selection();
@@ -332,7 +333,13 @@ function NotesView() {
 // links, never controls in the manuscript editor. Two separate things, kept
 // apart: a Scene's History (versions the database kept on its own) and the
 // named Milestones that hold this Scene or Chapter (037), each opening the
-// read-only Milestone at it.
+// read-only Milestone at it. A Scene's revision note (038) sits near the top,
+// beside the Scene's facts: supporting text, saved on its own.
+//
+// While a Reading tab is active nothing is selected; the Inspector then
+// describes the Scene being read (or the one the writer chose from Reading
+// Mode's "Note"), so its note, properties and history are at hand without
+// leaving the text.
 
 function plural(n: number, one: string, many = `${one}s`) {
   return `${n.toLocaleString()} ${n === 1 ? one : many}`;
@@ -343,7 +350,21 @@ function formatDate(iso: string): string {
 }
 
 function InspectorView() {
-  const { manuscript, workspace, index, selected, select } = useRune2Selection();
+  const {
+    manuscript,
+    workspace,
+    index,
+    selected: chosen,
+    select,
+    reading,
+    readingAt,
+    readingFocus,
+    setReadingFocus,
+  } = useRune2Selection();
+  const readingId = reading ? (readingFocus ?? readingAt) : null;
+  const selected = reading ? (readingId ? (index.get(openableId(index, readingId)) ?? null) : null) : chosen;
+  // Pinned to a Scene other than the one being read: a way back to following.
+  const pinned = Boolean(reading && readingFocus && readingAt && readingFocus !== readingAt);
   // Listing an object's Milestones needs migration 037.
   const milestoneLookup = workspace.chapterTrashable;
   const { available: propertied, propertiesOf } = usePropertyStore();
@@ -485,6 +506,16 @@ function InspectorView() {
 
   return (
     <div className="r2-inspector">
+      {reading && (
+        <p className="r2-inspector-reading">
+          {selected ? (pinned ? "A scene you chose while reading" : "The scene you’re reading") : "Reading"}
+          {pinned && (
+            <button type="button" className="r2-panel-link" onClick={() => setReadingFocus(null)}>
+              Follow the reading
+            </button>
+          )}
+        </p>
+      )}
       <p className="r2-inspector-kind">{kind}</p>
       <p className="r2-inspector-title">
         {title}
@@ -500,6 +531,14 @@ function InspectorView() {
           </div>
         ))}
       </dl>
+      {workspace.sceneNotable && scene?.type === "scene" && (
+        <SceneNoteSection
+          key={`note-${scene.id}`}
+          sceneId={scene.id}
+          // Writing a note while reading keeps the Inspector on this Scene.
+          onFocus={reading ? () => setReadingFocus(scene.id) : undefined}
+        />
+      )}
       {scene?.type === "scene" && (
         <SceneHistorySection key={`history-${scene.id}`} sceneId={scene.id} projectId={manuscript.project.id} />
       )}
