@@ -53,7 +53,7 @@ test('a database built from schema.sql alone is identical to baseline + migratio
   assert.deepEqual(diffCounts(a, b), []);
   const versions = async (db) => (await db.query(`select version, name, note from public.schema_migrations order by version`)).rows;
   assert.deepEqual(await versions(fresh), await versions(migrated));
-  assert.deepEqual((await versions(fresh)).map((r) => r.version).slice(-23), ['013', '014', '015', '016', '017', '018', '019', '020', '021', '022', '023', '024', '025', '026', '027', '028', '029', '030', '031', '032', '033', '034', '035']);
+  assert.deepEqual((await versions(fresh)).map((r) => r.version).slice(-24), ['013', '014', '015', '016', '017', '018', '019', '020', '021', '022', '023', '024', '025', '026', '027', '028', '029', '030', '031', '032', '033', '034', '035', '036']);
 });
 
 test('signup still creates the profile and pricing entitlements on the Rune 2.0 schema', async () => {
@@ -1516,6 +1516,65 @@ test('035 requires 034, refuses to run twice (including on schema.sql), and chan
   for (const db of [await migratedDb(), await freshRune2Db()]) {
     const before = await captureCatalog(db);
     await assert.rejects(db.exec(readMigration(M035)), /Migration 035 has already been applied/);
+    assert.deepEqual(diffCatalogs(before, await captureCatalog(db)).differences, []);
+  }
+});
+
+// ── 22. migration 036 ─────────────────────────────────────────────────────────
+
+const M036 = '036_scene_history_milestones.sql';
+
+async function db035() {
+  const db = await db034();
+  await db.exec(readMigration(M035));
+  return db;
+}
+
+test('036 on 035: Scene History and Milestones are three new tables, two Scene triggers and their functions — nothing existing changes', async () => {
+  const db = await db035();
+  const before = await captureCatalog(db);
+  await db.exec(readMigration(M036));
+  const keys = diffCatalogs(before, await captureCatalog(db)).differences.map((d) => `${d.section}:${d.kind}${d.fields ? '[' + d.fields.join(',') + ']' : ''}:${d.key}`).sort();
+  const changes = keys.filter((k) => !/^relation_counts?:/.test(k));
+  assert.deepEqual(changes.filter((k) => !k.includes(':added:')), [], 'additions only: no existing object changes');
+  const NEW = /^(scene_revisions|manuscript_milestones|manuscript_milestone_scenes)\b/;
+  // On existing tables: exactly the two Scene triggers.
+  assert.deepEqual(
+    changes.filter((k) => /^(columns|constraints|indexes|policies|triggers|relations|table_grants):/.test(k) && !NEW.test(k.split(':').slice(2).join(':'))),
+    ['triggers:added:scenes.scenes_forget_history', 'triggers:added:scenes.scenes_record_revision']
+  );
+  assert.deepEqual(changes.filter((k) => k.startsWith('functions:')), [
+    'functions:added:create_manuscript_milestone(p_manuscript_id uuid, p_name text)',
+    'functions:added:delete_manuscript_milestone(p_milestone_id uuid)',
+    'functions:added:forget_scene_history()',
+    'functions:added:get_manuscript_milestone(p_milestone_id uuid)',
+    'functions:added:get_scene_revision(p_revision_id uuid)',
+    'functions:added:list_manuscript_milestones(p_manuscript_id uuid)',
+    'functions:added:list_scene_history(p_scene_id uuid)',
+    'functions:added:prune_scene_revisions(p_scene_id uuid)',
+    'functions:added:record_scene_revision()',
+    'functions:added:restore_scene_revision(p_revision_id uuid, p_expected_version integer)',
+  ]);
+  const grants = changes.filter((k) => k.startsWith('function_grants:'));
+  assert.deepEqual(grants.filter((k) => / anon /.test(k)), [], 'anon executes nothing');
+  assert.deepEqual(grants.filter((k) => / authenticated /.test(k)).map((k) => k.split(':')[2].split('(')[0]), [
+    'create_manuscript_milestone', 'delete_manuscript_milestone', 'get_manuscript_milestone', 'get_scene_revision',
+    'list_manuscript_milestones', 'list_scene_history', 'restore_scene_revision',
+  ], 'the internal trigger and pruning functions are not callable by clients');
+  assert.deepEqual(changes.filter((k) => /^table_grants:.* (anon|authenticated) (INSERT|UPDATE|DELETE)$/.test(k)), [], 'clients never write history');
+  for (const t of ['scene_revisions', 'manuscript_milestones', 'manuscript_milestone_scenes']) {
+    assert.equal((await db.query(`select relrowsecurity from pg_class where oid = $1::regclass`, [`public.${t}`])).rows[0].relrowsecurity, true, t);
+  }
+});
+
+test('036 requires 035, refuses to run twice (including on schema.sql), and changes nothing when it refuses', async () => {
+  const only034 = await db034();
+  const before034 = await captureCatalog(only034);
+  await assert.rejects(only034.exec(readMigration(M036)), /requires migration 035/);
+  assert.deepEqual(diffCatalogs(before034, await captureCatalog(only034)).differences, []);
+  for (const db of [await migratedDb(), await freshRune2Db()]) {
+    const before = await captureCatalog(db);
+    await assert.rejects(db.exec(readMigration(M036)), /Migration 036 has already been applied/);
     assert.deepEqual(diffCatalogs(before, await captureCatalog(db)).differences, []);
   }
 });

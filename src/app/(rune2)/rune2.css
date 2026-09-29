@@ -3713,3 +3713,276 @@ span.r2-schema-type {
     transition: none;
   }
 }
+
+/* ── Scene History and Milestones (036) ────────────────────────────────── */
+
+/* Entry points in the Inspector: quiet links, never controls in the editor. */
+.r2-history-entry {
+  margin-top: 14px;
+}
+.r2-milestones {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--r2-border);
+}
+.r2-milestone-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0 -6px 6px;
+}
+.r2-milestone-item {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: 5px 6px;
+  border-radius: var(--r2-radius);
+  text-align: left;
+  transition: background-color var(--r2-fast) var(--r2-ease);
+}
+.r2-milestone-item:hover {
+  background: var(--r2-hover);
+}
+.r2-milestone-name {
+  font-size: 13px;
+  color: var(--r2-ink-1);
+  overflow-wrap: anywhere;
+}
+.r2-milestone-meta {
+  font-size: 11.5px;
+  color: var(--r2-ink-3);
+}
+.r2-milestone-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.r2-milestone-label {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--r2-ink-2);
+}
+.r2-milestone-input {
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--r2-border-strong);
+  border-radius: var(--r2-radius);
+  background: var(--r2-field-bg);
+  color: var(--r2-text);
+  font: inherit;
+}
+.r2-milestone-input:focus-visible {
+  outline: none;
+  border-color: var(--r2-accent);
+  box-shadow: 0 0 0 1px var(--r2-accent);
+}
+.r2-milestone-form .r2-panel-notice {
+  margin-top: 0;
+}
+.r2-milestone-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* The dialogs: wide enough to read prose in, calm, one surface. */
+.r2-dialog.r2-history,
+.r2-dialog.r2-milestone-view {
+  display: flex;
+  flex-direction: column;
+  max-width: 920px;
+  max-height: min(760px, calc(100dvh - 32px));
+  padding: 20px 22px 16px;
+}
+.r2-dialog.r2-history:focus-visible,
+.r2-dialog.r2-milestone-view:focus-visible {
+  outline: none;
+}
+.r2-history-head {
+  flex-shrink: 0;
+}
+.r2-dialog p.r2-history-scene {
+  margin-top: 2px;
+  font-size: 12.5px;
+  color: var(--r2-ink-3);
+  overflow-wrap: anywhere;
+}
+.r2-history-body {
+  display: grid;
+  grid-template-columns: minmax(200px, 250px) 1fr;
+  gap: 20px;
+  flex: 1;
+  min-height: 0;
+  margin-top: 16px;
+}
+.r2-history-list {
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+.r2-dialog p.r2-history-now {
+  display: flex;
+  flex-direction: column;
+  margin: 0 0 8px;
+  padding: 0 6px 8px;
+  border-bottom: 1px solid var(--r2-border);
+  font-size: 12.5px;
+}
+.r2-history-now span:first-child {
+  color: var(--r2-ink-1);
+}
+.r2-dialog p.r2-history-none,
+.r2-dialog p.r2-history-hint,
+.r2-dialog p.r2-history-loading {
+  font-size: 12.5px;
+  color: var(--r2-ink-3);
+}
+.r2-history-item {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: 6px;
+  border-radius: var(--r2-radius);
+  text-align: left;
+  transition: background-color var(--r2-fast) var(--r2-ease);
+}
+.r2-history-item:hover {
+  background: var(--r2-hover);
+}
+.r2-history-item[aria-pressed="true"] {
+  background: var(--r2-selected);
+}
+.r2-history-when {
+  font-size: 13px;
+  color: var(--r2-ink-1);
+}
+.r2-history-item[aria-pressed="true"] .r2-history-when {
+  color: var(--r2-selected-ink);
+}
+.r2-history-meta,
+.r2-history-note {
+  font-size: 11.5px;
+  color: var(--r2-ink-3);
+}
+.r2-history-note {
+  color: var(--r2-ink-2);
+  overflow-wrap: anywhere;
+}
+.r2-history-preview {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 8px 0 20px;
+  border-left: 1px solid var(--r2-border);
+}
+.r2-dialog p.r2-history-preview-head {
+  margin: 0 0 14px;
+  font-size: 12px;
+  color: var(--r2-ink-3);
+}
+.r2-dialog p.r2-history-notice {
+  flex-shrink: 0;
+  margin-top: 12px;
+  color: var(--r2-ink-2);
+}
+.r2-dialog p.r2-history-notice[data-tone="alert"] {
+  color: var(--r2-danger);
+}
+.r2-history-actions {
+  flex-shrink: 0;
+  align-items: center;
+  margin-top: 16px;
+}
+.r2-dialog p.r2-history-confirm {
+  flex: 1;
+  margin: 0 8px 0 0;
+  font-size: 12.5px;
+}
+
+/* Read-only prose: the manuscript's own typography, at a reading size. */
+.r2-snapshot .ProseMirror {
+  min-height: 0;
+  font-size: 16.5px;
+  cursor: default;
+  user-select: text;
+}
+.r2-dialog .r2-snapshot p {
+  margin: 0;
+  font-size: inherit;
+  line-height: inherit;
+  color: inherit;
+}
+.r2-dialog p.r2-snapshot-empty {
+  font-size: 12.5px;
+  font-style: italic;
+  color: var(--r2-ink-3);
+}
+
+/* A Milestone read as the manuscript it was. */
+.r2-milestone-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  margin-top: 12px;
+  padding: 0 4px 12px 0;
+}
+.r2-dialog p.r2-milestone-caption {
+  margin: 0 0 18px;
+  font-size: 12.5px;
+  color: var(--r2-ink-3);
+}
+.r2-milestone-group {
+  margin: 28px 0 4px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--r2-ink-2);
+}
+.r2-milestone-group[data-depth="1"],
+.r2-milestone-group[data-depth="2"] {
+  text-transform: none;
+  letter-spacing: 0;
+}
+.r2-milestone-chapter {
+  margin-top: 22px;
+}
+.r2-milestone-chapter-title {
+  margin-bottom: 10px;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--r2-ink-1);
+}
+/* Between two Scenes of a Chapter: whitespace, as in the editor. */
+.r2-milestone-scene[data-break] {
+  margin-top: 1.4em;
+}
+.r2-milestone-unplaced .r2-milestone-scene + .r2-milestone-scene {
+  margin-top: 18px;
+}
+.r2-dialog p.r2-milestone-scene-title {
+  margin: 12px 0 6px;
+  font-size: 12.5px;
+  color: var(--r2-ink-2);
+}
+.r2-milestone-delete {
+  margin-right: auto;
+  font-size: 12.5px;
+}
+.r2-milestone-delete:hover {
+  color: var(--r2-danger);
+}
+
+@media (max-width: 640px) {
+  .r2-history-body {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(0, 40%) 1fr;
+  }
+  .r2-history-preview {
+    padding: 12px 0 0;
+    border-left: 0;
+    border-top: 1px solid var(--r2-border);
+  }
+  .r2-history-actions {
+    flex-wrap: wrap;
+  }
+}

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createScene, getScene } from "@/lib/actions/scenes";
 import { cacheScene, getCachedScene } from "@/lib/offline/db";
+import { SCENE_RESTORED_EVENT } from "@/lib/sceneRestoredEvent";
 import type { WritingTarget } from "@/lib/rune2/writingTarget";
 import type { Scene } from "@/lib/types";
 import type { SurfaceScene } from "./Rune2Editor";
@@ -92,6 +93,17 @@ export function Rune2Writing({ projectId, target }: { projectId: string; target:
   const handleSceneUpdated = useCallback((id: string, updates: Partial<Scene>) => {
     setScenes((prev) => (prev[id] ? { ...prev, [id]: { ...prev[id], ...updates } } : prev));
   }, []);
+
+  // A restore from Scene History replaces a held copy, even one an editor
+  // updated: the server now holds the restored text as a newer version.
+  useEffect(() => {
+    const onRestored = (event: Event) => {
+      const restored = (event as CustomEvent<Scene>).detail;
+      if (restored) handleSceneUpdated(restored.id, restored);
+    };
+    window.addEventListener(SCENE_RESTORED_EVENT, onRestored);
+    return () => window.removeEventListener(SCENE_RESTORED_EVENT, onRestored);
+  }, [handleSceneUpdated]);
 
   const clearFocusRequest = useCallback(() => requestSceneFocus(null), [requestSceneFocus]);
 

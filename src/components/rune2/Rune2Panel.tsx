@@ -14,10 +14,12 @@ import type { NavEntry } from "@/lib/rune2/navigatorModel";
 import { referenceSubject } from "@/lib/rune2/references";
 import type { ProjectNote } from "@/lib/types";
 import { SceneSuggestions } from "./CollectionSchema";
+import { MilestonesSection } from "./ManuscriptMilestones";
 import { ObjectLinks } from "./ObjectLinks";
 import { AddProperty, ItemProperties } from "./PropertyFields";
 import { usePropertyStore } from "./PropertyStore";
 import { useReferenceStore } from "./ReferenceStore";
+import { SceneHistorySection } from "./SceneHistory";
 import { useRune2Selection, type PanelView } from "./Rune2Selection";
 import { useViewStore } from "./ViewStore";
 
@@ -325,7 +327,9 @@ function NotesView() {
 // and backlinks (028, ObjectLinks) — the Scene's metadata lives here, outside
 // the prose. A divided Chapter shows only where it is mentioned (035). A Scene (and a Chapter shown as one piece of writing) also shows
 // its Scene properties (032, architecture §8), edited in place and saved on
-// their own — never with the prose, never inside the editor.
+// their own — never with the prose, never inside the editor. A Scene's
+// History and the Manuscript's Milestones (036) open from here too: quiet
+// links, never controls in the manuscript editor.
 
 function plural(n: number, one: string, many = `${one}s`) {
   return `${n.toLocaleString()} ${n === 1 ? one : many}`;
@@ -491,6 +495,10 @@ function InspectorView() {
           </div>
         ))}
       </dl>
+      {scene?.type === "scene" && (
+        <SceneHistorySection key={`history-${scene.id}`} sceneId={scene.id} projectId={manuscript.project.id} />
+      )}
+      {!selected && <MilestonesSection projectId={manuscript.project.id} />}
       {scene?.type === "scene" && <SceneInspectorProperties key={`props-${scene.id}`} sceneId={scene.id} />}
       {/* A fresh section per object, so an open search never carries over. */}
       {referable && (subject || selected?.kind === "chapter") && (

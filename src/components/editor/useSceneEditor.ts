@@ -22,6 +22,7 @@ import { useProfileStore } from "@/store/profileStore";
 import { useToastStore } from "@/store/toastStore";
 import { WORD_LIMITS } from "@/lib/pricing";
 import type { Scene, UserPreferences } from "@/lib/types";
+import { SCENE_RESTORED_EVENT } from "@/lib/sceneRestoredEvent";
 
 // The manuscript editor's engine, shared by every editor surface (the legacy
 // RuneEditor and the Rune 2.0 writing surface): TipTap setup, per-keystroke
@@ -797,6 +798,36 @@ export function useSceneEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [editor]
   );
+
+  // Scene History restored an earlier text on the server (a new version,
+  // saved through save_scene_checked). Show it, as a programmatic load: never
+  // typed words, never re-saved, and the confirmed baseline moves to it. If
+  // this device holds unsynced text for the Scene, leave everything as it is:
+  // the normal conflict check then asks the writer which text to keep.
+  useEffect(() => {
+    if (!editor) return;
+    const onRestored = (event: Event) => {
+      const restored = (event as CustomEvent<Scene>).detail;
+      if (!restored || currentSceneRef.current?.id !== restored.id) return;
+      void (async () => {
+        if (await getPendingWrite(restored.id)) return;
+        if (editor.isDestroyed || currentSceneRef.current?.id !== restored.id) return;
+        clearTimeout(saveTimerRef.current);
+        isLoadingRef.current = true;
+        editor.commands.setContent(restored.content ?? null);
+        isLoadingRef.current = false;
+        lastSavedWordCountRef.current = restored.word_count;
+        expectedServerWordCountRef.current = restored.word_count;
+        currentWordCountRef.current = restored.word_count;
+        pendingEligibleWordsRef.current = 0;
+        wordLimitBlockedRef.current = false;
+        setSyncStatusAndRef('synced');
+        onSceneUpdatedRef.current(restored.id, restored);
+      })();
+    };
+    window.addEventListener(SCENE_RESTORED_EVENT, onRestored);
+    return () => window.removeEventListener(SCENE_RESTORED_EVENT, onRestored);
+  }, [editor]);
 
   return {
     editor,

@@ -139,6 +139,28 @@ export const RUNE2_NOTES = {
     'Siblings are numbered 1..n. Clients only read nodes; placement changes',
     'through create_workspace_document, create_workspace_folder, move_workspace_node.',
   ],
+  scene_revisions: [
+    'Scene History (036): an earlier text of one Scene (content, words, title) — not',
+    'a live object: never in totals, the allowance, export, search or references.',
+    'Taken on the save path by scenes_record_revision (the replaced text after a',
+    '30-minute pause or an hour after the last one; never fails the save), by',
+    'restore_scene_revision (reason restore) and create_manuscript_milestone.',
+    'Pruned per Scene (30 days whole, then one a day, at most 200); a revision a',
+    'Milestone uses is never pruned or deleted (FK NO ACTION). Deleting a Scene',
+    'deletes its other revisions (scenes_forget_history); those a Milestone uses',
+    'stay with scene_id null. Clients only read; no client writes.',
+  ],
+  manuscript_milestones: [
+    'Named Manuscript Milestone (036): the manuscript at one moment, read-only,',
+    'never a branch. structure holds its Groups and Chapters as they were; its',
+    'Scenes are manuscript_milestone_scenes. Created only by create_manuscript_milestone,',
+    'deleted only by delete_manuscript_milestone. Clients only read.',
+  ],
+  manuscript_milestone_scenes: [
+    'One active Scene of a Milestone: its identity (scene_id, no FK), placement then',
+    '(chapter_id null = Unplaced, position) and text (revision_id → scene_revisions).',
+    'Clients only read.',
+  ],
   projects: [
     'word_count is the ORDERED MANUSCRIPT TOTAL (placed Scenes only), maintained',
     'by the scenes_refresh_project_word_count trigger. Not the free-limit total.',

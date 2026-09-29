@@ -1262,7 +1262,7 @@ Writing History
 Project Goals
 Progress
 Focus Mode
-Version History (full browsing deferred — see below)
+Version History (Scene History and Manuscript Milestones — see below)
 Search
 Import
 Export
@@ -1294,6 +1294,14 @@ Manuscript safety must still be very strong without it. The beta relies on:
 - safe migration behavior.
 
 Nothing in the architecture should make Version History hard to add later. In particular, Scene identity stays stable and Scene content remains a separately addressable unit.
+
+### Scene History and Manuscript Milestones (Milestone 17)
+
+Version History arrived as two small safety systems, not version control. There are no branches, merges or diffs to manage.
+
+- **Scene History.** The database keeps earlier texts of each Scene on the save path itself. It keeps the text being replaced when the writer returns after a pause of 30 minutes or more, and about once an hour during long sittings. It never keeps a copy per save. The writer opens it from the Scene's Inspector, reads a version read-only, and restores it. A restore is a new save of that text through the normal Scene save path, and the replaced text is kept first. It uses the same Scene ID, creates no writing-session credit, and never rewinds history. Retention keeps every version from the last 30 days, then one per day, and at most 200 per Scene.
+- **Manuscript Milestones.** The writer names the whole manuscript at a moment ("Draft 1"). A Milestone captures Groups, Chapters, placed and Unplaced Scenes, their order and prose, in one transaction, and changes nothing live. It is read-only and never a branch. Whole-manuscript restore is deferred. A single Scene's text from a Milestone is restored through that Scene's History. Workspace content is not captured.
+- History is not a live object. It is never searched, never linked, never counted and never exported. A trashed Scene keeps its history. Permanently deleting a Scene deletes its history, except the versions a Milestone uses.
 
 ### Revision Notes
 
@@ -1561,7 +1569,7 @@ AI writing
 AI rewriting
 AI story generation
 AI character generation
-Full user-facing Version History (snapshot browsing/restore)
+Whole-manuscript restore from a Milestone
 Continuous multi-Scene Chapter editor
 Migrating Revision Notes into Workspace Pages or Collections
 Replacement unlock model for themes and fonts
@@ -2113,7 +2121,7 @@ These are genuinely unresolved. They are not decided in this document:
 8. The final physical schema name for Workspace Pages (§10).
 9. Exact export formatting for Group headings (§4) and the visual scene break between Scenes (§6).
 10. Whether and when Revision Notes move into a Revision Issues Collection or revision workflow (§30).
-11. When full Version History ships, and what form it takes (§30).
+11. Whether whole-manuscript restore from a Milestone ships, and what form it takes (§30).
 
 ---
 
