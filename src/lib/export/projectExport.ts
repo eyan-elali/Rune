@@ -1,140 +1,23 @@
 import type { Project, Chapter, ManuscriptGroup, PlacedScene } from "@/lib/types";
 import { orderChaptersInManuscript } from "@/lib/manuscriptStructure";
-import {
-  PW,
-  PH,
-  M,
-  CW,
-  FONT,
-  BODY_PT,
-  type Doc,
-  type TNode,
-  type State,
-  drawPageChrome,
-  guard,
-  renderNode,
-  lh,
-} from "./tiptapToPdf";
+import { defaultExportName, exportFileName } from "./formats";
+import { layoutPdf, newPdf } from "./pdf";
+import { planExport, readAllRows } from "./plan";
 
-function slugify(s: string) {
-  return s.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
-}
+// The manuscript PDF of the Projects page (ManuscriptExportButton), on the
+// one export pipeline (plan.ts): the same document the Rune 2.0 export dialog
+// makes as a PDF. Kept with its original signatures for that button.
 
-function drawCoverPage(doc: Doc, project: Project): void {
-  const centerY = PH * 0.42;
-
-  // Thin gold rule above title
-  doc.setDrawColor(201, 168, 76);
-  doc.setLineWidth(0.4);
-  doc.line(M + CW * 0.2, centerY - 18, PW - M - CW * 0.2, centerY - 18);
-
-  // Project title
-  doc.setFont(FONT, "bold");
-  doc.setFontSize(22);
-  doc.setTextColor(30, 26, 22);
-  const titleLines: string[] = doc.splitTextToSize(project.title.toUpperCase(), CW * 0.72);
-  let y = centerY;
-  for (const line of titleLines) {
-    doc.text(line, PW / 2, y, { align: "center" });
-    y += lh(22);
-  }
-
-  // Thin gold rule below title
-  doc.setDrawColor(201, 168, 76);
-  doc.line(M + CW * 0.2, y + 6, PW - M - CW * 0.2, y + 6);
-
-  // "Manuscript" label
-  doc.setFont(FONT, "italic");
-  doc.setFontSize(10);
-  doc.setTextColor(122, 111, 99);
-  doc.text("Manuscript", PW / 2, y + 16, { align: "center" });
-
-  // Rune wordmark
-  doc.setFont(FONT, "italic");
-  doc.setFontSize(8);
-  doc.setTextColor(122, 111, 99);
-  doc.text("Rune", PW / 2, PH - 14, { align: "center" });
-}
-
-function renderChapterTitle(state: State, chapter: Chapter): void {
-  const d = state.doc;
-  const pt = 14;
-  guard(state, lh(pt) * 3);
-  d.setFont(FONT, "bold");
-  d.setFontSize(pt);
-  d.setTextColor(30, 26, 22);
-  const lines: string[] = d.splitTextToSize(chapter.title.toUpperCase(), CW);
-  for (const line of lines) {
-    d.text(line, PW / 2, state.y, { align: "center" });
-    state.y += lh(pt);
-  }
-  state.y += lh(pt); // blank line below
-}
-
-function renderSceneDivider(state: State): void {
-  guard(state, lh(BODY_PT) + 8);
-  const d = state.doc;
-  const before = lh(BODY_PT) * 0.6;
-  state.y += before;
-  d.setFont(FONT, "normal");
-  d.setFontSize(10);
-  d.setTextColor(122, 111, 99);
-  d.text("* * *", PW / 2, state.y, { align: "center" });
-  state.y += lh(10) + before;
-  d.setTextColor(30, 26, 22);
-}
-
-function hasText(node: TNode): boolean {
-  if (node.type === "text") return (node.text ?? "").trim().length > 0;
-  return (node.content ?? []).some(hasText);
-}
-
-export type ExportedChapter = {
-  chapter: Chapter;
-  /** The Chapter's placed Scenes that have text, in Scene order. */
-  scenes: PlacedScene[];
-};
-
-/**
- * What the standard manuscript export prints, in order (architecture §6):
- *
- *   * every Chapter with at least one placed Scene, in manuscript reading
- *     order (through its Manuscript Groups: lib/manuscriptStructure.ts), under
- *     its heading (a Chapter with no placed Scene is left out, as before).
- *     Group headings are not printed yet (their format is undecided, §4);
- *   * its prose: all its placed Scenes, by Scene position, concatenated. A
- *     scene break ("* * *") goes between two adjacent Scenes — never before the
- *     first or after the last. Scenes without text print nothing and take no
- *     break, so an empty Scene never doubles one;
- *   * Scene titles are organizational metadata and are never printed;
- *   * Unplaced Scenes are never exported (they are not in scenesPerChapter:
- *     loadManuscriptForExport reads placed Scenes only; any Scene whose
- *     chapter_id is not the Chapter's is ignored regardless).
- */
-export function planManuscriptExport(
-  chapters: Chapter[],
-  scenesPerChapter: Record<string, PlacedScene[]>,
-  groups: Pick<ManuscriptGroup, "id" | "parent_group_id" | "position">[] = []
-): ExportedChapter[] {
-  return orderChaptersInManuscript(chapters, groups)
-    .flatMap((chapter) => {
-      const placed = (scenesPerChapter[chapter.id] ?? []).filter((s) => s.chapter_id === chapter.id);
-      if (placed.length === 0) return [];
-      const scenes = [...placed]
-        .sort((a, b) => a.position - b.position)
-        .filter((s) => hasText((s.content as TNode | null) ?? { type: "doc" }));
-      return [{ chapter, scenes }];
-    });
-}
+export { planManuscriptExport, type ExportedChapter } from "./plan";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SupabaseLike = any;
 
 /**
  * Loads what the manuscript export renders: the Project's Chapters in
- * manuscript reading order, its Groups, and the placed Scenes. Unplaced
- * Scenes are never exported.
- * Throws on a failed read so a partial manuscript is never exported.
+ * manuscript reading order, its Groups, and the placed Scenes (a page at a
+ * time, so no manuscript is ever cut short). Unplaced Scenes and Trash are
+ * never exported. Throws on a failed read so a partial manuscript is never exported.
  */
 export async function loadManuscriptForExport(
   supabase: SupabaseLike,
@@ -152,89 +35,48 @@ export async function loadManuscriptForExport(
   if (manuscriptErr) throw manuscriptErr;
   if (!manuscript) return { chapters: [], scenesPerChapter: {}, groups: [] };
 
-  const { data: chapters, error: chapErr } = await supabase
-    .from("chapters")
-    .select("*")
-    .eq("manuscript_id", manuscript.id)
-    .order("position", { ascending: true });
-  if (chapErr) throw chapErr;
-  if (!chapters || chapters.length === 0) return { chapters: [], scenesPerChapter: {}, groups: [] };
+  const chapters = (
+    await readAllRows<Chapter & { trashed_at?: string | null }>(() =>
+      supabase.from("chapters").select("*").eq("manuscript_id", manuscript.id)
+    )
+  ).filter((c) => !c.trashed_at);
+  if (chapters.length === 0) return { chapters: [], scenesPerChapter: {}, groups: [] };
 
-  const { data: groups, error: groupErr } = await supabase
-    .from("manuscript_groups")
-    .select("*")
-    .eq("manuscript_id", manuscript.id);
-  if (groupErr) throw groupErr;
-
-  const { data: scenes, error: sceneErr } = await supabase
-    .from("scenes")
-    .select("*")
-    .in("chapter_id", (chapters as Chapter[]).map((c) => c.id))
-    .order("position", { ascending: true });
-  if (sceneErr) throw sceneErr;
+  const groups = await readAllRows<ManuscriptGroup>(() =>
+    supabase.from("manuscript_groups").select("*").eq("manuscript_id", manuscript.id)
+  );
+  const scenes = await readAllRows<PlacedScene & { trashed_at?: string | null }>(() =>
+    supabase.from("scenes").select("*").eq("manuscript_id", manuscript.id)
+  );
 
   const scenesPerChapter: Record<string, PlacedScene[]> = {};
-  for (const scene of (scenes ?? []) as PlacedScene[]) {
+  for (const scene of scenes.sort((a, b) => a.position - b.position)) {
+    if (scene.chapter_id === null || scene.trashed_at) continue;
     (scenesPerChapter[scene.chapter_id] ??= []).push(scene);
   }
-  const typedGroups = (groups ?? []) as ManuscriptGroup[];
   return {
-    chapters: orderChaptersInManuscript(chapters as Chapter[], typedGroups),
+    chapters: orderChaptersInManuscript(chapters, groups),
     scenesPerChapter,
-    groups: typedGroups,
+    groups,
   };
 }
 
 export async function exportProjectAsPdf(
-  project: Project,
+  project: Pick<Project, "title">,
   chapters: Chapter[],
   scenesPerChapter: Record<string, PlacedScene[]>,
-  groups: Pick<ManuscriptGroup, "id" | "parent_group_id" | "position">[] = []
+  groups: Pick<ManuscriptGroup, "id" | "parent_group_id" | "position" | "title">[] = []
 ): Promise<void> {
-  const { default: jsPDF } = await import("jspdf");
-
-  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "letter" });
-
-  // Cover page — no chrome
-  drawCoverPage(doc, project);
-
-  const state: State = {
-    doc,
-    y: M + 10,
-    pageNum: 1,
-    projectTitle: project.title,
-    bodyParagraphCount: 0,
-  };
-
-  let firstChapter = true;
-  for (const { chapter, scenes } of planManuscriptExport(chapters, scenesPerChapter, groups)) {
-    // Start every chapter on a fresh page
-    if (firstChapter) {
-      doc.addPage();
-      drawPageChrome(state);
-      firstChapter = false;
-    } else {
-      doc.addPage();
-      state.pageNum++;
-      drawPageChrome(state);
-      state.y = M + 10;
-    }
-
-    renderChapterTitle(state, chapter);
-    state.bodyParagraphCount = 0;
-
-    scenes.forEach((scene, i) => {
-      if (i > 0) {
-        renderSceneDivider(state);
-        // The first paragraph after a scene break is not indented.
-        state.bodyParagraphCount = 0;
-      }
-      for (const node of (scene.content as TNode).content ?? []) {
-        renderNode(state, node);
-      }
-    });
-  }
-
-  const filename = `${slugify(project.title)}-manuscript.pdf`;
-  doc.save(filename);
+  const document = planExport(
+    {
+      projectTitle: project.title,
+      groups: groups.map((g) => ({ ...g, title: g.title ?? null })),
+      chapters,
+      scenes: Object.values(scenesPerChapter).flat(),
+    },
+    { kind: "manuscript" }
+  );
+  const doc = await newPdf();
+  layoutPdf(doc, document);
+  doc.save(exportFileName(defaultExportName(document), "pdf"));
 }

@@ -2854,6 +2854,97 @@ span.r2-schema-type {
   }
 }
 
+/* ── Export and backup ──────────────────────────────────────────────────── */
+
+.r2-export-launchers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+}
+.r2-export-launchers + .r2-import-launch {
+  margin-top: 4px;
+}
+.r2-dialog.r2-export {
+  max-width: 480px;
+}
+.r2-dialog p.r2-export-subject {
+  margin-top: 2px;
+  color: var(--r2-ink-1);
+}
+.r2-dialog p.r2-export-summary {
+  color: var(--r2-ink-2);
+  font-variant-numeric: tabular-nums;
+}
+.r2-export-formats {
+  display: grid;
+  gap: 2px;
+  margin: 14px -8px 0;
+  padding: 0;
+  border: 0;
+}
+.r2-export-formats legend {
+  margin-bottom: 4px;
+  padding: 0 8px;
+  font-size: 12px;
+  color: var(--r2-ink-3);
+}
+.r2-export-format {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: var(--r2-radius);
+  cursor: pointer;
+  transition: background-color var(--r2-fast) var(--r2-ease);
+}
+.r2-export-format:hover,
+.r2-export-format[data-selected] {
+  background: var(--r2-hover);
+}
+.r2-export-format input {
+  margin-top: 3px;
+  accent-color: var(--r2-accent);
+}
+.r2-export-format > span {
+  display: grid;
+  gap: 1px;
+}
+.r2-export-format-name {
+  font-size: 13.5px;
+  color: var(--r2-ink-1);
+}
+.r2-export-format-hint {
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--r2-ink-3);
+}
+.r2-export-ext {
+  font-size: 12px;
+  color: var(--r2-ink-3);
+}
+.r2-export-name {
+  margin-top: 14px;
+}
+.r2-export-name-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.r2-export-name-row input {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: auto;
+  margin-right: 0;
+}
+.r2-dialog p.r2-export-note {
+  padding: 8px 10px;
+  border-radius: var(--r2-radius);
+  background: var(--r2-shell-bg);
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--r2-ink-2);
+}
+
 /* ── Motion off ────────────────────────────────────────────────────────── */
 
 @media (prefers-reduced-motion: reduce) {
@@ -4410,59 +4501,160 @@ span.r2-schema-type {
   color: var(--r2-ink-3);
 }
 
-/* A Scene's revision note (038), in its Inspector. */
-.r2-scene-note {
-  margin-top: 18px;
-}
-.r2-scene-note-head {
+/* Revision Notes (039, 040) — the panel's one home for revision notes: a
+   quiet trail of levels (Manuscript / Part / Chapter / Scene), the add field
+   (the composer), then the notes grouped by where each belongs, indented by
+   depth, in manuscript order. No boxes around notes. */
+.r2-rnotes-trail {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
-}
-.r2-scene-note-status {
-  display: inline-flex;
-  gap: 8px;
+  gap: 2px 4px;
   font-size: 11.5px;
+  line-height: 18px;
   color: var(--r2-ink-3);
 }
-.r2-scene-note-status[data-tone="alert"] {
+.r2-rnotes-trail-step {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  min-width: 0;
+}
+.r2-rnotes-trail-sep {
+  color: var(--r2-faint);
+}
+.r2-rnotes-trail-link {
+  max-width: 16em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--r2-ink-3);
+  border-radius: 2px;
+}
+.r2-rnotes-trail-link:hover {
+  color: var(--r2-ink-1);
+}
+.r2-rnotes-trail-link[aria-current] {
+  color: var(--r2-ink-1);
+  font-weight: 500;
+}
+.r2-rnotes-trail-link:focus-visible {
+  outline: 2px solid var(--r2-accent);
+  outline-offset: 2px;
+}
+.r2-rnotes-composer {
+  margin-top: 10px;
+}
+.r2-rnotes-composer .r2-composer-input {
+  min-height: 40px;
+}
+.r2-rnotes-composer:focus-within .r2-composer-input,
+.r2-rnotes-composer[data-filled] .r2-composer-input {
+  min-height: 64px;
+}
+.r2-rnotes-status {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  font-size: 11.5px;
+}
+.r2-rnotes-status[data-tone="alert"] {
   color: var(--r2-danger);
 }
-.r2-scene-note-input {
+.r2-rnotes-sections,
+.r2-rnotes-empty {
+  margin-top: 18px;
+  transition: margin-top var(--r2-frame) var(--r2-ease-frame);
+}
+.r2-rnotes:has(.r2-composer:focus-within) :is(.r2-rnotes-sections, .r2-rnotes-empty) {
+  margin-top: 40px;
+}
+.r2-rnotes-section + .r2-rnotes-section {
+  margin-top: 14px;
+}
+.r2-rnotes-source {
+  font-size: 11px;
+  line-height: 16px;
+  letter-spacing: 0.02em;
+  color: var(--r2-ink-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.r2-rnotes-list {
+  margin-top: 2px;
+}
+.r2-rnote {
+  position: relative;
+  padding: 8px 30px 8px 0;
+  border-top: 1px solid var(--r2-border);
+}
+.r2-rnote:first-child {
+  border-top: 0;
+}
+.r2-rnote-flag {
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--r2-danger);
+}
+.r2-rnote-body {
   display: block;
   width: 100%;
-  min-height: 64px;
+  margin-top: 1px;
+  padding: 0;
+  text-align: left;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--r2-ink-1);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  cursor: text;
+  border-radius: 3px;
+}
+.r2-rnote-body:disabled {
+  cursor: default;
+  color: var(--r2-ink-2);
+}
+.r2-rnote-body:focus-visible {
+  outline: 2px solid var(--r2-accent);
+  outline-offset: 2px;
+}
+.r2-rnote-edit {
+  display: block;
+  width: 100%;
   margin-top: 2px;
-  padding: 8px 10px;
-  resize: vertical;
-  border: 1px solid var(--r2-border);
+  padding: 6px 8px;
+  resize: none;
+  border: 1px solid var(--r2-accent-line);
   border-radius: 6px;
   background: var(--r2-field-bg);
   font: inherit;
   font-size: 13px;
-  line-height: 1.55;
+  line-height: 1.5;
   color: var(--r2-ink-1);
   field-sizing: content;
-  transition: border-color var(--r2-fast) var(--r2-ease);
 }
-.r2-scene-note-input::placeholder {
-  color: var(--r2-ink-3);
-}
-.r2-scene-note-input:hover {
-  border-color: var(--r2-border-strong);
-}
-.r2-scene-note-input:focus-visible {
+.r2-rnote-edit:focus-visible {
   outline: 2px solid var(--r2-accent);
   outline-offset: -1px;
-  border-color: transparent;
 }
-.r2-scene-note-hint {
-  margin-top: 4px;
-  font-size: 11.5px;
-  color: var(--r2-ink-3);
+.r2-rnote-actions {
+  position: absolute;
+  top: 5px;
+  right: -8px;
+  opacity: 0;
+  transition: opacity var(--r2-fast) var(--r2-ease);
 }
-.r2-scene-note-conflict {
+.r2-rnote:hover .r2-rnote-actions,
+.r2-rnote:focus-within .r2-rnote-actions {
+  opacity: 1;
+}
+@media (hover: none) {
+  .r2-rnote-actions {
+    opacity: 1;
+  }
+}
+.r2-rnote-choice {
   margin-top: 8px;
   padding: 8px 10px;
   border-radius: 6px;
@@ -4470,13 +4662,54 @@ span.r2-schema-type {
   font-size: 12.5px;
   color: var(--r2-ink-1);
 }
-.r2-scene-note-theirs {
+.r2-rnote-theirs {
   margin-top: 6px;
   white-space: pre-wrap;
   color: var(--r2-ink-2);
 }
-.r2-scene-note-actions {
+.r2-rnote-choice-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
   margin-top: 8px;
+}
+.r2-rnotes-hint {
+  margin-top: 10px;
+  font-size: 11.5px;
+  color: var(--r2-ink-3);
+}
+/* Reading Mode's quick add: a small surface under the reading bar. */
+.r2-reading-quicknote {
+  width: min(560px, calc(100% - 32px));
+  margin: 12px auto 0;
+  padding: 12px 14px 10px;
+  border-radius: 10px;
+  background: var(--r2-panel-bg);
+  box-shadow: 0 0 0 1px var(--r2-border), 0 6px 20px rgba(20, 24, 31, 0.06);
+}
+.r2-reading-quicknote-head {
+  font-size: 11.5px;
+  color: var(--r2-ink-3);
+}
+.r2-reading-quicknote .r2-rnotes-composer {
+  margin-top: 6px;
+}
+.r2-reading-quicknote-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 14px;
+  margin-top: 30px;
+  font-size: 11.5px;
+  color: var(--r2-ink-3);
+}
+.r2-reading-quicknote-foot [role="status"] {
+  margin-right: auto;
+}
+@media (prefers-reduced-motion: reduce) {
+  .r2-rnotes-sections,
+  .r2-rnotes-empty,
+  .r2-rnote-actions {
+    transition: none;
+  }
 }

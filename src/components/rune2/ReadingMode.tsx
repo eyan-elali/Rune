@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BookOpen, ListTree, PenLine, StickyNote } from "lucide-react";
 import { getReadingScenes, getReadingVersions } from "@/lib/actions/reading";
-import { listSceneNotes } from "@/lib/actions/sceneNotes";
 import { getCachedScene, getPendingWrite } from "@/lib/offline/db";
 import { isSceneView } from "@/lib/rune2/collectionViews";
 import { openableId } from "@/lib/rune2/references";
@@ -21,18 +20,14 @@ import {
   type ReadingPlan,
   type ReadingSource,
 } from "@/lib/rune2/reading";
-import {
-  noteExcerpt,
-  SCENE_NOTE_SAVED_EVENT,
-  type SceneNoteSavedDetail,
-  type SceneRevisionNote,
-} from "@/lib/rune2/sceneNotes";
+import { noteCountsByTarget } from "@/lib/rune2/revisionNotes";
 import type { SavedView } from "@/lib/types";
 import { useSceneItems } from "./ManuscriptScenes";
 import { usePropertyStore } from "./PropertyStore";
 import { ReadingDocument, readingAnchor } from "./ReadingDocument";
 import { useRune2Selection } from "./Rune2Selection";
-import { focusSceneNote } from "./SceneNote";
+import { NoteComposer } from "./RevisionNotes";
+import { useRevisionNotes } from "./RevisionNoteStore";
 import { useViewStore } from "./ViewStore";
 
 // Reading Mode (Milestone 18): the live manuscript, or the Scenes one Scene
@@ -50,9 +45,12 @@ import { useViewStore } from "./ViewStore";
 //   * "Edit" opens the Scene being read in the ordinary Scene editor, in a
 //     tab of its own — the Reading tab stays, and shows the edited text when
 //     the writer comes back to it;
-//   * "Note" opens that Scene's revision note in the Inspector, beside the
-//     text, so a note is written without leaving Reading Mode. Scenes with a
-//     note carry a quiet mark in the margin.
+//   * "Note" opens a small quick-add under the bar for the Scene being read
+//     (or, from a margin mark, the Scene beside it): ordinary Revision Notes
+//     on that Scene, one after another, without leaving the text and without
+//     opening any panel. There is no reading note: they appear at once in that
+//     Scene's, its Chapter's, its Groups' and the Manuscript's Revision Notes.
+//     Scenes with notes carry a quiet mark.
 
 type Texts = Map<string, Record<string, unknown> | null>;
 
@@ -144,7 +142,6 @@ async function readTexts(projectId: string, ids: readonly string[]): Promise<{ t
 export function ReadingMode({ source }: { source: ReadingSource }) {
   const {
     manuscript,
-    workspace,
     index,
     openInNewTab,
     panel,
@@ -172,7 +169,13 @@ export function ReadingMode({ source }: { source: ReadingSource }) {
   const [texts, setTexts] = useState<Texts>(new Map());
   const [failed, setFailed] = useState<Set<string>>(new Set());
   const [ready, setReady] = useState(false);
-  const [notes, setNotes] = useState<Map<string, SceneRevisionNote>>(new Map());
+  const { available: notable, notes } = useRevisionNotes();
+  const noteCounts = useMemo(() => noteCountsByTarget(notes), [notes]);
+  // A Scene's own notes: what its Revision Notes show.
+  const notesOf = useCallback((sceneId: string) => noteCounts.get(sceneId) ?? 0, [noteCounts]);
+  // The Scene the quick add is open for, if any.
+  const [quickAdd, setQuickAdd] = useState<string | null>(null);
+  const [added, setAdded] = useState(0);
   const [railOpen, setRailOpen] = useState(true);
   const [at, setAt] = useState(-1);
 
@@ -204,30 +207,6 @@ export function ReadingMode({ source }: { source: ReadingSource }) {
       live = false;
     };
   }, [idsKey, projectId]);
-
-  // Which Scenes have a revision note (a quiet mark in the margin).
-  useEffect(() => {
-    if (!workspace.sceneNotable) return;
-    let live = true;
-    void listSceneNotes(projectId).then((r) => {
-      if (live && r.error === null) setNotes(new Map(r.data.map((n) => [n.scene_id, n])));
-    });
-    const onSaved = (event: Event) => {
-      const detail = (event as CustomEvent<SceneNoteSavedDetail>).detail;
-      if (!detail) return;
-      setNotes((prev) => {
-        const next = new Map(prev);
-        if (detail.note) next.set(detail.sceneId, detail.note);
-        else next.delete(detail.sceneId);
-        return next;
-      });
-    };
-    window.addEventListener(SCENE_NOTE_SAVED_EVENT, onSaved);
-    return () => {
-      live = false;
-      window.removeEventListener(SCENE_NOTE_SAVED_EVENT, onSaved);
-    };
-  }, [projectId, workspace.sceneNotable]);
 
   // A fresh Reading Mode follows the reading; leaving it forgets the Scene read.
   useEffect(() => {
@@ -346,9 +325,14 @@ export function ReadingMode({ source }: { source: ReadingSource }) {
   }, [currentRow, railOpen]);
 
   function openNote(sceneId: string) {
+    setAdded(0);
+    setQuickAdd((open) => (open === sceneId ? null : sceneId));
+  }
+  /** The Scene's full Revision Notes, in the panel beside the text. */
+  function showNotes(sceneId: string) {
     setReadingFocus(sceneId);
-    if (panel !== "inspector") togglePanel("inspector");
-    focusSceneNote(sceneId);
+    if (panel !== "notes") togglePanel("notes");
+    setQuickAdd(null);
   }
   const edit = (sceneId: string) => openInNewTab(openableId(index, sceneId));
   // The margin buttons reach the latest handlers without re-rendering the text.
@@ -359,18 +343,19 @@ export function ReadingMode({ source }: { source: ReadingSource }) {
 
   const document_ = useMemo(() => {
     const sceneAside = (sceneId: string) => {
-      const note = notes.get(sceneId);
+      const count = notesOf(sceneId);
       const where = readingLocation(index, sceneId) ?? "this scene";
+      const label = count > 0 ? `${plural(count, "revision note")} for ${where}` : `Add a revision note to ${where}`;
       return (
         <>
-          {workspace.sceneNotable && (
+          {notable && (
             <button
               type="button"
               tabIndex={-1}
               className="r2-reading-mark"
-              data-has-note={note ? "" : undefined}
-              title={note ? `Revision note: ${noteExcerpt(note.body)}` : `Add a revision note to ${where}`}
-              aria-label={note ? `Revision note for ${where}` : `Add a revision note to ${where}`}
+              data-has-note={count > 0 ? "" : undefined}
+              title={label}
+              aria-label={label}
               onClick={() => actions.current.openNote(sceneId)}
             >
               <StickyNote size={13} strokeWidth={1.75} aria-hidden />
@@ -398,7 +383,7 @@ export function ReadingMode({ source }: { source: ReadingSource }) {
         labelOf={(id) => readingLocation(index, id)}
       />
     );
-  }, [plan, texts, failed, notes, index, workspace.sceneNotable]);
+  }, [plan, texts, failed, notesOf, index, notable]);
 
   // What is being read, said plainly.
   const filters = view ? describeViewFilters(view, properties, (id) => index.get(id)?.title ?? null) : [];
@@ -412,7 +397,7 @@ export function ReadingMode({ source }: { source: ReadingSource }) {
           sorted ? "in the view’s order" : "in manuscript order",
         ].join(" · ");
   const location = currentScene ? readingLocation(index, currentScene) : null;
-  const currentNote = currentScene ? notes.get(currentScene) : undefined;
+  const currentNotes = currentScene ? notesOf(currentScene) : 0;
 
   if (source.kind === "view" && !view) {
     return (
@@ -439,14 +424,17 @@ export function ReadingMode({ source }: { source: ReadingSource }) {
               {location}
             </span>
           )}
-          {currentScene && workspace.sceneNotable && (
+          {currentScene && notable && (
             <button
               type="button"
               className="r2-action"
-              data-has-note={currentNote ? "" : undefined}
+              data-has-note={currentNotes > 0 ? "" : undefined}
+              aria-expanded={quickAdd === currentScene}
               onClick={() => openNote(currentScene)}
               title={
-                currentNote ? `Revision note: ${noteExcerpt(currentNote.body)}` : "Add a revision note to this scene"
+                currentNotes > 0
+                  ? `${plural(currentNotes, "revision note")} on this scene — add another`
+                  : "Add a revision note to this scene"
               }
             >
               <StickyNote size={14} strokeWidth={1.75} aria-hidden />
@@ -478,6 +466,32 @@ export function ReadingMode({ source }: { source: ReadingSource }) {
           )}
         </div>
       </header>
+      {quickAdd && notable && index.has(quickAdd) && (
+        <div className="r2-reading-quicknote" role="group" aria-label="Add revision note">
+          <p className="r2-reading-quicknote-head">
+            Revision note for {readingLocation(index, quickAdd) ?? "this scene"}
+          </p>
+          <NoteComposer
+            key={quickAdd}
+            target={{ type: "scene", id: quickAdd }}
+            placeholder="What to look at in this scene next time…"
+            label="New revision note for this scene"
+            autoFocus
+            hint
+            onAdded={() => setAdded((n) => n + 1)}
+            onEscape={() => setQuickAdd(null)}
+          />
+          <p className="r2-reading-quicknote-foot">
+            <span role="status">{added > 0 ? `${plural(added, "note")} added` : ""}</span>
+            <button type="button" className="r2-panel-link" onClick={() => showNotes(quickAdd)}>
+              {notesOf(quickAdd) > 0 ? `See ${plural(notesOf(quickAdd), "note")}` : "Open revision notes"}
+            </button>
+            <button type="button" className="r2-panel-link" onClick={() => setQuickAdd(null)}>
+              Done
+            </button>
+          </p>
+        </div>
+      )}
 
       <div className="r2-reading-layout">
         {railOpen && plan.nav.length > 1 && (
@@ -495,12 +509,12 @@ export function ReadingMode({ source }: { source: ReadingSource }) {
                     onClick={() => go(row.id)}
                   >
                     <span className="r2-reading-rail-label">{row.label}</span>
-                    {row.kind !== "group" && row.kind !== "unplacedHeading" && notes.has(row.id) && (
+                    {row.kind !== "group" && row.kind !== "unplacedHeading" && (noteCounts.get(row.id) ?? 0) > 0 && (
                       <StickyNote
                         className="r2-reading-rail-note"
                         size={11}
                         strokeWidth={1.75}
-                        aria-label="Has a revision note"
+                        aria-label="Has revision notes"
                       />
                     )}
                   </button>

@@ -13,7 +13,7 @@ interface ExportButtonProps {
   project: Project;
 }
 
-export function ExportButton({ scene, chapter, project }: ExportButtonProps) {
+export function ExportButton({ scene, project }: ExportButtonProps) {
   const [loading, setLoading] = useState(false);
   const showToast = useToastStore((s) => s.showToast);
 
@@ -21,7 +21,7 @@ export function ExportButton({ scene, chapter, project }: ExportButtonProps) {
     if (!scene || loading) return;
     setLoading(true);
     try {
-      await exportSceneAsPdf(scene, chapter, project);
+      await exportSceneAsPdf(scene, project);
       showToast("Scene exported as PDF", "success");
     } catch (err) {
       console.error("PDF export failed:", err);

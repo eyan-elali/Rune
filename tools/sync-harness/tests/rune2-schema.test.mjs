@@ -53,7 +53,7 @@ test('a database built from schema.sql alone is identical to baseline + migratio
   assert.deepEqual(diffCounts(a, b), []);
   const versions = async (db) => (await db.query(`select version, name, note from public.schema_migrations order by version`)).rows;
   assert.deepEqual(await versions(fresh), await versions(migrated));
-  assert.deepEqual((await versions(fresh)).map((r) => r.version).slice(-26), ['013', '014', '015', '016', '017', '018', '019', '020', '021', '022', '023', '024', '025', '026', '027', '028', '029', '030', '031', '032', '033', '034', '035', '036', '037', '038']);
+  assert.deepEqual((await versions(fresh)).map((r) => r.version).slice(-29), ['013', '014', '015', '016', '017', '018', '019', '020', '021', '022', '023', '024', '025', '026', '027', '028', '029', '030', '031', '032', '033', '034', '035', '036', '037', '038', '039', '040', '041']);
 });
 
 test('signup still creates the profile and pricing entitlements on the Rune 2.0 schema', async () => {
@@ -1708,4 +1708,200 @@ test('038 requires 037, refuses to run twice (including on schema.sql), and chan
     await assert.rejects(db.exec(readMigration(M038)), /Migration 038 has already been applied/);
     assert.deepEqual(diffCatalogs(before, await captureCatalog(db)).differences, []);
   }
+});
+
+// ── migration 039 ─────────────────────────────────────────────────────────────
+
+const M039 = '039_revision_notes.sql';
+
+async function db038() {
+  const db = await db037();
+  await db.exec(readMigration(M038));
+  return db;
+}
+
+/** A 038 database holding Scene notes: a placed Scene's, an Unplaced Scene's and a trashed Scene's. */
+async function db038WithNotes() {
+  const db = await db038();
+  const user = await createAuthUser(db, '00000000-0000-4000-8000-0000000039a1');
+  const { id: projectId } = (await db.query(`insert into public.projects (user_id, title) values ($1, 'Noted') returning id`, [user])).rows[0];
+  const { id: m } = (await db.query(`select id from public.manuscripts where project_id = $1`, [projectId])).rows[0];
+  const { id: ch } = (await db.query(`insert into public.chapters (manuscript_id, title, position) values ($1, 'C', 1) returning id`, [m])).rows[0];
+  const scene = async (chapterId, position) => (await db.query(`insert into public.scenes (manuscript_id, chapter_id, title, word_count, position)
+    values ($1, $2, 's', 3, $3) returning id`, [m, chapterId, position])).rows[0].id;
+  const ids = { placed: await scene(ch, 0), unplaced: await scene(null, 0), trashed: await scene(null, 1), bare: await scene(ch, 1) };
+  await db.query(`update public.scenes set trashed_at = now() where id = $1`, [ids.trashed]);
+  const note = (id, body, at) => db.query(`insert into public.scene_revision_notes (scene_id, manuscript_id, body, version, created_at, updated_at)
+    values ($1, $2, $3, 4, $4, $4)`, [id, m, body, at]);
+  await note(ids.placed, 'Nerai’s motive is unclear here.\nCut the second storm.', '2026-09-29 10:00:00+00');
+  await note(ids.unplaced, 'Maybe chapter 9?', '2026-09-29 11:00:00+00');
+  await note(ids.trashed, 'Kept while in Trash.', '2026-09-29 12:00:00+00');
+  return { db, projectId, manuscriptId: m, chapterId: ch, ids };
+}
+
+test('039 on 038: every Scene note is carried over exactly; 038\'s table is kept untouched but closed; save_scene_revision_note goes', async () => {
+  const { db, projectId, manuscriptId, ids } = await db038WithNotes();
+  const original = (await db.query(`select * from public.scene_revision_notes order by created_at`)).rows;
+  const scenesBefore = (await db.query(`select * from public.scenes order by id`)).rows;
+  const before = await captureCatalog(db);
+  await db.exec(readMigration(M039));
+
+  const copied = (await db.query(`select project_id, manuscript_id, target_type, scene_id, chapter_id, target_id, body, version, created_at, updated_at
+    from public.revision_notes order by created_at`)).rows;
+  assert.deepEqual(copied, original.map((o) => ({
+    project_id: projectId, manuscript_id: manuscriptId, target_type: 'scene', scene_id: o.scene_id, chapter_id: null, target_id: o.scene_id,
+    body: o.body, version: 1, created_at: o.created_at, updated_at: o.updated_at,
+  })), 'same text, same Scene, same times — the trashed Scene\'s note too');
+  assert.ok(copied.some((n) => n.scene_id === ids.trashed));
+  assert.deepEqual((await db.query(`select * from public.scene_revision_notes_038 order by created_at`)).rows, original, 'the original rows, untouched');
+  assert.deepEqual((await db.query(`select * from public.scenes order by id`)).rows, scenesBefore, 'no Scene changes');
+
+  const keys = diffCatalogs(before, await captureCatalog(db)).differences.map((d) => `${d.section}:${d.kind}${d.fields ? '[' + d.fields.join(',') + ']' : ''}:${d.key}`).sort();
+  const changes = keys.filter((k) => !/^relation_counts?:/.test(k));
+  assert.deepEqual(changes.filter((k) => /^(relations|policies|triggers):/.test(k)), [
+    'policies:added:revision_notes.revision_notes: select own',
+    'policies:removed:scene_revision_notes.scene_revision_notes: select own',
+    'relations:added:revision_notes',
+    'relations:added:scene_revision_notes_038',
+    'relations:removed:scene_revision_notes',
+    'triggers:added:revision_notes.revision_notes_check_target',
+  ], 'no trigger on scenes or chapters: a note never reaches the manuscript rows');
+  const fns = changes.filter((k) => k.startsWith('functions:'));
+  assert.deepEqual(fns.filter((k) => k.startsWith('functions:added:')).map((k) => k.split(':')[2].split('(')[0]).sort(),
+    ['create_revision_note', 'delete_revision_note', 'revision_note_json', 'revision_note_target_active', 'revision_notes_check_target', 'update_revision_note']);
+  assert.deepEqual(fns.filter((k) => !k.startsWith('functions:added:')).map((k) => k.split(':')[2].split('(')[0]), ['save_scene_revision_note']);
+  assert.ok(fns.includes('functions:removed:save_scene_revision_note(p_scene_id uuid, p_body text, p_base_version integer)'));
+  const grants = changes.filter((k) => k.startsWith('function_grants:added:'));
+  assert.deepEqual(grants.filter((k) => / anon /.test(k)), [], 'anon executes nothing new');
+  assert.deepEqual(grants.filter((k) => / authenticated /.test(k)).map((k) => k.split(':')[2].split('(')[0]).sort(),
+    ['create_revision_note', 'delete_revision_note', 'update_revision_note'], 'the helpers are internal');
+  const tableGrants = changes.filter((k) => k.startsWith('table_grants:added:') && /(anon|authenticated) (INSERT|UPDATE|DELETE)/.test(k));
+  assert.deepEqual(tableGrants, [], 'clients never write revision_notes');
+  assert.deepEqual(changes.filter((k) => /^table_grants:added:scene_revision_notes_038 (anon|authenticated) /.test(k)), [], 'clients can\'t reach the archive');
+  assert.ok(!changes.some((k) => /:(scenes|chapters|projects|manuscripts)[.:]/.test(k.replace(/^[^:]+:[^:]+:/, ':'))), 'no manuscript table changes');
+});
+
+test('039 on a 038 database with no notes, and its refusals: requires 038, runs once (including on schema.sql), changes nothing when it refuses', async () => {
+  const empty = await db038();
+  await empty.exec(readMigration(M039));
+  assert.equal((await empty.query(`select count(*)::int as n from public.revision_notes`)).rows[0].n, 0);
+
+  const only037 = await db037();
+  const before037 = await captureCatalog(only037);
+  await assert.rejects(only037.exec(readMigration(M039)), /requires migration 038/);
+  assert.deepEqual(diffCatalogs(before037, await captureCatalog(only037)).differences, []);
+  for (const db of [await migratedDb(), await freshRune2Db()]) {
+    const before = await captureCatalog(db);
+    await assert.rejects(db.exec(readMigration(M039)), /Migration 039 has already been applied/);
+    assert.deepEqual(diffCatalogs(before, await captureCatalog(db)).differences, []);
+  }
+});
+
+// ── migration 040 ─────────────────────────────────────────────────────────────
+
+const M040 = '040_revision_note_scopes.sql';
+
+async function db039WithNotes() {
+  const seeded = await db038WithNotes();
+  await seeded.db.exec(readMigration(M039));
+  const { db, projectId, chapterId } = seeded;
+  const user = (await db.query(`select user_id from public.projects where id = $1`, [projectId])).rows[0].user_id;
+  // A Chapter note, and the Rune 1.x checklist: two open items, one done, one blank.
+  await db.query(`insert into public.revision_notes (project_id, manuscript_id, target_type, chapter_id, target_id, body)
+    values ($1, $2, 'chapter', $3, $3, 'chapter note')`, [projectId, seeded.manuscriptId, chapterId]);
+  const item = async (content, done, at) => (await db.query(`insert into public.project_notes (user_id, project_id, content, is_completed, is_pinned, created_at, updated_at)
+    values ($1, $2, $3, $4, $5, $6, $6) returning id`, [user, projectId, content, done, !done, at])).rows[0].id;
+  const open1 = await item('Check the timeline.', false, '2026-09-01 10:00:00+00');
+  const open2 = await item('Rename the inn.\nMaybe.', false, '2026-09-02 10:00:00+00');
+  const done = await item('Done already.', true, '2026-09-03 10:00:00+00');
+  return { ...seeded, user, items: { open1, open2, done } };
+}
+
+test('040 on 039: Group and Manuscript targets; every existing note unchanged; open checklist items become Manuscript notes (same id and times); project_notes untouched', async () => {
+  const { db, projectId, manuscriptId, items } = await db039WithNotes();
+  const notesBefore = (await db.query(`select * from public.revision_notes order by id`)).rows;
+  const checklistBefore = (await db.query(`select * from public.project_notes order by id`)).rows;
+  const scenesBefore = (await db.query(`select * from public.scenes order by id`)).rows;
+  const before = await captureCatalog(db);
+  await db.exec(readMigration(M040));
+
+  const after = (await db.query(`select * from public.revision_notes order by id`)).rows;
+  const kept = after.filter((n) => notesBefore.some((b) => b.id === n.id));
+  assert.deepEqual(kept.map(({ group_id, ...rest }) => { assert.equal(group_id, null); return rest; }), notesBefore, 'every Scene and Chapter note as it was');
+  const folded = after.filter((n) => n.target_type === 'manuscript').sort((x, y) => x.created_at - y.created_at);
+  const source = checklistBefore.filter((c) => !c.is_completed).sort((x, y) => x.created_at - y.created_at);
+  assert.deepEqual(folded.map((n) => [n.id, n.project_id, n.manuscript_id, n.target_id, n.body, n.version, n.created_at, n.updated_at]),
+    source.map((c) => [c.id, projectId, manuscriptId, manuscriptId, c.content, 1, c.created_at, c.updated_at]));
+  assert.deepEqual(folded.map((n) => n.id).sort(), [items.open1, items.open2].sort(), 'open items only');
+  assert.deepEqual((await db.query(`select * from public.project_notes order by id`)).rows, checklistBefore, 'the checklist is untouched');
+  assert.deepEqual((await db.query(`select * from public.scenes order by id`)).rows, scenesBefore);
+
+  const keys = diffCatalogs(before, await captureCatalog(db)).differences.map((d) => `${d.section}:${d.kind}${d.fields ? '[' + d.fields.join(',') + ']' : ''}:${d.key}`).sort();
+  const changes = keys.filter((k) => !/^relation_counts?:/.test(k));
+  assert.deepEqual(changes.filter((k) => /^(relations|triggers|table_grants):/.test(k)), [], 'no table, trigger or grant added or removed');
+  assert.ok(changes.every((k) => !/(scenes|chapters|manuscript_groups|manuscripts|projects|project_notes)\./.test(k.split(':').slice(2).join(':'))), 'no manuscript or checklist table changes');
+  assert.deepEqual(changes.filter((k) => k.startsWith('functions:')).map((k) => k.split(':')[2].split('(')[0]).sort(),
+    ['create_revision_note', 'revision_note_target_active', 'revision_notes_check_target'], 'three redefinitions, same signatures');
+  assert.ok(changes.every((k) => !k.startsWith('functions:') || k.startsWith('functions:changed')));
+  assert.ok(changes.includes('columns:added:revision_notes.group_id'));
+  // A stale-client safe second run is refused; nothing changes.
+  const again = await captureCatalog(db);
+  await assert.rejects(db.exec(readMigration(M040)), /Migration 040 has already been applied/);
+  assert.deepEqual(diffCatalogs(again, await captureCatalog(db)).differences, []);
+});
+
+test('040 requires 039 and refuses on schema.sql; with no checklist it copies nothing', async () => {
+  const only038 = await db038();
+  const before038 = await captureCatalog(only038);
+  await assert.rejects(only038.exec(readMigration(M040)), /requires migration 039/);
+  assert.deepEqual(diffCatalogs(before038, await captureCatalog(only038)).differences, []);
+  const fresh = await freshRune2Db();
+  const beforeFresh = await captureCatalog(fresh);
+  await assert.rejects(fresh.exec(readMigration(M040)), /Migration 040 has already been applied/);
+  assert.deepEqual(diffCatalogs(beforeFresh, await captureCatalog(fresh)).differences, []);
+  const bare = await db038();
+  await bare.exec(readMigration(M039));
+  await bare.exec(readMigration(M040));
+  assert.equal((await bare.query(`select count(*)::int as n from public.revision_notes`)).rows[0].n, 0);
+});
+
+// ── migration 041 ─────────────────────────────────────────────────────────────
+
+const M041 = '041_project_backup_read.sql';
+
+test('041 on 040: adds exactly one read-only function (read_project_backup), not callable by anon; no table, policy, trigger, grant on a table or row changes', async () => {
+  const { db } = await db039WithNotes();
+  await db.exec(readMigration(M040));
+  const rowsBefore = async () => {
+    const out = {};
+    for (const t of ['scenes', 'chapters', 'revision_notes', 'projects', 'manuscripts']) {
+      out[t] = (await db.query(`select * from public.${t} order by 1`)).rows;
+    }
+    return out;
+  };
+  const dataBefore = await rowsBefore();
+  const before = await captureCatalog(db);
+  await db.exec(readMigration(M041));
+  const keys = diffCatalogs(before, await captureCatalog(db)).differences
+    .map((d) => `${d.section}:${d.kind}:${d.key}`)
+    .filter((k) => !/^relation_counts?:/.test(k) && !k.startsWith('function_grants:'))
+    .sort();
+  assert.deepEqual(keys.filter((k) => !k.startsWith('functions:')), [], 'only a function');
+  assert.deepEqual(keys.map((k) => k.split(':')[1]), ['added']);
+  assert.match(keys[0], /read_project_backup/);
+  assert.deepEqual(await rowsBefore(), dataBefore, 'no row changes');
+  const fn = (await db.query(`select p.provolatile, p.prosecdef, p.proconfig from pg_proc p where p.proname = 'read_project_backup'`)).rows[0];
+  assert.deepEqual([fn.provolatile, fn.prosecdef, fn.proconfig], ['s', true, ['search_path=""']], 'STABLE, SECURITY DEFINER, empty search_path');
+  const anon = (await db.query(`select has_function_privilege('anon', 'public.read_project_backup(uuid, text, text, integer)', 'execute') as ok`)).rows[0].ok;
+  assert.equal(anon, false);
+  await assert.rejects(db.exec(readMigration(M041)), /Migration 041 has already been applied/);
+});
+
+test('041 requires 040 and refuses on schema.sql, changing nothing', async () => {
+  const { db } = await db039WithNotes();
+  const before = await captureCatalog(db);
+  await assert.rejects(db.exec(readMigration(M041)), /requires migration 040/);
+  assert.deepEqual(diffCatalogs(before, await captureCatalog(db)).differences, []);
+  const fresh = await freshRune2Db();
+  await assert.rejects(fresh.exec(readMigration(M041)), /Migration 041 has already been applied/);
 });

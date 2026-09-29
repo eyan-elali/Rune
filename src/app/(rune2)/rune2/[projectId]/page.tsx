@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { ImportManuscriptLauncher } from "@/components/rune2/ManuscriptImport";
+import { ProjectExportLaunchers } from "@/components/rune2/ProjectExport";
 import { loadProjectManuscript } from "@/lib/rune2/projectManuscript";
 
 // Manuscript overview — the content region until the editor arrives.
@@ -45,7 +46,8 @@ export default async function Rune2ProjectPage({
         <dd>{structure.join(" · ")}</dd>
       </dl>
 
-      {/* Import creates a new Project; this one is never changed. */}
+      {/* Export and backup only read; import creates a new Project. This one is never changed. */}
+      <ProjectExportLaunchers />
       <ImportManuscriptLauncher />
     </div>
   );

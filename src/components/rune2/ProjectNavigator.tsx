@@ -19,6 +19,7 @@ import {
   ChevronRight,
   File as PageIcon,
   FilePlus,
+  FileDown,
   FileText,
   Folder,
   FolderInput,
@@ -66,9 +67,11 @@ import {
 import { indexBeside, moveDestinations, walkWorkspaceTree, type WorkspaceTreeNode } from "@/lib/rune2/workspaceTree";
 import type { ManuscriptOutlineNode } from "@/lib/rune2/projectManuscript";
 import { NavigatorMenu, type NavigatorMenuItem } from "./NavigatorMenu";
+import { useRevisionNotes } from "./RevisionNoteStore";
 import { useRune2Selection } from "./Rune2Selection";
 import { useDragAutoScroll } from "./useDragAutoScroll";
 import { useTrash } from "./WorkspaceTrash";
+import { useProjectExport } from "./ProjectExport";
 
 // The Rune 2.0 project navigator: the Manuscript (Groups → Chapters → Scenes)
 // in reading order, then Unplaced Scenes, then the Workspace (its Pages,
@@ -155,6 +158,9 @@ export function ProjectNavigator() {
   // footer's "Trash" is. (The selection itself is kept for when Trash closes.)
   const selected = trashOpen ? undefined : selection;
   const trash = useTrash();
+  const exporter = useProjectExport();
+  const { notes: revisionNotes } = useRevisionNotes();
+  const groupNotes = (id: string) => revisionNotes.filter((n) => n.target_type === "group" && n.target_id === id).length;
   const router = useRouter();
   const [refreshing, startRefresh] = useTransition();
   const [busy, setBusy] = useState(false);
@@ -452,7 +458,23 @@ export function ProjectNavigator() {
           ...groupMoveItems(entry, at),
           // Phase 1 deletes only an empty Group; there is no Trash yet.
           ...(entry.childCount === 0
-            ? [{ label: "Delete group", icon: Trash2, tone: "danger" as const, onSelect: () => removeGroup(entry.id) }]
+            ? [
+                {
+                  label: "Delete group",
+                  icon: Trash2,
+                  tone: "danger" as const,
+                  // An empty Group's own Revision Notes go with it: asked first.
+                  ...(groupNotes(entry.id) > 0
+                    ? {
+                        confirm: {
+                          message: `Delete this empty group?${notesWarning(groupNotes(entry.id), "group")}`,
+                          action: "Delete group",
+                        },
+                      }
+                    : {}),
+                  onSelect: () => removeGroup(entry.id),
+                },
+              ]
             : []),
         ];
       case "chapter":
@@ -460,6 +482,9 @@ export function ProjectNavigator() {
           rename,
           { label: "New scene", icon: Pilcrow, onSelect: () => addScene(entry.id) },
           ...chapterMoveItems(entry, at),
+          ...(exporter
+            ? [{ label: "Export chapter…", icon: FileDown, onSelect: () => exporter.openExport({ kind: "chapter", chapterId: entry.id }) }]
+            : []),
           ...trashItems(entry),
           // Not deletion, and not Trash: the Chapter goes, its Scenes stay as
           // Unplaced Scenes. (Before 037, the only way to remove a Chapter.)
@@ -470,11 +495,15 @@ export function ProjectNavigator() {
                   icon: FolderInput,
                   confirm: {
                     message:
-                      entry.childCount === 0
+                      (entry.childCount === 0
                         ? "Remove this empty chapter?"
                         : `Remove this chapter? ${
                             entry.childCount === 1 ? "Its scene moves" : `Its ${entry.childCount} scenes move`
-                          } to Unplaced Scenes, and the chapter itself is removed.`,
+                          } to Unplaced Scenes, and the chapter itself is removed.`) +
+                      notesWarning(
+                        revisionNotes.filter((n) => n.target_type === "chapter" && n.target_id === entry.id).length,
+                        "chapter",
+                      ),
                     action: "Remove chapter",
                   },
                   onSelect: () => removeChapter(entry.id, entry.childCount),
@@ -484,7 +513,14 @@ export function ProjectNavigator() {
         ];
       case "scene":
       case "unplacedScene":
-        return [rename, ...sceneMoveItems(entry, at), ...trashItems(entry)];
+        return [
+          rename,
+          ...sceneMoveItems(entry, at),
+          ...(exporter
+            ? [{ label: "Export scene…", icon: FileDown, onSelect: () => exporter.openExport({ kind: "scene", sceneId: entry.id }) }]
+            : []),
+          ...trashItems(entry),
+        ];
       case "workspacePage":
         return [rename, ...workspaceMoveItems(entry, at), ...trashItems(entry)];
       case "workspaceCollection":
@@ -1661,4 +1697,11 @@ function RenameInput({
       maxLength={200}
     />
   );
+}
+
+/** A removed Chapter or deleted Group takes its own Revision Notes with it: said before it happens. */
+function notesWarning(count: number, noun: "chapter" | "group"): string {
+  if (count === 0) return "";
+  const rest = noun === "chapter" ? "; its scenes keep theirs." : ".";
+  return count === 1 ? ` Its revision note is deleted with it${rest}` : ` Its ${count} revision notes are deleted with it${rest}`;
 }

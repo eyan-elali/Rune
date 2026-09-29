@@ -6,9 +6,11 @@ import type { ProjectWorkspace } from "@/lib/rune2/projectWorkspace";
 import { ProjectNavigator } from "./ProjectNavigator";
 import { Rune2ContextBar, Rune2SelectionView } from "./Rune2Content";
 import { Rune2Panel } from "./Rune2Panel";
+import { ProjectExportDialogs, ProjectExportProvider } from "./ProjectExport";
 import { ProjectSearch } from "./ProjectSearch";
 import { PropertyStoreProvider } from "./PropertyStore";
 import { ReferenceStoreProvider } from "./ReferenceStore";
+import { RevisionNoteStoreProvider } from "./RevisionNoteStore";
 import { Rune2SelectionProvider, useRune2Selection } from "./Rune2Selection";
 import { Rune2Tabs } from "./Rune2Tabs";
 import { ViewStoreProvider } from "./ViewStore";
@@ -44,9 +46,13 @@ export function Rune2Shell({
       <ReferenceStoreProvider workspace={workspace}>
         <PropertyStoreProvider workspace={workspace}>
           <ViewStoreProvider workspace={workspace}>
-            <TrashProvider>
-              <Frame>{children}</Frame>
-            </TrashProvider>
+            <RevisionNoteStoreProvider>
+              <TrashProvider>
+                <ProjectExportProvider>
+                  <Frame>{children}</Frame>
+                </ProjectExportProvider>
+              </TrashProvider>
+            </RevisionNoteStoreProvider>
           </ViewStoreProvider>
         </PropertyStoreProvider>
       </ReferenceStoreProvider>
@@ -84,6 +90,7 @@ function Frame({ children }: { children: ReactNode }) {
 
       <Rune2Panel />
       <ProjectSearch />
+      <ProjectExportDialogs />
     </div>
   );
 }

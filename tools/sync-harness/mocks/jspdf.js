@@ -25,4 +25,6 @@ export default class jsPDF {
   splitTextToSize(s) { return [String(s)]; }
   text(t) { recorder.texts.push(Array.isArray(t) ? t.join(' ') : String(t)); }
   save(name) { recorder.saved.push(name); }
+  setProperties() {}
+  output() { return new ArrayBuffer(0); }
 }

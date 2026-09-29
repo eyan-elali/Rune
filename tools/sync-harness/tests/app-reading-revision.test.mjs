@@ -1,6 +1,5 @@
-// Reading Mode and Scene-anchored revision (Rune 2.0, Milestone 18, migration
-// 038): the REAL actions, loaders and pure rules against the Rune 2.0 schema
-// in real Postgres + RLS.
+// Reading Mode and Group movement (Rune 2.0, Milestone 18): the REAL actions,
+// loaders and pure rules against the Rune 2.0 schema in real Postgres + RLS.
 //
 //   * navigator: Groups reorder among their siblings and move into / out of
 //     other Groups (move_manuscript_group, atomic); a Group can never move
@@ -16,11 +15,6 @@
 //     opening the canonical Scene
 //   * a Scene View read: exactly the View's Scenes (its filters), in
 //     manuscript order or the View's own sort, never duplicated, Trash left out
-//   * Scene revision notes: create / edit / conflict / blank removes; they
-//     follow the Scene through every move, Unplaced and back, Trash and
-//     restore (with its Chapter too); permanent deletion removes them; writing
-//     one never changes the Scene's version, words, history, writing sessions
-//     or the manuscript total, and never reaches search or export
 //
 // Data: the synthetic legacy fixture moved into the Rune 2.0 schema. alice
 // owns hollow; bram owns tide. In hollow, reading order: ch1 [h1a 120], ch2
@@ -50,8 +44,8 @@ const doc = (...paragraphs) => ({
 const words = (...paragraphs) => paragraphs.join(' ').split(/\s+/).filter(Boolean).length;
 
 let legacy;
-let scenes, chapters, structure, trash, props, views, notes, reading, search, manuscriptLoader;
-let nav, readingModel, autoscroll, viewModel, sceneModel, propModel, refsModel, readingDoc, notesModel, exporter;
+let scenes, chapters, structure, trash, props, views, reading, search, manuscriptLoader;
+let nav, readingModel, autoscroll, viewModel, sceneModel, propModel, refsModel, readingDoc, exporter;
 before(async () => {
   legacy = await createTestDb();
   await legacy.exec(readRepoFile(LEGACY_BASELINE));
@@ -62,7 +56,6 @@ before(async () => {
   trash = await bundleForTest('src/lib/actions/workspaceTrash.ts', { name: 'rr_trash' });
   props = await bundleForTest('src/lib/actions/sceneProperties.ts', { name: 'rr_props' });
   views = await bundleForTest('src/lib/actions/sceneViews.ts', { name: 'rr_views' });
-  notes = await bundleForTest('src/lib/actions/sceneNotes.ts', { name: 'rr_notes' });
   reading = await bundleForTest('src/lib/actions/reading.ts', { name: 'rr_reading' });
   search = await bundleForTest('src/lib/actions/projectSearch.ts', { name: 'rr_search' });
   manuscriptLoader = await bundleForTest('src/lib/rune2/projectManuscript.ts', { name: 'rr_manuscript' });
@@ -73,7 +66,6 @@ before(async () => {
   sceneModel = await bundleForTest('src/lib/rune2/sceneViews.ts', { name: 'rr_scene_model' });
   propModel = await bundleForTest('src/lib/rune2/collectionProperties.ts', { name: 'rr_prop_model' });
   refsModel = await bundleForTest('src/lib/rune2/references.ts', { name: 'rr_refs_model' });
-  notesModel = await bundleForTest('src/lib/rune2/sceneNotes.ts', { name: 'rr_notes_model' });
   readingDoc = await bundleForTest('src/components/rune2/ReadingDocument.tsx', { name: 'rr_reading_doc' });
   exporter = await bundleForTest('src/lib/export/projectExport.ts', { name: 'rr_export' });
 });
@@ -88,7 +80,7 @@ async function seededDb() {
 
 function signIn(db, userId) {
   const sb = createSupabaseAdapter(db, { userId });
-  for (const mod of [scenes, chapters, structure, trash, props, views, notes, reading, search, manuscriptLoader, exporter]) {
+  for (const mod of [scenes, chapters, structure, trash, props, views, reading, search, manuscriptLoader, exporter]) {
     mod.setServerClient(sb);
   }
   return sb;
@@ -125,10 +117,7 @@ async function canonicalPlacedOrder(db) {
 }
 
 const sceneState = (db, id) => one(db, `select id, chapter_id, position, title, content, word_count, version, updated_at, trashed_at from public.scenes where id = $1`, [id]);
-/** A note as the client uses it (updated_at compared as an instant). */
-const plainNote = (n) => n && { scene_id: n.scene_id, body: n.body, version: n.version, updated_at: new Date(n.updated_at).getTime() };
-const noteRow = (db, id) => one(db, `select scene_id, manuscript_id, body, version from public.scene_revision_notes where scene_id = $1`, [id]);
-/** Everything a note must never change. */
+/** Everything reading must never change. */
 async function writingState(db) {
   return {
     scenes: await all(db, `select id, chapter_id, position, title, content, word_count, version, updated_at, trashed_at from public.scenes order by id`),
@@ -609,143 +598,5 @@ test('a sorted Scene View reads in the View\'s own order, each Scene saying wher
   assert.equal(readingModel.viewIsSorted(orphan, (await arrangedView(db, view)).properties), false);
 });
 
-// ── 5. Scene revision notes ───────────────────────────────────────────────────
-
-test('a Scene note is created, edited and removed through its one function; a stale save never overwrites a newer note', async () => {
-  const db = await seededDb();
-  const id = S('h4a');
-  assert.equal(ok(await notes.getSceneNote(id)), null);
-
-  let r = await notes.saveSceneNote(id, 'Nerai’s motive is unclear here.', 0);
-  assert.equal(r.status, 'ok');
-  assert.equal(r.note.version, 1);
-  assert.deepEqual(plainNote(ok(await notes.getSceneNote(id))), plainNote(r.note));
-  r = await notes.saveSceneNote(id, 'Nerai’s motive is unclear here.\nCut the second storm.', 1);
-  assert.equal(r.note.version, 2);
-
-  // Another window saved in between: refused, with what is stored.
-  const stale = await notes.saveSceneNote(id, 'An older edit', 1);
-  assert.equal(stale.status, 'conflict');
-  assert.equal(stale.note.body, 'Nerai’s motive is unclear here.\nCut the second storm.');
-  assert.equal((await noteRow(db, id)).version, 2, 'nothing written');
-  assert.equal((await notes.saveSceneNote(id, 'first', 0)).status, 'conflict', '"there was no note" is stale too');
-  // The writer chooses to keep theirs.
-  r = await notes.saveSceneNote(id, 'Keep mine', null);
-  assert.deepEqual([r.status, r.note.body, r.note.version], ['ok', 'Keep mine', 3]);
-
-  // A blank note is no note.
-  r = await notes.saveSceneNote(id, '   \n\t ', 3);
-  assert.deepEqual(r, { status: 'ok', note: null });
-  assert.equal(await noteRow(db, id), undefined);
-  assert.equal(notesModel.noteIsBlank(' \n'), true);
-  assert.equal(notesModel.noteBaseVersion(null), 0);
-
-  assert.equal((await notes.saveSceneNote(id, 'x'.repeat(20001), 0)).status, 'error');
-  assert.equal(notesModel.noteExcerpt('First line that is long\nsecond', 10), 'First lin…');
-});
-
-test('writing a Scene note changes nothing about the Scene or the writing record: version, words, history, sessions, totals', async () => {
-  const db = await seededDb();
-  const before = await writingState(db);
-  for (const [label, body] of [['h1a', 'a'], ['h1a', 'a longer note with many words in it'], ['h3b', 'unplaced note'], ['h4b', 'empty scene note']]) {
-    const current = await notes.getSceneNote(S(label));
-    assert.equal((await notes.saveSceneNote(S(label), body, notesModel.noteBaseVersion(current.data))).status, 'ok');
-  }
-  assert.equal((await notes.saveSceneNote(S('h1a'), '', 2)).status, 'ok');
-  assert.deepEqual(await writingState(db), before);
-  assert.equal(ok(await reading.getReadingVersions(HOLLOW)).find((v) => v.id === S('h4b')).version,
-    before.scenes.find((s) => s.id === S('h4b')).version, 'Reading Mode sees no change to re-read');
-
-  // Not searched as prose, not exported.
-  const found = ok(await search.searchProjectContent(HOLLOW, 'unplaced note'));
-  assert.deepEqual(found, [], 'a note is not manuscript text');
-  const { chapters: rows, scenesPerChapter, groups } = await exporter.loadManuscriptForExport(createSupabaseAdapter(db, { userId: ALICE }), HOLLOW);
-  const exported = JSON.stringify(exporter.planManuscriptExport(rows, scenesPerChapter, groups));
-  assert.doesNotMatch(exported, /empty scene note|unplaced note/);
-});
-
-test('a note follows its Scene: between Chapters, to Unplaced and back, reordered — the same row every time', async () => {
-  const db = await seededDb();
-  const id = S('h4c');
-  const saved = (await notes.saveSceneNote(id, 'Tighten the ending.', 0)).note;
-  const row = await noteRow(db, id);
-  assert.equal(row.manuscript_id, (await one(db, `select manuscript_id from public.scenes where id = $1`, [id])).manuscript_id);
-  const same = async () => {
-    assert.deepEqual(await noteRow(db, id), row);
-    assert.deepEqual(plainNote(ok(await notes.getSceneNote(id))), plainNote(saved));
-  };
-  moved(await scenes.placeScene(id, CH(2), 0));
-  assert.equal((await sceneState(db, id)).chapter_id, CH(2));
-  await same();
-  moved(await scenes.moveSceneToUnplaced(id));
-  assert.equal((await sceneState(db, id)).chapter_id, null);
-  await same();
-  assert.ok(ok(await notes.listSceneNotes(HOLLOW)).some((n) => n.scene_id === id), 'an Unplaced Scene keeps its note');
-  moved(await scenes.placeScene(id, CH(6), null));
-  moved(await scenes.placeScene(id, CH(6), 0));
-  await same();
-  // A Chapter moving (into a Group) carries its Scenes' notes with it.
-  const g = ok(await structure.createGroup(HOLLOW, 'Part'));
-  moved(await structure.moveChapter(CH(6), g.id, null, HOLLOW));
-  await same();
-});
-
-test('Trash and restore keep a note (hidden and unwritable while trashed); a Chapter going with its Scenes too; permanent deletion removes it', async () => {
-  const db = await seededDb();
-  const id = S('h1a');
-  await notes.saveSceneNote(id, 'Open on the bell, not the rain.', 0);
-  ok(await trash.trashWorkspaceObject('scene', id));
-  assert.equal(ok(await notes.getSceneNote(id)), null, 'hidden while in Trash');
-  assert.ok(!ok(await notes.listSceneNotes(HOLLOW)).some((n) => n.scene_id === id));
-  assert.deepEqual(await notes.saveSceneNote(id, 'x', 1), { status: 'error', error: 'Scene not found' });
-  assert.equal((await noteRow(db, id)).body, 'Open on the bell, not the rain.', 'kept, untouched');
-  ok(await trash.restoreWorkspaceObject('scene', id));
-  assert.equal(ok(await notes.getSceneNote(id)).body, 'Open on the bell, not the rain.');
-
-  // A Chapter to Trash with its Scenes, and back.
-  const inChapter = S('h4b');
-  await notes.saveSceneNote(inChapter, 'Write this one.', 0);
-  ok(await trash.trashWorkspaceObject('chapter', CH(4)));
-  assert.equal(ok(await notes.getSceneNote(inChapter)), null);
-  ok(await trash.restoreWorkspaceObject('chapter', CH(4)));
-  assert.equal(ok(await notes.getSceneNote(inChapter)).version, 1);
-
-  // Permanently deleting the Scene deletes its note — and only its note.
-  ok(await trash.trashWorkspaceObject('scene', id));
-  ok(await trash.deleteTrashedWorkspaceObject('scene', id));
-  assert.equal(await noteRow(db, id), undefined);
-  assert.equal((await noteRow(db, inChapter)).body, 'Write this one.');
-  // And a Chapter deleted permanently takes its Scenes' notes.
-  ok(await trash.trashWorkspaceObject('chapter', CH(4)));
-  ok(await trash.deleteTrashedWorkspaceObject('chapter', CH(4)));
-  assert.equal(await noteRow(db, inChapter), undefined);
-});
-
-test('notes are the owner\'s alone: another writer can neither read nor write them; clients cannot write the table directly', async () => {
-  const db = await seededDb();
-  await notes.saveSceneNote(S('h2a'), 'private', 0);
-  const bram = signIn(db, BRAM);
-  assert.equal(ok(await notes.getSceneNote(S('h2a'))), null);
-  assert.deepEqual(await notes.saveSceneNote(S('h2a'), 'mine now', null), { status: 'error', error: 'Scene not found' });
-  assert.equal((await notes.listSceneNotes(HOLLOW)).error, 'Project not found');
-  const direct = await bram.from('scene_revision_notes').insert({ scene_id: pageId('t1b'), manuscript_id: (await one(db, `select manuscript_id from public.scenes where id = $1`, [pageId('t1b')])).manuscript_id, body: 'x' });
-  assert.match(direct.error?.message ?? '', /permission denied/);
-  const alice = signIn(db, ALICE);
-  const update = await alice.from('scene_revision_notes').update({ body: 'changed' }).eq('scene_id', S('h2a'));
-  assert.match(update.error?.message ?? '', /permission denied/);
-  assert.equal((await noteRow(db, S('h2a'))).body, 'private');
-});
-
-test('Reading Mode can write the note of the Scene being read, and its marks see it', async () => {
-  const db = await seededDb();
-  const { manuscript, index } = await shell();
-  const plan = readingModel.manuscriptReadingPlan(manuscript.outline, index);
-  const at = plan.blocks.findIndex((b) => b.id === CH(4));
-  const current = readingModel.sceneAt(plan.blocks, at);
-  assert.equal(current, S('h4a'), 'reading Chapter 4\'s heading: its first Scene');
-  const before = await sceneState(db, current);
-  assert.equal((await notes.saveSceneNote(current, 'The storm repeats chapter 2.', 0)).status, 'ok');
-  const marks = new Set(ok(await notes.listSceneNotes(HOLLOW)).map((n) => n.scene_id));
-  assert.ok(marks.has(current));
-  assert.deepEqual(await sceneState(db, current), before);
-});
+// Revision Notes (039, replacing 038's one note per Scene) are covered by
+// app-revision-notes.test.mjs, including Reading Mode's use of them.

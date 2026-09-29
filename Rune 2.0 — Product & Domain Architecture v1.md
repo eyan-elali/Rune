@@ -1333,11 +1333,27 @@ Version History arrived as two small safety systems, not version control. There 
 
 ### Revision Notes
 
-The existing Revision Notes system **stays as it is** for the Rune 2.0 beta.
+**Revision Notes are writer-authored revision thoughts attached to the Manuscript, a Group, a Chapter or a Scene, surfaced contextually through the manuscript hierarchy.** There is one Revision Notes feature and one note model (`revision_notes`, migrations 039–040). It is not a Workspace Page, a Collection or a hidden Page, and it prescribes no revision workflow.
 
-It works like a lightweight project checklist, not freeform Pages. It is not migrated into Workspace Pages or Collections in the initial Rune 2.0 migration.
+- **One note, one target.** A note belongs to exactly one of the Manuscript, a Group, a Chapter or a Scene, anchored by that target's stable ID. A target may carry any number of notes. Each note is created, edited and deleted on its own.
+- **One home.** Revision Notes live in the Revision Notes panel. The Inspector shows no notes: it is about metadata, properties, history and references.
+- **Hierarchical visibility.** The panel shows the level the writer is at: the selected Scene, Chapter or Group, the Scene being read, or the whole Manuscript when nothing is selected. A quiet trail moves between the levels above it. What each level shows is derived from the live manuscript structure, never copied, and each note appears exactly once:
+  - a **Scene** shows only its own notes (the narrowest view: no Chapter, sibling, Group or Manuscript notes);
+  - a **Chapter** shows its own notes, then those of each active Scene in it, in Scene order;
+  - a **Group** shows its own notes, then everything inside it (nested Groups, Chapters and Scenes) in manuscript order;
+  - the **Manuscript** shows its own notes, then every Group's, Chapter's and Scene's in manuscript order, then the Unplaced Scenes'. This is the bird's-eye revision view.
+  - Every note is labelled with where it belongs ("This chapter", "Chapter 12", "The Bell Tower · Unplaced").
+- **Adding.** A new note goes to the level being shown, so the writer never picks a scope. Return saves and clears the field for the next note; Shift+Return adds a new line. Unsent text in the field is kept on the device.
+- **Reading Mode quick-add.** While reading, "Note" opens a small quick-add for the Scene being read. It creates ordinary Scene notes, several in a row, without opening any panel. They appear at once in that Scene's, its Chapter's, its Groups' and the Manuscript's Revision Notes. There is no separate reading note.
+- **Movement.** Notes follow their targets. A Scene moved to another Chapter leaves the old Chapter's (and Groups') view and appears in the new one. An Unplaced Scene keeps its notes, which then appear only in its own view and the Manuscript's. A Chapter or Group moved between Groups brings everything inside it. No move rewrites a note.
+- **Trash.** A Scene or Chapter in Trash has its notes hidden from every view (a Chapter takes its Scenes' with it). Restore brings back the same notes on the same IDs. Permanently deleting a Scene or Chapter deletes the notes on it. Groups have no Trash: only an empty Group can be deleted, and its own notes go with it after a confirmation that says so. Removing a Chapter while keeping its Scenes deletes the Chapter's own notes (said first); its Scenes keep theirs.
+- **Outside the manuscript.** Notes are never part of a Scene's prose, version, word count, History or writing credit (sessions, Today). They are never counted in totals, captured by Milestones, searched as manuscript text, or exported.
+- **Durable.** A note appears at once and is kept on the device until the server has it. A failed save, a lost connection, moving to another Scene or a reload never loses it. A retried save never duplicates it. An edit never silently overwrites a newer version made elsewhere: the writer chooses.
+- **Not a task list.** There is no status, priority, due date, checkbox, assignee or resolved state.
 
-Rune may later reconsider folding it into a Revision Issues Collection or a broader revision workflow. That is deferred.
+**The Rune 1.x checklist.** Before Rune 2.0, the project had a checklist (`project_notes`) shown as "Revision Notes". In the Rune 2.0 shell it is folded into Revision Notes: migration 040 copied every open checklist item into a Manuscript-wide note (same ID, text and times), and the panel shows Revision Notes instead. Completed items were not copied. `project_notes` itself is left untouched, and only the remaining Rune 1.x pages (the legacy dashboard and project page) still read it. It retires with them. The single note per Scene of Milestone 18 (migration 038) likewise became Scene notes (039).
+
+Folding Revision Notes into a Revision Issues Collection or a broader revision workflow is deferred.
 
 ---
 
@@ -1557,7 +1573,7 @@ Import/export appropriate to beta (titled Groups exported as headings)
 Manuscript safety infrastructure (autosave, sync, Trash, export)
 Trash
 Offline resilience
-Existing Revision Notes (unchanged)
+Revision Notes (Manuscript, Group, Chapter, Scene)
 ```
 
 ### Editor

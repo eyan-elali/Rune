@@ -20,7 +20,8 @@ import { AddProperty, ItemProperties } from "./PropertyFields";
 import { usePropertyStore } from "./PropertyStore";
 import { useReferenceStore } from "./ReferenceStore";
 import { SceneHistorySection } from "./SceneHistory";
-import { SceneNoteSection } from "./SceneNote";
+import { RevisionNotesView } from "./RevisionNotes";
+import { useRevisionNotes } from "./RevisionNoteStore";
 import { useRune2Selection, type PanelView } from "./Rune2Selection";
 import { useViewStore } from "./ViewStore";
 
@@ -86,7 +87,7 @@ export function Rune2Panel() {
               <X size={14} strokeWidth={1.75} aria-hidden />
             </button>
           </header>
-          <div className="r2-panel-body">{view === "notes" ? <NotesView /> : <InspectorView />}</div>
+          <div className="r2-panel-body">{view === "notes" ? <NotesPanel /> : <InspectorView />}</div>
         </div>
       )}
     </aside>
@@ -95,13 +96,21 @@ export function Rune2Panel() {
 
 // ── Notes ─────────────────────────────────────────────────────────────────
 //
-// Revision Notes: a project-wide checklist (project_notes), kept as it is for
-// Rune 2.0 (architecture §30). The panel shows those, for the whole
-// manuscript. A single Scene's revision note (migration 038) lives in that
-// Scene's Inspector instead (SceneNote). Notes are never manuscript prose:
-// separate tables, separate words.
+// Revision Notes: the one home for revision notes (RevisionNotes.tsx) — on the
+// Manuscript, a Group, a Chapter or a Scene, shown for the level the writer
+// is at. Notes are never manuscript prose: separate tables, separate words.
+//
+// Before migration 040 the panel shows what it always did: the project-wide
+// checklist (project_notes, ChecklistView). 040 copies that checklist's open
+// items into Manuscript-wide Revision Notes and leaves project_notes as it
+// is, for the Rune 1.x pages that still read it.
 
-function NotesView() {
+function NotesPanel() {
+  const { available } = useRevisionNotes();
+  return available ? <RevisionNotesView /> : <ChecklistView />;
+}
+
+function ChecklistView() {
   const { manuscript } = useRune2Selection();
   const projectId = manuscript.project.id;
   const [notes, setNotes] = useState<ProjectNote[] | null>(null);
@@ -333,13 +342,12 @@ function NotesView() {
 // links, never controls in the manuscript editor. Two separate things, kept
 // apart: a Scene's History (versions the database kept on its own) and the
 // named Milestones that hold this Scene or Chapter (037), each opening the
-// read-only Milestone at it. A Scene's revision note (038) sits near the top,
-// beside the Scene's facts: supporting text, saved on its own.
+// read-only Milestone at it. Revision Notes are not here: they have one home,
+// the Revision Notes panel.
 //
 // While a Reading tab is active nothing is selected; the Inspector then
 // describes the Scene being read (or the one the writer chose from Reading
-// Mode's "Note"), so its note, properties and history are at hand without
-// leaving the text.
+// Mode), so its properties and history are at hand without leaving the text.
 
 function plural(n: number, one: string, many = `${one}s`) {
   return `${n.toLocaleString()} ${n === 1 ? one : many}`;
@@ -531,14 +539,6 @@ function InspectorView() {
           </div>
         ))}
       </dl>
-      {workspace.sceneNotable && scene?.type === "scene" && (
-        <SceneNoteSection
-          key={`note-${scene.id}`}
-          sceneId={scene.id}
-          // Writing a note while reading keeps the Inspector on this Scene.
-          onFocus={reading ? () => setReadingFocus(scene.id) : undefined}
-        />
-      )}
       {scene?.type === "scene" && (
         <SceneHistorySection key={`history-${scene.id}`} sceneId={scene.id} projectId={manuscript.project.id} />
       )}

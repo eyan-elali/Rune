@@ -443,9 +443,9 @@ Do not change counting, deletion, export, canonical-page, or chapter-order behav
 
 ### Revision Notes
 
-**Current implementation reality:** Revision Notes are a project-scoped, lightweight checklist.
+**Current implementation reality:** in production (`main`), Revision Notes are a project-scoped, lightweight checklist (`project_notes`). On the `rune-2` branch, Revision Notes are one feature (`revision_notes`, migrations 039–040): notes on the Manuscript, a Group, a Chapter or a Scene, shown by manuscript level in the Revision Notes panel (never the Inspector), with a Reading Mode quick-add. 040 copied the open checklist items into Manuscript notes and left `project_notes` untouched for the remaining Rune 1.x pages. See architecture §30.
 
-**Rune 2.0 direction:** keep the existing Revision Notes system as it is for the beta. Do not migrate it into Workspace Pages or Collections. Folding it into a revision workflow later is deferred.
+**Rune 2.0 direction:** Revision Notes stay their own system for the beta. Do not migrate them into Workspace Pages or Collections. Folding them into a revision workflow later is deferred.
 
 ### Progress
 

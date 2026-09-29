@@ -2,13 +2,14 @@
 
 import { useEffect, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { BookOpen, MoreHorizontal, PanelRight, Plus, StickyNote, Trash2 } from "lucide-react";
+import { BookOpen, FileDown, MoreHorizontal, PanelRight, Plus, StickyNote, Trash2 } from "lucide-react";
 import { createScene } from "@/lib/actions/scenes";
 import { cacheScene } from "@/lib/offline/db";
 import { isWorkspaceKind, type NavEntry, type NavKind } from "@/lib/rune2/navigatorModel";
 import { trashTypeOf } from "@/lib/rune2/trash";
 import { writingTargetFor } from "@/lib/rune2/writingTarget";
-import { NavigatorMenu } from "./NavigatorMenu";
+import { NavigatorMenu, type NavigatorMenuItem } from "./NavigatorMenu";
+import { useProjectExport } from "./ProjectExport";
 import { useRune2Selection } from "./Rune2Selection";
 import { Rune2Writing } from "./Rune2Writing";
 import { CollectionView, NewEntryAction } from "./CollectionView";
@@ -108,7 +109,7 @@ export function Rune2ContextBar() {
             <span className="r2-contextbar-divider" aria-hidden />
           </>
         )}
-        {selected && trashTypeOf(selected) && selected.kind !== "workspaceFolder" && (
+        {selected && (trashTypeOf(selected) || isExportable(selected)) && selected.kind !== "workspaceFolder" && (
           <>
             <ItemMenu entry={selected} />
             <span className="r2-contextbar-divider" aria-hidden />
@@ -144,7 +145,7 @@ export function Rune2ContextBar() {
           data-panel-action="notes"
           aria-pressed={panel === "notes"}
           onClick={() => togglePanel("notes")}
-          title={panel === "notes" ? "Close revision notes" : "Revision notes for the whole manuscript"}
+          title={panel === "notes" ? "Close revision notes" : "Revision notes for what you’re looking at"}
         >
           <StickyNote size={14} strokeWidth={1.75} aria-hidden />
           Revision Notes
@@ -165,13 +166,17 @@ export function Rune2ContextBar() {
   );
 }
 
+const isExportable = (entry: NavEntry) => entry.kind === "chapter" || entry.kind === "scene" || entry.kind === "unplacedScene";
+
 /**
- * "⋯" for the item in view (a Page, Collection, Entry or Scene): its quiet
- * actions — for now, "Move to Trash". An Entry has no navigator row, so this
- * is where it is trashed from. Hidden before migration 030 (031 for Scenes).
+ * "⋯" for the item in view (a Page, Collection, Entry, Chapter or Scene): its
+ * quiet actions — "Export chapter…" / "Export scene…", and "Move to Trash". An
+ * Entry has no navigator row, so this is where it is trashed from. Trash is
+ * hidden before migration 030 (031 for Scenes).
  */
 function ItemMenu({ entry }: { entry: NavEntry }) {
   const trash = useTrash();
+  const exporter = useProjectExport();
   const [at, setAt] = useState<{ x: number; y: number } | null>(null);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -183,7 +188,31 @@ function ItemMenu({ entry }: { entry: NavEntry }) {
   }, [notice]);
 
   const isScene = entry.kind === "scene" || entry.kind === "unplacedScene";
-  if (!trash.available || (isScene && !trash.scenesAvailable)) return null;
+  const items: NavigatorMenuItem[] = [];
+  if (exporter && isExportable(entry)) {
+    items.push({
+      label: entry.kind === "chapter" ? "Export chapter…" : "Export scene…",
+      icon: FileDown,
+      onSelect: () =>
+        exporter.openExport(entry.kind === "chapter" ? { kind: "chapter", chapterId: entry.id } : { kind: "scene", sceneId: entry.id }),
+    });
+  }
+  if (trashTypeOf(entry) && trash.available && !(isScene && !trash.scenesAvailable)) {
+    items.push({
+      label: "Move to Trash",
+      icon: Trash2,
+      tone: "danger",
+      onSelect: async () => {
+        setBusy(true);
+        try {
+          setNotice(await trash.moveToTrash(entry));
+        } finally {
+          setBusy(false);
+        }
+      },
+    });
+  }
+  if (items.length === 0) return null;
   return (
     <>
       {notice && (
@@ -209,21 +238,7 @@ function ItemMenu({ entry }: { entry: NavEntry }) {
         <NavigatorMenu
           label={`${entry.title} actions`}
           at={at}
-          items={[
-            {
-              label: "Move to Trash",
-              icon: Trash2,
-              tone: "danger",
-              onSelect: async () => {
-                setBusy(true);
-                try {
-                  setNotice(await trash.moveToTrash(entry));
-                } finally {
-                  setBusy(false);
-                }
-              },
-            },
-          ]}
+          items={items}
           onClose={() => setAt(null)}
         />
       )}

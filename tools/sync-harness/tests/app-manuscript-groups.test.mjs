@@ -396,7 +396,7 @@ test('createChapter appends after the last top-level Group; duplicateProject cop
 
 // ── 5. export ─────────────────────────────────────────────────────────────────
 
-test('the REAL export prints Chapters in Group reading order (Group headings are not printed yet)', async () => {
+test('the REAL export prints Chapters in Group reading order, under their titled Groups\' headings', async () => {
   const db = await seededDb();
   signIn(db, ALICE);
   await buildHollowStructure();
@@ -411,7 +411,10 @@ test('the REAL export prints Chapters in Group reading order (Group headings are
     'ch5 has no Scene and is skipped, as before');
   assert.deepEqual(recording.texts.filter((t) => markers[t]).map((t) => markers[t]),
     ['h1a', 'h2a', 'h6c', 'h4a', 'h4c', 'h3a'].map(pageId), 'Scenes in Scene order within each Chapter');
-  assert.ok(!recording.texts.some((t) => /BOOK ONE|PART I/i.test(t)), 'Group headings: format undecided (§4), not printed');
+  // Titled Groups print as headings (architecture §4, Milestone 19), each before its first Chapter.
+  const structural = { ...headings, 'BOOK ONE': 'Book One', 'PART I': 'Part I', 'PART II': 'Part II' };
+  assert.deepEqual(recording.texts.filter((t) => structural[t]).map((t) => structural[t]),
+    ['Book One', 'Part I', CH(1), CH(2), CH(6), CH(4), 'Part II', CH(3)]);
 
   // planManuscriptExport ignores the order it is given: the structure decides.
   const shuffled = [...loaded.chapters].reverse();

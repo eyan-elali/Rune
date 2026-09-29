@@ -85,10 +85,11 @@ export type ProjectWorkspace = {
    */
   chapterTrashable: boolean;
   /**
-   * Whether Scenes can carry revision notes (migration 038). When not, the
-   * Inspector and Reading Mode offer no Scene note.
+   * Whether Revision Notes can be on the Manuscript, Groups, Chapters and
+   * Scenes (migration 040). When not, the Revision Notes panel shows the
+   * project checklist as before and Reading Mode offers no notes.
    */
-  sceneNotable: boolean;
+  revisionNotable: boolean;
   /** The Project's Manuscript (the owner of its Scene properties and Scene Views), or null if unreadable. */
   manuscriptId: string | null;
   /** The Manuscript's Scene property definitions (any order; see propertiesOf). */
@@ -125,7 +126,7 @@ export const loadProjectWorkspace = cache(async (projectId: string): Promise<Pro
     scenePropertiesRead,
     sceneValuesRead,
     sceneViewsRead,
-    sceneNotesRead,
+    revisionNotesRead,
   ] = await Promise.all([
     supabase
       .from("workspace_documents")
@@ -175,10 +176,10 @@ export const loadProjectWorkspace = cache(async (projectId: string): Promise<Pro
       .select("id, manuscript_id, project_id, name, type, position, config, created_at, updated_at")
       .eq("project_id", projectId)
       .order("position", { ascending: true }),
-    // No rows: only whether Scene revision notes exist (migration 038).
-    supabase.from("scene_revision_notes").select("scene_id").limit(0),
+    // No rows: only whether Revision Notes take every scope (migration 040).
+    supabase.from("revision_notes").select("group_id").limit(0),
   ]);
-  const sceneNotable = !sceneNotesRead.error;
+  const revisionNotable = !revisionNotesRead.error;
   // Scene metadata is optional to everything else: without it (before 032),
   // the manuscript and the Workspace work exactly as before.
   const manuscriptId = (manuscriptRead.data?.id as string | undefined) ?? null;
@@ -215,7 +216,7 @@ export const loadProjectWorkspace = cache(async (projectId: string): Promise<Pro
     trashable: false,
     sceneTrashable,
     chapterTrashable: false,
-    sceneNotable,
+    revisionNotable,
     ...noProperties,
     ...scenes,
   };
@@ -272,7 +273,7 @@ export const loadProjectWorkspace = cache(async (projectId: string): Promise<Pro
     trashable,
     sceneTrashable,
     chapterTrashable,
-    sceneNotable,
+    revisionNotable,
     ...properties,
     ...scenes,
   };
