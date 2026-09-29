@@ -1,16 +1,32 @@
 "use client";
 
-import { Fragment, useEffect, useId, useState, type DragEvent, type KeyboardEvent, type MouseEvent } from "react";
+import {
+  Fragment,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type DragEvent,
+  type KeyboardEvent,
+  type MouseEvent,
+  type PointerEvent,
+} from "react";
 import { Plus } from "lucide-react";
 import { formatValue, isChoiceType, valueKey, valueLine } from "@/lib/rune2/collectionProperties";
 import {
   boardLanes,
   boardMoveValue,
+  clampColumnWidth,
+  columnWidth,
+  COLUMN_MAX_WIDTH,
+  COLUMN_MIN_WIDTH,
   groupableProperties,
   isNative,
   shownProperties,
   type BoardLane,
   type LaneTargets,
+  TITLE_COLUMN,
+  withColumnWidth,
 } from "@/lib/rune2/collectionViews";
 import { describeObject } from "@/lib/rune2/references";
 import type { PropertyDefinition, PropertyValue, SavedView } from "@/lib/types";
@@ -18,6 +34,7 @@ import { OptionNames, PropertyValueEditor } from "./PropertyFields";
 import { usePropertyStore } from "./PropertyStore";
 import { useRune2Selection } from "./Rune2Selection";
 import { useNewEntry } from "./useNewEntry";
+import { useViewStore } from "./ViewStore";
 
 // The three ways a saved View shows its items — a Collection's Entries
 // (migration 027) or a Manuscript's Scenes (032), through one set of bodies.
@@ -31,6 +48,9 @@ import { useNewEntry } from "./useNewEntry";
 //   Table — a row per item: its name, then the shown properties as columns,
 //           each value edited in place with the item's own editors (a
 //           read-only field — a Scene's words or placement — is only shown).
+//           Every column has a width (saved with the View, else its type's
+//           default) and can be dragged wider or narrower; long values
+//           wrap or truncate inside it.
 //   Board — a lane per option of a select or status property, or per Entry a
 //           Relationship points to (and one for none); moving a card between
 //           lanes sets that value — only that value.
@@ -160,12 +180,31 @@ export function ListView({ ownerTitle, view, properties, entryIds, presenter }: 
 
 export function TableView({ ownerTitle, view, properties, entryIds, presenter }: BodyProps & { ownerTitle: string }) {
   const { setValue } = usePropertyStore();
+  const { updateView } = useViewStore();
   const open = useOpenItem(presenter);
   const titleOf = useTitleOf();
   const tableId = useId();
   const [notice, setNotice] = useState<string | null>(null);
+  // A column being resized: its live width, until the View saves it.
+  const [resizing, setResizing] = useState<{ key: string; width: number } | null>(null);
   const shown = shownProperties(view, properties);
   const sort = view.config.sort;
+  const widthOf = (key: string, field: PropertyDefinition | typeof TITLE_COLUMN) =>
+    resizing?.key === key ? resizing.width : columnWidth(view, field);
+  const columns = [
+    { key: TITLE_COLUMN, width: widthOf(TITLE_COLUMN, TITLE_COLUMN), name: presenter.titleHeader },
+    ...shown.map((p) => ({ key: p.id, width: widthOf(p.id, p), name: p.name })),
+  ];
+  const tableWidth = columns.reduce((sum, c) => sum + c.width, 0);
+
+  async function saveWidth(key: string, width: number | null) {
+    const current = view.config.widths?.[key];
+    const done = () => setResizing((r) => (r?.key === key ? null : r));
+    if (width === null ? current === undefined : current === clampColumnWidth(width)) return done();
+    const error = await updateView(view, { config: withColumnWidth(view.config, key, width) });
+    done();
+    if (error) setNotice("The column width couldn’t be saved.");
+  }
 
   useEffect(() => {
     if (!notice) return;
@@ -182,17 +221,38 @@ export function TableView({ ownerTitle, view, properties, entryIds, presenter }:
   return (
     <>
       <div className="r2-table-wrap">
-        <table className="r2-table" aria-label={`${view.name} — ${ownerTitle}`}>
+        <table className="r2-table" aria-label={`${view.name} — ${ownerTitle}`} style={{ width: tableWidth }}>
+          <colgroup>
+            {columns.map((c) => (
+              <col key={c.key} style={{ width: c.width }} />
+            ))}
+          </colgroup>
           <thead>
             <tr>
               <th scope="col" id={colId("title")} className="r2-table-title-col">
-                {presenter.titleHeader}
-                {sortMark("title")}
+                <span className="r2-table-head">
+                  {presenter.titleHeader}
+                  {sortMark("title")}
+                </span>
+                <ColumnResizer
+                  name={columns[0].name}
+                  width={columns[0].width}
+                  onResize={(width) => setResizing({ key: TITLE_COLUMN, width })}
+                  onCommit={(width) => void saveWidth(TITLE_COLUMN, width)}
+                />
               </th>
-              {shown.map((p) => (
+              {shown.map((p, i) => (
                 <th key={p.id} scope="col" id={colId(p.id)} data-type={p.type} data-native={isNative(p) || undefined}>
-                  {p.name}
-                  {sortMark(p.id)}
+                  <span className="r2-table-head">
+                    {p.name}
+                    {sortMark(p.id)}
+                  </span>
+                  <ColumnResizer
+                    name={p.name}
+                    width={columns[i + 1].width}
+                    onResize={(width) => setResizing({ key: p.id, width })}
+                    onCommit={(width) => void saveWidth(p.id, width)}
+                  />
                 </th>
               ))}
             </tr>
@@ -256,6 +316,95 @@ export function TableView({ ownerTitle, view, properties, entryIds, presenter }:
         </p>
       )}
     </>
+  );
+}
+
+/**
+ * The border at a column header's right edge: drag it, or focus it and use
+ * ← / → (Shift: in larger steps); double-click (or Delete) returns the column
+ * to its default width. While dragging only the screen changes; the width is
+ * saved with the View when the drag ends (or shortly after the last key).
+ */
+function ColumnResizer({
+  name,
+  width,
+  onResize,
+  onCommit,
+}: {
+  name: string;
+  width: number;
+  onResize: (width: number) => void;
+  /** null: back to the default width. */
+  onCommit: (width: number | null) => void;
+}) {
+  const drag = useRef<{ x: number; width: number; last: number } | null>(null);
+  const keyTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const keyWidth = useRef<number | null>(null);
+
+  useEffect(() => () => clearTimeout(keyTimer.current), []);
+
+  function flushKeys() {
+    clearTimeout(keyTimer.current);
+    if (keyWidth.current !== null) onCommit(keyWidth.current);
+    keyWidth.current = null;
+  }
+
+  return (
+    <span
+      role="separator"
+      aria-orientation="vertical"
+      aria-label={`Resize the ${name} column`}
+      aria-valuemin={COLUMN_MIN_WIDTH}
+      aria-valuemax={COLUMN_MAX_WIDTH}
+      aria-valuenow={width}
+      tabIndex={0}
+      className="r2-col-resize"
+      onPointerDown={(e: PointerEvent<HTMLSpanElement>) => {
+        if (e.button !== 0) return;
+        e.preventDefault();
+        e.currentTarget.setPointerCapture(e.pointerId);
+        drag.current = { x: e.clientX, width, last: width };
+      }}
+      onPointerMove={(e) => {
+        if (!drag.current) return;
+        const next = clampColumnWidth(drag.current.width + e.clientX - drag.current.x);
+        if (next !== drag.current.last) {
+          drag.current.last = next;
+          onResize(next);
+        }
+      }}
+      onPointerUp={(e) => {
+        if (!drag.current) return;
+        e.currentTarget.releasePointerCapture(e.pointerId);
+        const { width: from, last } = drag.current;
+        drag.current = null;
+        if (last !== from) onCommit(last);
+      }}
+      onPointerCancel={() => {
+        if (!drag.current) return;
+        drag.current = null;
+        onCommit(width);
+      }}
+      onDoubleClick={() => onCommit(null)}
+      onKeyDown={(e) => {
+        const step = e.shiftKey ? 48 : 16;
+        let next: number | null = null;
+        if (e.key === "ArrowLeft") next = clampColumnWidth((keyWidth.current ?? width) - step);
+        else if (e.key === "ArrowRight") next = clampColumnWidth((keyWidth.current ?? width) + step);
+        else if (e.key === "Delete" || e.key === "Backspace") {
+          e.preventDefault();
+          keyWidth.current = null;
+          onCommit(null);
+          return;
+        } else return;
+        e.preventDefault();
+        keyWidth.current = next;
+        onResize(next);
+        clearTimeout(keyTimer.current);
+        keyTimer.current = setTimeout(flushKeys, 500);
+      }}
+      onBlur={flushKeys}
+    />
   );
 }
 

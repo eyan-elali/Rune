@@ -53,7 +53,7 @@ test('a database built from schema.sql alone is identical to baseline + migratio
   assert.deepEqual(diffCounts(a, b), []);
   const versions = async (db) => (await db.query(`select version, name, note from public.schema_migrations order by version`)).rows;
   assert.deepEqual(await versions(fresh), await versions(migrated));
-  assert.deepEqual((await versions(fresh)).map((r) => r.version).slice(-20), ['013', '014', '015', '016', '017', '018', '019', '020', '021', '022', '023', '024', '025', '026', '027', '028', '029', '030', '031', '032']);
+  assert.deepEqual((await versions(fresh)).map((r) => r.version).slice(-22), ['013', '014', '015', '016', '017', '018', '019', '020', '021', '022', '023', '024', '025', '026', '027', '028', '029', '030', '031', '032', '033', '034']);
 });
 
 test('signup still creates the profile and pricing entitlements on the Rune 2.0 schema', async () => {
@@ -1351,6 +1351,110 @@ test('032 requires 031, refuses to run twice (including on schema.sql), and chan
   for (const db of [await migratedDb(), await freshRune2Db()]) {
     const before = await captureCatalog(db);
     await assert.rejects(db.exec(readMigration(M032)), /Migration 032 has already been applied/);
+    assert.deepEqual(diffCatalogs(before, await captureCatalog(db)).differences, []);
+  }
+});
+
+// ── 19. migration 033 ─────────────────────────────────────────────────────────
+
+const M033 = '033_manuscript_import.sql';
+
+async function db032() {
+  const db = await db031();
+  await db.exec(readMigration(M032));
+  return db;
+}
+
+test('033 on 032: three import functions — and no table, column, trigger, policy, existing function or row change', async () => {
+  const db = await db032();
+  const before = await captureCatalog(db);
+  const rows = async () => ({
+    projects: (await db.query(`select * from public.projects order by id`)).rows,
+    chapters: (await db.query(`select * from public.chapters order by id`)).rows,
+    scenes: (await db.query(`select * from public.scenes order by id`)).rows,
+    sessions: (await db.query(`select * from public.writing_sessions order by id`)).rows,
+  });
+  const beforeRows = await rows();
+  await db.exec(readMigration(M033));
+  const keys = diffCatalogs(before, await captureCatalog(db)).differences.map((d) => `${d.section}:${d.kind}${d.fields ? '[' + d.fields.join(',') + ']' : ''}:${d.key}`).sort();
+  const NEW = '(import_manuscript_checked|import_manuscript_items|import_manuscript_shape)';
+  for (const k of keys) {
+    assert.ok(
+      new RegExp(`^functions:added:${NEW}\\(`).test(k)
+        || new RegExp(`^function_grants:added:${NEW}\\(.*\\) (authenticated|service_role|postgres) EXECUTE$`).test(k)
+        || /^relation_counts?:/.test(k),
+      `unexpected change: ${k}`);
+  }
+  assert.equal(keys.filter((k) => k.startsWith('functions:added:')).length, 3);
+  assert.ok(keys.some((k) => /^function_grants:added:import_manuscript_checked\(.*\) authenticated EXECUTE$/.test(k)), 'writers may import');
+  assert.ok(!keys.some((k) => /^function_grants:added:import_manuscript_(items|shape)\(.*\) authenticated/.test(k)), 'the internals are closed');
+  assert.ok(!keys.some((k) => / anon EXECUTE$/.test(k)), 'nothing for anon');
+  assert.deepEqual(await rows(), beforeRows);
+});
+
+test('033 requires 032, refuses to run twice (including on schema.sql), and changes nothing when it refuses', async () => {
+  const only031 = await db031();
+  const before031 = await captureCatalog(only031);
+  await assert.rejects(only031.exec(readMigration(M033)), /requires migration 032/);
+  assert.deepEqual(diffCatalogs(before031, await captureCatalog(only031)).differences, []);
+  for (const db of [await migratedDb(), await freshRune2Db()]) {
+    const before = await captureCatalog(db);
+    await assert.rejects(db.exec(readMigration(M033)), /Migration 033 has already been applied/);
+    assert.deepEqual(diffCatalogs(before, await captureCatalog(db)).differences, []);
+  }
+});
+
+// ── 20. migration 034 ─────────────────────────────────────────────────────────
+
+const M034 = '034_view_column_widths.sql';
+
+async function db033() {
+  const db = await db032();
+  await db.exec(readMigration(M033));
+  return db;
+}
+
+test('034 on 033: the three View-rule functions accept and prune widths — nothing else, and every existing View stays valid and unchanged', async () => {
+  const db = await db033();
+  const before = await captureCatalog(db);
+  const views = async () => ({
+    collection: (await db.query(`select * from public.workspace_collection_views order by id`)).rows,
+    scene: (await db.query(`select * from public.scene_views order by id`)).rows,
+  });
+  const beforeViews = await views();
+  await db.exec(readMigration(M034));
+  const keys = diffCatalogs(before, await captureCatalog(db)).differences.map((d) => `${d.section}:${d.kind}${d.fields ? '[' + d.fields.join(',') + ']' : ''}:${d.key}`).sort();
+  for (const k of keys) {
+    assert.ok(
+      /^functions:changed(\[.*\])?:(workspace_view_config_shape_valid|normalize_workspace_view_config|prune_view_config)\(/.test(k)
+        || /^relation_counts?:/.test(k),
+      `unexpected change: ${k}`);
+  }
+  assert.equal(keys.filter((k) => k.startsWith('functions:changed')).length, 3);
+  assert.deepEqual(await views(), beforeViews, 'no View row changes');
+  // Every config without widths — as every existing and default config is — normalises and prunes to itself.
+  const sample = { properties: [], sort: null, filters: [], group_by: null };
+  const q = async (sql, params) => (await db.query(sql, params)).rows[0].v;
+  assert.deepEqual(await q(`select public.normalize_workspace_view_config($1::jsonb) v`, [JSON.stringify(sample)]), sample);
+  assert.deepEqual(await q(`select public.prune_view_config('[]'::jsonb, $1::jsonb) v`, [JSON.stringify(sample)]), sample);
+  // With widths: kept for 'title' and known fields, dropped otherwise.
+  assert.deepEqual(
+    await q(`select public.prune_view_config('[{"id":"a","type":"text"}]'::jsonb, $1::jsonb) v`, [JSON.stringify({ ...sample, widths: { title: 200, a: 300, gone: 100 } })]),
+    { ...sample, widths: { title: 200, a: 300 } });
+  assert.equal(await q(`select public.workspace_view_config_shape_valid($1::jsonb) v`, [JSON.stringify({ widths: { a: 81 } })]), true);
+  for (const bad of [{ widths: { a: 79 } }, { widths: { a: 641 } }, { widths: { a: 100.5 } }, { widths: { a: '100' } }, { widths: [] }]) {
+    assert.equal(await q(`select public.workspace_view_config_shape_valid($1::jsonb) v`, [JSON.stringify(bad)]), false, JSON.stringify(bad));
+  }
+});
+
+test('034 requires 033, refuses to run twice (including on schema.sql), and changes nothing when it refuses', async () => {
+  const only032 = await db032();
+  const before032 = await captureCatalog(only032);
+  await assert.rejects(only032.exec(readMigration(M034)), /requires migration 033/);
+  assert.deepEqual(diffCatalogs(before032, await captureCatalog(only032)).differences, []);
+  for (const db of [await migratedDb(), await freshRune2Db()]) {
+    const before = await captureCatalog(db);
+    await assert.rejects(db.exec(readMigration(M034)), /Migration 034 has already been applied/);
     assert.deepEqual(diffCatalogs(before, await captureCatalog(db)).differences, []);
   }
 });

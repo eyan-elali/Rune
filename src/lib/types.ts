@@ -289,6 +289,11 @@ export interface CollectionViewConfig {
   filters: ViewFilter[];
   /** A select, status or Relationship-to-Entries property (Board lanes); null when there is none to group by. */
   group_by: string | null;
+  /**
+   * Table column widths in px (80–640), by field id, "title" for the name
+   * column (migration 034). Absent, or no entry: the column's default width.
+   */
+  widths?: Record<string, number>;
 }
 
 /**

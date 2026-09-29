@@ -418,3 +418,53 @@ export function newViewName(type: CollectionViewType, groupBy: PropertyDefinitio
   if (type === "board" && groupBy) return `By ${groupBy.name}`;
   return VIEW_TYPE_LABEL[type];
 }
+
+// ── Table column widths (migration 034) ────────────────────────────────────
+//
+// One rule for every Table, a Collection's or the Manuscript's: a column is
+// its saved width (config.widths, by field id, "title" for the name column),
+// else a default for its type — never "as wide as the table allows". The
+// database accepts 80–640 px; the app clamps to the same range, so a stored
+// width is always shown as stored.
+
+export const COLUMN_MIN_WIDTH = 80;
+export const COLUMN_MAX_WIDTH = 640;
+/** The name column's key in config.widths. */
+export const TITLE_COLUMN = "title";
+
+const DEFAULT_WIDTH: Record<string, number> = {
+  text: 220,
+  number: 104,
+  select: 150,
+  status: 150,
+  multi_select: 200,
+  date: 136,
+  checkbox: 96,
+  relationship: 200,
+};
+
+export function clampColumnWidth(width: number): number {
+  return Math.round(Math.min(COLUMN_MAX_WIDTH, Math.max(COLUMN_MIN_WIDTH, width)));
+}
+
+/** A column's width when the View has none saved for it. */
+export function defaultColumnWidth(field: PropertyDefinition | typeof TITLE_COLUMN): number {
+  if (field === TITLE_COLUMN) return 260;
+  if (isNative(field)) return field.type === "number" ? 96 : 120;
+  return DEFAULT_WIDTH[field.type] ?? 180;
+}
+
+/** A column's width in this View: saved (clamped), else the default. */
+export function columnWidth(view: SavedView, field: PropertyDefinition | typeof TITLE_COLUMN): number {
+  const key = field === TITLE_COLUMN ? TITLE_COLUMN : field.id;
+  const saved = view.config.widths?.[key];
+  return typeof saved === "number" && Number.isFinite(saved) ? clampColumnWidth(saved) : defaultColumnWidth(field);
+}
+
+/** The config with one column's width set (clamped) — or, with null, back to its default. */
+export function withColumnWidth(config: CollectionViewConfig, key: string, width: number | null): CollectionViewConfig {
+  const widths = { ...(config.widths ?? {}) };
+  if (width === null) delete widths[key];
+  else widths[key] = clampColumnWidth(width);
+  return { ...config, widths };
+}
