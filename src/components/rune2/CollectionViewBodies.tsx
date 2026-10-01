@@ -12,6 +12,7 @@ import {
   type PointerEvent,
 } from "react";
 import { Plus } from "lucide-react";
+import { ICON } from "./icons";
 import { formatValue, isChoiceType, valueKey, valueLine } from "@/lib/rune2/collectionProperties";
 import {
   boardLanes,
@@ -615,7 +616,7 @@ export function BoardView({
                   )
                 }
               >
-                <Plus size={13} strokeWidth={1.75} aria-hidden />
+                <Plus {...ICON} aria-hidden />
                 New
               </button>
             )}
@@ -625,13 +626,13 @@ export function BoardView({
           <div className="r2-lane r2-lane--new">
             {newLane === null ? (
               <button type="button" className="r2-lane-add" onClick={() => setNewLane("")}>
-                <Plus size={13} strokeWidth={1.75} aria-hidden />
+                <Plus {...ICON} aria-hidden />
                 Add a column
               </button>
             ) : (
               <input
                 autoFocus
-                className="r2-lane-input"
+                className="r2-field r2-lane-input"
                 aria-label={`New ${property.name} option`}
                 placeholder={`New ${property.type === "status" ? "status" : "option"}…`}
                 maxLength={100}

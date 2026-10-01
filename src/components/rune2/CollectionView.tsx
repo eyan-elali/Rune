@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { Plus, Rows3, SlidersHorizontal } from "lucide-react";
+import { ICON } from "./icons";
 import { renameWorkspaceCollection } from "@/lib/actions/workspaceCollections";
 import { arrangeEntries, type LaneTargets } from "@/lib/rune2/collectionViews";
 import type { NavEntry } from "@/lib/rune2/navigatorModel";
@@ -82,7 +83,7 @@ export function CollectionView({ entry }: { entry: NavEntry }) {
                   onClick={() => toggle("view")}
                   title="Shown properties, sort and filters for this view"
                 >
-                  <SlidersHorizontal size={13} strokeWidth={1.75} aria-hidden />
+                  <SlidersHorizontal {...ICON} aria-hidden />
                   {summary ? `View · ${summary}` : "View"}
                 </button>
               )}
@@ -92,7 +93,7 @@ export function CollectionView({ entry }: { entry: NavEntry }) {
                 aria-expanded={panel === "properties"}
                 onClick={() => toggle("properties")}
               >
-                <Rows3 size={13} strokeWidth={1.75} aria-hidden />
+                <Rows3 {...ICON} aria-hidden />
                 {properties.length === 0
                   ? "Properties"
                   : `${properties.length} ${properties.length === 1 ? "property" : "properties"}`}
@@ -149,7 +150,7 @@ export function CollectionView({ entry }: { entry: NavEntry }) {
           {entryIds.length === 0 && view.type !== "board" && <p className="r2-entry-empty">No entries yet.</p>}
           {view.type !== "board" && (
             <button type="button" className="r2-entry-add" disabled={busy} onClick={() => void add()}>
-              <Plus size={14} strokeWidth={1.75} aria-hidden />
+              <Plus {...ICON} aria-hidden />
               New entry
             </button>
           )}
@@ -229,7 +230,7 @@ export function NewEntryAction({ collectionId }: { collectionId: string }) {
         onClick={() => void add()}
         title={`Add an entry to ${index.get(collectionId)?.title ?? "this collection"}`}
       >
-        <Plus size={14} strokeWidth={1.75} aria-hidden />
+        <Plus {...ICON} aria-hidden />
         Entry
       </button>
     </>

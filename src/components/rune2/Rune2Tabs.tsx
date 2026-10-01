@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { PanelLeft, X } from "lucide-react";
+import { ICON } from "./icons";
 import { isWorkspaceKind } from "@/lib/rune2/navigatorModel";
 import { ReadingTabLabel } from "./ReadingMode";
 import { MANUSCRIPT_TAB, useRune2Selection, type WorkingTab } from "./Rune2Selection";
@@ -58,7 +59,7 @@ export function Rune2Tabs() {
           title="Show navigator"
           onClick={toggleNav}
         >
-          <PanelLeft size={14} strokeWidth={1.75} aria-hidden />
+          <PanelLeft {...ICON} aria-hidden />
         </button>
       )}
       <ul ref={listRef} role="list">
@@ -98,7 +99,7 @@ export function Rune2Tabs() {
                   closeTab(tab.key);
                 }}
               >
-                <X size={13} strokeWidth={1.75} aria-hidden />
+                <X {...ICON} aria-hidden />
               </button>
             </li>
           );

@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { BookOpen, LayoutList, Rows3, SlidersHorizontal, X } from "lucide-react";
+import { ICON } from "./icons";
 import { arrangeItems, isFallbackView } from "@/lib/rune2/collectionViews";
 import { openableId } from "@/lib/rune2/references";
 import {
@@ -65,7 +66,7 @@ export function ManuscriptScenes() {
     return (
       <div className="r2-scenes-invite">
         <button type="button" className="r2-collection-tool" onClick={() => openScenes()}>
-          <LayoutList size={13} strokeWidth={1.75} aria-hidden />
+          <LayoutList {...ICON} aria-hidden />
           View scenes as a list, table or board
         </button>
       </div>
@@ -88,7 +89,7 @@ export function ManuscriptScenes() {
           <h2 className="r2-scenes-title">Scenes</h2>
           {saved.length === 0 && (
             <button type="button" className="r2-icon-button" aria-label="Hide scene views" title="Hide" onClick={closeScenes}>
-              <X size={14} strokeWidth={1.75} aria-hidden />
+              <X {...ICON} aria-hidden />
             </button>
           )}
         </header>
@@ -108,7 +109,7 @@ export function ManuscriptScenes() {
               onClick={() => toggle("view")}
               title="Shown properties, sort and filters for this view"
             >
-              <SlidersHorizontal size={13} strokeWidth={1.75} aria-hidden />
+              <SlidersHorizontal {...ICON} aria-hidden />
               {summary ? `View · ${summary}` : "View"}
             </button>
             <button
@@ -117,7 +118,7 @@ export function ManuscriptScenes() {
               aria-expanded={scenePanel === "properties"}
               onClick={() => toggle("properties")}
             >
-              <Rows3 size={13} strokeWidth={1.75} aria-hidden />
+              <Rows3 {...ICON} aria-hidden />
               {ownProperties.length === 0
                 ? "Scene properties"
                 : `${ownProperties.length} scene ${ownProperties.length === 1 ? "property" : "properties"}`}
@@ -129,7 +130,7 @@ export function ManuscriptScenes() {
                 onClick={() => openReading({ kind: "view", viewId: view.id })}
                 title="Read these scenes one after another — read-only, in a tab of its own"
               >
-                <BookOpen size={13} strokeWidth={1.75} aria-hidden />
+                <BookOpen {...ICON} aria-hidden />
                 Read
               </button>
             )}

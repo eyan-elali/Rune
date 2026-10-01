@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import { FileUp } from "lucide-react";
+import { ICON } from "./icons";
 import { IMPORT_ACCEPT, ImportFileError, parseImportFile, titleFromFileName } from "@/lib/import/readFile";
 import {
   buildPlan,
@@ -48,7 +49,7 @@ export function ImportManuscriptLauncher() {
   return (
     <>
       <button type="button" className="r2-import-launch" onClick={() => setOpen(true)}>
-        <FileUp size={14} strokeWidth={1.75} aria-hidden />
+        <FileUp {...ICON} aria-hidden />
         Import a manuscript…
       </button>
       {open && <ManuscriptImportDialog onClose={() => setOpen(false)} />}
@@ -191,7 +192,7 @@ function ManuscriptImportDialog({ onClose }: { onClose: () => void }) {
               <label className="r2-import-title-field">
                 <span>Project title</span>
                 <input
-                  className="r2-prop-input"
+                  className="r2-field"
                   value={title}
                   maxLength={200}
                   onChange={(e) => setTitle(e.target.value)}
@@ -307,7 +308,7 @@ function ManuscriptImportDialog({ onClose }: { onClose: () => void }) {
 function Notices({ notices }: { notices: ImportNotice[] }) {
   if (!notices.length) return null;
   return (
-    <div className="r2-import-notices">
+    <div className="r2-notice r2-import-notices">
       <p>Not everything in this file can be carried over:</p>
       <ul>
         {notices.map((n) => (
@@ -412,7 +413,7 @@ function RoleSelect({ line, overrides, onRole }: RowProps & { line: Line }) {
   const options = line.options.length ? line.options : [role];
   return (
     <select
-      className="r2-import-role"
+      className="r2-field r2-field--sm r2-import-role"
       aria-label={`What “${line.text.slice(0, 40)}” is`}
       value={role}
       onChange={(e) => onRole(line.index, e.target.value as Role)}

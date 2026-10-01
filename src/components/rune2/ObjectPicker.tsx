@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Check } from "lucide-react";
+import { ICON_SM_BOLD } from "./icons";
 import { searchObjects } from "@/lib/rune2/projectSearch";
 import { candidates, type Candidate, type TargetSpec } from "@/lib/rune2/references";
 import { useRune2Selection } from "./Rune2Selection";
@@ -108,7 +109,7 @@ export function ObjectPicker({
     >
       <input
         autoFocus
-        className="r2-prop-picker-input"
+        className="r2-field r2-prop-picker-input"
         placeholder="Find…"
         aria-label={`Find for ${label}`}
         aria-controls={listId}
@@ -151,7 +152,7 @@ export function ObjectPicker({
             onPointerEnter={() => setActive(i)}
           >
             <span className="r2-prop-picker-mark" aria-hidden>
-              {chosen.includes(c.id) && <Check size={12} strokeWidth={2} />}
+              {chosen.includes(c.id) && <Check {...ICON_SM_BOLD} />}
             </span>
             <span className="r2-object-picker-title">{c.title}</span>
             <span className="r2-object-picker-hint">{c.hint}</span>

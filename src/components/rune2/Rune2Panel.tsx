@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition, type ReactNode } from "react";
 import { Check, Pin, PinOff, Trash2, X } from "lucide-react";
+import { ICON } from "./icons";
 import {
   completeProjectNote,
   createProjectNote,
@@ -84,7 +85,7 @@ export function Rune2Panel() {
           <header className="r2-panel-head">
             <h2>{TITLES[view]}</h2>
             <button type="button" className="r2-icon-button" aria-label={`Close ${TITLES[view]}`} onClick={close}>
-              <X size={14} strokeWidth={1.75} aria-hidden />
+              <X {...ICON} aria-hidden />
             </button>
           </header>
           <div className="r2-panel-body">{view === "notes" ? <NotesPanel /> : <InspectorView />}</div>
@@ -264,7 +265,7 @@ function ChecklistView() {
                   disabled={note.id.startsWith("pending-")}
                   onClick={() => complete(note)}
                 >
-                  <Check size={14} strokeWidth={1.75} aria-hidden />
+                  <Check {...ICON} aria-hidden />
                 </button>
                 <button
                   type="button"
@@ -275,9 +276,9 @@ function ChecklistView() {
                   onClick={() => togglePin(note)}
                 >
                   {note.is_pinned ? (
-                    <PinOff size={14} strokeWidth={1.75} aria-hidden />
+                    <PinOff {...ICON} aria-hidden />
                   ) : (
-                    <Pin size={14} strokeWidth={1.75} aria-hidden />
+                    <Pin {...ICON} aria-hidden />
                   )}
                 </button>
                 <button
@@ -288,7 +289,7 @@ function ChecklistView() {
                   disabled={note.id.startsWith("pending-")}
                   onClick={() => remove(note)}
                 >
-                  <Trash2 size={14} strokeWidth={1.75} aria-hidden />
+                  <Trash2 {...ICON} aria-hidden />
                 </button>
               </span>
             </li>
@@ -314,7 +315,7 @@ function ChecklistView() {
                       title="Delete"
                       onClick={() => remove(note)}
                     >
-                      <Trash2 size={14} strokeWidth={1.75} aria-hidden />
+                      <Trash2 {...ICON} aria-hidden />
                     </button>
                   </span>
                 </li>

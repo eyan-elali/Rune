@@ -2,6 +2,7 @@
 
 import { Fragment, useEffect, useRef, useState, useTransition } from "react";
 import { FileText, Pilcrow } from "lucide-react";
+import { ICON } from "./icons";
 import {
   createManuscriptMilestone,
   deleteManuscriptMilestone,
@@ -142,7 +143,7 @@ export function MilestonesSection({ projectId }: { projectId: string }) {
           </label>
           <input
             id="r2-milestone-name"
-            className="r2-milestone-input"
+            className="r2-field r2-milestone-input"
             value={name}
             maxLength={MILESTONE_NAME_MAX}
             placeholder="Draft 1"
@@ -513,7 +514,7 @@ function MilestoneNav({
                 style={pad}
                 onClick={() => onGo(to)}
               >
-                {Icon && <Icon size={13} strokeWidth={1.75} aria-hidden />}
+                {Icon && <Icon {...ICON} aria-hidden />}
                 <span className="r2-milestone-nav-label">{row.label}</span>
                 <span className="r2-milestone-nav-words" aria-label={wordsLabel(row.words)}>
                   {row.words.toLocaleString()}

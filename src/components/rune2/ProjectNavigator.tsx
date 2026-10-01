@@ -38,6 +38,7 @@ import {
   Trash2,
   type LucideIcon,
 } from "lucide-react";
+import { ICON, ICON_SM_BOLD } from "./icons";
 import { createChapter, removeChapterKeepScenes, updateChapter } from "@/lib/actions/chapters";
 import { createScene, createUnplacedScene, moveSceneToUnplaced, placeScene, renameScene } from "@/lib/actions/scenes";
 import { createGroup, deleteGroup, moveChapter, moveGroup, renameGroup } from "@/lib/actions/structure";
@@ -1199,7 +1200,7 @@ export function ProjectNavigator() {
           title="Search"
           onClick={() => setSearchOpen(true)}
         >
-          <Search size={14} strokeWidth={1.75} aria-hidden />
+          <Search {...ICON} aria-hidden />
         </button>
         <button
           type="button"
@@ -1208,7 +1209,7 @@ export function ProjectNavigator() {
           title="Hide navigator"
           onClick={toggleNav}
         >
-          <PanelLeft size={14} strokeWidth={1.75} aria-hidden />
+          <PanelLeft {...ICON} aria-hidden />
         </button>
       </div>
       <div className="r2-nav-progress" data-active={busy || refreshing || undefined} aria-hidden />
@@ -1315,12 +1316,12 @@ export function ProjectNavigator() {
       </div>
 
       {notice && (
-        <p role="status" className="r2-nav-notice">
+        <p role="status" className="r2-notice r2-nav-notice">
           {notice}
         </p>
       )}
       {!notice && trash.notice && (
-        <p role="status" className="r2-nav-notice r2-trash-notice">
+        <p role="status" className="r2-notice r2-nav-notice r2-trash-notice">
           <span>{trash.notice.text}</span>
           {trash.notice.undo && (
             <button type="button" onClick={trash.undo}>
@@ -1332,7 +1333,7 @@ export function ProjectNavigator() {
 
       <div className="r2-nav-footer">
         <Link href="/dashboard">
-          <ArrowLeft size={13} strokeWidth={1.75} aria-hidden />
+          <ArrowLeft {...ICON} aria-hidden />
           Back to Rune
         </Link>
         {trash.available && (
@@ -1343,7 +1344,7 @@ export function ProjectNavigator() {
             data-active={trashOpen || undefined}
             onClick={() => setTrashOpen(!trashOpen)}
           >
-            <Trash2 size={13} strokeWidth={1.75} aria-hidden />
+            <Trash2 {...ICON} aria-hidden />
             Trash
           </button>
         )}
@@ -1441,7 +1442,7 @@ function Disclosure({
       aria-label={`${expanded ? "Collapse" : "Expand"} ${label}`}
       onClick={onToggle}
     >
-      <ChevronRight size={12} strokeWidth={2} aria-hidden />
+      <ChevronRight {...ICON_SM_BOLD} aria-hidden />
     </button>
   );
 }
@@ -1469,7 +1470,7 @@ function RowActions({
           aria-haspopup="menu"
           onClick={(e) => onMore(pointBelow(e.currentTarget))}
         >
-          <MoreHorizontal size={14} strokeWidth={1.75} aria-hidden />
+          <MoreHorizontal {...ICON} aria-hidden />
         </button>
       )}
       {onAdd && (
@@ -1481,7 +1482,7 @@ function RowActions({
           title={addLabel}
           onClick={(e) => onAdd(pointBelow(e.currentTarget))}
         >
-          <Plus size={14} strokeWidth={1.75} aria-hidden />
+          <Plus {...ICON} aria-hidden />
         </button>
       )}
     </span>
@@ -1555,7 +1556,7 @@ function NavRow({
       }}
     >
       <Disclosure expanded={expanded} label={title} onToggle={onToggle} />
-      {Icon && <Icon className="r2-row-icon" size={14} strokeWidth={1.75} aria-hidden />}
+      {Icon && <Icon className="r2-row-icon" {...ICON} aria-hidden />}
       {renaming ? (
         <RenameInput initial={entry.named ? title : ""} placeholder={entry.named ? undefined : title} label={title} onDone={onRenameDone} />
       ) : (

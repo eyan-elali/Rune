@@ -392,7 +392,7 @@ function ViewPicker({
       <p className="r2-command-menu-head">{kind === "collection" ? "Embed a collection view" : "Embed a scene view"}</p>
       <input
         ref={input}
-        className="r2-prop-picker-input"
+        className="r2-field r2-prop-picker-input"
         placeholder="Find a view…"
         aria-label="Find a view to embed"
         aria-controls={listId}

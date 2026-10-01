@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { Check, Plus } from "lucide-react";
+import { ICON, ICON_SM, ICON_CHECK, ICON_SM_BOLD } from "./icons";
 import {
   chosenOptions,
   formatDateValue,
@@ -147,8 +148,8 @@ export function PropertyValueEditor({
           className="r2-prop-check"
           onClick={() => void onSave(value === true ? null : true)}
         >
-          <span className="r2-prop-checkbox" aria-hidden>
-            {value === true && <Check size={11} strokeWidth={2.5} />}
+          <span className="r2-checkbox r2-prop-checkbox" aria-hidden>
+            {value === true && <Check {...ICON_CHECK} />}
           </span>
         </button>
       );
@@ -225,7 +226,7 @@ function RelationshipValue({
         title={shown.length ? `Change ${property.name}` : undefined}
         onClick={() => setOpen((o) => !o)}
       >
-        {shown.length ? <Plus size={12} strokeWidth={1.75} aria-hidden /> : <span className="r2-prop-empty">Empty</span>}
+        {shown.length ? <Plus {...ICON_SM} aria-hidden /> : <span className="r2-prop-empty">Empty</span>}
       </button>
       {open && (
         <ObjectPicker
@@ -595,7 +596,7 @@ function OptionPicker({
     >
       <input
         autoFocus
-        className="r2-prop-picker-input"
+        className="r2-field r2-prop-picker-input"
         placeholder={property.options.length ? "Find or add an option…" : "Add an option…"}
         aria-label={`Options for ${property.name}`}
         aria-controls={listId}
@@ -638,7 +639,7 @@ function OptionPicker({
             onPointerEnter={() => setActive(i)}
           >
             <span className="r2-prop-picker-mark" aria-hidden>
-              {chosenIds.includes(o.id) && <Check size={12} strokeWidth={2} />}
+              {chosenIds.includes(o.id) && <Check {...ICON_SM_BOLD} />}
             </span>
             <OptionNames property={property} names={[o.name]} />
           </li>
@@ -655,7 +656,7 @@ function OptionPicker({
             onPointerEnter={() => setActive(matches.length)}
           >
             <span className="r2-prop-picker-mark" aria-hidden>
-              <Plus size={12} strokeWidth={2} />
+              <Plus {...ICON_SM_BOLD} />
             </span>
             Add “{q}”
           </li>
@@ -708,7 +709,7 @@ export function AddProperty({ ownerId, quiet = false }: { ownerId: string; quiet
   if (!open) {
     return (
       <button type="button" className="r2-prop-add" data-quiet={quiet || undefined} onClick={() => setOpen(true)}>
-        <Plus size={13} strokeWidth={1.75} aria-hidden />
+        <Plus {...ICON} aria-hidden />
         Add a property
       </button>
     );
@@ -757,14 +758,14 @@ export function AddProperty({ ownerId, quiet = false }: { ownerId: string; quiet
       <input
         id={nameId}
         autoFocus
-        className="r2-prop-new-name"
+        className="r2-field r2-prop-new-name"
         placeholder="Property name"
         maxLength={100}
         value={name}
         onChange={(e) => setName(e.target.value)}
       />
       <select
-        className="r2-prop-new-type"
+        className="r2-field r2-prop-new-type"
         aria-label="Property type"
         value={type}
         onChange={(e) => setType(e.target.value as CollectionPropertyType)}
@@ -778,7 +779,7 @@ export function AddProperty({ ownerId, quiet = false }: { ownerId: string; quiet
       {type === "relationship" && (
         <>
           <select
-            className="r2-prop-new-type"
+            className="r2-field r2-prop-new-type"
             aria-label="Points to"
             title="What this property points to"
             value={target}

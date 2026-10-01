@@ -2,6 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { LucideIcon } from "lucide-react";
+import { ICON } from "./icons";
 
 // A small contextual menu for the navigator (row "+" and "⋯" buttons, right
 // click). Fixed-positioned at a point so the navigator's scroll container
@@ -122,13 +123,13 @@ export function NavigatorMenu({
         <div className="r2-menu-confirm">
           <p>{confirming.confirm.message}</p>
           <div className="r2-menu-confirm-actions">
-            <button type="button" data-menu-item className="r2-menu-button" onClick={() => setConfirming(null)}>
+            <button type="button" data-menu-item className="r2-button r2-button--quiet r2-button--sm" onClick={() => setConfirming(null)}>
               Cancel
             </button>
             <button
               type="button"
               data-menu-item
-              className="r2-menu-button r2-menu-button--danger"
+              className="r2-button r2-button--danger r2-button--sm"
               onClick={() => choose(confirming)}
             >
               {confirming.confirm.action}
@@ -151,7 +152,7 @@ export function NavigatorMenu({
               onClick={() => choose(item)}
             >
               <span className="r2-menu-icon" aria-hidden>
-                {Icon && <Icon size={14} strokeWidth={1.75} />}
+                {Icon && <Icon {...ICON} />}
               </span>
               <span className="r2-menu-label">
                 {item.label}

@@ -13,6 +13,7 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 import { File as PageIcon, FileText, Folder, Library, Pilcrow, StickyNote, X, type LucideIcon } from "lucide-react";
+import { ICON } from "./icons";
 import {
   deleteTrashedWorkspaceObject,
   listWorkspaceTrash,
@@ -197,7 +198,7 @@ export function useTrash(): TrashValue {
 // ── The Trash surface ───────────────────────────────────────────────────────
 
 // As in the navigator.
-const ICON: Record<TrashObjectType, LucideIcon> = {
+const TYPE_ICON: Record<TrashObjectType, LucideIcon> = {
   page: PageIcon,
   folder: Folder,
   collection: Library,
@@ -330,7 +331,7 @@ export function TrashView() {
         </nav>
         <div className="r2-contextbar-actions">
           <button type="button" className="r2-action" onClick={close} title="Back to what you were working on (Esc)">
-            <X size={14} strokeWidth={1.75} aria-hidden />
+            <X {...ICON} aria-hidden />
             Close
           </button>
         </div>
@@ -347,6 +348,7 @@ export function TrashView() {
             <div className="r2-trash-filter">
               <input
                 type="search"
+                className="r2-field r2-field--sm"
                 aria-label="Filter Trash"
                 placeholder="Filter"
                 value={filter}
@@ -370,12 +372,12 @@ export function TrashView() {
           {shown.length > 0 && (
             <ul className="r2-trash-list" aria-label="Items in Trash">
               {shown.map((item) => {
-                const Icon = ICON[item.type];
+                const Icon = TYPE_ICON[item.type];
                 const blocked = item.type === "entry" && !item.collection_active;
                 return (
                   <li key={`${item.type}:${item.id}`} data-confirming={confirming === item.id || undefined}>
                     <div className="r2-trash-item">
-                      <Icon size={14} strokeWidth={1.75} aria-hidden className="r2-trash-icon" />
+                      <Icon {...ICON} aria-hidden className="r2-trash-icon" />
                       <span className="r2-trash-text">
                         <span className="r2-trash-title">{trashItemTitle(item)}</span>
                         <span className="r2-trash-meta">
@@ -386,7 +388,7 @@ export function TrashView() {
                         <span className="r2-trash-actions">
                           <button
                             type="button"
-                            className="r2-trash-action"
+                            className="r2-button r2-button--quiet r2-button--sm r2-trash-action"
                             disabled={busy !== null || blocked}
                             title={blocked ? "Restore its collection first" : undefined}
                             onClick={() => void restore(item)}
@@ -395,7 +397,7 @@ export function TrashView() {
                           </button>
                           <button
                             type="button"
-                            className="r2-trash-action"
+                            className="r2-button r2-button--quiet r2-button--sm r2-trash-action"
                             data-tone="danger"
                             disabled={busy !== null}
                             onClick={() => setConfirming(item.id)}

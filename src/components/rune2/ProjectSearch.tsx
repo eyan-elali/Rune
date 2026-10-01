@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useMemo, useState, type KeyboardEvent, type MouseEvent } from "react";
 import { Search } from "lucide-react";
+import { ICON } from "./icons";
 import { searchProjectContent } from "@/lib/actions/projectSearch";
 import {
   CONTENT_QUERY_MIN,
@@ -146,7 +147,7 @@ function SearchDialog({ onClose }: { onClose: () => void }) {
       <div className="r2-search-scrim" aria-hidden onPointerDown={dismiss} />
       <div role="dialog" aria-modal="true" aria-label="Search this project" className="r2-search">
         <div className="r2-search-field">
-          <Search size={15} strokeWidth={1.75} aria-hidden className="r2-search-icon" />
+          <Search {...ICON} aria-hidden className="r2-search-icon" />
           <input
             autoFocus
             role="combobox"

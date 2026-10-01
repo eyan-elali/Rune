@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Archive, FileDown } from "lucide-react";
+import { ICON } from "./icons";
 import { getPendingWrite } from "@/lib/offline/db";
 import { createClient } from "@/lib/supabase/client";
 import { BackupUnavailableError, makeProjectBackup, type BackupKind } from "@/lib/backup/projectBackup";
@@ -85,11 +86,11 @@ export function ProjectExportLaunchers() {
   return (
     <div className="r2-export-launchers">
       <button type="button" className="r2-import-launch" onClick={() => api.openExport({ kind: "manuscript" })}>
-        <FileDown size={14} strokeWidth={1.75} aria-hidden />
+        <FileDown {...ICON} aria-hidden />
         Export manuscript…
       </button>
       <button type="button" className="r2-import-launch" onClick={() => api.openBackup()}>
-        <Archive size={14} strokeWidth={1.75} aria-hidden />
+        <Archive {...ICON} aria-hidden />
         Download project backup…
       </button>
     </div>
@@ -239,7 +240,7 @@ function ExportDialog({ scope, onClose }: { scope: ExportScope; onClose: () => v
               <span>File name</span>
               <span className="r2-export-name-row">
                 <input
-                  className="r2-prop-input"
+                  className="r2-field"
                   value={fileBase}
                   maxLength={120}
                   spellCheck={false}
@@ -264,7 +265,7 @@ function ExportDialog({ scope, onClose }: { scope: ExportScope; onClose: () => v
             )}
 
             {missing.length > 0 && (
-              <p className="r2-export-note" role="status">
+              <p className="r2-notice r2-export-note" role="status">
                 The PDF’s font can’t show {missing.length === 1 ? "one character" : "some characters"} in this text (
                 {missing.slice(0, 8).join(" ")}
                 {missing.length > 8 ? " …" : ""}); {missing.length === 1 ? "it appears" : "they appear"} as “?”. Word
@@ -272,7 +273,7 @@ function ExportDialog({ scope, onClose }: { scope: ExportScope; onClose: () => v
               </p>
             )}
             {unsaved > 0 && (
-              <p className="r2-export-note" role="status">
+              <p className="r2-notice r2-export-note" role="status">
                 Your latest writing in {plural(unsaved, "scene")} is still being saved, and isn’t in this export yet.{" "}
                 <button type="button" className="r2-import-link" onClick={() => setReload((n) => n + 1)}>
                   Check again

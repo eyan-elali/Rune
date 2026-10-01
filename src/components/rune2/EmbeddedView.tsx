@@ -2,6 +2,7 @@
 
 import { useState, type MouseEvent, type ReactNode } from "react";
 import { Columns3, GitCommitHorizontal, List, Table2, X } from "lucide-react";
+import { ICON, ICON_SM } from "./icons";
 import { boardLanes, isSceneView } from "@/lib/rune2/collectionViews";
 import { timelineAxis } from "@/lib/rune2/timelineViews";
 import type { ViewEmbedKind } from "@/lib/rune2/workspaceDocument";
@@ -195,7 +196,7 @@ function EmbedFrame({
   return (
     <div className="r2-embed-frame" data-type={view.type}>
       <div className="r2-embed-head">
-        <Icon size={13} strokeWidth={1.75} aria-hidden className="r2-embed-icon" />
+        <Icon {...ICON} aria-hidden className="r2-embed-icon" />
         <span className="r2-embed-name">{view.name}</span>
         <span className="r2-embed-owner">{owner}</span>
         {total !== arranged.length && (
@@ -230,7 +231,7 @@ function RemoveButton({ onRemove }: { onRemove?: () => void }) {
       title="Remove from this page (the view itself is kept)"
       onClick={onRemove}
     >
-      <X size={12} strokeWidth={1.75} aria-hidden />
+      <X {...ICON_SM} aria-hidden />
     </button>
   );
 }

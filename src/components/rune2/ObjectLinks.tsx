@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Link2, X } from "lucide-react";
+import { ICON_SM } from "./icons";
 import { describeObject, type ObjectRef } from "@/lib/rune2/references";
 import { manuscriptSceneOrder } from "@/lib/rune2/sceneViews";
 import { ObjectPicker } from "./ObjectPicker";
@@ -104,7 +105,7 @@ export function ObjectLinks({
                     disabled={isPendingReference(r.reference)}
                     onClick={() => void toggle(r.reference.target as ObjectRef)}
                   >
-                    <X size={12} strokeWidth={1.75} aria-hidden />
+                    <X {...ICON_SM} aria-hidden />
                   </button>
                 </li>
               ))}
@@ -119,7 +120,7 @@ export function ObjectLinks({
               aria-expanded={picking}
               onClick={() => setPicking((p) => !p)}
             >
-              <Link2 size={12} strokeWidth={1.75} aria-hidden />
+              <Link2 {...ICON_SM} aria-hidden />
               Link to…
             </button>
             {picking && (

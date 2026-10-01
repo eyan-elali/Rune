@@ -294,7 +294,7 @@ export function TimelineView({
                 if (!item) return null;
                 return (
                   <li key={id}>
-                    <button type="button" className="r2-timeline-chip" data-entry-open="" data-unnamed={!item.named || undefined} title={item.context ?? undefined} {...open(id)}>
+                    <button type="button" className="r2-chip r2-timeline-chip" data-entry-open="" data-unnamed={!item.named || undefined} title={item.context ?? undefined} {...open(id)}>
                       <ItemNumber number={item.number} />
                       {item.title}
                     </button>

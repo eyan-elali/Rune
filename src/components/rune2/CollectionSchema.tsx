@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useState } from "react";
 import { ArrowDown, ArrowUp, Eye, EyeOff, Trash2, X } from "lucide-react";
+import { ICON, ICON_SM_BOLD } from "./icons";
 import {
   convertibleTypes,
   countOptionUses,
@@ -106,7 +107,7 @@ export function SceneSuggestions({ ownerId, onNotice }: { ownerId: string; onNot
         <button
           key={s.name}
           type="button"
-          className="r2-schema-suggestion"
+          className="r2-chip r2-schema-suggestion"
           disabled={busy}
           title={`Add a ${PROPERTY_TYPE_LABEL[s.type]} property called ${s.name}`}
           onClick={async () => {
@@ -215,11 +216,11 @@ function SchemaRow({
         />
         {property.type === "relationship" ? (
           <>
-            <span className="r2-schema-type" title="Relationship">
+            <span className="r2-field r2-schema-type" title="Relationship">
               → {targetPhrase(property, (id) => objects.get(id)?.title ?? "a collection in Trash")}
             </span>
             <select
-              className="r2-schema-type"
+              className="r2-field r2-schema-type"
               aria-label={`How many ${property.name} ${scene ? "a scene" : "an entry"} holds`}
               value={property.relation_many ? "many" : "one"}
               onChange={(e) =>
@@ -239,7 +240,7 @@ function SchemaRow({
           </>
         ) : types.length > 1 ? (
           <select
-            className="r2-schema-type"
+            className="r2-field r2-schema-type"
             aria-label={`Type of ${property.name}`}
             value={property.type}
             onChange={(e) => {
@@ -255,7 +256,7 @@ function SchemaRow({
             ))}
           </select>
         ) : (
-          <span className="r2-schema-type" title="This type can’t be changed without losing values">
+          <span className="r2-field r2-schema-type" title="This type can’t be changed without losing values">
             {PROPERTY_TYPE_LABEL[property.type]}
           </span>
         )}
@@ -270,9 +271,9 @@ function SchemaRow({
             onClick={() => void updateProperty(property, { shown_in_list: !property.shown_in_list })}
           >
             {property.shown_in_list ? (
-              <Eye size={14} strokeWidth={1.75} aria-hidden />
+              <Eye {...ICON} aria-hidden />
             ) : (
-              <EyeOff size={14} strokeWidth={1.75} aria-hidden />
+              <EyeOff {...ICON} aria-hidden />
             )}
           </button>
           )}
@@ -283,7 +284,7 @@ function SchemaRow({
             disabled={index === 0}
             onClick={() => void moveProperty(property, index - 1)}
           >
-            <ArrowUp size={14} strokeWidth={1.75} aria-hidden />
+            <ArrowUp {...ICON} aria-hidden />
           </button>
           <button
             type="button"
@@ -292,7 +293,7 @@ function SchemaRow({
             disabled={index === count - 1}
             onClick={() => void moveProperty(property, index + 1)}
           >
-            <ArrowDown size={14} strokeWidth={1.75} aria-hidden />
+            <ArrowDown {...ICON} aria-hidden />
           </button>
           <button
             type="button"
@@ -300,7 +301,7 @@ function SchemaRow({
             aria-label={`Remove ${property.name}`}
             onClick={() => setConfirming(valueCount)}
           >
-            <Trash2 size={14} strokeWidth={1.75} aria-hidden />
+            <Trash2 {...ICON} aria-hidden />
           </button>
         </span>
       </div>
@@ -373,7 +374,7 @@ function OptionsEditor({ property, onNotice }: { property: PropertyDefinition; o
         />
       ))}
       <input
-        className="r2-schema-option-add"
+        className="r2-field r2-field--sm r2-schema-option-add"
         placeholder="Add an option"
         aria-label={`Add an option to ${property.name}`}
         maxLength={100}
@@ -446,7 +447,7 @@ function OptionChip({
         }}
       />
       <button type="button" aria-label={`Remove ${label}`} onClick={onRemove}>
-        <X size={11} strokeWidth={2} aria-hidden />
+        <X {...ICON_SM_BOLD} aria-hidden />
       </button>
     </span>
   );

@@ -3,6 +3,7 @@
 import { useEffect, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { BookOpen, FileDown, MoreHorizontal, PanelRight, Plus, StickyNote, Trash2 } from "lucide-react";
+import { ICON } from "./icons";
 import { createScene } from "@/lib/actions/scenes";
 import { cacheScene } from "@/lib/offline/db";
 import { isWorkspaceKind, type NavEntry, type NavKind } from "@/lib/rune2/navigatorModel";
@@ -127,7 +128,7 @@ export function Rune2ContextBar() {
                   : "Read the whole manuscript — read-only, in a tab of its own"
               }
             >
-              <BookOpen size={14} strokeWidth={1.75} aria-hidden />
+              <BookOpen {...ICON} aria-hidden />
               Read
             </button>
             <span className="r2-contextbar-divider" aria-hidden />
@@ -147,7 +148,7 @@ export function Rune2ContextBar() {
           onClick={() => togglePanel("notes")}
           title={panel === "notes" ? "Close revision notes" : "Revision notes for what you’re looking at"}
         >
-          <StickyNote size={14} strokeWidth={1.75} aria-hidden />
+          <StickyNote {...ICON} aria-hidden />
           Revision Notes
         </button>
         <button
@@ -159,7 +160,7 @@ export function Rune2ContextBar() {
           onClick={() => togglePanel("inspector")}
           title={panel === "inspector" ? "Close inspector" : "Inspector"}
         >
-          <PanelRight size={14} strokeWidth={1.75} aria-hidden />
+          <PanelRight {...ICON} aria-hidden />
         </button>
       </div>
     </header>
@@ -232,7 +233,7 @@ function ItemMenu({ entry }: { entry: NavEntry }) {
           setAt({ x: r.right - 180, y: r.bottom + 4 });
         }}
       >
-        <MoreHorizontal size={14} strokeWidth={1.75} aria-hidden />
+        <MoreHorizontal {...ICON} aria-hidden />
       </button>
       {at && (
         <NavigatorMenu
@@ -312,7 +313,7 @@ function AddSceneAction({ chapterId }: { chapterId: string }) {
         onClick={() => void add()}
         title={`Add a scene to the end of ${index.get(chapterId)?.title ?? "this chapter"}`}
       >
-        <Plus size={14} strokeWidth={1.75} aria-hidden />
+        <Plus {...ICON} aria-hidden />
         Scene
       </button>
     </>

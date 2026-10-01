@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BookOpen, ListTree, PenLine, StickyNote } from "lucide-react";
+import { ICON, ICON_SM } from "./icons";
 import { getReadingScenes, getReadingVersions } from "@/lib/actions/reading";
 import { getCachedScene, getPendingWrite } from "@/lib/offline/db";
 import { isSceneView } from "@/lib/rune2/collectionViews";
@@ -358,7 +359,7 @@ export function ReadingMode({ source }: { source: ReadingSource }) {
               aria-label={label}
               onClick={() => actions.current.openNote(sceneId)}
             >
-              <StickyNote size={13} strokeWidth={1.75} aria-hidden />
+              <StickyNote {...ICON} aria-hidden />
             </button>
           )}
           <button
@@ -369,7 +370,7 @@ export function ReadingMode({ source }: { source: ReadingSource }) {
             aria-label={`Edit ${where}`}
             onClick={() => actions.current.edit(sceneId)}
           >
-            <PenLine size={13} strokeWidth={1.75} aria-hidden />
+            <PenLine {...ICON} aria-hidden />
           </button>
         </>
       );
@@ -412,7 +413,7 @@ export function ReadingMode({ source }: { source: ReadingSource }) {
       <header className="r2-reading-bar">
         <div className="r2-reading-what">
           <p className="r2-reading-eyebrow">
-            <BookOpen size={12} strokeWidth={1.75} aria-hidden />
+            <BookOpen {...ICON_SM} aria-hidden />
             {source.kind === "manuscript" ? "Reading the manuscript" : "Reading a scene view"}
           </p>
           <h1 className="r2-reading-title">{title}</h1>
@@ -437,7 +438,7 @@ export function ReadingMode({ source }: { source: ReadingSource }) {
                   : "Add a revision note to this scene"
               }
             >
-              <StickyNote size={14} strokeWidth={1.75} aria-hidden />
+              <StickyNote {...ICON} aria-hidden />
               Note
             </button>
           )}
@@ -448,7 +449,7 @@ export function ReadingMode({ source }: { source: ReadingSource }) {
               onClick={() => edit(currentScene)}
               title="Open this scene in the editor, in a new tab"
             >
-              <PenLine size={14} strokeWidth={1.75} aria-hidden />
+              <PenLine {...ICON} aria-hidden />
               Edit
             </button>
           )}
@@ -461,7 +462,7 @@ export function ReadingMode({ source }: { source: ReadingSource }) {
               title={railOpen ? "Hide contents" : "Show contents"}
               onClick={() => setRailOpen((v) => !v)}
             >
-              <ListTree size={14} strokeWidth={1.75} aria-hidden />
+              <ListTree {...ICON} aria-hidden />
             </button>
           )}
         </div>
@@ -512,8 +513,7 @@ export function ReadingMode({ source }: { source: ReadingSource }) {
                     {row.kind !== "group" && row.kind !== "unplacedHeading" && (noteCounts.get(row.id) ?? 0) > 0 && (
                       <StickyNote
                         className="r2-reading-rail-note"
-                        size={11}
-                        strokeWidth={1.75}
+                        {...ICON_SM}
                         aria-label="Has revision notes"
                       />
                     )}

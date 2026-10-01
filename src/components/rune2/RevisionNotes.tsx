@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { Trash2 } from "lucide-react";
+import { ICON } from "./icons";
 import { readNoteDraft, writeNoteDraft } from "@/lib/rune2/noteDrafts";
 import { openableId } from "@/lib/rune2/references";
 import {
@@ -314,7 +315,7 @@ function NoteItem({ note, label }: { note: ShownNote; label: string }) {
             title="Delete note"
             onClick={() => sync?.remove(note.id)}
           >
-            <Trash2 size={13} strokeWidth={1.75} aria-hidden />
+            <Trash2 {...ICON} aria-hidden />
           </button>
         </span>
       )}

@@ -16,6 +16,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+import { ICON, ICON_SM } from "./icons";
 import {
   filterOpLabel,
   filterOpsFor,
@@ -167,7 +168,7 @@ export function ViewSwitcher({
                 void moveView(moved, at);
               }}
             >
-              <Icon size={12} strokeWidth={1.75} aria-hidden className="r2-view-tab-icon" />
+              <Icon {...ICON_SM} aria-hidden className="r2-view-tab-icon" />
               {v.name}
             </button>
           );
@@ -240,7 +241,7 @@ export function AddViewMenu({
         disabled={busy}
         onClick={() => setOpen((o) => !o)}
       >
-        <Plus size={13} strokeWidth={1.75} aria-hidden />
+        <Plus {...ICON} aria-hidden />
         {!compact && "Add view"}
       </button>
       {open && (
@@ -361,7 +362,7 @@ function FilterValue({
   if (filter.op === "is" || filter.op === "is_not") {
     return (
       <select
-        className="r2-schema-type"
+        className="r2-field r2-schema-type"
         aria-label={property.type === "relationship" ? "Item" : "Option"}
         value={filter.value}
         onChange={(e) => onChange({ ...filter, value: e.target.value })}
@@ -393,7 +394,7 @@ function FilterValue({
   };
   return (
     <input
-      className="r2-schema-type r2-view-filter-input"
+      className="r2-field r2-schema-type r2-view-filter-input"
       aria-label={filter.op === "contains" ? "Text" : property.type === "date" ? "Date" : "Number"}
       type={property.type === "date" && filter.op !== "contains" ? "date" : "text"}
       inputMode={property.type === "number" ? "decimal" : undefined}
@@ -494,7 +495,7 @@ export function ViewOptions({
           }}
         />
         <select
-          className="r2-schema-type"
+          className="r2-field r2-schema-type"
           aria-label="Show as"
           value={view.type}
           onChange={async (e) => {
@@ -517,7 +518,7 @@ export function ViewOptions({
               disabled={at <= 0}
               onClick={() => void moveView(view, at - 1)}
             >
-              <ArrowLeft size={14} strokeWidth={1.75} aria-hidden />
+              <ArrowLeft {...ICON} aria-hidden />
             </button>
             <button
               type="button"
@@ -526,7 +527,7 @@ export function ViewOptions({
               disabled={at >= views.length - 1}
               onClick={() => void moveView(view, at + 1)}
             >
-              <ArrowRight size={14} strokeWidth={1.75} aria-hidden />
+              <ArrowRight {...ICON} aria-hidden />
             </button>
             <button
               type="button"
@@ -534,7 +535,7 @@ export function ViewOptions({
               aria-label={`Delete the ${view.name} view`}
               onClick={() => setConfirming(true)}
             >
-              <Trash2 size={14} strokeWidth={1.75} aria-hidden />
+              <Trash2 {...ICON} aria-hidden />
             </button>
           </span>
         )}
@@ -562,7 +563,7 @@ export function ViewOptions({
             <dd>
               {groupable.length > 0 ? (
                 <select
-                  className="r2-schema-type"
+                  className="r2-field r2-schema-type"
                   aria-labelledby={`${ids}-group`}
                   value={config.group_by ?? ""}
                   onChange={(e) => void save({ ...config, group_by: e.target.value || null })}
@@ -588,7 +589,7 @@ export function ViewOptions({
               <dd>
                 {manuscript || axes.length > 0 ? (
                   <select
-                    className="r2-schema-type"
+                    className="r2-field r2-schema-type"
                     aria-labelledby={`${ids}-axis`}
                     value={config.axis ?? ""}
                     onChange={(e) => void save({ ...config, axis: e.target.value || null })}
@@ -611,7 +612,7 @@ export function ViewOptions({
               <dd>
                 {groupable.length > 0 ? (
                   <select
-                    className="r2-schema-type"
+                    className="r2-field r2-schema-type"
                     aria-labelledby={`${ids}-lanes`}
                     value={config.group_by ?? ""}
                     onChange={(e) => void save({ ...config, group_by: e.target.value || null })}
@@ -649,7 +650,7 @@ export function ViewOptions({
                         disabled={i === 0}
                         onClick={() => void save(withPropertyMoved(config, p.id, -1))}
                       >
-                        <ArrowUp size={13} strokeWidth={1.75} aria-hidden />
+                        <ArrowUp {...ICON} aria-hidden />
                       </button>
                       <button
                         type="button"
@@ -658,7 +659,7 @@ export function ViewOptions({
                         disabled={i === shown.length - 1}
                         onClick={() => void save(withPropertyMoved(config, p.id, 1))}
                       >
-                        <ArrowDown size={13} strokeWidth={1.75} aria-hidden />
+                        <ArrowDown {...ICON} aria-hidden />
                       </button>
                       <button
                         type="button"
@@ -668,7 +669,7 @@ export function ViewOptions({
                         title="Shown — click to hide"
                         onClick={() => void save(withPropertyShown(config, p.id, false))}
                       >
-                        <Eye size={13} strokeWidth={1.75} aria-hidden />
+                        <Eye {...ICON} aria-hidden />
                       </button>
                     </span>
                   </li>
@@ -685,7 +686,7 @@ export function ViewOptions({
                         title="Hidden — click to show"
                         onClick={() => void save(withPropertyShown(config, p.id, true))}
                       >
-                        <EyeOff size={13} strokeWidth={1.75} aria-hidden />
+                        <EyeOff {...ICON} aria-hidden />
                       </button>
                     </span>
                   </li>
@@ -700,7 +701,7 @@ export function ViewOptions({
           <dt id={`${ids}-sort`}>Sort</dt>
           <dd className="r2-view-inline">
             <select
-              className="r2-schema-type"
+              className="r2-field r2-schema-type"
               aria-labelledby={`${ids}-sort`}
               value={config.sort?.by ?? ""}
               onChange={(e) =>
@@ -720,7 +721,7 @@ export function ViewOptions({
             </select>
             {config.sort && (
               <select
-                className="r2-schema-type"
+                className="r2-field r2-schema-type"
                 aria-label="Direction"
                 value={config.sort.direction}
                 onChange={(e) =>
@@ -749,7 +750,7 @@ export function ViewOptions({
                   return (
                     <li key={i} className="r2-view-inline">
                       <select
-                        className="r2-schema-type"
+                        className="r2-field r2-schema-type"
                         aria-label="Property"
                         value={property.id}
                         onChange={(e) => {
@@ -764,7 +765,7 @@ export function ViewOptions({
                         ))}
                       </select>
                       <select
-                        className="r2-schema-type"
+                        className="r2-field r2-schema-type"
                         aria-label="Condition"
                         value={f.op}
                         onChange={(e) => replace(withOp(f, property, e.target.value as ViewFilterOp, choices))}
@@ -785,7 +786,7 @@ export function ViewOptions({
                         aria-label="Remove this filter"
                         onClick={() => void save({ ...config, filters: config.filters.filter((_, j) => j !== i) })}
                       >
-                        <X size={13} strokeWidth={1.75} aria-hidden />
+                        <X {...ICON} aria-hidden />
                       </button>
                     </li>
                   );
@@ -802,7 +803,7 @@ export function ViewOptions({
                     if (first) void save({ ...config, filters: [...config.filters, first] });
                   }}
                 >
-                  <Plus size={13} strokeWidth={1.75} aria-hidden />
+                  <Plus {...ICON} aria-hidden />
                   Add a filter
                 </button>
               )
