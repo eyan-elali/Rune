@@ -150,7 +150,7 @@ function Frame({ children }: { children: ReactNode }) {
               status — so neither of those moves when it opens. */}
           <div className="r2-body">
             <StatusSlotProvider slot={statusSlot}>
-              <main className="r2-main min-h-0 flex-1 overflow-y-auto">
+              <main className="r2-main">
                 <Rune2SelectionView>{children}</Rune2SelectionView>
               </main>
             </StatusSlotProvider>

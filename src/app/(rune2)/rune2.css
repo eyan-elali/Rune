@@ -91,9 +91,13 @@
   --r2-shadow-pop: 0 1px 2px rgba(var(--r2-palette-shadow) / 0.05), 0 8px 24px rgba(var(--r2-palette-shadow) / 0.08);
   --r2-shadow-lg: 0 18px 48px rgba(var(--r2-palette-shadow) / 0.1);
   --r2-ring: 0 0 0 1px var(--r2-border); /* a floating surface's edge */
-  /* An inset side sheet's left edge: a whisper of a line and the faintest
-     fall of shadow toward the content — never a card's outline. */
-  --r2-shadow-sheet: -1px 0 0 rgba(var(--r2-palette-ink) / 0.05), -12px 0 28px -14px rgba(var(--r2-palette-shadow) / 0.1);
+  /* An inset side sheet's exposed edges (left, top, bottom — the right is
+     flush with the viewport, where the ring falls outside it): a whisper of
+     a line and the faintest fall of shadow toward the content — a sheet
+     sitting just above the base surface, never a card's outline. */
+  --r2-shadow-sheet: 0 0 0 1px rgba(var(--r2-palette-ink) / 0.05),
+    -12px 0 28px -14px rgba(var(--r2-palette-shadow) / 0.1),
+    0 8px 24px -16px rgba(var(--r2-palette-shadow) / 0.08);
 
   /* ── Radius: modest; a surface is not rounded unless it is a thing ── */
   --r2-radius-xs: 3px; /* checkbox, inline code, marks */
@@ -643,6 +647,7 @@ button.r2-chip:focus-visible {
   --r2-gutter: var(--r2-space-7); /* the content column's inner edge */
   --r2-nav-full: 252px; /* the navigator's width (dragged: set inline) */
   --r2-panel-width: 320px; /* the panel's width (dragged: set inline) */
+  --r2-tab-width: 164px; /* every working tab: one width, whatever its title */
   /* The navigator's current width: what the writing column centres against. */
   --r2-nav-width: var(--r2-nav-full);
   --r2-resizer: 8px; /* the pointer zone on a column's edge */
@@ -680,6 +685,9 @@ button.r2-chip:focus-visible {
   flex-direction: column;
   min-height: 0;
   min-width: 0;
+  /* Nothing in the column may widen the shell: sideways movement belongs to
+     the few surfaces that own it (see "Overflow ownership"). */
+  overflow: hidden;
   background: var(--r2-bg);
 }
 /* The selection's layer: tabs, context bar, content. While Trash is open it
@@ -712,9 +720,20 @@ button.r2-chip:focus-visible {
   min-height: 0;
   padding-bottom: var(--r2-status-zone);
 }
+
+/* ── Overflow ownership ────────────────────────────────────────────────
+   The shell, the content column and the body never scroll sideways; the
+   content scrolls down only. A surface that genuinely moves sideways owns
+   that movement in a scroll container of its own — the tab strip, a Table's
+   body, a Board's lanes, a Timeline's track — and nothing else is allowed
+   to widen its ancestors: every writing column is sized and placed so that
+   its right edge stays inside the content (see --r2-doc-offset). */
 .r2-body > .r2-main {
   flex: 1;
   min-width: 0;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 /* ── Column edges: resize ──────────────────────────────────────────────
@@ -865,6 +884,7 @@ button.r2-chip:focus-visible {
 .r2-nav-scroll {
   flex: 1;
   min-height: 0;
+  overflow-x: hidden;
   overflow-y: auto;
   padding: var(--r2-space-1) 0 var(--r2-space-6);
   scrollbar-color: transparent transparent;
@@ -1198,12 +1218,16 @@ button.r2-disclosure:hover {
 .r2-tabs ul::-webkit-scrollbar {
   display: none;
 }
+/* One width for every tab (--r2-tab-width): a short title leaves room, a
+   long one is cut with an ellipsis and the whole of it is in the tooltip.
+   The close control's place is always kept, so the title never shifts as
+   the tab is reached for and the control is always where the hand expects. */
 .r2-tab {
   position: relative;
   display: flex;
   align-items: center;
   flex-shrink: 0;
-  max-width: 220px;
+  width: var(--r2-tab-width);
   border-radius: var(--r2-radius-xs) var(--r2-radius-xs) 0 0;
   font-size: var(--r2-fs-ui);
   color: var(--r2-ink-2);
@@ -1241,6 +1265,7 @@ button.r2-disclosure:hover {
 .r2-tab-main {
   display: flex;
   align-items: center;
+  flex: 1;
   gap: 5px;
   min-width: 0;
   height: 100%;
@@ -1248,34 +1273,34 @@ button.r2-disclosure:hover {
   border-radius: inherit;
   white-space: nowrap;
 }
-.r2-tab:not(:hover):not([data-active]) .r2-tab-main {
-  padding-right: var(--r2-space-5);
-}
 .r2-tab-main:focus-visible {
   outline-offset: -2px;
 }
 .r2-tab-label {
+  flex: 1 1 auto;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+  text-align: left;
 }
 .r2-tab[data-active] .r2-tab-label {
   font-weight: var(--r2-weight-medium);
 }
 .r2-tab-context {
-  flex-shrink: 1;
+  flex: 0 1 auto;
   min-width: 0;
-  max-width: 90px;
+  max-width: 45%;
   overflow: hidden;
   text-overflow: ellipsis;
   color: var(--r2-ink-3);
 }
-/* The close control: room of its own, shown only when the tab is reached for
-   or active. Outside those states its space folds away so the label sits
-   evenly within the tab. */
+/* The close control: room of its own, always kept; shown only when the tab
+   is reached for or active. */
 .r2-tab-close {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
   width: 18px;
   height: 18px;
   margin-right: var(--r2-space-2);
@@ -1284,11 +1309,6 @@ button.r2-disclosure:hover {
   opacity: 0;
   transition: opacity var(--r2-fast) var(--r2-ease), color var(--r2-fast) var(--r2-ease),
     background-color var(--r2-fast) var(--r2-ease);
-}
-.r2-tab:not(:hover):not([data-active]) .r2-tab-close:not(:focus-visible) {
-  width: 0;
-  margin-right: 0;
-  overflow: hidden;
 }
 .r2-tab:hover .r2-tab-close,
 .r2-tab[data-active] .r2-tab-close,
@@ -1302,13 +1322,6 @@ button.r2-disclosure:hover {
 @media (hover: none) {
   .r2-tab-close {
     opacity: 1;
-  }
-  .r2-tab:not(:hover):not([data-active]) .r2-tab-close:not(:focus-visible) {
-    width: 18px;
-    margin-right: var(--r2-space-2);
-  }
-  .r2-tab:not(:hover):not([data-active]) .r2-tab-main {
-    padding-right: var(--r2-space-2);
   }
 }
 
@@ -1530,9 +1543,11 @@ button.r2-disclosure:hover {
    sheet: flush against the viewport's right edge, in the body zone only
    (under the context bar, above the status; see .r2-body), its exposed
    left corners softened, set apart from the content by tone and the
-   faintest left edge (--r2-shadow-sheet) — a refined side sheet, not a card
-   and not a second sidebar. Inside: one small header, then sections parted
-   by hairlines and space — never boxes. */
+   faintest line and fall of shadow along its exposed edges — left, top and
+   bottom; the right is flush with the viewport (--r2-shadow-sheet) — a
+   sheet sitting just above the base surface, not a card and not a second
+   sidebar. Inside: one small header, then sections parted by hairlines and
+   space — never boxes. */
 
 /* Always in the tree; open and closed differ only in width. The inner column
    keeps the panel's full width and is clipped, so its content never reflows
@@ -1596,6 +1611,7 @@ button.r2-disclosure:hover {
 .r2-panel-body {
   flex: 1;
   min-height: 0;
+  overflow-x: hidden;
   overflow-y: auto;
   padding: var(--r2-space-1) var(--r2-gutter) var(--r2-space-9);
   scrollbar-gutter: stable;
@@ -1863,18 +1879,27 @@ button.r2-disclosure:hover {
 .r2 {
   /* The writing column, gutters included. */
   --r2-doc-gutter: 52px;
-  --r2-doc-width: calc(var(--r2-prose-measure) + 2 * var(--r2-doc-gutter));
+  --r2-doc-measure-width: calc(var(--r2-prose-measure) + 2 * var(--r2-doc-gutter));
+  --r2-doc-width: var(--r2-doc-measure-width);
 }
 
 .r2-main {
   container-type: inline-size;
-  /* Where the writing column starts (see .r2-doc). Everything that must line
-     up with the column — its status line, the overview — reads this. */
-  --r2-doc-offset: clamp(
-    0px,
-    calc((100vw - var(--r2-nav-width) - var(--r2-doc-width)) / 2),
-    calc(100cqw - var(--r2-doc-width))
-  );
+  /* Where the writing column would start, centred in the content area with
+     the panel closed. Resolved here, against the standard measure, so every
+     column — prose, overview, a wide View — shares one left edge. */
+  --r2-doc-centred: calc((100vw - var(--r2-nav-width) - var(--r2-doc-width)) / 2);
+}
+/* Where a column actually starts: the shared edge, held as long as the
+   column fits beside the panel, and never further right than lets the
+   column's own width end inside the content. Resolved on the column itself,
+   so a column that takes a wider measure (.r2-collection[data-wide]) is
+   placed by that width — it keeps the shared edge where there is room and
+   gives way to the left where there is not, instead of widening the page. */
+.r2-doc,
+.r2-overview,
+.r2-scenes-invite {
+  --r2-doc-offset: clamp(0px, var(--r2-doc-centred), calc(100cqw - var(--r2-doc-width)));
 }
 
 .r2-writing {
@@ -2670,8 +2695,16 @@ span.r2-schema-type {
    A Table or Board takes a wider column than a List; the List keeps the
    Page's measure. */
 
+/* The wider column keeps the prose column's left edge (so switching Views
+   moves nothing) and takes what room there is to the right of it, down to
+   the prose measure; only when even that no longer fits does it give way to
+   the left (--r2-doc-offset). It never widens the page: a Table, Board or
+   Timeline scrolls inside its own region. */
 .r2-collection[data-wide] {
-  --r2-doc-width: min(1180px, 100cqw);
+  --r2-doc-width: min(
+    1180px,
+    max(calc(100cqw - max(0px, var(--r2-doc-centred))), min(var(--r2-doc-measure-width), 100cqw))
+  );
 }
 .r2-collection-body {
   position: relative;
@@ -4840,11 +4873,17 @@ span.r2-schema-type {
    except the mark of a Scene that has a note. */
 
 .r2-reading {
+  /* The contents rail's width, for placing the reading column (below). */
+  --r2-reading-rail: 0px;
+  --r2-reading-width: calc(var(--r2-reading-measure) + 2 * 64px);
   display: flex;
   flex-direction: column;
   height: 100%;
   min-height: 0;
   background: var(--r2-prose-bg);
+}
+.r2-reading[data-rail] {
+  --r2-reading-rail: 224px;
 }
 .r2-reading--empty {
   align-items: center;
@@ -4915,8 +4954,9 @@ span.r2-schema-type {
   min-height: 0;
 }
 .r2-reading-rail {
-  flex: 0 0 224px;
+  flex: 0 0 var(--r2-reading-rail);
   min-height: 0;
+  overflow-x: hidden;
   overflow-y: auto;
   padding: 14px 8px 24px 12px;
   border-right: 1px solid var(--r2-border);
@@ -4977,18 +5017,29 @@ span.r2-schema-type {
   flex: 1;
   min-width: 0;
   min-height: 0;
+  overflow-x: hidden;
   overflow-y: auto;
   scroll-padding-top: 24px;
+  container-type: inline-size;
 }
 .r2-reading-body:focus-visible {
   outline: none;
   box-shadow: inset 0 0 0 2px var(--r2-accent-line);
   border-radius: 0;
 }
+/* Placed as the writing column is (.r2-doc): centred in the reading body
+   with the panel closed, and held there while it still fits beside the
+   panel — the panel takes the peripheral space first. */
 .r2-reading-inner {
-  max-width: calc(var(--r2-reading-measure) + 2 * 64px);
-  margin: 0 auto;
+  max-width: var(--r2-reading-width);
+  margin: 0 0 0
+    clamp(
+      0px,
+      calc((100vw - var(--r2-nav-width) - var(--r2-reading-rail) - var(--r2-reading-width)) / 2),
+      calc(100cqw - var(--r2-reading-width))
+    );
   padding: 40px 64px 40vh;
+  transition: margin-left var(--r2-frame) var(--r2-ease-frame);
 }
 .r2-reading-caption {
   font-size: var(--r2-fs-ui-sm);
@@ -5118,8 +5169,8 @@ span.r2-schema-type {
 }
 
 @media (max-width: 1100px) {
-  .r2-reading-rail {
-    flex-basis: 188px;
+  .r2-reading[data-rail] {
+    --r2-reading-rail: 188px;
   }
   .r2-reading-inner {
     padding-left: 52px;
@@ -5127,6 +5178,9 @@ span.r2-schema-type {
   }
 }
 @media (max-width: 760px) {
+  .r2-reading[data-rail] {
+    --r2-reading-rail: 0px;
+  }
   .r2-reading-rail {
     display: none;
   }
