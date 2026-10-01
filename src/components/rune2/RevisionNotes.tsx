@@ -1,13 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
-import { Trash2 } from "lucide-react";
-import { ICON } from "./icons";
 import { readNoteDraft, writeNoteDraft } from "@/lib/rune2/noteDrafts";
-import { openableId } from "@/lib/rune2/references";
+import { ChevronRight, Trash2 } from "lucide-react";
+import { ICON, ICON_SM_BOLD } from "./icons";
 import {
   noteScopeOf,
-  noteSections,
+  noteTree,
   presentedScope,
   REVISION_NOTE_MAX,
   scopeNoun,
@@ -15,6 +14,7 @@ import {
   targetLabel,
   type NoteScope,
   type NoteTargetType,
+  type NoteTreeNode,
 } from "@/lib/rune2/revisionNotes";
 import type { ShownNote } from "@/lib/rune2/revisionNoteSync";
 import { useProfileStore } from "@/store/profileStore";
@@ -22,17 +22,21 @@ import { useRune2Selection } from "./Rune2Selection";
 import { useRevisionNotes } from "./RevisionNoteStore";
 
 // Revision Notes (migrations 039, 040) — the one home for revision notes, in
-// the right-hand panel. Writer-authored revision thoughts on the Manuscript, a
-// Group, a Chapter or a Scene, read through the manuscript's hierarchy:
+// the right-hand panel: a manuscript notebook read through the manuscript's
+// own hierarchy. Writer-authored revision thoughts on the Manuscript, a
+// Group, a Chapter or a Scene:
 //
 //   * the panel shows the level the writer is at — the selected Scene,
-//     Chapter or Group, the Scene being read, or the whole Manuscript when
-//     nothing is selected — and a quiet trail moves up (and back down) the
-//     levels above it;
+//     Chapter or Group, or the whole Manuscript when nothing is selected —
+//     and a quiet trail moves up (and back down) the levels above it;
 //   * a Scene shows only its own notes; a Chapter its own and its Scenes';
 //     a Group its own and everything inside it; the Manuscript everything,
-//     Unplaced Scenes last — grouped by where each belongs, in manuscript
-//     order. Each note exists once; nothing is copied to aggregate;
+//     Unplaced Scenes last. Each note exists once; nothing is copied to
+//     aggregate. Inside a level the notes read as the manuscript is shaped
+//     (noteTree): Groups hold Chapters hold Scenes, each a heading in
+//     manuscript order, indented by depth, with its count — and each may be
+//     folded away, so a large project's notes are scanned a part at a time.
+//     At the Scene level there is nothing to fold: just the notes;
 //   * a Chapter's one Scene has no surface of its own (it reads as the
 //     Chapter), so it has no section of its own either: its notes read in the
 //     Chapter's, and the Scene's level is the Chapter's (presentedScope). Each
@@ -50,12 +54,12 @@ import { useRevisionNotes } from "./RevisionNoteStore";
 
 const scopeKey = (s: NoteScope) => `${s.type}:${s.id}`;
 
+/** Which headings the writer has folded, for the session (by target). */
+const folded = new Set<string>();
+
 export function RevisionNotesView() {
-  const { index, selected, reading, readingAt, readingFocus } = useRune2Selection();
+  const { index, selected: entry } = useRune2Selection();
   const { manuscriptId, notes, loaded, loadFailed, offline, sync } = useRevisionNotes();
-  // While reading, the level is the Scene being read (or the one chosen from Reading Mode).
-  const readingId = reading ? (readingFocus ?? readingAt) : null;
-  const entry = reading ? (readingId ? (index.get(openableId(index, readingId)) ?? null) : null) : selected;
   // A Chapter's one Scene reads as the Chapter (presentedScope), in the panel as on the page.
   const base = manuscriptId
     ? presentedScope(noteScopeOf(entry, manuscriptId) ?? { type: "manuscript" as const, id: manuscriptId }, index)
@@ -67,12 +71,21 @@ export function RevisionNotesView() {
     base && moved && moved.from === scopeKey(base) && (moved.to.type === "manuscript" || index.has(moved.to.id))
       ? moved.to
       : base;
+  // Folding is remembered across renders in `folded`; this only asks for a re-render.
+  const [, bump] = useState(0);
+  const toggleFold = (key: string) => {
+    if (folded.has(key)) folded.delete(key);
+    else folded.add(key);
+    bump((n) => n + 1);
+  };
 
   if (!scope || !base || !manuscriptId) return <p className="r2-panel-empty">Revision notes aren’t available here yet.</p>;
   const trail = scopeTrail(base, index, manuscriptId);
-  const sections = noteSections(notes, scope, index);
-  const unsaved = offline && sections.some((s) => s.notes.some((n) => n.pending === "pending"));
+  const tree = noteTree(notes, scope, index);
+  const total = tree.own.length + tree.nodes.reduce((n, node) => n + node.count, 0);
+  const unsaved = offline && notes.some((n) => n.pending === "pending");
   const noun = scopeNoun(scope);
+  const ownLabel = targetLabel({ type: scope.type, id: scope.id, depth: 0, own: true, unplaced: false }, index);
 
   return (
     <div className="r2-rnotes" data-revision-notes={scopeKey(scope)}>
@@ -115,34 +128,94 @@ export function RevisionNotesView() {
         </p>
       )}
 
-      {!loaded && sections.length === 0 ? (
+      {!loaded && total === 0 ? (
         <p className="r2-panel-empty r2-rnotes-empty">{loadFailed ? "Couldn’t load revision notes." : "Loading…"}</p>
-      ) : sections.length === 0 ? (
+      ) : total === 0 ? (
         <p className="r2-panel-empty r2-rnotes-empty">{EMPTY[scope.type]}</p>
       ) : (
-        <div className="r2-rnotes-sections">
-          {sections.map(({ target, notes: list }) => {
-            const label = targetLabel(target, index);
-            return (
-              <section
-                key={scopeKey(target)}
-                className="r2-rnotes-section"
-                style={{ paddingLeft: Math.min(target.depth, 4) * 10 }}
-                aria-label={label}
-              >
-                <p className="r2-rnotes-source">{label}</p>
-                <ul role="list" className="r2-rnotes-list">
-                  {list.map((note) => (
-                    <NoteItem key={note.id} note={note} label={label} />
-                  ))}
-                </ul>
-              </section>
-            );
-          })}
+        <div className="r2-rnotes-body">
+          {tree.own.length > 0 && (
+            <section className="r2-rnotes-own" aria-label={ownLabel}>
+              {tree.nodes.length > 0 && <p className="r2-rnotes-heading r2-rnotes-heading--own">{ownLabel}</p>}
+              <ul role="list" className="r2-rnotes-list">
+                {tree.own.map((note) => (
+                  <NoteItem key={note.id} note={note} label={ownLabel} />
+                ))}
+              </ul>
+            </section>
+          )}
+          {tree.nodes.map((node) => (
+            <NoteBranch
+              key={`${node.target.type}:${node.target.id}`}
+              node={node}
+              foldable={scope.type !== "scene"}
+              isFolded={(k) => folded.has(k)}
+              onToggle={toggleFold}
+            />
+          ))}
         </div>
       )}
-      <p className="r2-rnotes-hint">Kept beside the manuscript, never part of it.</p>
     </div>
+  );
+}
+
+/**
+ * One heading of the notebook — a Group, a Chapter or a Scene inside the level
+ * shown — with its own notes and the headings inside it. Indented by depth;
+ * folded away with its chevron (remembered for the session).
+ */
+function NoteBranch({
+  node,
+  foldable,
+  isFolded,
+  onToggle,
+}: {
+  node: NoteTreeNode<ShownNote>;
+  foldable: boolean;
+  isFolded: (key: string) => boolean;
+  onToggle: (key: string) => void;
+}) {
+  const { index } = useRune2Selection();
+  const key = `${node.target.type}:${node.target.id}`;
+  const label = targetLabel(node.target, index);
+  const open = !foldable || !isFolded(key);
+  const depth = Math.min(node.target.depth, 4);
+  return (
+    <section className="r2-rnotes-branch" data-kind={node.target.type} data-depth={depth} aria-label={label}>
+      <div className="r2-rnotes-heading" data-foldable={foldable || undefined}>
+        {foldable ? (
+          <button type="button" className="r2-rnotes-fold" aria-expanded={open} onClick={() => onToggle(key)}>
+            <ChevronRight className="r2-rnotes-chevron" {...ICON_SM_BOLD} aria-hidden />
+            <span className="r2-rnotes-heading-label">{label}</span>
+            <span className="r2-rnotes-count" aria-label={`${node.count} ${node.count === 1 ? "note" : "notes"}`}>
+              {node.count}
+            </span>
+          </button>
+        ) : (
+          <span className="r2-rnotes-heading-label">{label}</span>
+        )}
+      </div>
+      {open && (
+        <div className="r2-rnotes-branch-body">
+          {node.notes.length > 0 && (
+            <ul role="list" className="r2-rnotes-list">
+              {node.notes.map((note) => (
+                <NoteItem key={note.id} note={note} label={label} />
+              ))}
+            </ul>
+          )}
+          {node.children.map((child) => (
+            <NoteBranch
+              key={`${child.target.type}:${child.target.id}`}
+              node={child}
+              foldable={foldable}
+              isFolded={isFolded}
+              onToggle={onToggle}
+            />
+          ))}
+        </div>
+      )}
+    </section>
   );
 }
 

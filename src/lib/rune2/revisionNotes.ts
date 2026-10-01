@@ -190,6 +190,49 @@ export function noteSections<N extends Targeted>(
   return sections;
 }
 
+/**
+ * One level of a view's notes, read as the manuscript is shaped: a target, its
+ * own notes, and the targets inside it that hold notes (a Group's Chapters, a
+ * Chapter's Scenes). `count` is every note in the subtree.
+ */
+export type NoteTreeNode<N> = { target: ScopeTarget; notes: N[]; children: NoteTreeNode<N>[]; count: number };
+
+/**
+ * The notes a scope shows as a tree, in manuscript order — what the Revision
+ * Notes panel renders. The same notes, grouped by the same rules as
+ * noteSections (each note once; a folded Scene's notes read in its Chapter's),
+ * but with the containers kept: a Chapter whose Scenes carry notes appears
+ * even when it has none of its own, so every note is read under where it
+ * lives. Containers with nothing under them are left out. `own` is the
+ * scope's own notes; `nodes` everything inside it, Unplaced Scenes last.
+ */
+export function noteTree<N extends Targeted>(
+  notes: Iterable<N>,
+  scope: NoteScope,
+  index: ReadonlyMap<string, NavEntry>,
+): { own: N[]; nodes: NoteTreeNode<N>[] } {
+  const sections = new Map(noteSections(notes, scope, index).map((s) => [key(s.target.type, s.target.id), s.notes]));
+  const targets = scopeTargets(scope, index);
+  const own = targets[0] ? (sections.get(key(targets[0].type, targets[0].id)) ?? []) : [];
+  const root: NoteTreeNode<N>[] = [];
+  const stack: NoteTreeNode<N>[] = [];
+  for (const target of targets.slice(1)) {
+    const node: NoteTreeNode<N> = { target, notes: sections.get(key(target.type, target.id)) ?? [], children: [], count: 0 };
+    // An Unplaced Scene stands on its own, after everything placed.
+    if (target.unplaced) stack.length = 0;
+    while (stack.length > 0 && stack[stack.length - 1].target.depth >= target.depth) stack.pop();
+    (stack.length > 0 ? stack[stack.length - 1].children : root).push(node);
+    stack.push(node);
+  }
+  const prune = (list: NoteTreeNode<N>[]): NoteTreeNode<N>[] =>
+    list.flatMap((node) => {
+      node.children = prune(node.children);
+      node.count = node.notes.length + node.children.reduce((n, c) => n + c.count, 0);
+      return node.count > 0 ? [node] : [];
+    });
+  return { own, nodes: prune(root) };
+}
+
 /** The notes a scope shows, flat, in the order the view lists them. */
 export function notesInScope<N extends Targeted>(
   notes: Iterable<N>,

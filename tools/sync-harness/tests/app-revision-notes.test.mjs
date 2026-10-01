@@ -362,6 +362,50 @@ test('each level shows its own notes and those below it, once each, in manuscrip
   assert.deepEqual(model.scopeTrail(scopeOf(index, S('h1a')), index, MS).slice(1, 3).map((t) => t.scope.id), [a.id, a1.id]);
 });
 
+test('the notebook tree (noteTree): the same notes as noteSections, under their Groups and Chapters in manuscript order, containers kept only while something inside holds a note', async () => {
+  const { a, a1, b } = await hierarchy();
+  const { index } = await indexOf();
+  const list = await listed();
+  const shape = (nodes) => nodes.map((n) => [model.targetLabel(n.target, index), n.notes.map((x) => x.body), n.count, shape(n.children)]);
+
+  // The Manuscript: its own note first, then — in the outline's order — Chapter 3 (one Scene: its
+  // Scene's note reads as the Chapter's), Part A (holding Part A.1 → Chapter 1, and Chapter 2),
+  // Part B → Chapter 4 → its Scenes, Unplaced last.
+  const whole = model.noteTree(list, scopeOf(index, null), index);
+  assert.deepEqual(whole.own.map((n) => n.body), ['M: the ending']);
+  assert.deepEqual(shape(whole.nodes), [
+    [index.get(CH(3)).title, ['h3a top-level chapter'], 1, []],
+    ['Part A', ['A: part note'], 6, [
+      ['Part A.1', ['A1: nested part note'], 3, [[index.get(CH(1)).title, ['ch1 note', 'h1a note'], 2, []]]],
+      [index.get(CH(2)).title, ['ch2 note', 'h2a note'], 2, []],
+    ]],
+    ['Part B', ['B: part note'], 5, [
+      [index.get(CH(4)).title, ['ch4 note'], 4, [
+        [index.get(S('h4a')).title, ['h4a one', 'h4a two'], 2, []],
+        [index.get(S('h4c')).title, ['h4c sibling'], 1, []],
+      ]],
+    ]],
+    [`${index.get(S('h3b')).title} · Unplaced`, ['h3b unplaced'], 1, []],
+  ]);
+  const flat = (nodes) => nodes.flatMap((n) => [...n.notes.map((x) => x.body), ...flat(n.children)]);
+  assert.deepEqual([...whole.own.map((n) => n.body), ...flat(whole.nodes)], bodiesIn(list, scopeOf(index, null), index), 'exactly noteSections\' notes, in its order');
+
+  // A Group: only what is inside it. A Chapter: its Scenes as leaves. A Scene: no tree at all.
+  assert.deepEqual(shape(model.noteTree(list, scopeOf(index, a.id), index).nodes).map((n) => n[0]), ['Part A.1', index.get(CH(2)).title]);
+  assert.deepEqual(model.noteTree(list, scopeOf(index, a1.id), index).own.map((n) => n.body), ['A1: nested part note']);
+  const ch4 = model.noteTree(list, scopeOf(index, CH(4)), index);
+  assert.deepEqual(ch4.own.map((n) => n.body), ['ch4 note']);
+  assert.deepEqual(shape(ch4.nodes).map((n) => [n[0], n[1]]), [[index.get(S('h4a')).title, ['h4a one', 'h4a two']], [index.get(S('h4c')).title, ['h4c sibling']]]);
+  const h4a = model.noteTree(list, scopeOf(index, S('h4a')), index);
+  assert.deepEqual([h4a.own.map((n) => n.body), h4a.nodes], [['h4a one', 'h4a two'], []], 'a Scene: its own notes, no tree');
+
+  // A container with nothing under it is left out: Part B's Chapter 4 keeps Part B, but a Group with no notes anywhere inside never appears.
+  const c = ok(await structure.createGroup(HOLLOW, 'Part C'));
+  const after = await indexOf();
+  assert.ok(!shape(model.noteTree(await listed(), scopeOf(after.index, null), after.index).nodes).some((n) => n[0] === 'Part C'));
+  void b;
+});
+
 test('a Chapter with one Scene reads as the Chapter: its Scene\'s notes fold into the Chapter\'s section (targets unchanged); a second Scene brings the grouping back', async () => {
   const { db, b } = await hierarchy();
   const sectionsOf = async (id) => {

@@ -3,8 +3,11 @@ import { ImportManuscriptLauncher } from "@/components/rune2/ManuscriptImport";
 import { ProjectExportLaunchers } from "@/components/rune2/ProjectExport";
 import { loadProjectManuscript } from "@/lib/rune2/projectManuscript";
 
-// Manuscript overview — the content region until the editor arrives.
-// Placed and Unplaced words are shown separately, never summed.
+// The Manuscript overview: orientation and access, not analytics. The
+// manuscript's name, its size and shape in one quiet line, the few actions
+// that read it whole (export, backup) or bring another in (import), and under
+// it — ManuscriptScenes, in the shell — the Manuscript's Scene Views. Placed
+// and Unplaced words are shown separately, never summed.
 
 function plural(n: number, one: string, many = `${one}s`) {
   return `${n.toLocaleString()} ${n === 1 ? one : many}`;
@@ -19,36 +22,35 @@ export default async function Rune2ProjectPage({
   const manuscript = await loadProjectManuscript(projectId);
   if (!manuscript) notFound();
 
-  const structure = [
+  const facts = [
+    plural(manuscript.manuscriptWords, "word"),
     manuscript.groupCount > 0 ? plural(manuscript.groupCount, "group") : null,
     plural(manuscript.chapterCount, "chapter"),
     plural(manuscript.placedSceneCount, "scene"),
-  ].filter(Boolean);
+  ].filter((f): f is string => f !== null);
 
   return (
     <div className="r2-overview">
       <p className="r2-overview-kind">Manuscript</p>
       <h1>{manuscript.project.title}</h1>
 
-      <dl>
-        <dt>Manuscript</dt>
-        <dd>{plural(manuscript.manuscriptWords, "word")}</dd>
-        {manuscript.unplaced.length > 0 && (
-          <>
-            <dt>Unplaced Scenes</dt>
-            <dd>
-              {plural(manuscript.unplacedWords, "word")}
-              <span> · {plural(manuscript.unplaced.length, "scene")}</span>
-            </dd>
-          </>
-        )}
-        <dt>Structure</dt>
-        <dd>{structure.join(" · ")}</dd>
-      </dl>
+      <p className="r2-overview-facts">
+        {facts.map((f) => (
+          <span key={f}>{f}</span>
+        ))}
+      </p>
+      {manuscript.unplaced.length > 0 && (
+        <p className="r2-overview-more">
+          Unplaced: {plural(manuscript.unplaced.length, "scene")} · {plural(manuscript.unplacedWords, "word")} — outside the
+          manuscript’s total and export
+        </p>
+      )}
 
       {/* Export and backup only read; import creates a new Project. This one is never changed. */}
-      <ProjectExportLaunchers />
-      <ImportManuscriptLauncher />
+      <div className="r2-overview-actions">
+        <ProjectExportLaunchers />
+        <ImportManuscriptLauncher />
+      </div>
     </div>
   );
 }

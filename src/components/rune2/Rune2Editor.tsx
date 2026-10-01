@@ -149,7 +149,7 @@ export default function Rune2Editor({
   return (
     <div className="r2-writing" ref={rootRef}>
       <article
-        className="r2-doc"
+        className="r2-doc r2-doc--manuscript"
         data-marks={marks || undefined}
         // Clicking the empty page below the prose continues writing at the end.
         onMouseDown={(e) => {

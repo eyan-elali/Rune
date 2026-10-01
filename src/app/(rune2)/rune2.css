@@ -156,10 +156,10 @@
   --r2-prose-indent: 1.5em; /* book paragraphs: indented, no gap */
   --r2-prose-break: 3.1em; /* between two Scenes read as one Chapter */
   --r2-prose-heading-weight: 500;
-  --r2-prose-measure: 41rem;
+  --r2-prose-measure: 44rem; /* a little wider than a book page; still one glance per line */
   --r2-reading-size: 19.5px; /* Reading Mode: a touch larger and more open */
   --r2-reading-leading: 1.72;
-  --r2-reading-measure: 36rem;
+  --r2-reading-measure: 38rem;
   --r2-snapshot-size: 16.5px; /* read-only prose inside a dialog */
   --r2-page-size: 15.5px; /* a Workspace Page: the UI sans, denser */
   --r2-page-leading: 1.65;
@@ -558,6 +558,22 @@ button.r2-chip:focus-visible {
   margin: var(--r2-space-2) var(--r2-space-4);
   background: var(--r2-border);
 }
+/* A few words naming the choices under it. */
+.r2-menu-section {
+  padding: var(--r2-space-3) var(--r2-space-4) var(--r2-space-1);
+  font-size: var(--r2-fs-label);
+  letter-spacing: var(--r2-tracking-label);
+  color: var(--r2-ink-3);
+}
+/* The chosen one of a set: a mark at the right; the others keep the space. */
+.r2-menu-check {
+  display: inline-flex;
+  justify-content: center;
+  flex-shrink: 0;
+  width: var(--r2-icon-sm);
+  margin-left: var(--r2-space-4);
+  color: var(--r2-accent);
+}
 /* A question asked in the menu's own surface, with two small buttons. */
 .r2-menu-confirm {
   padding: var(--r2-space-4) var(--r2-space-4) var(--r2-space-2);
@@ -702,6 +718,27 @@ button.r2-chip:focus-visible {
 .r2-shell[data-trash] .r2-content-layer {
   visibility: hidden;
 }
+/* Full Reading Mode (ReadingMode): the navigator and the content column are
+   not painted — kept mounted, so editors, unsaved writing and scroll stay —
+   and the reader takes the frame. */
+.r2-shell[data-reading="full"] .r2-nav-column,
+.r2-shell[data-reading="full"] .r2-content {
+  visibility: hidden;
+}
+
+/* The writer's manuscript type (useEditorFont). The serif is the default; the
+   sans is Rune's own face, set a little smaller and more open. Only the prose
+   tokens change — every manuscript surface (the editor, Reading Mode, a
+   version in a dialog) follows; the chrome never does. */
+.r2-shell[data-editor-font="sans"] {
+  --r2-prose-font: var(--r2-font-ui);
+  --r2-prose-size: 17px;
+  --r2-prose-leading: 1.7;
+  --r2-prose-heading-weight: var(--r2-weight-semibold);
+  --r2-reading-size: 18px;
+  --r2-reading-leading: 1.78;
+  --r2-snapshot-size: 15.5px;
+}
 
 /* ── The three vertical zones ──────────────────────────────────────────
    The content column reads, top to bottom: the tab band and the context
@@ -719,6 +756,9 @@ button.r2-chip:focus-visible {
   flex: 1;
   min-height: 0;
   padding-bottom: var(--r2-status-zone);
+  /* The body's width decides how the panel sits (see "Width: the content keeps priority"). */
+  container-type: inline-size;
+  container-name: r2-body;
 }
 
 /* ── Overflow ownership ────────────────────────────────────────────────
@@ -1775,18 +1815,23 @@ button.r2-disclosure:hover {
 }
 
 
-/* Inspector: what the object is, as a quiet list of label and value. */
+/* Inspector: what the writer needs to know about what they are working on.
+   One typographic hierarchy, top to bottom — kind, title, where it sits, its
+   few facts in one line — then sections parted by hairlines and space, each
+   a small label with a quiet word or action at the right. No cards, no
+   boxes, no form. */
 .r2-inspector {
-  padding-top: var(--r2-space-2);
+  padding-top: var(--r2-space-3);
 }
-.r2-inspector-kind {
+.r2-insp-kind,
+.r2-insp-label {
   font-size: var(--r2-fs-caption);
   font-weight: var(--r2-weight-medium);
   letter-spacing: var(--r2-tracking-label);
   color: var(--r2-ink-3);
 }
-.r2-inspector-title {
-  margin-top: var(--r2-space-2);
+.r2-insp-title {
+  margin-top: 3px;
   font-size: var(--r2-fs-heading);
   font-weight: var(--r2-weight-semibold);
   line-height: 1.35;
@@ -1794,35 +1839,111 @@ button.r2-disclosure:hover {
   color: var(--r2-ink-1);
   overflow-wrap: anywhere;
 }
-.r2-inspector-hint {
+.r2-insp-hint {
   margin-left: var(--r2-space-4);
   font-size: var(--r2-fs-caption);
   font-weight: var(--r2-weight-regular);
+  letter-spacing: 0;
   color: var(--r2-ink-3);
 }
-.r2-inspector-props {
-  margin-top: var(--r2-space-6);
-  padding-top: var(--r2-space-5);
-  border-top: 1px solid var(--r2-border);
-}
-.r2-inspector-props > div {
-  display: grid;
-  grid-template-columns: 88px minmax(0, 1fr);
-  gap: var(--r2-space-5);
-  padding: 5px 0;
+/* Where it sits: its containers, each a way there. */
+.r2-insp-place {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  margin-top: var(--r2-space-3);
+  font-size: var(--r2-fs-ui-sm);
   line-height: var(--r2-lh-ui);
+  color: var(--r2-ink-2);
 }
-.r2-inspector-props dt {
-  color: var(--r2-ink-3);
-}
-.r2-inspector-props dd {
+.r2-insp-place-step {
+  display: inline-flex;
+  align-items: baseline;
   min-width: 0;
+}
+.r2-insp-place-sep {
+  padding: 0 5px;
+  color: var(--r2-ink-3);
+  opacity: 0.6;
+}
+.r2-insp-place-link {
+  padding: 1px 4px;
+  margin: 0 -4px;
+  border-radius: var(--r2-radius-sm);
+  color: var(--r2-ink-2);
+  text-align: left;
   overflow-wrap: anywhere;
+  transition: color var(--r2-fast) var(--r2-ease), background-color var(--r2-fast) var(--r2-ease);
+}
+.r2-insp-place-link:hover {
+  color: var(--r2-ink-1);
+  background: var(--r2-hover);
+}
+/* Its facts, read as one line. */
+.r2-insp-facts {
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: 10px;
+  font-size: var(--r2-fs-ui-sm);
+  line-height: var(--r2-lh-ui);
   color: var(--r2-ink-2);
   font-variant-numeric: tabular-nums;
 }
-.r2-inspector-props dd[data-tone="muted"] {
-  color: var(--r2-muted);
+.r2-insp-facts span + span::before {
+  content: "·";
+  margin: 0 7px;
+  color: var(--r2-ink-3);
+}
+.r2-insp-more {
+  margin-top: 4px;
+  font-size: var(--r2-fs-meta);
+  line-height: 1.5;
+  color: var(--r2-ink-3);
+}
+/* A section: hairline, label, content. */
+.r2-insp-section {
+  margin-top: 22px;
+  padding-top: 14px;
+  border-top: 1px solid var(--r2-border);
+}
+.r2-insp-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--r2-space-5);
+  margin-bottom: 6px;
+}
+.r2-insp-aside {
+  flex-shrink: 0;
+  font-size: var(--r2-fs-caption);
+  color: var(--r2-ink-3);
+}
+.r2-insp-aside-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--r2-space-2);
+  padding: 1px 5px;
+  margin: 0 -5px;
+  border-radius: var(--r2-radius-sm);
+  font-size: var(--r2-fs-caption);
+  color: var(--r2-ink-3);
+  white-space: nowrap;
+  transition: color var(--r2-fast) var(--r2-ease), background-color var(--r2-fast) var(--r2-ease);
+}
+.r2-insp-aside-link:hover {
+  color: var(--r2-ink-1);
+  background: var(--r2-hover);
+}
+.r2-insp-caption {
+  margin: -2px 0 8px;
+  font-size: var(--r2-fs-meta);
+  line-height: 1.5;
+  color: var(--r2-ink-3);
+}
+.r2-insp-empty {
+  font-size: var(--r2-fs-ui-sm);
+  line-height: var(--r2-lh-body);
+  color: var(--r2-ink-3);
 }
 
 /* ── Width: the content keeps priority ────────────────────────────────── */
@@ -1841,7 +1962,14 @@ button.r2-disclosure:hover {
     --r2-panel-width: 288px;
   }
 }
-@media (max-width: 1023px) {
+/* The manuscript wins. The panel sits beside the content only while the body
+   has room for the full writing column (--r2-doc-width, 808px) and the panel
+   together; with less, it lies over the content's right edge instead — and
+   the writing column, which would otherwise be covered, gives way to the left
+   as far as there is room, so the prose stays whole as long as it can. The
+   threshold is the body's width (a container query), so a retracted
+   navigator earns the room back. */
+@container r2-body (max-width: 1128px) {
   .r2-panel {
     position: absolute;
     top: 0;
@@ -1851,6 +1979,9 @@ button.r2-disclosure:hover {
   }
   .r2-panel[data-open] {
     box-shadow: var(--r2-shadow-pop), var(--r2-shadow-sheet);
+  }
+  .r2-main:has(+ .r2-panel[data-open]) .r2-doc {
+    --r2-doc-offset: clamp(0px, var(--r2-doc-centred), calc(100cqw - var(--r2-doc-width) - var(--r2-panel-width)));
   }
 }
 .r2-shell[data-narrow] {
@@ -1921,6 +2052,15 @@ button.r2-disclosure:hover {
   cursor: text;
   transition: margin-left var(--r2-frame) var(--r2-ease-frame);
 }
+/* The manuscript's own column starts a little lower than a Page's: a Chapter
+   is entered with a breath between the shell and the first line, not pressed
+   against the context bar. Deliberate room, not a wasted screen. */
+.r2-doc--manuscript {
+  padding-top: 64px;
+}
+.r2-doc--manuscript .r2-doc-head {
+  margin-bottom: 36px;
+}
 @container (max-width: 640px) {
   .r2-main .r2-doc {
     --r2-doc-gutter: 28px;
@@ -1933,9 +2073,10 @@ button.r2-disclosure:hover {
   cursor: default;
 }
 .r2-doc-eyebrow {
-  margin-bottom: 6px;
-  font-size: var(--r2-fs-ui-sm);
+  margin-bottom: 8px;
+  font-size: var(--r2-fs-caption);
   font-weight: var(--r2-weight-medium);
+  letter-spacing: var(--r2-tracking-label);
   color: var(--r2-ink-3);
 }
 .r2-doc-title {
@@ -1944,6 +2085,51 @@ button.r2-disclosure:hover {
   line-height: var(--r2-lh-tight);
   letter-spacing: var(--r2-tracking-title);
   color: var(--r2-ink-1);
+}
+.r2-doc--manuscript .r2-doc-title {
+  font-size: 24px;
+}
+
+/* An empty Chapter: where the first line will be, the same quiet "Start
+   writing" an empty Scene shows, in the manuscript's type. Reaching for it —
+   a click, a first keystroke — begins the Chapter. From the keyboard, a thin
+   line of ink stands where the caret will. */
+.r2-doc-begin {
+  cursor: default;
+}
+.r2-doc-begin-line {
+  position: relative;
+  display: block;
+  padding: 0;
+  text-align: left;
+  font-family: var(--r2-prose-font);
+  font-size: var(--r2-prose-size);
+  line-height: var(--r2-prose-leading);
+  color: var(--r2-faint);
+  opacity: 0.75;
+  cursor: text;
+  transition: color var(--r2-medium) var(--r2-ease), opacity var(--r2-medium) var(--r2-ease);
+}
+.r2-doc-begin-line:hover {
+  color: var(--r2-ink-3);
+  opacity: 1;
+}
+.r2-doc-begin-line:focus-visible {
+  outline: none;
+  color: var(--r2-ink-3);
+  opacity: 1;
+}
+.r2-doc-begin-line:focus-visible::before {
+  content: "";
+  position: absolute;
+  top: 0.15em;
+  left: -2px;
+  width: 2px;
+  height: 1.15em;
+  background: var(--r2-accent);
+}
+.r2-doc-begin-line[aria-busy] {
+  color: var(--r2-ink-3);
 }
 .r2-doc-note {
   margin-top: 8px;
@@ -2051,6 +2237,19 @@ button.r2-disclosure:hover {
 .r2-scene + .r2-scene {
   margin-top: var(--r2-prose-break);
 }
+/* Halfway through the break, a hairline no longer than a word: enough to say
+   "a new scene" to a reader scanning the Chapter, nothing to notice while
+   writing. */
+.r2-doc[data-marks] .r2-scene + .r2-scene::before {
+  content: "";
+  position: absolute;
+  top: calc(var(--r2-prose-break) / -2);
+  left: 50%;
+  width: 28px;
+  height: 1px;
+  transform: translateX(-50%);
+  background: var(--r2-border-strong);
+}
 .r2-scene[data-state="pending"] {
   min-height: 1.6em;
 }
@@ -2089,6 +2288,19 @@ button.r2-disclosure:hover {
 }
 .r2-doc-status [data-tone="offline"] {
   color: var(--r2-muted);
+}
+/* While the writer writes, the status recedes with the chrome — but only
+   partly: saving state stays readable at a glance, and a conflict that needs
+   a decision never fades. */
+.r2-doc-status {
+  transition: opacity var(--r2-fade-in) var(--r2-ease-frame);
+}
+.r2-shell[data-writing] .r2-doc-status {
+  opacity: 0.5;
+  transition-duration: var(--r2-fade-out);
+}
+.r2-shell[data-writing] .r2-doc-status:has(.r2-doc-status-alert) {
+  opacity: 1;
 }
 .r2-doc-status-alert {
   pointer-events: auto;
@@ -3402,40 +3614,56 @@ span.r2-schema-type {
 }
 
 /* ── Overview (Manuscript, Group) ──────────────────────────────────────── */
+/* Orientation and access: the name, the size and shape in one line, the few
+   whole-manuscript actions. It starts where the manuscript's own column
+   starts, so moving between the overview and a Chapter never jumps. */
 
 .r2-overview {
   width: min(100%, var(--r2-doc-width));
   margin-left: var(--r2-doc-offset);
-  padding: 40px var(--r2-doc-gutter) 64px;
+  padding: 64px var(--r2-doc-gutter) 48px;
   transition: margin-left var(--r2-frame) var(--r2-ease-frame);
 }
 .r2-overview-kind {
-  font-size: var(--r2-fs-ui-sm);
+  font-size: var(--r2-fs-caption);
   font-weight: var(--r2-weight-medium);
+  letter-spacing: var(--r2-tracking-label);
   color: var(--r2-ink-3);
 }
 .r2-overview h1 {
-  margin-top: 6px;
-  font-size: var(--r2-fs-title);
+  margin-top: 8px;
+  font-size: 24px;
   font-weight: var(--r2-weight-semibold);
   line-height: var(--r2-lh-tight);
   letter-spacing: var(--r2-tracking-title);
 }
-.r2-overview dl {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 6px 28px;
-  margin-top: 28px;
+.r2-overview-facts {
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: 16px;
   font-size: var(--r2-fs-body);
-}
-.r2-overview dt {
-  color: var(--r2-muted);
-}
-.r2-overview dd {
+  color: var(--r2-ink-2);
   font-variant-numeric: tabular-nums;
 }
-.r2-overview dd span {
-  color: var(--r2-faint);
+.r2-overview-facts span + span::before {
+  content: "·";
+  margin: 0 9px;
+  color: var(--r2-ink-3);
+}
+.r2-overview-more {
+  margin-top: 6px;
+  font-size: var(--r2-fs-ui-sm);
+  line-height: var(--r2-lh-ui);
+  color: var(--r2-ink-3);
+}
+.r2-overview-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin-top: 28px;
+}
+.r2-overview-actions .r2-import-launch {
+  margin-top: 0;
 }
 
 /* ── Manuscript Import ─────────────────────────────────────────────────── */
@@ -3830,25 +4058,16 @@ span.r2-schema-type {
   color: var(--r2-ink-2);
 }
 
-/* The Inspector's links: Related (the object's own), Referenced by (derived). */
-.r2-links {
-  margin-top: 18px;
-  padding-top: 14px;
-  border-top: 1px solid var(--r2-border);
-}
-.r2-links-head {
-  margin: 0 0 4px;
+/* The Inspector's connections: Related (the object's own links), Referenced
+   by (derived) — two quiet sub-labels inside one section (InspectorSection);
+   "Link to…" sits in the section's head. */
+.r2-links-sub {
+  margin: 10px 0 2px;
   font-size: var(--r2-fs-caption);
-  font-weight: var(--r2-weight-medium);
-  letter-spacing: var(--r2-tracking-label);
   color: var(--r2-ink-3);
 }
-.r2-links-head + .r2-links-add {
-  margin-top: -2px;
-}
-.r2-links-list + .r2-links-head,
-.r2-links-add + .r2-links-head {
-  margin-top: 16px;
+.r2-links > .r2-links-sub:first-child {
+  margin-top: 0;
 }
 .r2-links-list li {
   position: relative;
@@ -3903,18 +4122,13 @@ span.r2-schema-type {
 }
 .r2-links-add {
   position: relative;
+  display: inline-block;
 }
-.r2-links-add-button {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--r2-space-3);
-  margin: 2px -4px 0;
-  font-size: var(--r2-fs-ui-sm);
-  color: var(--r2-ink-3);
-}
+/* The picker opens under the section's head, aligned to the panel's gutter. */
 .r2-links-add .r2-prop-picker {
-  left: -6px;
-  width: 100%;
+  left: auto;
+  right: -5px;
+  width: 268px;
   min-width: 0;
 }
 
@@ -4194,7 +4408,7 @@ span.r2-schema-type {
 .r2-scenes-invite {
   width: min(100%, var(--r2-doc-width));
   margin-left: var(--r2-doc-offset);
-  margin-top: -40px;
+  margin-top: -20px;
   padding: 0 var(--r2-doc-gutter) 48px;
   transition: margin-left var(--r2-frame) var(--r2-ease-frame);
 }
@@ -4274,11 +4488,6 @@ span.r2-schema-type {
 }
 
 /* A Scene's properties in the Inspector: the Entry's label/value block, narrowed. */
-.r2-scene-props {
-  margin-top: 18px;
-  padding-top: 14px;
-  border-top: 1px solid var(--r2-border);
-}
 .r2-scene-props .r2-props,
 .r2-scene-props .r2-props[data-empty] {
   margin: 0;
@@ -4287,9 +4496,6 @@ span.r2-schema-type {
 .r2-scene-props .r2-prop {
   grid-template-columns: minmax(64px, 96px) minmax(0, 1fr);
   gap: var(--r2-space-4);
-}
-.r2-scene-props-edit {
-  margin-top: 6px;
 }
 
 /* ── Connected Workspace Pages ───────────────────────────────────────── */
@@ -4507,24 +4713,51 @@ span.r2-schema-type {
 
 /* ── Scene History and Milestones (036) ────────────────────────────────── */
 
-/* Entry points in the Inspector: quiet links, never controls in the editor. */
-.r2-history-entry {
-  margin-top: 14px;
+/* In the Inspector (InspectorSection): History is a short list of recent
+   versions — when, and how many words — background safety, never asking for
+   attention; Milestones are named, so each carries a flag and its name leads.
+   Both open the read-only dialogs below; nothing here is a control in the
+   editor. */
+.r2-versions,
+.r2-insp-scenes {
+  margin: 0 -6px;
 }
-.r2-milestones {
-  margin-top: 18px;
-  padding-top: 14px;
-  border-top: 1px solid var(--r2-border);
+.r2-version {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--r2-space-5);
+  width: 100%;
+  min-height: var(--r2-control-sm);
+  padding: 3px 6px;
+  border-radius: var(--r2-radius);
+  text-align: left;
+  transition: background-color var(--r2-fast) var(--r2-ease);
+}
+.r2-version:hover {
+  background: var(--r2-hover);
+}
+.r2-version-when {
+  min-width: 0;
+  font-size: var(--r2-fs-ui-sm);
+  color: var(--r2-ink-1);
+}
+.r2-version-words {
+  flex-shrink: 0;
+  font-size: var(--r2-fs-caption);
+  font-variant-numeric: tabular-nums;
+  color: var(--r2-ink-3);
 }
 .r2-milestone-list {
   display: flex;
   flex-direction: column;
   gap: var(--r2-space-1);
-  margin: 0 -6px 6px;
+  margin: 0 -6px;
 }
 .r2-milestone-item {
   display: flex;
-  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--r2-space-4);
   width: 100%;
   padding: 5px 6px;
   border-radius: var(--r2-radius);
@@ -4534,8 +4767,19 @@ span.r2-schema-type {
 .r2-milestone-item:hover {
   background: var(--r2-hover);
 }
+.r2-milestone-flag {
+  flex-shrink: 0;
+  margin-top: 4px;
+  color: var(--r2-accent);
+}
+.r2-milestone-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
 .r2-milestone-name {
-  font-size: var(--r2-fs-ui);
+  font-size: var(--r2-fs-ui-sm);
+  font-weight: var(--r2-weight-medium);
   color: var(--r2-ink-1);
   overflow-wrap: anywhere;
 }
@@ -4547,6 +4791,7 @@ span.r2-schema-type {
   display: flex;
   flex-direction: column;
   gap: var(--r2-space-4);
+  margin-top: 4px;
 }
 .r2-milestone-label {
   font-size: var(--r2-fs-meta);
@@ -4864,46 +5109,76 @@ span.r2-schema-type {
   }
 }
 
-/* ── Reading Mode (Milestone 18) ────────────────────────────────────────────
-   The manuscript read, not edited: a quieter field than the writing surface —
-   the same serif, a touch larger and more open, a narrower measure, no
-   caret, no toolbar. A thin bar says what is being read and where the writer
-   is; a contents rail beside the text goes anywhere in it. Margin marks (a
-   Scene's revision note, "edit") stay out of the text and appear on hover,
-   except the mark of a Scene that has a note. */
+/* ── Reading Mode (Milestone 18; Peek and Full since 21C) ─────────────────
+   The manuscript read, not edited: the same type as the editor, a touch
+   larger and more open, a slightly narrower measure, no caret, no toolbar.
+   Two stages of one surface (ReadingMode):
+     peek  — a centred reading surface over the shell, which dims behind it;
+             a modest radius, soft elevation, no heavy border; one thin bar
+             (where the reader is, a note, full mode, close) and the text;
+     full  — the surface takes the frame (the shell beneath is hidden, see
+             .r2-shell[data-reading]); a quiet contents rail on the left.
+   Margin marks (a Scene's revision note, "edit") stay out of the text and
+   appear on hover, except the mark of a Scene that has a note. */
 
-.r2-reading {
-  /* The contents rail's width, for placing the reading column (below). */
-  --r2-reading-rail: 0px;
-  --r2-reading-width: calc(var(--r2-reading-measure) + 2 * 64px);
+.r2-reader {
+  --r2-reading-width: calc(var(--r2-reading-measure) + 2 * 72px);
+  position: fixed;
+  inset: 0;
+  z-index: 55;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 28px 24px;
+}
+.r2-reader[data-mode="full"] {
+  position: absolute;
+  z-index: 30;
+  display: block;
+  padding: 0;
+  background: var(--r2-prose-bg);
+}
+.r2-reader-scrim {
+  position: absolute;
+  inset: 0;
+  background: var(--r2-scrim);
+  animation: r2-fade-in var(--r2-medium) var(--r2-ease);
+}
+.r2-reader-surface {
+  position: relative;
   display: flex;
   flex-direction: column;
-  height: 100%;
   min-height: 0;
   background: var(--r2-prose-bg);
 }
-.r2-reading[data-rail] {
-  --r2-reading-rail: 224px;
+.r2-reader[data-mode="peek"] .r2-reader-surface {
+  width: min(var(--r2-reading-width), 100%);
+  height: 100%;
+  overflow: hidden;
+  border-radius: var(--r2-radius-lg);
+  box-shadow: 0 0 0 1px rgba(var(--r2-palette-ink) / 0.06), var(--r2-shadow-lg);
+  animation: r2-dialog-in var(--r2-medium) var(--r2-ease);
 }
-.r2-reading--empty {
-  align-items: center;
-  justify-content: center;
-  font-size: var(--r2-fs-ui);
-  color: var(--r2-ink-3);
+.r2-reader[data-mode="full"] .r2-reader-surface {
+  width: 100%;
+  height: 100%;
 }
 
-.r2-reading-bar {
+/* The bar: what is being read and where the reader is, and the few controls. */
+.r2-reader-bar {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   gap: var(--r2-space-6);
-  padding: 14px 20px 10px 24px;
+  flex-shrink: 0;
+  min-height: var(--r2-bar);
+  padding: 8px 12px 8px 24px;
   border-bottom: 1px solid var(--r2-border);
 }
-.r2-reading-what {
+.r2-reader-what {
   flex: 1;
   min-width: 0;
 }
-.r2-reading-eyebrow {
+.r2-reader-eyebrow {
   display: flex;
   align-items: center;
   gap: 5px;
@@ -4912,55 +5187,57 @@ span.r2-schema-type {
   letter-spacing: var(--r2-tracking-label);
   color: var(--r2-ink-3);
 }
-.r2-reading-title {
-  margin-top: 2px;
-  font-family: var(--r2-prose-font);
-  font-size: 20px;
+.r2-reader-where {
+  margin-top: 1px;
+  font-size: var(--r2-fs-ui-sm);
   font-weight: var(--r2-weight-medium);
-  line-height: var(--r2-lh-tight);
   color: var(--r2-ink-1);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.r2-reading-summary {
-  margin-top: 2px;
+.r2-reader-filter {
+  margin-top: 1px;
   font-size: var(--r2-fs-meta);
-  color: var(--r2-ink-2);
-  overflow-wrap: anywhere;
+  color: var(--r2-ink-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.r2-reading-actions {
+.r2-reader-actions {
   display: flex;
   flex-shrink: 0;
   align-items: center;
   gap: var(--r2-space-1);
 }
-.r2-reading-location {
-  max-width: 22ch;
-  margin-right: 6px;
-  overflow: hidden;
-  font-size: var(--r2-fs-meta);
-  color: var(--r2-ink-3);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.r2-reading-actions .r2-action[data-has-note] svg {
+.r2-reader-actions .r2-action[data-has-note] svg {
   color: var(--r2-accent);
 }
 
-.r2-reading-layout {
+.r2-reader-layout {
   display: flex;
   flex: 1;
   min-height: 0;
 }
-.r2-reading-rail {
-  flex: 0 0 var(--r2-reading-rail);
+/* Full Reading Mode's contents: a quiet rail of its own, never the navigator. */
+.r2-reader-rail {
+  flex: 0 0 236px;
   min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
-  padding: 14px 8px 24px 12px;
+  padding: 16px 8px 24px 12px;
   border-right: 1px solid var(--r2-border);
   background: var(--r2-shell-bg);
+}
+.r2-reader-rail-head {
+  padding: 0 8px 10px;
+  font-size: var(--r2-fs-ui-sm);
+  font-weight: var(--r2-weight-semibold);
+  letter-spacing: var(--r2-tracking-heading);
+  color: var(--r2-ink-1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .r2-reading-rail-item {
   display: flex;
@@ -4986,7 +5263,7 @@ span.r2-schema-type {
   text-transform: uppercase;
   color: var(--r2-ink-3);
 }
-.r2-reading-rail li:first-child .r2-reading-rail-item {
+.r2-reader-rail li:first-child .r2-reading-rail-item {
   margin-top: 0;
 }
 .r2-reading-rail-item:hover {
@@ -5012,7 +5289,8 @@ span.r2-schema-type {
   color: var(--r2-accent);
 }
 
-.r2-reading-body {
+/* The text: one reading column, centred in whatever room the stage gives it. */
+.r2-reader-body {
   position: relative;
   flex: 1;
   min-width: 0;
@@ -5022,24 +5300,18 @@ span.r2-schema-type {
   scroll-padding-top: 24px;
   container-type: inline-size;
 }
-.r2-reading-body:focus-visible {
+.r2-reader-body:focus-visible {
   outline: none;
   box-shadow: inset 0 0 0 2px var(--r2-accent-line);
   border-radius: 0;
 }
-/* Placed as the writing column is (.r2-doc): centred in the reading body
-   with the panel closed, and held there while it still fits beside the
-   panel — the panel takes the peripheral space first. */
-.r2-reading-inner {
+.r2-reader-inner {
   max-width: var(--r2-reading-width);
-  margin: 0 0 0
-    clamp(
-      0px,
-      calc((100vw - var(--r2-nav-width) - var(--r2-reading-rail) - var(--r2-reading-width)) / 2),
-      calc(100cqw - var(--r2-reading-width))
-    );
-  padding: 40px 64px 40vh;
-  transition: margin-left var(--r2-frame) var(--r2-ease-frame);
+  margin: 0 auto;
+  padding: 44px 72px 40vh;
+}
+.r2-reader[data-mode="full"] .r2-reader-inner {
+  padding-top: 72px;
 }
 .r2-reading-caption {
   font-size: var(--r2-fs-ui-sm);
@@ -5169,40 +5441,33 @@ span.r2-schema-type {
 }
 
 @media (max-width: 1100px) {
-  .r2-reading[data-rail] {
-    --r2-reading-rail: 188px;
+  .r2-reader-rail {
+    flex-basis: 196px;
   }
-  .r2-reading-inner {
+}
+@media (max-width: 760px) {
+  .r2-reader {
+    padding: 0;
+  }
+  .r2-reader[data-mode="peek"] .r2-reader-surface {
+    width: 100%;
+    border-radius: 0;
+  }
+  .r2-reader-rail {
+    display: none;
+  }
+  .r2-reader-inner {
     padding-left: 52px;
     padding-right: 28px;
   }
 }
-@media (max-width: 760px) {
-  .r2-reading[data-rail] {
-    --r2-reading-rail: 0px;
-  }
-  .r2-reading-rail {
-    display: none;
-  }
-  .r2-reading-bar {
-    flex-wrap: wrap;
-  }
-}
-/* The Inspector while reading: which Scene it describes. */
-.r2-inspector-reading {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 4px 10px;
-  margin-bottom: 10px;
-  font-size: var(--r2-fs-caption);
-  color: var(--r2-ink-3);
-}
 
 /* Revision Notes (039, 040) — the panel's one home for revision notes: a
-   quiet trail of levels (Manuscript / Part / Chapter / Scene), the add field
-   (the composer), then the notes grouped by where each belongs, indented by
-   depth, in manuscript order. No boxes around notes. */
+   manuscript notebook. A quiet trail of levels (Manuscript / Part / Chapter /
+   Scene); the add field — a line to write on, not a box; then the notes under
+   headings shaped like the manuscript (Groups hold Chapters hold Scenes), each
+   heading foldable with its count, each level indented behind a hairline
+   guide, in manuscript order. No boxes around notes. */
 .r2-rnotes-trail {
   display: flex;
   flex-wrap: wrap;
@@ -5240,15 +5505,35 @@ span.r2-schema-type {
   outline: 2px solid var(--r2-accent);
   outline-offset: 2px;
 }
-.r2-rnotes-composer {
+/* The composer as a line: nothing drawn at rest but a hairline under the
+   words to come; the hairline darkens under the pointer and takes ink while
+   a note is written. It grows with the note. */
+.r2-rnotes-composer.r2-composer {
   margin-top: 10px;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: inset 0 -1px 0 var(--r2-border);
+}
+.r2-rnotes-composer.r2-composer:hover {
+  background: transparent;
+  box-shadow: inset 0 -1px 0 var(--r2-border-strong);
+}
+.r2-rnotes-composer.r2-composer:focus-within,
+.r2-rnotes-composer.r2-composer[data-filled] {
+  background: transparent;
+  box-shadow: inset 0 -1px 0 var(--r2-accent);
 }
 .r2-rnotes-composer .r2-composer-input {
-  min-height: 40px;
+  min-height: 36px;
+  padding: 8px 0 9px;
+  border-radius: 0;
 }
 .r2-rnotes-composer:focus-within .r2-composer-input,
 .r2-rnotes-composer[data-filled] .r2-composer-input {
-  min-height: 64px;
+  min-height: 60px;
+}
+.r2-rnotes-composer .r2-composer-hint {
+  left: 0;
 }
 .r2-rnotes-status {
   display: flex;
@@ -5259,32 +5544,95 @@ span.r2-schema-type {
 .r2-rnotes-status[data-tone="alert"] {
   color: var(--r2-danger);
 }
-.r2-rnotes-sections,
+.r2-rnotes-body,
 .r2-rnotes-empty {
   margin-top: 18px;
   transition: margin-top var(--r2-frame) var(--r2-ease-frame);
 }
-.r2-rnotes:has(.r2-composer:focus-within) :is(.r2-rnotes-sections, .r2-rnotes-empty) {
+.r2-rnotes:has(.r2-composer:focus-within) :is(.r2-rnotes-body, .r2-rnotes-empty) {
   margin-top: 40px;
 }
-.r2-rnotes-section + .r2-rnotes-section {
-  margin-top: 14px;
+/* Headings shaped like the manuscript. */
+.r2-rnotes-own + .r2-rnotes-branch,
+.r2-rnotes-branch + .r2-rnotes-branch,
+.r2-rnotes-list + .r2-rnotes-branch {
+  margin-top: 10px;
 }
-.r2-rnotes-source {
+.r2-rnotes-heading {
+  display: flex;
+  align-items: center;
+  min-height: 24px;
+  font-size: var(--r2-fs-ui-sm);
+  color: var(--r2-ink-2);
+}
+.r2-rnotes-heading--own {
+  margin-bottom: 2px;
   font-size: var(--r2-fs-label);
-  line-height: 16px;
   letter-spacing: var(--r2-tracking-label);
   color: var(--r2-ink-3);
+}
+.r2-rnotes-fold {
+  display: flex;
+  align-items: center;
+  gap: var(--r2-space-2);
+  width: 100%;
+  min-height: 24px;
+  margin-left: -4px;
+  padding: 2px 4px;
+  border-radius: var(--r2-radius-sm);
+  text-align: left;
+  color: inherit;
+  transition: background-color var(--r2-fast) var(--r2-ease), color var(--r2-fast) var(--r2-ease);
+}
+.r2-rnotes-fold:hover {
+  background: var(--r2-hover);
+  color: var(--r2-ink-1);
+}
+.r2-rnotes-chevron {
+  flex-shrink: 0;
+  color: var(--r2-ink-3);
+  transition: transform var(--r2-fast) var(--r2-ease);
+}
+.r2-rnotes-fold[aria-expanded="true"] .r2-rnotes-chevron {
+  transform: rotate(90deg);
+}
+.r2-rnotes-heading-label {
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.r2-rnotes-branch[data-kind="group"] > .r2-rnotes-heading .r2-rnotes-heading-label {
+  font-size: var(--r2-fs-label);
+  font-weight: var(--r2-weight-semibold);
+  letter-spacing: var(--r2-tracking-caps);
+  text-transform: uppercase;
+  color: var(--r2-ink-3);
+}
+.r2-rnotes-branch[data-kind="chapter"] > .r2-rnotes-heading .r2-rnotes-heading-label {
+  font-weight: var(--r2-weight-medium);
+  color: var(--r2-ink-1);
+}
+.r2-rnotes-count {
+  flex-shrink: 0;
+  padding-left: var(--r2-space-3);
+  font-size: var(--r2-fs-caption);
+  font-variant-numeric: tabular-nums;
+  color: var(--r2-ink-3);
+}
+/* What a heading holds, indented behind a hairline guide. */
+.r2-rnotes-branch-body {
+  margin-left: 5px;
+  padding-left: 11px;
+  border-left: 1px solid var(--r2-border);
 }
 .r2-rnotes-list {
   margin-top: 2px;
 }
 .r2-rnote {
   position: relative;
-  padding: 8px 30px 8px 0;
+  padding: 7px 30px 7px 0;
   border-top: 1px solid var(--r2-border);
 }
 .r2-rnote:first-child {
@@ -5371,36 +5719,32 @@ span.r2-schema-type {
   gap: var(--r2-space-3);
   margin-top: 8px;
 }
-.r2-rnotes-hint {
-  margin-top: 10px;
-  font-size: var(--r2-fs-caption);
-  color: var(--r2-ink-3);
-}
-/* Reading Mode's quick add: a small surface under the reading bar. */
-.r2-reading-quicknote {
-  width: min(560px, calc(100% - 32px));
-  margin: 12px auto 0;
-  padding: 12px 14px 10px;
-  border-radius: var(--r2-radius-lg);
+/* The reader's quick add: a compact strip under the bar, on the panel's
+   tone, gone again with Done. The same composer and the same notes. */
+.r2-reader-quicknote {
+  flex-shrink: 0;
+  padding: 8px 24px 10px;
+  border-bottom: 1px solid var(--r2-border);
   background: var(--r2-panel-bg);
-  box-shadow: var(--r2-ring), var(--r2-shadow-pop);
 }
-.r2-reading-quicknote-head {
+.r2-reader-quicknote-head {
   font-size: var(--r2-fs-caption);
   color: var(--r2-ink-3);
 }
-.r2-reading-quicknote .r2-rnotes-composer {
-  margin-top: 6px;
+.r2-reader-quicknote .r2-rnotes-composer.r2-composer {
+  max-width: 44em;
+  margin-top: 0;
 }
-.r2-reading-quicknote-foot {
+.r2-reader-quicknote-foot {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
   gap: 4px 14px;
-  margin-top: 30px;
+  max-width: 44em;
+  margin-top: 26px;
   font-size: var(--r2-fs-caption);
   color: var(--r2-ink-3);
 }
-.r2-reading-quicknote-foot [role="status"] {
+.r2-reader-quicknote-foot [role="status"] {
   margin-right: auto;
 }

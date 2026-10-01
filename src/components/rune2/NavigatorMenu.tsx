@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import type { LucideIcon } from "lucide-react";
-import { ICON } from "./icons";
+import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Check, type LucideIcon } from "lucide-react";
+import { ICON, ICON_SM_BOLD } from "./icons";
 
 // A small contextual menu for the navigator (row "+" and "⋯" buttons, right
 // click). Fixed-positioned at a point so the navigator's scroll container
@@ -22,6 +22,12 @@ export type NavigatorMenuItem = {
   tone?: "danger";
   /** Shown in place of the menu before onSelect runs. */
   confirm?: { message: string; action: string };
+  /** A small label above this item, naming the group of choices it starts (parted from what precedes it). */
+  section?: string;
+  /** A hairline above this item. */
+  separator?: boolean;
+  /** One of a set of choices: the chosen one carries a mark. */
+  checked?: boolean;
 };
 
 export function NavigatorMenu({
@@ -137,33 +143,47 @@ export function NavigatorMenu({
           </div>
         </div>
       ) : (
-        items.map((item) => {
+        items.map((item, i) => {
           const Icon = item.icon;
+          const choice = item.checked !== undefined;
           return (
-            <button
-              key={item.key ?? item.label}
-              type="button"
-              role="menuitem"
-              data-menu-item
-              tabIndex={-1}
-              className="r2-menu-item"
-              data-tone={item.tone}
-              style={item.inset ? { paddingLeft: 8 + item.inset * 12 } : undefined}
-              onClick={() => choose(item)}
-            >
-              <span className="r2-menu-icon" aria-hidden>
-                {Icon && <Icon {...ICON} />}
-              </span>
-              <span className="r2-menu-label">
-                {item.label}
-                {item.confirm && <span aria-hidden>…</span>}
-              </span>
-              {item.hint && (
-                <kbd className="r2-menu-hint" aria-hidden>
-                  {item.hint}
-                </kbd>
+            <Fragment key={item.key ?? item.label}>
+              {(item.separator || item.section) && i > 0 && <div className="r2-menu-separator" aria-hidden />}
+              {item.section && (
+                <p className="r2-menu-section" aria-hidden>
+                  {item.section}
+                </p>
               )}
-            </button>
+              <button
+                type="button"
+                role={choice ? "menuitemradio" : "menuitem"}
+                aria-checked={choice ? item.checked : undefined}
+                data-menu-item
+                tabIndex={-1}
+                className="r2-menu-item"
+                data-tone={item.tone}
+                style={item.inset ? { paddingLeft: 8 + item.inset * 12 } : undefined}
+                onClick={() => choose(item)}
+              >
+                <span className="r2-menu-icon" aria-hidden>
+                  {Icon && <Icon {...ICON} />}
+                </span>
+                <span className="r2-menu-label">
+                  {item.label}
+                  {item.confirm && <span aria-hidden>…</span>}
+                </span>
+                {item.hint && (
+                  <kbd className="r2-menu-hint" aria-hidden>
+                    {item.hint}
+                  </kbd>
+                )}
+                {choice && (
+                  <span className="r2-menu-check" aria-hidden>
+                    {item.checked && <Check {...ICON_SM_BOLD} />}
+                  </span>
+                )}
+              </button>
+            </Fragment>
           );
         })
       )}

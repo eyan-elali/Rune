@@ -12,10 +12,11 @@ import {
   pinProjectNote,
   unpinProjectNote,
 } from "@/lib/actions/notes";
-import type { NavEntry } from "@/lib/rune2/navigatorModel";
-import { openableId, referenceSubject } from "@/lib/rune2/references";
+import type { NavKind } from "@/lib/rune2/navigatorModel";
+import { referenceSubject } from "@/lib/rune2/references";
 import type { ProjectNote } from "@/lib/types";
 import { SceneSuggestions } from "./CollectionSchema";
+import { InspectorSection } from "./InspectorSection";
 import { MilestonesSection, ObjectMilestonesSection } from "./ManuscriptMilestones";
 import { ObjectLinks } from "./ObjectLinks";
 import { AddProperty, ItemProperties } from "./PropertyFields";
@@ -343,25 +344,22 @@ function ChecklistView() {
 
 // ── Inspector ─────────────────────────────────────────────────────────────
 //
-// What the selected object *is*, structurally — only what the Phase 1 model
-// actually holds: title, placement, derived position, words, and whether it
-// is part of the ordered manuscript; for a Workspace Page, where it lives and
-// when it was made and last edited. Then, for an Entry, a Page or a Scene (a
-// Chapter shown as one piece of writing stands for its only Scene), its links
-// and backlinks (028, ObjectLinks) — the Scene's metadata lives here, outside
-// the prose. A divided Chapter shows only where it is mentioned (035). A Scene (and a Chapter shown as one piece of writing) also shows
-// its Scene properties (032, architecture §8), edited in place and saved on
-// their own — never with the prose, never inside the editor. A Scene's
-// History and the Manuscript's Milestones (036) open from here too: quiet
-// links, never controls in the manuscript editor. Two separate things, kept
-// apart: a Scene's History (versions the database kept on its own) and the
-// named Milestones that hold this Scene or Chapter (037), each opening the
-// read-only Milestone at it. Revision Notes are not here: they have one home,
-// the Revision Notes panel.
+// What the writer needs to know about what they are working on — not which
+// fields exist. It reads top to bottom as: what this is and where it sits
+// (kind, title, its place in the manuscript, its few facts in one line);
+// then its Scene properties (032, edited in place and saved on their own —
+// never with the prose, never inside the editor); then History (036: the
+// versions the database kept on its own — background safety); then the named
+// Milestones that hold it (037, each opening the read-only Milestone at it);
+// then its connections — links and backlinks (028, 035). A Chapter shown as
+// one piece of writing stands for its only Scene; a divided Chapter has no
+// prose of its own, so it shows only its Milestones and where it is
+// mentioned — and its Scenes, each a way there. The Manuscript (nothing selected) shows its shape and its
+// Milestones. Workspace objects keep their few facts and connections.
 //
-// While a Reading tab is active nothing is selected; the Inspector then
-// describes the Scene being read (or the one the writer chose from Reading
-// Mode), so its properties and history are at hand without leaving the text.
+// Sections are parted by hairlines and space, never boxed; each is quiet when
+// empty. Revision Notes are not here: they have one home, the Revision Notes
+// panel.
 
 function plural(n: number, one: string, many = `${one}s`) {
   return `${n.toLocaleString()} ${n === 1 ? one : many}`;
@@ -372,56 +370,54 @@ function formatDate(iso: string): string {
 }
 
 function InspectorView() {
-  const {
-    manuscript,
-    workspace,
-    index,
-    selected: chosen,
-    select,
-    reading,
-    readingAt,
-    readingFocus,
-    setReadingFocus,
-  } = useRune2Selection();
-  const readingId = reading ? (readingFocus ?? readingAt) : null;
-  const selected = reading ? (readingId ? (index.get(openableId(index, readingId)) ?? null) : null) : chosen;
-  // Pinned to a Scene other than the one being read: a way back to following.
-  const pinned = Boolean(reading && readingFocus && readingAt && readingFocus !== readingAt);
+  const { manuscript, workspace, index, selected, select } = useRune2Selection();
   // Listing an object's Milestones needs migration 037.
   const milestoneLookup = workspace.chapterTrashable;
   const { available: propertied, propertiesOf } = usePropertyStore();
   const { available: referable } = useReferenceStore();
   const subject = referable && selected ? referenceSubject(index, selected) : null;
-  // The Scene whose properties show: the selected Scene, or a Chapter's only Scene.
+  // The Scene whose properties and history show: the selected Scene, or a Chapter's only Scene.
   const scene = selected ? referenceSubject(index, selected) : null;
 
-  const location = (entry: NavEntry): ReactNode => {
-    const parents = entry.kind === "scene" ? entry.path.slice(0, -1) : entry.path;
-    if (parents.length === 0) return "Manuscript";
-    return parents.map((p) => p.title).join(" / ");
+  /** Where an object sits: the Groups (and for a Scene, the Chapter) above it, each a way there. */
+  const place = (parents: { id: string; title: string; kind: NavKind }[], fallback?: string): ReactNode => {
+    if (parents.length === 0) return fallback ?? null;
+    return parents.map((p, i) => (
+      <span key={p.id} className="r2-insp-place-step">
+        {i > 0 && <span aria-hidden className="r2-insp-place-sep">/</span>}
+        {p.kind === "workspaceFolder" ? (
+          <span>{p.title}</span>
+        ) : (
+          <button type="button" className="r2-insp-place-link" onClick={() => select(p.id)}>
+            {p.title}
+          </button>
+        )}
+      </span>
+    ));
   };
 
   let kind: string;
   let title: string;
-  let rows: [string, ReactNode][];
+  /** Where it sits, as a trail of its containers. */
+  let where: ReactNode = null;
+  /** Its few facts, read as one quiet line. */
+  let facts: ReactNode[] = [];
+  /** A second line of facts, where one isn't enough. */
+  let more: ReactNode[] = [];
+  let hint: string | null = null;
 
   if (!selected) {
     kind = "Manuscript";
     title = manuscript.project.title;
-    rows = [
-      ["Words", plural(manuscript.manuscriptWords, "word")],
-      ["Chapters", manuscript.chapterCount.toLocaleString()],
-      ["Scenes", manuscript.placedSceneCount.toLocaleString()],
-      ...(manuscript.groupCount > 0 ? [["Groups", manuscript.groupCount.toLocaleString()] as [string, ReactNode]] : []),
-      ...(manuscript.unplaced.length > 0
-        ? [
-            [
-              "Unplaced",
-              `${plural(manuscript.unplacedWords, "word")} · ${plural(manuscript.unplaced.length, "scene")}`,
-            ] as [string, ReactNode],
-          ]
-        : []),
+    facts = [
+      plural(manuscript.manuscriptWords, "word"),
+      ...(manuscript.groupCount > 0 ? [plural(manuscript.groupCount, "group")] : []),
+      plural(manuscript.chapterCount, "chapter"),
+      plural(manuscript.placedSceneCount, "scene"),
     ];
+    if (manuscript.unplaced.length > 0) {
+      more = [`Unplaced: ${plural(manuscript.unplaced.length, "scene")} · ${plural(manuscript.unplacedWords, "word")}`];
+    }
   } else {
     title = selected.title;
     switch (selected.kind) {
@@ -430,132 +426,114 @@ function InspectorView() {
         const chapters = inside.filter((e) => e.kind === "chapter").length;
         const groups = inside.filter((e) => e.kind === "group").length;
         kind = "Group";
-        rows = [
-          ["Location", location(selected)],
-          ["Chapters", chapters.toLocaleString()],
-          ...(groups > 0 ? [["Groups", groups.toLocaleString()] as [string, ReactNode]] : []),
-          ["Words", plural(selected.words, "word")],
+        where = place(selected.path, "Manuscript");
+        facts = [
+          plural(selected.words, "word"),
+          ...(groups > 0 ? [plural(groups, "group")] : []),
+          plural(chapters, "chapter"),
         ];
         break;
       }
-      case "chapter":
+      case "chapter": {
+        const scenes = selected.sceneIds?.length ?? 0;
         kind = "Chapter";
-        rows = [
-          ["Location", location(selected)],
-          ["Position", `${selected.ordinal} of ${manuscript.chapterCount}`],
-          ["Scenes", (selected.sceneIds?.length ?? 0).toLocaleString()],
-          ["Words", plural(selected.words, "word")],
-        ];
+        where = place(selected.path, "Manuscript");
+        facts = [`Chapter ${selected.ordinal} of ${manuscript.chapterCount}`, plural(selected.words, "word")];
+        if (scenes !== 1) facts.push(plural(scenes, "scene"));
         break;
+      }
       case "scene": {
         const chapter = selected.path[selected.path.length - 1];
         const siblings = chapter ? (index.get(chapter.id)?.sceneIds?.length ?? 0) : 0;
         kind = "Scene";
-        rows = [
-          [
-            "Chapter",
-            chapter ? (
-              <button type="button" className="r2-panel-link" onClick={() => select(chapter.id)}>
-                {chapter.title}
-              </button>
-            ) : (
-              "—"
-            ),
-          ],
-          ...(selected.path.length > 1 ? [["Location", location(selected)] as [string, ReactNode]] : []),
-          ["Position", `Scene ${selected.ordinal} of ${siblings}`],
-          ["Words", plural(selected.words, "word")],
-          ["Manuscript", "Counts toward the total and export"],
-        ];
+        where = place(selected.path);
+        facts = [`Scene ${selected.ordinal} of ${siblings}`, plural(selected.words, "word")];
+        more = ["In the manuscript: counts toward the total and export"];
+        hint = selected.named ? null : "Unnamed";
         break;
       }
       case "unplacedScene":
         kind = "Unplaced Scene";
-        rows = [
-          ["Placement", "Unplaced Scenes"],
-          ["Words", plural(selected.words, "word")],
-          ["Manuscript", "Not in the total or export"],
-        ];
+        where = <span>Unplaced Scenes</span>;
+        facts = [plural(selected.words, "word")];
+        more = ["Outside the manuscript’s order: not in the total or export"];
+        hint = selected.named ? null : "Unnamed";
         break;
       case "workspacePage": {
         const page = workspace.pages.find((p) => p.id === selected.id);
         kind = "Page";
-        rows = [
-          ["Location", ["Workspace", ...selected.path.map((p) => p.title)].join(" / ")],
-          ...(page
-            ? [
-                ["Created", formatDate(page.created_at)] as [string, ReactNode],
-                ["Edited", formatDate(page.updated_at)] as [string, ReactNode],
-              ]
-            : []),
-        ];
+        where = place(selected.path, "Workspace");
+        facts = page ? [`Created ${formatDate(page.created_at)}`, `Edited ${formatDate(page.updated_at)}`] : [];
         break;
       }
       case "workspaceCollection":
         kind = "Collection";
-        rows = [
-          ["Location", ["Workspace", ...selected.path.map((p) => p.title)].join(" / ")],
-          ["Entries", plural(selected.childCount, "entry", "entries")],
-          ...(propertied
-            ? [["Properties", propertiesOf(selected.id).length.toLocaleString()] as [string, ReactNode]]
-            : []),
+        where = place(selected.path, "Workspace");
+        facts = [
+          plural(selected.childCount, "entry", "entries"),
+          ...(propertied ? [plural(propertiesOf(selected.id).length, "property", "properties")] : []),
         ];
         break;
       case "collectionEntry": {
         const entry = workspace.entries.find((e) => e.id === selected.id);
         kind = "Entry";
-        rows = [
-          ["Collection", selected.path[selected.path.length - 1]?.title ?? "—"],
-          ...(entry
-            ? [
-                ["Created", formatDate(entry.created_at)] as [string, ReactNode],
-                ["Edited", formatDate(entry.updated_at)] as [string, ReactNode],
-              ]
-            : []),
-        ];
+        where = place(selected.path, "Workspace");
+        facts = entry ? [`Created ${formatDate(entry.created_at)}`, `Edited ${formatDate(entry.updated_at)}`] : [];
         break;
       }
       // Never selected (navigation only), but described if it ever were.
       case "workspaceFolder":
         kind = "Folder";
-        rows = [
-          ["Location", ["Workspace", ...selected.path.map((p) => p.title)].join(" / ")],
-          ["Contains", plural(selected.childCount, "item")],
-        ];
+        where = place(selected.path, "Workspace");
+        facts = [plural(selected.childCount, "item")];
         break;
     }
   }
 
+  const sceneId = scene?.type === "scene" ? scene.id : null;
   return (
     <div className="r2-inspector">
-      {reading && (
-        <p className="r2-inspector-reading">
-          {selected ? (pinned ? "A scene you chose while reading" : "The scene you’re reading") : "Reading"}
-          {pinned && (
-            <button type="button" className="r2-panel-link" onClick={() => setReadingFocus(null)}>
-              Follow the reading
-            </button>
-          )}
+      <header className="r2-insp-head">
+        <p className="r2-insp-kind">{kind}</p>
+        <p className="r2-insp-title">
+          {title}
+          {hint && <span className="r2-insp-hint">{hint}</span>}
         </p>
-      )}
-      <p className="r2-inspector-kind">{kind}</p>
-      <p className="r2-inspector-title">
-        {title}
-        {selected && !selected.named && (selected.kind === "scene" || selected.kind === "unplacedScene") && (
-          <span className="r2-inspector-hint">Unnamed</span>
+        {where && <p className="r2-insp-place">{where}</p>}
+        {facts.length > 0 && (
+          <p className="r2-insp-facts">
+            {facts.map((f, i) => (
+              <span key={i}>{f}</span>
+            ))}
+          </p>
         )}
-      </p>
-      <dl className="r2-inspector-props">
-        {rows.map(([label, value]) => (
-          <div key={label}>
-            <dt>{label}</dt>
-            <dd>{value}</dd>
-          </div>
+        {more.map((line, i) => (
+          <p key={i} className="r2-insp-more">
+            {line}
+          </p>
         ))}
-      </dl>
-      {scene?.type === "scene" && (
-        <SceneHistorySection key={`history-${scene.id}`} sceneId={scene.id} projectId={manuscript.project.id} />
+      </header>
+
+      {selected?.kind === "chapter" && (selected.sceneIds?.length ?? 0) > 1 && (
+        <InspectorSection title="Scenes">
+          <ul className="r2-insp-scenes" aria-label="Scenes in this chapter">
+            {selected.sceneIds!.map((id) => {
+              const scene = index.get(id);
+              if (!scene) return null;
+              return (
+                <li key={id}>
+                  <button type="button" className="r2-version" onClick={() => select(id)}>
+                    <span className="r2-version-when">{scene.title}</span>
+                    <span className="r2-version-words">{plural(scene.words, "word")}</span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </InspectorSection>
       )}
+      {sceneId && <SceneInspectorProperties key={`props-${sceneId}`} sceneId={sceneId} />}
+      {sceneId && <SceneHistorySection key={`history-${sceneId}`} sceneId={sceneId} projectId={manuscript.project.id} />}
       {milestoneLookup && selected?.kind === "chapter" && (
         <ObjectMilestonesSection key={`milestones-${selected.id}`} kind="chapter" id={selected.id} />
       )}
@@ -563,7 +541,6 @@ function InspectorView() {
         <ObjectMilestonesSection key={`milestones-${selected.id}`} kind="scene" id={selected.id} />
       )}
       {!selected && <MilestonesSection projectId={manuscript.project.id} />}
-      {scene?.type === "scene" && <SceneInspectorProperties key={`props-${scene.id}`} sceneId={scene.id} />}
       {/* A fresh section per object, so an open search never carries over. */}
       {referable && (subject || selected?.kind === "chapter") && (
         <ObjectLinks
@@ -597,8 +574,24 @@ function SceneInspectorProperties({ sceneId }: { sceneId: string }) {
   if (!sceneAvailable || !manuscriptId) return null;
   const count = propertiesOf(manuscriptId).length;
   return (
-    <section className="r2-scene-props" aria-label="Scene properties">
-      <h3 className="r2-links-head">Scene properties</h3>
+    <InspectorSection
+      title="Properties"
+      aside={
+        count > 0 ? (
+          <button
+            type="button"
+            className="r2-insp-aside-link"
+            onClick={() => {
+              select(null);
+              openScenes("properties");
+            }}
+          >
+            Edit
+          </button>
+        ) : undefined
+      }
+    >
+      <div className="r2-scene-props">
       <ItemProperties
         itemId={sceneId}
         ownerId={manuscriptId}
@@ -609,23 +602,12 @@ function SceneInspectorProperties({ sceneId }: { sceneId: string }) {
           </>
         }
       />
-      {count > 0 && (
-        <button
-          type="button"
-          className="r2-panel-link r2-scene-props-edit"
-          onClick={() => {
-            select(null);
-            openScenes("properties");
-          }}
-        >
-          Edit scene properties
-        </button>
-      )}
       {notice && (
         <p role="status" className="r2-panel-notice">
           {notice}
         </p>
       )}
-    </section>
+      </div>
+    </InspectorSection>
   );
 }

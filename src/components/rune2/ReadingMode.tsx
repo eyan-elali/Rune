@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { BookOpen, ListTree, PenLine, StickyNote } from "lucide-react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { BookOpen, ListTree, Maximize2, Minimize2, PenLine, StickyNote, X } from "lucide-react";
 import { ICON, ICON_SM } from "./icons";
+import { Tooltip } from "./Tooltip";
 import { getReadingScenes, getReadingVersions } from "@/lib/actions/reading";
 import { getCachedScene, getPendingWrite } from "@/lib/offline/db";
 import { isSceneView } from "@/lib/rune2/collectionViews";
@@ -26,36 +27,44 @@ import type { SavedView } from "@/lib/types";
 import { useSceneItems } from "./ManuscriptScenes";
 import { usePropertyStore } from "./PropertyStore";
 import { ReadingDocument, readingAnchor } from "./ReadingDocument";
-import { useRune2Selection } from "./Rune2Selection";
+import { useRune2Selection, type ReadingMode as Mode } from "./Rune2Selection";
 import { NoteComposer } from "./RevisionNotes";
 import { useRevisionNotes } from "./RevisionNoteStore";
 import { useViewStore } from "./ViewStore";
 
-// Reading Mode (Milestone 18): the live manuscript, or the Scenes one Scene
-// View selects, read continuously and read-only, in a Reading tab of the
-// working set. It is a way of reading, not another editor and not another
-// manuscript:
+// Reading Mode (Milestone 18; two stages since 21C): the live manuscript, or
+// the Scenes one Scene View selects, read continuously and read-only. It is a
+// way of reading, not another editor and not another manuscript, and it lies
+// over the writer's context rather than replacing it:
 //
+//   * the Reading Peek — "Read" — is a centred reading surface over the shell,
+//     which dims behind it: a quick look at the manuscript, with the few
+//     controls a reader needs (where they are, a note, the way to Full
+//     Reading Mode, Close) and no second set of Rune chrome;
+//   * Full Reading Mode takes the whole frame: the shell's navigator, tabs
+//     and context bar are hidden (never unmounted — Rune2Shell), the text is
+//     the viewport, and a quiet contents rail of its own goes straight to any
+//     Group, Chapter or Scene. Escape steps back to the Peek; Close returns to
+//     the context the writer left, exactly as it was;
 //   * the text is each Scene's own current text, read from the live Scene
-//     rows whenever Reading Mode is shown (only Scenes changed since it last
-//     read them are read again), with the writer's own unsynced typing on
-//     this device taken over the server's copy, as the editor does. Nothing
-//     here writes: no Scene, no cache, no writing credit;
-//   * a contents rail goes straight to any Group, Chapter or Scene, and marks
-//     where the writer is as they read;
-//   * "Edit" opens the Scene being read in the ordinary Scene editor, in a
-//     tab of its own — the Reading tab stays, and shows the edited text when
-//     the writer comes back to it;
-//   * "Note" opens a small quick-add under the bar for the Scene being read
-//     (or, from a margin mark, the Scene beside it): ordinary Revision Notes
-//     on that Scene, one after another, without leaving the text and without
-//     opening any panel. There is no reading note: they appear at once in that
-//     Scene's, its Chapter's, its Groups' and the Manuscript's Revision Notes.
-//     Scenes with notes carry a quiet mark.
+//     rows whenever the reader opens (only Scenes changed since it last read
+//     them are read again), with the writer's own unsynced typing on this
+//     device taken over the server's copy, as the editor does. Nothing here
+//     writes: no Scene, no cache, no writing credit;
+//   * "Note" is a small transient composer for the Scene being read (or, from
+//     a margin mark, the Scene beside it): ordinary Revision Notes on that
+//     Scene, one after another, without leaving the text and without any
+//     panel. There is no reading note: they appear at once in that Scene's,
+//     its Chapter's, its Groups' and the Manuscript's Revision Notes. Scenes
+//     with notes carry a quiet mark;
+//   * a margin "Edit" leaves the reader and opens the Scene in the editor.
+//
+// One instance is kept across the two stages, so the text read and the place
+// reached carry over; only the surface around it changes.
 
 type Texts = Map<string, Record<string, unknown> | null>;
 
-/** What Reading Mode last read of each Scene, by version, for this session. Never written anywhere. */
+/** What the reader last read of each Scene, by version, for this session. Never written anywhere. */
 const readCache = new Map<string, { version: number; content: Record<string, unknown> | null }>();
 
 const EMPTY_PLAN: ReadingPlan = { blocks: [], nav: [], sceneIds: [], words: 0 };
@@ -64,20 +73,13 @@ function plural(n: number, one: string, many = `${one}s`) {
   return `${n.toLocaleString()} ${n === 1 ? one : many}`;
 }
 
-/** The Scene View a Reading tab reads, if it still exists. */
+/** The Scene View the reader reads, if it still exists. */
 function useReadingView(source: ReadingSource): SavedView | null {
   const { manuscriptId } = usePropertyStore();
   const { viewsOf, viewById } = useViewStore();
   if (source.kind !== "view" || !manuscriptId) return null;
   const view = viewsOf(manuscriptId).find((v) => v.id === source.viewId) ?? viewById(source.viewId);
   return view && isSceneView(view) ? view : null;
-}
-
-/** A Reading tab's label: "Reading", or "Reading · Needs revision" for a Scene View. */
-export function useReadingTitle(source: ReadingSource | null): string {
-  const view = useReadingView(source ?? { kind: "manuscript" });
-  if (!source || source.kind === "manuscript") return "Reading";
-  return view ? `Reading · ${view.name}` : "Reading";
 }
 
 /** Reads the text of `ids`: the device's unsynced typing first, then the server, then the device's copy. */
@@ -140,19 +142,19 @@ async function readTexts(projectId: string, ids: readonly string[]): Promise<{ t
   return { texts, failed };
 }
 
-export function ReadingMode({ source }: { source: ReadingSource }) {
+export function ReadingMode({ source, mode }: { source: ReadingSource; mode: Mode }) {
   const {
     manuscript,
     index,
-    openInNewTab,
+    select,
     panel,
     togglePanel,
+    closeReading,
+    setReadingMode,
     readingJump,
     clearReadingJump,
     readingPositionOf,
     rememberReadingPosition,
-    setReadingAt,
-    setReadingFocus,
   } = useRune2Selection();
   const projectId = manuscript.project.id;
   const key = readingTabKey(source);
@@ -180,6 +182,7 @@ export function ReadingMode({ source }: { source: ReadingSource }) {
   const [railOpen, setRailOpen] = useState(true);
   const [at, setAt] = useState(-1);
 
+  const rootRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
   const railRef = useRef<HTMLElement>(null);
   const tops = useRef<number[] | null>(null);
@@ -188,7 +191,7 @@ export function ReadingMode({ source }: { source: ReadingSource }) {
   const held = useRef(new Set<string>());
 
   // Read the text of every Scene in the plan not yet read here; the first
-  // read also re-reads Scenes changed since Reading Mode last showed them.
+  // read also re-reads Scenes changed since the reader last showed them.
   useEffect(() => {
     const ids = idsKey ? idsKey.split(",") : [];
     const missing = ids.filter((id) => !held.current.has(id));
@@ -209,11 +212,20 @@ export function ReadingMode({ source }: { source: ReadingSource }) {
     };
   }, [idsKey, projectId]);
 
-  // A fresh Reading Mode follows the reading; leaving it forgets the Scene read.
+  // The reader takes focus when it opens, and gives it back to what opened it
+  // (the "Read" action) when it closes — so the keyboard is never stranded
+  // in an inert shell.
   useEffect(() => {
-    setReadingFocus(null);
-    return () => setReadingAt(null);
-  }, [setReadingAt, setReadingFocus]);
+    const opener = document.activeElement as HTMLElement | null;
+    bodyRef.current?.focus({ preventScroll: true });
+    return () => {
+      const back =
+        opener && opener.isConnected && opener !== document.body
+          ? opener
+          : document.querySelector<HTMLElement>("[data-read-action]");
+      back?.focus({ preventScroll: true });
+    };
+  }, []);
 
   // Block offsets, measured when first needed after any change of layout.
   const measure = useCallback(() => {
@@ -229,7 +241,7 @@ export function ReadingMode({ source }: { source: ReadingSource }) {
 
   useEffect(() => {
     const body = bodyRef.current;
-    const doc = body?.querySelector(".r2-reading-inner");
+    const doc = body?.querySelector(".r2-reader-inner");
     if (!body || !doc) return;
     const observer = new ResizeObserver(() => {
       tops.current = null;
@@ -274,9 +286,13 @@ export function ReadingMode({ source }: { source: ReadingSource }) {
     );
     const near = Math.abs(top - body.scrollTop) < body.clientHeight * 2;
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    body.scrollTo({ top, behavior: smooth && near && !reduced ? "smooth" : "auto" });
+    const glide = smooth && near && !reduced;
+    body.scrollTo({ top, behavior: glide ? "smooth" : "auto" });
     if (smooth) el.focus({ preventScroll: true });
-  }, []);
+    // A jump lands at once: say where the reader now is before any scroll
+    // event arrives, so a "Note" pressed straight after goes to the right Scene.
+    if (!glide) track();
+  }, [track]);
 
   // Once the text is shown: go where the writer asked (from a Scene, "Read"),
   // else back to where they were, else the start.
@@ -298,21 +314,32 @@ export function ReadingMode({ source }: { source: ReadingSource }) {
     return () => cancelAnimationFrame(frameId);
   }, [ready, readingJump, key, go, clearReadingJump, readingPositionOf, track]);
 
-  // A later "Read from here" while this tab is already showing.
+  // A later "Read from here" while the reader is already open.
   useEffect(() => {
     if (!ready || !placed.current || readingJump?.key !== key) return;
     go(readingJump.anchor, false);
     clearReadingJump();
   }, [ready, readingJump, key, go, clearReadingJump]);
 
+  // Peek ↔ Full: the surface changes shape around the same text, so the
+  // reading line is put back on the block it was on once the new layout has
+  // been laid out. The first layout is the placement above, not this.
+  const lastMode = useRef(mode);
+  useLayoutEffect(() => {
+    if (lastMode.current === mode) return;
+    lastMode.current = mode;
+    tops.current = null;
+    const position = readingPositionOf(key);
+    const frameId = requestAnimationFrame(() => {
+      if (position) go(position.anchor, false, position.offset);
+      track();
+      bodyRef.current?.focus({ preventScroll: true });
+    });
+    return () => cancelAnimationFrame(frameId);
+  }, [mode, key, go, readingPositionOf, track]);
+
   const currentScene = sceneAt(plan.blocks, at);
   const currentRow = navRowFor(plan, at);
-
-  // The Inspector follows the reading once it settles on a Scene.
-  useEffect(() => {
-    const timer = setTimeout(() => setReadingAt(currentScene), 400);
-    return () => clearTimeout(timer);
-  }, [currentScene, setReadingAt]);
 
   // Keep the rail's current row in view — scrolling the rail alone.
   useEffect(() => {
@@ -323,19 +350,23 @@ export function ReadingMode({ source }: { source: ReadingSource }) {
     if (top < rail.scrollTop + 24 || top > rail.scrollTop + rail.clientHeight - 48) {
       rail.scrollTop = Math.max(0, top - rail.clientHeight / 3);
     }
-  }, [currentRow, railOpen]);
+  }, [currentRow, railOpen, mode]);
 
   function openNote(sceneId: string) {
     setAdded(0);
     setQuickAdd((open) => (open === sceneId ? null : sceneId));
   }
-  /** The Scene's full Revision Notes, in the panel beside the text. */
+  /** Leaves the reader for the Scene's full Revision Notes, in the panel beside its text. */
   function showNotes(sceneId: string) {
-    setReadingFocus(sceneId);
+    closeReading();
+    select(openableId(index, sceneId));
     if (panel !== "notes") togglePanel("notes");
-    setQuickAdd(null);
   }
-  const edit = (sceneId: string) => openInNewTab(openableId(index, sceneId));
+  /** Leaves the reader and opens the Scene in the editor — the canonical Scene, where it is written. */
+  const edit = (sceneId: string) => {
+    closeReading();
+    select(openableId(index, sceneId));
+  };
   // The margin buttons reach the latest handlers without re-rendering the text.
   const actions = useRef({ openNote, edit });
   useEffect(() => {
@@ -389,172 +420,211 @@ export function ReadingMode({ source }: { source: ReadingSource }) {
   // What is being read, said plainly.
   const filters = view ? describeViewFilters(view, properties, (id) => index.get(id)?.title ?? null) : [];
   const title = source.kind === "manuscript" ? manuscript.project.title : (view?.name ?? "Scene view");
-  const summary =
-    source.kind === "manuscript"
-      ? [plural(manuscript.chapterCount, "chapter"), plural(plan.words, "word")].join(" · ")
-      : [
+  const eyebrow = source.kind === "manuscript" ? "Reading" : `Reading · ${title}`;
+  // A Scene View: which Scenes these are, in one quiet line.
+  const filterLine =
+    source.kind === "view"
+      ? [
           filters.length > 0 ? filters.join(" · ") : "Every scene",
           plural(plan.sceneIds.length, "scene"),
           sorted ? "in the view’s order" : "in manuscript order",
-        ].join(" · ");
+        ].join(" · ")
+      : null;
   const location = currentScene ? readingLocation(index, currentScene) : null;
   const currentNotes = currentScene ? notesOf(currentScene) : 0;
+  const label = `${title}, read-only`;
 
-  if (source.kind === "view" && !view) {
-    return (
-      <div className="r2-reading r2-reading--empty">
-        <p>This scene view no longer exists.</p>
-      </div>
-    );
-  }
+  // Escape steps back a stage — Full to Peek, Peek to the shell — from
+  // anywhere in the reader, and from nowhere in particular (focus on the body
+  // after a control went away). Anything that handles Escape itself (the
+  // composer clearing its draft, a menu) stops it before it gets here.
+  const stepBack = useRef(() => {});
+  useEffect(() => {
+    stepBack.current = () => (mode === "full" ? setReadingMode("peek") : closeReading());
+  }, [mode, setReadingMode, closeReading]);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || e.defaultPrevented) return;
+      e.preventDefault();
+      stepBack.current();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, []);
+  // The quick note gone, the keyboard returns to the text.
+  useEffect(() => {
+    if (quickAdd === null) bodyRef.current?.focus({ preventScroll: true });
+  }, [quickAdd]);
+
+  const gone = source.kind === "view" && !view;
 
   return (
-    <div className="r2-reading" data-rail={railOpen || undefined}>
-      <header className="r2-reading-bar">
-        <div className="r2-reading-what">
-          <p className="r2-reading-eyebrow">
-            <BookOpen {...ICON_SM} aria-hidden />
-            {source.kind === "manuscript" ? "Reading the manuscript" : "Reading a scene view"}
-          </p>
-          <h1 className="r2-reading-title">{title}</h1>
-          <p className="r2-reading-summary">{summary}</p>
-        </div>
-        <div className="r2-reading-actions">
-          {location && (
-            <span className="r2-reading-location" aria-live="polite">
-              {location}
-            </span>
-          )}
-          {currentScene && notable && (
-            <button
-              type="button"
-              className="r2-action"
-              data-has-note={currentNotes > 0 ? "" : undefined}
-              aria-expanded={quickAdd === currentScene}
-              onClick={() => openNote(currentScene)}
-              title={
-                currentNotes > 0
-                  ? `${plural(currentNotes, "revision note")} on this scene — add another`
-                  : "Add a revision note to this scene"
-              }
-            >
-              <StickyNote {...ICON} aria-hidden />
-              Note
-            </button>
-          )}
-          {currentScene && (
-            <button
-              type="button"
-              className="r2-action"
-              onClick={() => edit(currentScene)}
-              title="Open this scene in the editor, in a new tab"
-            >
-              <PenLine {...ICON} aria-hidden />
-              Edit
-            </button>
-          )}
-          {plan.nav.length > 1 && (
-            <button
-              type="button"
-              className="r2-action r2-action--icon"
-              aria-pressed={railOpen}
-              aria-label={railOpen ? "Hide contents" : "Show contents"}
-              title={railOpen ? "Hide contents" : "Show contents"}
-              onClick={() => setRailOpen((v) => !v)}
-            >
-              <ListTree {...ICON} aria-hidden />
-            </button>
-          )}
-        </div>
-      </header>
-      {quickAdd && notable && index.has(quickAdd) && (
-        <div className="r2-reading-quicknote" role="group" aria-label="Add revision note">
-          <p className="r2-reading-quicknote-head">
-            Revision note for {readingLocation(index, quickAdd) ?? "this scene"}
-          </p>
-          <NoteComposer
-            key={quickAdd}
-            target={{ type: "scene", id: quickAdd }}
-            placeholder="What to look at in this scene next time…"
-            label="New revision note for this scene"
-            autoFocus
-            hint
-            onAdded={() => setAdded((n) => n + 1)}
-            onEscape={() => setQuickAdd(null)}
-          />
-          <p className="r2-reading-quicknote-foot">
-            <span role="status">{added > 0 ? `${plural(added, "note")} added` : ""}</span>
-            <button type="button" className="r2-panel-link" onClick={() => showNotes(quickAdd)}>
-              {notesOf(quickAdd) > 0 ? `See ${plural(notesOf(quickAdd), "note")}` : "Open revision notes"}
-            </button>
-            <button type="button" className="r2-panel-link" onClick={() => setQuickAdd(null)}>
-              Done
-            </button>
-          </p>
-        </div>
-      )}
+    <div
+      ref={rootRef}
+      className="r2-reader"
+      data-mode={mode}
+      data-rail={(mode === "full" && railOpen && plan.nav.length > 1) || undefined}
+      role="dialog"
+      aria-modal="true"
+      aria-label={label}
+    >
+      {mode === "peek" && <div className="r2-reader-scrim" aria-hidden onMouseDown={closeReading} />}
+      <div className="r2-reader-surface">
+        <header className="r2-reader-bar">
+          <div className="r2-reader-what">
+            <p className="r2-reader-eyebrow">
+              <BookOpen {...ICON_SM} aria-hidden />
+              {eyebrow}
+            </p>
+            <p className="r2-reader-where" aria-live="polite">
+              {location ?? (source.kind === "manuscript" ? title : plural(plan.sceneIds.length, "scene"))}
+            </p>
+            {filterLine && <p className="r2-reader-filter">{filterLine}</p>}
+          </div>
+          <div className="r2-reader-actions">
+            {currentScene && notable && !gone && (
+              <Tooltip
+                label={
+                  currentNotes > 0
+                    ? `${plural(currentNotes, "revision note")} on this scene — add another`
+                    : "Add a revision note to this scene"
+                }
+              >
+                <button
+                  type="button"
+                  className="r2-action"
+                  data-has-note={currentNotes > 0 ? "" : undefined}
+                  aria-expanded={quickAdd === currentScene}
+                  onClick={() => openNote(currentScene)}
+                >
+                  <StickyNote {...ICON} aria-hidden />
+                  Note
+                </button>
+              </Tooltip>
+            )}
+            {mode === "full" && plan.nav.length > 1 && (
+              <Tooltip label={railOpen ? "Hide contents" : "Show contents"}>
+                <button
+                  type="button"
+                  className="r2-action r2-action--icon"
+                  aria-pressed={railOpen}
+                  aria-label={railOpen ? "Hide contents" : "Show contents"}
+                  onClick={() => setRailOpen((v) => !v)}
+                >
+                  <ListTree {...ICON} aria-hidden />
+                </button>
+              </Tooltip>
+            )}
+            {!gone && (
+              <Tooltip label={mode === "peek" ? "Full reading mode" : "Back to the peek"}>
+                <button
+                  type="button"
+                  className="r2-action r2-action--icon"
+                  aria-label={mode === "peek" ? "Enter full reading mode" : "Back to the reading peek"}
+                  onClick={() => setReadingMode(mode === "peek" ? "full" : "peek")}
+                >
+                  {mode === "peek" ? <Maximize2 {...ICON} aria-hidden /> : <Minimize2 {...ICON} aria-hidden />}
+                </button>
+              </Tooltip>
+            )}
+            <Tooltip label={mode === "full" ? "Close reading mode" : "Close"}>
+              <button
+                type="button"
+                className="r2-action r2-action--icon"
+                aria-label={mode === "full" ? "Close reading mode" : "Close"}
+                onClick={closeReading}
+              >
+                <X {...ICON} aria-hidden />
+              </button>
+            </Tooltip>
+          </div>
+        </header>
 
-      <div className="r2-reading-layout">
-        {railOpen && plan.nav.length > 1 && (
-          <nav ref={railRef} className="r2-reading-rail" aria-label="Contents">
-            <ul role="list">
-              {plan.nav.map((row) => (
-                <li key={`${row.kind}:${row.id}`}>
-                  <button
-                    type="button"
-                    data-row={row.id}
-                    data-kind={row.kind}
-                    className="r2-reading-rail-item"
-                    aria-current={row.id === currentRow ? "location" : undefined}
-                    style={{ paddingLeft: 8 + row.depth * 12 }}
-                    onClick={() => go(row.id)}
-                  >
-                    <span className="r2-reading-rail-label">{row.label}</span>
-                    {row.kind !== "group" && row.kind !== "unplacedHeading" && (noteCounts.get(row.id) ?? 0) > 0 && (
-                      <StickyNote
-                        className="r2-reading-rail-note"
-                        {...ICON_SM}
-                        aria-label="Has revision notes"
-                      />
-                    )}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </nav>
+        {quickAdd && notable && index.has(quickAdd) && (
+          <div className="r2-reader-quicknote" role="group" aria-label="Add revision note">
+            <p className="r2-reader-quicknote-head">Revision note · {readingLocation(index, quickAdd) ?? "this scene"}</p>
+            <NoteComposer
+              key={quickAdd}
+              target={{ type: "scene", id: quickAdd }}
+              placeholder="What to look at here next time…"
+              label="New revision note for this scene"
+              autoFocus
+              hint
+              onAdded={() => setAdded((n) => n + 1)}
+              onEscape={() => setQuickAdd(null)}
+            />
+            <p className="r2-reader-quicknote-foot">
+              <span role="status">{added > 0 ? `${plural(added, "note")} added` : ""}</span>
+              {notesOf(quickAdd) > 0 && (
+                <button type="button" className="r2-panel-link" onClick={() => showNotes(quickAdd)}>
+                  {plural(notesOf(quickAdd), "note")} · Open in Revision Notes
+                </button>
+              )}
+              <button type="button" className="r2-panel-link" onClick={() => setQuickAdd(null)}>
+                Done
+              </button>
+            </p>
+          </div>
         )}
 
-        <div
-          ref={bodyRef}
-          className="r2-reading-body"
-          tabIndex={0}
-          aria-label={`${title}, read-only`}
-          aria-busy={!ready || undefined}
-          onScroll={onScroll}
-        >
-          <div className="r2-reading-inner">
-            {source.kind === "manuscript" && manuscript.unplaced.length > 0 && ready && (
-              <p className="r2-reading-caption r2-reading-note-unplaced">
-                Unplaced Scenes aren’t part of the manuscript and aren’t shown here.
-              </p>
-            )}
-            {!ready ? (
-              <p className="r2-reading-empty r2-reading-opening">Opening…</p>
-            ) : plan.blocks.length === 0 ? (
-              <p className="r2-reading-empty r2-reading-opening">
-                {source.kind === "manuscript" ? "Nothing to read yet." : "No scenes match this view."}
-              </p>
-            ) : (
-              document_
-            )}
+        <div className="r2-reader-layout">
+          {mode === "full" && railOpen && plan.nav.length > 1 && (
+            <nav ref={railRef} className="r2-reader-rail" aria-label="Contents">
+              <p className="r2-reader-rail-head">{title}</p>
+              <ul role="list">
+                {plan.nav.map((row) => (
+                  <li key={`${row.kind}:${row.id}`}>
+                    <button
+                      type="button"
+                      data-row={row.id}
+                      data-kind={row.kind}
+                      className="r2-reading-rail-item"
+                      aria-current={row.id === currentRow ? "location" : undefined}
+                      style={{ paddingLeft: 8 + row.depth * 12 }}
+                      onClick={() => go(row.id)}
+                    >
+                      <span className="r2-reading-rail-label">{row.label}</span>
+                      {row.kind !== "group" && row.kind !== "unplacedHeading" && (noteCounts.get(row.id) ?? 0) > 0 && (
+                        <StickyNote className="r2-reading-rail-note" {...ICON_SM} aria-label="Has revision notes" />
+                      )}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+          )}
+
+          <div
+            ref={bodyRef}
+            className="r2-reader-body"
+            tabIndex={0}
+            aria-label={label}
+            aria-busy={!ready || undefined}
+            onScroll={onScroll}
+          >
+            <div className="r2-reader-inner">
+              {gone ? (
+                <p className="r2-reading-empty r2-reading-opening">This scene view no longer exists.</p>
+              ) : !ready ? (
+                <p className="r2-reading-empty r2-reading-opening">Opening…</p>
+              ) : plan.blocks.length === 0 ? (
+                <p className="r2-reading-empty r2-reading-opening">
+                  {source.kind === "manuscript" ? "Nothing to read yet." : "No scenes match this view."}
+                </p>
+              ) : (
+                <>
+                  {source.kind === "manuscript" && manuscript.unplaced.length > 0 && (
+                    <p className="r2-reading-caption r2-reading-note-unplaced">
+                      Unplaced Scenes aren’t part of the manuscript and aren’t shown here.
+                    </p>
+                  )}
+                  {document_}
+                </>
+              )}
+            </div>
           </div>
         </div>
       </div>
     </div>
   );
-}
-
-/** A Reading tab's label, kept current with its Scene View's name. */
-export function ReadingTabLabel({ source }: { source: ReadingSource }) {
-  return <>{useReadingTitle(source)}</>;
 }

@@ -128,7 +128,7 @@ export function ManuscriptScenes() {
                 type="button"
                 className="r2-collection-tool"
                 onClick={() => openReading({ kind: "view", viewId: view.id })}
-                title="Read these scenes one after another — read-only, in a tab of its own"
+                title="Read these scenes one after another, read-only"
               >
                 <BookOpen {...ICON} aria-hidden />
                 Read

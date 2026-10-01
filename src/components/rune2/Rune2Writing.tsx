@@ -107,7 +107,11 @@ export function Rune2Writing({ projectId, target }: { projectId: string; target:
 
   const clearFocusRequest = useCallback(() => requestSceneFocus(null), [requestSceneFocus]);
 
+  // An empty Chapter's first Scene is made the moment the writer reaches for
+  // the page (a click or a keystroke on the invitation), and takes focus once
+  // its editor appears — so beginning a Chapter is simply beginning to write.
   function startChapter(chapterId: string) {
+    if (creating) return;
     setCreateFailed(false);
     startCreating(async () => {
       const result = await createScene(chapterId, null);
@@ -117,6 +121,7 @@ export function Rune2Writing({ projectId, target }: { projectId: string; target:
       }
       await cacheScene(result.data, projectId);
       setScenes((prev) => ({ ...prev, [result.data.id]: result.data }));
+      requestSceneFocus(result.data.id);
       // The Chapter's new Scene appears once the manuscript is re-read.
       router.refresh();
     });
@@ -139,19 +144,30 @@ export function Rune2Writing({ projectId, target }: { projectId: string; target:
     </header>
   ) : null;
 
+  // An empty Chapter: the title, and under it the quiet beginning of the
+  // prose — the same "Start writing" an empty Scene shows, in the manuscript's
+  // own type, where the first line will be. No card, no explanation.
   const placeholder =
     target?.kind === "emptyChapter" ? (
-      <div className="r2-doc-empty">
-        <p>This chapter has no scenes.</p>
+      <div className="r2-doc-begin">
         <button
           type="button"
-          className="r2-button"
-          disabled={creating}
+          className="r2-doc-begin-line"
+          aria-label="Start writing this chapter"
+          aria-busy={creating || undefined}
           onClick={() => startChapter(target.chapterId)}
+          onKeyDown={(e) => {
+            // A first keystroke begins the Chapter too; the Scene takes focus as it appears.
+            if (e.key.length === 1 && !e.metaKey && !e.ctrlKey && !e.altKey) startChapter(target.chapterId);
+          }}
         >
           {creating ? "Starting…" : "Start writing"}
         </button>
-        {createFailed && <p role="alert">Couldn’t start the chapter. Nothing was changed — try again.</p>}
+        {createFailed && (
+          <p role="alert" className="r2-doc-note">
+            Couldn’t start the chapter. Nothing was changed — try again.
+          </p>
+        )}
       </div>
     ) : null;
 

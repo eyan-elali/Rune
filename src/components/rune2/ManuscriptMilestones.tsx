@@ -1,8 +1,9 @@
 "use client";
 
 import { Fragment, useEffect, useRef, useState, useTransition } from "react";
-import { FileText, Pilcrow } from "lucide-react";
-import { ICON } from "./icons";
+import { FileText, Flag, Pilcrow } from "lucide-react";
+import { ICON, ICON_SM } from "./icons";
+import { InspectorSection } from "./InspectorSection";
 import {
   createManuscriptMilestone,
   deleteManuscriptMilestone,
@@ -103,9 +104,19 @@ export function MilestonesSection({ projectId }: { projectId: string }) {
   }
 
   return (
-    <section className="r2-milestones" aria-label="Milestones">
-      <h3 className="r2-links-head">Milestones</h3>
-      {failed && !milestones && <p className="r2-panel-empty">Milestones couldn’t be loaded.</p>}
+    <InspectorSection
+      title="Milestones"
+      caption="Named pictures of the whole manuscript, kept as it was."
+      aside={
+        !naming ? (
+          <button ref={addRef} type="button" className="r2-insp-aside-link r2-milestone-add" onClick={() => setNaming(true)}>
+            Save a milestone
+          </button>
+        ) : undefined
+      }
+    >
+      {failed && !milestones && <p className="r2-insp-empty">Milestones couldn’t be loaded.</p>}
+      {milestones && milestones.length === 0 && !naming && <p className="r2-insp-empty">None yet.</p>}
       {milestones && milestones.length > 0 && (
         <ul className="r2-milestone-list">
           {milestones.map((m) => (
@@ -120,9 +131,12 @@ export function MilestonesSection({ projectId }: { projectId: string }) {
                 aria-haspopup="dialog"
                 onClick={() => setOpenId(m.id)}
               >
-                <span className="r2-milestone-name">{m.name}</span>
-                <span className="r2-milestone-meta">
-                  {historyTime(m.created_at)} · {wordsLabel(m.manuscript_words)}
+                <Flag className="r2-milestone-flag" {...ICON_SM} aria-hidden />
+                <span className="r2-milestone-text">
+                  <span className="r2-milestone-name">{m.name}</span>
+                  <span className="r2-milestone-meta">
+                    {historyTime(m.created_at)} · {wordsLabel(m.manuscript_words)}
+                  </span>
                 </span>
               </button>
             </li>
@@ -187,11 +201,7 @@ export function MilestonesSection({ projectId }: { projectId: string }) {
             </button>
           </div>
         </form>
-      ) : (
-        <button ref={addRef} type="button" className="r2-panel-link r2-milestone-add" onClick={() => setNaming(true)}>
-          Save a milestone…
-        </button>
-      )}
+      ) : null}
       {notice && (
         <p role="status" className="r2-panel-notice">
           {notice}
@@ -214,7 +224,7 @@ export function MilestonesSection({ projectId }: { projectId: string }) {
           }}
         />
       )}
-    </section>
+    </InspectorSection>
   );
 }
 
@@ -241,14 +251,12 @@ export function ObjectMilestonesSection({ kind, id }: { kind: "scene" | "chapter
 
   if (!milestones) return null;
   return (
-    <section className="r2-milestones" aria-labelledby={`r2-object-milestones-${id}`}>
-      <h3 id={`r2-object-milestones-${id}`} className="r2-links-head">
-        Milestones
-      </h3>
+    <InspectorSection
+      title="Milestones"
+      caption={milestones.length > 0 ? `Named manuscript snapshots that hold this ${kind}.` : undefined}
+    >
       {milestones.length === 0 ? (
-        <p className="r2-panel-empty">
-          {kind === "chapter" ? "This chapter isn’t in a milestone yet." : "This scene isn’t in a milestone yet."}
-        </p>
+        <p className="r2-insp-empty">Not in a named milestone yet.</p>
       ) : (
         <ul className="r2-milestone-list">
           {milestones.map((m) => (
@@ -262,9 +270,12 @@ export function ObjectMilestonesSection({ kind, id }: { kind: "scene" | "chapter
                   setOpenId(m.id);
                 }}
               >
-                <span className="r2-milestone-name">{m.name}</span>
-                <span className="r2-milestone-meta">
-                  {historyTime(m.created_at)} · {objectMilestonePlace(kind, m)}
+                <Flag className="r2-milestone-flag" {...ICON_SM} aria-hidden />
+                <span className="r2-milestone-text">
+                  <span className="r2-milestone-name">{m.name}</span>
+                  <span className="r2-milestone-meta">
+                    {historyTime(m.created_at)} · {objectMilestonePlace(kind, m)}
+                  </span>
                 </span>
               </button>
             </li>
@@ -281,7 +292,7 @@ export function ObjectMilestonesSection({ kind, id }: { kind: "scene" | "chapter
           }}
         />
       )}
-    </section>
+    </InspectorSection>
   );
 }
 

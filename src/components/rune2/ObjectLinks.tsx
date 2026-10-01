@@ -5,6 +5,7 @@ import { Link2, X } from "lucide-react";
 import { ICON_SM } from "./icons";
 import { describeObject, type ObjectRef } from "@/lib/rune2/references";
 import { manuscriptSceneOrder } from "@/lib/rune2/sceneViews";
+import { InspectorSection } from "./InspectorSection";
 import { ObjectPicker } from "./ObjectPicker";
 import { usePropertyStore } from "./PropertyStore";
 import { isPendingReference, useReferenceStore } from "./ReferenceStore";
@@ -85,10 +86,44 @@ export function ObjectLinks({
   if (!subject && backlinks.length === 0) return null;
 
   return (
-    <section className="r2-links" aria-label="Links">
+    <InspectorSection
+      title="Connections"
+      aside={
+        subject ? (
+          <span className="r2-links-add">
+            <button
+              ref={button}
+              type="button"
+              className="r2-insp-aside-link"
+              aria-haspopup="listbox"
+              aria-expanded={picking}
+              onClick={() => setPicking((p) => !p)}
+            >
+              <Link2 {...ICON_SM} aria-hidden />
+              Link to…
+            </button>
+            {picking && (
+              <ObjectPicker
+                spec={{ type: "any" }}
+                chosen={related.map((r) => r.reference.target.id)}
+                multi
+                label="Link to"
+                exclude={new Set([subject.id])}
+                onChoose={(c) => void toggle({ type: c.type, id: c.id })}
+                onClose={(refocus) => {
+                  setPicking(false);
+                  if (refocus) button.current?.focus();
+                }}
+              />
+            )}
+          </span>
+        ) : undefined
+      }
+    >
+      <div className="r2-links">
       {subject && (
         <>
-          <h3 className="r2-links-head">Related</h3>
+          {related.length > 0 && <h4 className="r2-links-sub">Related</h4>}
           {related.length > 0 && (
             <ul className="r2-links-list">
               {related.map((r) => (
@@ -111,39 +146,15 @@ export function ObjectLinks({
               ))}
             </ul>
           )}
-          <div className="r2-links-add">
-            <button
-              ref={button}
-              type="button"
-              className="r2-panel-link r2-links-add-button"
-              aria-haspopup="listbox"
-              aria-expanded={picking}
-              onClick={() => setPicking((p) => !p)}
-            >
-              <Link2 {...ICON_SM} aria-hidden />
-              Link to…
-            </button>
-            {picking && (
-              <ObjectPicker
-                spec={{ type: "any" }}
-                chosen={related.map((r) => r.reference.target.id)}
-                multi
-                label="Link to"
-                exclude={new Set([subject.id])}
-                onChoose={(c) => void toggle({ type: c.type, id: c.id })}
-                onClose={(refocus) => {
-                  setPicking(false);
-                  if (refocus) button.current?.focus();
-                }}
-              />
-            )}
-          </div>
+          {related.length === 0 && backlinks.length === 0 && (
+            <p className="r2-insp-empty">Not linked to anything yet.</p>
+          )}
         </>
       )}
 
       {backlinks.length > 0 && (
         <>
-          <h3 className="r2-links-head">Referenced by</h3>
+          <h4 className="r2-links-sub">Referenced by</h4>
           <ul className="r2-links-list">
             {backlinks.map((b) => (
               <li key={b.id}>
@@ -162,6 +173,7 @@ export function ObjectLinks({
           {notice}
         </p>
       )}
-    </section>
+      </div>
+    </InspectorSection>
   );
 }

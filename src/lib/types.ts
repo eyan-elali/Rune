@@ -11,7 +11,14 @@ export interface UserPreferences {
   has_completed_editor_tutorial?: boolean;
   has_seen_guides_update_notice?: boolean;
   hideArena?: boolean;
+  /**
+   * Rune 2.0 manuscript type: the prose serif (default) or Rune's sans. It
+   * affects manuscript editing and reading prose only, never the interface.
+   */
+  rune2EditorFont?: Rune2EditorFont;
 }
+
+export type Rune2EditorFont = "serif" | "sans";
 
 export interface Profile {
   id: string;

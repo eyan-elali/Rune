@@ -13,6 +13,7 @@ import {
 } from "@/lib/rune2/history";
 import { SCENE_RESTORED_EVENT } from "@/lib/sceneRestoredEvent";
 import { useNetworkStore } from "@/store/networkStore";
+import { InspectorSection } from "./InspectorSection";
 import { ProseSnapshot } from "./ProseSnapshot";
 
 // Scene History (migration 036): a quiet way into a Scene's earlier texts,
@@ -52,40 +53,34 @@ export function SceneHistorySection({ sceneId, projectId }: { sceneId: string; p
     setOpenAt(at);
   };
 
+  const caption = recent === null ? null : recent.length === 0 ? "Rune keeps earlier versions of this scene as you write." : "Kept automatically as you write.";
   return (
-    <section className="r2-history-entry" aria-labelledby={`r2-history-head-${sceneId}`}>
-      <h3 id={`r2-history-head-${sceneId}`} className="r2-links-head">
-        History
-      </h3>
+    <InspectorSection
+      title="History"
+      caption={caption}
+      aside={
+        recent && recent.length > 0 ? (
+          <button type="button" className="r2-insp-aside-link" aria-haspopup="dialog" onClick={(e) => open("", e.currentTarget)}>
+            {total > RECENT ? "All versions" : "Open"}
+          </button>
+        ) : undefined
+      }
+    >
       {recent && recent.length > 0 && (
-        <ul className="r2-milestone-list" aria-label="Recent versions">
+        <ul className="r2-versions" aria-label="Recent versions">
           {recent.map((v) => (
             <li key={v.id}>
-              <button
-                type="button"
-                className="r2-milestone-item"
-                aria-haspopup="dialog"
-                onClick={(e) => open(v.id, e.currentTarget)}
-              >
-                <span className="r2-milestone-name">{historyTime(v.saved_at)}</span>
-                <span className="r2-milestone-meta">
-                  {wordsLabel(v.word_count)}
-                  {v.current && " · same as now"}
+              <button type="button" className="r2-version" aria-haspopup="dialog" onClick={(e) => open(v.id, e.currentTarget)}>
+                <span className="r2-version-when">{historyTime(v.saved_at)}</span>
+                <span className="r2-version-words">
+                  {v.current ? "same as now" : wordsLabel(v.word_count)}
                 </span>
               </button>
             </li>
           ))}
         </ul>
       )}
-      {recent && recent.length === 0 && <p className="r2-panel-empty">No earlier versions yet.</p>}
-      <button
-        type="button"
-        className="r2-panel-link"
-        aria-haspopup="dialog"
-        onClick={(e) => open("", e.currentTarget)}
-      >
-        {total > RECENT ? "All versions…" : "Scene history…"}
-      </button>
+      {recent && recent.length === 0 && <p className="r2-insp-empty">No earlier versions yet.</p>}
       {openAt !== null && (
         <SceneHistoryDialog
           sceneId={sceneId}
@@ -98,7 +93,7 @@ export function SceneHistorySection({ sceneId, projectId }: { sceneId: string; p
           }}
         />
       )}
-    </section>
+    </InspectorSection>
   );
 }
 

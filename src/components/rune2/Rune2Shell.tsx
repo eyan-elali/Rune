@@ -7,6 +7,7 @@ import { StatusSlotProvider } from "./DocStatus";
 import { ProjectNavigator } from "./ProjectNavigator";
 import { Rune2ContextBar, Rune2SelectionView } from "./Rune2Content";
 import { Rune2Panel } from "./Rune2Panel";
+import { ReadingMode } from "./ReadingMode";
 import { ProjectExportDialogs, ProjectExportProvider } from "./ProjectExport";
 import { ProjectSearch } from "./ProjectSearch";
 import { PropertyStoreProvider } from "./PropertyStore";
@@ -16,6 +17,7 @@ import { Rune2SelectionProvider, useRune2Selection } from "./Rune2Selection";
 import { Rune2Tabs } from "./Rune2Tabs";
 import { ViewStoreProvider } from "./ViewStore";
 import { TrashProvider, TrashView } from "./WorkspaceTrash";
+import { useEditorFont } from "./useEditorFont";
 import { useWritingChrome } from "./useWritingChrome";
 
 // The Rune 2.0 application shell:
@@ -47,6 +49,14 @@ import { useWritingChrome } from "./useWritingChrome";
 // inert (visibility, not unmounting, so editors, unsaved writing and scroll
 // positions are kept) along with the panel and status inside it, which
 // belong to that selection. Closing Trash shows the layer again.
+//
+// Reading Mode (ReadingMode) lies over the whole shell in the same spirit: a
+// Peek dims the shell behind a centred reading surface; Full Reading Mode
+// hides the navigator and the content column and takes the frame. Both leave
+// everything beneath mounted and merely inert, so closing the reader returns
+// the writer to exactly the context they left. The shell carries
+// `data-reading` meanwhile, and `data-editor-font` always (the writer's
+// manuscript type, useEditorFont), which the prose tokens read.
 
 export const NAV_DEFAULT = 252;
 export const NAV_MIN = 200;
@@ -84,7 +94,9 @@ export function Rune2Shell({
 }
 
 function Frame({ children }: { children: ReactNode }) {
-  const { navCollapsed, setNavCollapsed, navWidth, setNavWidth, trashOpen, panel } = useRune2Selection();
+  const { navCollapsed, setNavCollapsed, navWidth, setNavWidth, trashOpen, panel, reading, readingMode } =
+    useRune2Selection();
+  const { font } = useEditorFont();
   const root = useRef<HTMLDivElement>(null);
   const [resizing, setResizing] = useState(false);
   // Where the writing surfaces' document status is carried to (DocStatus).
@@ -122,9 +134,11 @@ function Frame({ children }: { children: ReactNode }) {
       data-narrow={narrow || undefined}
       data-resizing={resizing || undefined}
       data-trash={trashOpen || undefined}
+      data-reading={reading ? readingMode : undefined}
+      data-editor-font={font}
     >
       {/* The column retracts by width; the navigator inside keeps its own. */}
-      <div className="r2-nav-column">
+      <div className="r2-nav-column" inert={reading ? true : undefined}>
         <ProjectNavigator />
         {!navCollapsed && (
           <Resizer
@@ -140,7 +154,7 @@ function Frame({ children }: { children: ReactNode }) {
         )}
       </div>
 
-      <div className="r2-content">
+      <div className="r2-content" inert={reading ? true : undefined}>
         <div className="r2-content-layer" inert={trashOpen || undefined} aria-hidden={trashOpen || undefined}>
           <Rune2Tabs />
           <Rune2ContextBar />
@@ -161,6 +175,7 @@ function Frame({ children }: { children: ReactNode }) {
         {trashOpen && <TrashView />}
       </div>
 
+      {reading && <ReadingMode key={reading.kind === "view" ? reading.viewId : "manuscript"} source={reading} mode={readingMode} />}
       <ProjectSearch />
       <ProjectExportDialogs />
     </div>

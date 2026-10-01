@@ -3,6 +3,7 @@
 import { useEffect, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { BookOpen, FileDown, MoreHorizontal, PanelRight, Plus, StickyNote, Trash2 } from "lucide-react";
+import { EDITOR_FONTS, useEditorFont } from "./useEditorFont";
 import { ICON } from "./icons";
 import { Tooltip } from "./Tooltip";
 import { createScene } from "@/lib/actions/scenes";
@@ -16,7 +17,6 @@ import { useRune2Selection } from "./Rune2Selection";
 import { Rune2Writing } from "./Rune2Writing";
 import { CollectionView, NewEntryAction } from "./CollectionView";
 import { ManuscriptScenes } from "./ManuscriptScenes";
-import { ReadingMode, useReadingTitle } from "./ReadingMode";
 import { WorkspacePages } from "./WorkspacePages";
 import { useTrash } from "./WorkspaceTrash";
 
@@ -30,9 +30,11 @@ import { useTrash } from "./WorkspaceTrash";
 // opens in its own editor (WorkspacePages); a Collection shows its Entries
 // (CollectionView); with nothing selected, the content area shows its route
 // (the Manuscript overview), and under it the Manuscript's Scene Views
-// (ManuscriptScenes) — one quiet line until the writer asks for them. A
-// Reading tab shows Reading Mode (read-only; see ReadingMode), and "Read"
-// in the context bar opens it at the Group, Chapter or Scene in view.
+// (ManuscriptScenes) — one quiet line until the writer asks for them. "Read"
+// opens the Reading Peek (ReadingMode, over the shell) at the Group, Chapter
+// or Scene in view. The "⋯" of a Chapter or Scene also holds the writer's
+// manuscript type (Serif / Sans serif): a preference, not a control in the
+// editor's chrome.
 
 const KIND_LABEL: Record<NavKind, string> = {
   group: "Group",
@@ -50,14 +52,12 @@ function plural(n: number, one: string, many = `${one}s`) {
 }
 
 export function Rune2ContextBar() {
-  const { manuscript, index, selected, select, openInNewTab, panel, togglePanel, reading, openReading } =
-    useRune2Selection();
-  const readingTitle = useReadingTitle(reading);
+  const { manuscript, index, selected, select, openInNewTab, panel, togglePanel, openReading } = useRune2Selection();
   const target = writingTargetFor(selected, index);
   // "Read" from the Manuscript, or from a Group, Chapter or placed Scene: the
   // whole manuscript, opened at that place. (An Unplaced Scene is not part of it.)
   const readFrom =
-    !reading && (!selected || selected.kind === "group" || selected.kind === "chapter" || selected.kind === "scene")
+    !selected || selected.kind === "group" || selected.kind === "chapter" || selected.kind === "scene"
       ? (selected?.id ?? null)
       : undefined;
   // id undefined = a label only (Unplaced Scenes and Workspace are sections,
@@ -74,7 +74,6 @@ export function Rune2ContextBar() {
     );
     trail.push({ id: selected.id, title: selected.title });
   }
-  if (reading) trail.push({ title: readingTitle });
 
   return (
     <header className="r2-contextbar">
@@ -111,18 +110,20 @@ export function Rune2ContextBar() {
         )}
         {target?.kind === "scenes" && target.addSceneTo && <AddSceneAction chapterId={target.addSceneTo} />}
         {readFrom !== undefined && manuscript.placedSceneCount > 0 && (
-          <Tooltip
-            label={selected ? `Read from here — read-only, in a tab of its own` : "Read the manuscript — read-only, in a tab of its own"}
-            describes
-          >
-            <button type="button" className="r2-action" onClick={() => openReading({ kind: "manuscript" }, readFrom)}>
+          <Tooltip label={selected ? "Read from here" : "Read the manuscript"} describes>
+            <button
+              type="button"
+              className="r2-action"
+              data-read-action
+              onClick={() => openReading({ kind: "manuscript" }, readFrom)}
+            >
               <BookOpen {...ICON} aria-hidden />
               Read
             </button>
           </Tooltip>
         )}
         {selected && (trashTypeOf(selected) || isExportable(selected)) && selected.kind !== "workspaceFolder" && (
-          <ItemMenu entry={selected} />
+          <ItemMenu entry={selected} manuscript={isManuscriptProse(selected)} />
         )}
         <span className="r2-contextbar-panel">
           <button
@@ -154,16 +155,21 @@ export function Rune2ContextBar() {
 }
 
 const isExportable = (entry: NavEntry) => entry.kind === "chapter" || entry.kind === "scene" || entry.kind === "unplacedScene";
+/** Whether the item in view is manuscript prose — where the manuscript type applies. */
+const isManuscriptProse = isExportable;
 
 /**
  * "⋯" for the item in view (a Page, Collection, Entry, Chapter or Scene): its
- * quiet actions — "Export chapter…" / "Export scene…", and "Move to Trash". An
- * Entry has no navigator row, so this is where it is trashed from. Trash is
- * hidden before migration 030 (031 for Scenes).
+ * quiet actions — "Export chapter…" / "Export scene…", the manuscript type
+ * (Serif / Sans serif — a preference for all manuscript prose, kept with the
+ * writer; here, so the editor's chrome never carries a font control), and
+ * "Move to Trash". An Entry has no navigator row, so this is where it is
+ * trashed from. Trash is hidden before migration 030 (031 for Scenes).
  */
-function ItemMenu({ entry }: { entry: NavEntry }) {
+function ItemMenu({ entry, manuscript }: { entry: NavEntry; manuscript: boolean }) {
   const trash = useTrash();
   const exporter = useProjectExport();
+  const { font, setFont } = useEditorFont();
   const [at, setAt] = useState<{ x: number; y: number } | null>(null);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -184,9 +190,21 @@ function ItemMenu({ entry }: { entry: NavEntry }) {
         exporter.openExport(entry.kind === "chapter" ? { kind: "chapter", chapterId: entry.id } : { kind: "scene", sceneId: entry.id }),
     });
   }
+  if (manuscript) {
+    EDITOR_FONTS.forEach((f, i) => {
+      items.push({
+        key: `font-${f.id}`,
+        label: f.label,
+        section: i === 0 ? "Manuscript type" : undefined,
+        checked: font === f.id,
+        onSelect: () => setFont(f.id),
+      });
+    });
+  }
   if (trashTypeOf(entry) && trash.available && !(isScene && !trash.scenesAvailable)) {
     items.push({
       label: "Move to Trash",
+      separator: manuscript,
       icon: Trash2,
       tone: "danger",
       onSelect: async () => {
@@ -304,13 +322,11 @@ function AddSceneAction({ chapterId }: { chapterId: string }) {
 }
 
 export function Rune2SelectionView({ children }: { children: ReactNode }) {
-  const { manuscript, selected, index, reading, activeTab } = useRune2Selection();
+  const { manuscript, selected, index } = useRune2Selection();
   const target = writingTargetFor(selected, index);
   return (
     <>
-      {reading && <ReadingMode key={activeTab} source={reading} />}
       {!target &&
-        !reading &&
         (selected
           ? (selected.kind === "group" && <StructurePreview entry={selected} />) ||
             (selected.kind === "workspaceCollection" && <CollectionView key={selected.id} entry={selected} />)
@@ -335,12 +351,10 @@ function StructurePreview({ entry }: { entry: NavEntry }) {
     <div className="r2-overview">
       <p className="r2-overview-kind">{KIND_LABEL[entry.kind]}</p>
       <h1>{entry.title}</h1>
-      <dl>
-        <dt>Contains</dt>
-        <dd>{plural(entry.childCount, "item")}</dd>
-        <dt>Words</dt>
-        <dd>{plural(entry.words, "word")}</dd>
-      </dl>
+      <p className="r2-overview-facts">
+        <span>{plural(entry.words, "word")}</span>
+        <span>{plural(entry.childCount, "item")}</span>
+      </p>
     </div>
   );
 }

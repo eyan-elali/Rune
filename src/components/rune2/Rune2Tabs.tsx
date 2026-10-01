@@ -5,7 +5,6 @@ import { PanelLeft, X } from "lucide-react";
 import { ICON } from "./icons";
 import { Tooltip } from "./Tooltip";
 import { isWorkspaceKind } from "@/lib/rune2/navigatorModel";
-import { ReadingTabLabel } from "./ReadingMode";
 import { MANUSCRIPT_TAB, useRune2Selection, type WorkingTab } from "./Rune2Selection";
 
 // The working set: a quiet row of the objects the writer has open in tabs of
@@ -20,7 +19,7 @@ import { MANUSCRIPT_TAB, useRune2Selection, type WorkingTab } from "./Rune2Selec
 // brings it back sits at the row's start.
 
 function tabLabel(tab: WorkingTab): string {
-  return tab.entry?.title ?? (tab.reading ? "Reading" : "Manuscript");
+  return tab.entry?.title ?? "Manuscript";
 }
 
 /**
@@ -28,7 +27,6 @@ function tabLabel(tab: WorkingTab): string {
  * Scene 2"). Null when the label already says it all.
  */
 function tabPath(tab: WorkingTab): string | null {
-  if (tab.reading) return "Reading Mode — read-only";
   if (!tab.entry) return null;
   const trail =
     tab.entry.kind === "unplacedScene"
@@ -111,7 +109,7 @@ function Tab({
     const el = labelRef.current;
     if (el) setTruncated(el.scrollWidth > el.clientWidth + 1);
     // (The active tab's label is a little heavier, so it is measured again.)
-  }, [label, context, tab.reading, active]);
+  }, [label, context, active]);
   const tip = path ?? (truncated ? (context ? `${context} · ${label}` : label) : null);
 
   return (
@@ -132,7 +130,7 @@ function Tab({
         >
           {context && <span className="r2-tab-context">{context} ·</span>}
           <span ref={labelRef} className="r2-tab-label">
-            {tab.reading ? <ReadingTabLabel source={tab.reading} /> : label}
+            {label}
           </span>
         </button>
       </Tooltip>

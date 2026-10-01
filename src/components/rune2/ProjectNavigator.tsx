@@ -153,7 +153,6 @@ export function ProjectNavigator() {
     setSearchOpen,
     trashOpen,
     setTrashOpen,
-    reading,
   } = useRune2Selection();
   const projectId = manuscript.project.id;
   // While Trash fills the content column, no row is the one showing: the
@@ -1220,7 +1219,7 @@ export function ProjectNavigator() {
               label="Manuscript"
               count={manuscript.manuscriptWords}
               countLabel="words in the manuscript"
-              selected={selected === null && !reading}
+              selected={selected === null}
               expanded={manuscriptOpen}
               onToggle={() => setOpenFor([ROOT_MANUSCRIPT], !manuscriptOpen)}
               onSelect={(e) => choose(null, e)}
