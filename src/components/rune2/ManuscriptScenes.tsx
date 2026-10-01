@@ -16,6 +16,7 @@ import type { PropertyValue, SavedView } from "@/lib/types";
 import { CollectionSchema } from "./CollectionSchema";
 import { useLaneTargets } from "./CollectionView";
 import { BoardView, ListView, TableView, type ItemPresenter } from "./CollectionViewBodies";
+import { TimelineView } from "./TimelineView";
 import { usePropertyStore } from "./PropertyStore";
 import { useRune2Selection } from "./Rune2Selection";
 import { AddViewMenu, ViewOptions, ViewSwitcher, viewSummary } from "./ViewControls";
@@ -32,6 +33,9 @@ import { useViewStore } from "./ViewStore";
 //           words and placement shown;
 //   Board — columns by Status, a select, or a Relationship (POV → Nerai,
 //           Alaric…); moving a card sets that value and never moves the Scene.
+//   Timeline — Scenes along the manuscript itself (Group bands, Chapter
+//           columns, each Scene at its actual place), or along a Date or
+//           Number Scene property (042); read-mostly, never a reorder.
 // A View shows Scenes by id, words from the manuscript structure, and values
 // beside the prose — never the prose itself, so a large manuscript is never
 // loaded to draw it. Manuscript order is placed Scenes in reading order, then
@@ -160,6 +164,16 @@ export function ManuscriptScenes() {
               entryIds={arranged}
               presenter={presenter}
               onChooseGrouping={() => setScenePanel("view")}
+            />
+          ) : view.type === "timeline" ? (
+            <TimelineView
+              ownerId={manuscriptId}
+              view={view}
+              properties={properties}
+              entryIds={arranged}
+              presenter={presenter}
+              manuscript
+              onChooseAxis={() => setScenePanel("view")}
             />
           ) : (
             <ListView ownerTitle="the manuscript" view={view} properties={properties} entryIds={arranged} presenter={presenter} />

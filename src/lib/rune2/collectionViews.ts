@@ -30,12 +30,13 @@ import { chosenOptions, valueKey } from "./collectionProperties";
 // (prune_view_config); these helpers still skip anything unknown, so a screen
 // showing a moment-old config never breaks.
 
-export const VIEW_TYPES: readonly CollectionViewType[] = ["list", "table", "board"];
+export const VIEW_TYPES: readonly CollectionViewType[] = ["list", "table", "board", "timeline"];
 
 export const VIEW_TYPE_LABEL: Record<CollectionViewType, string> = {
   list: "List",
   table: "Table",
   board: "Board",
+  timeline: "Timeline",
 };
 
 export const EMPTY_VIEW_CONFIG: CollectionViewConfig = { properties: [], sort: null, filters: [], group_by: null };
@@ -413,10 +414,15 @@ export function withPropertyMoved(config: CollectionViewConfig, propertyId: stri
   return { ...config, properties: next };
 }
 
-/** A new View's name: List/Table by type, a Board by what it groups ("By Status"). */
+/** A new View's name: List/Table/Timeline by type, a Board by what it groups ("By Status"). */
 export function newViewName(type: CollectionViewType, groupBy: PropertyDefinition | undefined): string {
   if (type === "board" && groupBy) return `By ${groupBy.name}`;
   return VIEW_TYPE_LABEL[type];
+}
+
+/** The config with a Timeline's axis set (a field id, or null for none). */
+export function withAxis(config: CollectionViewConfig, axis: string | null): CollectionViewConfig {
+  return { ...config, axis };
 }
 
 // ── Table column widths (migration 034) ────────────────────────────────────

@@ -2527,6 +2527,257 @@ span.r2-schema-type {
   margin-bottom: 10px;
 }
 
+
+/* Timeline: one axis across the page — the manuscript's Chapters under
+   their Group bands, or the ticks of a date or number — and each item a
+   small marker at its place, stacking into rows where they would overlap.
+   Hairlines and ink only; the track scrolls sideways, lane names stay. */
+.r2-timeline {
+  margin: 6px 0 0;
+}
+.r2-timeline-scroll {
+  position: relative;
+  overflow-x: auto;
+  overflow-y: hidden;
+  border-top: 1px solid var(--r2-border);
+  border-bottom: 1px solid var(--r2-border);
+}
+.r2-timeline-track {
+  position: relative;
+  min-width: 100%;
+}
+.r2-timeline-rules {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.r2-timeline-rule {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--r2-border);
+}
+.r2-timeline-axis {
+  position: relative;
+  border-bottom: 1px solid var(--r2-border-strong);
+  font-size: 11.5px;
+  color: var(--r2-ink-3);
+  user-select: none;
+}
+.r2-timeline-tick {
+  position: absolute;
+  top: 6px;
+  padding-left: 6px;
+  border-left: 1px solid var(--r2-border-strong);
+  line-height: 14px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.r2-timeline-tick[data-major] {
+  color: var(--r2-ink-2);
+  font-weight: 500;
+}
+.r2-timeline-group,
+.r2-timeline-chapter,
+.r2-timeline-gap {
+  position: absolute;
+  box-sizing: border-box;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.r2-timeline-group {
+  height: 22px;
+  padding: 4px 8px 0;
+  border-left: 1px solid var(--r2-border-strong);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--r2-ink-2);
+}
+.r2-timeline-chapter {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  height: 30px;
+  padding: 8px 8px 0;
+  color: var(--r2-ink-1);
+}
+.r2-timeline-chapter-number {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+  color: var(--r2-ink-3);
+}
+.r2-timeline-chapter-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 12.5px;
+}
+.r2-timeline-chapter[data-unnamed] .r2-timeline-chapter-title,
+.r2-timeline-group[data-unnamed] {
+  color: var(--r2-ink-3);
+  font-weight: 400;
+}
+.r2-timeline-gap {
+  height: 30px;
+  padding: 9px 0 0;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  color: var(--r2-ink-3);
+  background: rgba(29, 32, 37, 0.025);
+}
+.r2-timeline-lane {
+  position: relative;
+  border-bottom: 1px solid var(--r2-border);
+}
+.r2-timeline-lane:last-of-type {
+  border-bottom: 0;
+}
+.r2-timeline-lane-head {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  max-width: 260px;
+  padding: 6px 8px 2px;
+  font-size: 12.5px;
+  background: var(--r2-bg);
+}
+.r2-timeline-lane-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+  color: var(--r2-ink-1);
+}
+.r2-timeline-lane[data-empty-lane] .r2-timeline-lane-name {
+  font-weight: 400;
+  color: var(--r2-ink-3);
+}
+.r2-timeline-lane-count {
+  font-variant-numeric: tabular-nums;
+  font-weight: 400;
+  color: var(--r2-ink-3);
+}
+.r2-timeline-rows {
+  position: relative;
+  margin: 6px 0;
+}
+.r2-timeline-item {
+  position: absolute;
+  box-sizing: border-box;
+  display: block;
+  height: 26px;
+  padding: 0 8px 0 20px;
+  border-radius: var(--r2-radius);
+  text-align: left;
+  font-size: 13px;
+  line-height: 26px;
+  color: var(--r2-ink-1);
+  cursor: pointer;
+  transition: background-color var(--r2-fast) var(--r2-ease);
+}
+.r2-timeline-item:hover {
+  background: var(--r2-hover);
+}
+.r2-timeline-item:focus-visible {
+  outline: none;
+  background: var(--r2-hover);
+  box-shadow: inset 0 0 0 1px var(--r2-accent-line);
+}
+.r2-timeline-item[data-unnamed] .r2-timeline-item-title {
+  color: var(--r2-ink-3);
+}
+.r2-timeline-dot {
+  position: absolute;
+  left: 5px;
+  top: 9px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--r2-accent);
+}
+.r2-timeline-item-title,
+.r2-timeline-item-meta {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.r2-timeline-item-title .r2-item-number {
+  min-width: 0;
+  margin-right: 6px;
+}
+.r2-timeline-item-meta {
+  font-size: 11.5px;
+  line-height: 14px;
+  color: var(--r2-ink-3);
+}
+.r2-timeline-item[data-meta] {
+  height: 40px;
+  padding-top: 3px;
+  line-height: 20px;
+}
+.r2-timeline-empty {
+  padding: 14px 8px;
+  font-size: 13px;
+  color: var(--r2-faint);
+}
+.r2-timeline-apart {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  margin: 10px 0 0;
+  font-size: 12.5px;
+}
+.r2-timeline-apart-name {
+  flex: none;
+  color: var(--r2-ink-3);
+}
+.r2-timeline-apart-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-width: 0;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.r2-timeline-chip {
+  display: inline-block;
+  max-width: 220px;
+  height: 24px;
+  padding: 0 8px;
+  border: 1px solid var(--r2-border);
+  border-radius: var(--r2-radius);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 12.5px;
+  line-height: 22px;
+  color: var(--r2-ink-1);
+  background: var(--r2-bg);
+  cursor: pointer;
+  transition: border-color var(--r2-fast) var(--r2-ease);
+}
+.r2-timeline-chip:hover {
+  border-color: var(--r2-border-strong);
+}
+.r2-timeline-chip[data-unnamed] {
+  color: var(--r2-ink-3);
+}
+.r2-embed-body .r2-timeline-scroll {
+  max-height: 420px;
+  overflow-y: auto;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .r2-prop-input,
   .r2-prop-button,
@@ -2536,7 +2787,9 @@ span.r2-schema-type {
   .r2-table-title button,
   .r2-lane,
   .r2-card,
-  .r2-lane-add {
+  .r2-lane-add,
+  .r2-timeline-item,
+  .r2-timeline-chip {
     transition: none;
   }
 }

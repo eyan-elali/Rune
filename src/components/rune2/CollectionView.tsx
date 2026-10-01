@@ -8,6 +8,7 @@ import type { NavEntry } from "@/lib/rune2/navigatorModel";
 import type { SavedView } from "@/lib/types";
 import { CollectionSchema } from "./CollectionSchema";
 import { BoardView, ListView, TableView, type ItemPresenter } from "./CollectionViewBodies";
+import { TimelineView } from "./TimelineView";
 import { usePropertyStore } from "./PropertyStore";
 import { useRune2Selection } from "./Rune2Selection";
 import { useNewEntry } from "./useNewEntry";
@@ -17,7 +18,8 @@ import { WorkspaceTitle } from "./WorkspaceTitle";
 
 // A Collection in the content area: its title, edited in place, and its one
 // set of Entries shown through its active saved View (migration 027) — a
-// List (a writer's list of names, the default), a Table or a Board. Every
+// List (a writer's list of names, the default), a Table, a Board or a
+// Timeline (042: along a Date or Number property). Every
 // View reads the same Entries and values, so an edit anywhere is everywhere.
 //
 // Progressive disclosure: a Collection with only its default List looks as it
@@ -129,6 +131,16 @@ export function CollectionView({ entry }: { entry: NavEntry }) {
               entryIds={arranged}
               presenter={presenter}
               onChooseGrouping={() => setPanel("view")}
+            />
+          ) : view.type === "timeline" ? (
+            <TimelineView
+              ownerId={entry.id}
+              view={view}
+              properties={properties}
+              entryIds={arranged}
+              presenter={presenter}
+              manuscript={false}
+              onChooseAxis={() => setPanel("view")}
             />
           ) : (
             <ListView ownerTitle={entry.title} view={view} properties={properties} entryIds={arranged} presenter={presenter} />

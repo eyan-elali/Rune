@@ -259,8 +259,8 @@ export interface ScenePropertyValue {
   value: PropertyValue;
 }
 
-/** How a saved View presents a Collection's Entries (migration 027) or a Manuscript's Scenes (032). */
-export type CollectionViewType = "list" | "table" | "board";
+/** How a saved View presents a Collection's Entries (migration 027) or a Manuscript's Scenes (032); Timeline from 042. */
+export type CollectionViewType = "list" | "table" | "board" | "timeline";
 
 export type ViewFilterOp = "is" | "is_not" | "is_empty" | "is_not_empty" | "contains" | "gt" | "lt";
 
@@ -294,6 +294,12 @@ export interface CollectionViewConfig {
    * column (migration 034). Absent, or no entry: the column's default width.
    */
   widths?: Record<string, number>;
+  /**
+   * A Timeline's axis (migration 042): a number or date property id, or
+   * "manuscript" — a Scene View's manuscript position. Absent or null: the
+   * Timeline has no axis yet. Lanes are `group_by`, as a Board's columns.
+   */
+  axis?: string | null;
 }
 
 /**

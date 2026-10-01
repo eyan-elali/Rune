@@ -36,7 +36,7 @@ import { useRune2Selection } from "./Rune2Selection";
 import { useNewEntry } from "./useNewEntry";
 import { useViewStore } from "./ViewStore";
 
-// The three ways a saved View shows its items — a Collection's Entries
+// The ways a saved View shows its items (a Timeline is in TimelineView.tsx) — a Collection's Entries
 // (migration 027) or a Manuscript's Scenes (032), through one set of bodies.
 // Each is given the items already arranged (filtered, sorted) by the View,
 // an ItemPresenter saying how its owner names and opens an item, and reads
@@ -78,7 +78,7 @@ export type ItemPresenter = {
 };
 
 /** Open an item: here, or (⌘/Ctrl-click, middle click) in a tab of its own. */
-function useOpenItem(presenter: ItemPresenter) {
+export function useOpenItem(presenter: ItemPresenter) {
   const { select, openInNewTab } = useRune2Selection();
   return (id: string) => {
     const target = presenter.openId(id);
@@ -95,7 +95,7 @@ function useOpenItem(presenter: ItemPresenter) {
 }
 
 /** A Relationship target's current title, for a value line ("Drelareth"); undefined when gone. */
-function useTitleOf() {
+export function useTitleOf() {
   const { index } = useRune2Selection();
   return (id: string) => describeObject(index, id)?.title;
 }
@@ -125,7 +125,7 @@ type BodyProps = {
 };
 
 /** The quiet number before a name ("31.2"), when the owner has one. */
-function ItemNumber({ number }: { number?: string | null }) {
+export function ItemNumber({ number }: { number?: string | null }) {
   if (!number) return null;
   return <span className="r2-item-number">{number}</span>;
 }

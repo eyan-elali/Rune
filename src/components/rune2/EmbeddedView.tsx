@@ -1,14 +1,16 @@
 "use client";
 
 import { useState, type MouseEvent, type ReactNode } from "react";
-import { Columns3, List, Table2, X } from "lucide-react";
+import { Columns3, GitCommitHorizontal, List, Table2, X } from "lucide-react";
 import { boardLanes, isSceneView } from "@/lib/rune2/collectionViews";
+import { timelineAxis } from "@/lib/rune2/timelineViews";
 import type { ViewEmbedKind } from "@/lib/rune2/workspaceDocument";
 import type { NavEntry } from "@/lib/rune2/navigatorModel";
 import type { CollectionViewType, PropertyDefinition, SavedView, SceneView, WorkspaceCollectionView } from "@/lib/types";
 import { useCollectionItems } from "./CollectionView";
 import { BoardView, ListView, TableView, type ItemPresenter } from "./CollectionViewBodies";
 import { useSceneItems } from "./ManuscriptScenes";
+import { TimelineView } from "./TimelineView";
 import { usePropertyStore } from "./PropertyStore";
 import { useRune2Selection } from "./Rune2Selection";
 import { useViewStore } from "./ViewStore";
@@ -31,7 +33,7 @@ import { useViewStore } from "./ViewStore";
 /** Items shown before "Show all". */
 const FIRST_ITEMS = 8;
 
-const VIEW_ICON: Record<CollectionViewType, typeof List> = { list: List, table: Table2, board: Columns3 };
+const VIEW_ICON: Record<CollectionViewType, typeof List> = { list: List, table: Table2, board: Columns3, timeline: GitCommitHorizontal };
 
 export function EmbeddedView({
   viewId,
@@ -151,20 +153,36 @@ function EmbedFrame({
   const [all, setAll] = useState(false);
   const Icon = VIEW_ICON[view.type];
   const board = view.type === "board";
-  // A Board shows every card (its lanes scroll); a List or Table its first few.
-  const shown = board || all ? arranged : arranged.slice(0, FIRST_ITEMS);
+  const timeline = view.type === "timeline";
+  const ownerId = isSceneView(view) ? view.manuscript_id : view.collection_id;
+  // A Board or Timeline shows every item (they scroll); a List or Table its first few.
+  const shown = board || timeline || all ? arranged : arranged.slice(0, FIRST_ITEMS);
   const more = arranged.length - shown.length;
   const grouped = board && boardLanes(view, properties, presenter.values, arranged, presenter.laneTargets) !== null;
+  const axis = timeline && timelineAxis(view, properties, isSceneView(view)) !== null;
 
   let body: ReactNode;
   if (arranged.length === 0) body = <p className="r2-embed-empty">{empty}</p>;
   else if (board && !grouped) body = <p className="r2-embed-empty">This board isn’t grouped yet — open it to choose how.</p>;
+  else if (timeline && !axis) body = <p className="r2-embed-empty">This timeline has no axis yet — open it to choose one.</p>;
+  else if (timeline)
+    body = (
+      <TimelineView
+        ownerId={ownerId}
+        view={view}
+        properties={properties}
+        entryIds={shown}
+        presenter={presenter}
+        manuscript={isSceneView(view)}
+        onChooseAxis={() => undefined}
+      />
+    );
   else if (view.type === "table")
     body = <TableView ownerTitle={ownerTitle} view={view} properties={properties} entryIds={shown} presenter={presenter} />;
   else if (board)
     body = (
       <BoardView
-        ownerId={isSceneView(view) ? view.manuscript_id : view.collection_id}
+        ownerId={ownerId}
         view={view}
         properties={properties}
         entryIds={shown}

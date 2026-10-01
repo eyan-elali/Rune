@@ -9,6 +9,7 @@ import {
   Columns3,
   Eye,
   EyeOff,
+  GitCommitHorizontal,
   List,
   Plus,
   Table2,
@@ -20,6 +21,7 @@ import {
   filterOpsFor,
   groupableProperties,
   hiddenProperties,
+  isSceneView,
   newViewName,
   shownProperties,
   sortableProperties,
@@ -30,6 +32,7 @@ import {
 } from "@/lib/rune2/collectionViews";
 import { parseNumberInput } from "@/lib/rune2/collectionProperties";
 import { candidates, targetSpecOf } from "@/lib/rune2/references";
+import { axisProperties, MANUSCRIPT_AXIS } from "@/lib/rune2/timelineViews";
 import type { CollectionViewConfig, CollectionViewType, PropertyDefinition, SavedView, ViewFilter, ViewFilterOp } from "@/lib/types";
 import { useRune2Selection } from "./Rune2Selection";
 import { useViewStore } from "./ViewStore";
@@ -37,10 +40,10 @@ import { useViewStore } from "./ViewStore";
 // The quiet controls of saved Views — a Collection's (migration 027) and a
 // Manuscript's Scene Views (032), whose owner is passed as `ownerId`:
 //   ViewSwitcher — the Views as a local tab row, once there are two
-//   AddViewMenu  — List, Table or Board, each with one line saying what it is
+//   AddViewMenu  — List, Table, Board or Timeline, each with one line saying what it is
 //   ViewOptions  — one View's name, type, order, shown properties, sort,
-//                  filters and (a Board) grouping; opened inline like the
-//                  property settings, never a dialog
+//                  filters, (a Board) grouping and (a Timeline) its axis and
+//                  lanes; opened inline like the property settings, never a dialog
 // Everything here is configuration; nothing edits an item or a value, and
 // deleting a View says so.
 
@@ -48,7 +51,8 @@ import { useViewStore } from "./ViewStore";
 export function viewSummary(view: SavedView, properties: readonly PropertyDefinition[]): string {
   const known = new Set(properties.map((p) => p.id));
   const filters = view.config.filters.filter((f) => known.has(f.property)).length;
-  const sorted = view.config.sort && (view.config.sort.by === "title" || known.has(view.config.sort.by));
+  // A Timeline is placed by its axis; its sort only orders ties.
+  const sorted = view.type !== "timeline" && view.config.sort && (view.config.sort.by === "title" || known.has(view.config.sort.by));
   return [sorted && "Sorted", filters > 0 && `${filters} ${filters === 1 ? "filter" : "filters"}`].filter(Boolean).join(" · ");
 }
 
@@ -70,7 +74,7 @@ function useNotice(ms = 5000) {
 // a tab, or Alt with ←/→, to move it (move_workspace_collection_view).
 // Double-clicking a tab opens its settings. `+` at the end adds a View.
 
-const VIEW_ICON: Record<CollectionViewType, typeof List> = { list: List, table: Table2, board: Columns3 };
+const VIEW_ICON: Record<CollectionViewType, typeof List> = { list: List, table: Table2, board: Columns3, timeline: GitCommitHorizontal };
 const TAB_DRAG = "application/x-rune-view";
 
 export function ViewSwitcher({
@@ -180,6 +184,7 @@ const VIEW_TYPE_HINT: Record<CollectionViewType, string> = {
   list: "Names, with a quiet line of details",
   table: "Rows and columns, edited in place",
   board: "Columns by a Status, Select or Relationship",
+  timeline: "Along the manuscript, a Date or a Number",
 };
 
 export function AddViewMenu({
@@ -230,7 +235,7 @@ export function AddViewMenu({
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
         aria-label={compact ? "Add a view" : undefined}
-        title="Add a view: list, table or board"
+        title="Add a view: list, table, board or timeline"
         data-compact={compact || undefined}
         disabled={busy}
         onClick={() => setOpen((o) => !o)}
@@ -289,6 +294,7 @@ const SHOWN_LABEL: Record<CollectionViewType, string> = {
   list: "Details",
   table: "Columns",
   board: "On cards",
+  timeline: "On markers",
 };
 
 /** The choices an "is" filter on `property` offers: its options, or a Relationship's possible targets. */
@@ -433,6 +439,8 @@ export function ViewOptions({
   const byId = new Map(properties.map((p) => [p.id, p]));
   const groupable = groupableProperties(properties);
   const sortable = sortableProperties(properties);
+  const axes = axisProperties(properties);
+  const manuscript = isSceneView(view);
   const config = view.config;
 
   const save = async (next: CollectionViewConfig) => {
@@ -573,6 +581,56 @@ export function ViewOptions({
           </div>
         )}
 
+        {view.type === "timeline" && (
+          <>
+            <div className="r2-view-setting">
+              <dt id={`${ids}-axis`}>Along</dt>
+              <dd>
+                {manuscript || axes.length > 0 ? (
+                  <select
+                    className="r2-schema-type"
+                    aria-labelledby={`${ids}-axis`}
+                    value={config.axis ?? ""}
+                    onChange={(e) => void save({ ...config, axis: e.target.value || null })}
+                  >
+                    {!config.axis && <option value="">Choose an axis</option>}
+                    {manuscript && <option value={MANUSCRIPT_AXIS}>Manuscript position</option>}
+                    {axes.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <span className="r2-view-muted">Add a Date or Number property to place {itemNoun === "scene" ? "scenes" : "entries"} along.</span>
+                )}
+              </dd>
+            </div>
+            <div className="r2-view-setting">
+              <dt id={`${ids}-lanes`}>Lanes by</dt>
+              <dd>
+                {groupable.length > 0 ? (
+                  <select
+                    className="r2-schema-type"
+                    aria-labelledby={`${ids}-lanes`}
+                    value={config.group_by ?? ""}
+                    onChange={(e) => void save({ ...config, group_by: e.target.value || null })}
+                  >
+                    <option value="">No lanes</option>
+                    {groupable.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <span className="r2-view-muted">Add a Status, Select or Relationship property for lanes.</span>
+                )}
+              </dd>
+            </div>
+          </>
+        )}
+
         <div className="r2-view-setting">
           <dt>{SHOWN_LABEL[view.type]}</dt>
           <dd>
@@ -637,6 +695,7 @@ export function ViewOptions({
           </dd>
         </div>
 
+        {view.type !== "timeline" && (
         <div className="r2-view-setting">
           <dt id={`${ids}-sort`}>Sort</dt>
           <dd className="r2-view-inline">
@@ -674,6 +733,7 @@ export function ViewOptions({
             )}
           </dd>
         </div>
+        )}
 
         <div className="r2-view-setting">
           <dt>Filter</dt>

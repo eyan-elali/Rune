@@ -163,8 +163,8 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
   { id: "ref-page", label: "Reference to page", group: "Story", keywords: ["link", "mention", "note"], action: { kind: "reference", scope: "page" } },
   { id: "ref-scene", label: "Reference to scene", group: "Story", keywords: ["link", "mention", "manuscript"], action: { kind: "reference", scope: "scene" } },
   { id: "ref-chapter", label: "Reference to chapter", group: "Story", keywords: ["link", "mention", "manuscript"], action: { kind: "reference", scope: "chapter" } },
-  { id: "embed-collection", label: "Collection view", group: "Story", keywords: ["embed", "table", "board", "list", "database"], action: { kind: "embed", view: "collection" } },
-  { id: "embed-scene", label: "Scene view", group: "Story", keywords: ["embed", "manuscript", "table", "board", "list"], action: { kind: "embed", view: "scene" } },
+  { id: "embed-collection", label: "Collection view", group: "Story", keywords: ["embed", "table", "board", "list", "timeline", "database"], action: { kind: "embed", view: "collection" } },
+  { id: "embed-scene", label: "Scene view", group: "Story", keywords: ["embed", "manuscript", "table", "board", "list", "timeline"], action: { kind: "embed", view: "scene" } },
 ];
 
 function fold(text: string): string {
