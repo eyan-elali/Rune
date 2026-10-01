@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { PanelLeft, X } from "lucide-react";
 import { ICON } from "./icons";
+import { Tooltip } from "./Tooltip";
 import { isWorkspaceKind } from "@/lib/rune2/navigatorModel";
 import { ReadingTabLabel } from "./ReadingMode";
 import { MANUSCRIPT_TAB, useRune2Selection, type WorkingTab } from "./Rune2Selection";
@@ -20,17 +21,20 @@ function tabLabel(tab: WorkingTab): string {
   return tab.entry?.title ?? (tab.reading ? "Reading" : "Manuscript");
 }
 
-/** Where the tab's object sits, for its tooltip ("Book One / Chapter 3 / Scene 2"). */
-function tabPath(tab: WorkingTab): string {
+/**
+ * Where the tab's object sits, for its tooltip ("Book One / Chapter 3 /
+ * Scene 2"). Null when the label already says it all.
+ */
+function tabPath(tab: WorkingTab): string | null {
   if (tab.reading) return "Reading Mode — read-only";
-  if (!tab.entry) return "Manuscript";
+  if (!tab.entry) return null;
   const trail =
     tab.entry.kind === "unplacedScene"
       ? ["Unplaced Scenes"]
       : isWorkspaceKind(tab.entry.kind)
         ? ["Workspace", ...tab.entry.path.map((p) => p.title)]
         : tab.entry.path.map((p) => p.title);
-  return [...trail, tab.entry.title].join(" / ");
+  return trail.length > 0 ? [...trail, tab.entry.title].join(" / ") : null;
 }
 
 export function Rune2Tabs() {
@@ -52,15 +56,16 @@ export function Rune2Tabs() {
   return (
     <nav className="r2-tabs" aria-label="Open tabs">
       {navCollapsed && (
-        <button
-          type="button"
-          className="r2-icon-button r2-tabs-nav-toggle"
-          aria-label="Show navigator"
-          title="Show navigator"
-          onClick={toggleNav}
-        >
-          <PanelLeft {...ICON} aria-hidden />
-        </button>
+        <Tooltip label="Show navigator">
+          <button
+            type="button"
+            className="r2-icon-button r2-tabs-nav-toggle"
+            aria-label="Show navigator"
+            onClick={toggleNav}
+          >
+            <PanelLeft {...ICON} aria-hidden />
+          </button>
+        </Tooltip>
       )}
       <ul ref={listRef} role="list">
         {tabs.map((tab) => {
@@ -71,11 +76,11 @@ export function Rune2Tabs() {
             tab.entry?.kind === "scene" && !tab.entry.named ? tab.entry.path[tab.entry.path.length - 1]?.title : null;
           return (
             <li key={tab.key} className="r2-tab" data-tab={tab.key} data-active={active || undefined}>
+              <Tooltip label={tabPath(tab)} describes>
               <button
                 type="button"
                 className="r2-tab-main"
                 aria-current={active ? "page" : undefined}
-                title={tabPath(tab)}
                 onClick={() => activateTab(tab.key)}
                 // Middle-click closes, as in any tabbed application.
                 onAuxClick={(e) => {
@@ -88,19 +93,21 @@ export function Rune2Tabs() {
                 {context && <span className="r2-tab-context">{context} ·</span>}
                 <span className="r2-tab-label">{tab.reading ? <ReadingTabLabel source={tab.reading} /> : label}</span>
               </button>
-              <button
-                type="button"
-                className="r2-tab-close"
-                aria-label={`Close ${tab.key === MANUSCRIPT_TAB ? "Manuscript" : label}`}
-                title="Close tab"
-                onClick={(e) => {
-                  // detail 0: a keyboard press, not a pointer click.
-                  refocus.current = e.detail === 0;
-                  closeTab(tab.key);
-                }}
-              >
-                <X {...ICON} aria-hidden />
-              </button>
+              </Tooltip>
+              <Tooltip label="Close tab">
+                <button
+                  type="button"
+                  className="r2-tab-close"
+                  aria-label={`Close ${tab.key === MANUSCRIPT_TAB ? "Manuscript" : label}`}
+                  onClick={(e) => {
+                    // detail 0: a keyboard press, not a pointer click.
+                    refocus.current = e.detail === 0;
+                    closeTab(tab.key);
+                  }}
+                >
+                  <X {...ICON} aria-hidden />
+                </button>
+              </Tooltip>
             </li>
           );
         })}

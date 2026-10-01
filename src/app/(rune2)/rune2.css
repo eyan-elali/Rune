@@ -623,11 +623,25 @@ button.r2-chip:focus-visible {
 
 /* ══ 4. Surfaces ════════════════════════════════════════════════════════ */
 
+/* ── The shell (Milestone 21B) ─────────────────────────────────────────
+   Content in the centre, structure on the left, context on the right, and
+   as little chrome as the product allows. Three columns in one grid; the two
+   side columns size themselves and retract to nothing, so the content column
+   simply takes whatever is left and nothing in it remounts.
+
+   Shell geometry lives in these few tokens. They are structure, not style:
+   every top band (navigator header, tab band, panel head) is one height so
+   the three columns read as one frame, and the gutters are the spacing
+   scale's. A theme never needs to touch them. */
 .r2-shell {
-  --r2-nav-full: 252px;
+  --r2-bar: 44px; /* the top band of every column */
+  --r2-context-bar: 38px; /* the breadcrumb row under the tabs */
+  --r2-gutter: var(--r2-space-7); /* the content column's inner edge */
+  --r2-nav-full: 252px; /* the navigator's width (dragged: set inline) */
+  --r2-panel-width: 320px; /* the panel's width (dragged: set inline) */
   /* The navigator's current width: what the writing column centres against. */
   --r2-nav-width: var(--r2-nav-full);
-  --r2-panel-width: 300px;
+  --r2-resizer: 8px; /* the pointer zone on a column's edge */
   position: relative;
   display: grid;
   /* navigator | content | panel — the side columns size themselves and retract to 0 */
@@ -643,14 +657,19 @@ button.r2-chip:focus-visible {
 /* The navigator's column retracts by width; the navigator inside keeps its
    own width and is clipped, so nothing in it reflows or remounts. */
 .r2-nav-column {
+  grid-column: 1;
+  position: relative;
   width: var(--r2-nav-width);
   min-height: 0;
   overflow: hidden;
   transition: width var(--r2-frame) var(--r2-ease-frame);
 }
 
-/* The content column: tab strip (shell tone) over the content surface. */
+/* The content column: tab band (shell tone) over the content surface. Each
+   column is placed by name, so a side column lifted out of the flow (lying
+   over the content at narrow widths) still leaves the content its track. */
 .r2-content {
+  grid-column: 2;
   position: relative;
   display: flex;
   flex-direction: column;
@@ -675,7 +694,73 @@ button.r2-chip:focus-visible {
   display: none;
 }
 
+/* ── Column edges: resize ──────────────────────────────────────────────
+   A column's draggable edge is a zone the pointer finds without seeing it:
+   nothing is drawn until it is hovered (after a moment, so crossing it
+   leaves no trace) or dragged, and then only a hairline of ink along the
+   column's existing border. While a drag is on, the columns stop animating
+   their width and follow the pointer. */
+.r2-resizer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 5;
+  width: var(--r2-resizer);
+  cursor: col-resize;
+  touch-action: none;
+}
+/* Inside its column (both clip their overflow), flush with the edge. */
+.r2-resizer[data-edge="right"] {
+  right: 0;
+}
+.r2-resizer[data-edge="left"] {
+  left: 0;
+}
+.r2-resizer::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--r2-accent-line);
+  opacity: 0;
+  transition: opacity var(--r2-medium) var(--r2-ease);
+}
+.r2-resizer[data-edge="right"]::after {
+  right: 0;
+}
+.r2-resizer[data-edge="left"]::after {
+  left: 0;
+}
+.r2-resizer:hover::after {
+  opacity: 1;
+  transition-delay: 220ms;
+}
+.r2-resizer[data-active]::after,
+.r2-resizer:focus-visible::after {
+  opacity: 1;
+  background: var(--r2-accent);
+  transition-delay: 0ms;
+}
+.r2-resizer:focus-visible {
+  outline: none;
+}
+.r2-shell[data-resizing] {
+  cursor: col-resize;
+  user-select: none;
+}
+.r2-shell[data-resizing] .r2-nav-column,
+.r2-shell[data-resizing] .r2-panel,
+.r2-shell[data-resizing] .r2-doc,
+.r2-shell[data-resizing] .r2-doc-status {
+  transition: none;
+}
+
 /* ── Navigator ─────────────────────────────────────────────────────────── */
+/* The project's structural backbone: Manuscript and Workspace in one compact
+   tree. Hierarchy is indentation, type and the disclosure control — no tree
+   lines, no boxes. Secondary controls (add, more, the collapse control) live
+   in the layout only while a row or the navigator is reached for. */
 
 .r2-nav {
   position: relative;
@@ -693,15 +778,16 @@ button.r2-chip:focus-visible {
 .r2-nav-header {
   display: flex;
   align-items: center;
-  gap: var(--r2-space-4);
-  height: 46px;
+  gap: var(--r2-space-1);
+  height: var(--r2-bar);
   flex-shrink: 0;
-  padding: 0 8px 0 16px;
+  padding: 0 var(--r2-space-4) 0 var(--r2-space-6);
 }
 
 .r2-nav-project {
   flex: 1;
   min-width: 0;
+  margin-right: var(--r2-space-3);
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
@@ -718,7 +804,8 @@ button.r2-chip:focus-visible {
     background-color var(--r2-fast) var(--r2-ease);
 }
 .r2-nav:hover .r2-nav-toggle,
-.r2-nav-toggle:focus-visible {
+.r2-nav-toggle:focus-visible,
+.r2-shell[data-narrow] .r2-nav-toggle {
   opacity: 1;
 }
 @media (hover: none) {
@@ -730,7 +817,7 @@ button.r2-chip:focus-visible {
 /* A hairline that runs only while a change is saving or the tree re-reads. */
 .r2-nav-progress {
   position: absolute;
-  top: 46px;
+  top: var(--r2-bar);
   left: 0;
   right: 0;
   height: 1px;
@@ -751,29 +838,35 @@ button.r2-chip:focus-visible {
   to { transform: translateX(340%); }
 }
 
+/* The tree scrolls on its own; its scrollbar shows only while the navigator
+   is under the pointer, so a long manuscript never wears a permanent rail. */
 .r2-nav-scroll {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 2px 0 16px;
+  padding: var(--r2-space-1) 0 var(--r2-space-6);
+  scrollbar-color: transparent transparent;
+  transition: scrollbar-color var(--r2-medium) var(--r2-ease);
+}
+.r2-nav:hover .r2-nav-scroll,
+.r2-nav:focus-within .r2-nav-scroll {
+  scrollbar-color: var(--r2-scrollbar) transparent;
+}
+.r2-nav-scroll::-webkit-scrollbar-thumb {
+  background: transparent;
+}
+.r2-nav:hover .r2-nav-scroll::-webkit-scrollbar-thumb,
+.r2-nav:focus-within .r2-nav-scroll::-webkit-scrollbar-thumb {
+  background: var(--r2-scrollbar);
+  background-clip: padding-box;
 }
 
 .r2-nav-section {
-  margin-top: 16px;
+  margin-top: var(--r2-space-6);
 }
 
 .r2-children {
   position: relative;
-}
-.r2-children::before {
-  content: "";
-  position: absolute;
-  top: 3px;
-  bottom: 3px;
-  left: var(--r2-guide);
-  width: 1px;
-  background: var(--r2-border);
-  pointer-events: none;
 }
 
 /* ── Rows ──────────────────────────────────────────────────────────────── */
@@ -784,8 +877,8 @@ button.r2-chip:focus-visible {
   align-items: center;
   gap: var(--r2-space-2);
   height: 27px;
-  margin: 1px 8px;
-  padding-right: 4px;
+  margin: 1px var(--r2-space-4);
+  padding-right: var(--r2-space-2);
   border-radius: var(--r2-radius);
   color: var(--r2-ink-2);
   transition: background-color var(--r2-fast) var(--r2-ease), color var(--r2-fast) var(--r2-ease);
@@ -919,7 +1012,7 @@ button.r2-disclosure:hover {
   min-width: 0;
   height: var(--r2-control-xs);
   margin-left: -4px;
-  padding: 0 4px;
+  padding: 0 var(--r2-space-2);
   border-radius: var(--r2-radius-sm);
   background: var(--r2-field-bg);
   color: var(--r2-text);
@@ -960,7 +1053,7 @@ button.r2-disclosure:hover {
   color: var(--r2-selected-ink);
 }
 
-/* Section roots: Manuscript, Unplaced Scenes. */
+/* Section roots: Manuscript, Unplaced Scenes, Workspace. */
 .r2-row--root {
   color: var(--r2-muted);
   font-size: var(--r2-fs-meta);
@@ -972,7 +1065,7 @@ button.r2-disclosure:hover {
 }
 .r2-row-count {
   flex-shrink: 0;
-  padding-right: 6px;
+  padding-right: var(--r2-space-3);
   font-size: var(--r2-fs-caption);
   font-weight: var(--r2-weight-regular);
   letter-spacing: 0;
@@ -988,7 +1081,7 @@ button.r2-disclosure:hover {
   display: flex;
   align-items: baseline;
   gap: var(--r2-space-4);
-  padding: 4px 0 4px 34px;
+  padding: var(--r2-space-2) 0 var(--r2-space-2) 34px;
   font-size: var(--r2-fs-ui-sm);
   color: var(--r2-faint);
 }
@@ -1009,8 +1102,8 @@ button.r2-disclosure:hover {
 }
 
 .r2-nav-notice {
-  margin: 0 10px 8px;
-  padding: 7px 10px;
+  margin: 0 var(--r2-space-4) var(--r2-space-4);
+  padding: var(--r2-space-3) var(--r2-space-4);
   background: var(--r2-bg);
   box-shadow: var(--r2-ring);
   font-size: var(--r2-fs-meta);
@@ -1023,7 +1116,7 @@ button.r2-disclosure:hover {
   justify-content: space-between;
   gap: var(--r2-space-2);
   flex-shrink: 0;
-  padding: 10px 8px 12px;
+  padding: var(--r2-space-4) var(--r2-space-4) var(--r2-space-5);
 }
 .r2-nav-footer a,
 .r2-nav-trash {
@@ -1031,7 +1124,7 @@ button.r2-disclosure:hover {
   align-items: center;
   gap: var(--r2-space-3);
   height: var(--r2-control-md);
-  padding: 0 10px 0 8px;
+  padding: 0 var(--r2-space-4);
   border-radius: var(--r2-radius);
   font-size: var(--r2-fs-ui-sm);
   color: var(--r2-ink-3);
@@ -1045,19 +1138,19 @@ button.r2-disclosure:hover {
 
 /* ── Working-set tabs ──────────────────────────────────────────────────── */
 /* The topmost band of the content column: part of the application frame, in
-   the shell tone, always present (one tab or many). Tabs are set in from the
-   viewport edge with real room around them; the active tab is a slim surface
-   in the content tone — the same surface as the page below it — so it belongs
-   to the content rather than sitting on top of it. Inactive tabs are quiet
-   text. Overflow scrolls sideways. */
+   the shell tone, always present (one tab or many). Rune tabs, not a
+   browser's: thin, quiet text at rest; the active one is a slim surface in
+   the content tone — the same surface as the page below — with a hairline
+   edge and nothing else. The close control folds away until the tab is
+   reached for. Overflow scrolls sideways, never a second row. */
 
 .r2-tabs {
   display: flex;
   align-items: center;
-  gap: var(--r2-space-3);
+  gap: var(--r2-space-2);
   flex-shrink: 0;
-  height: 46px;
-  padding: 8px 12px 0;
+  height: var(--r2-bar);
+  padding: 0 var(--r2-space-4) 0 var(--r2-space-5);
   background: var(--r2-shell-bg);
   border-bottom: 1px solid var(--r2-border);
   transition: background-color var(--r2-fade-in) var(--r2-ease-frame),
@@ -1065,14 +1158,14 @@ button.r2-disclosure:hover {
 }
 .r2-tabs-nav-toggle {
   flex-shrink: 0;
-  margin-right: 2px;
+  margin-right: var(--r2-space-2);
 }
 .r2-tabs ul {
   display: flex;
   align-items: center;
-  gap: var(--r2-space-2);
+  gap: var(--r2-space-1);
   min-width: 0;
-  height: var(--r2-control-lg);
+  height: var(--r2-control-md);
   overflow-x: auto;
   scrollbar-width: none;
 }
@@ -1084,9 +1177,9 @@ button.r2-disclosure:hover {
   display: flex;
   align-items: center;
   flex-shrink: 0;
-  max-width: 240px;
-  height: var(--r2-control-lg);
-  border-radius: var(--r2-radius-md);
+  max-width: 220px;
+  height: var(--r2-control-md);
+  border-radius: var(--r2-radius);
   font-size: var(--r2-fs-ui);
   color: var(--r2-ink-2);
   transition: background-color var(--r2-medium) var(--r2-ease), color var(--r2-medium) var(--r2-ease),
@@ -1100,7 +1193,7 @@ button.r2-disclosure:hover {
 .r2-tab[data-active]:hover {
   color: var(--r2-ink-1);
   background: var(--r2-bg);
-  box-shadow: var(--r2-ring), var(--r2-shadow-sm);
+  box-shadow: var(--r2-ring);
 }
 .r2-tab-main {
   display: flex;
@@ -1108,12 +1201,12 @@ button.r2-disclosure:hover {
   gap: 5px;
   min-width: 0;
   height: 100%;
-  padding: 0 6px 0 12px;
-  border-radius: var(--r2-radius-md);
+  padding: 0 var(--r2-space-2) 0 var(--r2-space-5);
+  border-radius: var(--r2-radius);
   white-space: nowrap;
 }
 .r2-tab:not(:hover):not([data-active]) .r2-tab-main {
-  padding-right: 12px;
+  padding-right: var(--r2-space-5);
 }
 .r2-tab-main:focus-visible {
   outline-offset: -2px;
@@ -1140,9 +1233,9 @@ button.r2-disclosure:hover {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
-  margin-right: 5px;
+  width: 18px;
+  height: 18px;
+  margin-right: var(--r2-space-2);
   border-radius: var(--r2-radius-sm);
   color: var(--r2-ink-3);
   opacity: 0;
@@ -1168,24 +1261,26 @@ button.r2-disclosure:hover {
     opacity: 1;
   }
   .r2-tab:not(:hover):not([data-active]) .r2-tab-close:not(:focus-visible) {
-    width: 20px;
-    margin-right: 5px;
+    width: 18px;
+    margin-right: var(--r2-space-2);
   }
   .r2-tab:not(:hover):not([data-active]) .r2-tab-main {
-    padding-right: 6px;
+    padding-right: var(--r2-space-2);
   }
 }
 
 /* ── Context bar ───────────────────────────────────────────────────────── */
 /* A quiet row on the content surface: the breadcrumb orients, the few
-   contextual actions sit at the right in one shared style. */
+   contextual actions sit at the right in one shared style, parted by space
+   rather than rules. The project's name leads the breadcrumb only while the
+   navigator (whose header already carries it) is retracted. */
 
 .r2-contextbar {
   display: flex;
   align-items: center;
-  height: 44px;
+  height: var(--r2-context-bar);
   flex-shrink: 0;
-  padding: 0 12px 0 20px;
+  padding: 0 var(--r2-space-5) 0 var(--r2-gutter);
   font-size: var(--r2-fs-ui-sm);
   color: var(--r2-ink-2);
 }
@@ -1206,8 +1301,20 @@ button.r2-disclosure:hover {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* A long trail: the middle gives way first; the current title keeps its room. */
+.r2-contextbar li button,
+.r2-contextbar li > span:not(.r2-crumb-sep) {
+  max-width: 220px;
+}
+.r2-crumb-current {
+  max-width: 360px;
+}
 .r2-crumb-project {
   color: var(--r2-ink-3);
+}
+.r2-shell:not([data-nav="collapsed"]) .r2-crumb-project,
+.r2-shell:not([data-nav="collapsed"]) .r2-crumb-project + li .r2-crumb-sep {
+  display: none;
 }
 .r2-contextbar li button {
   padding: 2px 5px;
@@ -1220,8 +1327,9 @@ button.r2-disclosure:hover {
   background: var(--r2-hover);
 }
 .r2-crumb-sep {
-  padding: 0 7px;
-  color: var(--r2-border-strong);
+  padding: 0 var(--r2-space-3);
+  color: var(--r2-ink-3);
+  opacity: 0.55;
 }
 .r2-crumb-current {
   color: var(--r2-ink-1);
@@ -1234,11 +1342,18 @@ button.r2-disclosure:hover {
   align-items: center;
   gap: var(--r2-space-1);
   margin-left: auto;
-  padding-left: 16px;
+  padding-left: var(--r2-space-6);
   flex-shrink: 0;
 }
+/* The two panel actions stand a little apart: a group, said by space. */
+.r2-contextbar-panel {
+  display: flex;
+  align-items: center;
+  gap: var(--r2-space-1);
+  margin-left: var(--r2-space-4);
+}
 .r2-contextbar-notice {
-  margin-right: 8px;
+  margin-right: var(--r2-space-4);
   font-size: var(--r2-fs-meta);
   color: var(--r2-muted);
 }
@@ -1292,12 +1407,6 @@ button.r2-disclosure:hover {
 .r2-action[aria-pressed="true"]:hover:not(:disabled) {
   background: var(--r2-accent-soft-hover);
 }
-.r2-contextbar-divider {
-  width: 1px;
-  height: 16px;
-  margin: 0 6px;
-  background: var(--r2-border);
-}
 
 /* ── Chrome that recedes while writing ─────────────────────────────────── */
 /* Rune gets quieter when the writer starts writing. With `data-writing` on
@@ -1305,7 +1414,8 @@ button.r2-disclosure:hover {
    loses its tone and its hairline, and the tabs, breadcrumb and actions go
    to nothing. Nothing collapses or moves — the space is kept, the prose
    stays exactly where it was — and a reach for the interface brings it all
-   back a little faster than it left. */
+   back a little faster than it left. The column edges' hairlines are never
+   drawn meanwhile. */
 .r2-tabs ul,
 .r2-tabs-nav-toggle,
 .r2-contextbar > * {
@@ -1322,10 +1432,59 @@ button.r2-disclosure:hover {
   opacity: 0;
   transition-duration: var(--r2-fade-out);
 }
+.r2-shell[data-writing] .r2-resizer:not([data-active])::after {
+  opacity: 0;
+}
+
+/* ── Tooltip ───────────────────────────────────────────────────────────── */
+/* One small line of ink for a control whose label is hidden or wants a word
+   more (Tooltip.tsx). Portalled to the document, so it is placed on the
+   shell's tokens by its own .r2 layer. It appears by opacity alone — no
+   movement — and reduced motion makes that instant. */
+.r2 {
+  --r2-tooltip-bg: var(--r2-ink-1);
+  --r2-tooltip-ink: var(--r2-ink-inverse);
+}
+.r2-tooltip-anchor,
+.r2-tooltip-layer {
+  display: contents;
+}
+.r2-tooltip {
+  position: fixed;
+  z-index: 90;
+  max-width: 280px;
+  padding: 5px 8px;
+  border-radius: var(--r2-radius);
+  background: var(--r2-tooltip-bg);
+  color: var(--r2-tooltip-ink);
+  font-family: var(--r2-font-ui);
+  font-size: var(--r2-fs-meta);
+  font-weight: var(--r2-weight-regular);
+  line-height: var(--r2-lh-ui);
+  letter-spacing: 0;
+  text-wrap: balance;
+  pointer-events: none;
+  opacity: 0;
+  box-shadow: var(--r2-shadow-sm);
+  transition: opacity var(--r2-fast) var(--r2-ease);
+  -webkit-font-smoothing: antialiased;
+}
+.r2-tooltip[data-shown] {
+  opacity: 1;
+}
+.r2-tooltip kbd {
+  margin-left: var(--r2-space-3);
+  font-family: inherit;
+  font-size: var(--r2-fs-caption);
+  color: var(--r2-tooltip-ink);
+  opacity: 0.6;
+}
 
 /* ── Right-hand panel ──────────────────────────────────────────────────── */
 /* One panel, beside the content (never over it at desktop widths), in the
-   shell tone behind a hairline. Revision Notes and Inspector are views of it. */
+   panel tone behind a hairline. Revision Notes and Inspector are views of
+   it. A contextual utility surface, not a second sidebar: one small header,
+   then sections parted by hairlines and space — never boxes or cards. */
 
 /* Always in the tree; open and closed differ only in width. The inner column
    keeps the panel's full width and is clipped, so its content never reflows
@@ -1333,6 +1492,8 @@ button.r2-disclosure:hover {
    movement. Open, the content fades in just behind the movement; closing,
    it fades a little ahead of it. */
 .r2-panel {
+  grid-column: 3;
+  position: relative;
   width: 0;
   min-height: 0;
   overflow: hidden;
@@ -1366,11 +1527,16 @@ button.r2-disclosure:hover {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 46px;
+  gap: var(--r2-space-4);
+  height: var(--r2-bar);
   flex-shrink: 0;
-  padding: 0 12px 0 20px;
+  padding: 0 var(--r2-space-5) 0 var(--r2-gutter);
 }
 .r2-panel-head h2 {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
   font-size: var(--r2-fs-ui-sm);
   font-weight: var(--r2-weight-semibold);
   letter-spacing: var(--r2-tracking-heading);
@@ -1380,7 +1546,8 @@ button.r2-disclosure:hover {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 2px 20px 28px;
+  padding: var(--r2-space-1) var(--r2-gutter) var(--r2-space-9);
+  scrollbar-gutter: stable;
 }
 .r2-panel-caption {
   font-size: var(--r2-fs-meta);
@@ -1389,7 +1556,7 @@ button.r2-disclosure:hover {
 }
 .r2-panel-empty,
 .r2-panel-notice {
-  margin-top: 20px;
+  margin-top: var(--r2-space-7);
   max-width: 28em;
   font-size: var(--r2-fs-ui-sm);
   line-height: var(--r2-lh-body);
@@ -1408,8 +1575,6 @@ button.r2-disclosure:hover {
 }
 .r2-panel-link:hover {
   color: var(--r2-ink-1);
-}
-.r2-panel-link:hover {
   background: var(--r2-hover);
 }
 /* Revision Notes — the composer. A place to write a note: at rest a barely
@@ -1542,9 +1707,10 @@ button.r2-disclosure:hover {
   color: var(--r2-ink-3);
 }
 
-/* Inspector */
+
+/* Inspector: what the object is, as a quiet list of label and value. */
 .r2-inspector {
-  padding-top: 4px;
+  padding-top: var(--r2-space-2);
 }
 .r2-inspector-kind {
   font-size: var(--r2-fs-caption);
@@ -1553,7 +1719,7 @@ button.r2-disclosure:hover {
   color: var(--r2-ink-3);
 }
 .r2-inspector-title {
-  margin-top: 4px;
+  margin-top: var(--r2-space-2);
   font-size: var(--r2-fs-heading);
   font-weight: var(--r2-weight-semibold);
   line-height: 1.35;
@@ -1562,21 +1728,21 @@ button.r2-disclosure:hover {
   overflow-wrap: anywhere;
 }
 .r2-inspector-hint {
-  margin-left: 8px;
+  margin-left: var(--r2-space-4);
   font-size: var(--r2-fs-caption);
   font-weight: var(--r2-weight-regular);
   color: var(--r2-ink-3);
 }
 .r2-inspector-props {
-  margin-top: 18px;
-  padding-top: 14px;
+  margin-top: var(--r2-space-6);
+  padding-top: var(--r2-space-5);
   border-top: 1px solid var(--r2-border);
 }
 .r2-inspector-props > div {
   display: grid;
-  grid-template-columns: 84px minmax(0, 1fr);
+  grid-template-columns: 88px minmax(0, 1fr);
   gap: var(--r2-space-5);
-  padding: 6px 0;
+  padding: 5px 0;
   line-height: var(--r2-lh-ui);
 }
 .r2-inspector-props dt {
@@ -1592,11 +1758,15 @@ button.r2-disclosure:hover {
   color: var(--r2-muted);
 }
 
-/* Narrower desktops and tablets: a slimmer panel, and below that it lies over
-   the content's right edge rather than squeezing the manuscript. */
+/* ── Width: the content keeps priority ────────────────────────────────── */
+/* Three columns only while all three are usable. As the window narrows the
+   panel slims, then lies over the content's right edge; narrower still, the
+   navigator does the same on the left (Rune2Shell retracts it once as the
+   window gets there, and the writer reopens it over the content). The
+   manuscript never gets squeezed between the two. */
 @media (max-width: 1200px) {
   .r2-shell {
-    --r2-panel-width: 272px;
+    --r2-panel-width: 288px;
   }
 }
 @media (max-width: 1023px) {
@@ -1610,6 +1780,23 @@ button.r2-disclosure:hover {
   .r2-panel[data-open] {
     box-shadow: var(--r2-shadow-pop);
   }
+}
+.r2-shell[data-narrow] {
+  --r2-nav-width: 0px;
+}
+.r2-shell[data-narrow] .r2-nav-column {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 25;
+  width: var(--r2-nav-full);
+  transition: transform var(--r2-frame) var(--r2-ease-frame), box-shadow var(--r2-frame) var(--r2-ease-frame);
+  box-shadow: var(--r2-shadow-pop);
+}
+.r2-shell[data-narrow][data-nav="collapsed"] .r2-nav-column {
+  transform: translateX(-100%);
+  box-shadow: none;
 }
 
 /* ── Writing surface ───────────────────────────────────────────────────── */
@@ -1625,6 +1812,13 @@ button.r2-disclosure:hover {
 
 .r2-main {
   container-type: inline-size;
+  /* Where the writing column starts (see .r2-doc). Everything that must line
+     up with the column — its status line, the overview — reads this. */
+  --r2-doc-offset: clamp(
+    0px,
+    calc((100vw - var(--r2-nav-width) - var(--r2-doc-width)) / 2),
+    calc(100cqw - var(--r2-doc-width))
+  );
 }
 
 .r2-writing {
@@ -1641,11 +1835,7 @@ button.r2-disclosure:hover {
 .r2-doc {
   flex: 1;
   width: min(100%, var(--r2-doc-width));
-  margin-left: clamp(
-    0px,
-    calc((100vw - var(--r2-nav-width) - var(--r2-doc-width)) / 2),
-    calc(100cqw - var(--r2-doc-width))
-  );
+  margin-left: var(--r2-doc-offset);
   padding: 40px var(--r2-doc-gutter) 30vh;
   cursor: text;
   transition: margin-left var(--r2-frame) var(--r2-ease-frame);
@@ -1784,17 +1974,30 @@ button.r2-disclosure:hover {
   min-height: 1.6em;
 }
 
-/* Word count and save state: present, never asking for attention. */
+/* Word count and save state: present, never asking for attention. It belongs
+   to the writing, so it keeps the writing column's own geometry — the same
+   offset and width as .r2-doc, its text ending at the prose's right edge —
+   and stays exactly where it is when the panel opens or closes (the column
+   moves only when it must, and the status moves with it). It sits at the foot
+   of the scrolling area on a short fade of the writing surface, so prose
+   passes under it rather than through it. */
 .r2-doc-status {
   position: sticky;
   bottom: 0;
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
+  align-items: baseline;
   gap: var(--r2-space-3);
-  padding: 10px 20px 12px;
+  width: min(100%, var(--r2-doc-width));
+  margin-left: var(--r2-doc-offset);
+  padding: var(--r2-space-6) var(--r2-doc-gutter) var(--r2-space-5);
+  background: linear-gradient(to top, var(--r2-prose-bg) 55%, transparent);
   font-size: var(--r2-fs-caption);
+  text-align: right;
   color: var(--r2-ink-3);
   pointer-events: none;
+  transition: margin-left var(--r2-frame) var(--r2-ease-frame);
 }
 .r2-doc-status [data-tone="offline"] {
   color: var(--r2-muted);
@@ -3106,11 +3309,7 @@ span.r2-schema-type {
 
 .r2-overview {
   width: min(100%, var(--r2-doc-width));
-  margin-left: clamp(
-    0px,
-    calc((100vw - var(--r2-nav-width) - var(--r2-doc-width)) / 2),
-    calc(100cqw - var(--r2-doc-width))
-  );
+  margin-left: var(--r2-doc-offset);
   padding: 40px var(--r2-doc-gutter) 64px;
   transition: margin-left var(--r2-frame) var(--r2-ease-frame);
 }
@@ -3898,11 +4097,7 @@ span.r2-schema-type {
 
 .r2-scenes-invite {
   width: min(100%, var(--r2-doc-width));
-  margin-left: clamp(
-    0px,
-    calc((100vw - var(--r2-nav-width) - var(--r2-doc-width)) / 2),
-    calc(100cqw - var(--r2-doc-width))
-  );
+  margin-left: var(--r2-doc-offset);
   margin-top: -40px;
   padding: 0 var(--r2-doc-gutter) 48px;
   transition: margin-left var(--r2-frame) var(--r2-ease-frame);

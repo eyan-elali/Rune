@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition, type ReactNode } from "react";
+import { useEffect, useRef, useState, useTransition, type CSSProperties, type ReactNode } from "react";
 import { Check, Pin, PinOff, Trash2, X } from "lucide-react";
 import { ICON } from "./icons";
+import { Tooltip } from "./Tooltip";
 import {
   completeProjectNote,
   createProjectNote,
@@ -42,8 +43,8 @@ import { useViewStore } from "./ViewStore";
 const TITLES: Record<PanelView, string> = { notes: "Revision Notes", inspector: "Inspector" };
 const CLOSE_MS = 320;
 
-export function Rune2Panel() {
-  const { panel, closePanel } = useRune2Selection();
+export function Rune2Panel({ resizer }: { resizer?: ReactNode }) {
+  const { panel, closePanel, panelWidth } = useRune2Selection();
   const ref = useRef<HTMLElement>(null);
   // The view shown: the open one, or during the closing movement the last one.
   const [shown, setShown] = useState<PanelView | null>(panel);
@@ -65,10 +66,13 @@ export function Rune2Panel() {
   };
 
   const view = panel ?? shown;
+  // A width the writer chose reaches the CSS here; otherwise the shell's default stands.
+  const style = panelWidth !== null ? ({ "--r2-panel-width": `${panelWidth}px` } as CSSProperties) : undefined;
   return (
     <aside
       ref={ref}
       className="r2-panel"
+      style={style}
       data-open={panel ? "" : undefined}
       aria-label={view ? TITLES[view] : "Panel"}
       aria-hidden={!panel || undefined}
@@ -80,13 +84,16 @@ export function Rune2Panel() {
         }
       }}
     >
+      {resizer}
       {view && (
         <div className="r2-panel-inner">
           <header className="r2-panel-head">
             <h2>{TITLES[view]}</h2>
-            <button type="button" className="r2-icon-button" aria-label={`Close ${TITLES[view]}`} onClick={close}>
-              <X {...ICON} aria-hidden />
-            </button>
+            <Tooltip label="Close panel">
+              <button type="button" className="r2-icon-button" aria-label={`Close ${TITLES[view]}`} onClick={close}>
+                <X {...ICON} aria-hidden />
+              </button>
+            </Tooltip>
           </header>
           <div className="r2-panel-body">{view === "notes" ? <NotesPanel /> : <InspectorView />}</div>
         </div>

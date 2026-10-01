@@ -4,6 +4,7 @@ import { useEffect, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { BookOpen, FileDown, MoreHorizontal, PanelRight, Plus, StickyNote, Trash2 } from "lucide-react";
 import { ICON } from "./icons";
+import { Tooltip } from "./Tooltip";
 import { createScene } from "@/lib/actions/scenes";
 import { cacheScene } from "@/lib/offline/db";
 import { isWorkspaceKind, type NavEntry, type NavKind } from "@/lib/rune2/navigatorModel";
@@ -21,8 +22,9 @@ import { useTrash } from "./WorkspaceTrash";
 
 // The context bar (a quiet breadcrumb to the selection, and the selection's
 // few contextual actions: "+ Scene" where a placed Scene can be added, then
-// Revision Notes and Inspector, which share the one right-hand panel) and the content
-// area. Chapters and Scenes open in
+// Revision Notes and Inspector, which share the one right-hand panel; the two
+// panel actions stand a little apart from the rest, by space alone) and the
+// content area. Chapters and Scenes open in
 // the writing surface (see writingTarget.ts);
 // a Group shows a structural summary; a Workspace Page or Collection Entry
 // opens in its own editor (WorkspacePages); a Collection shows its Entries
@@ -105,63 +107,47 @@ export function Rune2ContextBar() {
       </nav>
       <div className="r2-contextbar-actions">
         {selected?.kind === "collectionEntry" && selected.path.length > 0 && (
-          <>
-            <NewEntryAction collectionId={selected.path[selected.path.length - 1].id} />
-            <span className="r2-contextbar-divider" aria-hidden />
-          </>
+          <NewEntryAction collectionId={selected.path[selected.path.length - 1].id} />
         )}
-        {selected && (trashTypeOf(selected) || isExportable(selected)) && selected.kind !== "workspaceFolder" && (
-          <>
-            <ItemMenu entry={selected} />
-            <span className="r2-contextbar-divider" aria-hidden />
-          </>
-        )}
+        {target?.kind === "scenes" && target.addSceneTo && <AddSceneAction chapterId={target.addSceneTo} />}
         {readFrom !== undefined && manuscript.placedSceneCount > 0 && (
-          <>
-            <button
-              type="button"
-              className="r2-action"
-              onClick={() => openReading({ kind: "manuscript" }, readFrom)}
-              title={
-                selected
-                  ? `Read the manuscript from ${selected.title} — read-only, in a tab of its own`
-                  : "Read the whole manuscript — read-only, in a tab of its own"
-              }
-            >
+          <Tooltip
+            label={selected ? `Read from here — read-only, in a tab of its own` : "Read the manuscript — read-only, in a tab of its own"}
+            describes
+          >
+            <button type="button" className="r2-action" onClick={() => openReading({ kind: "manuscript" }, readFrom)}>
               <BookOpen {...ICON} aria-hidden />
               Read
             </button>
-            <span className="r2-contextbar-divider" aria-hidden />
-          </>
+          </Tooltip>
         )}
-        {target?.kind === "scenes" && target.addSceneTo && (
-          <>
-            <AddSceneAction chapterId={target.addSceneTo} />
-            <span className="r2-contextbar-divider" aria-hidden />
-          </>
+        {selected && (trashTypeOf(selected) || isExportable(selected)) && selected.kind !== "workspaceFolder" && (
+          <ItemMenu entry={selected} />
         )}
-        <button
-          type="button"
-          className="r2-action"
-          data-panel-action="notes"
-          aria-pressed={panel === "notes"}
-          onClick={() => togglePanel("notes")}
-          title={panel === "notes" ? "Close revision notes" : "Revision notes for what you’re looking at"}
-        >
-          <StickyNote {...ICON} aria-hidden />
-          Revision Notes
-        </button>
-        <button
-          type="button"
-          className="r2-action r2-action--icon"
-          data-panel-action="inspector"
-          aria-pressed={panel === "inspector"}
-          aria-label="Inspector"
-          onClick={() => togglePanel("inspector")}
-          title={panel === "inspector" ? "Close inspector" : "Inspector"}
-        >
-          <PanelRight {...ICON} aria-hidden />
-        </button>
+        <span className="r2-contextbar-panel">
+          <button
+            type="button"
+            className="r2-action"
+            data-panel-action="notes"
+            aria-pressed={panel === "notes"}
+            onClick={() => togglePanel("notes")}
+          >
+            <StickyNote {...ICON} aria-hidden />
+            Revision Notes
+          </button>
+          <Tooltip label={panel === "inspector" ? "Close inspector" : "Inspector"}>
+            <button
+              type="button"
+              className="r2-action r2-action--icon"
+              data-panel-action="inspector"
+              aria-pressed={panel === "inspector"}
+              aria-label="Inspector"
+              onClick={() => togglePanel("inspector")}
+            >
+              <PanelRight {...ICON} aria-hidden />
+            </button>
+          </Tooltip>
+        </span>
       </div>
     </header>
   );
@@ -221,20 +207,21 @@ function ItemMenu({ entry }: { entry: NavEntry }) {
           {notice}
         </span>
       )}
-      <button
-        type="button"
-        className="r2-action r2-action--icon"
-        aria-label={`${entry.title} actions`}
-        aria-haspopup="menu"
-        title="More"
-        disabled={busy}
-        onClick={(e) => {
-          const r = e.currentTarget.getBoundingClientRect();
-          setAt({ x: r.right - 180, y: r.bottom + 4 });
-        }}
-      >
-        <MoreHorizontal {...ICON} aria-hidden />
-      </button>
+      <Tooltip label="More">
+        <button
+          type="button"
+          className="r2-action r2-action--icon"
+          aria-label={`${entry.title} actions`}
+          aria-haspopup="menu"
+          disabled={busy}
+          onClick={(e) => {
+            const r = e.currentTarget.getBoundingClientRect();
+            setAt({ x: r.right - 180, y: r.bottom + 4 });
+          }}
+        >
+          <MoreHorizontal {...ICON} aria-hidden />
+        </button>
+      </Tooltip>
       {at && (
         <NavigatorMenu
           label={`${entry.title} actions`}
@@ -306,16 +293,12 @@ function AddSceneAction({ chapterId }: { chapterId: string }) {
           {notice}
         </span>
       )}
-      <button
-        type="button"
-        className="r2-action"
-        disabled={busy}
-        onClick={() => void add()}
-        title={`Add a scene to the end of ${index.get(chapterId)?.title ?? "this chapter"}`}
-      >
-        <Plus {...ICON} aria-hidden />
-        Scene
-      </button>
+      <Tooltip label={`Add a scene to the end of ${index.get(chapterId)?.title ?? "this chapter"}`} describes>
+        <button type="button" className="r2-action" disabled={busy} onClick={() => void add()}>
+          <Plus {...ICON} aria-hidden />
+          Scene
+        </button>
+      </Tooltip>
     </>
   );
 }

@@ -106,6 +106,15 @@ type Rune2SelectionValue = {
   /** Whether the navigator is retracted — presentation state only. */
   navCollapsed: boolean;
   toggleNav: () => void;
+  setNavCollapsed: (collapsed: boolean) => void;
+  /**
+   * The navigator's and the panel's widths when the writer has dragged them
+   * (null: the shell's default). Session-local, like everything here.
+   */
+  navWidth: number | null;
+  setNavWidth: (width: number | null) => void;
+  panelWidth: number | null;
+  setPanelWidth: (width: number | null) => void;
   /** The one right-hand panel's view, or null when it is closed. */
   panel: PanelView | null;
   /** Opens the panel on a view, switches it, or — for the view showing — closes it. */
@@ -156,6 +165,8 @@ export function Rune2SelectionProvider({
   const [focusSceneId, requestSceneFocus] = useState<string | null>(null);
   const [panel, setPanel] = useState<PanelView | null>(null);
   const [navCollapsed, setNavCollapsed] = useState(false);
+  const [navWidth, setNavWidth] = useState<number | null>(null);
+  const [panelWidth, setPanelWidth] = useState<number | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [trashOpen, setTrashOpen] = useState(false);
   const [readingJump, setReadingJump] = useState<{ key: string; anchor: string } | null>(null);
@@ -291,6 +302,11 @@ export function Rune2SelectionProvider({
       setRenamedTitle,
       navCollapsed,
       toggleNav,
+      setNavCollapsed,
+      navWidth,
+      setNavWidth,
+      panelWidth,
+      setPanelWidth,
       panel,
       togglePanel,
       closePanel,
@@ -328,6 +344,8 @@ export function Rune2SelectionProvider({
       setRenamedTitle,
       navCollapsed,
       toggleNav,
+      navWidth,
+      panelWidth,
       panel,
       togglePanel,
       closePanel,

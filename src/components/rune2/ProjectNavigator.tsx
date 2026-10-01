@@ -39,6 +39,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { ICON, ICON_SM_BOLD } from "./icons";
+import { Tooltip } from "./Tooltip";
 import { createChapter, removeChapterKeepScenes, updateChapter } from "@/lib/actions/chapters";
 import { createScene, createUnplacedScene, moveSceneToUnplaced, placeScene, renameScene } from "@/lib/actions/scenes";
 import { createGroup, deleteGroup, moveChapter, moveGroup, renameGroup } from "@/lib/actions/structure";
@@ -1192,25 +1193,22 @@ export function ProjectNavigator() {
         <span className="r2-nav-project" title={manuscript.project.title}>
           {manuscript.project.title}
         </span>
-        <button
-          type="button"
-          className="r2-icon-button r2-nav-search"
-          aria-label="Search this project"
-          aria-keyshortcuts="Meta+K Control+K"
-          title="Search"
-          onClick={() => setSearchOpen(true)}
-        >
-          <Search {...ICON} aria-hidden />
-        </button>
-        <button
-          type="button"
-          className="r2-icon-button r2-nav-toggle"
-          aria-label="Hide navigator"
-          title="Hide navigator"
-          onClick={toggleNav}
-        >
-          <PanelLeft {...ICON} aria-hidden />
-        </button>
+        <Tooltip label={<>Search <kbd>⌘K</kbd></>}>
+          <button
+            type="button"
+            className="r2-icon-button r2-nav-search"
+            aria-label="Search this project"
+            aria-keyshortcuts="Meta+K Control+K"
+            onClick={() => setSearchOpen(true)}
+          >
+            <Search {...ICON} aria-hidden />
+          </button>
+        </Tooltip>
+        <Tooltip label="Hide navigator">
+          <button type="button" className="r2-icon-button r2-nav-toggle" aria-label="Hide navigator" onClick={toggleNav}>
+            <PanelLeft {...ICON} aria-hidden />
+          </button>
+        </Tooltip>
       </div>
       <div className="r2-nav-progress" data-active={busy || refreshing || undefined} aria-hidden />
 
@@ -1365,10 +1363,10 @@ export function ProjectNavigator() {
 
 // ── Rows ──────────────────────────────────────────────────────────────────
 
-/** Nested rows, with a hairline guide under the parent's disclosure control. */
-function Children({ depth, children }: { depth: number; children: ReactNode }) {
+/** Nested rows: indentation alone says where they belong (no tree lines). */
+function Children({ children }: { depth: number; children: ReactNode }) {
   return (
-    <ul role="list" className="r2-children" style={{ "--r2-guide": `${BASE_PAD + depth * INDENT + 8}px` } as CSSProperties}>
+    <ul role="list" className="r2-children">
       {children}
     </ul>
   );
@@ -1474,16 +1472,17 @@ function RowActions({
         </button>
       )}
       {onAdd && (
-        <button
-          type="button"
-          tabIndex={-1}
-          className="r2-row-action"
-          aria-label={addLabel}
-          title={addLabel}
-          onClick={(e) => onAdd(pointBelow(e.currentTarget))}
-        >
-          <Plus {...ICON} aria-hidden />
-        </button>
+        <Tooltip label={addLabel}>
+          <button
+            type="button"
+            tabIndex={-1}
+            className="r2-row-action"
+            aria-label={addLabel}
+            onClick={(e) => onAdd(pointBelow(e.currentTarget))}
+          >
+            <Plus {...ICON} aria-hidden />
+          </button>
+        </Tooltip>
       )}
     </span>
   );
