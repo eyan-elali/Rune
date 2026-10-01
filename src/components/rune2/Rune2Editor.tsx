@@ -12,6 +12,7 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 import { useSceneEditor, type DisplaySyncStatus } from "@/components/editor/useSceneEditor";
+import { DocStatus } from "./DocStatus";
 import { SyncConflictModal } from "@/components/editor/SyncConflictModal";
 import { useNetworkStore } from "@/store/networkStore";
 import type { Scene } from "@/lib/types";
@@ -200,7 +201,7 @@ export default function Rune2Editor({
       </article>
 
       {shown.length > 0 && (
-        <div className="r2-doc-status" aria-live="polite">
+        <DocStatus>
           <span className="tabular-nums">
             {words.toLocaleString()} {words === 1 ? "word" : "words"}
           </span>
@@ -221,7 +222,7 @@ export default function Rune2Editor({
               {statusLabel}
             </span>
           )}
-        </div>
+        </DocStatus>
       )}
     </div>
   );

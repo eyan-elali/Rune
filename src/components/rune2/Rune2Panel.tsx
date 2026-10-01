@@ -27,16 +27,22 @@ import { useRevisionNotes } from "./RevisionNoteStore";
 import { useRune2Selection, type PanelView } from "./Rune2Selection";
 import { useViewStore } from "./ViewStore";
 
-// The one optional right-hand panel. Revision Notes and Inspector are separate actions
-// in the context bar, but they share this single physical panel: choosing one
-// shows it here, choosing the other switches views, choosing the view showing
-// closes the panel. It is a column of the shell, beside — never over — the
-// content, so the content simply narrows (see .r2-shell in rune2.css), and it
-// sits outside the content's subtree, so opening, switching or closing it
+// The one contextual panel: a single shell for both contextual side surfaces.
+// Revision Notes and Inspector are separate actions in the context bar, but
+// they share this one physical panel: choosing one shows it here, choosing
+// the other switches views (same geometry, same place — only the contents
+// change), choosing the view showing closes the panel. Only one can be open.
+//
+// It lives in the content column's body zone (Rune2Shell): under the tab
+// band and context bar, beside the content, above the document status — so
+// opening it moves neither of those. On wide screens it is an inset side
+// sheet beside the content; at medium and narrow widths it lies over the
+// content's right edge instead (rune2.css decides by width, never by view).
+// It sits outside the editors' subtree, so opening, switching or closing it
 // never remounts an editor.
 //
-// The column is always in the tree: opening and closing animate its width
-// (rune2.css), so the manuscript column widens and narrows in one calm
+// The panel is always in the tree: opening and closing animate its width
+// (rune2.css), so the content beside it widens and narrows in one calm
 // movement rather than jumping. The view's content is mounted while the
 // panel is open and kept through the closing movement, then let go.
 

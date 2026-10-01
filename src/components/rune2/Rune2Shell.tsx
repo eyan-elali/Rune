@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 import type { ProjectManuscript } from "@/lib/rune2/projectManuscript";
 import type { ProjectWorkspace } from "@/lib/rune2/projectWorkspace";
+import { StatusSlotProvider } from "./DocStatus";
 import { ProjectNavigator } from "./ProjectNavigator";
 import { Rune2ContextBar, Rune2SelectionView } from "./Rune2Content";
 import { Rune2Panel } from "./Rune2Panel";
@@ -18,12 +19,16 @@ import { TrashProvider, TrashView } from "./WorkspaceTrash";
 import { useWritingChrome } from "./useWritingChrome";
 
 // The Rune 2.0 application shell:
-//   navigator | (working-set tabs, context bar, content) | optional panel
-// The navigator and the panel are columns beside the content, never over it,
-// and both stay in the tree whether open or retracted: retracting either
-// only changes its width, so the content column simply widens or narrows and
-// its editors are never remounted. While the writer is typing, the shell
-// carries `data-writing` (useWritingChrome) and the top chrome fades in place.
+//   navigator | (working-set tabs, context bar, [content | panel], status)
+// The navigator is a column beside the content. The contextual panel
+// (Inspector or Revision Notes — one shell, Rune2Panel) sits inside the
+// content column's body: under the tab band and the context bar, beside the
+// content and above the document status, so opening it moves neither the
+// chrome above nor the status below. Both side surfaces stay in the tree
+// whether open or retracted: retracting either only changes its width, so
+// the content simply widens or narrows and its editors are never remounted.
+// While the writer is typing, the shell carries `data-writing`
+// (useWritingChrome) and the top chrome fades in place.
 //
 // Both side columns can be dragged wider or narrower (Resizer): the widths are
 // session-local presentation state (Rune2Selection) and reach the CSS as the
@@ -33,15 +38,15 @@ import { useWritingChrome } from "./useWritingChrome";
 // The content has priority. Below NARROW_PX the navigator no longer takes a
 // column of its own: it retracts once as the window gets that narrow, and
 // when the writer opens it again it lies over the content's left edge (as the
-// panel already does over the right, rune2.css) and retracts again on a
-// press outside it. The shell carries `data-narrow` meanwhile.
+// panel does over the right at medium widths, rune2.css) and retracts again
+// on a press outside it. The shell carries `data-narrow` meanwhile.
 //
 // Trash (a project-level utility, not an object) takes the content column's
 // place while it is open: the selection's layer — tabs, context bar and every
 // mounted editor — stays in the tree exactly as it was, but is hidden and
 // inert (visibility, not unmounting, so editors, unsaved writing and scroll
-// positions are kept), and the right-hand panel, which belongs to that
-// selection, is hidden with it. Closing Trash shows the layer again.
+// positions are kept) along with the panel and status inside it, which
+// belong to that selection. Closing Trash shows the layer again.
 
 export const NAV_DEFAULT = 252;
 export const NAV_MIN = 200;
@@ -82,6 +87,8 @@ function Frame({ children }: { children: ReactNode }) {
   const { navCollapsed, setNavCollapsed, navWidth, setNavWidth, trashOpen, panel } = useRune2Selection();
   const root = useRef<HTMLDivElement>(null);
   const [resizing, setResizing] = useState(false);
+  // Where the writing surfaces' document status is carried to (DocStatus).
+  const [statusSlot, setStatusSlot] = useState<HTMLDivElement | null>(null);
   const narrow = useNarrow();
   useWritingChrome(root);
 
@@ -137,14 +144,23 @@ function Frame({ children }: { children: ReactNode }) {
         <div className="r2-content-layer" inert={trashOpen || undefined} aria-hidden={trashOpen || undefined}>
           <Rune2Tabs />
           <Rune2ContextBar />
-          <main className="r2-main min-h-0 flex-1 overflow-y-auto">
-            <Rune2SelectionView>{children}</Rune2SelectionView>
-          </main>
+          {/* The body: the content, the contextual panel beside it, and the
+              document status at the foot. The panel occupies only this
+              middle zone — under the tab band and context bar, above the
+              status — so neither of those moves when it opens. */}
+          <div className="r2-body">
+            <StatusSlotProvider slot={statusSlot}>
+              <main className="r2-main min-h-0 flex-1 overflow-y-auto">
+                <Rune2SelectionView>{children}</Rune2SelectionView>
+              </main>
+            </StatusSlotProvider>
+            <Rune2Panel resizer={panel ? <PanelResizer onResizing={setResizing} /> : null} />
+            <div ref={setStatusSlot} className="r2-status" />
+          </div>
         </div>
         {trashOpen && <TrashView />}
       </div>
 
-      <Rune2Panel resizer={panel ? <PanelResizer onResizing={setResizing} /> : null} />
       <ProjectSearch />
       <ProjectExportDialogs />
     </div>

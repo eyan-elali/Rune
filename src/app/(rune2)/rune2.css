@@ -91,6 +91,9 @@
   --r2-shadow-pop: 0 1px 2px rgba(var(--r2-palette-shadow) / 0.05), 0 8px 24px rgba(var(--r2-palette-shadow) / 0.08);
   --r2-shadow-lg: 0 18px 48px rgba(var(--r2-palette-shadow) / 0.1);
   --r2-ring: 0 0 0 1px var(--r2-border); /* a floating surface's edge */
+  /* An inset side sheet's left edge: a whisper of a line and the faintest
+     fall of shadow toward the content — never a card's outline. */
+  --r2-shadow-sheet: -1px 0 0 rgba(var(--r2-palette-ink) / 0.05), -12px 0 28px -14px rgba(var(--r2-palette-shadow) / 0.1);
 
   /* ── Radius: modest; a surface is not rounded unless it is a thing ── */
   --r2-radius-xs: 3px; /* checkbox, inline code, marks */
@@ -636,6 +639,7 @@ button.r2-chip:focus-visible {
 .r2-shell {
   --r2-bar: 44px; /* the top band of every column */
   --r2-context-bar: 38px; /* the breadcrumb row under the tabs */
+  --r2-status-zone: 40px; /* the foot of the content column: the document status */
   --r2-gutter: var(--r2-space-7); /* the content column's inner edge */
   --r2-nav-full: 252px; /* the navigator's width (dragged: set inline) */
   --r2-panel-width: 320px; /* the panel's width (dragged: set inline) */
@@ -644,8 +648,9 @@ button.r2-chip:focus-visible {
   --r2-resizer: 8px; /* the pointer zone on a column's edge */
   position: relative;
   display: grid;
-  /* navigator | content | panel — the side columns size themselves and retract to 0 */
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  /* navigator | content — the navigator sizes itself and retracts to 0; the
+     contextual panel lives inside the content column (see .r2-body) */
+  grid-template-columns: auto minmax(0, 1fr);
   height: 100dvh;
   overflow: hidden;
   background: var(--r2-shell-bg);
@@ -689,9 +694,27 @@ button.r2-chip:focus-visible {
 .r2-shell[data-trash] .r2-content-layer {
   visibility: hidden;
 }
-/* The right-hand panel belongs to the selection: hidden with it. */
-.r2-shell[data-trash] .r2-panel {
-  display: none;
+
+/* ── The three vertical zones ──────────────────────────────────────────
+   The content column reads, top to bottom: the tab band and the context
+   bar; the body; the document status. The body holds the content and, beside
+   it, the contextual panel (Inspector or Revision Notes — one shell,
+   .r2-panel), which occupies this middle zone only: it begins under the
+   context bar's actions and stops above the status, so opening it moves
+   neither. The status zone is reserved whether or not a surface fills it, so
+   the panel's foot and the status never collide and nothing shifts between
+   one kind of content and the next. This is geometry, not decoration: no
+   zone is drawn. */
+.r2-body {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  padding-bottom: var(--r2-status-zone);
+}
+.r2-body > .r2-main {
+  flex: 1;
+  min-width: 0;
 }
 
 /* ── Column edges: resize ──────────────────────────────────────────────
@@ -751,8 +774,7 @@ button.r2-chip:focus-visible {
 }
 .r2-shell[data-resizing] .r2-nav-column,
 .r2-shell[data-resizing] .r2-panel,
-.r2-shell[data-resizing] .r2-doc,
-.r2-shell[data-resizing] .r2-doc-status {
+.r2-shell[data-resizing] .r2-doc {
   transition: none;
 }
 
@@ -1139,15 +1161,16 @@ button.r2-disclosure:hover {
 /* ── Working-set tabs ──────────────────────────────────────────────────── */
 /* The topmost band of the content column: part of the application frame, in
    the shell tone, always present (one tab or many). Rune tabs, not a
-   browser's: thin, quiet text at rest; the active one is a slim surface in
-   the content tone — the same surface as the page below — with a hairline
-   edge and nothing else. The close control folds away until the tab is
-   reached for. Overflow scrolls sideways, never a second row. */
+   browser's: quiet text at rest, parted by the faintest hairline; the active
+   one is the full height of the band, square but for a touch of softening at
+   its top corners, in the content tone — it reaches down over the band's
+   hairline and becomes the page below it, with no edge or shadow of its own.
+   The close control folds away until the tab is reached for. Overflow scrolls
+   sideways, never a second row. */
 
 .r2-tabs {
   display: flex;
-  align-items: center;
-  gap: var(--r2-space-2);
+  align-items: stretch;
   flex-shrink: 0;
   height: var(--r2-bar);
   padding: 0 var(--r2-space-4) 0 var(--r2-space-5);
@@ -1158,14 +1181,17 @@ button.r2-disclosure:hover {
 }
 .r2-tabs-nav-toggle {
   flex-shrink: 0;
-  margin-right: var(--r2-space-2);
+  align-self: center;
+  margin-right: var(--r2-space-3);
 }
+/* The band's full height, one pixel over its hairline: the active tab's
+   surface covers the line and continues into the content. */
 .r2-tabs ul {
   display: flex;
-  align-items: center;
-  gap: var(--r2-space-1);
+  align-items: stretch;
   min-width: 0;
-  height: var(--r2-control-md);
+  height: var(--r2-bar);
+  margin-bottom: -1px;
   overflow-x: auto;
   scrollbar-width: none;
 }
@@ -1178,12 +1204,30 @@ button.r2-disclosure:hover {
   align-items: center;
   flex-shrink: 0;
   max-width: 220px;
-  height: var(--r2-control-md);
-  border-radius: var(--r2-radius);
+  border-radius: var(--r2-radius-xs) var(--r2-radius-xs) 0 0;
   font-size: var(--r2-fs-ui);
   color: var(--r2-ink-2);
-  transition: background-color var(--r2-medium) var(--r2-ease), color var(--r2-medium) var(--r2-ease),
-    box-shadow var(--r2-medium) var(--r2-ease);
+  transition: background-color var(--r2-medium) var(--r2-ease), color var(--r2-medium) var(--r2-ease);
+}
+/* Between two tabs at rest, a short hairline; it steps aside for the active
+   tab and for a tab being reached for. */
+.r2-tab + .r2-tab::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 1px;
+  height: 14px;
+  margin-top: -7px;
+  background: var(--r2-border);
+  pointer-events: none;
+  transition: opacity var(--r2-fast) var(--r2-ease);
+}
+.r2-tab[data-active]::before,
+.r2-tab[data-active] + .r2-tab::before,
+.r2-tab:hover::before,
+.r2-tab:hover + .r2-tab::before {
+  opacity: 0;
 }
 .r2-tab:hover {
   color: var(--r2-ink-1);
@@ -1193,7 +1237,6 @@ button.r2-disclosure:hover {
 .r2-tab[data-active]:hover {
   color: var(--r2-ink-1);
   background: var(--r2-bg);
-  box-shadow: var(--r2-ring);
 }
 .r2-tab-main {
   display: flex;
@@ -1202,7 +1245,7 @@ button.r2-disclosure:hover {
   min-width: 0;
   height: 100%;
   padding: 0 var(--r2-space-2) 0 var(--r2-space-5);
-  border-radius: var(--r2-radius);
+  border-radius: inherit;
   white-space: nowrap;
 }
 .r2-tab:not(:hover):not([data-active]) .r2-tab-main {
@@ -1480,35 +1523,43 @@ button.r2-disclosure:hover {
   opacity: 0.6;
 }
 
-/* ── Right-hand panel ──────────────────────────────────────────────────── */
-/* One panel, beside the content (never over it at desktop widths), in the
-   panel tone behind a hairline. Revision Notes and Inspector are views of
-   it. A contextual utility surface, not a second sidebar: one small header,
-   then sections parted by hairlines and space — never boxes or cards. */
+/* ── Contextual panel ──────────────────────────────────────────────────── */
+/* One shell for both contextual side surfaces: Revision Notes and Inspector
+   are views of it, and switching between them changes what the one region
+   holds — same geometry, same movement. On wide screens it is an inset side
+   sheet: flush against the viewport's right edge, in the body zone only
+   (under the context bar, above the status; see .r2-body), its exposed
+   left corners softened, set apart from the content by tone and the
+   faintest left edge (--r2-shadow-sheet) — a refined side sheet, not a card
+   and not a second sidebar. Inside: one small header, then sections parted
+   by hairlines and space — never boxes. */
 
 /* Always in the tree; open and closed differ only in width. The inner column
    keeps the panel's full width and is clipped, so its content never reflows
-   as the panel moves, and the manuscript column takes the space in the same
-   movement. Open, the content fades in just behind the movement; closing,
-   it fades a little ahead of it. */
+   as the panel moves: the sheet reveals from the right edge and settles.
+   Beside it the content takes the space in the same movement, and the
+   writing column holds its place as long as it fits (.r2-doc). Open, the
+   content fades in just behind the movement; closing, it fades a little
+   ahead of it. */
 .r2-panel {
-  grid-column: 3;
   position: relative;
+  flex-shrink: 0;
   width: 0;
   min-height: 0;
   overflow: hidden;
-  border-left: 1px solid transparent;
+  /* Flush with the viewport's right edge; only the exposed corners soften. */
+  border-radius: var(--r2-radius-lg) 0 0 var(--r2-radius-lg);
   background: var(--r2-panel-bg);
   font-size: var(--r2-fs-ui);
-  transition: width var(--r2-frame) var(--r2-ease-frame), border-color var(--r2-frame) var(--r2-ease-frame);
+  transition: width var(--r2-frame) var(--r2-ease-frame), box-shadow var(--r2-frame) var(--r2-ease-frame);
 }
 .r2-panel[data-open] {
   width: var(--r2-panel-width);
-  border-left-color: var(--r2-border);
+  box-shadow: var(--r2-shadow-sheet);
 }
-/* Closed, it leaves nothing behind — not even its hairline. */
+/* Closed, it leaves nothing behind — not even its edge. */
 .r2-panel:not([data-open]) {
-  border-left-width: 0;
+  box-shadow: none;
 }
 .r2-panel-inner {
   display: flex;
@@ -1759,11 +1810,16 @@ button.r2-disclosure:hover {
 }
 
 /* ── Width: the content keeps priority ────────────────────────────────── */
-/* Three columns only while all three are usable. As the window narrows the
-   panel slims, then lies over the content's right edge; narrower still, the
-   navigator does the same on the left (Rune2Shell retracts it once as the
-   window gets there, and the writer reopens it over the content). The
-   manuscript never gets squeezed between the two. */
+/* The panel's treatment follows the room there is, never which feature it
+   shows. Wide: an inset side sheet beside the content, in the peripheral
+   space to the right of the writing column (which stays where it is as long
+   as it fits — .r2-doc). Medium: the same sheet, slimmer, still beside the
+   content. Narrower: it lies over the content's right edge instead, keeping
+   the same zone (under the context bar, above the status) and a shadow to
+   stand on the content; narrower still, the navigator does the same on the
+   left (Rune2Shell retracts it once as the window gets there, and the writer
+   reopens it over the content). The manuscript never gets squeezed between
+   the two. */
 @media (max-width: 1200px) {
   .r2-shell {
     --r2-panel-width: 288px;
@@ -1774,11 +1830,11 @@ button.r2-disclosure:hover {
     position: absolute;
     top: 0;
     right: 0;
-    bottom: 0;
+    bottom: var(--r2-status-zone);
     z-index: 20;
   }
   .r2-panel[data-open] {
-    box-shadow: var(--r2-shadow-pop);
+    box-shadow: var(--r2-shadow-pop), var(--r2-shadow-sheet);
   }
 }
 .r2-shell[data-narrow] {
@@ -1974,30 +2030,37 @@ button.r2-disclosure:hover {
   min-height: 1.6em;
 }
 
-/* Word count and save state: present, never asking for attention. It belongs
-   to the writing, so it keeps the writing column's own geometry — the same
-   offset and width as .r2-doc, its text ending at the prose's right edge —
-   and stays exactly where it is when the panel opens or closes (the column
-   moves only when it must, and the status moves with it). It sits at the foot
-   of the scrolling area on a short fade of the writing surface, so prose
-   passes under it rather than through it. */
-.r2-doc-status {
-  position: sticky;
+/* Word count and save state: present, never asking for attention. It is the
+   shell's persistent document status, not the panel's metadata: the writing
+   surface says what it reads (DocStatus), and the shell places it in the
+   status zone at the foot of the content column, ending at the column's
+   right edge — the same place whether the contextual panel is closed or
+   showing either view, since the panel stops above this zone. The zone is
+   outside the scrolling area, so nothing passes under the status. */
+.r2-status {
+  position: absolute;
+  right: 0;
   bottom: 0;
+  left: 0;
+  z-index: 10;
+  display: flex;
+  justify-content: flex-end;
+  align-items: flex-end;
+  height: var(--r2-status-zone);
+  padding: 0 var(--r2-gutter) var(--r2-space-5);
+  pointer-events: none;
+}
+.r2-doc-status {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
   align-items: baseline;
   gap: var(--r2-space-3);
-  width: min(100%, var(--r2-doc-width));
-  margin-left: var(--r2-doc-offset);
-  padding: var(--r2-space-6) var(--r2-doc-gutter) var(--r2-space-5);
-  background: linear-gradient(to top, var(--r2-prose-bg) 55%, transparent);
+  max-width: 100%;
   font-size: var(--r2-fs-caption);
+  line-height: var(--r2-lh-tight);
   text-align: right;
   color: var(--r2-ink-3);
-  pointer-events: none;
-  transition: margin-left var(--r2-frame) var(--r2-ease-frame);
 }
 .r2-doc-status [data-tone="offline"] {
   color: var(--r2-muted);

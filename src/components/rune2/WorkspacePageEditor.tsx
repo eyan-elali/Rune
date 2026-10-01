@@ -10,6 +10,7 @@ import { openableId, type ObjectRef } from "@/lib/rune2/references";
 import { holdsUnknownContent, inlineReferences, sameTargets, type InlineTarget } from "@/lib/rune2/workspaceDocument";
 import type { PageSaveStatus } from "@/lib/rune2/workspacePageSaver";
 import { useNetworkStore } from "@/store/networkStore";
+import { DocStatus } from "./DocStatus";
 import { EntryProperties } from "./PropertyFields";
 import { useReferenceStore } from "./ReferenceStore";
 import { useRune2Selection } from "./Rune2Selection";
@@ -233,7 +234,7 @@ export default function WorkspacePageEditor({ entry, session }: { entry: NavEntr
         )}
       </article>
 
-      <div className="r2-doc-status" aria-live="polite">
+      <DocStatus>
         {unreadable ? (
           <span className="r2-page-conflict" role="alert">
             This {doc.noun} holds something this version of Rune can’t show, so it’s read-only here. Reload to edit it.
@@ -269,7 +270,7 @@ export default function WorkspacePageEditor({ entry, session }: { entry: NavEntr
         ) : (
           <span data-tone={status === "retrying" || !isOnline ? "offline" : undefined}>{statusLabel}</span>
         )}
-      </div>
+      </DocStatus>
     </div>
   );
 }
