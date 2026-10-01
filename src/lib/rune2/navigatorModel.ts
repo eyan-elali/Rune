@@ -68,6 +68,8 @@ export type NavEntry = {
   childCount: number;
   /** A Chapter's placed Scenes, in order (Chapters only). */
   sceneIds?: string[];
+  /** A Scene's stored version (Scenes only): what a reading anchor was taken against. */
+  version?: number;
   /** A Collection's Entries, in list order (Collections only). */
   entryIds?: string[];
 };
@@ -193,6 +195,7 @@ export function indexManuscript(
           named: sceneIsNamed(rawScene),
           ordinal: at + 1,
           words: scene.word_count,
+          version: scene.version,
           path: scenePath,
           childCount: 0,
         });
@@ -211,6 +214,7 @@ export function indexManuscript(
       named: sceneIsNamed(raw),
       ordinal: at + 1,
       words: scene.word_count,
+      version: scene.version,
       path: [],
       childCount: 0,
     });

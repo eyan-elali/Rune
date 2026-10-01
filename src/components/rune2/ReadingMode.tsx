@@ -1,9 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { BookOpen, ListTree, Maximize2, Minimize2, PenLine, StickyNote, X } from "lucide-react";
-import { ICON, ICON_SM } from "./icons";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { BookOpen, Check, ListTree, Maximize2, MessageSquare, MessageSquareOff, Minimize2, PenLine, StickyNote, X } from "lucide-react";
+import { ICON, ICON_SM, ICON_SM_BOLD } from "./icons";
 import { Tooltip } from "./Tooltip";
+import { anchorExcerpt, locateAnchor, makeAnchor, type NoteAnchor } from "@/lib/rune2/noteAnchors";
+import { rangeBox, rangeFor, readPlain, selectionOffsets, setActiveHighlight } from "./readingAnchors";
+import { useRevisionNotePrefs } from "./revisionNotePrefs";
+import type { ShownNote } from "@/lib/rune2/revisionNoteSync";
 import { getReadingScenes, getReadingVersions } from "@/lib/actions/reading";
 import { getCachedScene, getPendingWrite } from "@/lib/offline/db";
 import { isSceneView } from "@/lib/rune2/collectionViews";
@@ -57,7 +61,15 @@ import { useViewStore } from "./ViewStore";
 //     panel. There is no reading note: they appear at once in that Scene's,
 //     its Chapter's, its Groups' and the Manuscript's Revision Notes. Scenes
 //     with notes carry a quiet mark;
-//   * a margin "Edit" leaves the reader and opens the Scene in the editor.
+//   * a margin "Edit" leaves the reader and opens the Scene in the editor;
+//   * selecting a passage of the text offers "Add revision note": the note it
+//     makes is an ordinary Scene note that remembers the passage (an anchor,
+//     noteAnchors.ts — never a mark in the prose). Anchored notes show as
+//     quiet markers in the right margin beside their passage (Annotations);
+//     a marker opens the note in a small card, with the passage softly lit
+//     (the CSS highlight API: nothing in the document changes), where it can
+//     be resolved; a passage that can no longer be found keeps its note, at
+//     the Scene's head, saying so. The markers can be hidden and shown.
 //
 // One instance is kept across the two stages, so the text read and the place
 // reached carry over; only the surface around it changes.
@@ -181,6 +193,14 @@ export function ReadingMode({ source, mode }: { source: ReadingSource; mode: Mod
   const [added, setAdded] = useState(0);
   const [railOpen, setRailOpen] = useState(true);
   const [at, setAt] = useState(-1);
+  const { items: anchorable } = useRevisionNotes();
+  const { annotations, setAnnotations, showResolved } = useRevisionNotePrefs();
+  // An anchored note open in its card, and a passage selected for a new note.
+  const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
+  const [draft, setDraft] = useState<AnchorDraft | null>(null);
+  // Bumped whenever the text's layout may have moved: markers measure again.
+  const [layoutTick, setLayoutTick] = useState(0);
+  const innerRef = useRef<HTMLDivElement>(null);
 
   const rootRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
@@ -239,17 +259,21 @@ export function ReadingMode({ source, mode }: { source: ReadingSource; mode: Mod
     return tops.current;
   }, []);
 
+  // The text's layout moved (a resize, text arriving): block offsets are
+  // measured again when next needed, and the annotations measure again.
+  const onLayout = useCallback(() => {
+    tops.current = null;
+    setLayoutTick((n) => n + 1);
+  }, []);
   useEffect(() => {
     const body = bodyRef.current;
     const doc = body?.querySelector(".r2-reader-inner");
     if (!body || !doc) return;
-    const observer = new ResizeObserver(() => {
-      tops.current = null;
-    });
+    const observer = new ResizeObserver(onLayout);
     observer.observe(doc);
     observer.observe(body);
     return () => observer.disconnect();
-  }, [ready]);
+  }, [ready, onLayout]);
 
   /** The reading line: a quarter of the way down the text. */
   const line = () => (bodyRef.current?.clientHeight ?? 0) * 0.25;
@@ -304,6 +328,7 @@ export function ReadingMode({ source, mode }: { source: ReadingSource; mode: Mod
       placed.current = true;
       if (readingJump?.key === key) {
         go(readingJump.anchor, false);
+        if (readingJump.noteId) setActiveNoteId(readingJump.noteId);
         clearReadingJump();
       } else {
         const position = readingPositionOf(key);
@@ -317,9 +342,26 @@ export function ReadingMode({ source, mode }: { source: ReadingSource; mode: Mod
   // A later "Read from here" while the reader is already open.
   useEffect(() => {
     if (!ready || !placed.current || readingJump?.key !== key) return;
-    go(readingJump.anchor, false);
-    clearReadingJump();
+    const { anchor, noteId } = readingJump;
+    const frameId = requestAnimationFrame(() => {
+      go(anchor, false);
+      if (noteId) setActiveNoteId(noteId);
+      clearReadingJump();
+    });
+    return () => cancelAnimationFrame(frameId);
   }, [ready, readingJump, key, go, clearReadingJump]);
+
+  // The anchored notes of the Scenes read here (the done ones only on request).
+  const anchored = useMemo(() => {
+    if (!anchorable) return [];
+    const inPlan = new Set(plan.sceneIds);
+    return notes.filter((n) => n.anchor && inPlan.has(n.target_id) && (showResolved || !n.resolved));
+  }, [anchorable, notes, plan.sceneIds, showResolved]);
+  /** The Scene version a new anchor is taken against: what was read, else what the structure says. */
+  const versionOf = useCallback(
+    (sceneId: string) => readCache.get(sceneId)?.version ?? index.get(sceneId)?.version ?? 1,
+    [index],
+  );
 
   // Peek ↔ Full: the surface changes shape around the same text, so the
   // reading line is put back on the block it was on once the new layout has
@@ -440,8 +482,13 @@ export function ReadingMode({ source, mode }: { source: ReadingSource; mode: Mod
   // composer clearing its draft, a menu) stops it before it gets here.
   const stepBack = useRef(() => {});
   useEffect(() => {
-    stepBack.current = () => (mode === "full" ? setReadingMode("peek") : closeReading());
-  }, [mode, setReadingMode, closeReading]);
+    stepBack.current = () => {
+      if (draft) setDraft(null);
+      else if (activeNoteId) setActiveNoteId(null);
+      else if (mode === "full") setReadingMode("peek");
+      else closeReading();
+    };
+  }, [mode, setReadingMode, closeReading, draft, activeNoteId]);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape" || e.defaultPrevented) return;
@@ -499,6 +546,20 @@ export function ReadingMode({ source, mode }: { source: ReadingSource; mode: Mod
                 >
                   <StickyNote {...ICON} aria-hidden />
                   Note
+                </button>
+              </Tooltip>
+            )}
+            {anchorable && anchored.length > 0 && (
+              <Tooltip label={annotations ? "Hide annotations" : `Show annotations (${anchored.length})`}>
+                <button
+                  type="button"
+                  className="r2-action r2-action--icon"
+                  aria-pressed={annotations}
+                  aria-label={annotations ? "Hide annotations" : `Show ${anchored.length} annotations`}
+                  onClick={() => setAnnotations(!annotations)}
+                >
+                  {annotations ? <MessageSquare {...ICON} aria-hidden /> : <MessageSquareOff {...ICON} aria-hidden />}
+                  {!annotations && <span className="r2-reader-count">{anchored.length}</span>}
                 </button>
               </Tooltip>
             )}
@@ -602,7 +663,7 @@ export function ReadingMode({ source, mode }: { source: ReadingSource; mode: Mod
             aria-busy={!ready || undefined}
             onScroll={onScroll}
           >
-            <div className="r2-reader-inner">
+            <div ref={innerRef} className="r2-reader-inner">
               {gone ? (
                 <p className="r2-reading-empty r2-reading-opening">This scene view no longer exists.</p>
               ) : !ready ? (
@@ -619,12 +680,297 @@ export function ReadingMode({ source, mode }: { source: ReadingSource; mode: Mod
                     </p>
                   )}
                   {document_}
+                  {anchorable && (
+                    <Annotations
+                      innerRef={innerRef}
+                      notes={annotations ? anchored : []}
+                      activeNoteId={activeNoteId}
+                      onActivate={setActiveNoteId}
+                      layoutTick={layoutTick}
+                      mode={mode}
+                      draft={draft}
+                      onDraft={setDraft}
+                      versionOf={versionOf}
+                      labelOf={(id) => readingLocation(index, id) ?? "this scene"}
+                      onOpenNotes={showNotes}
+                    />
+                  )}
                 </>
               )}
             </div>
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ── Anchored notes ──────────────────────────────────────────────────────────
+
+type AnchorDraft = { sceneId: string; anchor: NoteAnchor; from: number; to: number };
+type Placed = { note: ShownNote; sceneId: string; top: number; bottom: number; range: Range | null; stale: boolean };
+
+/**
+ * The annotation layer over the reading column: a marker in the right margin
+ * for every anchored note whose Scene is on the surface, beside its passage
+ * when it can be found (locateAnchor) and at the Scene's head, dashed, when
+ * it can't; the open note's card; the "Add revision note" offer beside a
+ * selection, and the composer it opens. Everything is measured from the
+ * rendered text and placed absolutely, so the prose never moves or changes.
+ */
+function Annotations({
+  innerRef,
+  notes,
+  activeNoteId,
+  onActivate,
+  layoutTick,
+  mode,
+  draft,
+  onDraft,
+  versionOf,
+  labelOf,
+  onOpenNotes,
+}: {
+  innerRef: RefObject<HTMLDivElement | null>;
+  notes: ShownNote[];
+  activeNoteId: string | null;
+  onActivate: (id: string | null) => void;
+  layoutTick: number;
+  mode: Mode;
+  draft: AnchorDraft | null;
+  onDraft: (d: AnchorDraft | null) => void;
+  versionOf: (sceneId: string) => number;
+  labelOf: (sceneId: string) => string;
+  onOpenNotes: (sceneId: string) => void;
+}) {
+  const { sync } = useRevisionNotes();
+  const [placed, setPlaced] = useState<Placed[]>([]);
+  const [offer, setOffer] = useState<{ sceneId: string; from: number; to: number; top: number; bottom: number; left: number } | null>(null);
+  // The chosen passage's place and range while the composer is open under it.
+  const [draftView, setDraftView] = useState<{ top: number; bottom: number; range: Range | null } | null>(null);
+
+  /** The rendered text of a Scene on the surface. */
+  const sceneRoot = useCallback(
+    (sceneId: string) =>
+      innerRef.current?.querySelector<HTMLElement>(`[data-scene="${CSS.escape(sceneId)}"] .r2-snapshot .ProseMirror`) ?? null,
+    [innerRef],
+  );
+
+  // Where each note's passage is now: measured after every change of notes, text or layout.
+  useLayoutEffect(() => {
+    const inner = innerRef.current;
+    if (!inner) return;
+    const byScene = new Map<string, ShownNote[]>();
+    for (const n of notes) byScene.set(n.target_id, [...(byScene.get(n.target_id) ?? []), n]);
+    const out: Placed[] = [];
+    for (const [sceneId, list] of byScene) {
+      const section = inner.querySelector<HTMLElement>(`[data-scene="${CSS.escape(sceneId)}"]`);
+      if (!section) continue;
+      const root = sceneRoot(sceneId);
+      const plain = root ? readPlain(root) : null;
+      const head = section.getBoundingClientRect().top - inner.getBoundingClientRect().top;
+      for (const note of list) {
+        const match = plain && note.anchor ? locateAnchor(plain.text, note.anchor) : null;
+        const range = match && root && plain ? rangeFor(root, plain.segments, match.from, match.to) : null;
+        const box = range ? rangeBox(range, inner) : null;
+        out.push(box ? { note, sceneId, top: box.top, bottom: box.bottom, range, stale: false } : { note, sceneId, top: head, bottom: head, range: null, stale: true });
+      }
+    }
+    out.sort((a, b) => a.top - b.top);
+    // Painted on the next frame: measured now, placed without re-entering this render.
+    const frame = requestAnimationFrame(() => setPlaced(out));
+    return () => cancelAnimationFrame(frame);
+  }, [notes, layoutTick, innerRef, sceneRoot, mode]);
+
+  // The open note's passage — or the one chosen for a new note — softly lit; nothing when neither.
+  const active = placed.find((p) => p.note.id === activeNoteId) ?? null;
+  useEffect(() => {
+    setActiveHighlight(draft ? (draftView?.range ?? null) : (active?.range ?? null));
+    return () => setActiveHighlight(null);
+  }, [active, draft, draftView]);
+  // Opened from the panel: bring the passage into view.
+  useEffect(() => {
+    if (!active) return;
+    const body = innerRef.current?.closest(".r2-reader-body");
+    const el = innerRef.current;
+    if (!body || !el) return;
+    const top = active.top + el.getBoundingClientRect().top - body.getBoundingClientRect().top + body.scrollTop - body.clientHeight * 0.3;
+    if (top < body.scrollTop || top > body.scrollTop + body.clientHeight - 160) body.scrollTo({ top: Math.max(0, top) });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeNoteId, placed.length > 0]);
+
+  // A selection inside one Scene's text: offer a note on it.
+  useEffect(() => {
+    const inner = innerRef.current;
+    if (!inner) return;
+    let frame: number | null = null;
+    const read = () => {
+      frame = null;
+      const sel = document.getSelection();
+      if (!sel || sel.rangeCount === 0 || sel.isCollapsed || draft) {
+        setOffer(null);
+        return;
+      }
+      const range = sel.getRangeAt(0);
+      const start = (range.startContainer.nodeType === Node.TEXT_NODE ? range.startContainer.parentElement : (range.startContainer as Element))?.closest("[data-scene]");
+      const end = (range.endContainer.nodeType === Node.TEXT_NODE ? range.endContainer.parentElement : (range.endContainer as Element))?.closest("[data-scene]");
+      const sceneId = start?.getAttribute("data-scene");
+      if (!sceneId || !start || start !== end || !inner.contains(start)) {
+        setOffer(null);
+        return;
+      }
+      const root = sceneRoot(sceneId);
+      if (!root) return setOffer(null);
+      const plain = readPlain(root);
+      const offsets = selectionOffsets(root, plain.segments, plain.text, range);
+      const box = offsets ? rangeBox(range, inner) : null;
+      if (!offsets || !box || !/\S/.test(plain.text.slice(offsets.from, offsets.to))) return setOffer(null);
+      const last = range.getClientRects();
+      const base = inner.getBoundingClientRect();
+      const right = last.length > 0 ? last[last.length - 1].right - base.left : 0;
+      // Beside the selection's end, kept inside the column.
+      const left = Math.max(0, Math.min(right - 40, inner.clientWidth - 180));
+      setOffer({ sceneId, ...offsets, top: box.top, bottom: box.bottom, left });
+    };
+    const onChange = () => {
+      if (frame === null) frame = requestAnimationFrame(read);
+    };
+    document.addEventListener("selectionchange", onChange);
+    return () => {
+      document.removeEventListener("selectionchange", onChange);
+      if (frame !== null) cancelAnimationFrame(frame);
+    };
+  }, [innerRef, sceneRoot, draft]);
+
+  /** Takes the offered selection as a note's passage and opens the composer under it. */
+  function takeOffer() {
+    if (!offer) return;
+    const root = sceneRoot(offer.sceneId);
+    if (!root) return;
+    const plain = readPlain(root);
+    const anchor = makeAnchor(plain.text, offer.from, offer.to, versionOf(offer.sceneId));
+    if (!anchor) return;
+    const range = rangeFor(root, plain.segments, anchor.from, anchor.to);
+    const box = range && innerRef.current ? rangeBox(range, innerRef.current) : null;
+    setDraftView({ top: box?.top ?? offer.top, bottom: box?.bottom ?? offer.bottom, range });
+    onActivate(null);
+    onDraft({ sceneId: offer.sceneId, anchor, from: anchor.from, to: anchor.to });
+    setOffer(null);
+    document.getSelection()?.removeAllRanges();
+  }
+
+  // Markers near one another step down so each stays its own.
+  const markers = placed.reduce<(Placed & { offsetTop: number })[]>((acc, p) => {
+    const prev = acc[acc.length - 1];
+    const offsetTop = prev && p.top < prev.offsetTop + 22 ? prev.offsetTop + 22 : p.top;
+    acc.push({ ...p, offsetTop });
+    return acc;
+  }, []);
+
+  return (
+    <div className="r2-annotations" aria-label="Revision notes on this text">
+      {markers.map((m) => (
+        <button
+          key={m.note.id}
+          type="button"
+          className="r2-anchor-mark"
+          style={{ top: m.offsetTop }}
+          data-active={m.note.id === activeNoteId || undefined}
+          data-stale={m.stale || undefined}
+          data-resolved={m.note.resolved || undefined}
+          aria-label={`${m.note.resolved ? "Resolved revision note" : "Revision note"}${m.stale ? " (passage not found)" : ""}: ${m.note.body.slice(0, 80)}`}
+          aria-expanded={m.note.id === activeNoteId}
+          onClick={() => {
+            onDraft(null);
+            onActivate(m.note.id === activeNoteId ? null : m.note.id);
+          }}
+        >
+          <StickyNote {...ICON_SM} aria-hidden />
+        </button>
+      ))}
+
+      {active && (
+        <div className="r2-anchor-card" style={{ top: active.bottom + 8 }} role="dialog" aria-label="Revision note">
+          <div className="r2-anchor-card-row">
+            <button
+              type="button"
+              role="checkbox"
+              aria-checked={active.note.resolved}
+              aria-label={active.note.resolved ? "Resolved — mark open" : "Mark resolved"}
+              className="r2-rnote-check"
+              disabled={!sync || active.note.pending === "conflict" || active.note.pending === "missing"}
+              onClick={() => sync?.setResolved(active.note.id, !active.note.resolved)}
+            >
+              {active.note.resolved && <Check {...ICON_SM_BOLD} aria-hidden />}
+            </button>
+            <div className="r2-anchor-card-main">
+              <p className="r2-anchor-card-body">{active.note.body}</p>
+              {active.note.details && <p className="r2-anchor-card-details">{active.note.details}</p>}
+              {active.stale && active.note.anchor && (
+                <p className="r2-anchor-card-stale">
+                  This passage can’t be found in the scene any more. It read: “{anchorExcerpt(active.note.anchor, 100)}”
+                </p>
+              )}
+              <p className="r2-anchor-card-foot">
+                <span>{labelOf(active.sceneId)}</span>
+                <button type="button" className="r2-panel-link" onClick={() => onOpenNotes(active.sceneId)}>
+                  Open in Revision Notes
+                </button>
+              </p>
+            </div>
+            <Tooltip label="Close">
+              <button type="button" className="r2-icon-button r2-icon-button--xs" aria-label="Close note" onClick={() => onActivate(null)}>
+                <X {...ICON_SM} aria-hidden />
+              </button>
+            </Tooltip>
+          </div>
+        </div>
+      )}
+
+      {offer && !draft && (
+        <button
+          type="button"
+          className="r2-anchor-offer"
+          style={{ top: offer.top - 34, left: offer.left }}
+          // Mousedown, not click: a click would first collapse the selection.
+          onMouseDown={(e) => {
+            e.preventDefault();
+            takeOffer();
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              takeOffer();
+            }
+          }}
+        >
+          <StickyNote {...ICON_SM} aria-hidden />
+          Add revision note
+        </button>
+      )}
+
+      {draft && draftView && (
+        <div className="r2-anchor-composer" style={{ top: draftView.bottom + 8 }} role="group" aria-label="Add revision note on this passage">
+          <p className="r2-anchor-composer-quote">“{anchorExcerpt(draft.anchor, 120)}”</p>
+          <NoteComposer
+            key={`${draft.sceneId}:${draft.from}`}
+            target={{ type: "scene", id: draft.sceneId }}
+            anchor={draft.anchor}
+            placeholder="What to look at here…"
+            label={`New revision note on this passage of ${labelOf(draft.sceneId)}`}
+            autoFocus
+            hint
+            onAdded={() => onDraft(null)}
+            onEscape={() => onDraft(null)}
+          />
+          <p className="r2-anchor-composer-foot">
+            <span>{labelOf(draft.sceneId)}</span>
+            <button type="button" className="r2-panel-link" onClick={() => onDraft(null)}>
+              Cancel
+            </button>
+          </p>
+        </div>
+      )}
     </div>
   );
 }

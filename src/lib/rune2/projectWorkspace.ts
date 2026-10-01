@@ -90,6 +90,12 @@ export type ProjectWorkspace = {
    * project checklist as before and Reading Mode offers no notes.
    */
   revisionNotable: boolean;
+  /**
+   * Whether Revision Notes are items (migration 043): details, a resolved
+   * state and reading anchors. When not, notes are text alone and none of
+   * those is offered.
+   */
+  revisionItems: boolean;
   /** The Project's Manuscript (the owner of its Scene properties and Scene Views), or null if unreadable. */
   manuscriptId: string | null;
   /** The Manuscript's Scene property definitions (any order; see propertiesOf). */
@@ -127,6 +133,7 @@ export const loadProjectWorkspace = cache(async (projectId: string): Promise<Pro
     sceneValuesRead,
     sceneViewsRead,
     revisionNotesRead,
+    revisionItemsRead,
   ] = await Promise.all([
     supabase
       .from("workspace_documents")
@@ -178,8 +185,11 @@ export const loadProjectWorkspace = cache(async (projectId: string): Promise<Pro
       .order("position", { ascending: true }),
     // No rows: only whether Revision Notes take every scope (migration 040).
     supabase.from("revision_notes").select("group_id").limit(0),
+    // No rows: only whether Revision Notes are items (migration 043).
+    supabase.from("revision_notes").select("resolved_at").limit(0),
   ]);
   const revisionNotable = !revisionNotesRead.error;
+  const revisionItems = revisionNotable && !revisionItemsRead.error;
   // Scene metadata is optional to everything else: without it (before 032),
   // the manuscript and the Workspace work exactly as before.
   const manuscriptId = (manuscriptRead.data?.id as string | undefined) ?? null;
@@ -217,6 +227,7 @@ export const loadProjectWorkspace = cache(async (projectId: string): Promise<Pro
     sceneTrashable,
     chapterTrashable: false,
     revisionNotable,
+    revisionItems,
     ...noProperties,
     ...scenes,
   };
@@ -274,6 +285,7 @@ export const loadProjectWorkspace = cache(async (projectId: string): Promise<Pro
     sceneTrashable,
     chapterTrashable,
     revisionNotable,
+    revisionItems,
     ...properties,
     ...scenes,
   };

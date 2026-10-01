@@ -1,12 +1,16 @@
 "use client";
 
-import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useRef, useState, type FocusEvent, type KeyboardEvent } from "react";
 import { readNoteDraft, writeNoteDraft } from "@/lib/rune2/noteDrafts";
-import { ChevronRight, Trash2 } from "lucide-react";
-import { ICON, ICON_SM_BOLD } from "./icons";
+import { anchorExcerpt, type NoteAnchor } from "@/lib/rune2/noteAnchors";
+import { Check, ChevronDown, ChevronRight, Trash2 } from "lucide-react";
+import { ICON, ICON_SM, ICON_SM_BOLD } from "./icons";
+import { Tooltip } from "./Tooltip";
+import { useRevisionNotePrefs } from "./revisionNotePrefs";
 import {
   noteScopeOf,
   noteTree,
+  notesInScope,
   presentedScope,
   REVISION_NOTE_MAX,
   scopeNoun,
@@ -44,6 +48,12 @@ import { useRevisionNotes } from "./RevisionNoteStore";
 //   * a new note goes to the level shown. Return saves and clears the field
 //     for the next one; Shift-Return is a new line. Unsent text is kept on
 //     the device (noteDrafts);
+//   * a note is a revision ITEM (043): its text, optional details beneath it
+//     (shown on request, edited with the text), a quiet circle that marks it
+//     resolved — done notes stay, quieter, and hide behind "Show resolved" —
+//     and, made from a passage while reading, the passage it was about, quoted
+//     under it: a way back to that place in the reader. A note whose Scene
+//     has changed since says so, gently; the quote stays;
 //   * each note is edited in place (Return or leaving it saves; Escape puts it
 //     back) and deleted on its own; clearing its text deletes it;
 //   * saving is the store's (revisionNoteSync): shown at once, kept on the
@@ -59,7 +69,8 @@ const folded = new Set<string>();
 
 export function RevisionNotesView() {
   const { index, selected: entry } = useRune2Selection();
-  const { manuscriptId, notes, loaded, loadFailed, offline, sync } = useRevisionNotes();
+  const { manuscriptId, notes, loaded, loadFailed, offline, sync, items } = useRevisionNotes();
+  const { showResolved, setShowResolved } = useRevisionNotePrefs();
   // A Chapter's one Scene reads as the Chapter (presentedScope), in the panel as on the page.
   const base = manuscriptId
     ? presentedScope(noteScopeOf(entry, manuscriptId) ?? { type: "manuscript" as const, id: manuscriptId }, index)
@@ -81,7 +92,10 @@ export function RevisionNotesView() {
 
   if (!scope || !base || !manuscriptId) return <p className="r2-panel-empty">Revision notes aren’t available here yet.</p>;
   const trail = scopeTrail(base, index, manuscriptId);
-  const tree = noteTree(notes, scope, index);
+  // Done notes are kept and listed on request; by default the view is what is still open.
+  const resolvedHere = items ? notesInScope(notes, scope, index).filter((n) => n.resolved).length : 0;
+  const shown = items && !showResolved ? notes.filter((n) => !n.resolved) : notes;
+  const tree = noteTree(shown, scope, index);
   const total = tree.own.length + tree.nodes.reduce((n, node) => n + node.count, 0);
   const unsaved = offline && notes.some((n) => n.pending === "pending");
   const noun = scopeNoun(scope);
@@ -131,7 +145,9 @@ export function RevisionNotesView() {
       {!loaded && total === 0 ? (
         <p className="r2-panel-empty r2-rnotes-empty">{loadFailed ? "Couldn’t load revision notes." : "Loading…"}</p>
       ) : total === 0 ? (
-        <p className="r2-panel-empty r2-rnotes-empty">{EMPTY[scope.type]}</p>
+        <p className="r2-panel-empty r2-rnotes-empty">
+          {resolvedHere > 0 ? `Nothing open. ${resolvedHere === 1 ? "One note is" : `${resolvedHere} notes are`} resolved.` : EMPTY[scope.type]}
+        </p>
       ) : (
         <div className="r2-rnotes-body">
           {tree.own.length > 0 && (
@@ -154,6 +170,13 @@ export function RevisionNotesView() {
             />
           ))}
         </div>
+      )}
+      {resolvedHere > 0 && (
+        <p className="r2-rnotes-resolved-toggle">
+          <button type="button" className="r2-panel-link" aria-pressed={showResolved} onClick={() => setShowResolved(!showResolved)}>
+            {showResolved ? "Hide resolved" : `Show ${resolvedHere === 1 ? "1 resolved note" : `${resolvedHere} resolved notes`}`}
+          </button>
+        </p>
       )}
     </div>
   );
@@ -233,6 +256,7 @@ const EMPTY: Record<NoteTargetType, string> = {
  */
 export function NoteComposer({
   target,
+  anchor = null,
   placeholder,
   label,
   hint,
@@ -241,6 +265,8 @@ export function NoteComposer({
   onAdded,
 }: {
   target: NoteScope;
+  /** The passage the note is about (a Scene note made while reading); kept with the note. */
+  anchor?: NoteAnchor | null;
   placeholder: string;
   label: string;
   hint?: boolean;
@@ -250,7 +276,7 @@ export function NoteComposer({
 }) {
   const { sync, projectId } = useRevisionNotes();
   const userId = useProfileStore((s) => s.profile?.id);
-  const draftKey = scopeKey(target);
+  const draftKey = anchor ? `${scopeKey(target)}:anchor` : scopeKey(target);
   const [draft, setDraftState] = useState(() => readNoteDraft(userId, projectId, draftKey));
   const setDraft = (text: string) => {
     setDraftState(text);
@@ -265,7 +291,7 @@ export function NoteComposer({
 
   function add() {
     if (!sync || !draft.trim()) return;
-    sync.create(target.type, target.id, draft);
+    sync.create(target.type, target.id, draft, anchor);
     setDraft("");
     onAdded?.();
   }
@@ -313,17 +339,27 @@ export function NoteComposer({
 }
 
 function NoteItem({ note, label }: { note: ShownNote; label: string }) {
-  const { sync, offline } = useRevisionNotes();
+  const { sync, offline, items } = useRevisionNotes();
+  const { index, openReading, select } = useRune2Selection();
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState(note.body);
-  const textRef = useRef(note.body);
+  const [details, setDetails] = useState(note.details ?? "");
+  const [expanded, setExpanded] = useState(false);
+  const draft = useRef({ body: note.body, details: note.details ?? "" });
   const editingRef = useRef(false);
+  const rootRef = useRef<HTMLLIElement>(null);
   const waiting = note.pending === "conflict" || note.pending === "missing" || note.pending === "refused";
+  const hasDetails = Boolean(note.details?.trim());
+  // The passage, and whether its Scene has been edited since the note was made (the reader knows exactly).
+  const anchor = note.anchor;
+  const sceneEntry = anchor ? index.get(note.target_id) : undefined;
+  const sceneEdited = Boolean(anchor && sceneEntry?.version !== undefined && sceneEntry.version !== anchor.scene_version);
 
   function begin() {
     if (!sync || waiting) return;
-    textRef.current = note.body;
+    draft.current = { body: note.body, details: note.details ?? "" };
     setText(note.body);
+    setDetails(note.details ?? "");
     editingRef.current = true;
     setEditing(true);
   }
@@ -331,8 +367,9 @@ function NoteItem({ note, label }: { note: ShownNote; label: string }) {
     if (!editingRef.current) return;
     editingRef.current = false;
     setEditing(false);
-    // Clearing a note's text deletes it; unchanged text writes nothing.
-    sync?.edit(note.id, textRef.current);
+    // Clearing a note's text deletes it; unchanged text and details write nothing.
+    if (items) sync?.editItem(note.id, { body: draft.current.body, details: draft.current.details });
+    else sync?.edit(note.id, draft.current.body);
   }
   function cancel() {
     editingRef.current = false;
@@ -344,52 +381,136 @@ function NoteItem({ note, label }: { note: ShownNote; label: string }) {
     commitRef.current = commit;
   });
   useEffect(() => () => commitRef.current(), []);
+  // Focus moving between the two fields is still editing; leaving them both saves.
+  const onBlur = (e: FocusEvent) => {
+    if (rootRef.current?.contains(e.relatedTarget as Node | null)) return;
+    commit();
+  };
+  const fieldKeys = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+      e.preventDefault();
+      commit();
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      e.stopPropagation();
+      cancel();
+    }
+  };
+
+  /** Back to the passage: the reader at that Scene with the note open, or the Scene itself when it isn't read (Unplaced). */
+  function goToPassage() {
+    if (!sceneEntry) return;
+    if (sceneEntry.kind === "scene") openReading({ kind: "manuscript" }, note.target_id, note.id);
+    else select(note.target_id);
+  }
 
   const flag =
     note.pending === "pending" && offline ? "Not saved yet" : note.pending === "unavailable" ? "Waiting to be saved" : null;
   return (
-    <li className="r2-rnote" data-pending={note.pending ?? undefined}>
-      {flag && <p className="r2-rnote-flag">{flag}</p>}
-      {editing ? (
-        <textarea
-          className="r2-rnote-edit"
-          aria-label={`Edit revision note (${label})`}
-          autoFocus
-          value={text}
-          maxLength={REVISION_NOTE_MAX}
-          spellCheck
-          onChange={(e) => {
-            textRef.current = e.target.value;
-            setText(e.target.value);
-          }}
-          onBlur={commit}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
-              e.preventDefault();
-              commit();
-            } else if (e.key === "Escape") {
-              e.preventDefault();
-              e.stopPropagation();
-              cancel();
-            }
-          }}
-        />
-      ) : (
-        <button type="button" className="r2-rnote-body" onClick={begin} disabled={waiting} title="Edit note">
-          {note.body}
+    <li
+      ref={rootRef}
+      className="r2-rnote"
+      data-pending={note.pending ?? undefined}
+      data-resolved={(items && note.resolved) || undefined}
+      data-anchored={anchor ? "" : undefined}
+      data-editing={editing || undefined}
+    >
+      {items && (
+        <button
+          type="button"
+          role="checkbox"
+          aria-checked={note.resolved}
+          aria-label={note.resolved ? `Resolved — mark open (${label})` : `Mark resolved (${label})`}
+          className="r2-rnote-check"
+          disabled={waiting || !sync}
+          onClick={() => sync?.setResolved(note.id, !note.resolved)}
+        >
+          {note.resolved && <Check {...ICON_SM_BOLD} aria-hidden />}
         </button>
       )}
+      <div className="r2-rnote-main">
+        {flag && <p className="r2-rnote-flag">{flag}</p>}
+        {editing ? (
+          <div className="r2-rnote-editor" onBlur={onBlur}>
+            <textarea
+              className="r2-rnote-edit"
+              aria-label={`Edit revision note (${label})`}
+              autoFocus
+              value={text}
+              maxLength={REVISION_NOTE_MAX}
+              spellCheck
+              onChange={(e) => {
+                draft.current.body = e.target.value;
+                setText(e.target.value);
+              }}
+              onKeyDown={fieldKeys}
+            />
+            {items && (
+              <textarea
+                className="r2-rnote-edit r2-rnote-edit--details"
+                aria-label={`Edit details (${label})`}
+                placeholder="Details — optional"
+                value={details}
+                maxLength={REVISION_NOTE_MAX}
+                spellCheck
+                onChange={(e) => {
+                  draft.current.details = e.target.value;
+                  setDetails(e.target.value);
+                }}
+                onKeyDown={fieldKeys}
+              />
+            )}
+            <p className="r2-composer-hint r2-rnote-edit-hint" aria-hidden>
+              Return to save · Shift-Return for a new line · Escape to cancel
+            </p>
+          </div>
+        ) : (
+          <button type="button" className="r2-rnote-body" onClick={begin} disabled={waiting} title="Edit note">
+            {note.body}
+          </button>
+        )}
+        {!editing && hasDetails && expanded && <p className="r2-rnote-details">{note.details}</p>}
+        {!editing && anchor && (
+          <div className="r2-rnote-anchor">
+            <button
+              type="button"
+              className="r2-rnote-excerpt"
+              onClick={goToPassage}
+              disabled={!sceneEntry}
+              title={sceneEntry?.kind === "scene" ? "Open this passage in Reading Mode" : sceneEntry ? "Open this scene" : undefined}
+            >
+              “{anchorExcerpt(anchor)}”
+            </button>
+            {sceneEdited && <span className="r2-rnote-anchor-note">Scene edited since</span>}
+          </div>
+        )}
+      </div>
       {!editing && !waiting && (
         <span className="r2-rnote-actions">
-          <button
-            type="button"
-            className="r2-icon-button"
-            aria-label={`Delete note (${label})`}
-            title="Delete note"
-            onClick={() => sync?.remove(note.id)}
-          >
-            <Trash2 {...ICON} aria-hidden />
-          </button>
+          {hasDetails && (
+            <Tooltip label={expanded ? "Hide details" : "Show details"}>
+              <button
+                type="button"
+                className="r2-icon-button r2-icon-button--xs"
+                aria-expanded={expanded}
+                aria-label={expanded ? `Hide details (${label})` : `Show details (${label})`}
+                data-always
+                onClick={() => setExpanded((v) => !v)}
+              >
+                {expanded ? <ChevronDown {...ICON_SM} aria-hidden /> : <ChevronRight {...ICON_SM} aria-hidden />}
+              </button>
+            </Tooltip>
+          )}
+          <Tooltip label="Delete note">
+            <button
+              type="button"
+              className="r2-icon-button r2-icon-button--xs"
+              aria-label={`Delete note (${label})`}
+              onClick={() => sync?.remove(note.id)}
+            >
+              <Trash2 {...ICON} aria-hidden />
+            </button>
+          </Tooltip>
         </span>
       )}
       {waiting && <NoteChoice note={note} />}

@@ -53,7 +53,7 @@ test('a database built from schema.sql alone is identical to baseline + migratio
   assert.deepEqual(diffCounts(a, b), []);
   const versions = async (db) => (await db.query(`select version, name, note from public.schema_migrations order by version`)).rows;
   assert.deepEqual(await versions(fresh), await versions(migrated));
-  assert.deepEqual((await versions(fresh)).map((r) => r.version).slice(-30), ['013', '014', '015', '016', '017', '018', '019', '020', '021', '022', '023', '024', '025', '026', '027', '028', '029', '030', '031', '032', '033', '034', '035', '036', '037', '038', '039', '040', '041', '042']);
+  assert.deepEqual((await versions(fresh)).map((r) => r.version).slice(-31), ['013', '014', '015', '016', '017', '018', '019', '020', '021', '022', '023', '024', '025', '026', '027', '028', '029', '030', '031', '032', '033', '034', '035', '036', '037', '038', '039', '040', '041', '042', '043']);
 });
 
 test('signup still creates the profile and pricing entitlements on the Rune 2.0 schema', async () => {
@@ -1904,4 +1904,86 @@ test('041 requires 040 and refuses on schema.sql, changing nothing', async () =>
   assert.deepEqual(diffCatalogs(before, await captureCatalog(db)).differences, []);
   const fresh = await freshRune2Db();
   await assert.rejects(fresh.exec(readMigration(M041)), /Migration 041 has already been applied/);
+});
+
+const M042 = '042_timeline_views.sql';
+const M043 = '043_revision_note_items.sql';
+
+/** A 042 database holding notes of every kind (through 039WithNotes, 040, 041, 042). */
+async function db042WithNotes() {
+  const r = await db039WithNotes();
+  await r.db.exec(readMigration(M040));
+  await r.db.exec(readMigration(M041));
+  await r.db.exec(readMigration(M042));
+  return r;
+}
+
+test('043 on 042: three nullable columns on revision_notes, two item functions and the anchor check; every note unchanged; no manuscript table, trigger or policy changes', async () => {
+  const { db } = await db042WithNotes();
+  const rowsOf = async () => {
+    const out = {};
+    for (const t of ['scenes', 'chapters', 'projects', 'manuscripts', 'manuscript_groups']) {
+      out[t] = (await db.query(`select * from public.${t} order by 1`)).rows;
+    }
+    return out;
+  };
+  const dataBefore = await rowsOf();
+  const notesBefore = (await db.query(`select id, project_id, manuscript_id, target_type, target_id, body, version, created_at, updated_at from public.revision_notes order by id`)).rows;
+  const before = await captureCatalog(db);
+  await db.exec(readMigration(M043));
+  const keys = diffCatalogs(before, await captureCatalog(db)).differences
+    .map((d) => `${d.section}:${d.kind}${d.fields ? '[' + d.fields.join(',') + ']' : ''}:${d.key}`)
+    .filter((k) => !/^relation_counts?:/.test(k))
+    .sort();
+  assert.deepEqual(keys.filter((k) => /^(relations|triggers|policies):/.test(k)), [], 'no table, trigger or policy added, removed or changed');
+  assert.deepEqual(keys.filter((k) => k.startsWith('columns:')).map((k) => k.replace(/^columns:/, '')).sort(),
+    ['added:revision_notes.anchor', 'added:revision_notes.details', 'added:revision_notes.resolved_at']);
+  const fns = keys.filter((k) => k.startsWith('functions:'));
+  assert.deepEqual(fns.filter((k) => k.startsWith('functions:added:')).map((k) => k.split(':')[2].split('(')[0]).sort(),
+    ['create_revision_note_item', 'revision_note_anchor_valid', 'update_revision_note_item']);
+  assert.deepEqual(fns.filter((k) => k.startsWith('functions:changed')).map((k) => k.split(':')[2].split('(')[0]).sort(), ['revision_note_json', 'revision_notes_check_target'], 'two redefinitions, same signatures');
+  assert.deepEqual(fns.filter((k) => k.startsWith('functions:removed')), []);
+  assert.ok(keys.every((k) => !/(scenes|chapters|manuscript_groups|manuscripts|projects)\./.test(k.split(':').slice(2).join(':'))), 'nothing on a manuscript table');
+  const grants = keys.filter((k) => k.startsWith('function_grants:added:'));
+  assert.deepEqual(grants.filter((k) => / anon /.test(k)), [], 'anon executes nothing new');
+  assert.deepEqual(grants.filter((k) => / authenticated /.test(k)).map((k) => k.split(':')[2].split('(')[0]).sort(),
+    ['create_revision_note_item', 'update_revision_note_item'], 'the anchor check is internal');
+  assert.deepEqual(keys.filter((k) => k.startsWith('table_grants:added:') && /(anon|authenticated) (INSERT|UPDATE|DELETE)/.test(k)), [], 'clients still never write revision_notes');
+  assert.deepEqual(await rowsOf(), dataBefore, 'no manuscript row changes');
+  const notesAfter = (await db.query(`select id, project_id, manuscript_id, target_type, target_id, body, version, created_at, updated_at, details, resolved_at, anchor from public.revision_notes order by id`)).rows;
+  assert.deepEqual(notesAfter.map(({ details, resolved_at, anchor, ...n }) => n), notesBefore, 'every note exactly as it was');
+  assert.ok(notesAfter.every((n) => n.details === null && n.resolved_at === null && n.anchor === null), 'no details, unresolved, no anchor');
+  // The database's own checks: a blank details, a malformed anchor, an anchor on a Chapter note.
+  const sceneNote = notesAfter.find((n) => n.target_type === 'scene');
+  const chapterNote = notesAfter.find((n) => n.target_type === 'chapter');
+  await assert.rejects(db.query(`update public.revision_notes set details = '  ' where id = $1`, [sceneNote.id]), /revision_notes_details_check/);
+  const good = { text: 'the bell', before: 'Under ', after: ' tower', from: 6, to: 14, scene_version: 1 };
+  // An anchor is set when a note is made and never changes after — not even on a note that has none.
+  const insert = (target, anchor) => db.query(
+    `insert into public.revision_notes (project_id, manuscript_id, target_type, scene_id, chapter_id, target_id, body, anchor)
+     select n.project_id, n.manuscript_id, n.target_type, n.scene_id, n.chapter_id, n.target_id, 'x', $2 from public.revision_notes n where n.id = $1
+     returning id`,
+    [target, JSON.stringify(anchor)]);
+  const anchoredId = (await insert(sceneNote.id, good)).rows[0].id;
+  await assert.rejects(db.query(`update public.revision_notes set anchor = $1 where id = $2`, [JSON.stringify({ ...good, to: 15 }), anchoredId]), /keeps its anchor/);
+  await assert.rejects(db.query(`update public.revision_notes set anchor = null where id = $1`, [anchoredId]), /keeps its anchor/);
+  await assert.rejects(db.query(`update public.revision_notes set anchor = $1 where id = $2`, [JSON.stringify(good), sceneNote.id]), /keeps its anchor/);
+  await db.query(`update public.revision_notes set details = 'd', resolved_at = now() where id = $1`, [anchoredId]);
+  // A fresh row with a malformed anchor, or one on a Chapter note, is refused by the row trigger.
+  for (const bad of [{ ...good, extra: 1 }, { ...good, text: '  ' }, { ...good, to: 6 }, { ...good, from: -1 }, { ...good, scene_version: 0 }, { ...good, from: 1.5 }, 'the bell', [good]]) {
+    await assert.rejects(insert(sceneNote.id, bad), /anchor must be a passage/, JSON.stringify(bad));
+  }
+  await assert.rejects(insert(chapterNote.id, good), /anchor/);
+  await assert.rejects(db.exec(readMigration(M043)), /Migration 043 has already been applied/);
+});
+
+test('043 requires 042 and refuses on schema.sql, changing nothing', async () => {
+  const { db } = await db039WithNotes();
+  await db.exec(readMigration(M040));
+  await db.exec(readMigration(M041));
+  const before = await captureCatalog(db);
+  await assert.rejects(db.exec(readMigration(M043)), /requires migration 042/);
+  assert.deepEqual(diffCatalogs(before, await captureCatalog(db)).differences, []);
+  const fresh = await freshRune2Db();
+  await assert.rejects(fresh.exec(readMigration(M043)), /Migration 043 has already been applied/);
 });

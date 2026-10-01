@@ -133,14 +133,15 @@ type Rune2SelectionValue = {
   readingMode: ReadingMode;
   /**
    * Opens the Reading Peek for `source`, at the Group, Chapter or Scene `at`
-   * when given — else where the writer last was in it.
+   * when given — else where the writer last was in it. With `noteId`, at that
+   * anchored Revision Note's passage, with the note open.
    */
-  openReading: (source: ReadingSource, at?: string | null) => void;
+  openReading: (source: ReadingSource, at?: string | null, noteId?: string | null) => void;
   setReadingMode: (mode: ReadingMode) => void;
   /** Closes the reader; the context beneath is as it was. */
   closeReading: () => void;
-  /** A block to go to when the reader shows (then forgotten), set by openReading. */
-  readingJump: { key: string; anchor: string } | null;
+  /** A block to go to when the reader shows (then forgotten), set by openReading; `noteId`: an anchored note to open there. */
+  readingJump: { key: string; anchor: string; noteId: string | null } | null;
   clearReadingJump: () => void;
   /** Where the writer had read to in a source this session. */
   readingPositionOf: (key: string) => ReadingPosition | null;
@@ -170,7 +171,7 @@ export function Rune2SelectionProvider({
   const [trashOpen, setTrashOpen] = useState(false);
   const [reading, setReading] = useState<ReadingSource | null>(null);
   const [readingMode, setReadingMode] = useState<ReadingMode>("peek");
-  const [readingJump, setReadingJump] = useState<{ key: string; anchor: string } | null>(null);
+  const [readingJump, setReadingJump] = useState<{ key: string; anchor: string; noteId: string | null } | null>(null);
   // Positions only: never shown, so kept without re-rendering.
   const readingPositions = useRef(new Map<string, ReadingPosition>());
 
@@ -252,8 +253,8 @@ export function Rune2SelectionProvider({
   const toggleNav = useCallback(() => setNavCollapsed((v) => !v), []);
   const togglePanel = useCallback((view: PanelView) => setPanel((prev) => (prev === view ? null : view)), []);
   const closePanel = useCallback(() => setPanel(null), []);
-  const openReading = useCallback((source: ReadingSource, at: string | null = null) => {
-    setReadingJump(at ? { key: readingTabKey(source), anchor: at } : null);
+  const openReading = useCallback((source: ReadingSource, at: string | null = null, noteId: string | null = null) => {
+    setReadingJump(at ? { key: readingTabKey(source), anchor: at, noteId } : null);
     setReadingMode("peek");
     setReading(source);
   }, []);

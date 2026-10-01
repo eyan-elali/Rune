@@ -1,5 +1,6 @@
 import type { NoteWriteResult } from "@/lib/actions/revisionNotes";
-import type { NoteTargetType, RevisionNote } from "./revisionNotes";
+import type { NoteAnchor } from "./noteAnchors";
+import type { NoteItemFields, NoteTargetType, RevisionNote } from "./revisionNotes";
 
 // The Revision Note sync engine: what makes a note the writer typed durable
 // before the server has it. Every create, edit and delete is first a PENDING
@@ -21,6 +22,13 @@ import type { NoteTargetType, RevisionNote } from "./revisionNotes";
 // note deleted elsewhere waits too ('missing'). A note whose Chapter or Scene
 // is in Trash waits ('unavailable') and is tried again when notes are read
 // again (e.g. after a restore).
+//
+// A note is an ITEM (migration 043): with its text it carries optional
+// details, a resolved state and — made from a passage while reading — an
+// anchor. One pending change carries all of them, so a text edit, a detail
+// edit and a resolve made before a send are one write, and a create made
+// offline lands with its anchor. With `items` off (a database before 043)
+// the transport is handed null for them and writes the text alone.
 //
 // Separate from the Scene prose save engine (lib/offline): notes never enter
 // the Scene queue, and nothing here touches a Scene. Pure apart from its
@@ -48,6 +56,11 @@ export type PendingNote = {
   targetId: string;
   /** The text to save (create/update), or the text last seen (delete). */
   body: string;
+  /** The item fields to save with it (absent on a change kept by a pre-043 app: no details, unresolved). */
+  details?: string | null;
+  resolved?: boolean;
+  /** A create's anchor (never changed after); absent otherwise. */
+  anchor?: NoteAnchor | null;
   /** The version the change is based on (0 for a create). */
   baseVersion: number;
   /** When the writer made the note (a create) or the change. ISO. */
@@ -59,10 +72,13 @@ export type PendingNote = {
   rev: number;
 };
 
+/** What an item write carries beyond its text; null when the database holds items' fields not at all. */
+export type NoteItemWrite = NoteItemFields & { anchor: NoteAnchor | null };
+
 export type NoteTransport = {
   list(projectId: string): Promise<{ data: RevisionNote[]; error: null } | { data: null; error: string }>;
-  create(id: string, targetType: NoteTargetType, targetId: string, body: string): Promise<NoteWriteResult>;
-  update(id: string, body: string, baseVersion: number | null): Promise<NoteWriteResult>;
+  create(id: string, targetType: NoteTargetType, targetId: string, body: string, item: NoteItemWrite | null): Promise<NoteWriteResult>;
+  update(id: string, body: string, baseVersion: number | null, item: NoteItemFields | null): Promise<NoteWriteResult>;
   remove(id: string, baseVersion: number | null): Promise<NoteWriteResult>;
 };
 
@@ -78,6 +94,10 @@ export type ShownNote = {
   target_type: NoteTargetType;
   target_id: string;
   body: string;
+  details: string | null;
+  resolved: boolean;
+  resolved_at: string | null;
+  anchor: NoteAnchor | null;
   version: number;
   created_at: string;
   /** Not on the server yet (or not in this form). */
@@ -95,6 +115,8 @@ export type NoteSyncOptions = {
   storage: NoteStorage;
   userId: string;
   projectId: string;
+  /** Whether the database holds items' fields (migration 043): details, resolved, anchors are written. */
+  items?: boolean;
   newId?: () => string;
   now?: () => Date;
   /** Schedules a retry; returns a cancel. Tests pass a manual clock. */
@@ -205,8 +227,8 @@ export class NoteSync {
 
   // ── Writing ───────────────────────────────────────────────────────────
 
-  /** Adds a note. Blank text adds nothing. Returns the new note's id. */
-  create(targetType: NoteTargetType, targetId: string, body: string): string | null {
+  /** Adds a note — with an anchor, when made from a passage while reading. Blank text adds nothing. Returns the new note's id. */
+  create(targetType: NoteTargetType, targetId: string, body: string, anchor: NoteAnchor | null = null): string | null {
     if (body.trim() === "") return null;
     const noteId = (this.o.newId ?? (() => crypto.randomUUID()))();
     this.put({
@@ -217,6 +239,9 @@ export class NoteSync {
       targetType,
       targetId,
       body,
+      details: null,
+      resolved: false,
+      anchor: this.o.items ? anchor : null,
       baseVersion: 0,
       queuedAt: this.now(),
       state: "pending",
@@ -229,16 +254,42 @@ export class NoteSync {
 
   /** Changes a note's text. Blank text deletes the note (a blank note is never stored). */
   edit(noteId: string, body: string): void {
-    if (body.trim() === "") return this.remove(noteId);
+    this.editItem(noteId, { body });
+  }
+
+  /** Marks a note resolved (done) or unresolved. */
+  setResolved(noteId: string, resolved: boolean): void {
+    this.editItem(noteId, { resolved });
+  }
+
+  /**
+   * Changes any of a note's text, details and resolved state. Blank text
+   * deletes the note; blank details are no details. A change to what the
+   * note already says writes nothing.
+   */
+  editItem(noteId: string, fields: { body?: string; details?: string | null; resolved?: boolean }): void {
+    if (fields.body !== undefined && fields.body.trim() === "") return this.remove(noteId);
     const current = this.pending.get(noteId);
+    const details = fields.details === undefined ? undefined : fields.details?.trim() ? fields.details : null;
     if (current) {
       if (current.kind === "delete") return;
-      if (current.body === body) return;
-      this.put({ ...current, body, rev: current.rev + 1, state: current.state === "pending" ? "pending" : current.state });
+      const next = {
+        body: fields.body ?? current.body,
+        details: details === undefined ? (current.details ?? null) : details,
+        resolved: fields.resolved ?? current.resolved ?? false,
+      };
+      if (next.body === current.body && next.details === (current.details ?? null) && next.resolved === (current.resolved ?? false)) return;
+      this.put({ ...current, ...next, rev: current.rev + 1, state: current.state === "pending" ? "pending" : current.state });
     } else {
       const stored = this.server.get(noteId);
-      if (!stored || stored.body === body) return;
-      this.put(this.change(stored, "update", body));
+      if (!stored) return;
+      const next = {
+        body: fields.body ?? stored.body,
+        details: details === undefined ? (stored.details ?? null) : details,
+        resolved: fields.resolved ?? Boolean(stored.resolved_at),
+      };
+      if (next.body === stored.body && next.details === (stored.details ?? null) && next.resolved === Boolean(stored.resolved_at)) return;
+      this.put({ ...this.change(stored, "update", next.body), details: next.details, resolved: next.resolved });
     }
     void this.flush();
   }
@@ -281,7 +332,8 @@ export class NoteSync {
     } else if (p.state === "missing") {
       this.drop(noteId);
       this.applyServer(null, noteId);
-      this.create(p.targetType, p.targetId, p.body);
+      const id = this.create(p.targetType, p.targetId, p.body, p.anchor ?? null);
+      if (id && (p.details || p.resolved)) this.editItem(id, { details: p.details ?? null, resolved: p.resolved ?? false });
       return;
     } else {
       this.put({ ...p, state: "pending", rev: p.rev + 1 });
@@ -335,11 +387,12 @@ export class NoteSync {
   private async send(p: PendingNote): Promise<boolean> {
     let r: NoteWriteResult;
     try {
+      const item = this.o.items ? { details: p.details ?? null, resolved: p.resolved ?? false } : null;
       r =
         p.kind === "create"
-          ? await this.o.transport.create(p.noteId, p.targetType, p.targetId, p.body)
+          ? await this.o.transport.create(p.noteId, p.targetType, p.targetId, p.body, item && { ...item, anchor: p.anchor ?? null })
           : p.kind === "update"
-            ? await this.o.transport.update(p.noteId, p.body, p.baseVersion)
+            ? await this.o.transport.update(p.noteId, p.body, p.baseVersion, item)
             : await this.o.transport.remove(p.noteId, p.baseVersion < 0 ? null : p.baseVersion);
     } catch {
       r = { status: "error", error: "network" };
@@ -367,7 +420,7 @@ export class NoteSync {
       case "conflict": {
         this.offline = false;
         // Their version already says what mine says: nothing to choose.
-        if (p.kind === "update" && r.note.body === p.body) {
+        if (p.kind === "update" && sameItem(r.note, p)) {
           this.applyServer(r.note);
           if (current) this.drop(p.noteId);
           else if (now) this.put({ ...now, baseVersion: r.note.version });
@@ -413,6 +466,8 @@ export class NoteSync {
       targetType: stored.target_type,
       targetId: stored.target_id,
       body,
+      details: stored.details ?? null,
+      resolved: Boolean(stored.resolved_at),
       baseVersion: stored.version,
       queuedAt: this.now(),
       state: "pending",
@@ -468,6 +523,15 @@ export class NoteSync {
   }
 }
 
+/** Whether a stored note already says what a pending change would write. */
+function sameItem(note: RevisionNote, p: PendingNote): boolean {
+  return (
+    note.body === p.body &&
+    (note.details ?? null) === (p.details ?? null) &&
+    Boolean(note.resolved_at) === (p.resolved ?? false)
+  );
+}
+
 /** The stored notes with the pending changes applied: what the writer sees. */
 export function shownNotes(
   server: ReadonlyMap<string, RevisionNote>,
@@ -483,6 +547,10 @@ export function shownNotes(
       target_type: note.target_type,
       target_id: note.target_id,
       body: p && p.kind !== "delete" ? p.body : note.body,
+      details: p && p.kind !== "delete" ? (p.details ?? null) : (note.details ?? null),
+      resolved: p && p.kind !== "delete" ? (p.resolved ?? false) : Boolean(note.resolved_at),
+      resolved_at: note.resolved_at ?? null,
+      anchor: note.anchor ?? null,
       version: note.version,
       created_at: note.created_at,
       pending: p ? p.state : null,
@@ -500,6 +568,10 @@ export function shownNotes(
       target_type: p.targetType,
       target_id: p.targetId,
       body: p.kind === "delete" ? (p.remote?.body ?? p.body) : p.body,
+      details: p.kind === "delete" ? (p.remote?.details ?? null) : (p.details ?? null),
+      resolved: p.kind === "delete" ? Boolean(p.remote?.resolved_at) : (p.resolved ?? false),
+      resolved_at: p.remote?.resolved_at ?? null,
+      anchor: p.remote?.anchor ?? p.anchor ?? null,
       version: p.remote?.version ?? p.baseVersion,
       created_at: p.queuedAt,
       pending: p.state,

@@ -1,4 +1,5 @@
 import { chapterShowsScenes, type NavEntry } from "./navigatorModel";
+import type { NoteAnchor } from "./noteAnchors";
 
 // Revision Notes (migrations 039, 040): writer-authored revision thoughts,
 // each on exactly one target — the Manuscript, a Group, a Chapter or a Scene —
@@ -31,7 +32,20 @@ export type RevisionNote = {
   version: number;
   created_at: string;
   updated_at: string;
+  /**
+   * A revision item (migration 043): an optional longer description, when the
+   * writer marked it done (null: unresolved), and — for a Scene note made from
+   * a passage while reading — the passage it was about (noteAnchors.ts).
+   * Absent on a database before 043; the app then treats every note as
+   * unresolved, with no details and no anchor.
+   */
+  details?: string | null;
+  resolved_at?: string | null;
+  anchor?: NoteAnchor | null;
 };
+
+/** The fields of a note that make it an item: what an item write carries. */
+export type NoteItemFields = { details: string | null; resolved: boolean };
 
 /** The longest note the database accepts (revision_notes_body_check). */
 export const REVISION_NOTE_MAX = 20_000;

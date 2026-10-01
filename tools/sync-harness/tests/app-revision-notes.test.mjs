@@ -52,7 +52,7 @@ const doc = (...paragraphs) => ({
 
 let legacy;
 let notes, scenes, structure, chapters, trash, milestones, history, reading, search, manuscriptLoader, exporter;
-let model, syncLib, nav, readingModel, drafts, noteDrafts;
+let model, syncLib, nav, readingModel, drafts, noteDrafts, anchors;
 before(async () => {
   legacy = await createTestDb();
   await legacy.exec(readRepoFile(LEGACY_BASELINE));
@@ -74,6 +74,7 @@ before(async () => {
   readingModel = await bundleForTest('src/lib/rune2/reading.ts', { name: 'rn_reading_model' });
   drafts = await bundleForTest('src/lib/rune2/workspaceDrafts.ts', { name: 'rn_drafts' });
   noteDrafts = await bundleForTest('src/lib/rune2/noteDrafts.ts', { name: 'rn_note_drafts' });
+  anchors = await bundleForTest('src/lib/rune2/noteAnchors.ts', { name: 'rn_anchors' });
 });
 
 async function seededDb() {
@@ -131,7 +132,7 @@ async function writingState(db) {
 }
 
 /** A sync engine on the real actions, with a network that can be cut, a device store, and a manual clock. */
-function engine({ storage = memoryStorage(), userId = ALICE, projectId = HOLLOW } = {}) {
+function engine({ storage = memoryStorage(), userId = ALICE, projectId = HOLLOW, items = false } = {}) {
   const net = { down: false, calls: 0 };
   const guard = (fn) => async (...args) => {
     net.calls += 1;
@@ -149,6 +150,7 @@ function engine({ storage = memoryStorage(), userId = ALICE, projectId = HOLLOW 
     storage,
     userId,
     projectId,
+    items,
     newId: randomUUID,
     schedule: (fn) => { timers.push(fn); return () => {}; },
   });
@@ -885,4 +887,207 @@ test('notes never change prose, version, words, totals, sessions, Today, History
   assert.deepEqual(ok(await search.searchProjectContent(HOLLOW, 'unplaced scene note')), [], 'a note is not manuscript text');
   const { chapters: rows, scenesPerChapter, groups } = await exporter.loadManuscriptForExport(createSupabaseAdapter(db, { userId: ALICE }), HOLLOW);
   assert.doesNotMatch(JSON.stringify(exporter.planManuscriptExport(rows, scenesPerChapter, groups)), /scene note|through the engine|chapter note/);
+});
+
+
+// ── 7. Revision items and reading anchors (043) ──────────────────────────────
+
+const ANCHOR = (text, before, after, from, to, scene_version = 1) => ({ text, before, after, from, to, scene_version });
+const itemRows = (db) => all(db, `select id, body, details, resolved_at, anchor, version from public.revision_notes order by created_at, id`);
+
+test('items: a note carries optional details and a resolved state, edited together under the version rule; resolving keeps its time, unresolving clears it; nothing else changes', async () => {
+  const db = await seededDb();
+  const plain = await add('scene', S('h4a'), 'Tighten the argument here');
+  assert.deepEqual([plain.details, plain.resolved_at, plain.anchor], [null, null, null], 'a plain create is an open item with no details');
+  const withDetails = await notes.createRevisionNote(randomUUID(), 'scene', S('h4a'), 'Cut the second response', { details: 'The back-and-forth goes on too long.', resolved: false, anchor: null });
+  assert.deepEqual([withDetails.status, withDetails.note.details, withDetails.note.resolved_at], ['ok', 'The back-and-forth goes on too long.', null]);
+  const blankDetails = await notes.createRevisionNote(randomUUID(), 'chapter', CH(4), 'Chapter note', { details: '   ', resolved: false, anchor: null });
+  assert.equal(blankDetails.note.details, null, 'blank details are no details');
+
+  // Resolve: a version bump, a time; the text and details untouched.
+  let r = await notes.updateRevisionNote(withDetails.note.id, 'Cut the second response', 1, { details: 'The back-and-forth goes on too long.', resolved: true });
+  assert.equal(r.status, 'ok');
+  assert.equal(r.note.version, 2);
+  assert.ok(r.note.resolved_at, 'resolved now');
+  const resolvedAt = r.note.resolved_at;
+  // The same write again: ok, nothing changes (a retry that landed).
+  r = await notes.updateRevisionNote(withDetails.note.id, 'Cut the second response', 2, { details: 'The back-and-forth goes on too long.', resolved: true });
+  assert.deepEqual([r.status, r.note.version, r.note.resolved_at], ['ok', 2, resolvedAt]);
+  // A text edit while resolved keeps the time it was resolved.
+  r = await notes.updateRevisionNote(withDetails.note.id, "Cut Alaric's second response", 2, { details: 'The back-and-forth goes on too long.', resolved: true });
+  assert.deepEqual([r.status, r.note.version, r.note.body, r.note.resolved_at], ['ok', 3, "Cut Alaric's second response", resolvedAt]);
+  // Unresolve clears it; a stale base is a conflict that writes nothing.
+  r = await notes.updateRevisionNote(withDetails.note.id, "Cut Alaric's second response", 1, { details: null, resolved: false });
+  assert.equal(r.status, 'conflict');
+  assert.equal(r.note.version, 3);
+  r = await notes.updateRevisionNote(withDetails.note.id, "Cut Alaric's second response", 3, { details: null, resolved: false });
+  assert.deepEqual([r.status, r.note.version, r.note.details, r.note.resolved_at], ['ok', 4, null, null]);
+  // The 040 text-only edit leaves details and resolution exactly as they are.
+  r = await notes.updateRevisionNote(withDetails.note.id, 'Edited the old way', 4);
+  assert.deepEqual([r.status, r.note.version], ['ok', 5]);
+  r = await notes.updateRevisionNote(withDetails.note.id, 'Edited the old way', 5, { details: 'kept?', resolved: true });
+  assert.equal(r.status, 'ok');
+  r = await notes.updateRevisionNote(withDetails.note.id, 'And again the old way', 6);
+  assert.deepEqual([r.note.details, Boolean(r.note.resolved_at)], ['kept?', true], 'update_revision_note never touches details or resolved_at');
+  // Too long details are refused; a resolved note still deletes; the list returns the item fields.
+  assert.deepEqual(await notes.updateRevisionNote(plain.id, 'x', 1, { details: 'd'.repeat(20001), resolved: false }), { status: 'error', error: 'too_long' });
+  const listed_ = ok(await notes.listRevisionNotes(HOLLOW));
+  assert.deepEqual(listed_.find((n) => n.id === withDetails.note.id).details, 'kept?');
+  assert.equal((await notes.deleteRevisionNote(withDetails.note.id, 7)).status, 'ok');
+  assert.deepEqual((await itemRows(db)).map((n) => n.id).sort(), [plain.id, blankDetails.note.id].sort());
+});
+
+test('anchors: an anchor is kept with a Scene note exactly as given, refused for any other target or shape, and never changed by an edit', async () => {
+  const db = await seededDb();
+  const anchor = ANCHOR('fixture-marker-h4a', 'The ', ' paragraph', 4, 22, 3);
+  const r = await notes.createRevisionNote(randomUUID(), 'scene', S('h4a'), 'This line feels too defensive.', { details: null, resolved: false, anchor });
+  assert.equal(r.status, 'ok');
+  assert.deepEqual(r.note.anchor, anchor);
+  assert.deepEqual((await itemRows(db))[0].anchor, anchor, 'stored as given');
+  // Not on a Chapter, Group or the Manuscript; not a malformed shape.
+  assert.deepEqual(await notes.createRevisionNote(randomUUID(), 'chapter', CH(4), 'x', { details: null, resolved: false, anchor }), { status: 'error', error: 'invalid' });
+  assert.deepEqual(await notes.createRevisionNote(randomUUID(), 'manuscript', MS, 'x', { details: null, resolved: false, anchor }), { status: 'error', error: 'invalid' });
+  assert.deepEqual(await notes.createRevisionNote(randomUUID(), 'scene', S('h4a'), 'x', { details: null, resolved: false, anchor: { ...anchor, to: 4 } }), { status: 'error', error: 'invalid' });
+  assert.deepEqual(await notes.createRevisionNote(randomUUID(), 'scene', S('h4a'), 'x', { details: null, resolved: false, anchor: { text: 'a' } }), { status: 'error', error: 'invalid' });
+  // The database refuses a bad anchor from any path, and an edit keeps the anchor.
+  const rpc = await createSupabaseAdapter(db, { userId: ALICE }).rpc('create_revision_note_item', { p_note_id: randomUUID(), p_target_type: 'scene', p_target_id: S('h4a'), p_body: 'x', p_details: null, p_resolved: false, p_anchor: { ...anchor, extra: true } });
+  assert.deepEqual(rpc.data, { status: 'error', error: 'invalid' });
+  const edited = await notes.updateRevisionNote(r.note.id, 'Still too defensive.', 1, { details: 'Soften it.', resolved: true });
+  assert.deepEqual([edited.status, edited.note.anchor], ['ok', anchor]);
+  assert.equal((await itemRows(db)).length, 1);
+  // The 040 create (a stale client) still makes an ordinary note beside it.
+  assert.equal((await notes.createRevisionNote(randomUUID(), 'scene', S('h4a'), 'old client')).status, 'ok');
+});
+
+test('anchor rules: plain text is measured the same from a document; a passage is found where it was, or where it moved to if it is the only one, else by its context — never guessed', () => {
+  const docText = anchors.proseText({ type: 'doc', content: [
+    { type: 'paragraph', content: [{ type: 'text', text: 'Under the bell ' }, { type: 'text', text: 'tower.', marks: [{ type: 'italic' }] }] },
+    { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Two' }] },
+    { type: 'bulletList', content: [{ type: 'listItem', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'one' }, { type: 'hardBreak' }, { type: 'text', text: 'two' }] }] }] },
+    { type: 'horizontalRule' },
+    { type: 'paragraph', content: [{ type: 'text', text: 'The bell again.' }] },
+  ] });
+  assert.equal(docText, 'Under the bell tower.\nTwo\none\ntwo\nThe bell again.\n');
+  assert.equal(anchors.proseText(null), '');
+
+  // Making one: trimmed to the words, with context, never blank or too long.
+  const a = anchors.makeAnchor(docText, 9, 16, 4); // ' bell t' → 'bell t'
+  assert.deepEqual(a, { text: 'bell t', before: 'Under the ', after: 'ower.\nTwo\none\ntwo\nThe bell again.\n', from: 10, to: 16, scene_version: 4 });
+  assert.equal(anchors.makeAnchor(docText, 14, 15, 1), null, 'whitespace alone');
+  assert.equal(anchors.makeAnchor('x'.repeat(3000), 0, 2500, 1), null, 'too long');
+  assert.ok(anchors.isNoteAnchor(a));
+  assert.equal(anchors.isNoteAnchor({ ...a, from: 1.5 }), false);
+
+  // Finding it again.
+  const bell = anchors.makeAnchor(docText, 10, 14, 1); // 'bell' (first of two)
+  assert.deepEqual(anchors.locateAnchor(docText, bell), { from: 10, to: 14 }, 'unchanged: where it was');
+  const shifted = 'Now, ' + docText;
+  assert.deepEqual(anchors.locateAnchor(shifted, bell), { from: 15, to: 19 }, 'moved, two occurrences: the one with its context');
+  const onlyOnce = 'A single bell rings.';
+  assert.deepEqual(anchors.locateAnchor(onlyOnce, bell), { from: 9, to: 13 }, 'moved and unique: found by its words alone');
+  assert.equal(anchors.locateAnchor('The clock tower.', bell), null, 'gone');
+  assert.equal(anchors.locateAnchor('bell and bell and bell', bell), null, 'several, none with the context: never a guess');
+  const twoContexts = 'X. ' + docText + docText;
+  assert.equal(anchors.locateAnchor(twoContexts, bell), null, 'two that both fit the whole context: still never a guess');
+  assert.deepEqual(anchors.locateAnchor('X. Under the bell tower. Under the bell tower.', bell), { from: 35, to: 39 }, 'the one whose context (what the text has of it) fits');
+  const unique = anchors.makeAnchor(docText, 0, 21, 1); // the whole first line
+  assert.deepEqual(anchors.locateAnchor(docText.replace('Under the bell tower.', 'Over the bell tower.'), unique), null, 'edited passage: not found; the note keeps its words');
+  assert.equal(anchors.anchorExcerpt({ ...bell, text: 'a line\n  with a break that goes on and on and on and on and on and on and on and on and on and on and on and on and on and on and on and on and on' }).endsWith('…'), true);
+  assert.equal(anchors.anchorExcerpt({ ...bell, text: 'one\ntwo' }), 'one two');
+});
+
+test('items through the engine: a create made offline lands with its details, resolve and anchor; a resolve coalesces with an edit; resolved notes stay stored and show as such', async () => {
+  const db = await seededDb();
+  const storage = memoryStorage();
+  const { sync, net, runTimers } = engine({ storage, items: true });
+  await sync.start();
+  const anchor = ANCHOR('fixture-marker-h2a', '', ' end', 0, 18, 2);
+  net.down = true;
+  const id = sync.create('scene', S('h2a'), 'Open on the bell.', anchor);
+  sync.editItem(id, { details: 'The first line is slow.' });
+  sync.setResolved(id, true);
+  await sync.flush();
+  assert.equal(sync.offline, true);
+  assert.deepEqual(sync.notes().map((n) => [n.body, n.details, n.resolved, n.anchor, n.pending]), [['Open on the bell.', 'The first line is slow.', true, anchor, 'pending']], 'shown at once, as one pending create');
+  assert.deepEqual([storage.map.get(id).details, storage.map.get(id).resolved, storage.map.get(id).anchor], ['The first line is slow.', true, anchor], 'kept on the device whole');
+  assert.equal((await itemRows(db)).length, 0);
+  net.down = false;
+  await runTimers();
+  const rows = await itemRows(db);
+  assert.deepEqual(rows.map((n) => [n.id, n.body, n.details, Boolean(n.resolved_at), n.anchor, n.version]), [[id, 'Open on the bell.', 'The first line is slow.', true, anchor, 1]], 'one create, everything in it');
+  assert.equal(storage.map.size, 0);
+  assert.deepEqual(sync.notes().map((n) => [n.resolved, n.resolved_at !== null, n.pending]), [[true, true, null]]);
+
+  // Unresolve and edit the details while cut off: one update when the network is back, one version bump.
+  net.down = true;
+  sync.setResolved(id, false);
+  sync.editItem(id, { details: '' });
+  await sync.flush();
+  assert.deepEqual(sync.pendingChanges().map((p) => [p.kind, p.details, p.resolved]), [['update', null, false]], 'one coalesced change');
+  net.down = false;
+  await runTimers();
+  assert.deepEqual((await itemRows(db)).map((n) => [n.details, n.resolved_at, n.version]), [[null, null, 2]]);
+  // A resolve that says what the server already says writes nothing; a pending create keeps its id across a retry.
+  sync.setResolved(id, false);
+  await sync.flush();
+  assert.equal((await itemRows(db))[0].version, 2);
+  // Without items (a pre-043 app), the engine writes text alone and shows every note open.
+  const old = engine({ items: false });
+  await old.sync.start();
+  const plainId = old.sync.create('scene', S('h2a'), 'plain', anchor);
+  old.sync.setResolved(plainId, true);
+  await old.sync.flush();
+  assert.deepEqual((await itemRows(db)).filter((n) => n.id === plainId).map((n) => [n.details, n.resolved_at, n.anchor]), [[null, null, null]]);
+});
+
+test('items: a conflict on a resolve or a details edit waits for the writer and is resolved explicitly; the anchor survives either choice', async () => {
+  const db = await seededDb();
+  const anchor = ANCHOR('fixture-marker-h4a', 'The ', ' paragraph', 4, 22, 1);
+  const made = await notes.createRevisionNote(randomUUID(), 'scene', S('h4a'), 'Original', { details: null, resolved: false, anchor });
+  const { sync } = engine({ items: true });
+  await sync.start();
+  // Elsewhere, the note is resolved (version 2); here, its details are edited against version 1.
+  assert.equal((await notes.updateRevisionNote(made.note.id, 'Original', 1, { details: null, resolved: true })).status, 'ok');
+  sync.editItem(made.note.id, { details: 'Mine' });
+  await sync.flush();
+  const shown = sync.notes()[0];
+  assert.deepEqual([shown.pending, shown.details, shown.remote.version, Boolean(shown.remote.resolved_at)], ['conflict', 'Mine', 2, true]);
+  assert.deepEqual((await itemRows(db)).map((n) => [n.details, Boolean(n.resolved_at), n.version]), [[null, true, 2]], 'nothing overwritten');
+  sync.resolve(made.note.id, 'theirs');
+  assert.deepEqual(sync.notes().map((n) => [n.details, n.resolved, n.anchor, n.pending]), [[null, true, anchor, null]]);
+  // And the other way: keep mine over theirs.
+  sync.editItem(made.note.id, { details: 'Mine again', resolved: false });
+  await sync.flush();
+  assert.deepEqual((await itemRows(db)).map((n) => [n.details, n.resolved_at, n.anchor, n.version]), [['Mine again', null, anchor, 3]]);
+});
+
+test('regression: details, resolving and anchors change no prose, version, words, session, Today, History, Milestone, search or export; a trashed Scene hides its anchored note and restore brings it back', async () => {
+  const db = await seededDb();
+  const milestone = ok(await milestones.createManuscriptMilestone(HOLLOW, 'Draft 1'));
+  const snapshotBefore = ok(await milestones.getManuscriptMilestone(milestone.id));
+  const before = await writingState(db);
+  const versionsBefore = ok(await reading.getReadingVersions(HOLLOW));
+  const anchor = ANCHOR('fixture-marker-h4a', 'The ', ' paragraph', 4, 22, 1);
+  const { sync } = engine({ items: true });
+  await sync.start();
+  const id = sync.create('scene', S('h4a'), 'anchored words here', anchor);
+  sync.editItem(id, { details: 'details words here' });
+  sync.setResolved(id, true);
+  sync.setResolved(id, false);
+  await sync.flush();
+  assert.deepEqual(await writingState(db), before, 'no Scene, Chapter, total, session, History or Milestone row changed');
+  assert.deepEqual(ok(await reading.getReadingVersions(HOLLOW)), versionsBefore);
+  assert.deepEqual(ok(await milestones.getManuscriptMilestone(milestone.id)), snapshotBefore);
+  assert.deepEqual(ok(await search.searchProjectContent(HOLLOW, 'anchored words')), []);
+  const { chapters: rows, scenesPerChapter, groups } = await exporter.loadManuscriptForExport(createSupabaseAdapter(db, { userId: ALICE }), HOLLOW);
+  assert.doesNotMatch(JSON.stringify(exporter.planManuscriptExport(rows, scenesPerChapter, groups)), /anchored words|details words/);
+  // The prose holds no mark: the Scene's content is exactly what it was.
+  assert.deepEqual((await one(db, `select content from public.scenes where id = $1`, [S('h4a')])).content, before.scenes.find((s) => s.id === S('h4a')).content);
+
+  ok(await trash.trashWorkspaceObject('scene', S('h4a')));
+  assert.deepEqual(ok(await notes.listRevisionNotes(HOLLOW)), [], 'hidden with its Scene');
+  assert.deepEqual(await notes.updateRevisionNote(id, 'x', null, { details: null, resolved: true }), { status: 'unavailable' });
+  ok(await trash.restoreWorkspaceObject('scene', S('h4a')));
+  const back = ok(await notes.listRevisionNotes(HOLLOW));
+  assert.deepEqual(back.map((n) => [n.body, n.details, n.anchor]), [['anchored words here', 'details words here', anchor]]);
 });

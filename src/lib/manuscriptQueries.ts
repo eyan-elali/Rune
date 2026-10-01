@@ -24,7 +24,7 @@ type SupabaseLike = any;
 
 type QueryError = { message: string; code?: string | null };
 
-export type SceneSummary = { id: string; title: string; word_count: number };
+export type SceneSummary = { id: string; title: string; word_count: number; version: number };
 export type ChapterWithScenes = Chapter & { scenes: SceneSummary[] };
 export type UnplacedSceneSummary = SceneSummary;
 
@@ -93,13 +93,13 @@ export async function getChaptersWithScenesByProject(
   if (chapterRows.length > 0) {
     const { data: scenes, error: sceneError } = await supabase
       .from("scenes")
-      .select("id, chapter_id, title, word_count")
+      .select("id, chapter_id, title, word_count, version")
       .in("chapter_id", chapterRows.map((c) => c.id))
       .order("position", { ascending: true });
     if (sceneError) return { data: byProject, error: sceneError };
     for (const s of (scenes ?? []) as (SceneSummary & { chapter_id: string })[]) {
       const list = scenesByChapter.get(s.chapter_id) ?? [];
-      list.push({ id: s.id, title: s.title, word_count: s.word_count });
+      list.push({ id: s.id, title: s.title, word_count: s.word_count, version: s.version });
       scenesByChapter.set(s.chapter_id, list);
     }
   }
@@ -186,7 +186,7 @@ export async function getUnplacedSceneSummaries(
   if (!manuscriptId) return { data: [], error: null };
   const { data, error } = await supabase
     .from("scenes")
-    .select("id, title, word_count")
+    .select("id, title, word_count, version")
     .eq("manuscript_id", manuscriptId)
     .is("chapter_id", null)
     .order("position", { ascending: true });

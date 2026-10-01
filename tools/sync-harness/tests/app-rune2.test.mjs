@@ -86,7 +86,8 @@ test('createChapter: a Chapter in the Project\'s Manuscript with one empty Scene
     [chapterId('hollow.ch1'), chapterId('hollow.ch2'), chapterId('hollow.ch3'), chapterId('hollow.ch5'), chapterId('hollow.ch4'), chapterId('hollow.ch6'), r.data.id],
     'by position');
   const ch3 = listed.data.find((c) => c.id === chapterId('hollow.ch3'));
-  assert.deepEqual(ch3.scenes, [{ id: pageId('h3a'), title: 'Page 1', word_count: 410 }], 'h3b and h3c are Unplaced and not listed');
+  assert.deepEqual(ch3.scenes.map(({ version, ...s }) => s), [{ id: pageId('h3a'), title: 'Page 1', word_count: 410 }], 'h3b and h3c are Unplaced and not listed');
+  assert.ok(Number.isInteger(ch3.scenes[0].version) && ch3.scenes[0].version >= 1, 'a Scene summary carries its version (reading anchors)');
 
   signIn(db, BRAM);
   assert.deepEqual(await chapters.createChapter(projectId('hollow'), 'x'), { data: null, error: 'Project not found' });

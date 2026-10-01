@@ -31,6 +31,8 @@ import { useRune2Selection } from "./Rune2Selection";
 type RevisionNoteStore = {
   /** Whether Revision Notes exist here (migration 040). */
   available: boolean;
+  /** Whether notes are items (migration 043): details, resolving and reading anchors are offered. */
+  items: boolean;
   projectId: string;
   /** The Manuscript: the target of Manuscript-wide notes. */
   manuscriptId: string | null;
@@ -45,6 +47,7 @@ type RevisionNoteStore = {
 const EMPTY: ShownNote[] = [];
 const Ctx = createContext<RevisionNoteStore>({
   available: false,
+  items: false,
   projectId: "",
   manuscriptId: null,
   sync: null,
@@ -90,11 +93,12 @@ export function RevisionNoteStoreProvider({ children }: { children: ReactNode })
   const projectId = manuscript.project.id;
   const manuscriptId = workspace.manuscriptId;
   const available = workspace.revisionNotable && Boolean(manuscriptId);
+  const items = available && workspace.revisionItems;
   const userId = useProfileStore((s) => s.profile?.id);
 
   const sync = useMemo(
-    () => (available && userId ? new NoteSync({ transport, storage, userId, projectId }) : null),
-    [available, userId, projectId],
+    () => (available && userId ? new NoteSync({ transport, storage, userId, projectId, items }) : null),
+    [available, userId, projectId, items],
   );
   useEffect(() => {
     if (!sync) return;
@@ -143,6 +147,7 @@ export function RevisionNoteStoreProvider({ children }: { children: ReactNode })
 
   const value: RevisionNoteStore = {
     available: available && Boolean(sync),
+    items: items && Boolean(sync),
     projectId,
     manuscriptId,
     sync,
