@@ -15,7 +15,14 @@ import {
   deleteAccount,
 } from "@/lib/actions/settings";
 import { createPortalSession } from "@/lib/actions/billing";
-import { getOfflineStorageSummary, clearSceneCache } from "@/lib/offline/db";
+import {
+  getOfflineStorageSummary,
+  clearSceneCache,
+  getRetiredDrafts,
+  getRetiredDraftText,
+  discardRetiredDraft,
+  type RetiredDraft,
+} from "@/lib/offline/db";
 import { flushPendingQueue } from "@/lib/offline/syncEngine";
 import { useProfileStore } from "@/store/profileStore";
 import { useToastStore } from "@/store/toastStore";
@@ -902,15 +909,41 @@ function SyncTab() {
   const [summary, setSummary] = useState<{
     pending: number;
     conflicts: number;
+    retired: number;
     cached: number;
   } | null>(null);
+  const [retiredDrafts, setRetiredDrafts] = useState<RetiredDraft[]>([]);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
+  const [confirmDiscard, setConfirmDiscard] = useState<string | null>(null);
 
   async function loadSummary() {
     const s = await getOfflineStorageSummary();
     setSummary(s);
+    setRetiredDrafts(s.retired > 0 ? await getRetiredDrafts() : []);
+  }
+
+  async function handleCopyDraft(sceneId: string) {
+    const text = await getRetiredDraftText(sceneId);
+    if (text === null) {
+      showToast("That draft is no longer here.", "error");
+      await loadSummary();
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(text);
+      showToast("Draft copied.", "success");
+    } catch {
+      showToast("Could not copy. Check clipboard permissions.", "error");
+    }
+  }
+
+  async function handleDiscardDraft(sceneId: string) {
+    const ok = await discardRetiredDraft(sceneId);
+    setConfirmDiscard(null);
+    showToast(ok ? "Draft discarded." : "Could not discard that draft.", ok ? "success" : "error");
+    await loadSummary();
   }
 
   useEffect(() => {
@@ -1011,6 +1044,52 @@ function SyncTab() {
           ))}
         </div>
       </Card>
+
+      {retiredDrafts.length > 0 && (
+        <Card>
+          <SectionTitle>Unsent drafts</SectionTitle>
+          <p
+            className="mt-2 text-sm leading-relaxed"
+            style={{ color: "var(--color-mist)" }}
+          >
+            These were written to scenes that no longer exist on the server, so
+            they cannot be saved there. Nothing was discarded: copy the text to
+            keep it, or discard it here.
+          </p>
+          <div className="mt-4 flex flex-col gap-0">
+            {retiredDrafts.map((draft, i) => (
+              <SettingRow
+                key={draft.sceneId}
+                label={draft.title ?? "Untitled scene"}
+                description={`${draft.wordCount.toLocaleString()} word${draft.wordCount === 1 ? "" : "s"}${
+                  draft.retiredAt ? ` · set aside ${new Date(draft.retiredAt).toLocaleDateString()}` : ""
+                }`}
+                last={i === retiredDrafts.length - 1}
+              >
+                {confirmDiscard !== draft.sceneId ? (
+                  <div className="flex items-center gap-2">
+                    <Button variant="ghost" onClick={() => handleCopyDraft(draft.sceneId)}>
+                      Copy text
+                    </Button>
+                    <Button variant="ghost" onClick={() => setConfirmDiscard(draft.sceneId)}>
+                      Discard
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <Button variant="danger" onClick={() => handleDiscardDraft(draft.sceneId)}>
+                      Discard draft
+                    </Button>
+                    <Button variant="ghost" onClick={() => setConfirmDiscard(null)}>
+                      Cancel
+                    </Button>
+                  </div>
+                )}
+              </SettingRow>
+            ))}
+          </div>
+        </Card>
+      )}
 
       {hasConflicts && (
         <div

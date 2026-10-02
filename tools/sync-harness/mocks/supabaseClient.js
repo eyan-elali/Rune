@@ -1,4 +1,4 @@
-import { server, fetchScene, saveSceneChecked } from './serverState.js';
+import { server, fetchScene, saveSceneChecked, workspaceTrashState } from './serverState.js';
 
 // Minimal supabase-js browser-client mock covering exactly what
 // syncEngine.ts uses: auth.getSession, from('scenes').select().eq().single(), rpc().
@@ -20,7 +20,11 @@ export function createClient() {
               // .single() coerces exactly-one-row (kept for any remaining
               // callers). A missing row is data: [] with NO error.
               const list = async () => {
-                const { data } = await fetchScene(id);
+                const { data, error } = await fetchScene(id);
+                // A transport failure surfaces as a query error (supabase-js
+                // returns { error } rather than throwing); a missing row is
+                // data: [] with NO error.
+                if (error?.transport) return { data: null, error: { message: error.message } };
                 if (!data) return { data: [], error: null };
                 return { data: [data], error: null };
               };
@@ -42,6 +46,7 @@ export function createClient() {
       };
     },
     async rpc(fn, args) {
+      if (fn === 'workspace_trash_state') return workspaceTrashState(args);
       if (fn !== 'save_scene_checked') throw new Error('unexpected rpc ' + fn);
       const { error, data } = await saveSceneChecked(args);
       return { error, data };

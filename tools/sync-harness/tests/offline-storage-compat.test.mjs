@@ -76,7 +76,7 @@ test('a Scene cached, queued and credited before the rename is still read', asyn
   assert.deepEqual(pending?.content, DOC);
 
   const summary = await offline.getOfflineStorageSummary();
-  assert.deepEqual(summary, { pending: 0, conflicts: 1, cached: 1 });
+  assert.deepEqual(summary, { pending: 0, conflicts: 1, retired: 0, cached: 1 });
 
   // Clearing the Scene cache never drops an entry with a pending write.
   assert.equal(await offline.clearSceneCache(), 0);

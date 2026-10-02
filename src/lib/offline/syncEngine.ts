@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/client'
-import { getOfflineDB, evictOldCacheEntries, SCENE_CACHE_STORE } from '@/lib/offline/db'
+import { getOfflineDB, evictOldCacheEntries, SCENE_CACHE_STORE, type PendingWrite } from '@/lib/offline/db'
 import { createGameSession } from '@/lib/actions/games'
 import { awardProjectXp } from '@/lib/actions/xp'
 import { afterSceneSync, syncSceneWithLimitCheck } from '@/lib/actions/scenes'
@@ -65,6 +65,54 @@ function stableStringify(value: unknown): string {
   const obj = value as Record<string, unknown>
   const keys = Object.keys(obj).sort()
   return '{' + keys.map((k) => JSON.stringify(k) + ':' + stableStringify(obj[k])).join(',') + '}'
+}
+
+// A row still 'syncing' this long after it was marked is treated as stranded
+// (its request can't still be running) and revived by the background flush.
+const STRANDED_SYNCING_MS = 2 * 60 * 1000
+
+// Whether a queued save carries prose the server has not confirmed. The last
+// confirmed server copy is the cache's serverContent baseline; a save whose
+// content equals it, or a content-empty save (no words), adds nothing. With
+// no baseline at all, any words count as unsaved — never guess otherwise.
+function holdsUnsavedProse(
+  write: { content: Record<string, unknown>; wordCount: number },
+  cached: { serverContent?: Record<string, unknown> } | undefined
+): boolean {
+  if (write.wordCount <= 0 && !hasText(write.content)) return false
+  if (cached?.serverContent !== undefined) {
+    return stableStringify(write.content) !== stableStringify(cached.serverContent)
+  }
+  return true
+}
+
+function hasText(node: unknown): boolean {
+  if (!node || typeof node !== 'object') return false
+  const n = node as { type?: string; text?: string; content?: unknown[] }
+  if (n.type === 'text') return typeof n.text === 'string' && n.text.trim().length > 0
+  return Array.isArray(n.content) && n.content.some(hasText)
+}
+
+// What the server knows about a Scene this account cannot read. 'trashed' and
+// 'missing' are the RPC's definite answers (it runs as SECURITY DEFINER, so
+// Trash is visible to it); 'active' means the read above should have worked
+// (a race or policy gap — retry); 'unknown' means the RPC itself failed
+// (network, or a database without migration 031) — never a reason to retire.
+type MissingSceneState = 'trashed' | 'missing' | 'active' | 'unknown'
+
+async function classifyMissingScene(
+  supabase: ReturnType<typeof createClient>,
+  sceneId: string
+): Promise<MissingSceneState> {
+  try {
+    const { data, error } = await supabase.rpc('workspace_trash_state', { p_type: 'scene', p_id: sceneId })
+    if (error) return 'unknown'
+    const state = (data as { status?: string; state?: string } | null)?.state
+    if (state === 'trashed' || state === 'missing' || state === 'active') return state
+    return 'unknown'
+  } catch {
+    return 'unknown'
+  }
 }
 
 // Per-scene exclusive operation chain. It serializes the two kinds of
@@ -136,16 +184,20 @@ async function doSyncPendingWrite(
   const db = await getOfflineDB()
   const pending = await db.get('pending_writes', sceneId)
   if (!pending) return
+  // Terminal: the Scene is gone from the server and this prose is held for
+  // the writer (Settings → Sync). Never retried — a new keystroke on a Scene
+  // that exists again re-queues the row as 'pending' via writeToPendingQueue.
+  if (pending.syncStatus === 'retired') return
 
-  await db.put('pending_writes', { ...pending, syncStatus: 'syncing' })
+  await db.put('pending_writes', { ...pending, syncStatus: 'syncing', syncingSince: Date.now() })
 
   // Writes a status change onto the LATEST queued row rather than the snapshot
   // read at entry — a keystroke during this sync overwrites the pending row
   // with newer content, and spreading the stale snapshot would silently revert
   // the durable queue to older prose.
   async function putStatus(
-    status: 'pending' | 'failed' | 'conflict',
-    extra?: { lastError: string; lastErrorAt: number }
+    status: 'pending' | 'failed' | 'conflict' | 'retired',
+    extra?: Partial<Pick<PendingWrite, 'lastError' | 'lastErrorAt' | 'retiredAt' | 'retiredReason'>>
   ): Promise<void> {
     const latest = (await db.get('pending_writes', sceneId)) ?? pending!
     await db.put('pending_writes', { ...latest, syncStatus: status, ...(extra ?? {}) })
@@ -155,12 +207,33 @@ async function doSyncPendingWrite(
   // records WHY it failed — the previous version of this engine swallowed every
   // server error into an indistinguishable silent retry, which made a
   // persistently failing save look like an ordinary "Saving..." forever.
+  // The reason is logged when it first appears for this row, not on every
+  // 30-second retry that fails the same way: the queue row's lastError already
+  // carries it, and a steady failure must not fill the console.
   async function failAttempt(
     status: 'pending' | 'failed',
     reason: string
   ): Promise<void> {
-    console.error(`[sync] scene ${sceneId} save did not persist (${status}):`, reason)
+    const latest = await db.get('pending_writes', sceneId)
+    if (latest?.lastError !== reason) {
+      console.error(`[sync] scene ${sceneId} save did not persist (${status}):`, reason)
+    }
     await putStatus(status, { lastError: reason, lastErrorAt: Date.now() })
+  }
+
+  // Terminal outcome for a queued save whose Scene is definitively gone. Prose
+  // the server never confirmed is kept as a 'retired' row for the writer;
+  // prose the server already holds is dropped, since there is nothing to save.
+  async function retireStaleWrite(reason: string): Promise<void> {
+    const latest = (await db.get('pending_writes', sceneId)) ?? pending!
+    const cached = await db.get(SCENE_CACHE_STORE, sceneId)
+    if (!holdsUnsavedProse(latest, cached)) {
+      console.warn(`[sync] scene ${sceneId} queued save retired and dropped: ${reason} (its content was already on the server)`)
+      await db.delete('pending_writes', sceneId)
+      return
+    }
+    console.warn(`[sync] scene ${sceneId} queued save retired and kept for recovery in Settings → Sync: ${reason}`)
+    await putStatus('retired', { retiredAt: Date.now(), retiredReason: reason, lastError: reason, lastErrorAt: Date.now() })
   }
 
   try {
@@ -169,6 +242,14 @@ async function doSyncPendingWrite(
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) {
       await failAttempt('failed', 'No auth session — sign-in required')
+      return
+    }
+    if (pending.userId && session.user.id !== pending.userId) {
+      // IndexedDB is per origin, not per account: this row was queued by a
+      // different writer on this browser. Its Scene is invisible to the
+      // current session, which must never be mistaken for the Scene being
+      // gone — keep it for that account's next sign-in.
+      await failAttempt('failed', 'Queued by a different account on this browser — will sync when that account signs in')
       return
     }
 
@@ -191,13 +272,35 @@ async function doSyncPendingWrite(
       return
     }
     if (!serverRows || serverRows.length === 0) {
-      // The row is gone or invisible: the scene was deleted (possibly on
-      // another device), or RLS no longer exposes it to this account. Either
-      // way the queued prose must be preserved — 'failed' keeps it durable and
-      // retryable while the reason is recorded precisely.
+      // The row is invisible to this account's reads. RLS (031) hides a
+      // trashed Scene exactly like a deleted one, so this is NOT yet proof the
+      // Scene is gone: ask the SECURITY DEFINER trash-state RPC, which sees
+      // through RLS, and act on what it answers. Anything short of a definite
+      // answer stays 'failed' — durable, retried, prose preserved.
+      const state = await classifyMissingScene(supabase, sceneId)
+      if (state === 'trashed') {
+        // In Trash, restorable: the queued prose waits for the restore (then
+        // save_scene_checked accepts it again). Nothing to wait for when the
+        // server already holds this content — retire the row instead of
+        // retrying an empty save for as long as the Scene sits in Trash.
+        const cached = await db.get(SCENE_CACHE_STORE, sceneId)
+        const latest = (await db.get('pending_writes', sceneId)) ?? pending
+        if (!holdsUnsavedProse(latest, cached)) {
+          await retireStaleWrite('Scene is in Trash')
+          return
+        }
+        await failAttempt('failed', 'Scene is in Trash — the queued save will resume once it is restored')
+        return
+      }
+      if (state === 'missing') {
+        await retireStaleWrite('Server scene row is gone — the Scene was permanently deleted or is not this account\'s')
+        return
+      }
       await failAttempt(
         'failed',
-        'Server scene row not found — the scene was deleted or is not accessible to this account (stale queue entry?)'
+        state === 'active'
+          ? 'Server scene row not readable although the Scene is active — will retry'
+          : 'Server scene row not found and its Trash state could not be determined — will retry'
       )
       return
     }
@@ -424,8 +527,20 @@ export async function flushPendingQueue(): Promise<{
     // two-writer conflict is simply re-marked 'conflict' and keeps waiting for
     // the user's explicit resolution — the modal is never bypassed for real
     // conflicts. 'syncing' is skipped (another caller owns that row right now).
+    // 'retired' is terminal and never retried. A 'syncing' row is skipped
+    // while a caller in THIS tab owns it; one marked 'syncing' long ago (or by
+    // an earlier client, with no timestamp) belonged to a sync that never
+    // finished — a closed tab mid-request — and is revived here, else it
+    // would stay stranded forever: no retry path ever looked at 'syncing'.
+    const now = Date.now()
     const retryable = all.filter(
-      (w) => w.syncStatus === 'pending' || w.syncStatus === 'failed' || w.syncStatus === 'conflict'
+      (w) =>
+        w.syncStatus === 'pending' ||
+        w.syncStatus === 'failed' ||
+        w.syncStatus === 'conflict' ||
+        (w.syncStatus === 'syncing' &&
+          !inFlightSyncs.has(w.id) &&
+          (w.syncingSince === undefined || now - w.syncingSince > STRANDED_SYNCING_MS))
     )
 
     for (const write of retryable) {

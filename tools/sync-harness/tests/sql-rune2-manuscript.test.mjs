@@ -536,15 +536,21 @@ test('REAL sync engine: a cached, queued edit syncs through save_scene_checked; 
   assert.equal(await pendingRow(UNPLACED_BRAM), null);
 
   // Another writer: the RPC's literal not-found string is classified, and the queued prose is kept.
+  // The sync engine asks the real workspace_trash_state, which answers 'missing' for a Scene
+  // that is not this account's — a definitive answer, so the row retires (terminal, never
+  // retried) with its prose kept instead of failing and retrying forever.
   signIn(db, ALICE);
   await queue(UNPLACED_BRAM, ALICE, 5, 'intruder');
   const denied = await engine.forceWriteLocalContent(UNPLACED_BRAM);
   assert.deepEqual(denied, { status: 'error', category: 'not_found', message: 'Scene not found' });
   await engine.syncPendingWrite(UNPLACED_BRAM, 'offline_sync');
   const kept = await pendingRow(UNPLACED_BRAM);
-  assert.equal(kept?.syncStatus, 'failed', 'an invisible Scene fails the write durably');
+  assert.equal(kept?.syncStatus, 'retired', 'an invisible Scene retires the write, durably');
+  assert.match(kept.retiredReason, /permanently deleted or is not this account/);
   assert.equal(kept.wordCount, 5, 'the queued prose is preserved');
   assert.equal((await one(db, `select word_count from public.scenes where id = $1`, [UNPLACED_BRAM])).word_count, 740);
+  assert.deepEqual(await engine.flushPendingQueue(), { synced: 0, failed: 0, conflicts: 0 }, 'a retired row is not retried');
+  assert.equal((await pendingRow(UNPLACED_BRAM))?.syncStatus, 'retired');
   await (await offline.getOfflineDB()).delete('pending_writes', UNPLACED_BRAM);
 });
 

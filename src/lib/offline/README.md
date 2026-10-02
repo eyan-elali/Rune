@@ -28,7 +28,7 @@
 
 The `upgrade` callback only **creates missing stores** — it never deletes or migrates existing ones, so entries written by any earlier version survive an upgrade.
 
-`pending_writes` rows carry `syncStatus`: `pending | syncing | failed | conflict`, plus `retryCount`, `localUpdatedAt`, and diagnostics (`lastError`, `lastErrorAt` — the server's error message, never manuscript content).
+`pending_writes` rows carry `syncStatus`: `pending | syncing | failed | conflict | retired`, plus `retryCount`, `localUpdatedAt`, `syncingSince` (when the row was last marked `syncing`), and diagnostics (`lastError`, `lastErrorAt`, and for `retired` rows `retiredAt` / `retiredReason` — the server's error message or a diagnostic sentence, never manuscript content). `retired` is terminal: the Scene is definitively gone from the server and the row holds prose the server never confirmed, for the writer to copy or discard in Settings → Sync (`getRetiredDrafts`, `getRetiredDraftText`, `discardRetiredDraft`). The engine never retries it.
 
 `page_cache` baseline fields (written only from confirmed server state):
 
@@ -54,7 +54,12 @@ Outcomes:
 | `version_mismatch` | `pending`, `retryCount + 1`, one retry scheduled after 2 s |
 | `word_limit_blocked` (only from a Rune 2.0 database before migration 037, which retired the limit) | `pending`; `rune-word-limit-blocked` event dispatched (no listener since 037: the write stays queued and retries) |
 | `error` / thrown exception | `pending` with `lastError` |
-| No auth session, read error, or Scene row missing (deleted / not visible via RLS) | `failed` with `lastError` — prose is preserved |
+| No auth session, read error (including network failure), or the row was queued by a different account on this browser | `failed` with `lastError` — prose is preserved, retried |
+| Scene row not readable: `workspace_trash_state('scene', id)` (SECURITY DEFINER, sees through RLS) answers **trashed** | Queued content already on the server (equals the cache's `serverContent` baseline, or holds no words): row deleted, one `console.warn`. Otherwise `failed` — retried, and saves once the Scene is restored |
+| … answers **missing** (permanently deleted, or never this account's) | Queued content already on the server: row deleted. Otherwise `retired` (terminal) with `retiredReason` — prose kept for Settings → Sync. Never retried; a save is never attempted, so a deleted Scene is never resurrected |
+| … answers **active**, or the RPC itself fails (offline, or a database without 031) | `failed` — ambiguous, retried |
+
+A repeating failure is logged (`console.error`) only when its reason first appears on the row, not on every retry; the row's `lastError` carries it meanwhile.
 
 Concurrency: `syncPendingWrite` calls for the same Scene are coalesced (`inFlightSyncs`), and syncs and Keep Local force-writes are serialized per Scene (`runExclusive`).
 
@@ -68,7 +73,7 @@ Concurrency: `syncPendingWrite` calls for the same Scene are coalesced (`inFligh
 
 ## Reconnect / background sync
 
-`NetworkProvider` calls `flushPendingQueue()` on the browser `online` event and every 30 seconds. The flush retries `pending` and `failed` rows and **re-evaluates** `conflict` rows (false conflicts self-heal; genuine ones stay `conflict`). A module-level `_flushing` flag prevents overlapping flushes. It then applies `pending_writing_credits` via `recordWordsWritten`, and `rune-sync-queue-updated` is dispatched so the editor refreshes its status.
+`NetworkProvider` calls `flushPendingQueue()` on the browser `online` event and every 30 seconds. The flush retries `pending` and `failed` rows, **re-evaluates** `conflict` rows (false conflicts self-heal; genuine ones stay `conflict`), skips `retired` rows, and revives a `syncing` row that no caller in this tab owns and that was marked more than two minutes ago (or by an earlier client, with no `syncingSince`) — a sync a closed tab never finished. A module-level `_flushing` flag prevents overlapping flushes. It then applies `pending_writing_credits` via `recordWordsWritten`, and `rune-sync-queue-updated` is dispatched so the editor refreshes its status.
 
 ## Conflict resolution (`SyncConflictModal`)
 

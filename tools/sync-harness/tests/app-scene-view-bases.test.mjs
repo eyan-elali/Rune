@@ -210,7 +210,9 @@ test('moving a Group keeps its Views; moving a Chapter changes only the scope; d
   // Deleting Act A (emptied first) takes its View alone; the others are exactly as they were.
   ok({ error: (await structure.moveChapter(CH(3), part1.id, null, HOLLOW)).error });
   ok({ error: (await structure.deleteGroup(actA.id, HOLLOW)).error });
-  assert.deepEqual((await rows(db)).map((r) => [r.name, r.group_id]), [['List', null], ['By POV', part1.id], ['Revision', part2.id]]);
+  // Group ids are random, so the two Group Bases have no fixed order between them: compare by name.
+  const byName = (a, b) => a[0].localeCompare(b[0]);
+  assert.deepEqual((await rows(db)).map((r) => [r.name, r.group_id]).sort(byName), [['By POV', part1.id], ['List', null], ['Revision', part2.id]].sort(byName));
   loaded = await workspace.loadProjectWorkspace(HOLLOW);
   assert.deepEqual(viewModel.viewsOf(loaded.sceneViews, actA.id), []);
   assert.deepEqual(viewModel.viewsOf(loaded.sceneViews, mid).map((v) => v.id), [mList.id]);

@@ -12,8 +12,9 @@ import {
 import { getOfflineDB, cacheScene, storeOfflineWritingCredit } from '@/lib/offline/db';
 import {
   server, resetServer, createServerPage, metadataUpdate, remoteContentSave, releaseHang, releaseFetchHang,
-  applyPlacementMigration,
+  applyPlacementMigration, trashServerScene, restoreServerScene, deleteServerScene,
 } from './mocks/serverState.js';
+import { getOfflineStorageSummary, getRetiredDrafts, getRetiredDraftText, discardRetiredDraft } from '@/lib/offline/db';
 import { recordWordsWrittenCalls } from './mocks/actionsMisc.js';
 
 const PAGE = 'page-1';
@@ -255,29 +256,244 @@ async function i() {
 //    classification, prose preserved, no opaque coercion error
 async function m() {
   resetServer();
-  // NO server page created — simulates a pending row whose page was deleted
+  // NO server row, and no confirmed baseline — the Scene was permanently
+  // deleted (or never existed here) while 650 unsent words sit in the queue.
   const db = await getOfflineDB();
   await db.put('pending_writes', {
     id: PAGE, userId: USER, content: doc(650), wordCount: 650,
     localUpdatedAt: Date.now(), syncStatus: 'pending', retryCount: 0,
   });
-  const errs = [];
-  const origError = console.error;
-  console.error = (...a) => errs.push(a.join(' '));
+  const logs = captureConsole();
   await syncPendingWrite(PAGE, 'online');
-  console.error = origError;
+  logs.restore();
   const pending = await getPending();
-  check('M: missing server row classified as failed (not conflict, not deleted)',
-    pending?.syncStatus === 'failed', pending?.syncStatus);
+  check('M: missing server row with unsent prose → terminal retired (not conflict, not deleted)',
+    pending?.syncStatus === 'retired', pending?.syncStatus);
   check('M: precise reason recorded — no coercion message',
-    pending?.lastError?.includes('deleted or is not accessible') && !pending?.lastError?.includes('coerce'),
-    pending?.lastError);
-  check('M: log line includes the page id', errs.some(e => e.includes(PAGE)), JSON.stringify(errs));
-  check('M: prose preserved in queue', pending?.wordCount === 650, '');
-  // flush retries it without crashing and without changing classification
+    pending?.retiredReason?.includes('permanently deleted or is not this account') && !pending?.lastError?.includes('coerce'),
+    pending?.retiredReason);
+  check('M: log line includes the page id', logs.lines.some(e => e.includes(PAGE)), JSON.stringify(logs.lines));
+  check('M: prose preserved in queue', pending?.wordCount === 650 && pending?.content?.content?.[0]?.content?.[0]?.text?.startsWith('w0 w1'), '');
+  // flush leaves it alone: no retry, no further server calls, no new log line
+  const callsBefore = server.log.length;
+  const logs2 = captureConsole();
   const flushResult = await flushPendingQueue();
+  logs2.restore();
   const after = await getPending();
-  check('M: flush retry keeps accurate failed state', after?.syncStatus === 'failed' && flushResult.failed === 1, JSON.stringify(flushResult));
+  check('M: flush does not retry a retired row', after?.syncStatus === 'retired' && flushResult.failed === 0 && server.log.length === callsBefore, JSON.stringify(flushResult));
+  check('M: flush logs nothing for a retired row', logs2.lines.length === 0, JSON.stringify(logs2.lines));
+}
+
+// ── Stale-queue helpers ──────────────────────────────────────────────────────
+function captureConsole() {
+  const lines = [];
+  const origError = console.error, origWarn = console.warn;
+  console.error = (...a) => lines.push('error ' + a.join(' '));
+  console.warn = (...a) => lines.push('warn ' + a.join(' '));
+  return { lines, restore() { console.error = origError; console.warn = origWarn; } };
+}
+function saveCalls(id = PAGE) {
+  return server.log.filter((l) => l.op === 'save_scene_checked' && l.id === id).length;
+}
+
+// ── S1: a retryable network failure stays retryable and succeeds later ──────
+async function s1() {
+  resetServer();
+  await createPageAndPrimeCache();
+  await writeToPendingQueue(PAGE, USER, doc(120), 120);
+  server.fetchMode = 'network_error';
+  const logs = captureConsole();
+  await syncPendingWrite(PAGE, 'online', 0);
+  await flushPendingQueue();
+  await flushPendingQueue();
+  logs.restore();
+  let pending = await getPending();
+  check('S1: network failure → failed, retryable, prose kept', pending?.syncStatus === 'failed' && pending?.wordCount === 120, pending?.syncStatus);
+  check('S1: network failure never consults Trash state', !server.log.some((l) => l.op === 'workspace_trash_state'), JSON.stringify(server.log));
+  check('S1: the same failure is logged once, not on every retry', logs.lines.filter((l) => l.includes('Failed to fetch')).length === 1, JSON.stringify(logs.lines));
+  server.fetchMode = 'ok';
+  const res = await flushPendingQueue();
+  pending = await getPending();
+  check('S1: retry after reconnect uploads', res.synced === 1 && pending === null && server.scenes.get(PAGE).word_count === 120, JSON.stringify(res));
+}
+
+// ── S2: definitive not-found with nothing unsaved → retired and dropped ──────
+async function s2() {
+  resetServer();
+  await createPageAndPrimeCache();
+  await writeToPendingQueue(PAGE, USER, doc(80), 80);
+  await syncPendingWrite(PAGE, 'online', 0); // confirmed: baseline = doc(80)
+  check('S2: setup synced', (await getPending()) === null, '');
+  // The editor's trailing debounce re-queues the same content, then the Scene
+  // is permanently deleted (another device).
+  await writeToPendingQueue(PAGE, USER, doc(80), 80);
+  deleteServerScene(PAGE);
+  const logs = captureConsole();
+  await flushPendingQueue();
+  const callsAfterFirst = server.log.length;
+  await flushPendingQueue();
+  await flushPendingQueue();
+  logs.restore();
+  check('S2: queue row retired and dropped (content already on the server)', (await getPending()) === null, '');
+  check('S2: no save attempted, no resurrection', saveCalls() === 1 && !server.scenes.has(PAGE), JSON.stringify(server.log));
+  check('S2: later flushes make no server calls', server.log.length === callsAfterFirst, '');
+  check('S2: logged exactly once', logs.lines.length === 1 && logs.lines[0].includes('retired and dropped'), JSON.stringify(logs.lines));
+}
+
+// ── S3: a stale item never blocks later valid queue items ───────────────────
+async function s3() {
+  resetServer();
+  const STALE = 'a-stale', VALID = 'b-valid';
+  const db = await getOfflineDB();
+  await db.put('pending_writes', { id: STALE, userId: USER, content: doc(50), wordCount: 50, localUpdatedAt: Date.now(), syncStatus: 'pending', retryCount: 0 });
+  createServerPage(VALID);
+  await writeToPendingQueue(VALID, USER, doc(70), 70);
+  const res = await flushPendingQueue();
+  check('S3: valid write synced despite the stale one ahead of it', res.synced === 1 && server.scenes.get(VALID).word_count === 70, JSON.stringify(res));
+  check('S3: stale write retired, prose kept', (await db.get('pending_writes', STALE))?.syncStatus === 'retired', '');
+  check('S3: valid write cleared', (await db.get('pending_writes', VALID)) === undefined, '');
+  const res2 = await flushPendingQueue();
+  check('S3: next flush is clean', res2.synced === 0 && res2.failed === 0 && res2.conflicts === 0, JSON.stringify(res2));
+}
+
+// ── S4: a stale save never resurrects a deleted Scene ────────────────────────
+async function s4() {
+  resetServer();
+  await createPageAndPrimeCache();
+  await writeToPendingQueue(PAGE, USER, doc(300), 300);
+  deleteServerScene(PAGE);
+  await syncPendingWrite(PAGE, 'online', 0);
+  await flushPendingQueue();
+  check('S4: no server row was created', !server.scenes.has(PAGE), '');
+  check('S4: save_scene_checked never called for the deleted Scene', saveCalls() === 0, JSON.stringify(server.log));
+  check('S4: unsent prose retired, not lost', (await getPending())?.syncStatus === 'retired' && (await getPending())?.wordCount === 300, '');
+}
+
+// ── S5: unique queued prose for a deleted Scene is never silently discarded ─
+async function s5() {
+  resetServer();
+  await createPageAndPrimeCache();
+  await writeToPendingQueue(PAGE, USER, doc(40), 40);
+  await syncPendingWrite(PAGE, 'online', 0); // baseline doc(40)
+  await writeToPendingQueue(PAGE, USER, doc(90, 'new'), 90); // 50 words beyond the baseline
+  deleteServerScene(PAGE);
+  await flushPendingQueue();
+  const pending = await getPending();
+  check('S5: retired row keeps the exact unsent content', pending?.syncStatus === 'retired' && pending?.content?.content?.[0]?.content?.[0]?.text?.startsWith('new0 new1'), '');
+  const summary = await getOfflineStorageSummary();
+  check('S5: summary counts it as retired, not pending', summary.retired === 1 && summary.pending === 0, JSON.stringify(summary));
+  const drafts = await getRetiredDrafts();
+  check('S5: Settings can list it (no prose in the listing)', drafts.length === 1 && drafts[0].sceneId === PAGE && drafts[0].wordCount === 90 && !JSON.stringify(drafts).includes('new0'), JSON.stringify(drafts));
+  const text = await getRetiredDraftText(PAGE);
+  check('S5: its plain text is recoverable', text?.startsWith('new0 new1') && text.split(/\s+/).length === 90, text?.slice(0, 40));
+  check('S5: discarding is explicit', (await discardRetiredDraft(PAGE)) === true && (await getPending()) === null, '');
+}
+
+// ── S6: Trash and restore are not permanent deletion ─────────────────────────
+async function s6() {
+  resetServer();
+  await createPageAndPrimeCache();
+  await writeToPendingQueue(PAGE, USER, doc(40), 40);
+  await syncPendingWrite(PAGE, 'online', 0);
+  await writeToPendingQueue(PAGE, USER, doc(55), 55); // unsent edit
+  trashServerScene(PAGE);
+  const logs = captureConsole();
+  await flushPendingQueue();
+  await flushPendingQueue();
+  logs.restore();
+  let pending = await getPending();
+  check('S6: trashed Scene with unsent prose → failed (retryable), not retired', pending?.syncStatus === 'failed' && pending?.lastError?.includes('in Trash'), pending?.lastError);
+  check('S6: save never attempted against a trashed Scene', saveCalls() === 1, JSON.stringify(server.log));
+  check('S6: logged once across repeated flushes', logs.lines.length === 1, JSON.stringify(logs.lines));
+  restoreServerScene(PAGE);
+  const res = await flushPendingQueue();
+  pending = await getPending();
+  check('S6: after restore the queued edit saves', res.synced === 1 && pending === null && server.scenes.get(PAGE).word_count === 55, JSON.stringify(res));
+
+  // The reported production case: a trailing empty save for a Scene that was
+  // emptied and then trashed. Nothing unsent — retire and drop.
+  await writeToPendingQueue(PAGE, USER, { type: 'doc', content: [{ type: 'paragraph' }] }, 0);
+  remoteContentSave(PAGE, { type: 'doc', content: [{ type: 'paragraph' }] }, 0);
+  trashServerScene(PAGE);
+  const logs2 = captureConsole();
+  await flushPendingQueue();
+  await flushPendingQueue();
+  logs2.restore();
+  check('S6: trashed + empty queued save → retired and dropped', (await getPending()) === null, '');
+  check('S6: the Scene stays in Trash, untouched', server.trashed.has(PAGE) && server.scenes.has(PAGE), '');
+  check('S6: dropped once, silently afterwards', logs2.lines.length === 1 && logs2.lines[0].includes('in Trash'), JSON.stringify(logs2.lines));
+}
+
+// ── S7: duplicate stale retries do not accumulate ───────────────────────────
+async function s7() {
+  resetServer();
+  const db = await getOfflineDB();
+  await db.put('pending_writes', { id: PAGE, userId: USER, content: doc(25), wordCount: 25, localUpdatedAt: Date.now(), syncStatus: 'pending', retryCount: 0 });
+  const logs = captureConsole();
+  for (let i = 0; i < 6; i++) {
+    await flushPendingQueue();
+    await syncPendingWrite(PAGE, 'online');
+  }
+  logs.restore();
+  const all = await db.getAll('pending_writes');
+  const row = all[0];
+  check('S7: exactly one queue row', all.length === 1, String(all.length));
+  check('S7: retryCount untouched, status retired', row.retryCount === 0 && row.syncStatus === 'retired', JSON.stringify({ r: row.retryCount, s: row.syncStatus }));
+  check('S7: one log line for twelve attempts', logs.lines.length === 1, JSON.stringify(logs.lines));
+  check('S7: one Trash-state lookup, then silence', server.log.filter((l) => l.op === 'workspace_trash_state').length === 1, JSON.stringify(server.log));
+}
+
+// ── S8: explicit terminal state, and ambiguity never retires ─────────────────
+async function s8() {
+  resetServer();
+  const db = await getOfflineDB();
+  await db.put('pending_writes', { id: PAGE, userId: USER, content: doc(25), wordCount: 25, localUpdatedAt: Date.now(), syncStatus: 'pending', retryCount: 0 });
+  // Ambiguous: the Trash-state RPC itself fails (offline, or a database
+  // without 031) → must stay retryable.
+  server.trashStateMode = 'error';
+  await syncPendingWrite(PAGE, 'online');
+  let row = await getPending();
+  check('S8: undeterminable Trash state → failed, not retired', row?.syncStatus === 'failed' && row?.lastError?.includes('could not be determined'), row?.lastError);
+  // Now definitive:
+  server.trashStateMode = 'ok';
+  await syncPendingWrite(PAGE, 'online');
+  row = await getPending();
+  check('S8: definitive → retired with retiredAt and retiredReason', row?.syncStatus === 'retired' && typeof row?.retiredAt === 'number' && typeof row?.retiredReason === 'string', JSON.stringify(row && { s: row.syncStatus, at: row.retiredAt, why: row.retiredReason }));
+  check('S8: retiredReason carries no prose', !row?.retiredReason?.includes('w0'), row?.retiredReason);
+  const summary = await getOfflineStorageSummary();
+  check('S8: excluded from pending, counted as retired', summary.pending === 0 && summary.retired === 1, JSON.stringify(summary));
+  // A different account's row is never classified at all.
+  await db.put('pending_writes', { id: 'other-acct', userId: 'user-2', content: doc(10), wordCount: 10, localUpdatedAt: Date.now(), syncStatus: 'pending', retryCount: 0 });
+  await syncPendingWrite('other-acct', 'online');
+  const other = await db.get('pending_writes', 'other-acct');
+  check('S8: another account\'s queued save stays failed/retryable, never retired', other?.syncStatus === 'failed' && other?.lastError?.includes('different account'), other?.lastError);
+  check('S8: no Trash lookup for another account\'s row', !server.log.some((l) => l.op === 'workspace_trash_state' && l.id === 'other-acct'), '');
+}
+
+// ── S9: a valid Scene save is unchanged, and a stranded 'syncing' row revives ─
+async function s9() {
+  resetServer();
+  await createPageAndPrimeCache();
+  await writeToPendingQueue(PAGE, USER, doc(200), 200);
+  const res = await flushPendingQueue();
+  const cache = await getCache();
+  check('S9: valid save → one server call, queue cleared, baseline confirmed', res.synced === 1 && saveCalls() === 1 && (await getPending()) === null && cache?.serverWordCount === 200, JSON.stringify(res));
+  check('S9: no Trash lookup on the happy path', !server.log.some((l) => l.op === 'workspace_trash_state'), '');
+
+  // A row left 'syncing' by a tab that closed mid-request (no syncingSince:
+  // written by an earlier client) must be revived by the flush.
+  const db = await getOfflineDB();
+  await db.put('pending_writes', { id: PAGE, userId: USER, content: doc(230), wordCount: 230, localUpdatedAt: Date.now(), syncStatus: 'syncing', retryCount: 0 });
+  const res2 = await flushPendingQueue();
+  check('S9: stranded syncing row (no timestamp) revived and saved', res2.synced === 1 && server.scenes.get(PAGE).word_count === 230 && (await getPending()) === null, JSON.stringify(res2));
+  // A fresh 'syncing' mark is left alone (another caller owns it).
+  await db.put('pending_writes', { id: PAGE, userId: USER, content: doc(240), wordCount: 240, localUpdatedAt: Date.now(), syncStatus: 'syncing', syncingSince: Date.now(), retryCount: 0 });
+  const res3 = await flushPendingQueue();
+  check('S9: a fresh syncing row is not touched by the flush', res3.synced === 0 && (await getPending())?.syncStatus === 'syncing' && server.scenes.get(PAGE).word_count === 230, JSON.stringify(res3));
+  // ...until it is stale.
+  await db.put('pending_writes', { ...(await getPending()), syncingSince: Date.now() - 10 * 60 * 1000 });
+  const res4 = await flushPendingQueue();
+  check('S9: a stale syncing row is revived', res4.synced === 1 && server.scenes.get(PAGE).word_count === 240, JSON.stringify(res4));
 }
 
 // ── KL: the exact production Keep-Local lifecycle — the "false conflict after
@@ -509,7 +725,7 @@ async function migration(tag, bumpVersion) {
 const mig = () => migration('MIG', false);
 const migbump = () => migration('MIGBUMP', true);
 
-const scenarios = { r1, r2, r3, r6, r7, g1, g2, g3, w, f, i, m, kl, klrace, klext, klrepeat, klmeta, klserver, mig, migbump };
+const scenarios = { r1, r2, r3, r6, r7, g1, g2, g3, w, f, i, m, s1, s2, s3, s4, s5, s6, s7, s8, s9, kl, klrace, klext, klrepeat, klmeta, klserver, mig, migbump };
 const name = process.env.SCENARIO;
 if (!scenarios[name]) { console.error('unknown scenario', name); process.exit(2); }
 await scenarios[name]();

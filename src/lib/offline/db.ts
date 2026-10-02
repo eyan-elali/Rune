@@ -29,13 +29,27 @@ interface RuneOfflineDB extends DBSchema {
       content: Record<string, unknown> // Tiptap JSONContent
       wordCount: number
       localUpdatedAt: number
-      syncStatus: 'pending' | 'syncing' | 'failed' | 'conflict'
+      // 'retired' is terminal: the server Scene row is definitively gone
+      // (permanently deleted, or never this account's) and the queued prose
+      // differs from the last confirmed server copy, so it is kept here —
+      // never retried, never silently dropped — until the writer copies or
+      // discards it from Settings → Sync. A retired row whose content was
+      // already on the server is deleted outright instead (see syncEngine).
+      syncStatus: 'pending' | 'syncing' | 'failed' | 'conflict' | 'retired'
       retryCount: number
       // Diagnostics for the most recent failed sync attempt — the exact server
       // error message (never manuscript content) and when it happened. Cleared
       // on the next successful sync (the row is deleted then anyway).
       lastError?: string
       lastErrorAt?: number
+      // When the row was last marked 'syncing'. A row still 'syncing' long
+      // after this (or without it — written by an earlier client) belonged to
+      // a sync that never finished (tab closed mid-request); the flush revives
+      // it instead of leaving it stranded forever.
+      syncingSince?: number
+      // Set with 'retired': when, and why (a diagnostic sentence, never prose).
+      retiredAt?: number
+      retiredReason?: string
     }
   }
   // Writing credits accumulated while offline — flushed to writing_sessions on reconnect.
@@ -122,6 +136,8 @@ interface RuneOfflineDB extends DBSchema {
 
 /** A Scene cache row. */
 export type SceneCacheEntry = RuneOfflineDB[typeof SCENE_CACHE_STORE]['value']
+/** A queued Scene save. */
+export type PendingWrite = RuneOfflineDB['pending_writes']['value']
 
 let dbInstance: IDBPDatabase<RuneOfflineDB> | null = null
 
@@ -437,6 +453,8 @@ export async function getCachedChapterMeta(
 export async function getOfflineStorageSummary(): Promise<{
   pending: number
   conflicts: number
+  // Unsent drafts whose Scene is gone from the server; see getRetiredDrafts.
+  retired: number
   cached: number
 }> {
   try {
@@ -449,9 +467,103 @@ export async function getOfflineStorageSummary(): Promise<{
       (w) => w.syncStatus === 'pending' || w.syncStatus === 'syncing' || w.syncStatus === 'failed'
     ).length
     const conflicts = allWrites.filter((w) => w.syncStatus === 'conflict').length
-    return { pending, conflicts, cached: allCached.length }
+    const retired = allWrites.filter((w) => w.syncStatus === 'retired').length
+    return { pending, conflicts, retired, cached: allCached.length }
   } catch {
-    return { pending: 0, conflicts: 0, cached: 0 }
+    return { pending: 0, conflicts: 0, retired: 0, cached: 0 }
+  }
+}
+
+// ── Retired drafts ─────────────────────────────────────────────────────────────
+//
+// A 'retired' queue row is unsent prose whose Scene no longer exists on the
+// server. The sync engine never retries it; these helpers let Settings → Sync
+// list it, hand the writer its plain text, and discard it on request.
+
+export type RetiredDraft = {
+  sceneId: string
+  wordCount: number
+  retiredAt: number | null
+  retiredReason: string | null
+  // From the Scene cache when present — a title helps the writer recognise it.
+  title: string | null
+}
+
+export async function getRetiredDrafts(): Promise<RetiredDraft[]> {
+  try {
+    const db = await getOfflineDB()
+    const all = await db.getAll('pending_writes')
+    const drafts: RetiredDraft[] = []
+    for (const w of all) {
+      if (w.syncStatus !== 'retired') continue
+      const cached = await db.get(SCENE_CACHE_STORE, w.id)
+      drafts.push({
+        sceneId: w.id,
+        wordCount: w.wordCount,
+        retiredAt: w.retiredAt ?? null,
+        retiredReason: w.retiredReason ?? null,
+        title: cached?.title?.trim() ? cached.title : null,
+      })
+    }
+    return drafts.sort((a, b) => (b.retiredAt ?? 0) - (a.retiredAt ?? 0))
+  } catch {
+    return []
+  }
+}
+
+/** Plain text of a TipTap document: paragraphs joined by blank lines. */
+export function plainTextOfContent(content: Record<string, unknown> | null | undefined): string {
+  const blocks: string[] = []
+  // Leaf text accumulates into the nearest enclosing block node; every block
+  // with any text becomes one paragraph of output (nested blocks, such as a
+  // paragraph inside a list item, emit themselves and leave the parent empty).
+  const walk = (node: unknown, out: string[]): void => {
+    if (!node || typeof node !== 'object') return
+    const n = node as { type?: string; text?: string; content?: unknown[] }
+    if (n.type === 'text') {
+      if (typeof n.text === 'string') out.push(n.text)
+      return
+    }
+    if (n.type === 'hardBreak') {
+      out.push('\n')
+      return
+    }
+    if (!Array.isArray(n.content)) return
+    if (n.type === 'doc') {
+      for (const child of n.content) walk(child, out)
+      return
+    }
+    const inner: string[] = []
+    for (const child of n.content) walk(child, inner)
+    const text = inner.join('')
+    if (text.trim()) blocks.push(text)
+  }
+  walk(content, [])
+  return blocks.join('\n\n')
+}
+
+/** The plain text of one retired draft (null when there is no such row). */
+export async function getRetiredDraftText(sceneId: string): Promise<string | null> {
+  try {
+    const db = await getOfflineDB()
+    const w = await db.get('pending_writes', sceneId)
+    if (!w || w.syncStatus !== 'retired') return null
+    return plainTextOfContent(w.content)
+  } catch {
+    return null
+  }
+}
+
+/** Discards one retired draft. Only a 'retired' row can be discarded this way. */
+export async function discardRetiredDraft(sceneId: string): Promise<boolean> {
+  try {
+    const db = await getOfflineDB()
+    const w = await db.get('pending_writes', sceneId)
+    if (!w || w.syncStatus !== 'retired') return false
+    await db.delete('pending_writes', sceneId)
+    return true
+  } catch {
+    return false
   }
 }
 
