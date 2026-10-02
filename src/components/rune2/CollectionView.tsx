@@ -23,13 +23,15 @@ import { WorkspaceTitle } from "./WorkspaceTitle";
 // Timeline (042: along a Date or Number property). Every
 // View reads the same Entries and values, so an edit anywhere is everywhere.
 //
-// Progressive disclosure: a Collection with only its default List looks as it
-// did in Milestone 9 — the list, "New entry", and a quiet tool row. Once there
-// is a second View, the Views become a local tab row ("List  Table  By Status
-// +") — representations of this one Collection, not working-set tabs; Table
-// and Board are offered from "Add view" / `+`, not upfront. View settings
-// ("View", or double-click a tab) and property settings ("Properties") each
-// open inline above the Entries, one at a time.
+// Under the title, one quiet line says what the Collection holds (entries,
+// properties, views) — its structure, read rather than explained. Under that,
+// its Views are a local tab row ("List  Table  By Status  +") even while there
+// is only the default List: representations of this one Collection, not
+// working-set tabs, and the `+` is where a Table, Board or Timeline is added.
+// View settings ("View", or double-click a tab) and property settings
+// ("Properties") each open inline above the Entries, one at a time
+// (Milestone 21D made the tab row constant; before, it appeared with a second
+// View).
 //
 // A click opens an Entry in the active tab (the Entry's own line back to its
 // Collection returns here); ⌘/Ctrl-click or a middle click opens it in a tab
@@ -37,6 +39,10 @@ import { WorkspaceTitle } from "./WorkspaceTitle";
 // object that is open, and its View is remembered for the session.
 
 type Panel = "view" | "properties" | null;
+
+function plural(n: number, one: string, many = `${one}s`) {
+  return `${n.toLocaleString()} ${n === 1 ? one : many}`;
+}
 
 export function CollectionView({ entry }: { entry: NavEntry }) {
   const { available: propertied } = usePropertyStore();
@@ -51,6 +57,11 @@ export function CollectionView({ entry }: { entry: NavEntry }) {
   const { properties, entryIds, arranged, presenter } = useCollectionItems(entry, view);
   const hiddenCount = entryIds.length - arranged.length;
   const summary = viewable ? viewSummary(view, properties) : "";
+  const context = [
+    plural(entryIds.length, "entry", "entries"),
+    ...(propertied && properties.length > 0 ? [plural(properties.length, "property", "properties")] : []),
+    ...(viewable && views.length > 1 ? [plural(views.length, "view")] : []),
+  ];
 
   return (
     <div className="r2-writing">
@@ -60,21 +71,25 @@ export function CollectionView({ entry }: { entry: NavEntry }) {
           rename={renameWorkspaceCollection}
           noun="collection"
           placeholder="Untitled collection"
+          eyebrow="Collection"
           // Out of the title: to the first Entry, or to "New entry".
           onLeave={() => bodyRef.current?.querySelector<HTMLElement>("button, input, textarea")?.focus()}
-        />
+        >
+          <p className="r2-collection-context">
+            {context.map((fact) => (
+              <span key={fact}>{fact}</span>
+            ))}
+          </p>
+        </WorkspaceTitle>
 
         {propertied && (
-          <div className="r2-collection-bar" data-tabs={views.length > 1 || undefined}>
-            {views.length > 1 && (
+          <div className="r2-collection-bar" data-tabs={viewable || undefined}>
+            {viewable && (
               <ViewSwitcher ownerId={entry.id} views={views} active={view} onEdit={() => setPanel("view")}>
-                {viewable && <AddViewMenu ownerId={entry.id} properties={properties} compact />}
+                <AddViewMenu ownerId={entry.id} properties={properties} compact />
               </ViewSwitcher>
             )}
             <div className="r2-collection-tools">
-              {viewable && views.length === 1 && (
-                <AddViewMenu ownerId={entry.id} properties={properties} compact={false} />
-              )}
               {viewable && (
                 <button
                   type="button"
@@ -147,7 +162,7 @@ export function CollectionView({ entry }: { entry: NavEntry }) {
             <ListView ownerTitle={entry.title} view={view} properties={properties} entryIds={arranged} presenter={presenter} />
           )}
 
-          {entryIds.length === 0 && view.type !== "board" && <p className="r2-entry-empty">No entries yet.</p>}
+          {/* Empty: no sentence about it — "New entry" is the whole invitation. */}
           {view.type !== "board" && (
             <button type="button" className="r2-entry-add" disabled={busy} onClick={() => void add()}>
               <Plus {...ICON} aria-hidden />

@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { Check, Plus } from "lucide-react";
+import { Check, ChevronDown, Plus } from "lucide-react";
 import { ICON, ICON_SM, ICON_CHECK, ICON_SM_BOLD } from "./icons";
 import {
   chosenOptions,
   formatDateValue,
+  formatValue,
   isChoiceType,
   parseNumberInput,
   PROPERTY_TYPE_LABEL,
@@ -44,14 +45,27 @@ export function EntryProperties({ entryId, collectionId }: { entryId: string; co
   return <ItemProperties itemId={entryId} ownerId={collectionId} />;
 }
 
+/** Up to this many properties, every one shows; past it, empty ones fold behind "Show all". */
+const UNFOLDED_PROPERTIES = 4;
+
 /**
  * One item's properties — an Entry's (its Collection's properties) or a
  * Scene's (its Manuscript's) — label, value; each edited in place.
  * `empty`: shown instead of the faint "Add a property" when there are none.
+ *
+ * Filled properties lead. A Collection with many properties shows an item's
+ * filled ones and folds the empty ones behind "Show all" (never when nothing
+ * is filled — there would be nothing to lead with), so the facts that are
+ * there are read first and metadata never becomes the page. Unfolding is
+ * for this item while it is open; a property just added here is shown.
  */
 export function ItemProperties({ itemId, ownerId, empty }: { itemId: string; ownerId: string; empty?: ReactNode }) {
   const { propertiesOf, values } = usePropertyStore();
   const [notice, setNotice] = useState<string | null>(null);
+  const [unfolded, setUnfolded] = useState(false);
+  const { index } = useRune2Selection();
+  // A Relationship is filled when it points at something that still exists.
+  const titleOf = (id: string) => describeObject(index, id)?.title;
 
   useEffect(() => {
     if (!notice) return;
@@ -60,17 +74,33 @@ export function ItemProperties({ itemId, ownerId, empty }: { itemId: string; own
   }, [notice]);
 
   const properties = propertiesOf(ownerId);
+  const filled = properties.filter((p) => formatValue(p, values.get(valueKey(itemId, p.id)), titleOf) !== null);
+  const folds = !unfolded && properties.length > UNFOLDED_PROPERTIES && filled.length > 0 && filled.length < properties.length;
+  const shown = folds ? filled : properties;
+  const hidden = properties.length - shown.length;
 
   return (
     <section className="r2-props" aria-label="Properties" data-empty={properties.length === 0 || undefined}>
-      {properties.length > 0 && (
+      {shown.length > 0 && (
         <dl className="r2-props-list">
-          {properties.map((p) => (
+          {shown.map((p) => (
             <PropertyRow key={p.id} property={p} itemId={itemId} value={values.get(valueKey(itemId, p.id))} onError={setNotice} />
           ))}
         </dl>
       )}
-      {properties.length === 0 && empty ? empty : <AddProperty ownerId={ownerId} quiet />}
+      {properties.length === 0 && empty ? (
+        empty
+      ) : (
+        <div className="r2-props-foot">
+          {hidden > 0 && (
+            <button type="button" className="r2-prop-add" data-quiet="" onClick={() => setUnfolded(true)}>
+              <ChevronDown {...ICON} aria-hidden />
+              Show all {properties.length}
+            </button>
+          )}
+          <AddProperty ownerId={ownerId} quiet onCreated={() => setUnfolded(true)} />
+        </div>
+      )}
       {notice && (
         <p role="status" className="r2-doc-note">
           {notice}
@@ -690,7 +720,16 @@ function OptionPicker({
  * properties. `quiet`: the faint form in an Entry or the Inspector;
  * otherwise the property settings.
  */
-export function AddProperty({ ownerId, quiet = false }: { ownerId: string; quiet?: boolean }) {
+export function AddProperty({
+  ownerId,
+  quiet = false,
+  onCreated,
+}: {
+  ownerId: string;
+  quiet?: boolean;
+  /** After a property is added (ItemProperties unfolds, so the new one shows). */
+  onCreated?: () => void;
+}) {
   const { createProperty, createRelationship, relatable, manuscriptId } = usePropertyStore();
   const { workspace, index } = useRune2Selection();
   const forScenes = ownerId === manuscriptId;
@@ -734,6 +773,7 @@ export function AddProperty({ ownerId, quiet = false }: { ownerId: string; quiet
     setTarget(defaultTarget);
     setMany(true);
     setOpen(false);
+    onCreated?.();
   };
   const collectionTitle = (id: string) => index.get(id)?.title ?? "Untitled collection";
 

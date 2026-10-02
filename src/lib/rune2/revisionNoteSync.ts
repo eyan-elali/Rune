@@ -227,8 +227,19 @@ export class NoteSync {
 
   // ── Writing ───────────────────────────────────────────────────────────
 
-  /** Adds a note — with an anchor, when made from a passage while reading. Blank text adds nothing. Returns the new note's id. */
-  create(targetType: NoteTargetType, targetId: string, body: string, anchor: NoteAnchor | null = null): string | null {
+  /**
+   * Adds a note — with an anchor, when made from a passage while reading, and
+   * with details when the writer gave them before saving: one pending create
+   * carries all of it, so it lands as one note. Blank text adds nothing;
+   * blank details are no details. Returns the new note's id.
+   */
+  create(
+    targetType: NoteTargetType,
+    targetId: string,
+    body: string,
+    anchor: NoteAnchor | null = null,
+    details: string | null = null,
+  ): string | null {
     if (body.trim() === "") return null;
     const noteId = (this.o.newId ?? (() => crypto.randomUUID()))();
     this.put({
@@ -239,7 +250,7 @@ export class NoteSync {
       targetType,
       targetId,
       body,
-      details: null,
+      details: this.o.items && details?.trim() ? details : null,
       resolved: false,
       anchor: this.o.items ? anchor : null,
       baseVersion: 0,
@@ -332,8 +343,8 @@ export class NoteSync {
     } else if (p.state === "missing") {
       this.drop(noteId);
       this.applyServer(null, noteId);
-      const id = this.create(p.targetType, p.targetId, p.body, p.anchor ?? null);
-      if (id && (p.details || p.resolved)) this.editItem(id, { details: p.details ?? null, resolved: p.resolved ?? false });
+      const id = this.create(p.targetType, p.targetId, p.body, p.anchor ?? null, p.details ?? null);
+      if (id && p.resolved) this.editItem(id, { resolved: true });
       return;
     } else {
       this.put({ ...p, state: "pending", rev: p.rev + 1 });

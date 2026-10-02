@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState, type FocusEvent, type KeyboardEvent } from "react";
-import { readNoteDraft, writeNoteDraft } from "@/lib/rune2/noteDrafts";
+import { useEffect, useLayoutEffect, useRef, useState, type FocusEvent, type KeyboardEvent } from "react";
+import { readNoteDraft, readNoteDraftDetails, writeNoteDraft, writeNoteDraftDetails } from "@/lib/rune2/noteDrafts";
 import { anchorExcerpt, type NoteAnchor } from "@/lib/rune2/noteAnchors";
 import { Check, ChevronDown, ChevronRight, Trash2 } from "lucide-react";
 import { ICON, ICON_SM, ICON_SM_BOLD } from "./icons";
@@ -46,8 +46,9 @@ import { useRevisionNotes } from "./RevisionNoteStore";
 //     Chapter's, and the Scene's level is the Chapter's (presentedScope). Each
 //     note keeps its Scene target; a second Scene brings the grouping back;
 //   * a new note goes to the level shown. Return saves and clears the field
-//     for the next one; Shift-Return is a new line. Unsent text is kept on
-//     the device (noteDrafts);
+//     for the next one; Shift-Return is a new line; "+ Add details" opens an
+//     optional details field that saves with it (one note). Unsent text is
+//     kept on the device (noteDrafts);
 //   * a note is a revision ITEM (043): its text, optional details beneath it
 //     (shown on request, edited with the text), a quiet circle that marks it
 //     resolved — done notes stay, quieter, and hide behind "Show resolved" —
@@ -60,7 +61,9 @@ import { useRevisionNotes } from "./RevisionNoteStore";
 //     device until the server has it, marked "Not saved yet" when a save
 //     failed. A note changed or deleted elsewhere waits for the writer.
 //
-// No status, priority, due date, checkbox or resolved state: a note is text.
+// No status, priority, due date, label or assignee: a note is text, with
+// details and a resolved state at most. Reading Mode calls these "comments"
+// (ReadingMode.tsx); they are the same notes.
 
 const scopeKey = (s: NoteScope) => `${s.type}:${s.id}`;
 
@@ -250,9 +253,12 @@ const EMPTY: Record<NoteTargetType, string> = {
 };
 
 /**
- * The add field: a note for `target`. Return saves it and clears the field,
- * ready for the next; Shift-Return is a new line; Escape clears, then leaves.
- * Unsent text is kept on the device until it is saved or cleared.
+ * The add field: a note (in the reader, a comment) for `target`. Return saves
+ * it and clears the field, ready for the next; Shift-Return is a new line;
+ * Escape clears, then leaves. The fast path is the one field; "+ Add details"
+ * opens an optional second, longer field beneath it, and Return saves both as
+ * one note. Unsent text — both fields — is kept on the device until it is
+ * saved or cleared.
  */
 export function NoteComposer({
   target,
@@ -274,26 +280,59 @@ export function NoteComposer({
   onEscape?: () => void;
   onAdded?: () => void;
 }) {
-  const { sync, projectId } = useRevisionNotes();
+  const { sync, projectId, items } = useRevisionNotes();
   const userId = useProfileStore((s) => s.profile?.id);
   const draftKey = anchor ? `${scopeKey(target)}:anchor` : scopeKey(target);
   const [draft, setDraftState] = useState(() => readNoteDraft(userId, projectId, draftKey));
+  const [details, setDetailsState] = useState(() => (items ? readNoteDraftDetails(userId, projectId, draftKey) : ""));
+  // Details are hidden until asked for — or already begun.
+  const [withDetails, setWithDetails] = useState(() => Boolean(details));
+  const detailsRef = useRef<HTMLTextAreaElement>(null);
   const setDraft = (text: string) => {
     setDraftState(text);
     writeNoteDraft(userId, projectId, draftKey, text);
+  };
+  const setDetails = (text: string) => {
+    setDetailsState(text);
+    writeNoteDraftDetails(userId, projectId, draftKey, text);
   };
   // The profile may arrive after the first render: pick up the kept draft then.
   const [readFor, setReadFor] = useState(userId);
   if (userId !== readFor) {
     setReadFor(userId);
     if (!draft) setDraftState(readNoteDraft(userId, projectId, draftKey));
+    if (items && !details) {
+      const kept = readNoteDraftDetails(userId, projectId, draftKey);
+      if (kept) {
+        setDetailsState(kept);
+        setWithDetails(true);
+      }
+    }
   }
 
   function add() {
     if (!sync || !draft.trim()) return;
-    sync.create(target.type, target.id, draft, anchor);
+    sync.create(target.type, target.id, draft, anchor, withDetails && items ? details : null);
     setDraft("");
+    setDetails("");
+    setWithDetails(false);
     onAdded?.();
+  }
+  // Asked for, the details field takes the keyboard at once (before paint).
+  const focusDetails = useRef(false);
+  useLayoutEffect(() => {
+    if (!withDetails || !focusDetails.current) return;
+    focusDetails.current = false;
+    detailsRef.current?.focus();
+  }, [withDetails]);
+  function openDetails() {
+    focusDetails.current = true;
+    setWithDetails(true);
+  }
+  function clear() {
+    setDraft("");
+    setDetails("");
+    setWithDetails(false);
   }
 
   function keyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
@@ -301,11 +340,11 @@ export function NoteComposer({
       e.preventDefault();
       add();
     } else if (e.key === "Escape") {
-      if (draft) {
+      if (draft || details) {
         // First Escape clears the draft; the next one leaves.
         e.preventDefault();
         e.stopPropagation();
-        setDraft("");
+        clear();
       } else if (onEscape) {
         e.preventDefault();
         e.stopPropagation();
@@ -314,8 +353,14 @@ export function NoteComposer({
     }
   }
 
+  const filled = Boolean(draft || details);
   return (
-    <div className="r2-composer r2-rnotes-composer" data-filled={draft ? "" : undefined} data-note-composer>
+    <div
+      className="r2-composer r2-rnotes-composer"
+      data-filled={filled ? "" : undefined}
+      data-details={withDetails || undefined}
+      data-note-composer
+    >
       <textarea
         className="r2-composer-input"
         placeholder={placeholder}
@@ -329,10 +374,34 @@ export function NoteComposer({
         onChange={(e) => setDraft(e.target.value)}
         onKeyDown={keyDown}
       />
-      {hint && (
-        <p className="r2-composer-hint" aria-hidden>
-          Return to add · Shift-Return for a new line
-        </p>
+      {withDetails && items && (
+        <textarea
+          ref={detailsRef}
+          className="r2-composer-input r2-composer-details"
+          placeholder="Details — optional"
+          aria-label={`Details — optional (${label})`}
+          rows={1}
+          value={details}
+          maxLength={REVISION_NOTE_MAX}
+          disabled={!sync}
+          spellCheck
+          onChange={(e) => setDetails(e.target.value)}
+          onKeyDown={keyDown}
+        />
+      )}
+      {(hint || items) && (
+        <div className="r2-composer-foot">
+          {items && !withDetails && (
+            <button type="button" className="r2-composer-tool" onClick={openDetails} disabled={!sync}>
+              + Add details
+            </button>
+          )}
+          {hint && (
+            <span className="r2-composer-hint" aria-hidden>
+              Return to add · Shift-Return for a new line
+            </span>
+          )}
+        </div>
       )}
     </div>
   );

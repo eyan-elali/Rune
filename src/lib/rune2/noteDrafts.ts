@@ -32,3 +32,12 @@ export function writeNoteDraft(userId: string | undefined, projectId: string, ta
     // Storage unavailable: the draft lives only in the field.
   }
 }
+
+/** The unsent optional details of the same add field, kept beside its text. */
+export function readNoteDraftDetails(userId: string | undefined, projectId: string, target: string): string {
+  return readNoteDraft(userId, projectId, `${target}#details`);
+}
+
+export function writeNoteDraftDetails(userId: string | undefined, projectId: string, target: string, text: string): void {
+  writeNoteDraft(userId, projectId, `${target}#details`, text);
+}

@@ -88,7 +88,10 @@
 
   /* ── Elevation: functional, under what floats ─────────────────────── */
   --r2-shadow-sm: 0 1px 2px rgba(var(--r2-palette-shadow) / 0.04);
-  --r2-shadow-pop: 0 1px 2px rgba(var(--r2-palette-shadow) / 0.05), 0 8px 24px rgba(var(--r2-palette-shadow) / 0.08);
+  /* A floating surface: a crisp contact line and a soft fall that draws in
+     at its edges (negative spread), so it sits close to the page rather
+     than hovering in a haze. */
+  --r2-shadow-pop: 0 1px 2px rgba(var(--r2-palette-shadow) / 0.05), 0 8px 24px -8px rgba(var(--r2-palette-shadow) / 0.14);
   --r2-shadow-lg: 0 18px 48px rgba(var(--r2-palette-shadow) / 0.1);
   --r2-ring: 0 0 0 1px var(--r2-border); /* a floating surface's edge */
   /* An inset side sheet's exposed edges (left, top, bottom — the right is
@@ -487,10 +490,13 @@ button.r2-chip:focus-visible {
   box-shadow: var(--r2-ring), var(--r2-shadow-pop);
   font-size: var(--r2-fs-ui);
   color: var(--r2-text);
-  animation: r2-pop-in var(--r2-fast) var(--r2-ease);
+  transform-origin: top left;
+  animation: r2-pop-in var(--r2-medium) var(--r2-ease-frame);
 }
+/* Arriving: from a little above and a little smaller — it settles, it does
+   not drop in. Leaving is instant: a surface asked to go is gone. */
 @keyframes r2-pop-in {
-  from { opacity: 0; transform: translateY(-2px); }
+  from { opacity: 0; transform: translateY(-3px) scale(0.98); }
   to { opacity: 1; transform: none; }
 }
 @keyframes r2-fade-in {
@@ -1741,31 +1747,70 @@ button.r2-disclosure:hover {
 .r2-composer-input:disabled {
   opacity: var(--r2-disabled-opacity);
 }
-/* Below the surface, outside its box; what follows moves down to make room. */
-.r2-composer-hint {
-  position: absolute;
-  top: 100%;
-  left: 2px;
-  right: 2px;
-  margin-top: 5px;
+/* Under the field, inside the surface: "+ Add details" on the left, the
+   keyboard hint on the right. Shown only while the composer is reached for
+   or holds text; at rest the surface is the one line. */
+.r2-composer-foot {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--r2-space-4);
+  max-height: 0;
+  padding: 0 10px;
+  overflow: hidden;
   font-size: var(--r2-fs-caption);
   line-height: 16px;
   color: var(--r2-ink-3);
   opacity: 0;
-  pointer-events: none;
-  transition: opacity var(--r2-medium) var(--r2-ease);
+  transition: max-height var(--r2-medium) var(--r2-ease-frame), padding var(--r2-medium) var(--r2-ease-frame), opacity var(--r2-medium) var(--r2-ease);
 }
-.r2-composer:focus-within .r2-composer-hint {
+.r2-composer:focus-within .r2-composer-foot,
+.r2-composer[data-filled] .r2-composer-foot,
+.r2-composer[data-details] .r2-composer-foot {
+  max-height: 48px;
+  padding: 0 10px 8px;
   opacity: 1;
+}
+.r2-composer-hint {
+  margin-left: auto;
+  text-align: right;
+}
+.r2-composer-tool {
+  padding: 0 4px;
+  margin-left: -4px;
+  border-radius: var(--r2-radius-xs);
+  color: var(--r2-ink-3);
+  white-space: nowrap;
+  transition: color var(--r2-fast) var(--r2-ease), background-color var(--r2-fast) var(--r2-ease);
+}
+.r2-composer-tool:hover:not(:disabled) {
+  color: var(--r2-ink-1);
+  background: var(--r2-hover);
+}
+.r2-composer-tool:focus-visible {
+  outline: 2px solid var(--r2-accent);
+  outline-offset: 1px;
+}
+/* The optional details: a second, quieter field under the first, parted by a hairline. */
+.r2-composer-input.r2-composer-details {
+  min-height: 34px;
+  margin: 0 10px;
+  width: calc(100% - 20px);
+  padding: 7px 0 6px;
+  border-top: 1px solid var(--r2-border);
+  border-radius: 0;
+  font-size: var(--r2-fs-ui-sm);
+  color: var(--r2-ink-2);
+}
+.r2-composer:focus-within .r2-composer-input.r2-composer-details,
+.r2-composer[data-filled] .r2-composer-input.r2-composer-details {
+  min-height: 34px;
 }
 .r2-notes-list,
 .r2-notes .r2-panel-empty,
 .r2-notes .r2-panel-notice {
   margin-top: 18px;
   transition: margin-top var(--r2-frame) var(--r2-ease-frame);
-}
-.r2-notes:has(.r2-composer:focus-within) :is(.r2-notes-list, .r2-panel-empty, .r2-panel-notice) {
-  margin-top: 40px;
 }
 .r2-note {
   position: relative;
@@ -2048,15 +2093,14 @@ button.r2-disclosure:hover {
   flex: 1;
   width: min(100%, var(--r2-doc-width));
   margin-left: var(--r2-doc-offset);
-  padding: 40px var(--r2-doc-gutter) 30vh;
+  /* One top start for every column — a Chapter, a Page, an Entry, a
+     Collection, the overview (.r2-overview): entered with a breath between
+     the shell and the first line, and the title standing in the same place
+     whatever is opened, so moving between manuscript and Workspace never
+     jumps. Deliberate room, not a wasted screen. */
+  padding: 64px var(--r2-doc-gutter) 30vh;
   cursor: text;
   transition: margin-left var(--r2-frame) var(--r2-ease-frame);
-}
-/* The manuscript's own column starts a little lower than a Page's: a Chapter
-   is entered with a breath between the shell and the first line, not pressed
-   against the context bar. Deliberate room, not a wasted screen. */
-.r2-doc--manuscript {
-  padding-top: 64px;
 }
 .r2-doc--manuscript .r2-doc-head {
   margin-bottom: 36px;
@@ -2311,14 +2355,25 @@ button.r2-disclosure:hover {
 }
 
 /* ── Workspace Page ─────────────────────────────────────────────────────── */
-/* Supporting material, not manuscript prose: the same writing column, but set
-   in Rune's interface sans, a little smaller and denser, with paragraph
-   spacing instead of book indents. The title is edited in place and reads as
-   the document's heading. Typing here does not fade the shell's chrome (that
-   is for writing the manuscript; see useWritingChrome). */
+/* ── Workspace (Milestone 21D) ─────────────────────────────────────────── */
+/* Supporting material, not manuscript prose: the same writing column and the
+   same top start as a Chapter, but set in Rune's interface sans — always,
+   whatever manuscript type the writer chose (that preference is for prose) —
+   a little smaller and denser, with paragraph spacing instead of book
+   indents. The title is edited in place and reads as the document's heading.
+   Typing here does not fade the shell's chrome (that is for writing the
+   manuscript; see useWritingChrome).
 
+   The Workspace's one visual rule: persistent structure stays flat — a Page,
+   an Entry's properties, a Collection and its View are the content surface
+   itself, parted by hairlines and space; only what floats (the "/" and "@"
+   menus, pickers, menus) becomes a defined surface, on the popover primitive. */
+
+.r2-page {
+  font-family: var(--r2-font-ui);
+}
 .r2-page-head {
-  margin-bottom: 18px;
+  margin-bottom: 24px;
 }
 .r2-page-title {
   display: block;
@@ -2499,9 +2554,9 @@ button.r2-disclosure:hover {
   display: inline-flex;
   align-items: center;
   gap: var(--r2-space-3);
-  height: var(--r2-control-lg);
+  height: var(--r2-control-md);
   padding: 0 8px;
-  margin: 6px 0 0 -8px;
+  margin: 8px 0 0 -8px;
   border-radius: var(--r2-radius);
   font-size: var(--r2-fs-ui);
   color: var(--r2-ink-2);
@@ -2514,14 +2569,16 @@ button.r2-disclosure:hover {
 .r2-entry-add:disabled {
   opacity: var(--r2-disabled-opacity);
 }
+/* An Entry's Collection, in the title's eyebrow (.r2-doc-eyebrow): the
+   eyebrow's own voice, and also the way back. */
 .r2-entry-collection {
   display: inline-block;
-  margin: 0 0 6px -4px;
+  margin: -1px -4px;
   padding: 1px 4px;
-  border-radius: var(--r2-radius);
-  font-size: var(--r2-fs-ui-sm);
-  font-weight: var(--r2-weight-medium);
-  color: var(--r2-ink-3);
+  border-radius: var(--r2-radius-sm);
+  font: inherit;
+  letter-spacing: inherit;
+  color: inherit;
   cursor: pointer;
   transition: color var(--r2-fast) var(--r2-ease), background-color var(--r2-fast) var(--r2-ease);
 }
@@ -2539,28 +2596,59 @@ button.r2-disclosure:hover {
 
 .r2-props {
   margin: -6px 0 22px;
-  font-size: var(--r2-fs-body);
+  font-size: var(--r2-fs-ui);
   line-height: var(--r2-lh-ui);
 }
 .r2-props[data-empty] {
   margin: -12px 0 14px;
+}
+/* On an Entry: a compact region of facts under the title, parted from the
+   body by one hairline — a document with structured metadata attached, not a
+   database row. Filled properties lead; empty ones are folded behind "Show
+   all" once there are many (ItemProperties), so metadata is never the first
+   impression. In the Inspector the same rows stand without the hairline. */
+.r2-page .r2-props {
+  margin: -8px 0 24px;
+  padding-bottom: var(--r2-space-5);
+  border-bottom: 1px solid var(--r2-border);
+}
+.r2-page .r2-props[data-empty] {
+  margin: -14px 0 18px;
+  padding-bottom: 0;
+  border-bottom: 0;
 }
 .r2-props-list {
   margin: 0;
 }
 .r2-prop {
   display: grid;
-  grid-template-columns: minmax(84px, 136px) minmax(0, 1fr);
-  gap: var(--r2-space-5);
+  grid-template-columns: minmax(76px, 124px) minmax(0, 1fr);
+  gap: var(--r2-space-4);
   align-items: start;
-  min-height: var(--r2-control-lg);
+  min-height: var(--r2-control-md);
 }
 .r2-prop-label {
-  padding: 5px 0;
+  padding: 4px 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-size: var(--r2-fs-ui-sm);
   color: var(--r2-ink-3);
+}
+/* Under the rows: "Add a property" and, when some are folded, "Show all". */
+.r2-props-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--r2-space-1) var(--r2-space-4);
+  margin-top: var(--r2-space-1);
+}
+.r2-props[data-empty] .r2-props-foot {
+  margin-top: 0;
+}
+/* Opened, the add-property form takes the whole line. */
+.r2-props-foot > .r2-prop-new {
+  flex: 1 1 100%;
 }
 .r2-prop-value {
   position: relative;
@@ -2572,9 +2660,9 @@ button.r2-disclosure:hover {
 .r2-prop-button {
   display: block;
   width: calc(100% + 12px);
-  min-height: var(--r2-control-lg);
+  min-height: var(--r2-control-md);
   margin: 0 -6px;
-  padding: 5px 6px;
+  padding: 4px 6px;
   border: 0;
   border-radius: var(--r2-radius);
   resize: none;
@@ -2594,10 +2682,12 @@ button.r2-disclosure:hover {
 .r2-prop-button:hover {
   background: var(--r2-hover);
 }
+/* Editing in place: the value lifts onto the field tone behind a hairline of
+   ink, with the faintest halo so the edited row reads at a glance. */
 .r2-prop-input:focus {
   outline: none;
   background: var(--r2-field-bg);
-  box-shadow: inset 0 0 0 1px var(--r2-accent-line);
+  box-shadow: inset 0 0 0 1px var(--r2-accent-line), 0 0 0 3px var(--r2-accent-soft);
 }
 .r2-prop-input[aria-invalid] {
   box-shadow: inset 0 0 0 1px var(--r2-danger);
@@ -2614,7 +2704,7 @@ button.r2-disclosure:hover {
 .r2-prop-check {
   display: flex;
   align-items: center;
-  height: var(--r2-control-lg);
+  height: var(--r2-control-md);
   padding: 0 6px;
   margin-left: -6px;
   border-radius: var(--r2-radius);
@@ -2659,13 +2749,14 @@ button.r2-disclosure:hover {
   margin-top: 4px;
   overflow-y: auto;
 }
+/* The same row as a menu's item (.r2-menu-item): one height, one radius. */
 .r2-prop-picker-list li {
   display: flex;
   align-items: center;
   gap: var(--r2-space-3);
   min-height: var(--r2-control-md);
-  padding: 3px 6px;
-  border-radius: var(--r2-radius);
+  padding: 3px var(--r2-space-4);
+  border-radius: var(--r2-radius-sm);
   font-size: var(--r2-fs-ui);
   cursor: pointer;
 }
@@ -2688,7 +2779,7 @@ button.r2-disclosure:hover {
 .r2-prop-picker-clear {
   width: 100%;
   margin-top: 4px;
-  padding: 5px 6px;
+  padding: 5px var(--r2-space-4);
   border-top: 1px solid var(--r2-border);
   border-radius: 0;
   text-align: left;
@@ -2742,9 +2833,27 @@ button.r2-disclosure:hover {
   color: var(--r2-ink-3);
 }
 
-/* The Collection's property settings. */
-/* One quiet row under the title: the View switcher (once there are two
-   Views) on the left, the tools after it. */
+/* ── Collection head ─────────────────────────────────────────────────── */
+/* A Collection is a structure the writer built, larger than any one View:
+   under its title, one quiet line says what it holds (entries, properties,
+   views); under that, one row — the Views as a local tab row on the left, the
+   View's and the properties' settings on the right — over a hairline; then the
+   active View, flat on the page. Nothing is wrapped: the header is compact and
+   the object is read through its hierarchy. */
+.r2-collection-context {
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: var(--r2-space-3);
+  font-size: var(--r2-fs-ui-sm);
+  line-height: var(--r2-lh-ui);
+  color: var(--r2-ink-3);
+  font-variant-numeric: tabular-nums;
+  cursor: default;
+}
+.r2-collection-context span + span::before {
+  content: "·";
+  margin: 0 7px;
+}
 .r2-collection-bar {
   display: flex;
   flex-wrap: wrap;
@@ -2782,6 +2891,12 @@ button.r2-disclosure:hover {
   border-top: 1px solid var(--r2-border);
   border-bottom: 1px solid var(--r2-border);
   font-size: var(--r2-fs-ui);
+}
+/* Opened under the tab row, the settings share its hairline. */
+.r2-collection-bar[data-tabs] + .r2-schema {
+  margin-top: -6px;
+  padding-top: 6px;
+  border-top: 0;
 }
 .r2-schema-intro {
   max-width: 34rem;
@@ -2962,7 +3077,8 @@ span.r2-schema-type {
    the active one underlined on it — representations of this Collection, not
    working-set tabs (no boxes, no close buttons). `+` sits at the end. */
 .r2-collection-bar[data-tabs] {
-  margin-bottom: 14px;
+  margin-top: 0;
+  margin-bottom: 16px;
   border-bottom: 1px solid var(--r2-border);
 }
 .r2-view-tabs {
@@ -3021,8 +3137,8 @@ span.r2-schema-type {
 .r2-view-menu-item {
   display: block;
   width: 100%;
-  padding: 6px 8px;
-  border-radius: var(--r2-radius);
+  padding: 6px var(--r2-space-4);
+  border-radius: var(--r2-radius-sm);
   text-align: left;
 }
 .r2-view-menu-item:hover,
@@ -4511,10 +4627,11 @@ span.r2-schema-type {
 }
 .r2-ref-link {
   display: inline;
-  padding: 0;
+  padding: 0 1px;
+  margin: 0 -1px;
   border: 0;
   border-bottom: 1px solid var(--r2-accent-line);
-  border-radius: 0;
+  border-radius: var(--r2-radius-xs) var(--r2-radius-xs) 0 0;
   font: inherit;
   line-height: inherit;
   color: var(--r2-accent-ink);
@@ -4580,31 +4697,54 @@ span.r2-schema-type {
   color: var(--r2-ink-3);
 }
 
-/* An embedded View: a hairline frame, a small heading, the View's own body. */
+/* An embedded View: native to the Page, not a card on it. A hairline above
+   and below part it from the text, like a figure in a book; a small heading
+   names the View and where it comes from; the View's own body follows, in
+   the Page's measure. Selected, the two hairlines take ink; "Open" and the
+   remove control are present in the layout and show when reached for. */
 .r2-page-body .ProseMirror .r2-embed {
-  margin: 0.4em 0 1em;
+  margin: 0.5em 0 1.1em;
   white-space: normal;
   cursor: default;
 }
 .r2-embed-frame {
-  padding: 6px 10px 8px;
-  border: 1px solid var(--r2-border);
-  border-radius: var(--r2-radius-md);
+  padding: var(--r2-space-2) 0 var(--r2-space-4);
+  border-top: 1px solid var(--r2-border);
+  border-bottom: 1px solid var(--r2-border);
   font-size: var(--r2-fs-body);
   line-height: var(--r2-lh-ui);
+  transition: border-color var(--r2-fast) var(--r2-ease);
 }
 .r2-embed.ProseMirror-selectednode .r2-embed-frame,
 .r2-embed[data-selected] .r2-embed-frame {
   border-color: var(--r2-accent-line);
-  box-shadow: 0 0 0 1px var(--r2-accent-line);
 }
 .r2-embed-head {
   display: flex;
   align-items: center;
   gap: var(--r2-space-3);
-  min-height: var(--r2-control-sm);
+  min-height: var(--r2-control-md);
   font-size: var(--r2-fs-ui-sm);
   color: var(--r2-ink-3);
+}
+.r2-embed-open,
+.r2-embed-remove {
+  opacity: 0;
+  transition: opacity var(--r2-fast) var(--r2-ease), background-color var(--r2-fast) var(--r2-ease),
+    color var(--r2-fast) var(--r2-ease);
+}
+.r2-embed-frame:hover :is(.r2-embed-open, .r2-embed-remove),
+.r2-embed-frame:focus-within :is(.r2-embed-open, .r2-embed-remove),
+.r2-embed.ProseMirror-selectednode :is(.r2-embed-open, .r2-embed-remove),
+.r2-embed[data-selected] :is(.r2-embed-open, .r2-embed-remove),
+.r2-embed-frame[data-missing] .r2-embed-remove {
+  opacity: 1;
+}
+@media (hover: none) {
+  .r2-embed-open,
+  .r2-embed-remove {
+    opacity: 1;
+  }
 }
 .r2-embed-icon {
   flex: 0 0 auto;
@@ -4631,10 +4771,9 @@ span.r2-schema-type {
 .r2-embed-open {
   margin-left: auto;
   padding: 2px 6px;
-  border-radius: var(--r2-radius);
+  border-radius: var(--r2-radius-sm);
   font-size: var(--r2-fs-ui-sm);
   color: var(--r2-ink-2);
-  transition: background-color var(--r2-fast) var(--r2-ease), color var(--r2-fast) var(--r2-ease);
 }
 .r2-embed-open:hover {
   color: var(--r2-ink-1);
@@ -4675,8 +4814,13 @@ span.r2-schema-type {
 .r2-page-body .ProseMirror .r2-embed li {
   margin: 0;
 }
+/* Inside the frame's own hairlines, the List's top rule would double. */
 .r2-page-body .ProseMirror .r2-embed .r2-entry-list {
-  margin-top: 4px;
+  margin: 2px 0 0;
+  border-top: 0;
+}
+.r2-page-body .ProseMirror .r2-embed .r2-entry-list li:last-child .r2-entry-row {
+  border-bottom: 0;
 }
 .r2-page-body .ProseMirror .r2-embed .r2-prop-picker-list {
   margin-top: 4px;
@@ -4685,30 +4829,75 @@ span.r2-schema-type {
   text-indent: 0;
 }
 
-/* The "/" and "@" menus. */
+/* The "/" and "@" menus: the Workspace's one defined floating surface while
+   writing — the popover primitive (ring, soft fall, settle-in), compact and
+   grouped. Each row: a glyph in the third ink, the name, and for an object
+   where it lives in a quieter voice at the right. The keyboard's row and the
+   pointer's are the same row, on the hover tone; the glyph takes ink with
+   it. Never a palette: it is as wide as a name and a place, and no taller
+   than a glance. */
+.r2-prop-picker.r2-object-picker.r2-command-menu[data-floating] {
+  width: 304px;
+  padding: var(--r2-space-2);
+}
 .r2-command-menu .r2-prop-picker-list {
-  max-height: 300px;
+  max-height: 312px;
   margin-top: 0;
 }
+.r2-command-menu .r2-prop-picker-list li {
+  min-height: var(--r2-control-lg);
+  padding: 2px var(--r2-space-4) 2px var(--r2-space-3);
+}
+.r2-command-menu .r2-prop-picker-list li[data-active] .r2-menu-icon {
+  color: var(--r2-ink-1);
+}
+.r2-command-menu .r2-object-picker-title {
+  color: var(--r2-ink-1);
+}
+/* The View picker's search: an inset field inside the surface, not a boxed
+   input — the surface already has its edge. */
+.r2-command-menu .r2-prop-picker-input {
+  height: var(--r2-control-md);
+  margin-bottom: var(--r2-space-2);
+  border-color: transparent;
+  background: var(--r2-surface-sunken);
+}
+.r2-command-menu .r2-prop-picker-input:hover:not(:focus) {
+  border-color: transparent;
+}
+.r2-command-menu .r2-prop-picker-input:focus {
+  box-shadow: inset 0 0 0 1px var(--r2-accent-line);
+  border-color: transparent;
+  background: var(--r2-field-bg);
+}
 .r2-command-menu .r2-prop-picker-input + .r2-prop-picker-list {
-  margin-top: 4px;
+  margin-top: 0;
 }
 .r2-command-menu-head {
-  padding: 2px 6px 6px;
-  font-size: var(--r2-fs-meta);
+  padding: 4px var(--r2-space-4) 6px;
+  font-size: var(--r2-fs-caption);
+  font-weight: var(--r2-weight-medium);
+  letter-spacing: var(--r2-tracking-label);
   color: var(--r2-ink-3);
 }
 .r2-prop-picker-list li.r2-command-menu-group {
   min-height: 0;
-  padding: 8px 6px 3px;
+  padding: 10px var(--r2-space-4) 4px;
   font-size: var(--r2-fs-caption);
   font-weight: var(--r2-weight-medium);
   letter-spacing: var(--r2-tracking-label);
   color: var(--r2-ink-3);
   cursor: default;
 }
+.r2-command-menu .r2-prop-picker-list li.r2-command-menu-group {
+  min-height: 0;
+  padding: 10px var(--r2-space-4) 4px;
+}
 .r2-prop-picker-list li.r2-command-menu-group:first-child {
-  padding-top: 2px;
+  padding-top: 4px;
+}
+.r2-command-menu .r2-prop-picker-empty {
+  padding: 6px var(--r2-space-4) 8px;
 }
 
 /* ── Scene History and Milestones (036) ────────────────────────────────── */
@@ -5538,12 +5727,13 @@ span.r2-schema-type {
   min-height: 76px;
   padding: 10px 10px 12px;
 }
-.r2-rnotes-composer .r2-composer-hint {
-  left: 8px;
+.r2-rnotes-composer .r2-composer-foot {
+  padding-left: 8px;
+  padding-right: 8px;
 }
-.r2-rnotes:has(.r2-rnotes-composer:focus-within) .r2-rnotes-body,
-.r2-rnotes:has(.r2-rnotes-composer:focus-within) .r2-rnotes-empty {
-  margin-top: 40px;
+.r2-rnotes-composer .r2-composer-input.r2-composer-details {
+  margin: 0 8px;
+  width: calc(100% - 16px);
 }
 .r2-rnotes-status {
   display: flex;
@@ -5750,7 +5940,7 @@ span.r2-schema-type {
 /* Editing: the text, then its details, on the composer's surface. */
 .r2-rnote-editor {
   position: relative;
-  margin: 0 -8px 20px;
+  margin: 0 -8px 38px;
   padding: 6px 8px 8px;
   border-radius: var(--r2-radius-md);
   background: var(--r2-surface-sunken);
@@ -5780,7 +5970,17 @@ span.r2-schema-type {
   outline: none;
 }
 .r2-rnote-edit-hint {
+  position: absolute;
+  top: 100%;
   left: 8px;
+  right: 2px;
+  margin: 5px 0 0;
+  font-size: var(--r2-fs-caption);
+  line-height: 16px;
+  color: var(--r2-ink-3);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--r2-medium) var(--r2-ease);
 }
 .r2-rnote-editor:focus-within .r2-rnote-edit-hint {
   opacity: 1;
@@ -5830,25 +6030,46 @@ span.r2-schema-type {
   gap: var(--r2-space-3);
   margin-top: 8px;
 }
-/* Anchored notes in the reader (Annotations): the column is the frame for
-   markers in its right margin, the open note's card and the composer under a
-   chosen passage — all placed absolutely, so the text never moves. The
-   passage itself is lit by a CSS highlight: nothing in the document changes. */
+/* Comments in the reader (Comments): the column is the frame for everything
+   in its right margin — compact cards (expanded) or small markers
+   (collapsed), the open comment, the offer beside a selection and the
+   composer — all placed absolutely, so the text never moves. A passage is
+   lit by a CSS highlight: nothing in the document changes. The margin needs
+   room for cards: with comments expanded the column widens by
+   --r2-comment-margin when the stage has it (the container query below says
+   so to the layer through --r2-comments-room), else they stay markers. */
+.r2-reader {
+  --r2-comment-margin: 240px;
+}
+.r2-reader[data-mode="peek"][data-comments="expanded"] .r2-reader-surface {
+  width: min(calc(var(--r2-reading-width) + var(--r2-comment-margin)), 100%);
+}
 .r2-reader-inner {
+  --r2-comments-room: 0;
   position: relative;
+}
+@container (min-width: 992px) {
+  .r2-reader-inner {
+    --r2-comments-room: 1;
+  }
+  .r2-reader[data-comments="expanded"] .r2-reader-inner {
+    max-width: calc(var(--r2-reading-width) + var(--r2-comment-margin));
+    padding-right: calc(72px + var(--r2-comment-margin));
+  }
 }
 ::highlight(r2-anchor) {
   background-color: var(--r2-accent-soft-hover);
 }
-.r2-annotations {
+.r2-comments {
   position: absolute;
   inset: 0;
   pointer-events: none;
 }
-.r2-annotations > * {
+.r2-comments > * {
   pointer-events: auto;
 }
-.r2-anchor-mark {
+/* Collapsed: a marker beside its passage (or the Scene's head). */
+.r2-comment-mark {
   position: absolute;
   right: 28px;
   display: inline-flex;
@@ -5862,29 +6083,31 @@ span.r2-schema-type {
   opacity: 0.75;
   transition: opacity var(--r2-fast) var(--r2-ease), background-color var(--r2-fast) var(--r2-ease), color var(--r2-fast) var(--r2-ease);
 }
-.r2-anchor-mark:hover,
-.r2-anchor-mark[data-active] {
+.r2-comment-mark:hover,
+.r2-comment-mark[data-active] {
   opacity: 1;
   background: var(--r2-accent-soft);
 }
-.r2-anchor-mark[data-resolved] {
+.r2-comment-mark[data-unanchored] {
+  color: var(--r2-ink-2);
+}
+.r2-comment-mark[data-resolved] {
   color: var(--r2-ink-3);
 }
-.r2-anchor-mark[data-stale] {
+.r2-comment-mark[data-stale] {
   color: var(--r2-ink-3);
   outline: 1px dashed var(--r2-border-strong);
   outline-offset: -1px;
 }
-.r2-anchor-mark[data-stale][data-active] {
+.r2-comment-mark[data-stale][data-active] {
   color: var(--r2-ink-2);
 }
-.r2-reader-count {
-  margin-left: 2px;
-  font-size: var(--r2-fs-caption);
-  font-variant-numeric: tabular-nums;
+.r2-comment-mark:focus-visible {
+  outline: 2px solid var(--r2-accent);
+  outline-offset: 1px;
 }
 /* The offer beside a selection. */
-.r2-anchor-offer {
+.r2-comment-offer {
   position: absolute;
   z-index: 2;
   display: inline-flex;
@@ -5899,15 +6122,165 @@ span.r2-schema-type {
   color: var(--r2-ink-1);
   animation: r2-pop-in var(--r2-fast) var(--r2-ease);
 }
-.r2-anchor-offer svg {
+.r2-comment-offer svg {
   color: var(--r2-accent);
 }
-.r2-anchor-offer:hover {
+.r2-comment-offer:hover {
   background: var(--r2-hover);
 }
-/* The open note's card, and the composer: flat surfaces under the passage. */
-.r2-anchor-card,
-.r2-anchor-composer {
+/* A comment card. Expanded: flat in the margin, a hairline of accent at its
+   left while open; compact until opened — its text to three lines, a word
+   for its details, its passage or Scene under it. As a popover (collapsed,
+   a marker opened): the same card on a floating surface under the passage. */
+.r2-comment {
+  position: absolute;
+  right: 16px;
+  width: calc(var(--r2-comment-margin) - 16px);
+  z-index: 1;
+  padding: 6px 8px 6px 10px;
+  border-left: 2px solid transparent;
+  border-radius: var(--r2-radius-sm);
+  background: var(--r2-prose-bg);
+  font-size: var(--r2-fs-ui-sm);
+  transition: top var(--r2-medium) var(--r2-ease), border-color var(--r2-fast) var(--r2-ease), background-color var(--r2-fast) var(--r2-ease);
+}
+@media (prefers-reduced-motion: reduce) {
+  .r2-comment {
+    transition: none;
+  }
+}
+.r2-comment:hover {
+  background: var(--r2-hover-faint);
+}
+.r2-comment[data-open] {
+  z-index: 3;
+  border-left-color: var(--r2-accent);
+  background: var(--r2-surface-sunken);
+}
+.r2-comment[data-open][data-unanchored] {
+  border-left-color: var(--r2-ink-2);
+}
+.r2-comment[data-popover] {
+  right: 72px;
+  left: 72px;
+  width: auto;
+  padding: 10px 12px;
+  border-left: 0;
+  border-radius: var(--r2-radius-md);
+  background: var(--r2-overlay-bg);
+  box-shadow: var(--r2-ring), var(--r2-shadow-pop);
+  font-size: var(--r2-fs-ui);
+  animation: r2-pop-in var(--r2-fast) var(--r2-ease);
+}
+.r2-comment-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--r2-space-3);
+}
+.r2-comment[data-popover] .r2-comment-row {
+  gap: var(--r2-space-4);
+}
+.r2-comment-main {
+  flex: 1;
+  min-width: 0;
+}
+.r2-comment .r2-rnote-check {
+  width: 13px;
+  height: 13px;
+  margin-top: 3px;
+}
+.r2-comment[data-popover] .r2-rnote-check {
+  width: 15px;
+  height: 15px;
+}
+.r2-comment-body {
+  display: block;
+  width: 100%;
+  padding: 0;
+  text-align: left;
+  line-height: 1.45;
+  color: var(--r2-ink-1);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  border-radius: var(--r2-radius-xs);
+}
+.r2-comment-body--button {
+  cursor: pointer;
+}
+.r2-comment-body--button:focus-visible {
+  outline: 2px solid var(--r2-accent);
+  outline-offset: 2px;
+}
+.r2-comment-text {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+}
+.r2-comment-has-details {
+  display: block;
+  margin-top: 1px;
+  font-size: var(--r2-fs-caption);
+  color: var(--r2-ink-3);
+}
+.r2-comment[data-resolved] .r2-comment-body,
+.r2-comment[data-resolved] .r2-comment-details {
+  color: var(--r2-ink-3);
+}
+.r2-comment-flag {
+  font-size: var(--r2-fs-label);
+  line-height: 16px;
+  color: var(--r2-danger);
+}
+.r2-comment-details {
+  margin-top: 4px;
+  line-height: 1.5;
+  color: var(--r2-ink-2);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.r2-comment[data-popover] .r2-comment-details {
+  font-size: var(--r2-fs-ui-sm);
+}
+.r2-comment-stale {
+  margin-top: 6px;
+  line-height: 1.5;
+  color: var(--r2-ink-3);
+}
+.r2-comment-where {
+  margin-top: 3px;
+  font-size: var(--r2-fs-caption);
+  line-height: 16px;
+  color: var(--r2-ink-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.r2-comment[data-unanchored] .r2-comment-where,
+.r2-comment[data-stale] .r2-comment-where {
+  font-style: italic;
+}
+.r2-comment-foot,
+.r2-comment-composer-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 14px;
+  margin-top: 8px;
+  font-size: var(--r2-fs-caption);
+  color: var(--r2-ink-3);
+}
+.r2-comment-foot > span:first-child,
+.r2-comment-composer-foot > span:first-child {
+  margin-right: auto;
+}
+.r2-comment-composer-foot {
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+/* The composer: a flat surface under the chosen passage, or at the Scene's
+   head for an unanchored comment. */
+.r2-comment-composer {
   position: absolute;
   left: 72px;
   right: 72px;
@@ -5919,49 +6292,7 @@ span.r2-schema-type {
   font-size: var(--r2-fs-ui);
   animation: r2-pop-in var(--r2-fast) var(--r2-ease);
 }
-.r2-anchor-card-row {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--r2-space-4);
-}
-.r2-anchor-card-main {
-  flex: 1;
-  min-width: 0;
-}
-.r2-anchor-card-body {
-  line-height: 1.5;
-  color: var(--r2-ink-1);
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-.r2-anchor-card-details {
-  margin-top: 4px;
-  font-size: var(--r2-fs-ui-sm);
-  line-height: 1.5;
-  color: var(--r2-ink-2);
-  white-space: pre-wrap;
-}
-.r2-anchor-card-stale {
-  margin-top: 6px;
-  font-size: var(--r2-fs-ui-sm);
-  line-height: 1.5;
-  color: var(--r2-ink-3);
-}
-.r2-anchor-card-foot,
-.r2-anchor-composer-foot {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 4px 14px;
-  margin-top: 8px;
-  font-size: var(--r2-fs-caption);
-  color: var(--r2-ink-3);
-}
-.r2-anchor-card-foot > span:first-child,
-.r2-anchor-composer-foot > span:first-child {
-  margin-right: auto;
-}
-.r2-anchor-composer-quote {
+.r2-comment-composer-quote {
   padding-left: 8px;
   border-left: 2px solid var(--r2-accent-line);
   font-family: var(--r2-prose-font);
@@ -5970,49 +6301,21 @@ span.r2-schema-type {
   color: var(--r2-ink-2);
   overflow-wrap: anywhere;
 }
-.r2-anchor-composer .r2-rnotes-composer.r2-composer {
+.r2-comment-composer-head {
+  font-size: var(--r2-fs-caption);
+  letter-spacing: var(--r2-tracking-label);
+  color: var(--r2-ink-3);
+}
+.r2-comment-composer .r2-rnotes-composer.r2-composer {
   margin: 4px -8px 0;
 }
-.r2-anchor-composer-foot {
-  margin-top: 26px;
-}
 @media (max-width: 760px) {
-  .r2-anchor-card,
-  .r2-anchor-composer {
+  .r2-comment[data-popover],
+  .r2-comment-composer {
     left: 52px;
     right: 28px;
   }
-  .r2-anchor-mark {
+  .r2-comment-mark {
     right: 4px;
   }
-}
-
-/* The reader's quick add: a compact strip under the bar, on the panel's
-   tone, gone again with Done. The same composer and the same notes. */
-.r2-reader-quicknote {
-  flex-shrink: 0;
-  padding: 8px 24px 10px;
-  border-bottom: 1px solid var(--r2-border);
-  background: var(--r2-panel-bg);
-}
-.r2-reader-quicknote-head {
-  font-size: var(--r2-fs-caption);
-  color: var(--r2-ink-3);
-}
-.r2-reader-quicknote .r2-rnotes-composer.r2-composer {
-  max-width: 44em;
-  margin-top: 0;
-}
-.r2-reader-quicknote-foot {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 4px 14px;
-  max-width: 44em;
-  margin-top: 26px;
-  font-size: var(--r2-fs-caption);
-  color: var(--r2-ink-3);
-}
-.r2-reader-quicknote-foot [role="status"] {
-  margin-right: auto;
 }

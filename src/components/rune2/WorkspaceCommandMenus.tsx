@@ -2,10 +2,36 @@
 
 import { Fragment, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { Editor } from "@tiptap/react";
+import {
+  Columns3,
+  File as PageIcon,
+  FileText,
+  GitCommitHorizontal,
+  Heading2,
+  Heading3,
+  LayoutList,
+  Library,
+  List,
+  ListChecks,
+  ListOrdered,
+  MessageSquare,
+  Minus,
+  Pilcrow,
+  Table2,
+  TextQuote,
+  type LucideIcon,
+} from "lucide-react";
+import { ICON } from "./icons";
 import { isFallbackView, isSceneView } from "@/lib/rune2/collectionViews";
 import { normalizeQuery, searchObjects } from "@/lib/rune2/projectSearch";
 import { mentionCandidates, type MentionScope } from "@/lib/rune2/references";
-import { matchSlashCommands, type SlashCommand, type ViewEmbedKind } from "@/lib/rune2/workspaceDocument";
+import type { CollectionViewType } from "@/lib/types";
+import {
+  matchSlashCommands,
+  type ReferenceTargetType,
+  type SlashCommand,
+  type ViewEmbedKind,
+} from "@/lib/rune2/workspaceDocument";
 import { usePropertyStore } from "./PropertyStore";
 import { useReferenceStore } from "./ReferenceStore";
 import { useRune2Selection } from "./Rune2Selection";
@@ -34,7 +60,35 @@ import {
 // text as it is. Nothing is inserted but canonical ids: a reference to a
 // target, an embed of a View. No menu is ever shown in manuscript prose.
 
-type Item = { key: string; title: string; hint: string; group?: string; run: () => void };
+type Item = { key: string; title: string; hint: string; group?: string; icon?: LucideIcon; run: () => void };
+
+/* One glyph per row: the block it makes, or the kind of object it points at
+   — the navigator's glyphs for a Page, Chapter and Scene, so a reference
+   reads as the thing it is. Presentation only; the commands themselves are
+   lib/rune2/workspaceDocument.ts. */
+const BLOCK_ICON: Record<string, LucideIcon> = {
+  heading: Heading2,
+  subheading: Heading3,
+  bullets: List,
+  numbers: ListOrdered,
+  checklist: ListChecks,
+  quote: TextQuote,
+  aside: MessageSquare,
+  divider: Minus,
+};
+const TARGET_ICON: Record<ReferenceTargetType, LucideIcon> = {
+  entry: Library,
+  page: PageIcon,
+  scene: Pilcrow,
+  chapter: FileText,
+};
+const EMBED_ICON: Record<ViewEmbedKind, LucideIcon> = { collection: Table2, scene: LayoutList };
+/* A View to embed, by its shape (as the View tabs show it). */
+const VIEW_ICON: Record<CollectionViewType, LucideIcon> = { list: List, table: Table2, board: Columns3, timeline: GitCommitHorizontal };
+function slashIcon(command: SlashCommand): LucideIcon | undefined {
+  const a = command.action;
+  return a.kind === "reference" ? TARGET_ICON[a.scope] : a.kind === "embed" ? EMBED_ICON[a.view] : BLOCK_ICON[command.id];
+}
 
 const SCOPE_LABEL: Record<Exclude<MentionScope, "any">, string> = {
   entry: "Reference to an entry",
@@ -136,7 +190,7 @@ export function WorkspaceCommandMenus({
             ? sceneAvailable
             : viewable
           : true,
-    ).map((c) => ({ key: c.id, title: c.label, hint: "", group: c.group, run: () => runSlash(c, trigger) }));
+    ).map((c) => ({ key: c.id, title: c.label, hint: "", group: c.group, icon: slashIcon(c), run: () => runSlash(c, trigger) }));
   } else if (trigger?.char === "@" && referable) {
     const scope: MentionScope = scoped?.from === trigger.from ? scoped.scope : "any";
     if (scope !== "any") heading = SCOPE_LABEL[scope];
@@ -148,6 +202,7 @@ export function WorkspaceCommandMenus({
         key: `${c.type}:${c.id}`,
         title: c.title,
         hint: c.hint,
+        icon: TARGET_ICON[c.type],
         run: () => void insertReference(editor, { from: trigger.from, to: trigger.to }, c),
       }));
   }
@@ -273,6 +328,11 @@ function MenuList({
               onClick={() => item.run()}
               onPointerEnter={() => onHover(i)}
             >
+              {item.icon && (
+                <span className="r2-menu-icon" aria-hidden>
+                  <item.icon {...ICON} />
+                </span>
+              )}
               <span className="r2-object-picker-title">{item.title}</span>
               {item.hint && <span className="r2-object-picker-hint">{item.hint}</span>}
             </li>
@@ -284,7 +344,7 @@ function MenuList({
   );
 }
 
-type ViewChoice = { key: string; title: string; hint: string; choose: () => Promise<string | null> };
+type ViewChoice = { key: string; title: string; hint: string; type: CollectionViewType; choose: () => Promise<string | null> };
 
 /**
  * The saved Views a document can embed, found by name: every Collection's
@@ -346,6 +406,7 @@ function ViewPicker({
         key: v.id,
         title: v.name,
         hint: index.get(v.collection_id)?.title ?? "",
+        type: v.type,
         choose: async () => {
           embed(v.id);
           return null;
@@ -357,6 +418,7 @@ function ViewPicker({
       key: v.id,
       title: v.name,
       hint: "Scenes",
+      type: v.type,
       choose: async () => {
         let viewId = v.id;
         if (isFallbackView(v)) {
@@ -430,6 +492,9 @@ function ViewPicker({
             onClick={() => void choose(c)}
             onPointerEnter={() => setActive(i)}
           >
+            <span className="r2-menu-icon" aria-hidden>
+              <ViewGlyph type={c.type} />
+            </span>
             <span className="r2-object-picker-title">{c.title}</span>
             <span className="r2-object-picker-hint">{c.hint}</span>
           </li>
@@ -451,4 +516,9 @@ function ViewPicker({
       )}
     </div>
   );
+}
+
+function ViewGlyph({ type }: { type: CollectionViewType }) {
+  const Icon = VIEW_ICON[type];
+  return <Icon {...ICON} />;
 }

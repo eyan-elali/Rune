@@ -585,7 +585,7 @@ test('removing a Chapter but keeping its Scenes (removeChapterKeepScenes): its C
 
 // ── 4. Reading Mode ───────────────────────────────────────────────────────────
 
-test('Reading Mode quick add: ordinary Scene notes, several in a row, at once in the Scene\'s, Chapter\'s, Group\'s and Manuscript\'s views', async () => {
+test('Reading Mode comments: ordinary Scene notes, several in a row, at once in the Scene\'s, Chapter\'s, Group\'s and Manuscript\'s views', async () => {
   const db = await seededDb();
   const part = ok(await structure.createGroup(HOLLOW, 'Part'));
   assert.equal((await structure.moveChapter(CH(4), part.id, null, HOLLOW)).error, null);
@@ -595,7 +595,7 @@ test('Reading Mode quick add: ordinary Scene notes, several in a row, at once in
   const current = readingModel.sceneAt(plan.blocks, plan.blocks.findIndex((b) => b.id === S('h4b')));
   assert.equal(current, S('h4b'));
 
-  // The quick add is a NoteComposer for { type: 'scene', id: <the Scene read> } on the shared store.
+  // A comment is a NoteComposer for { type: 'scene', id: <the Scene read> } on the shared store.
   const { sync } = engine();
   await sync.start();
   for (const body of ['The storm repeats chapter 2.', 'Name the horse.', 'Too many adverbs.']) sync.create('scene', current, body);
@@ -620,7 +620,7 @@ test('Reading Mode quick add: ordinary Scene notes, several in a row, at once in
   const source = (f) => fs.readFileSync(path.join(REPO_DIR, f), 'utf8');
   const readingSource = source('src/components/rune2/ReadingMode.tsx');
   assert.match(readingSource, /useRevisionNotes/);
-  assert.match(readingSource, /target=\{\{ type: "scene", id: quickAdd \}\}/, 'the quick add targets the Scene');
+  assert.match(readingSource, /target=\{\{ type: "scene", id: draft\.sceneId \}\}/, 'the comment composer targets the Scene');
   assert.doesNotMatch(readingSource, /actions\/(revisionNotes|sceneNotes|notes)|togglePanel\("inspector"\)/, 'no note action, and no Inspector');
   const panelSource = source('src/components/rune2/Rune2Panel.tsx');
   const inspector = panelSource.slice(panelSource.indexOf('function InspectorView'));
@@ -1090,4 +1090,166 @@ test('regression: details, resolving and anchors change no prose, version, words
   ok(await trash.restoreWorkspaceObject('scene', S('h4a')));
   const back = ok(await notes.listRevisionNotes(HOLLOW));
   assert.deepEqual(back.map((n) => [n.body, n.details, n.anchor]), [['anchored words here', 'details words here', anchor]]);
+});
+
+// ── 8. Reading comments and the composer (M21C.3) ────────────────────────────
+
+let commentPrefs;
+before(async () => {
+  commentPrefs = await bundleForTest('src/lib/rune2/readingCommentPrefs.ts', { name: 'rn_comment_prefs' });
+});
+
+test('reading comments: an anchored and an unanchored comment are both canonical Scene Revision Notes — same table, same Scene target, the unanchored one with no anchor and no fake passage', async () => {
+  const db = await seededDb();
+  const { manuscript, index } = await indexOf();
+  const plan = readingModel.manuscriptReadingPlan(manuscript.outline, index);
+  const current = readingModel.sceneAt(plan.blocks, plan.blocks.findIndex((b) => b.id === S('h4a')));
+  const { sync } = engine({ items: true });
+  await sync.start();
+  const anchor = ANCHOR('fixture-marker-h4a', 'The ', ' paragraph', 4, 22, 1);
+  const anchored = sync.create('scene', current, 'This line feels defensive.', anchor);
+  const unanchored = sync.create('scene', current, 'The whole scene runs long.', null);
+  // Shown at once — in the Scene's Revision Notes and at every level above — before any save lands.
+  assert.deepEqual(bodiesIn(sync.notes(), scopeOf(index, current), index), ['This line feels defensive.', 'The whole scene runs long.']);
+  assert.deepEqual(bodiesIn(sync.notes(), scopeOf(index, null), index).filter((b) => b.includes('defensive') || b.includes('runs long')).length, 2);
+  await sync.flush();
+  const rows = await all(db, `select id, target_type, scene_id, body, anchor from public.revision_notes order by created_at`);
+  assert.deepEqual(rows.map((r) => [r.id, r.target_type, r.scene_id, r.body, r.anchor]), [
+    [anchored, 'scene', S('h4a'), 'This line feels defensive.', anchor],
+    [unanchored, 'scene', S('h4a'), 'The whole scene runs long.', null],
+  ], 'two ordinary Scene notes; the unanchored one carries no anchor');
+  // No comment store of its own, and no manuscript-wide note made for a comment.
+  const tables = (await all(db, `select tablename from pg_tables where schemaname = 'public' and tablename like '%comment%'`)).map((r) => r.tablename);
+  assert.deepEqual(tables, []);
+  assert.equal(rows.filter((r) => r.target_type === 'manuscript').length, 0);
+  const source = fs.readFileSync(path.join(REPO_DIR, 'src/components/rune2/ReadingMode.tsx'), 'utf8');
+  assert.doesNotMatch(source, /r2-reader-quicknote|quickAdd/, 'the large top-of-reader composer is gone');
+  assert.match(source, /Add comment/, 'Reading Mode says "comment"');
+  assert.match(source, /onDraft\(\{ sceneId, anchor: null \}\)/, 'an unanchored comment is a Scene note with no anchor');
+  assert.match(source, /target_type === "scene" && inPlan\.has\(n\.target_id\)/, 'the layer shows every Scene note of the Scenes read, anchored or not');
+  assert.match(source, /data-display=\{expanded \? "expanded" : "collapsed"\}/, 'two display states, for anchored and unanchored alike');
+  assert.doesNotMatch(source, /reply|thread|assignee|priority|dueDate|due_date/i, 'no replies, threads, assignees, priorities or due dates');
+});
+
+test('composer: a note created with details before saving lands as ONE create carrying both; without details it is plain; details stay editable after; a retry never duplicates', async () => {
+  const db = await seededDb();
+  const storage = memoryStorage();
+  const { sync, net, runTimers } = engine({ storage, items: true });
+  await sync.start();
+  const calls = net.calls;
+  const plain = sync.create('scene', S('h2a'), 'Quick one.');
+  const detailed = sync.create('scene', S('h2a'), 'Slow opening.', null, 'The first three paragraphs are weather.');
+  const blankDetails = sync.create('chapter', CH(2), 'Chapter note.', null, '   ');
+  assert.deepEqual(sync.pendingChanges().map((p) => [p.kind, p.body, p.details]), [
+    ['create', 'Quick one.', null],
+    ['create', 'Slow opening.', 'The first three paragraphs are weather.'],
+    ['create', 'Chapter note.', null],
+  ], 'one pending create each; blank details are no details');
+  assert.deepEqual(sync.notes().map((n) => [n.body, n.details]), [
+    ['Quick one.', null], ['Slow opening.', 'The first three paragraphs are weather.'], ['Chapter note.', null],
+  ], 'shown with their details at once');
+  await sync.flush();
+  assert.equal(net.calls - calls, 3, 'three creates, no follow-up update for the details');
+  assert.deepEqual((await itemRows(db)).map((n) => [n.id, n.body, n.details, n.version]), [
+    [plain, 'Quick one.', null, 1], [detailed, 'Slow opening.', 'The first three paragraphs are weather.', 1], [blankDetails, 'Chapter note.', null, 1],
+  ]);
+  // Details remain editable afterwards (the row's editor), under the version rule.
+  sync.editItem(detailed, { details: 'Cut to the knock at the door.' });
+  await sync.flush();
+  assert.deepEqual((await itemRows(db)).find((n) => n.id === detailed).details, 'Cut to the knock at the door.');
+  assert.equal((await itemRows(db)).find((n) => n.id === detailed).version, 2);
+
+  // Offline create with details: kept whole on the device; a reload and retries send it once.
+  net.down = true;
+  const offline = sync.create('scene', S('h2a'), 'Offline thought.', ANCHOR('fixture-marker-h2a', '', ' end', 0, 18, 2), 'With details.');
+  await sync.flush();
+  assert.deepEqual([storage.map.get(offline).body, storage.map.get(offline).details, storage.map.get(offline).anchor.text], ['Offline thought.', 'With details.', 'fixture-marker-h2a']);
+  await runTimers();
+  await runTimers();
+  assert.equal((await itemRows(db)).filter((n) => n.id === offline).length, 0, 'still down: nothing landed');
+  const reloaded = engine({ storage, items: true });
+  reloaded.net.down = true;
+  await reloaded.sync.start();
+  assert.deepEqual(reloaded.sync.notes().filter((n) => n.id === offline).map((n) => [n.body, n.details, n.pending]), [['Offline thought.', 'With details.', 'pending']], 'read back from the device');
+  net.down = false;
+  reloaded.net.down = false;
+  await reloaded.sync.flush();
+  await sync.refresh();
+  const landed = (await itemRows(db)).filter((n) => n.id === offline);
+  assert.deepEqual(landed.map((n) => [n.body, n.details, n.anchor.text, n.version]), [['Offline thought.', 'With details.', 'fixture-marker-h2a', 1]], 'once, whole');
+  assert.equal((await itemRows(db)).length, 4, 'no duplicate from the retries');
+  assert.equal(storage.map.size, 0);
+});
+
+test('composer drafts: unsent text and unsent details are kept together per field and both forgotten once saved or cleared; the reader\'s display choice is remembered per writer, and storage that throws breaks neither', () => {
+  const store = new Map();
+  const previous = globalThis.window;
+  globalThis.window = { localStorage: {
+    getItem: (k) => (store.has(k) ? store.get(k) : null),
+    setItem: (k, v) => store.set(k, String(v)),
+    removeItem: (k) => store.delete(k),
+  } };
+  try {
+    const key = `scene:${S('h1a')}:anchor`;
+    noteDrafts.writeNoteDraft(ALICE, HOLLOW, key, 'half a comment');
+    noteDrafts.writeNoteDraftDetails(ALICE, HOLLOW, key, 'and half its details');
+    assert.equal(noteDrafts.readNoteDraft(ALICE, HOLLOW, key), 'half a comment');
+    assert.equal(noteDrafts.readNoteDraftDetails(ALICE, HOLLOW, key), 'and half its details');
+    assert.equal(noteDrafts.readNoteDraftDetails(ALICE, HOLLOW, `scene:${S('h1a')}`), '', 'the unanchored field has its own');
+    assert.equal(noteDrafts.readNoteDraftDetails(BRAM, HOLLOW, key), '', 'never another writer\'s');
+    noteDrafts.writeNoteDraft(ALICE, HOLLOW, key, '');
+    noteDrafts.writeNoteDraftDetails(ALICE, HOLLOW, key, '');
+    assert.equal(store.size, 0, 'saved or cleared: both forgotten');
+
+    // Expanded is the default; collapsed is remembered per writer; the Peek and Full share it (one key).
+    assert.equal(commentPrefs.readCommentsDisplay(ALICE), 'expanded');
+    commentPrefs.writeCommentsDisplay(ALICE, 'collapsed');
+    assert.equal(commentPrefs.readCommentsDisplay(ALICE), 'collapsed');
+    assert.equal(commentPrefs.readCommentsDisplay(BRAM), 'expanded');
+    assert.equal(commentPrefs.readCommentsDisplay(undefined), 'expanded');
+    store.set(`rune:reading-comments:${ALICE}`, 'nonsense');
+    assert.equal(commentPrefs.readCommentsDisplay(ALICE), 'expanded', 'an unknown value is the default');
+    globalThis.window = { get localStorage() { throw new Error('blocked'); } };
+    commentPrefs.writeCommentsDisplay(ALICE, 'collapsed');
+    assert.equal(commentPrefs.readCommentsDisplay(ALICE), 'expanded');
+    noteDrafts.writeNoteDraftDetails(ALICE, HOLLOW, 'x', 'y');
+    assert.equal(noteDrafts.readNoteDraftDetails(ALICE, HOLLOW, 'x'), '');
+  } finally {
+    globalThis.window = previous;
+  }
+});
+
+test('resolved comments: hidden from the default reading layer and the panel, listed on request, resolved and reopened from either surface through one engine; existing anchors and stale-anchor rules unchanged', async () => {
+  const db = await seededDb();
+  const { sync } = engine({ items: true });
+  await sync.start();
+  const anchor = ANCHOR('fixture-marker-h4a', 'The ', ' paragraph', 4, 22, 1);
+  const a = sync.create('scene', S('h4a'), 'From the reader.', anchor);
+  const b = sync.create('scene', S('h4a'), 'From the panel.', null);
+  const c = sync.create('scene', S('h4b'), 'Another scene.', null);
+  await sync.flush();
+  // What the reader's layer shows: the Scene notes of the Scenes read, open ones by default.
+  const { manuscript, index } = await indexOf();
+  const plan = readingModel.manuscriptReadingPlan(manuscript.outline, index);
+  const inPlan = new Set(plan.sceneIds);
+  const layer = (showResolved) => sync.notes().filter((n) => n.target_type === 'scene' && inPlan.has(n.target_id) && (showResolved || !n.resolved)).map((n) => n.id).sort();
+  assert.deepEqual(layer(false), [a, b, c].sort());
+  // Resolve one "from the reader" (the card's circle) and one "from Revision Notes" (the row's circle): the same call.
+  sync.setResolved(a, true);
+  sync.setResolved(c, true);
+  await sync.flush();
+  assert.deepEqual(layer(false), [b], 'resolved comments leave the default layer');
+  assert.deepEqual(layer(true), [a, b, c].sort(), '"Show resolved" lists them');
+  assert.deepEqual(model.notesInScope(sync.notes().filter((n) => !n.resolved), scopeOf(index, S('h4a')), index).map((n) => n.id), [b], 'the panel hides them by default too');
+  assert.deepEqual((await itemRows(db)).map((n) => [n.id, Boolean(n.resolved_at), n.anchor]).sort(), [[a, true, anchor], [b, false, null], [c, true, null]].sort(), 'stored, not deleted; the anchor untouched');
+  sync.setResolved(a, false);
+  await sync.flush();
+  assert.deepEqual(layer(false).sort(), [a, b].sort(), 'reopened from either surface');
+  assert.deepEqual((await itemRows(db)).find((n) => n.id === a).anchor, anchor, 'the anchor is exactly as created');
+  // Stale-anchor rules are the same functions as before: an edited passage is not found; the note stays.
+  const plain = anchors.proseText((await one(db, `select content from public.scenes where id = $1`, [S('h4a')])).content);
+  const at = plain.indexOf('fixture-marker-h4a');
+  assert.deepEqual(anchors.locateAnchor(plain, anchor), { from: at, to: at + 'fixture-marker-h4a'.length }, 'found by its words where it is');
+  assert.equal(anchors.locateAnchor(plain.replace('fixture-marker-h4a', 'rewritten line'), anchor), null, 'gone: stale, never guessed');
+  assert.equal(sync.notes().find((n) => n.id === a).body, 'From the reader.');
 });

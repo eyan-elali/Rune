@@ -115,7 +115,9 @@ export default function WorkspacePageEditor({ entry, session }: { entry: NavEntr
 
   const [unreadable, setUnreadable] = useState(false);
   const editor = useEditor({
-    extensions: workspaceEditorExtensions(handlers, "Write anything… (/ for blocks, @ to reference)"),
+    // One quiet line, as an empty Chapter shows: the "/" and "@" menus are
+    // found by use, not announced.
+    extensions: workspaceEditorExtensions(handlers, "Start writing…"),
     content: saver.content,
     immediatelyRender: false,
     autofocus: false,
@@ -223,8 +225,16 @@ export default function WorkspacePageEditor({ entry, session }: { entry: NavEntr
           }
         }}
       >
-        {session.kind === "entry" && <EntryCollection entry={entry} />}
-        <WorkspaceTitle entry={entry} rename={doc.rename} noun={doc.noun} onLeave={() => editor?.commands.focus("start")} />
+        <WorkspaceTitle
+          entry={entry}
+          rename={doc.rename}
+          noun={doc.noun}
+          // The same eyebrow a Chapter carries ("Chapter 4"), so the title stands
+          // where a Chapter's does: a Page is named as a Page, an Entry by its
+          // Collection — which is also the way back.
+          eyebrow={session.kind === "entry" ? <EntryCollection entry={entry} /> : "Page"}
+          onLeave={() => editor?.commands.focus("start")}
+        />
         {session.kind === "entry" && entry.path.length > 0 && (
           <EntryProperties entryId={entry.id} collectionId={entry.path[entry.path.length - 1].id} />
         )}

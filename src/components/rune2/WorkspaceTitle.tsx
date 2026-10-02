@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import type { NavEntry } from "@/lib/rune2/navigatorModel";
 import { useRune2Selection } from "./Rune2Selection";
@@ -12,7 +12,8 @@ const TITLE_SAVE_DELAY = 700;
  * Collection's (`rename` is the object's own action). The navigator and tabs
  * follow each keystroke (setRenamedTitle); the title is saved after a pause
  * and when the writer leaves the field. Blank is untitled. Enter or ↓ leaves
- * the title (onLeave: into the body, or the Collection's list).
+ * the title (onLeave: into the body, or the Collection's list). `children`:
+ * a quiet line under the title, inside the heading (a Collection's context).
  */
 export function WorkspaceTitle({
   entry,
@@ -20,12 +21,17 @@ export function WorkspaceTitle({
   noun,
   placeholder = "Untitled",
   onLeave,
+  eyebrow,
+  children,
 }: {
   entry: NavEntry;
   rename: (id: string, title: string | null) => Promise<{ error: string | null }>;
   noun: string;
   placeholder?: string;
   onLeave: () => void;
+  /** Over the title, in the Chapter's eyebrow voice: what kind of thing this is (or an Entry's Collection). */
+  eyebrow?: ReactNode;
+  children?: ReactNode;
 }) {
   const { setRenamedTitle, focusSceneId, requestSceneFocus } = useRune2Selection();
   const router = useRouter();
@@ -81,6 +87,7 @@ export function WorkspaceTitle({
 
   return (
     <header className="r2-doc-head r2-page-head">
+      {eyebrow && <p className="r2-doc-eyebrow">{eyebrow}</p>}
       <textarea
         ref={ref}
         className="r2-page-title"
@@ -111,6 +118,7 @@ export function WorkspaceTitle({
           }
         }}
       />
+      {children}
       {failed && (
         <p className="r2-doc-note" role="status">
           The title couldn’t be saved yet. It will be tried again when you leave the title.
