@@ -6,8 +6,10 @@ import { loadProjectManuscript } from "@/lib/rune2/projectManuscript";
 // The Manuscript overview: orientation and access, not analytics. The
 // manuscript's name, its size and shape in one quiet line, the few actions
 // that read it whole (export, backup) or bring another in (import), and under
-// it — ManuscriptScenes, in the shell — the Manuscript's Scene Views. Placed
-// and Unplaced words are shown separately, never summed.
+// it — ManuscriptScenes, in the shell — the Manuscript's Scene Views over
+// every placed Scene. Together they are one broad structured surface
+// (r2-broad): manuscript identity over its Scenes, not a document. Placed and
+// Unplaced words are shown separately, never summed.
 
 function plural(n: number, one: string, many = `${one}s`) {
   return `${n.toLocaleString()} ${n === 1 ? one : many}`;
@@ -30,7 +32,7 @@ export default async function Rune2ProjectPage({
   ].filter((f): f is string => f !== null);
 
   return (
-    <div className="r2-overview">
+    <div className="r2-overview r2-broad">
       <p className="r2-overview-kind">Manuscript</p>
       <h1>{manuscript.project.title}</h1>
 

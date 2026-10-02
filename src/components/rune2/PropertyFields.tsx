@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { Check, ChevronDown, Plus } from "lucide-react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { Check, ChevronDown, ChevronRight, Pencil, Plus } from "lucide-react";
 import { ICON, ICON_SM, ICON_CHECK, ICON_SM_BOLD } from "./icons";
 import {
   chosenOptions,
@@ -13,8 +13,17 @@ import {
   PROPERTY_TYPES,
   valueKey,
 } from "@/lib/rune2/collectionProperties";
+import {
+  isCollapsed,
+  readCollapsedCollections,
+  withCollapsed,
+  writeCollapsedCollections,
+  type CollapsedCollections,
+} from "@/lib/rune2/entryPropertyPrefs";
 import { describeObject, targetSpecOf } from "@/lib/rune2/references";
 import type { CollectionPropertyType, PropertyDefinition, PropertyValue, ReferenceObjectType } from "@/lib/types";
+import { useProfileStore } from "@/store/profileStore";
+import { CollectionSchema } from "./CollectionSchema";
 import { ObjectPicker } from "./ObjectPicker";
 import { usePropertyStore } from "./PropertyStore";
 import { useRune2Selection } from "./Rune2Selection";
@@ -38,11 +47,124 @@ import { useOpenObject } from "./useOpenObject";
 // — never inside the prose. Their values are saved on their own
 // (scene_property_values, object_references), never with the Scene's
 // content: changing "Status" never touches the words being written beside it.
+//
+// On an Entry (Milestone 21E.2) the block has a quiet heading of its own,
+// "Properties · 5", which folds it: collapsed, the rows are hidden and the
+// title and body have the room, the count stays and says how many are
+// filled — never their values. The choice is remembered on this device per
+// writer and per Collection (entryPropertyPrefs), so a Collection whose facts
+// matter stays open and one whose facts are secondary stays folded. Nothing
+// is ever hidden for good: a click brings the rows back.
+//
+// The Collection's properties can also be edited from here — renamed,
+// retyped, reordered, their options changed, removed — through the one
+// property settings (CollectionSchema), opened in place of the rows by
+// "Edit" or by a row's own pencil. It is the Collection's schema that
+// changes, for every Entry, and the settings say so; nothing is ever an
+// Entry's own property.
 
 export function EntryProperties({ entryId, collectionId }: { entryId: string; collectionId: string }) {
-  const { available } = usePropertyStore();
+  const { available, propertiesOf, values } = usePropertyStore();
+  const { index } = useRune2Selection();
+  const userId = useProfileStore((s) => s.profile?.id);
+  const [collapsed, setCollapsed] = useCollapsedProperties(userId, collectionId);
+  // false: the rows; null: the settings; a property id: the settings, on that property.
+  const [editing, setEditing] = useState<false | null | string>(false);
+  const titleOf = (id: string) => describeObject(index, id)?.title;
   if (!available) return null;
-  return <ItemProperties itemId={entryId} ownerId={collectionId} />;
+
+  const properties = propertiesOf(collectionId);
+  const collectionTitle = index.get(collectionId)?.title ?? "this collection";
+  // No properties: only the faint "Add a property", as before — no heading to fold.
+  if (properties.length === 0) return <ItemProperties itemId={entryId} ownerId={collectionId} />;
+
+  const filled = properties.filter((p) => formatValue(p, values.get(valueKey(entryId, p.id)), titleOf) !== null).length;
+  const open = !collapsed;
+  return (
+    <section
+      className="r2-props r2-props--entry"
+      aria-label="Properties"
+      data-collapsed={collapsed || undefined}
+      data-editing={(open && editing !== false) || undefined}
+    >
+      <div className="r2-props-head">
+        <button
+          type="button"
+          className="r2-props-toggle"
+          aria-expanded={open}
+          onClick={() => {
+            setCollapsed(open);
+            if (open) setEditing(false);
+          }}
+          title={open ? "Hide properties" : "Show properties"}
+        >
+          {open ? <ChevronDown {...ICON_SM} aria-hidden /> : <ChevronRight {...ICON_SM} aria-hidden />}
+          <span>Properties</span>
+          <span className="r2-props-count">· {properties.length}</span>
+          {collapsed && filled > 0 && (
+            <span className="r2-props-hint">
+              {filled} filled
+            </span>
+          )}
+        </button>
+        {open && (
+          <button
+            type="button"
+            className="r2-props-edit"
+            aria-pressed={editing !== false}
+            onClick={() => setEditing((e) => (e === false ? null : false))}
+            title={editing === false ? `Edit the properties of ${collectionTitle} — they belong to every entry` : "Back to this entry's values"}
+          >
+            {editing === false ? "Edit" : "Done"}
+          </button>
+        )}
+      </div>
+      {open &&
+        (editing !== false ? (
+          <CollectionSchema
+            ownerId={collectionId}
+            ownerTitle={collectionTitle}
+            scope="entry"
+            focusId={typeof editing === "string" ? editing : undefined}
+          />
+        ) : (
+          <PropertyRows itemId={entryId} ownerId={collectionId} onEditProperty={(id) => setEditing(id)} />
+        ))}
+    </section>
+  );
+}
+
+// The remembered folds, one tiny store (as revisionNotePrefs): every open
+// Entry agrees, and the device's copy is read once the writer is known.
+let folds: CollapsedCollections = {};
+let foldsReadFor: string | undefined;
+const foldListeners = new Set<() => void>();
+function setFolds(next: CollapsedCollections) {
+  folds = next;
+  for (const fn of foldListeners) fn();
+}
+const subscribeFolds = (fn: () => void) => {
+  foldListeners.add(fn);
+  return () => {
+    foldListeners.delete(fn);
+  };
+};
+const getFolds = () => folds;
+
+/** The writer's remembered fold for one Collection's properties, and the way to change it. */
+function useCollapsedProperties(userId: string | undefined, collectionId: string): [boolean, (collapsed: boolean) => void] {
+  useEffect(() => {
+    if (!userId || userId === foldsReadFor) return;
+    foldsReadFor = userId;
+    setFolds(readCollapsedCollections(userId));
+  }, [userId]);
+  const map = useSyncExternalStore(subscribeFolds, getFolds, getFolds);
+  const set = (collapsed: boolean) => {
+    const next = withCollapsed(map, collectionId, collapsed);
+    setFolds(next);
+    writeCollapsedCollections(foldsReadFor, next);
+  };
+  return [isCollapsed(map, collectionId), set];
 }
 
 /** Up to this many properties, every one shows; past it, empty ones fold behind "Show all". */
@@ -60,6 +182,32 @@ const UNFOLDED_PROPERTIES = 4;
  * for this item while it is open; a property just added here is shown.
  */
 export function ItemProperties({ itemId, ownerId, empty }: { itemId: string; ownerId: string; empty?: ReactNode }) {
+  const { propertiesOf } = usePropertyStore();
+  const count = propertiesOf(ownerId).length;
+  return (
+    <section className="r2-props" aria-label="Properties" data-empty={count === 0 || undefined}>
+      <PropertyRows itemId={itemId} ownerId={ownerId} empty={empty} />
+    </section>
+  );
+}
+
+/**
+ * The rows of one item's properties (label, value; each edited in place),
+ * the fold of its empty ones, and "Add a property" — what ItemProperties
+ * and an Entry's foldable block both show. `onEditProperty`: each row
+ * offers its own pencil, which opens the owner's property settings on it.
+ */
+function PropertyRows({
+  itemId,
+  ownerId,
+  empty,
+  onEditProperty,
+}: {
+  itemId: string;
+  ownerId: string;
+  empty?: ReactNode;
+  onEditProperty?: (propertyId: string) => void;
+}) {
   const { propertiesOf, values } = usePropertyStore();
   const [notice, setNotice] = useState<string | null>(null);
   const [unfolded, setUnfolded] = useState(false);
@@ -80,11 +228,18 @@ export function ItemProperties({ itemId, ownerId, empty }: { itemId: string; own
   const hidden = properties.length - shown.length;
 
   return (
-    <section className="r2-props" aria-label="Properties" data-empty={properties.length === 0 || undefined}>
+    <>
       {shown.length > 0 && (
         <dl className="r2-props-list">
           {shown.map((p) => (
-            <PropertyRow key={p.id} property={p} itemId={itemId} value={values.get(valueKey(itemId, p.id))} onError={setNotice} />
+            <PropertyRow
+              key={p.id}
+              property={p}
+              itemId={itemId}
+              value={values.get(valueKey(itemId, p.id))}
+              onError={setNotice}
+              onEdit={onEditProperty}
+            />
           ))}
         </dl>
       )}
@@ -106,7 +261,7 @@ export function ItemProperties({ itemId, ownerId, empty }: { itemId: string; own
           {notice}
         </p>
       )}
-    </section>
+    </>
   );
 }
 
@@ -115,11 +270,14 @@ function PropertyRow({
   itemId,
   value,
   onError,
+  onEdit,
 }: {
   property: PropertyDefinition;
   itemId: string;
   value: PropertyValue | undefined;
   onError: (message: string) => void;
+  /** Offered on the row: edit this property's definition (the owner's, for every item). */
+  onEdit?: (propertyId: string) => void;
 }) {
   const { setValue } = usePropertyStore();
   const labelId = useId();
@@ -129,8 +287,21 @@ function PropertyRow({
   };
   return (
     <div className="r2-prop">
-      <dt id={labelId} className="r2-prop-label" title={PROPERTY_TYPE_LABEL[property.type]}>
-        {property.name}
+      <dt className="r2-prop-label" title={PROPERTY_TYPE_LABEL[property.type]}>
+        <span id={labelId} className="r2-prop-label-text">
+          {property.name}
+        </span>
+        {onEdit && (
+          <button
+            type="button"
+            className="r2-prop-edit"
+            aria-label={`Edit the property ${property.name}`}
+            title={`Edit “${property.name}” — for every entry`}
+            onClick={() => onEdit(property.id)}
+          >
+            <Pencil {...ICON_SM} aria-hidden />
+          </button>
+        )}
       </dt>
       <dd className="r2-prop-value">
         <PropertyValueEditor property={property} value={value} labelId={labelId} onSave={save} ownerId={itemId} />

@@ -10,6 +10,7 @@ import { createScene } from "@/lib/actions/scenes";
 import { cacheScene } from "@/lib/offline/db";
 import { isWorkspaceKind, type NavEntry, type NavKind } from "@/lib/rune2/navigatorModel";
 import { trashTypeOf } from "@/lib/rune2/trash";
+import { groupFacts } from "@/lib/rune2/sceneViews";
 import { writingTargetFor } from "@/lib/rune2/writingTarget";
 import { NavigatorMenu, type NavigatorMenuItem } from "./NavigatorMenu";
 import { useProjectExport } from "./ProjectExport";
@@ -26,11 +27,13 @@ import { useTrash } from "./WorkspaceTrash";
 // panel actions stand a little apart from the rest, by space alone) and the
 // content area. Chapters and Scenes open in
 // the writing surface (see writingTarget.ts);
-// a Group shows a structural summary; a Workspace Page or Collection Entry
-// opens in its own editor (WorkspacePages); a Collection shows its Entries
-// (CollectionView); with nothing selected, the content area shows its route
-// (the Manuscript overview), and under it the Manuscript's Scene Views
-// (ManuscriptScenes) — one quiet line until the writer asks for them. "Read"
+// a Group shows its overview and, under it, its Scenes — the Manuscript's
+// Scene Views within the Group's scope (ManuscriptScenes); a Workspace Page or
+// Collection Entry opens in its own editor (WorkspacePages); a Collection
+// shows its Entries (CollectionView); with nothing selected, the content area
+// shows its route (the Manuscript overview), and under it the Manuscript's
+// Scene Views over every placed Scene. Overviews and their Scenes take the
+// broad structured-surface geometry (r2-broad); documents stay centred. "Read"
 // opens the Reading Peek (ReadingMode, over the shell) at the Group, Chapter
 // or Scene in view. The "⋯" of a Chapter or Scene also holds the writer's
 // manuscript type (Serif / Sans serif): a preference, not a control in the
@@ -328,12 +331,17 @@ export function Rune2SelectionView({ children }: { children: ReactNode }) {
     <>
       {!target &&
         (selected
-          ? (selected.kind === "group" && <StructurePreview entry={selected} />) ||
+          ? (selected.kind === "group" && (
+              <>
+                <GroupOverview entry={selected} />
+                <ManuscriptScenes key={selected.id} scope={{ kind: "group", groupId: selected.id }} />
+              </>
+            )) ||
             (selected.kind === "workspaceCollection" && <CollectionView key={selected.id} entry={selected} />)
           : (
             <>
               {children}
-              <ManuscriptScenes />
+              <ManuscriptScenes key="manuscript" scope={{ kind: "manuscript" }} />
             </>
           ))}
       {/* Always mounted, in the same place, so a Scene that stays on screen
@@ -345,15 +353,28 @@ export function Rune2SelectionView({ children }: { children: ReactNode }) {
   );
 }
 
-/** A Group: structure, not prose. A restrained summary until Groups get their own view. */
-function StructurePreview({ entry }: { entry: NavEntry }) {
+/**
+ * A Group's overview: structure, not prose — its kind, its title, and its
+ * shape in one quiet line (words, then the Groups, Chapters and Scenes inside
+ * it at any depth). Its Scenes follow (ManuscriptScenes, scoped to it).
+ */
+function GroupOverview({ entry }: { entry: NavEntry }) {
+  const { index } = useRune2Selection();
+  const facts = groupFacts(index, entry.id);
+  const line = [
+    plural(entry.words, "word"),
+    facts.groups > 0 ? plural(facts.groups, "group") : null,
+    plural(facts.chapters, "chapter"),
+    plural(facts.scenes, "scene"),
+  ].filter((f): f is string => f !== null);
   return (
-    <div className="r2-overview">
+    <div className="r2-overview r2-broad">
       <p className="r2-overview-kind">{KIND_LABEL[entry.kind]}</p>
       <h1>{entry.title}</h1>
       <p className="r2-overview-facts">
-        <span>{plural(entry.words, "word")}</span>
-        <span>{plural(entry.childCount, "item")}</span>
+        {line.map((f) => (
+          <span key={f}>{f}</span>
+        ))}
       </p>
     </div>
   );

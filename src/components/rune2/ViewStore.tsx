@@ -19,7 +19,7 @@ import {
   viewsOf as orderedViewsOf,
 } from "@/lib/rune2/collectionViews";
 import type { ProjectWorkspace } from "@/lib/rune2/projectWorkspace";
-import { sceneFallbackView } from "@/lib/rune2/sceneViews";
+import { defaultViewFor, sceneFallbackView } from "@/lib/rune2/sceneViews";
 import type { CollectionProperty, CollectionViewConfig, CollectionViewType, SavedView, SceneProperty } from "@/lib/types";
 import { applyOverlay, drop, networkError, put, settle, usePropertyStore, withoutSettled, type Overlay } from "./PropertyStore";
 import { useRune2Selection } from "./Rune2Selection";
@@ -39,9 +39,16 @@ import { useRune2Selection } from "./Rune2Selection";
 // Scene View shows an unsaved List in manuscript order; the first change to
 // it saves it (create_scene_view), so a writer who only looks writes nothing.
 //
-// Also kept here for the session: whether the Manuscript's page shows its
-// Scene Views, and which of its tools is open — so the Inspector can open
-// "Scene properties" there.
+// A Group's page shows the SAME saved Scene Views as the Manuscript's,
+// within the Group's structural scope (Milestone 21E.2; lib/rune2/sceneViews
+// scopedSceneOrder): asked for a Group's Views, this store answers with the
+// Manuscript's, and a View made from a Group's page is the Manuscript's too.
+// Only which View each Group is showing is its own (a Group opens in the
+// first List) — so there is one set of Views to name, order and keep, and a
+// Board made once serves every Part.
+//
+// Also kept here for the session: which of the Scene Views' tools is open on
+// the Manuscript's page — so the Inspector can open "Scene properties" there.
 
 export type ScenePanel = "view" | "properties" | null;
 
@@ -79,11 +86,10 @@ type ViewStore = {
   updateView: (view: SavedView, changes: CollectionViewChanges) => Promise<string | null>;
   moveView: (view: SavedView, index: number) => Promise<string | null>;
   deleteView: (view: SavedView) => Promise<string | null>;
-  /** Whether the Manuscript's page shows its Scene Views, and which tool is open there. */
-  scenesOpen: boolean;
+  /** Which tool is open with the Scene Views on the Manuscript's page. */
   scenePanel: ScenePanel;
+  /** Opens the Scene Views' tool (the Inspector's way to "Scene properties"). */
   openScenes: (panel?: ScenePanel) => void;
-  closeScenes: () => void;
   setScenePanel: (panel: ScenePanel | ((open: ScenePanel) => ScenePanel)) => void;
 };
 
@@ -98,12 +104,11 @@ export function useViewStore(): ViewStore {
 export function ViewStoreProvider({ workspace, children }: { workspace: ProjectWorkspace; children: ReactNode }) {
   const router = useRouter();
   const [, startRefresh] = useTransition();
-  const { manuscript } = useRune2Selection();
+  const { manuscript, index } = useRune2Selection();
   const projectId = manuscript.project.id;
   const { propertiesOf, manuscriptId } = usePropertyStore();
   const [overlay, setOverlay] = useState<Overlay<SavedView>>(() => new Map());
   const [active, setActive] = useState<ReadonlyMap<string, string>>(() => new Map());
-  const [scenesOpen, setScenesOpen] = useState(false);
   const [scenePanel, setScenePanel] = useState<ScenePanel>(null);
 
   // A fresh read supersedes every overlay whose write has settled.
@@ -126,27 +131,39 @@ export function ViewStoreProvider({ workspace, children }: { workspace: ProjectW
     [workspace.views, workspace.sceneViews, overlay]
   );
 
-  const isManuscript = useCallback((ownerId: string) => manuscriptId !== null && ownerId === manuscriptId, [manuscriptId]);
+  // A Group's Views are the Manuscript's (see above); a Collection's its own.
+  const isGroup = useCallback((ownerId: string) => index.get(ownerId)?.kind === "group", [index]);
+  const sceneOwnerOf = useCallback(
+    (ownerId: string): string | null =>
+      manuscriptId !== null && (ownerId === manuscriptId || isGroup(ownerId)) ? manuscriptId : null,
+    [manuscriptId, isGroup]
+  );
 
   const viewsOf = useCallback(
     (ownerId: string): SavedView[] => {
-      if (isManuscript(ownerId)) {
-        const saved = orderedViewsOf(all, ownerId);
+      const sceneOwner = sceneOwnerOf(ownerId);
+      if (sceneOwner !== null) {
+        const saved = orderedViewsOf(all, sceneOwner);
         return saved.length
           ? saved
-          : [sceneFallbackView(ownerId, projectId, propertiesOf(ownerId) as SceneProperty[])];
+          : [sceneFallbackView(sceneOwner, projectId, propertiesOf(sceneOwner) as SceneProperty[])];
       }
       const saved = available ? orderedViewsOf(all, ownerId) : [];
       return saved.length ? saved : [fallbackListView(ownerId, propertiesOf(ownerId) as CollectionProperty[])];
     },
-    [all, available, propertiesOf, isManuscript, projectId]
+    [all, available, propertiesOf, sceneOwnerOf, projectId]
   );
 
   const activeViewOf = useCallback(
     (ownerId: string) => {
-      return activeView(viewsOf(ownerId), active.get(ownerId));
+      const views = viewsOf(ownerId);
+      const chosen = active.get(ownerId);
+      // Not yet chosen here (or the chosen one deleted): a Group opens in its
+      // first List, anything else in its first View.
+      if (chosen !== undefined && views.some((v) => v.id === chosen)) return activeView(views, chosen);
+      return defaultViewFor(views, isGroup(ownerId) ? { kind: "group", groupId: ownerId } : { kind: "manuscript" });
     },
-    [viewsOf, active]
+    [viewsOf, active, isGroup]
   );
 
   const byId = useMemo(() => new Map(all.map((v) => [v.id, v])), [all]);
@@ -160,7 +177,7 @@ export function ViewStoreProvider({ workspace, children }: { workspace: ProjectW
 
   const createViewWithId = useCallback<ViewStore["createViewWithId"]>(
     async (ownerId, type, name, config = null) => {
-      const r = await (isManuscript(ownerId)
+      const r = await (sceneOwnerOf(ownerId) !== null
         ? createSceneView(projectId, name, type, config)
         : createCollectionView(ownerId, name, type, config)
       ).catch(() => networkError);
@@ -171,7 +188,7 @@ export function ViewStoreProvider({ workspace, children }: { workspace: ProjectW
       refresh();
       return r.error === null ? { id: r.data.id, error: null } : { id: null, error: r.error };
     },
-    [refresh, setActiveView, isManuscript, projectId]
+    [refresh, setActiveView, sceneOwnerOf, projectId]
   );
 
   const createView = useCallback<ViewStore["createView"]>(
@@ -234,12 +251,7 @@ export function ViewStoreProvider({ workspace, children }: { workspace: ProjectW
   );
 
   const openScenes = useCallback((panel: ScenePanel = null) => {
-    setScenesOpen(true);
     if (panel) setScenePanel(panel);
-  }, []);
-  const closeScenes = useCallback(() => {
-    setScenesOpen(false);
-    setScenePanel(null);
   }, []);
 
   const store = useMemo<ViewStore>(
@@ -256,10 +268,8 @@ export function ViewStoreProvider({ workspace, children }: { workspace: ProjectW
       updateView,
       moveView,
       deleteView,
-      scenesOpen,
       scenePanel,
       openScenes,
-      closeScenes,
       setScenePanel,
     }),
     [
@@ -275,10 +285,8 @@ export function ViewStoreProvider({ workspace, children }: { workspace: ProjectW
       updateView,
       moveView,
       deleteView,
-      scenesOpen,
       scenePanel,
       openScenes,
-      closeScenes,
     ]
   );
 

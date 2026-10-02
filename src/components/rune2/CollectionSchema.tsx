@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { ArrowDown, ArrowUp, Eye, EyeOff, Trash2, X } from "lucide-react";
 import { ICON, ICON_SM_BOLD } from "./icons";
 import {
@@ -36,6 +36,12 @@ import { useViewStore } from "./ViewStore";
 // Manuscript's id: the facts a writer wants to keep about each Scene. Nothing
 // here ever touches a Scene's prose; removing a Scene property removes only
 // the values Scenes hold for it.
+//
+// Opened on an Entry (`scope: "entry"`, Milestone 21E.2) they are the same
+// settings — the Collection's, never the Entry's — and say so: a line names
+// the Collection and that every entry is affected, and removing a property
+// says it goes from every entry, not only this one. `focusId` opens them on
+// one property (its name ready to edit), from a row's pencil.
 
 function plural(n: number, one: string, many = `${one}s`) {
   return `${n.toLocaleString()} ${n === 1 ? one : many}`;
@@ -47,7 +53,19 @@ const SCENE_SUGGESTIONS: { name: string; type: CollectionPropertyType }[] = [
   { name: "Status", type: "status" },
 ];
 
-export function CollectionSchema({ ownerId, ownerTitle }: { ownerId: string; ownerTitle: string }) {
+export function CollectionSchema({
+  ownerId,
+  ownerTitle,
+  scope,
+  focusId,
+}: {
+  ownerId: string;
+  ownerTitle: string;
+  /** "entry": opened from an Entry — the Collection's settings, shown as such. */
+  scope?: "entry";
+  /** Open on this property, its name focused. */
+  focusId?: string;
+}) {
   const { propertiesOf, manuscriptId } = usePropertyStore();
   const properties = propertiesOf(ownerId);
   const forScenes = ownerId === manuscriptId;
@@ -60,7 +78,13 @@ export function CollectionSchema({ ownerId, ownerTitle }: { ownerId: string; own
   }, [notice]);
 
   return (
-    <section className="r2-schema" aria-label={`Properties of ${ownerTitle}`}>
+    <section className="r2-schema" aria-label={`Properties of ${ownerTitle}`} data-scope={scope}>
+      {scope === "entry" && (
+        <p className="r2-schema-scope">
+          <span className="r2-schema-scope-owner">Properties of {ownerTitle}</span>
+          <span className="r2-schema-scope-note">Changes here apply to every entry, not only this one.</span>
+        </p>
+      )}
       {properties.length === 0 ? (
         forScenes ? (
           <>
@@ -79,7 +103,15 @@ export function CollectionSchema({ ownerId, ownerTitle }: { ownerId: string; own
       ) : (
         <ol className="r2-schema-list">
           {properties.map((p, i) => (
-            <SchemaRow key={p.id} property={p} index={i} count={properties.length} onNotice={setNotice} />
+            <SchemaRow
+              key={p.id}
+              property={p}
+              index={i}
+              count={properties.length}
+              onNotice={setNotice}
+              scope={scope}
+              focus={p.id === focusId}
+            />
           ))}
         </ol>
       )}
@@ -129,15 +161,29 @@ function SchemaRow({
   index,
   count,
   onNotice,
+  scope,
+  focus = false,
 }: {
   property: PropertyDefinition;
   index: number;
   count: number;
   onNotice: (message: string) => void;
+  scope?: "entry";
+  /** Opened on this row: its name takes focus, ready to edit. */
+  focus?: boolean;
 }) {
   const { values, updateProperty, moveProperty, deleteProperty, updateRelationship } = usePropertyStore();
   const { index: objects } = useRune2Selection();
   const { available: viewable } = useViewStore();
+  const nameRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (!focus) return;
+    const el = nameRef.current;
+    if (!el) return;
+    el.focus();
+    el.select();
+    el.scrollIntoView({ block: "nearest" });
+  }, [focus]);
   const [name, setName] = useState(property.name);
   const [editing, setEditing] = useState(false);
   const [seen, setSeen] = useState(property.name);
@@ -184,6 +230,8 @@ function SchemaRow({
   const valueCount = countValues(values, property.id);
   const scene = isSceneProperty(property);
   const [one, many] = scene ? ["scene", "scenes"] : ["entry", "entries"];
+  // From an Entry: the question says plainly that the whole Collection is meant.
+  const everywhere = scope === "entry" ? " It goes from every entry in the collection, not only this one." : "";
 
   return (
     <li className="r2-schema-row">
@@ -192,6 +240,7 @@ function SchemaRow({
           Property name
         </label>
         <input
+          ref={nameRef}
           id={nameId}
           className="r2-schema-name"
           maxLength={100}
@@ -310,10 +359,10 @@ function SchemaRow({
         <div className="r2-schema-confirm" role="alertdialog" aria-label={`Remove ${property.name}?`}>
           <p>
             {confirming === 0
-              ? `Remove “${property.name}”? No ${one} has a value for it.`
+              ? `Remove “${property.name}”? No ${one} has a value for it.${everywhere}`
               : property.type === "relationship"
-                ? `Remove “${property.name}”? Its links in ${plural(confirming, one, many)} will be removed — the things they point to stay. This can’t be undone.`
-                : `Remove “${property.name}”? Its value in ${plural(confirming, one, many)} will be deleted.${scene ? " Your prose is untouched." : ""} This can’t be undone.`}
+                ? `Remove “${property.name}”? Its links in ${plural(confirming, one, many)} will be removed — the things they point to stay.${everywhere} This can’t be undone.`
+                : `Remove “${property.name}”? Its value in ${plural(confirming, one, many)} will be deleted.${scene ? " Your prose is untouched." : ""}${everywhere} This can’t be undone.`}
           </p>
           <button
             type="button"

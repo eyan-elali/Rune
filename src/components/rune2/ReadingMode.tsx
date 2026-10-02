@@ -188,7 +188,9 @@ export function ReadingMode({ source, mode }: { source: ReadingSource; mode: Mod
   const projectId = manuscript.project.id;
   const key = readingTabKey(source);
   const view = useReadingView(source);
-  const { properties, arranged } = useSceneItems(view);
+  // A View read from a Group's page reads within that Group (the same scope its page shows).
+  const groupId = source.kind === "view" ? source.groupId : undefined;
+  const { properties, arranged } = useSceneItems(view, groupId ? { kind: "group", groupId } : undefined);
   const arrangedKey = arranged.join(",");
   const sorted = view ? viewIsSorted(view, properties) : false;
 

@@ -37,6 +37,11 @@ import { WorkspaceTitle } from "./WorkspaceTitle";
 // Collection returns here); ⌘/Ctrl-click or a middle click opens it in a tab
 // of its own. Views never join the working-set tabs: the Collection is the
 // object that is open, and its View is remembered for the session.
+//
+// Geometry: a Collection is a structured set, not a document, so the whole
+// of it — title, bar and View alike — takes the broad surface (r2-broad in
+// rune2.css): it starts near the navigator and runs most of the way across,
+// whichever View is showing; a Page or an Entry stays a centred column.
 
 function plural(n: number, one: string, many = `${one}s`) {
   return `${n.toLocaleString()} ${n === 1 ? one : many}`;
@@ -65,7 +70,7 @@ export function CollectionView({ entry }: { entry: NavEntry }) {
 
   return (
     <div className="r2-writing">
-      <div className="r2-doc r2-page r2-collection" data-wide={view.type !== "list" || undefined} data-view={view.type}>
+      <div className="r2-doc r2-page r2-collection r2-broad" data-view={view.type}>
         <WorkspaceTitle
           entry={entry}
           rename={renameWorkspaceCollection}

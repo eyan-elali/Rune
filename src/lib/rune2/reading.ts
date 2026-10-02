@@ -23,11 +23,18 @@ import { chapterShowsScenes, groupTitle, type NavEntry } from "./navigatorModel"
 //     any matching Unplaced Scenes under their own heading; with a sort, the
 //     View's order, each Scene saying where it lives.
 
-export type ReadingSource = { kind: "manuscript" } | { kind: "view"; viewId: string };
+/**
+ * What is read: the whole manuscript, or the Scenes a Scene View shows —
+ * within one Group's scope when the View was read from that Group's page
+ * (`groupId`; see scopedSceneOrder), else the Manuscript's.
+ */
+export type ReadingSource = { kind: "manuscript" } | { kind: "view"; viewId: string; groupId?: string };
 
 const PREFIX = "reading:";
 const MANUSCRIPT_KEY = `${PREFIX}manuscript`;
 const VIEW_PREFIX = `${PREFIX}view:`;
+/** Between a View's id and the Group it is read within (ids are UUIDs, which never hold it). */
+const SCOPE_SEPARATOR = "@";
 
 /** Scene ids per read request (actions/reading.ts): a long manuscript is read in a few requests. */
 export const READING_BATCH = 60;
@@ -37,14 +44,21 @@ export const READING_BATCH = 60;
  * way of seeing the manuscript, and has one tab per source at most.
  */
 export function readingTabKey(source: ReadingSource): string {
-  return source.kind === "manuscript" ? MANUSCRIPT_KEY : `${VIEW_PREFIX}${source.viewId}`;
+  if (source.kind === "manuscript") return MANUSCRIPT_KEY;
+  return `${VIEW_PREFIX}${source.viewId}${source.groupId ? `${SCOPE_SEPARATOR}${source.groupId}` : ""}`;
 }
 
 /** The source a tab key reads, or null when the key is not a Reading tab. */
 export function readingSourceOf(key: string): ReadingSource | null {
   if (key === MANUSCRIPT_KEY) return { kind: "manuscript" };
   if (key.startsWith(VIEW_PREFIX) && key.length > VIEW_PREFIX.length) {
-    return { kind: "view", viewId: key.slice(VIEW_PREFIX.length) };
+    const rest = key.slice(VIEW_PREFIX.length);
+    const at = rest.indexOf(SCOPE_SEPARATOR);
+    if (at === -1) return { kind: "view", viewId: rest };
+    const viewId = rest.slice(0, at);
+    const groupId = rest.slice(at + 1);
+    if (!viewId || !groupId) return null;
+    return { kind: "view", viewId, groupId };
   }
   return null;
 }

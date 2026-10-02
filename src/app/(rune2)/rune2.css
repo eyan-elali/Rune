@@ -2070,13 +2070,46 @@ button.r2-disclosure:hover {
 /* Where a column actually starts: the shared edge, held as long as the
    column fits beside the panel, and never further right than lets the
    column's own width end inside the content. Resolved on the column itself,
-   so a column that takes a wider measure (.r2-collection[data-wide]) is
-   placed by that width — it keeps the shared edge where there is room and
-   gives way to the left where there is not, instead of widening the page. */
+   so it keeps the shared edge where there is room and gives way to the left
+   where there is not, instead of widening the page. */
 .r2-doc,
-.r2-overview,
-.r2-scenes-invite {
+.r2-overview {
   --r2-doc-offset: clamp(0px, var(--r2-doc-centred), calc(100cqw - var(--r2-doc-width)));
+}
+
+/* ── Two geometries ─────────────────────────────────────────────────────
+   Geometry says what a thing is. A FOCUSED DOCUMENT — a Chapter or Scene, a
+   Page, an Entry, a reading surface — is the centred column above: the
+   prose measure, placed where it would sit centred with the panel closed.
+   A STRUCTURED SET — a Collection, the Manuscript overview and its Scenes, a
+   Group and its Scenes — is a BROAD SURFACE: it starts a short breath from
+   the navigator (not on the document's edge) and runs most of the way
+   across, title, bar and View together, so it reads as a workspace rather
+   than a document with a wide widget in it. Never edge to edge: the same
+   inset on both sides, a ceiling on the width, and the column's own gutters
+   inside. Where the content area is narrow the inset is whatever the
+   document's own centring would be, so the two geometries converge to the
+   one content margin instead of crowding the navigator. The panel, when it
+   lies over the content (see the r2-body query above), is kept clear of. */
+.r2-main .r2-broad {
+  --r2-broad-inset: 36px;
+  --r2-broad-max: 1680px;
+  --r2-broad-reserve: 0px;
+  --r2-doc-offset: clamp(0px, var(--r2-doc-centred), var(--r2-broad-inset));
+  --r2-doc-width: min(
+    var(--r2-broad-max),
+    calc(100cqw - 2 * var(--r2-doc-offset) - var(--r2-broad-reserve))
+  );
+}
+@container r2-body (max-width: 1128px) {
+  .r2-main:has(+ .r2-panel[data-open]) .r2-broad {
+    --r2-broad-reserve: calc(var(--r2-panel-width) - var(--r2-broad-inset));
+  }
+}
+@container (max-width: 640px) {
+  .r2-main .r2-broad {
+    --r2-broad-inset: 0px;
+  }
 }
 
 .r2-writing {
@@ -2539,6 +2572,91 @@ button.r2-disclosure:hover {
 .r2-props-list {
   margin: 0;
 }
+/* An Entry's block has a heading of its own, which folds it: "Properties · 5"
+   in the eyebrow voice with a small chevron, "Edit" at the far right in the
+   same voice. Collapsed, only the heading stays, saying how many are filled
+   (never what with); the title and body have the room. Editing, the
+   Collection's property settings stand where the rows were, inside the same
+   hairline, so it is plainly the same block in another state. */
+.r2-props-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--r2-space-4);
+  min-height: var(--r2-control-md);
+  margin-bottom: 2px;
+}
+.r2-props[data-collapsed] .r2-props-head {
+  margin-bottom: 0;
+}
+.r2-page .r2-props[data-collapsed] {
+  padding-bottom: var(--r2-space-3);
+}
+.r2-props-toggle,
+.r2-props-edit {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--r2-space-2);
+  height: var(--r2-control-md);
+  padding: 0 6px;
+  border-radius: var(--r2-radius);
+  font-size: var(--r2-fs-caption);
+  font-weight: var(--r2-weight-medium);
+  letter-spacing: var(--r2-tracking-label);
+  color: var(--r2-ink-3);
+  white-space: nowrap;
+  transition: color var(--r2-fast) var(--r2-ease), background-color var(--r2-fast) var(--r2-ease);
+}
+.r2-props-toggle {
+  margin-left: -6px;
+}
+.r2-props-edit {
+  margin-right: -6px;
+}
+.r2-props-toggle:hover,
+.r2-props-edit:hover,
+.r2-props-edit[aria-pressed="true"] {
+  color: var(--r2-ink-1);
+  background: var(--r2-hover);
+}
+.r2-props-toggle svg {
+  color: var(--r2-ink-3);
+}
+.r2-props-count {
+  font-weight: var(--r2-weight-regular);
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
+}
+.r2-props-hint {
+  margin-left: var(--r2-space-3);
+  font-weight: var(--r2-weight-regular);
+  letter-spacing: 0;
+  color: var(--r2-ink-3);
+  opacity: 0.8;
+  font-variant-numeric: tabular-nums;
+}
+/* The settings, in the block: no hairlines of their own (the block has one). */
+.r2-props--entry .r2-schema {
+  margin: 0;
+  padding: 2px 0 0;
+  border: 0;
+}
+.r2-schema-scope {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 10px;
+  margin: 0 0 8px;
+  font-size: var(--r2-fs-ui-sm);
+  line-height: var(--r2-lh-ui);
+}
+.r2-schema-scope-owner {
+  color: var(--r2-ink-1);
+  font-weight: var(--r2-weight-medium);
+}
+.r2-schema-scope-note {
+  color: var(--r2-ink-3);
+}
 .r2-prop {
   display: grid;
   grid-template-columns: minmax(76px, 124px) minmax(0, 1fr);
@@ -2547,12 +2665,48 @@ button.r2-disclosure:hover {
   min-height: var(--r2-control-md);
 }
 .r2-prop-label {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
   padding: 4px 0;
+  font-size: var(--r2-fs-ui-sm);
+  color: var(--r2-ink-3);
+}
+.r2-prop-label-text {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: var(--r2-fs-ui-sm);
+}
+/* A row's pencil: there on hover or focus, opening the owner's settings on
+   this property. Kept out of the label's flow until then. */
+.r2-prop-edit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  border-radius: var(--r2-radius-sm);
   color: var(--r2-ink-3);
+  opacity: 0;
+  transition: opacity var(--r2-fast) var(--r2-ease), background-color var(--r2-fast) var(--r2-ease), color var(--r2-fast) var(--r2-ease);
+}
+.r2-prop:hover .r2-prop-edit,
+.r2-prop:focus-within .r2-prop-edit,
+.r2-prop-edit:focus-visible {
+  opacity: 1;
+}
+.r2-prop-edit:hover,
+.r2-prop-edit:focus-visible {
+  color: var(--r2-ink-1);
+  background: var(--r2-hover);
+}
+@media (prefers-reduced-motion: reduce) {
+  .r2-prop-edit {
+    transition: none;
+  }
 }
 /* Under the rows: "Add a property" and, when some are folded, "Show all". */
 .r2-props-foot {
@@ -2908,21 +3062,12 @@ span.r2-schema-type {
    (faded), one drop target (the ink wash and a hairline of ink); hairlines
    for structure, boxes only where a thing is picked up (a Board's cards).
    No colour but the ink blue of focus, selection and the one mark on a
-   Timeline. A Table, Board or Timeline takes a wider column than a List;
-   the List keeps the Page's measure. */
+   Timeline. The four of them share the Collection's broad surface. */
 
-/* The wider column keeps the prose column's left edge (so switching Views
-   moves nothing) and takes the room there is to the right of it — the
-   working canvas — down to the prose measure; only when even that no
-   longer fits does it give way to the left (--r2-doc-offset). It never
-   widens the page: a Table, Board or Timeline scrolls inside its own
-   region. */
-.r2-collection[data-wide] {
-  --r2-doc-width: min(
-    1440px,
-    max(calc(100cqw - max(0px, var(--r2-doc-centred))), min(var(--r2-doc-measure-width), 100cqw))
-  );
-}
+/* The whole Collection takes the broad surface (.r2-broad, "Two
+   geometries" above), whichever View is showing, so switching Views moves
+   nothing. It never widens the page: a Table, Board or Timeline scrolls
+   inside its own region. */
 .r2-collection-body {
   position: relative;
 }
@@ -4862,22 +5007,12 @@ span.r2-schema-type {
 }
 
 /* ── Scene properties and Scene Views (migration 032) ─────────────────── */
-/* The Manuscript's Scenes seen another way, on its own page under the
-   overview. Until asked for, one quiet line; then the same chrome as a
-   Collection's Views. A Scene's number ("31.2") is derived, quiet, and set
-   apart from its name. The prose editor never shows any of this. */
+/* The manuscript's Scenes seen another way, under the Manuscript's overview
+   and under a Group's — the same chrome as a Collection's Views, on the same
+   broad surface as the overview above it, so the two read as one page. A
+   Scene's number ("31.2") is derived, quiet, and set apart from its name.
+   The prose editor never shows any of this. */
 
-.r2-scenes-invite {
-  width: min(100%, var(--r2-doc-width));
-  margin-left: var(--r2-doc-offset);
-  margin-top: -20px;
-  padding: 0 var(--r2-doc-gutter) 48px;
-  transition: margin-left var(--r2-frame) var(--r2-ease-frame);
-}
-.r2-scenes-invite .r2-tool {
-  margin-left: -8px;
-  color: var(--r2-ink-3);
-}
 .r2-scenes-wrap {
   min-height: 0;
 }

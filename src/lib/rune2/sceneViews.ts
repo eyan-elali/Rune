@@ -14,6 +14,18 @@ import { chapterShowsScenes, type NavEntry } from "./navigatorModel";
 // A Scene adds two read-only fields, offered to a View like properties
 // ("words", "placement": native, never edited, never grouped by); their
 // values come from the index, beside the Scene's stored property values.
+//
+// SCOPE (Milestone 21E.2). A Scene View is the Manuscript's; where it is
+// shown decides which Scenes it may arrange — a structural scope that is
+// not a filter and that no View can remove or widen:
+//   the Manuscript's page — every active placed Scene, then the Unplaced;
+//   a Group's page        — every active Scene in the Chapters descended from
+//                           that Group, at any depth, in manuscript order;
+//                           never an Unplaced Scene (a Group holds none).
+// A scope is worked out from the index each time, so a Chapter or Scene that
+// moves, goes to Trash or comes back is simply in or out of it; nothing is
+// stored about membership. The View's own filters, sort, grouping and search
+// then apply within the scope (scopedSceneOrder → arrangeItems).
 
 /** The read-only Scene fields' ids, as a View's config names them. */
 export const SCENE_WORDS = "words";
@@ -64,6 +76,72 @@ export function manuscriptSceneOrder(index: ReadonlyMap<string, NavEntry>): { pl
     .sort((a, b) => a.ordinal - b.ordinal)
     .map((e) => e.id);
   return { placed, unplaced };
+}
+
+/** Where a Scene View is shown: the Manuscript's page, or one Group's. */
+export type SceneScope = { kind: "manuscript" } | { kind: "group"; groupId: string };
+
+export const MANUSCRIPT_SCOPE: SceneScope = { kind: "manuscript" };
+
+/** Whether a placed Scene (or a Chapter) stands inside this Group, at any depth. */
+export function isInGroup(entry: Pick<NavEntry, "path">, groupId: string): boolean {
+  return entry.path.some((p) => p.kind === "group" && p.id === groupId);
+}
+
+/**
+ * The Scenes a scope holds, in MANUSCRIPT ORDER — the structural scope every
+ * View shown there arranges within. The Manuscript's: every active placed
+ * Scene, and the Unplaced Scenes apart (as manuscriptSceneOrder). A Group's:
+ * the placed Scenes whose Chapter is inside the Group, directly or through
+ * Groups within it; `unplaced` is always empty, since a Group cannot hold
+ * one. Derived from the index alone: a Scene in Trash is not in the index,
+ * and a Chapter moved to another Group carries its Scenes' ancestry with it.
+ */
+export function scopedSceneOrder(
+  index: ReadonlyMap<string, NavEntry>,
+  scope: SceneScope
+): { placed: string[]; unplaced: string[] } {
+  const order = manuscriptSceneOrder(index);
+  if (scope.kind === "manuscript") return order;
+  return {
+    placed: order.placed.filter((id) => {
+      const scene = index.get(id);
+      return scene !== undefined && isInGroup(scene, scope.groupId);
+    }),
+    unplaced: [],
+  };
+}
+
+/**
+ * A Group's shape in one line: the Groups, Chapters and Scenes inside it, at
+ * any depth (its words are already on its entry). Chapters count whether or
+ * not they hold a Scene.
+ */
+export function groupFacts(
+  index: ReadonlyMap<string, NavEntry>,
+  groupId: string
+): { groups: number; chapters: number; scenes: number } {
+  let groups = 0;
+  let chapters = 0;
+  let scenes = 0;
+  for (const e of index.values()) {
+    if (!isInGroup(e, groupId)) continue;
+    if (e.kind === "group") groups += 1;
+    else if (e.kind === "chapter") chapters += 1;
+    else if (e.kind === "scene") scenes += 1;
+  }
+  return { groups, chapters, scenes };
+}
+
+/**
+ * The View a scope opens in before the writer picks one: a Group's page
+ * opens in its first List (the plain reading of a Part — else its first
+ * View); the Manuscript's page in its first View, as before. `views` is the
+ * Manuscript's Views in their order — the same saved Views serve every scope.
+ */
+export function defaultViewFor<V extends { id: string; type: string }>(views: readonly V[], scope: SceneScope): V {
+  if (scope.kind === "group") return views.find((v) => v.type === "list") ?? views[0];
+  return views[0];
 }
 
 /** A placed Scene's Chapter, from the index. */
