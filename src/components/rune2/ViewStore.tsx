@@ -19,7 +19,7 @@ import {
   viewsOf as orderedViewsOf,
 } from "@/lib/rune2/collectionViews";
 import type { ProjectWorkspace } from "@/lib/rune2/projectWorkspace";
-import { defaultViewFor, sceneFallbackView } from "@/lib/rune2/sceneViews";
+import { MANUSCRIPT_SCOPE, defaultViewFor, sceneFallbackView, type SceneScope } from "@/lib/rune2/sceneViews";
 import type { CollectionProperty, CollectionViewConfig, CollectionViewType, SavedView, SceneProperty } from "@/lib/types";
 import { applyOverlay, drop, networkError, put, settle, usePropertyStore, withoutSettled, type Overlay } from "./PropertyStore";
 import { useRune2Selection } from "./Rune2Selection";
@@ -39,13 +39,13 @@ import { useRune2Selection } from "./Rune2Selection";
 // Scene View shows an unsaved List in manuscript order; the first change to
 // it saves it (create_scene_view), so a writer who only looks writes nothing.
 //
-// A Group's page shows the SAME saved Scene Views as the Manuscript's,
-// within the Group's structural scope (Milestone 21E.2; lib/rune2/sceneViews
-// scopedSceneOrder): asked for a Group's Views, this store answers with the
-// Manuscript's, and a View made from a Group's page is the Manuscript's too.
-// Only which View each Group is showing is its own (a Group opens in the
-// first List) — so there is one set of Views to name, order and keep, and a
-// Board made once serves every Part.
+// Each Base owns its Views (Milestone 21F, migration 044): the Manuscript's
+// page keeps its Scene Views (group_id null) and each Group's page its own
+// (group_id), over the same canonical Scenes within that Base's structural
+// scope (lib/rune2/sceneViews scopedSceneOrder). Asked for a Group's Views,
+// this store answers with that Group's; a View made from a Group's page is
+// that Group's; a Base with none shows an unsaved List that its first change
+// saves. Which View a Base is showing is kept for the session.
 //
 // Also kept here for the session: which of the Scene Views' tools is open on
 // the Manuscript's page — so the Inspector can open "Scene properties" there.
@@ -131,39 +131,45 @@ export function ViewStoreProvider({ workspace, children }: { workspace: ProjectW
     [workspace.views, workspace.sceneViews, overlay]
   );
 
-  // A Group's Views are the Manuscript's (see above); a Collection's its own.
+  // A Scene Base: the Manuscript's page, or a Group's (its own Views, 044);
+  // anything else is a Collection.
   const isGroup = useCallback((ownerId: string) => index.get(ownerId)?.kind === "group", [index]);
-  const sceneOwnerOf = useCallback(
-    (ownerId: string): string | null =>
-      manuscriptId !== null && (ownerId === manuscriptId || isGroup(ownerId)) ? manuscriptId : null,
+  const sceneScopeOf = useCallback(
+    (ownerId: string): SceneScope | null =>
+      manuscriptId === null
+        ? null
+        : ownerId === manuscriptId
+          ? MANUSCRIPT_SCOPE
+          : isGroup(ownerId)
+            ? { kind: "group", groupId: ownerId }
+            : null,
     [manuscriptId, isGroup]
   );
 
   const viewsOf = useCallback(
     (ownerId: string): SavedView[] => {
-      const sceneOwner = sceneOwnerOf(ownerId);
-      if (sceneOwner !== null) {
-        const saved = orderedViewsOf(all, sceneOwner);
+      const scope = sceneScopeOf(ownerId);
+      if (scope !== null && manuscriptId !== null) {
+        const saved = orderedViewsOf(all, ownerId);
         return saved.length
           ? saved
-          : [sceneFallbackView(sceneOwner, projectId, propertiesOf(sceneOwner) as SceneProperty[])];
+          : [sceneFallbackView(manuscriptId, projectId, propertiesOf(manuscriptId) as SceneProperty[], scope)];
       }
       const saved = available ? orderedViewsOf(all, ownerId) : [];
       return saved.length ? saved : [fallbackListView(ownerId, propertiesOf(ownerId) as CollectionProperty[])];
     },
-    [all, available, propertiesOf, sceneOwnerOf, projectId]
+    [all, available, propertiesOf, sceneScopeOf, manuscriptId, projectId]
   );
 
   const activeViewOf = useCallback(
     (ownerId: string) => {
       const views = viewsOf(ownerId);
       const chosen = active.get(ownerId);
-      // Not yet chosen here (or the chosen one deleted): a Group opens in its
-      // first List, anything else in its first View.
+      // Not yet chosen here (or the chosen one deleted): the Base's first View.
       if (chosen !== undefined && views.some((v) => v.id === chosen)) return activeView(views, chosen);
-      return defaultViewFor(views, isGroup(ownerId) ? { kind: "group", groupId: ownerId } : { kind: "manuscript" });
+      return defaultViewFor(views, sceneScopeOf(ownerId) ?? MANUSCRIPT_SCOPE);
     },
-    [viewsOf, active, isGroup]
+    [viewsOf, active, sceneScopeOf]
   );
 
   const byId = useMemo(() => new Map(all.map((v) => [v.id, v])), [all]);
@@ -177,8 +183,9 @@ export function ViewStoreProvider({ workspace, children }: { workspace: ProjectW
 
   const createViewWithId = useCallback<ViewStore["createViewWithId"]>(
     async (ownerId, type, name, config = null) => {
-      const r = await (sceneOwnerOf(ownerId) !== null
-        ? createSceneView(projectId, name, type, config)
+      const scope = sceneScopeOf(ownerId);
+      const r = await (scope !== null
+        ? createSceneView(projectId, name, type, config, scope.kind === "group" ? scope.groupId : null)
         : createCollectionView(ownerId, name, type, config)
       ).catch(() => networkError);
       if (r.error === null) {
@@ -188,7 +195,7 @@ export function ViewStoreProvider({ workspace, children }: { workspace: ProjectW
       refresh();
       return r.error === null ? { id: r.data.id, error: null } : { id: null, error: r.error };
     },
-    [refresh, setActiveView, sceneOwnerOf, projectId]
+    [refresh, setActiveView, sceneScopeOf, projectId]
   );
 
   const createView = useCallback<ViewStore["createView"]>(
@@ -204,9 +211,9 @@ export function ViewStoreProvider({ workspace, children }: { workspace: ProjectW
         ...(changes.type !== undefined && { type: changes.type }),
         ...(changes.config !== undefined && { config: changes.config }),
       };
-      // The Manuscript's unsaved List: its first change saves it as a real View.
+      // A Base's unsaved List: its first change saves it as that Base's real View.
       if (isSceneView(view) && isFallbackView(view)) {
-        return createView(view.manuscript_id, shown.type, shown.name, shown.config);
+        return createView(viewOwner(view), shown.type, shown.name, shown.config);
       }
       setOverlay((o) => put(o, [[view.id, shown]]));
       const r = await (isSceneView(view)

@@ -48,7 +48,7 @@ export function isSceneView(view: SavedView): view is SceneView {
 
 /** The Collection or Manuscript a View belongs to. */
 export function viewOwner(view: SavedView): string {
-  return isSceneView(view) ? view.manuscript_id : view.collection_id;
+  return isSceneView(view) ? (view.group_id ?? view.manuscript_id) : view.collection_id;
 }
 
 /** A Collection's (or Manuscript's) Views in their order. */

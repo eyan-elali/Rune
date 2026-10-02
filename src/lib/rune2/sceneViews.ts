@@ -15,9 +15,9 @@ import { chapterShowsScenes, type NavEntry } from "./navigatorModel";
 // ("words", "placement": native, never edited, never grouped by); their
 // values come from the index, beside the Scene's stored property values.
 //
-// SCOPE (Milestone 21E.2). A Scene View is the Manuscript's; where it is
-// shown decides which Scenes it may arrange — a structural scope that is
-// not a filter and that no View can remove or widen:
+// SCOPE (Milestone 21E.2) and BASE (Milestone 21F, migration 044). Where a
+// Scene View is shown decides which Scenes it may arrange — a structural
+// scope that is not a filter and that no View can remove or widen:
 //   the Manuscript's page — every active placed Scene, then the Unplaced;
 //   a Group's page        — every active Scene in the Chapters descended from
 //                           that Group, at any depth, in manuscript order;
@@ -26,6 +26,12 @@ import { chapterShowsScenes, type NavEntry } from "./navigatorModel";
 // moves, goes to Trash or comes back is simply in or out of it; nothing is
 // stored about membership. The View's own filters, sort, grouping and search
 // then apply within the scope (scopedSceneOrder → arrangeItems).
+//
+// Each scope is a BASE that owns its own saved Views: the Manuscript's page
+// has its Views (group_id null), each Group's page its own (group_id), named,
+// ordered and kept apart, over the same canonical Scenes and through the same
+// engine. A Base with no saved View shows an unsaved List (sceneFallbackView)
+// that its first change saves.
 
 /** The read-only Scene fields' ids, as a View's config names them. */
 export const SCENE_WORDS = "words";
@@ -134,14 +140,22 @@ export function groupFacts(
 }
 
 /**
- * The View a scope opens in before the writer picks one: a Group's page
- * opens in its first List (the plain reading of a Part — else its first
- * View); the Manuscript's page in its first View, as before. `views` is the
- * Manuscript's Views in their order — the same saved Views serve every scope.
+ * The View a scope opens in before the writer picks one: its first View.
+ * `views` is that Base's own Views in their order (044).
  */
 export function defaultViewFor<V extends { id: string; type: string }>(views: readonly V[], scope: SceneScope): V {
-  if (scope.kind === "group") return views.find((v) => v.type === "list") ?? views[0];
+  void scope;
   return views[0];
+}
+
+/** The Base a saved Scene View belongs to, as a scope. */
+export function viewScope(view: { group_id?: string | null }): SceneScope {
+  return view.group_id ? { kind: "group", groupId: view.group_id } : MANUSCRIPT_SCOPE;
+}
+
+/** The id a Base's Views are kept under: the Manuscript's id, or the Group's. */
+export function baseOwnerId(manuscriptId: string, scope: SceneScope): string {
+  return scope.kind === "group" ? scope.groupId : manuscriptId;
 }
 
 /** A placed Scene's Chapter, from the index. */
@@ -199,22 +213,29 @@ export function sceneNativeValues(
   return values;
 }
 
-/** The id of the unsaved List a Manuscript shows while it has no saved Scene View. */
-export function sceneFallbackViewId(manuscriptId: string): string {
-  return `list:${manuscriptId}`;
+/** The id of the unsaved List a Base shows while it has no saved Scene View. */
+export function sceneFallbackViewId(ownerId: string): string {
+  return `list:${ownerId}`;
 }
 
 /**
- * A Manuscript with no saved Scene View shows this one: a List in manuscript
- * order with its first three properties. Unsaved — the first change to it
- * saves it as a real View.
+ * A Base with no saved Scene View shows this one: a List in manuscript order
+ * with the Manuscript's first three properties. Unsaved — the first change
+ * to it saves it as that Base's real View. The Manuscript's is called
+ * "Manuscript order"; a Group's simply "List".
  */
-export function sceneFallbackView(manuscriptId: string, projectId: string, properties: readonly SceneProperty[]): SceneView {
+export function sceneFallbackView(
+  manuscriptId: string,
+  projectId: string,
+  properties: readonly SceneProperty[],
+  scope: SceneScope = MANUSCRIPT_SCOPE
+): SceneView {
   return {
-    id: sceneFallbackViewId(manuscriptId),
+    id: sceneFallbackViewId(baseOwnerId(manuscriptId, scope)),
     manuscript_id: manuscriptId,
     project_id: projectId,
-    name: "Manuscript order",
+    group_id: scope.kind === "group" ? scope.groupId : null,
+    name: scope.kind === "group" ? "List" : "Manuscript order",
     type: "list",
     position: 1,
     config: {

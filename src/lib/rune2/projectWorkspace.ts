@@ -178,9 +178,11 @@ export const loadProjectWorkspace = cache(async (projectId: string): Promise<Pro
       .eq("project_id", projectId)
       .order("position", { ascending: true }),
     supabase.from("scene_property_values").select("scene_id, property_id, value").eq("project_id", projectId),
+    // Every column: group_id (the View's Base, 044) is absent before that
+    // migration, and a View without one is the Manuscript's.
     supabase
       .from("scene_views")
-      .select("id, manuscript_id, project_id, name, type, position, config, created_at, updated_at")
+      .select("*")
       .eq("project_id", projectId)
       .order("position", { ascending: true }),
     // No rows: only whether Revision Notes take every scope (migration 040).

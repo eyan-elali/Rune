@@ -53,7 +53,7 @@ test('a database built from schema.sql alone is identical to baseline + migratio
   assert.deepEqual(diffCounts(a, b), []);
   const versions = async (db) => (await db.query(`select version, name, note from public.schema_migrations order by version`)).rows;
   assert.deepEqual(await versions(fresh), await versions(migrated));
-  assert.deepEqual((await versions(fresh)).map((r) => r.version).slice(-31), ['013', '014', '015', '016', '017', '018', '019', '020', '021', '022', '023', '024', '025', '026', '027', '028', '029', '030', '031', '032', '033', '034', '035', '036', '037', '038', '039', '040', '041', '042', '043']);
+  assert.deepEqual((await versions(fresh)).map((r) => r.version).slice(-32), ['013', '014', '015', '016', '017', '018', '019', '020', '021', '022', '023', '024', '025', '026', '027', '028', '029', '030', '031', '032', '033', '034', '035', '036', '037', '038', '039', '040', '041', '042', '043', '044']);
 });
 
 test('signup still creates the profile and pricing entitlements on the Rune 2.0 schema', async () => {
@@ -1986,4 +1986,75 @@ test('043 requires 042 and refuses on schema.sql, changing nothing', async () =>
   assert.deepEqual(diffCatalogs(before, await captureCatalog(db)).differences, []);
   const fresh = await freshRune2Db();
   await assert.rejects(fresh.exec(readMigration(M043)), /Migration 043 has already been applied/);
+});
+
+const M044 = '044_scene_view_bases.sql';
+
+test('044 on 043: scene_views.group_id, positions unique per Base, create with an optional Group; every existing View stays the Manuscript\'s, in its order; no manuscript table, trigger or policy changes', async () => {
+  const { db } = await db042WithNotes();
+  await db.exec(readMigration(M043));
+  const mid = (await db.query(`select id from public.manuscripts order by id limit 1`)).rows[0].id;
+  const pid = (await db.query(`select project_id from public.manuscripts where id = $1`, [mid])).rows[0].project_id;
+  // Three Manuscript Views, as 032–043 made them.
+  for (const [name, type, position] of [['List', 'list', 1], ['By Arc', 'board', 2], ['Timeline', 'timeline', 3]]) {
+    await db.query(`insert into public.scene_views (manuscript_id, project_id, name, type, position, config) values ($1, $2, $3, $4, $5, $6)`,
+      [mid, pid, name, type, position, JSON.stringify({ properties: [], sort: null, filters: [], group_by: null, ...(type === 'timeline' && { axis: 'manuscript' }) })]);
+  }
+  const rowsOf = async () => {
+    const out = {};
+    for (const t of ['scenes', 'chapters', 'projects', 'manuscripts', 'manuscript_groups', 'revision_notes']) {
+      out[t] = (await db.query(`select * from public.${t} order by 1`)).rows;
+    }
+    return out;
+  };
+  const dataBefore = await rowsOf();
+  const viewsBefore = (await db.query(`select id, manuscript_id, project_id, name, type, position, config, created_at, updated_at from public.scene_views order by position`)).rows;
+  const before = await captureCatalog(db);
+  await db.exec(readMigration(M044));
+  const keys = diffCatalogs(before, await captureCatalog(db)).differences
+    .map((d) => `${d.section}:${d.kind}${d.fields ? '[' + d.fields.join(',') + ']' : ''}:${d.key}`)
+    .filter((k) => !/^relation_counts?:/.test(k))
+    .sort();
+  assert.deepEqual(keys.filter((k) => /^(triggers|policies):/.test(k)), [], 'no trigger or policy added, removed or changed');
+  assert.deepEqual(keys.filter((k) => k.startsWith('columns:')).map((k) => k.replace(/^columns:/, '')), ['added:scene_views.group_id']);
+  const fns = keys.filter((k) => k.startsWith('functions:'));
+  assert.deepEqual(fns.filter((k) => k.startsWith('functions:added:')).map((k) => k.split(':')[2]), ['create_scene_view(p_project_id uuid, p_name text, p_type text, p_config jsonb, p_group_id uuid)']);
+  assert.deepEqual(fns.filter((k) => k.startsWith('functions:removed')).map((k) => k.split(':')[2]), ['create_scene_view(p_project_id uuid, p_name text, p_type text, p_config jsonb)']);
+  assert.deepEqual(fns.filter((k) => k.startsWith('functions:changed')).map((k) => k.split(':')[2].split('(')[0]).sort(), ['check_scene_view', 'delete_scene_view', 'move_scene_view'], 'three redefinitions, same signatures');
+  assert.ok(keys.every((k) => !/(scenes|chapters|manuscript_groups|manuscripts|projects|revision_notes)\./.test(k.split(':').slice(2).join(':'))), 'nothing on a manuscript table');
+  const grants = keys.filter((k) => k.startsWith('function_grants:added:'));
+  assert.deepEqual(grants.filter((k) => / anon /.test(k)), [], 'anon executes nothing new');
+  assert.deepEqual(keys.filter((k) => k.startsWith('table_grants:added:') && /(anon|authenticated) (INSERT|UPDATE|DELETE)/.test(k)), [], 'clients still never write scene_views');
+  assert.deepEqual(await rowsOf(), dataBefore, 'no manuscript or note row changes');
+  const viewsAfter = (await db.query(`select id, manuscript_id, project_id, name, type, position, config, created_at, updated_at, group_id from public.scene_views order by position`)).rows;
+  assert.deepEqual(viewsAfter.map(({ group_id, ...v }) => v), viewsBefore, 'every View exactly as it was, in the same order');
+  assert.ok(viewsAfter.every((v) => v.group_id === null), 'every existing View is the Manuscript\'s');
+  // The database's own rules: a View's Group must be of its Manuscript; a View never changes Base; positions are per Base.
+  const freeTop = async (m) => (await db.query(`select coalesce(max(position), 0) + 1 as p from (select position from public.chapters where manuscript_id = $1 and group_id is null and trashed_at is null union all select position from public.manuscript_groups where manuscript_id = $1 and parent_group_id is null) s`, [m])).rows[0].p;
+  const group = (await db.query(`insert into public.manuscript_groups (manuscript_id, position, title) values ($1, $2, 'Part 1') returning id`, [mid, await freeTop(mid)])).rows[0].id;
+  const otherMid = (await db.query(`select id from public.manuscripts where id <> $1 order by id limit 1`, [mid])).rows[0]?.id;
+  const insert = (groupId, position) => db.query(
+    `insert into public.scene_views (manuscript_id, project_id, group_id, name, type, position, config) values ($1, $2, $3, 'List', 'list', $4, '{"properties": [], "sort": null, "filters": [], "group_by": null}') returning id`,
+    [mid, pid, groupId, position]);
+  const groupView = (await insert(group, 1)).rows[0].id;
+  if (otherMid) {
+    const otherGroup = (await db.query(`insert into public.manuscript_groups (manuscript_id, position, title) values ($1, $2, 'Elsewhere') returning id`, [otherMid, await freeTop(otherMid)])).rows[0].id;
+    await assert.rejects(insert(otherGroup, 2), /scene_views_group_same_manuscript_fkey/);
+  }
+  await assert.rejects(insert(group, 1), /scene_views_base_position_key/);
+  await assert.rejects(insert(null, 1), /scene_views_base_position_key/);
+  await assert.rejects(db.query(`update public.scene_views set group_id = null where id = $1`, [groupView]), /cannot move to another Base/);
+  // Deleting the Group takes its View alone.
+  await db.query(`delete from public.manuscript_groups where id = $1`, [group]);
+  assert.deepEqual((await db.query(`select name, group_id from public.scene_views order by position`)).rows.map((r) => [r.name, r.group_id]), [['List', null], ['By Arc', null], ['Timeline', null]]);
+  await assert.rejects(db.exec(readMigration(M044)), /Migration 044 has already been applied/);
+});
+
+test('044 requires 043 and refuses on schema.sql, changing nothing', async () => {
+  const { db } = await db042WithNotes();
+  const before = await captureCatalog(db);
+  await assert.rejects(db.exec(readMigration(M044)), /requires migration 043/);
+  assert.deepEqual(diffCatalogs(before, await captureCatalog(db)).differences, []);
+  const fresh = await freshRune2Db();
+  await assert.rejects(fresh.exec(readMigration(M044)), /Migration 044 has already been applied/);
 });

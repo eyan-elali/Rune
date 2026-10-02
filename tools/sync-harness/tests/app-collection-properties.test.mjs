@@ -523,6 +523,8 @@ test('presentation helpers: values read as words; unknown option ids are skipped
   assert.equal(model.formatValue(prop('multi_select', opts), ['b', 'gone', 'a']), 'Alive, Dead', 'in option order');
   assert.match(model.formatValue(prop('date'), '1402-03-12'), /1402/);
   assert.equal(model.formatDateValue('2024-01-01').includes('2024'), true, 'never shifted a day by the time zone');
+  assert.match(model.formatDateValue('0022-08-31'), /\b22\b/, 'a story year under 100 is that year, never 1922');
+  assert.doesNotMatch(model.formatDateValue('0004-02-20'), /1904/);
 
   const values = model.indexValues([
     { entry_id: 'e1', property_id: 'p', value: ['a', 'b'] },

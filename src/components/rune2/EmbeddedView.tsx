@@ -3,7 +3,8 @@
 import { useState, type MouseEvent, type ReactNode } from "react";
 import { Columns3, GitCommitHorizontal, List, Table2, X } from "lucide-react";
 import { ICON, ICON_SM } from "./icons";
-import { boardLanes, isSceneView } from "@/lib/rune2/collectionViews";
+import { boardLanes, isSceneView, viewOwner } from "@/lib/rune2/collectionViews";
+import { viewScope } from "@/lib/rune2/sceneViews";
 import { timelineAxis } from "@/lib/rune2/timelineViews";
 import type { ViewEmbedKind } from "@/lib/rune2/workspaceDocument";
 import type { NavEntry } from "@/lib/rune2/navigatorModel";
@@ -51,7 +52,14 @@ export function EmbeddedView({
   const { manuscriptId } = usePropertyStore();
   const view = viewId ? viewById(viewId) : null;
 
-  if (view && isSceneView(view) && kind === "scene" && view.manuscript_id === manuscriptId) {
+  // A Group's View whose Group is gone (deleted, so its Views are too) is not available.
+  if (
+    view &&
+    isSceneView(view) &&
+    kind === "scene" &&
+    view.manuscript_id === manuscriptId &&
+    (!view.group_id || index.get(view.group_id)?.kind === "group")
+  ) {
     return <SceneEmbed view={view} onRemove={onRemove} />;
   }
   const collection = view && !isSceneView(view) ? index.get(view.collection_id) : undefined;
@@ -103,20 +111,25 @@ function CollectionEmbed({
 }
 
 function SceneEmbed({ view, onRemove }: { view: SceneView; onRemove?: () => void }) {
-  const { select, openInNewTab } = useRune2Selection();
+  const { select, openInNewTab, index } = useRune2Selection();
   const { setActiveView, openScenes } = useViewStore();
-  const { properties, sceneIds, arranged, presenter } = useSceneItems(view);
+  // A Group's View shows that Group's Scenes and opens on the Group's page (044).
+  const scope = viewScope(view);
+  const group = view.group_id ? index.get(view.group_id) : undefined;
+  const { properties, sceneIds, arranged, presenter } = useSceneItems(view, scope);
   const open = (e: MouseEvent) => {
-    setActiveView(view.manuscript_id, view.id);
+    setActiveView(viewOwner(view), view.id);
     openScenes();
-    if (e.metaKey || e.ctrlKey) openInNewTab(null);
-    else select(null);
+    const target = view.group_id ?? null;
+    if (e.metaKey || e.ctrlKey) openInNewTab(target);
+    else select(target);
   };
+  const ownerTitle = group ? group.title : "the manuscript";
   return (
     <EmbedFrame
       view={view}
-      owner="Scenes"
-      ownerTitle="the manuscript"
+      owner={group ? group.title : "Scenes"}
+      ownerTitle={ownerTitle}
       properties={properties}
       total={sceneIds.length}
       arranged={arranged}
@@ -155,6 +168,7 @@ function EmbedFrame({
   const Icon = VIEW_ICON[view.type];
   const board = view.type === "board";
   const timeline = view.type === "timeline";
+  // Lane targets and Board moves are the Manuscript's for any Scene Base.
   const ownerId = isSceneView(view) ? view.manuscript_id : view.collection_id;
   // A Board or Timeline shows every item (they scroll); a List or Table its first few.
   const shown = board || timeline || all ? arranged : arranged.slice(0, FIRST_ITEMS);

@@ -117,9 +117,15 @@ export function chosenOptions(property: PropertyDefinition, value: PropertyValue
 
 /** "YYYY-MM-DD" as a quiet, locale-aware date ("12 Mar 2024"). Never shifted by the time zone. */
 export function formatDateValue(date: string): string {
-  const [y, m, d] = date.split("-").map(Number);
-  if (!y || !m || !d) return date;
-  return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString(undefined, {
+  const parts = /^(-?\d{1,6})-(\d{2})-(\d{2})$/.exec(date);
+  if (!parts) return date;
+  const [y, m, d] = parts.slice(1).map(Number);
+  if (!m || !d) return date;
+  // setUTCFullYear, not Date.UTC: a year under 100 (a story's year 22) is
+  // that year, never 1922.
+  const at = new Date(0);
+  at.setUTCFullYear(y, m - 1, d);
+  return at.toLocaleDateString(undefined, {
     day: "numeric",
     month: "short",
     year: "numeric",

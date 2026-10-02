@@ -25,6 +25,7 @@ import { ICON } from "./icons";
 import { isFallbackView, isSceneView } from "@/lib/rune2/collectionViews";
 import { normalizeQuery, searchObjects } from "@/lib/rune2/projectSearch";
 import { mentionCandidates, type MentionScope } from "@/lib/rune2/references";
+import type { NavEntry } from "@/lib/rune2/navigatorModel";
 import type { CollectionViewType } from "@/lib/types";
 import {
   matchSlashCommands,
@@ -413,23 +414,42 @@ function ViewPicker({
         },
       }));
   } else if (manuscriptId) {
-    const scenes = viewsOf(manuscriptId);
-    choices = scenes.map((v) => ({
-      key: v.id,
-      title: v.name,
-      hint: "Scenes",
-      type: v.type,
-      choose: async () => {
-        let viewId = v.id;
-        if (isFallbackView(v)) {
-          const r = await createViewWithId(manuscriptId, v.type, v.name, v.config);
-          if (r.error !== null) return "That view couldn’t be saved.";
-          viewId = r.id;
+    // Every Base's Views (044): the Manuscript's, then each Group's in
+    // manuscript order, each hinted by its Base.
+    const ordinals = (e: NavEntry) => [...e.path.map((p) => index.get(p.id)?.ordinal ?? 0), e.ordinal];
+    const groups = [...index.values()]
+      .filter((e) => e.kind === "group")
+      .sort((a, b) => {
+        const x = ordinals(a);
+        const y = ordinals(b);
+        for (let i = 0; i < Math.max(x.length, y.length); i += 1) {
+          const d = (x[i] ?? 0) - (y[i] ?? 0);
+          if (d !== 0) return d;
         }
-        embed(viewId);
-        return null;
-      },
-    }));
+        return 0;
+      });
+    const bases: { ownerId: string; hint: string }[] = [
+      { ownerId: manuscriptId, hint: "Scenes" },
+      ...groups.map((g) => ({ ownerId: g.id, hint: g.title })),
+    ];
+    choices = bases.flatMap(({ ownerId, hint }) =>
+      viewsOf(ownerId).map((v) => ({
+        key: v.id,
+        title: v.name,
+        hint,
+        type: v.type,
+        choose: async () => {
+          let viewId = v.id;
+          if (isFallbackView(v)) {
+            const r = await createViewWithId(ownerId, v.type, v.name, v.config);
+            if (r.error !== null) return "That view couldn’t be saved.";
+            viewId = r.id;
+          }
+          embed(viewId);
+          return null;
+        },
+      })),
+    );
   } else {
     choices = [];
   }

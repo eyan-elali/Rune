@@ -51,10 +51,11 @@ import { useViewStore } from "./ViewStore";
 // from the index on every render, so a Chapter moved between Parts, a Scene
 // moved between Chapters, or one in Trash and back, is simply in or out.
 //
-// One set of saved Views serves every scope (ViewStore): the tabs here are
-// the Manuscript's Scene Views, and a View added from a Group's page is the
-// Manuscript's too; which View each page is showing is its own, and a Group
-// opens in its first List. A View shows Scenes by id, words from the
+// Each scope is a Base with its own saved Views (ViewStore, migration 044):
+// the tabs on the Manuscript's page are the Manuscript's Scene Views, the
+// tabs on a Group's page are that Group's, and a View added here belongs to
+// this Base; which View a Base is showing is kept for the session, and a
+// Base with no saved View shows an unsaved List. A View shows Scenes by id, words from the
 // manuscript structure, and values beside the prose — never the prose itself,
 // so a large manuscript is never loaded to draw it.
 //

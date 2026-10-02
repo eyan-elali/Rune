@@ -107,7 +107,8 @@ function useReadingView(source: ReadingSource): SavedView | null {
   const { manuscriptId } = usePropertyStore();
   const { viewsOf, viewById } = useViewStore();
   if (source.kind !== "view" || !manuscriptId) return null;
-  const view = viewsOf(manuscriptId).find((v) => v.id === source.viewId) ?? viewById(source.viewId);
+  // The Base the View was read from keeps its unsaved List too (044).
+  const view = viewsOf(source.groupId ?? manuscriptId).find((v) => v.id === source.viewId) ?? viewById(source.viewId);
   return view && isSceneView(view) ? view : null;
 }
 
@@ -188,8 +189,9 @@ export function ReadingMode({ source, mode }: { source: ReadingSource; mode: Mod
   const projectId = manuscript.project.id;
   const key = readingTabKey(source);
   const view = useReadingView(source);
-  // A View read from a Group's page reads within that Group (the same scope its page shows).
-  const groupId = source.kind === "view" ? source.groupId : undefined;
+  // A View read from a Group's page reads within that Group (the same scope
+  // its page shows); a Group's own View always does (044).
+  const groupId = source.kind === "view" ? (source.groupId ?? (view && isSceneView(view) ? view.group_id : null) ?? undefined) : undefined;
   const { properties, arranged } = useSceneItems(view, groupId ? { kind: "group", groupId } : undefined);
   const arrangedKey = arranged.join(",");
   const sorted = view ? viewIsSorted(view, properties) : false;

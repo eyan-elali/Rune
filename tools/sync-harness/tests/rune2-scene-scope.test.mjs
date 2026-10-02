@@ -15,9 +15,10 @@
 //   * Manuscript scope: all placed, active Scenes in order; Unplaced apart
 //     and never in a Group's
 //   * saved Views: List / Table / Board / Timeline, filters, sort and grouping
-//     all compose with the scope — no View can show a Scene outside it; a
-//     Group opens in its first List; a View's config is the Manuscript's
-//     whichever scope reads it
+//     all compose with the scope — no View can show a Scene outside it; each
+//     Base owns its saved Views (044) and opens in its first; a View's
+//     config is checked against the Manuscript's fields whichever Base
+//     holds it
 //   * Reading Mode: a View read within a Group keeps that scope in its tab key
 //   * the Entry properties fold: a per-Collection, per-writer preference, read
 //     leniently and never losing other Collections' choices
@@ -251,16 +252,31 @@ test('a sort within a Group reorders only the Group’s Scenes', () => {
   assert.deepEqual(arrangeIn(index, { kind: 'group', groupId: 'p2' }, byWordsDesc), ['s17b', 's16a', 's17a', 's18a', 's19a']);
 });
 
-test('a Group opens in its first List; the Manuscript in its first View; one set of Views serves both', () => {
+test('each Base opens in its own first View; a Base with no saved View shows an unsaved List of its own (044)', () => {
   const saved = [view('board', { group_by: 'status' }), { ...view('list'), id: 'v-list-2', position: 2 }, { ...view('table'), position: 3 }];
-  assert.equal(scenes.defaultViewFor(saved, { kind: 'group', groupId: 'p1' }).id, 'v-list-2');
+  assert.equal(scenes.defaultViewFor(saved, { kind: 'group', groupId: 'p1' }).id, 'v-board');
   assert.equal(scenes.defaultViewFor(saved, { kind: 'manuscript' }).id, 'v-board');
-  // No List saved: the Group opens in the first View there is.
-  assert.equal(scenes.defaultViewFor([saved[0], saved[2]], { kind: 'group', groupId: 'p1' }).id, 'v-board');
-  // The unsaved fallback is a List, so a fresh Manuscript's Groups open in it.
+  // The Manuscript's unsaved List, and a Group's: distinct ids, owners and names.
   const fallback = scenes.sceneFallbackView('m', 'p', PROPS);
-  assert.equal(scenes.defaultViewFor([fallback], { kind: 'group', groupId: 'p1' }).id, fallback.id);
-  assert.equal(fallback.type, 'list');
+  const groupFallback = scenes.sceneFallbackView('m', 'p', PROPS, { kind: 'group', groupId: 'p1' });
+  assert.deepEqual([fallback.id, fallback.group_id, fallback.name, fallback.type], ['list:m', null, 'Manuscript order', 'list']);
+  assert.deepEqual([groupFallback.id, groupFallback.group_id, groupFallback.name, groupFallback.type], ['list:p1', 'p1', 'List', 'list']);
+  assert.deepEqual(groupFallback.config.properties, fallback.config.properties, 'the same first properties');
+  assert.equal(views.isFallbackView(groupFallback), true);
+  assert.equal(scenes.defaultViewFor([groupFallback], { kind: 'group', groupId: 'p1' }).id, groupFallback.id);
+  // Ownership: a View belongs to its Group's Base, or to the Manuscript's; a row read before 044 (no group_id) is the Manuscript's.
+  assert.equal(views.viewOwner({ ...view('list'), group_id: 'p1' }), 'p1');
+  assert.equal(views.viewOwner({ ...view('list'), group_id: null }), 'm');
+  assert.equal(views.viewOwner(view('list')), 'm');
+  assert.deepEqual(scenes.viewScope({ group_id: 'p2' }), { kind: 'group', groupId: 'p2' });
+  assert.deepEqual(scenes.viewScope({ group_id: null }), { kind: 'manuscript' });
+  assert.equal(scenes.baseOwnerId('m', { kind: 'group', groupId: 'p2' }), 'p2');
+  assert.equal(scenes.baseOwnerId('m', { kind: 'manuscript' }), 'm');
+  // Each Base's tabs are its own.
+  const all = [...saved, { ...view('list'), id: 'g-list', group_id: 'p1' }, { ...view('board', { group_by: 'status' }), id: 'g-board', position: 2, group_id: 'p1' }];
+  assert.deepEqual(views.viewsOf(all, 'm').map((v) => v.id), ['v-board', 'v-list-2', 'v-table']);
+  assert.deepEqual(views.viewsOf(all, 'p1').map((v) => v.id), ['g-list', 'g-board']);
+  assert.deepEqual(views.viewsOf(all, 'p2'), []);
 });
 
 test('isInGroup reads ancestry only: Chapters and Scenes, at any depth; never a Group itself', () => {

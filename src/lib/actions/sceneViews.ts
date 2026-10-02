@@ -23,12 +23,17 @@ async function getUser() {
   return { supabase, user };
 }
 
-/** Adds a Scene View at the end. `config` null: the type's defaults. Blank name: "List", "Table" or "Board". */
+/**
+ * Adds a Scene View at the end of a Base's Views: the Manuscript's (`groupId`
+ * null) or one Group's (044). `config` null: the type's defaults. Blank name:
+ * "List", "Table", "Board" or "Timeline".
+ */
 export async function createSceneView(
   projectId: string,
   name: string | null,
   type: CollectionViewType,
-  config: CollectionViewConfig | null = null
+  config: CollectionViewConfig | null = null,
+  groupId: string | null = null
 ): Promise<ActionResult<SceneView>> {
   const { supabase, user } = await getUser();
   if (!user) return { data: null, error: "Not authenticated" };
@@ -38,6 +43,7 @@ export async function createSceneView(
     p_name: name,
     p_type: type,
     p_config: config,
+    ...(groupId !== null && { p_group_id: groupId }),
   });
   if (error) return { data: null, error: error.message };
   const result = data as RpcResult<{ view: SceneView }>;
@@ -66,7 +72,7 @@ export async function updateSceneView(viewId: string, changes: SceneViewChanges)
   return { data: result.view, error: null };
 }
 
-/** Moves a Scene View to `index` (0-based) among the Manuscript's. */
+/** Moves a Scene View to `index` (0-based) among its Base's. */
 export async function moveSceneView(viewId: string, index: number): Promise<ActionResult<SceneView>> {
   const { supabase, user } = await getUser();
   if (!user) return { data: null, error: "Not authenticated" };

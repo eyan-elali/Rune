@@ -331,11 +331,15 @@ export interface WorkspaceCollectionView {
  * One saved View of a Manuscript's Scenes (migration 032, table scene_views):
  * configuration only, like a Collection View. Its config may also name the
  * read-only Scene fields "words" and "placement"; sort null is manuscript order.
+ * It belongs to one Base (044): the Manuscript's page (`group_id` null) or
+ * one Group's page; `position` is 1..n within that Base.
  */
 export interface SceneView {
   id: string;
   manuscript_id: string;
   project_id: string;
+  /** The Group whose Base this View is; null: the Manuscript's Base. */
+  group_id: string | null;
   name: string;
   type: CollectionViewType;
   position: number;
