@@ -136,6 +136,7 @@
   --r2-fs-ui-sm: 12.5px; /* the context bar, actions, panel text */
   --r2-fs-ui: 13px; /* navigator rows, menus, buttons, fields */
   --r2-fs-body: 13.5px; /* content lists, tables, dialog prose */
+  --r2-fs-row: 14px; /* a name in a View: a List row, a Table's name column */
   --r2-fs-heading: 15px; /* a section heading, a dialog title */
   --r2-fs-title: 23px; /* the page title: Chapter, Page, Overview */
   --r2-lh-tight: 1.25;
@@ -2498,95 +2499,13 @@ button.r2-disclosure:hover {
 }
 
 /* ── Collections and Entries ─────────────────────────────────────────── */
-/* A Collection is a writer's list of names, not a table: one quiet column of
-   rows in the Page's measure and type, a hairline between them, no columns
-   and no cards. An Entry is a Page with a line back to its Collection. */
+/* A Collection is a structure the writer built, read through one of its
+   Views (see "Collection Views" below). An Entry is a Page with a line back
+   to its Collection. */
 
 .r2-collection {
   cursor: default;
 }
-.r2-entry-list {
-  margin: 4px 0 6px;
-  border-top: 1px solid var(--r2-border);
-}
-.r2-entry-row {
-  display: block;
-  width: calc(100% + 16px);
-  padding: 9px 8px;
-  margin: 0 -8px;
-  border-bottom: 1px solid var(--r2-border);
-  border-radius: 0;
-  text-align: left;
-  font-size: var(--r2-page-size);
-  line-height: 1.4;
-  color: var(--r2-ink-1);
-  transition: background-color var(--r2-fast) var(--r2-ease);
-}
-.r2-entry-row-title,
-.r2-entry-row-meta {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.r2-entry-row[data-unnamed] .r2-entry-row-title {
-  color: var(--r2-ink-3);
-}
-/* The values the list shows: one muted line under the name, never columns. */
-.r2-entry-row-meta {
-  margin-top: 1px;
-  font-size: var(--r2-fs-ui-sm);
-  line-height: var(--r2-lh-ui);
-  color: var(--r2-ink-3);
-}
-.r2-entry-row:hover {
-  background: var(--r2-hover);
-}
-.r2-entry-row:active {
-  background: var(--r2-press);
-}
-.r2-entry-empty {
-  margin: 4px 0 10px;
-  font-size: var(--r2-fs-body);
-  color: var(--r2-faint);
-}
-.r2-entry-add {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--r2-space-3);
-  height: var(--r2-control-md);
-  padding: 0 8px;
-  margin: 8px 0 0 -8px;
-  border-radius: var(--r2-radius);
-  font-size: var(--r2-fs-ui);
-  color: var(--r2-ink-2);
-  transition: background-color var(--r2-fast) var(--r2-ease), color var(--r2-fast) var(--r2-ease);
-}
-.r2-entry-add:hover:not(:disabled) {
-  color: var(--r2-ink-1);
-  background: var(--r2-hover);
-}
-.r2-entry-add:disabled {
-  opacity: var(--r2-disabled-opacity);
-}
-/* An Entry's Collection, in the title's eyebrow (.r2-doc-eyebrow): the
-   eyebrow's own voice, and also the way back. */
-.r2-entry-collection {
-  display: inline-block;
-  margin: -1px -4px;
-  padding: 1px 4px;
-  border-radius: var(--r2-radius-sm);
-  font: inherit;
-  letter-spacing: inherit;
-  color: inherit;
-  cursor: pointer;
-  transition: color var(--r2-fast) var(--r2-ease), background-color var(--r2-fast) var(--r2-ease);
-}
-.r2-entry-collection:hover {
-  color: var(--r2-ink-1);
-  background: var(--r2-hover);
-}
-
 /* ── Collection properties ───────────────────────────────────────────── */
 /* An Entry's properties sit between its title and its body as a quiet list of
    facts: a muted label column, the value beside it, no boxes and no field
@@ -2834,12 +2753,11 @@ button.r2-disclosure:hover {
 }
 
 /* ── Collection head ─────────────────────────────────────────────────── */
-/* A Collection is a structure the writer built, larger than any one View:
-   under its title, one quiet line says what it holds (entries, properties,
-   views); under that, one row — the Views as a local tab row on the left, the
-   View's and the properties' settings on the right — over a hairline; then the
-   active View, flat on the page. Nothing is wrapped: the header is compact and
-   the object is read through its hierarchy. */
+/* Under the title, one quiet line says what the Collection holds (entries,
+   properties, views); under that, the Views' bar (see "Collection Views");
+   then the active View, flat on the page. Nothing is wrapped: the header is
+   compact and the object is read through its hierarchy. The property
+   settings (.r2-schema) open inline under the bar. */
 .r2-collection-context {
   display: flex;
   flex-wrap: wrap;
@@ -2854,49 +2772,12 @@ button.r2-disclosure:hover {
   content: "·";
   margin: 0 7px;
 }
-.r2-collection-bar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px 12px;
-  margin: -8px 0 8px -8px;
-}
-.r2-collection-tools {
-  display: flex;
-  align-items: center;
-  gap: var(--r2-space-1);
-}
-.r2-view-tabs + .r2-collection-tools {
-  margin-left: auto;
-}
-.r2-collection-tool {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--r2-space-3);
-  height: var(--r2-control-md);
-  padding: 0 8px;
-  border-radius: var(--r2-radius);
-  font-size: var(--r2-fs-ui-sm);
-  color: var(--r2-ink-3);
-  transition: color var(--r2-fast) var(--r2-ease), background-color var(--r2-fast) var(--r2-ease);
-}
-.r2-collection-tool:hover,
-.r2-collection-tool[aria-expanded="true"] {
-  color: var(--r2-ink-1);
-  background: var(--r2-hover);
-}
 .r2-schema {
   margin: 0 0 22px;
   padding: 10px 0 12px;
   border-top: 1px solid var(--r2-border);
   border-bottom: 1px solid var(--r2-border);
   font-size: var(--r2-fs-ui);
-}
-/* Opened under the tab row, the settings share its hairline. */
-.r2-collection-bar[data-tabs] + .r2-schema {
-  margin-top: -6px;
-  padding-top: 6px;
-  border-top: 0;
 }
 .r2-schema-intro {
   max-width: 34rem;
@@ -3014,100 +2895,120 @@ span.r2-schema-type {
   line-height: var(--r2-lh-ui);
 }
 
-/* ── Collection Views ────────────────────────────────────────────────── */
-/* Views are ways of reading one Collection, so their chrome stays below the
-   writing's: the switcher is words, the active one in ink with a hairline
-   under it; a Table is rows and hairlines, not a grid; a Board is quiet lanes
-   of plain items. No colour but the ink blue of focus and a status mark.
-   A Table or Board takes a wider column than a List; the List keeps the
-   Page's measure. */
+/* ── Collection Views (Milestone 21E) ────────────────────────────────── */
+/* Views are ways of reading one Collection (or the Manuscript's Scenes),
+   so their chrome stays below the writing's. One row over a hairline: the
+   Views as text tabs on the left, the active one underlined in ink on the
+   hairline itself; the active View's toolbar on the right — a few quiet
+   words that open small popovers. Then the View, flat on the page.
+
+   One language for the four of them: names first and in the same size
+   (--r2-fs-row); metadata in the third ink; one hover (the hover wash), one
+   keyboard focus (a hairline of ink inside the surface), one dragged state
+   (faded), one drop target (the ink wash and a hairline of ink); hairlines
+   for structure, boxes only where a thing is picked up (a Board's cards).
+   No colour but the ink blue of focus, selection and the one mark on a
+   Timeline. A Table, Board or Timeline takes a wider column than a List;
+   the List keeps the Page's measure. */
 
 /* The wider column keeps the prose column's left edge (so switching Views
-   moves nothing) and takes what room there is to the right of it, down to
-   the prose measure; only when even that no longer fits does it give way to
-   the left (--r2-doc-offset). It never widens the page: a Table, Board or
-   Timeline scrolls inside its own region. */
+   moves nothing) and takes the room there is to the right of it — the
+   working canvas — down to the prose measure; only when even that no
+   longer fits does it give way to the left (--r2-doc-offset). It never
+   widens the page: a Table, Board or Timeline scrolls inside its own
+   region. */
 .r2-collection[data-wide] {
   --r2-doc-width: min(
-    1180px,
+    1440px,
     max(calc(100cqw - max(0px, var(--r2-doc-centred))), min(var(--r2-doc-measure-width), 100cqw))
   );
 }
 .r2-collection-body {
   position: relative;
 }
+/* Switching Views: the new surface arrives rather than snaps. */
+.r2-view-enter {
+  animation: r2-fade-in var(--r2-medium) var(--r2-ease);
+}
 
+/* ── The bar: tabs and toolbar ───────────────────────────────────────── */
+.r2-collection-bar {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 6px 16px;
+  min-height: 36px;
+  margin: 2px 0 14px;
+  border-bottom: 1px solid var(--r2-border);
+}
+.r2-view-tabs {
+  display: flex;
+  align-items: flex-end;
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0 0 -1px -6px;
+}
+.r2-view-strip {
+  display: flex;
+  align-items: flex-end;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.r2-view-strip::-webkit-scrollbar {
+  display: none;
+}
 .r2-view-switcher {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--r2-space-1);
-  min-width: 0;
+  align-items: flex-end;
+  flex: none;
 }
 .r2-view-tab {
   position: relative;
-  height: var(--r2-control-md);
-  padding: 0 8px;
-  border-radius: var(--r2-radius);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 6px;
+  margin-right: 4px;
+  border-radius: var(--r2-radius) var(--r2-radius) 0 0;
   font-size: var(--r2-fs-ui);
   color: var(--r2-ink-3);
   white-space: nowrap;
+  cursor: default;
   transition: color var(--r2-fast) var(--r2-ease), background-color var(--r2-fast) var(--r2-ease);
 }
 .r2-view-tab:hover {
   color: var(--r2-ink-1);
-  background: var(--r2-hover);
 }
 .r2-view-tab[aria-selected="true"] {
   font-weight: var(--r2-weight-medium);
   color: var(--r2-ink-1);
 }
+/* The active tab's line lies on the row's hairline, in ink. */
 .r2-view-tab[aria-selected="true"]::after {
   content: "";
   position: absolute;
-  right: 8px;
-  bottom: 2px;
-  left: 8px;
-  height: 1px;
-  background: var(--r2-ink-1);
-  opacity: 0.55;
-}
-
-/* Saved Views as a local tab row: one quiet line of names over a hairline,
-   the active one underlined on it — representations of this Collection, not
-   working-set tabs (no boxes, no close buttons). `+` sits at the end. */
-.r2-collection-bar[data-tabs] {
-  margin-top: 0;
-  margin-bottom: 16px;
-  border-bottom: 1px solid var(--r2-border);
-}
-.r2-view-tabs {
-  display: flex;
-  align-items: center;
-  gap: var(--r2-space-1);
-  min-width: 0;
-}
-.r2-view-tab {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--r2-space-3);
-  cursor: default;
+  right: 6px;
+  bottom: -1px;
+  left: 6px;
+  height: 2px;
+  border-radius: 1px 1px 0 0;
+  background: var(--r2-accent);
 }
 .r2-view-tab-icon {
   flex: none;
   color: var(--r2-ink-3);
+  transition: color var(--r2-fast) var(--r2-ease);
 }
 .r2-view-tab[aria-selected="true"] .r2-view-tab-icon {
   color: var(--r2-ink-2);
 }
-.r2-collection-bar[data-tabs] .r2-view-tab {
-  height: 34px;
-  border-radius: var(--r2-radius) var(--r2-radius) 0 0;
-}
-.r2-collection-bar[data-tabs] .r2-view-tab[aria-selected="true"]::after {
-  bottom: -1px;
-  height: 1.5px;
-  opacity: 0.8;
+.r2-view-tab-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 14rem;
 }
 .r2-view-tab[data-dragging] {
   opacity: 0.45;
@@ -3118,24 +3019,37 @@ span.r2-schema-type {
 .r2-view-tab[data-drop="after"] {
   box-shadow: inset -2px 0 0 var(--r2-accent-line);
 }
-.r2-collection-tool[data-compact] {
-  padding: 0 7px;
+/* `+` at the row's end: an icon, a surface only when reached for. */
+.r2-view-tab--add {
+  height: 28px;
+  margin: 0 0 3px;
+  padding: 0 6px;
+  border-radius: var(--r2-radius);
 }
-
+.r2-view-tab--add:hover:not(:disabled),
+.r2-view-tab--add[aria-expanded="true"] {
+  color: var(--r2-ink-1);
+  background: var(--r2-hover);
+}
+.r2-view-tab--add:disabled {
+  opacity: var(--r2-disabled-opacity);
+}
 .r2-view-add {
   position: relative;
   display: inline-flex;
-  align-items: center;
+  align-items: flex-end;
 }
 .r2-view-menu {
   position: absolute;
   top: calc(100% + 4px);
   left: 0;
-  z-index: 30;
-  width: 250px;
+  z-index: 40;
+  width: 264px;
 }
 .r2-view-menu-item {
-  display: block;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--r2-space-4);
   width: 100%;
   padding: 6px var(--r2-space-4);
   border-radius: var(--r2-radius-sm);
@@ -3145,6 +3059,11 @@ span.r2-schema-type {
 .r2-view-menu-item:focus-visible {
   background: var(--r2-hover);
   outline: none;
+}
+.r2-view-menu-icon {
+  flex: none;
+  margin-top: 3px;
+  color: var(--r2-ink-3);
 }
 .r2-view-menu-name {
   display: block;
@@ -3163,39 +3082,180 @@ span.r2-schema-type {
   color: var(--r2-danger);
 }
 
-.r2-view-note {
-  margin: 0 0 6px;
+/* The toolbar: the active View's controls, each a word and a glyph; a
+   control doing something (a sort set, two filters on) reads in ink blue;
+   an open one takes the hover wash. Popovers hang from their control. */
+.r2-toolbar {
+  display: flex;
+  align-items: center;
+  flex: 0 1 auto;
+  gap: var(--r2-space-1);
+  min-width: 0;
+  margin: 0 -6px 4px 0;
+}
+.r2-tool-wrap {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+}
+.r2-tool {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: var(--r2-control-sm);
+  padding: 0 7px;
+  border-radius: var(--r2-radius);
   font-size: var(--r2-fs-ui-sm);
   color: var(--r2-ink-3);
+  white-space: nowrap;
+  transition: color var(--r2-fast) var(--r2-ease), background-color var(--r2-fast) var(--r2-ease);
+}
+.r2-tool svg {
+  flex: none;
+}
+.r2-tool:hover:not(:disabled),
+.r2-tool[aria-expanded="true"] {
+  color: var(--r2-ink-1);
+  background: var(--r2-hover);
+}
+.r2-tool:active:not(:disabled) {
+  background: var(--r2-press);
+}
+.r2-tool[data-active] {
+  color: var(--r2-selected-ink);
+}
+.r2-tool[data-active] svg {
+  color: var(--r2-accent);
+}
+.r2-tool[data-active]::after {
+  content: "";
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: none;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--r2-accent);
+}
+.r2-tool-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 12rem;
+}
+.r2-toolbar-notice {
+  margin-left: 6px;
+  font-size: var(--r2-fs-meta);
+  color: var(--r2-danger);
+  white-space: nowrap;
+}
+/* Less room: the words go, the glyphs stay (a dot marks an active one). */
+@container (max-width: 980px) {
+  .r2-collection .r2-tool-label {
+    display: none;
+  }
+  .r2-collection .r2-tool {
+    padding: 0 6px;
+  }
+  .r2-collection .r2-tool[data-active]::after {
+    display: block;
+  }
 }
 
-/* View settings: the same weight as the property settings. */
-.r2-view-head {
-  display: flex;
-  flex-wrap: wrap;
+/* The quick find: a small field in the toolbar's own row, not a search bar. */
+.r2-tool-search {
+  display: inline-flex;
   align-items: center;
-  gap: var(--r2-space-4);
+  gap: 6px;
+  height: var(--r2-control-sm);
+  padding: 0 3px 0 7px;
+  border-radius: var(--r2-radius);
+  color: var(--r2-ink-3);
+  background: var(--r2-field-bg);
+  box-shadow: inset 0 0 0 1px var(--r2-border-strong);
+  transition: box-shadow var(--r2-fast) var(--r2-ease);
 }
-.r2-view-head .r2-schema-name {
-  flex: 1 1 12rem;
+.r2-tool-search:focus-within {
+  box-shadow: inset 0 0 0 1px var(--r2-accent-line);
 }
-.r2-view-settings {
-  margin: 6px 0 0;
+.r2-tool-search-input {
+  width: 11rem;
+  border: 0;
+  font: inherit;
+  font-size: var(--r2-fs-ui-sm);
+  color: var(--r2-ink-1);
+  background: transparent;
+  -webkit-appearance: none;
+  appearance: none;
 }
-.r2-view-setting {
-  display: grid;
-  grid-template-columns: minmax(84px, 112px) minmax(0, 1fr);
-  gap: var(--r2-space-5);
-  align-items: start;
-  padding: 5px 0;
-}
-.r2-view-setting dt {
-  padding-top: 6px;
+.r2-tool-search-input::placeholder {
   color: var(--r2-ink-3);
 }
-.r2-view-setting dd {
-  min-width: 0;
-  margin: 0;
+.r2-tool-search-input:focus {
+  outline: none;
+}
+.r2-tool-search-input::-webkit-search-cancel-button {
+  display: none;
+}
+
+/* A popover under its control: a small dialog of fields in the overlay
+   surface, hung from the control's right edge so it opens into the page. */
+.r2-tool-pop {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 40;
+  width: 300px;
+  padding: 10px 12px 12px;
+  font-size: var(--r2-fs-ui);
+  cursor: default;
+}
+.r2-tool-pop[data-wide] {
+  width: 440px;
+}
+.r2-tool-pop-title {
+  display: block;
+  margin: 0 0 6px;
+  font-size: var(--r2-fs-caption);
+  font-weight: var(--r2-weight-medium);
+  letter-spacing: var(--r2-tracking-label);
+  color: var(--r2-ink-3);
+}
+.r2-tool-pop > * + .r2-tool-pop-title {
+  margin-top: 12px;
+}
+.r2-tool-pop .r2-field {
+  max-width: 100%;
+}
+/* A two-way choice (ascending, descending): one hairline around both. */
+.r2-tool-seg {
+  display: inline-flex;
+  height: var(--r2-control-sm);
+  border: 1px solid var(--r2-border-strong);
+  border-radius: var(--r2-radius);
+  overflow: hidden;
+  background: var(--r2-surface-raised);
+}
+.r2-tool-seg button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 8px;
+  font-size: var(--r2-fs-ui-sm);
+  color: var(--r2-ink-2);
+  transition: color var(--r2-fast) var(--r2-ease), background-color var(--r2-fast) var(--r2-ease);
+}
+.r2-tool-seg button + button {
+  border-left: 1px solid var(--r2-border-strong);
+}
+.r2-tool-seg button:hover {
+  color: var(--r2-ink-1);
+  background: var(--r2-hover);
+}
+.r2-tool-seg button[aria-pressed="true"] {
+  color: var(--r2-selected-ink);
+  background: var(--r2-selected);
 }
 .r2-view-inline {
   display: flex;
@@ -3204,9 +3264,22 @@ span.r2-schema-type {
   gap: var(--r2-space-3);
 }
 .r2-view-muted {
-  display: inline-block;
-  padding-top: 6px;
+  display: block;
+  font-size: var(--r2-fs-ui-sm);
+  line-height: var(--r2-lh-ui);
   color: var(--r2-ink-3);
+}
+.r2-view-filters {
+  margin: 0 0 4px;
+}
+.r2-view-filters li {
+  margin-bottom: 6px;
+}
+.r2-view-filter-input {
+  width: 9rem;
+}
+.r2-view-props {
+  margin: 0 0 4px;
 }
 .r2-view-props li {
   display: flex;
@@ -3228,24 +3301,166 @@ span.r2-schema-type {
 .r2-view-props .r2-icon-button[aria-pressed="false"] {
   color: var(--r2-ink-3);
 }
-.r2-view-filters li {
-  margin-bottom: 6px;
+.r2-tool-pop .r2-prop-add {
+  margin-top: 2px;
 }
-.r2-view-confirm {
+/* The View's own settings: its name, what it shows as, its place, its end. */
+.r2-view-settings {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+.r2-view-settings .r2-tool-pop-title + .r2-field {
+  width: 100%;
+}
+.r2-view-settings .r2-field + .r2-tool-pop-title {
+  margin-top: 12px;
+}
+.r2-view-settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--r2-space-4);
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--r2-border);
+}
+.r2-view-settings-confirm {
+  display: inline-flex;
+  gap: var(--r2-space-2);
+}
+.r2-view-settings > .r2-view-muted {
   margin-top: 8px;
 }
 
-/* Table: a hairline under each row, the header in small muted type, no
-   vertical rules and no cell boxes until a value is being edited. */
+/* The property settings (what properties exist), opened under the bar. */
+.r2-collection-bar + .r2-schema {
+  margin-top: -14px;
+  padding-top: 8px;
+  border-top: 0;
+}
+.r2-view-note {
+  margin: -4px 0 8px;
+  font-size: var(--r2-fs-ui-sm);
+  color: var(--r2-ink-3);
+}
+/* Nothing to show, in a few words; the owner's "New entry" follows. */
+.r2-view-empty {
+  margin: 2px 0 2px;
+  font-size: var(--r2-fs-body);
+  color: var(--r2-faint);
+}
+
+/* ── List ────────────────────────────────────────────────────────────── */
+/* Rune's quietest View: names, one under another, in a clean rhythm; the
+   View's details on the same line in the third ink, kept to the right and
+   never more than half the row. No rules, no boxes — the hover wash is the
+   only structure. */
+.r2-entry-list {
+  margin: 0 0 4px;
+}
+.r2-entry-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) fit-content(46%);
+  align-items: baseline;
+  column-gap: 16px;
+  width: calc(100% + 16px);
+  min-height: 32px;
+  padding: 6px 8px;
+  margin: 0 -8px;
+  border-radius: var(--r2-radius);
+  text-align: left;
+  font-size: var(--r2-fs-row);
+  line-height: 1.4;
+  color: var(--r2-ink-1);
+  transition: background-color var(--r2-fast) var(--r2-ease);
+}
+.r2-entry-row-title,
+.r2-entry-row-meta {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.r2-entry-row[data-unnamed] .r2-entry-row-title {
+  color: var(--r2-ink-3);
+}
+.r2-entry-row-meta {
+  font-size: var(--r2-fs-meta);
+  line-height: var(--r2-lh-ui);
+  color: var(--r2-ink-3);
+  font-variant-numeric: tabular-nums;
+}
+.r2-entry-row:hover {
+  background: var(--r2-hover);
+}
+.r2-entry-row:active {
+  background: var(--r2-press);
+}
+.r2-entry-row:focus-visible {
+  outline: none;
+  background: var(--r2-hover);
+  box-shadow: inset 0 0 0 1px var(--r2-accent-line);
+}
+@container (max-width: 640px) {
+  .r2-entry-row {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 1px;
+  }
+}
+.r2-entry-add {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--r2-space-3);
+  height: var(--r2-control-md);
+  padding: 0 8px;
+  margin: 6px 0 0 -8px;
+  border-radius: var(--r2-radius);
+  font-size: var(--r2-fs-ui);
+  color: var(--r2-ink-3);
+  transition: background-color var(--r2-fast) var(--r2-ease), color var(--r2-fast) var(--r2-ease);
+}
+.r2-entry-add:hover:not(:disabled) {
+  color: var(--r2-ink-1);
+  background: var(--r2-hover);
+}
+.r2-entry-add:disabled {
+  opacity: var(--r2-disabled-opacity);
+}
+/* An Entry's Collection, in the title's eyebrow (.r2-doc-eyebrow): the
+   eyebrow's own voice, and also the way back. */
+.r2-entry-collection {
+  display: inline-block;
+  margin: -1px -4px;
+  padding: 1px 4px;
+  border-radius: var(--r2-radius-sm);
+  font: inherit;
+  letter-spacing: inherit;
+  color: inherit;
+  cursor: pointer;
+  transition: color var(--r2-fast) var(--r2-ease), background-color var(--r2-fast) var(--r2-ease);
+}
+.r2-entry-collection:hover {
+  color: var(--r2-ink-1);
+  background: var(--r2-hover);
+}
+
+/* ── Table ───────────────────────────────────────────────────────────── */
+/* Structured, not a spreadsheet: a small muted header over a stronger
+   hairline, a hairline under each row, no vertical rules and no cell boxes
+   until a value is being edited. Compact rows; the name column reads first. */
 .r2-table-wrap {
-  margin: 4px -8px 6px;
+  margin: 0 -8px 4px;
   overflow-x: auto;
+  overscroll-behavior-x: contain;
 }
 /* Fixed layout: every column is exactly its width (saved with the View, else
    its type's default — see columnWidth), never stretched to fill the page. */
 .r2-table {
   table-layout: fixed;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   font-size: var(--r2-fs-body);
   line-height: var(--r2-lh-ui);
 }
@@ -3254,44 +3469,53 @@ span.r2-schema-type {
   padding: 0 8px;
   border-bottom: 1px solid var(--r2-border);
   text-align: left;
-  vertical-align: top;
+  vertical-align: middle;
 }
 .r2-table thead th {
   position: relative;
-  height: 32px;
-  font-size: var(--r2-fs-meta);
+  height: 30px;
+  border-bottom-color: var(--r2-border-strong);
+  font-size: var(--r2-fs-caption);
   font-weight: var(--r2-weight-medium);
+  letter-spacing: var(--r2-tracking-label);
   color: var(--r2-ink-3);
   white-space: nowrap;
-  vertical-align: middle;
 }
 .r2-table thead th[data-type="number"] {
   text-align: right;
 }
 .r2-table-head {
-  display: block;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-/* The column border: a wide, invisible grip; a hairline shows on hover,
+.r2-table-sort {
+  display: inline-flex;
+  color: var(--r2-ink-2);
+}
+/* The column border: a wide, invisible grip; a line of ink shows on hover,
    while dragging, and on keyboard focus. */
 .r2-col-resize {
   position: absolute;
   top: 0;
-  right: -4px;
+  right: -5px;
   bottom: 0;
   z-index: 1;
-  width: 9px;
+  width: 11px;
   cursor: col-resize;
   touch-action: none;
 }
 .r2-col-resize::after {
   content: "";
   position: absolute;
-  top: 7px;
-  bottom: 7px;
-  left: 4px;
-  width: 1px;
+  top: 6px;
+  bottom: 6px;
+  left: 5px;
+  width: 2px;
+  border-radius: 1px;
   background: transparent;
   transition: background-color var(--r2-fast) var(--r2-ease);
 }
@@ -3300,12 +3524,11 @@ span.r2-schema-type {
 .r2-col-resize:focus-visible::after {
   background: var(--r2-accent-line);
 }
+.r2-col-resize:active::after {
+  background: var(--r2-accent);
+}
 .r2 .r2-col-resize:focus-visible {
   outline: none;
-}
-.r2-table-sort {
-  margin-left: 4px;
-  color: var(--r2-ink-2);
 }
 .r2-table td {
   /* A long value stays inside its column; the margin keeps focus rings whole. */
@@ -3341,15 +3564,15 @@ span.r2-schema-type {
 .r2-table-title button {
   display: block;
   width: calc(100% + 12px);
-  min-height: var(--r2-control-lg);
+  min-height: var(--r2-control-md);
   margin: 1px -6px;
-  padding: 5px 6px;
+  padding: 4px 6px;
   border-radius: var(--r2-radius);
   overflow: hidden;
   text-align: left;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: var(--r2-page-size);
+  font-size: var(--r2-fs-row);
   line-height: 1.3;
   color: var(--r2-ink-1);
   transition: background-color var(--r2-fast) var(--r2-ease);
@@ -3360,7 +3583,13 @@ span.r2-schema-type {
 .r2-table-title button:hover {
   background: var(--r2-hover);
 }
-.r2-table tbody tr:hover > * {
+.r2-table-title button:focus-visible {
+  outline: none;
+  background: var(--r2-hover);
+  box-shadow: inset 0 0 0 1px var(--r2-accent-line);
+}
+.r2-table-row:hover > *,
+.r2-table-row:focus-within > * {
   background: var(--r2-hover-faint);
 }
 
@@ -3372,22 +3601,29 @@ span.r2-schema-type {
   width: 280px;
 }
 
-/* Board: lanes side by side, scrolling sideways; each lane a light column
-   with its name and count, its Entries as plain items. */
+/* ── Board ───────────────────────────────────────────────────────────── */
+/* Lanes side by side, each a firm column: a sunken tone inside a hairline,
+   its name and count over a hairline of its own, its cards in one width.
+   A card is the one thing on a View that is a box — it is picked up and
+   put down — and it is a quiet one: lifted a hair, no colour. A lane that
+   would take a drop takes the ink wash. */
 .r2-board {
   display: flex;
   align-items: flex-start;
-  gap: var(--r2-space-5);
-  margin: 6px -8px 0;
-  padding: 0 8px 12px;
+  gap: 10px;
+  margin: 0 -8px 0;
+  padding: 2px 8px 14px;
   overflow-x: auto;
+  overscroll-behavior-x: contain;
 }
 .r2-lane {
-  flex: 0 0 248px;
+  display: flex;
+  flex: 0 0 256px;
+  flex-direction: column;
   min-width: 0;
-  padding: 6px;
   border-radius: var(--r2-radius-md);
   background: var(--r2-surface-sunken);
+  box-shadow: inset 0 0 0 1px var(--r2-border);
   transition: background-color var(--r2-fast) var(--r2-ease), box-shadow var(--r2-fast) var(--r2-ease);
 }
 .r2-lane[data-over] {
@@ -3397,12 +3633,15 @@ span.r2-schema-type {
 .r2-lane--new {
   flex-basis: 200px;
   background: transparent;
+  box-shadow: none;
 }
 .r2-lane-head {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: var(--r2-space-4);
-  padding: 2px 4px 6px;
+  height: 34px;
+  padding: 0 10px;
+  border-bottom: 1px solid var(--r2-border);
   font-size: var(--r2-fs-ui-sm);
 }
 .r2-lane-name {
@@ -3418,33 +3657,56 @@ span.r2-schema-type {
   color: var(--r2-ink-3);
 }
 .r2-lane-count {
+  margin-left: auto;
   font-variant-numeric: tabular-nums;
   color: var(--r2-ink-3);
 }
 .r2-lane-cards {
   display: flex;
   flex-direction: column;
-  gap: var(--r2-space-2);
+  gap: 6px;
+  min-height: 52px;
+  padding: 8px;
+}
+/* An empty lane shows where a card would land. */
+.r2-lane-cards[data-empty]::before {
+  content: "";
+  display: block;
+  height: 36px;
+  border: 1px dashed var(--r2-border-strong);
+  border-radius: var(--r2-radius);
+  opacity: 0.6;
+}
+.r2-lane[data-over] .r2-lane-cards[data-empty]::before {
+  border-color: var(--r2-accent-line);
+  opacity: 1;
 }
 .r2-card {
   display: block;
   width: 100%;
-  padding: 7px 9px;
-  border: 1px solid var(--r2-border);
+  padding: 7px 10px 8px;
   border-radius: var(--r2-radius);
   text-align: left;
   font-size: var(--r2-fs-body);
   line-height: 1.35;
   color: var(--r2-ink-1);
-  background: var(--r2-bg);
-  cursor: pointer;
-  transition: border-color var(--r2-fast) var(--r2-ease), background-color var(--r2-fast) var(--r2-ease);
+  background: var(--r2-surface-raised);
+  box-shadow: 0 0 0 1px var(--r2-border), var(--r2-shadow-sm);
+  cursor: grab;
+  transition: box-shadow var(--r2-fast) var(--r2-ease), opacity var(--r2-fast) var(--r2-ease);
 }
 .r2-card:hover {
-  border-color: var(--r2-border-strong);
+  box-shadow: 0 0 0 1px var(--r2-border-strong), 0 2px 6px -2px rgba(var(--r2-palette-shadow) / 0.14);
 }
 .r2-card:active {
   cursor: grabbing;
+}
+.r2-card:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 1px var(--r2-accent), 0 0 0 3px var(--r2-accent-soft);
+}
+.r2-card[data-dragging] {
+  opacity: 0.4;
 }
 .r2-card[data-unnamed] .r2-card-title {
   color: var(--r2-ink-3);
@@ -3455,19 +3717,22 @@ span.r2-schema-type {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.r2-card-title {
+  font-weight: var(--r2-weight-medium);
+}
 .r2-card-meta {
-  margin-top: 2px;
+  margin-top: 3px;
   font-size: var(--r2-fs-meta);
   white-space: nowrap;
   color: var(--r2-ink-3);
+  font-variant-numeric: tabular-nums;
 }
 .r2-lane-add {
   display: flex;
   align-items: center;
   gap: 5px;
-  width: 100%;
-  height: var(--r2-control-md);
-  margin-top: 4px;
+  height: var(--r2-control-sm);
+  margin: -4px 8px 8px;
   padding: 0 6px;
   border-radius: var(--r2-radius);
   font-size: var(--r2-fs-ui-sm);
@@ -3478,13 +3743,16 @@ span.r2-schema-type {
   color: var(--r2-ink-1);
   background: var(--r2-hover);
 }
+.r2-lane--new .r2-lane-add {
+  margin: 0;
+  height: 34px;
+}
 .r2-lane-input {
   width: 100%;
 }
 .r2-board-setup {
-  margin: 8px 0;
-  padding: 14px 0;
-  border-top: 1px solid var(--r2-border);
+  margin: 0 0 8px;
+  padding: 10px 0 12px;
   font-size: var(--r2-fs-body);
   color: var(--r2-ink-2);
 }
@@ -3492,20 +3760,23 @@ span.r2-schema-type {
   margin-bottom: 10px;
 }
 
-
-/* Timeline: one axis across the page — the manuscript's Chapters under
-   their Group bands, or the ticks of a date or number — and each item a
-   small marker at its place, stacking into rows where they would overlap.
-   Hairlines and ink only; the track scrolls sideways, lane names stay. */
+/* ── Timeline ────────────────────────────────────────────────────────── */
+/* A narrative timeline, not a schedule. One header the eye follows — the
+   manuscript's Chapters under their Group bands, or the ticks of a date or
+   number — over a stronger hairline; faint rules fall from it; each item a
+   point: a small mark of ink and a name beside it, stacking into rows where
+   they would overlap. With lanes, their names stand in a rail at the left
+   that stays while the track scrolls. Items the axis can't place have a lane
+   of their own after the others, their mark hollow. */
 .r2-timeline {
-  margin: 6px 0 0;
+  position: relative;
+  margin: 0;
 }
 .r2-timeline-scroll {
   position: relative;
   overflow-x: auto;
   overflow-y: hidden;
-  border-top: 1px solid var(--r2-border);
-  border-bottom: 1px solid var(--r2-border);
+  overscroll-behavior-x: contain;
 }
 .r2-timeline-track {
   position: relative;
@@ -3522,17 +3793,52 @@ span.r2-schema-type {
   bottom: 0;
   width: 1px;
   background: var(--r2-border);
+  opacity: 0.55;
+}
+.r2-timeline-rule[data-major] {
+  opacity: 1;
 }
 .r2-timeline-axis {
   position: relative;
+  z-index: 1;
   border-bottom: 1px solid var(--r2-border-strong);
   font-size: var(--r2-fs-caption);
   color: var(--r2-ink-3);
   user-select: none;
 }
+/* The rail's corner: what the axis is. */
+.r2-timeline-corner {
+  position: sticky;
+  left: 0;
+  z-index: 3;
+  display: flex;
+  align-items: flex-end;
+  padding: 0 12px 8px;
+  background: var(--r2-bg);
+  border-right: 1px solid var(--r2-border);
+}
+.r2-timeline-axis-name {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  font-size: var(--r2-fs-caption);
+  font-weight: var(--r2-weight-medium);
+  letter-spacing: var(--r2-tracking-label);
+  color: var(--r2-ink-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.r2-timeline-axis-kind {
+  font-weight: var(--r2-weight-regular);
+  letter-spacing: 0;
+  color: var(--r2-ink-3);
+}
 .r2-timeline-tick {
   position: absolute;
-  top: 6px;
+  bottom: 0;
+  height: 21px;
   padding-left: 6px;
   border-left: 1px solid var(--r2-border-strong);
   line-height: 14px;
@@ -3553,21 +3859,28 @@ span.r2-schema-type {
   text-overflow: ellipsis;
 }
 .r2-timeline-group {
-  height: var(--r2-control-xs);
-  padding: 4px 8px 0;
+  display: flex;
+  align-items: center;
   border-left: 1px solid var(--r2-border-strong);
   font-size: var(--r2-fs-label);
   font-weight: var(--r2-weight-medium);
-  letter-spacing: var(--r2-tracking-label);
+  letter-spacing: var(--r2-tracking-caps);
   text-transform: uppercase;
   color: var(--r2-ink-2);
 }
+/* A long band: its name stays in view at the left while the band scrolls. */
+.r2-timeline-group-name {
+  position: sticky;
+  left: calc(var(--r2-timeline-rail, 0px) + 8px);
+  padding: 0 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .r2-timeline-chapter {
   display: flex;
-  align-items: baseline;
-  gap: var(--r2-space-3);
-  height: var(--r2-control-lg);
-  padding: 8px 8px 0;
+  align-items: flex-end;
+  gap: 6px;
+  padding: 0 8px 8px;
   color: var(--r2-ink-1);
 }
 .r2-timeline-chapter-number {
@@ -3580,6 +3893,7 @@ span.r2-schema-type {
   overflow: hidden;
   text-overflow: ellipsis;
   font-size: var(--r2-fs-ui-sm);
+  font-weight: var(--r2-weight-medium);
 }
 .r2-timeline-chapter[data-unnamed] .r2-timeline-chapter-title,
 .r2-timeline-group[data-unnamed] {
@@ -3587,9 +3901,10 @@ span.r2-schema-type {
   font-weight: var(--r2-weight-regular);
 }
 .r2-timeline-gap {
-  height: var(--r2-control-lg);
-  padding: 9px 0 0;
-  text-align: center;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0 0 9px;
   font-variant-numeric: tabular-nums;
   color: var(--r2-ink-3);
   background: var(--r2-surface-sunken);
@@ -3598,20 +3913,21 @@ span.r2-schema-type {
   position: relative;
   border-bottom: 1px solid var(--r2-border);
 }
-.r2-timeline-lane:last-of-type {
+.r2-timeline-track > .r2-timeline-lane:last-child {
   border-bottom: 0;
 }
-.r2-timeline-lane-head {
+.r2-timeline-rail {
   position: sticky;
   left: 0;
-  z-index: 1;
-  display: inline-flex;
-  align-items: baseline;
+  z-index: 2;
+  display: flex;
+  align-items: center;
   gap: var(--r2-space-4);
-  max-width: 260px;
-  padding: 6px 8px 2px;
-  font-size: var(--r2-fs-ui-sm);
+  height: 100%;
+  padding: 0 12px;
   background: var(--r2-bg);
+  border-right: 1px solid var(--r2-border);
+  font-size: var(--r2-fs-ui-sm);
 }
 .r2-timeline-lane-name {
   min-width: 0;
@@ -3621,35 +3937,45 @@ span.r2-schema-type {
   font-weight: var(--r2-weight-medium);
   color: var(--r2-ink-1);
 }
-.r2-timeline-lane[data-empty-lane] .r2-timeline-lane-name {
+.r2-timeline-lane[data-empty-lane] .r2-timeline-lane-name,
+.r2-timeline-lane--apart .r2-timeline-lane-name {
   font-weight: var(--r2-weight-regular);
   color: var(--r2-ink-3);
 }
 .r2-timeline-lane-count {
+  margin-left: auto;
   font-variant-numeric: tabular-nums;
   font-weight: var(--r2-weight-regular);
   color: var(--r2-ink-3);
 }
+.r2-timeline-lane[data-no-items] .r2-timeline-rail {
+  opacity: 0.75;
+}
 .r2-timeline-rows {
-  position: relative;
-  margin: 6px 0;
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
 }
 .r2-timeline-item {
   position: absolute;
   box-sizing: border-box;
   display: block;
-  height: var(--r2-control-sm);
-  padding: 0 8px 0 20px;
+  height: 26px;
+  padding: 0 8px 0 22px;
   border-radius: var(--r2-radius);
   text-align: left;
   font-size: var(--r2-fs-ui);
-  line-height: var(--r2-control-sm);
+  line-height: 26px;
   color: var(--r2-ink-1);
   cursor: pointer;
-  transition: background-color var(--r2-fast) var(--r2-ease);
+  transition: background-color var(--r2-fast) var(--r2-ease), box-shadow var(--r2-fast) var(--r2-ease);
 }
 .r2-timeline-item:hover {
   background: var(--r2-hover);
+}
+.r2-timeline-item:active {
+  background: var(--r2-press);
 }
 .r2-timeline-item:focus-visible {
   outline: none;
@@ -3659,14 +3985,27 @@ span.r2-schema-type {
 .r2-timeline-item[data-unnamed] .r2-timeline-item-title {
   color: var(--r2-ink-3);
 }
-.r2-timeline-dot {
+/* The mark: a point of ink on the axis, ringed in the surface so it stands
+   clear of the rule under it. Hollow when the item has no place. */
+.r2-timeline-mark {
   position: absolute;
-  left: 5px;
-  top: 9px;
-  width: 8px;
-  height: 8px;
+  left: 7px;
+  top: 13px;
+  width: 7px;
+  height: 7px;
+  margin-top: -3.5px;
   border-radius: 50%;
   background: var(--r2-accent);
+  box-shadow: 0 0 0 2px var(--r2-bg);
+  transition: transform var(--r2-fast) var(--r2-ease);
+}
+.r2-timeline-item:hover .r2-timeline-mark,
+.r2-timeline-item:focus-visible .r2-timeline-mark {
+  transform: scale(1.2);
+}
+.r2-timeline-item[data-apart] .r2-timeline-mark {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--r2-ink-3);
 }
 .r2-timeline-item-title,
 .r2-timeline-item-meta {
@@ -3683,50 +4022,57 @@ span.r2-schema-type {
   font-size: var(--r2-fs-caption);
   line-height: 14px;
   color: var(--r2-ink-3);
+  font-variant-numeric: tabular-nums;
 }
 .r2-timeline-item[data-meta] {
   height: 40px;
   padding-top: 3px;
   line-height: 20px;
 }
+.r2-timeline-item[data-apart] {
+  position: relative;
+  flex: none;
+}
 .r2-timeline-empty {
-  padding: 14px 8px;
+  padding: 14px 12px;
   font-size: var(--r2-fs-ui);
   color: var(--r2-faint);
 }
+/* The lane of what the axis can't place: after the track, the same rail. */
+.r2-timeline-lane--apart {
+  display: flex;
+  align-items: stretch;
+  border-top: 1px solid var(--r2-border);
+  border-bottom: 0;
+}
+.r2-timeline-lane--apart .r2-timeline-rail {
+  position: static;
+  flex: none;
+  height: auto;
+  padding: 11px 12px;
+}
+.r2-timeline:not([data-rail]) .r2-timeline-lane--apart {
+  flex-direction: column;
+}
+.r2-timeline:not([data-rail]) .r2-timeline-lane--apart .r2-timeline-rail {
+  padding: 10px 0 0;
+  border-right: 0;
+}
+.r2-timeline:not([data-rail]) .r2-timeline-lane--apart .r2-timeline-lane-count {
+  margin-left: 0;
+}
 .r2-timeline-apart {
   display: flex;
+  flex: 1 1 auto;
   flex-wrap: wrap;
-  align-items: baseline;
-  gap: 4px 10px;
-  margin: 10px 0 0;
-  font-size: var(--r2-fs-ui-sm);
-}
-.r2-timeline-apart-name {
-  flex: none;
-  color: var(--r2-ink-3);
-}
-.r2-timeline-apart-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--r2-space-2);
+  align-items: flex-start;
+  gap: 2px 4px;
   min-width: 0;
-  list-style: none;
-  margin: 0;
-  padding: 0;
+  padding: 7px 8px;
 }
-.r2-timeline-chip {
-  display: inline-block;
-  max-width: 220px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  line-height: calc(var(--r2-control-sm) - 2px);
-  color: var(--r2-ink-1);
-  cursor: pointer;
-}
-.r2-embed-body .r2-timeline-scroll {
-  max-height: 420px;
-  overflow-y: auto;
+.r2-timeline:not([data-rail]) .r2-timeline-apart {
+  padding: 4px 0 8px;
+  margin-left: -8px;
 }
 
 /* ── Overview (Manuscript, Group) ──────────────────────────────────────── */
@@ -4528,7 +4874,7 @@ span.r2-schema-type {
   padding: 0 var(--r2-doc-gutter) 48px;
   transition: margin-left var(--r2-frame) var(--r2-ease-frame);
 }
-.r2-scenes-invite .r2-collection-tool {
+.r2-scenes-invite .r2-tool {
   margin-left: -8px;
   color: var(--r2-ink-3);
 }
@@ -4563,8 +4909,9 @@ span.r2-schema-type {
   color: var(--r2-ink-3);
 }
 .r2-entry-section {
-  padding: 18px 0 6px;
+  padding: 16px 0 4px;
   border-bottom: 1px solid var(--r2-border);
+  margin-bottom: 2px;
   font-size: var(--r2-fs-caption);
   font-weight: var(--r2-weight-medium);
   letter-spacing: var(--r2-tracking-label);
@@ -4587,9 +4934,6 @@ span.r2-schema-type {
   padding: 5px 0;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-}
-.r2-view-filter-input {
-  width: 9rem;
 }
 
 /* Suggested first Scene properties: plain words, never pre-made. */
@@ -4785,9 +5129,36 @@ span.r2-schema-type {
 .r2-embed-frame[data-missing] .r2-embed-name {
   color: var(--r2-ink-2);
 }
+/* The Views inside a Page: the same language, a little tighter — no
+   toolbar, no header beyond the frame's own line, narrower lanes, a Board
+   or Timeline that scrolls inside a bounded height. */
 .r2-embed-body .r2-board {
   max-height: 420px;
+  margin: 2px 0 0;
+  padding: 2px 0 10px;
   overflow-y: auto;
+}
+.r2-embed-body .r2-lane {
+  flex-basis: 224px;
+}
+.r2-embed-body .r2-table-wrap {
+  margin: 2px 0 0;
+}
+.r2-embed-body .r2-entry-row {
+  min-height: 30px;
+  padding: 5px 8px;
+  font-size: var(--r2-fs-body);
+}
+.r2-embed-body .r2-timeline {
+  margin-top: 2px;
+}
+.r2-embed-body .r2-timeline-scroll {
+  max-height: 420px;
+  overflow-y: auto;
+}
+.r2-embed-body .r2-view-empty {
+  margin: 4px 0 2px;
+  font-size: var(--r2-fs-ui);
 }
 .r2-embed-empty {
   margin: 4px 0 2px;
@@ -4814,13 +5185,8 @@ span.r2-schema-type {
 .r2-page-body .ProseMirror .r2-embed li {
   margin: 0;
 }
-/* Inside the frame's own hairlines, the List's top rule would double. */
 .r2-page-body .ProseMirror .r2-embed .r2-entry-list {
   margin: 2px 0 0;
-  border-top: 0;
-}
-.r2-page-body .ProseMirror .r2-embed .r2-entry-list li:last-child .r2-entry-row {
-  border-bottom: 0;
 }
 .r2-page-body .ProseMirror .r2-embed .r2-prop-picker-list {
   margin-top: 4px;

@@ -1,17 +1,31 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import {
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type ReactNode,
+} from "react";
 import {
   ArrowDown,
   ArrowLeft,
   ArrowRight,
   ArrowUp,
+  ArrowUpDown,
   Columns3,
+  Ellipsis,
   Eye,
   EyeOff,
   GitCommitHorizontal,
+  Layers2,
   List,
+  ListFilter,
   Plus,
+  Rows3,
+  Search,
   Table2,
   Trash2,
   X,
@@ -34,28 +48,30 @@ import {
 import { parseNumberInput } from "@/lib/rune2/collectionProperties";
 import { candidates, targetSpecOf } from "@/lib/rune2/references";
 import { axisProperties, MANUSCRIPT_AXIS } from "@/lib/rune2/timelineViews";
-import type { CollectionViewConfig, CollectionViewType, PropertyDefinition, SavedView, ViewFilter, ViewFilterOp } from "@/lib/types";
+import type {
+  CollectionViewConfig,
+  CollectionViewType,
+  PropertyDefinition,
+  SavedView,
+  ViewFilter,
+  ViewFilterOp,
+} from "@/lib/types";
 import { useRune2Selection } from "./Rune2Selection";
 import { useViewStore } from "./ViewStore";
 
 // The quiet controls of saved Views — a Collection's (migration 027) and a
 // Manuscript's Scene Views (032), whose owner is passed as `ownerId`:
-//   ViewSwitcher — the Views as a local tab row, once there are two
+//   ViewSwitcher — the Views as a local row of text tabs, the active one
+//                  underlined on the row's hairline
 //   AddViewMenu  — List, Table, Board or Timeline, each with one line saying what it is
-//   ViewOptions  — one View's name, type, order, shown properties, sort,
-//                  filters, (a Board) grouping and (a Timeline) its axis and
-//                  lanes; opened inline like the property settings, never a dialog
+//   ViewToolbar  — one compact row of the active View's own controls (Milestone
+//                  21E): Filter, Sort, Group (a Board's columns, a Timeline's
+//                  axis and lanes), Search, Properties (what the View shows)
+//                  and the View's settings (name, kind, order, delete); each
+//                  opens a small popover under its control, one at a time.
 // Everything here is configuration; nothing edits an item or a value, and
-// deleting a View says so.
-
-/** What a View is doing beyond showing everything: "Sorted · 2 filters". Empty when nothing. */
-export function viewSummary(view: SavedView, properties: readonly PropertyDefinition[]): string {
-  const known = new Set(properties.map((p) => p.id));
-  const filters = view.config.filters.filter((f) => known.has(f.property)).length;
-  // A Timeline is placed by its axis; its sort only orders ties.
-  const sorted = view.type !== "timeline" && view.config.sort && (view.config.sort.by === "title" || known.has(view.config.sort.by));
-  return [sorted && "Sorted", filters > 0 && `${filters} ${filters === 1 ? "filter" : "filters"}`].filter(Boolean).join(" · ");
-}
+// deleting a View says so. Search is the one thing not saved: a quick find
+// on names for this sitting, cleared when the control closes.
 
 function useNotice(ms = 5000) {
   const [notice, setNotice] = useState<string | null>(null);
@@ -75,7 +91,12 @@ function useNotice(ms = 5000) {
 // a tab, or Alt with ←/→, to move it (move_workspace_collection_view).
 // Double-clicking a tab opens its settings. `+` at the end adds a View.
 
-const VIEW_ICON: Record<CollectionViewType, typeof List> = { list: List, table: Table2, board: Columns3, timeline: GitCommitHorizontal };
+const VIEW_ICON: Record<CollectionViewType, typeof List> = {
+  list: List,
+  table: Table2,
+  board: Columns3,
+  timeline: GitCommitHorizontal,
+};
 const TAB_DRAG = "application/x-rune-view";
 
 export function ViewSwitcher({
@@ -97,7 +118,11 @@ export function ViewSwitcher({
   const [dragging, setDragging] = useState<string | null>(null);
   const [over, setOver] = useState<number | null>(null);
   const focusTab = (id: string) =>
-    requestAnimationFrame(() => document.querySelector<HTMLElement>(`[data-view-tab="${CSS.escape(id)}"]`)?.focus());
+    requestAnimationFrame(() =>
+      document
+        .querySelector<HTMLElement>(`[data-view-tab="${CSS.escape(id)}"]`)
+        ?.focus(),
+    );
 
   const onKey = (e: KeyboardEvent<HTMLButtonElement>, at: number) => {
     if (e.altKey && (e.key === "ArrowLeft" || e.key === "ArrowRight")) {
@@ -108,7 +133,16 @@ export function ViewSwitcher({
       focusTab(views[at].id);
       return;
     }
-    const to = e.key === "ArrowRight" ? at + 1 : e.key === "ArrowLeft" ? at - 1 : e.key === "Home" ? 0 : e.key === "End" ? views.length - 1 : -2;
+    const to =
+      e.key === "ArrowRight"
+        ? at + 1
+        : e.key === "ArrowLeft"
+          ? at - 1
+          : e.key === "Home"
+            ? 0
+            : e.key === "End"
+              ? views.length - 1
+              : -2;
     if (to === -2) return;
     e.preventDefault();
     const target = views[Math.max(0, Math.min(views.length - 1, to))];
@@ -116,63 +150,80 @@ export function ViewSwitcher({
     focusTab(target.id);
   };
 
+  // The tabs scroll sideways in a strip of their own when there are many;
+  // the `+` (and its menu) sits beside the strip, never inside it, so the
+  // menu is never clipped.
   return (
     <div className="r2-view-tabs">
       <p id={`${ownerId}-tabs-hint`} className="sr-only">
-        Alt and the left or right arrow move a view. Double-click a view for its settings.
+        Alt and the left or right arrow move a view. Double-click a view for its
+        settings.
       </p>
-      <div className="r2-view-switcher" role="tablist" aria-label="Views" aria-describedby={`${ownerId}-tabs-hint`}>
-        {views.map((v, at) => {
-          const Icon = VIEW_ICON[v.type];
-          return (
-            <button
-              key={v.id}
-              type="button"
-              role="tab"
-              className="r2-view-tab"
-              data-view-tab={v.id}
-              aria-selected={v.id === active.id}
-              tabIndex={v.id === active.id ? 0 : -1}
-              data-dragging={dragging === v.id || undefined}
-              data-drop={over === at && dragging !== null && dragging !== v.id ? (views.findIndex((x) => x.id === dragging) < at ? "after" : "before") : undefined}
-              title={`${VIEW_TYPE_LABEL[v.type]} view`}
-              draggable
-              onClick={() => setActiveView(ownerId, v.id)}
-              onDoubleClick={() => {
-                setActiveView(ownerId, v.id);
-                onEdit?.();
-              }}
-              onKeyDown={(e) => onKey(e, at)}
-              onDragStart={(e) => {
-                e.dataTransfer.setData(TAB_DRAG, v.id);
-                e.dataTransfer.effectAllowed = "move";
-                setDragging(v.id);
-              }}
-              onDragEnd={() => {
-                setDragging(null);
-                setOver(null);
-              }}
-              onDragOver={(e) => {
-                if (!e.dataTransfer.types.includes(TAB_DRAG)) return;
-                e.preventDefault();
-                e.dataTransfer.dropEffect = "move";
-                if (over !== at) setOver(at);
-              }}
-              onDrop={(e) => {
-                const id = e.dataTransfer.getData(TAB_DRAG);
-                setDragging(null);
-                setOver(null);
-                const moved = views.find((x) => x.id === id);
-                if (!moved || moved.id === v.id) return;
-                e.preventDefault();
-                void moveView(moved, at);
-              }}
-            >
-              <Icon {...ICON_SM} aria-hidden className="r2-view-tab-icon" />
-              {v.name}
-            </button>
-          );
-        })}
+      <div className="r2-view-strip">
+        <div
+          className="r2-view-switcher"
+          role="tablist"
+          aria-label="Views"
+          aria-describedby={`${ownerId}-tabs-hint`}
+        >
+          {views.map((v, at) => {
+            const Icon = VIEW_ICON[v.type];
+            return (
+              <button
+                key={v.id}
+                type="button"
+                role="tab"
+                className="r2-view-tab"
+                data-view-tab={v.id}
+                aria-selected={v.id === active.id}
+                tabIndex={v.id === active.id ? 0 : -1}
+                data-dragging={dragging === v.id || undefined}
+                data-drop={
+                  over === at && dragging !== null && dragging !== v.id
+                    ? views.findIndex((x) => x.id === dragging) < at
+                      ? "after"
+                      : "before"
+                    : undefined
+                }
+                title={`${VIEW_TYPE_LABEL[v.type]} view`}
+                draggable
+                onClick={() => setActiveView(ownerId, v.id)}
+                onDoubleClick={() => {
+                  setActiveView(ownerId, v.id);
+                  onEdit?.();
+                }}
+                onKeyDown={(e) => onKey(e, at)}
+                onDragStart={(e) => {
+                  e.dataTransfer.setData(TAB_DRAG, v.id);
+                  e.dataTransfer.effectAllowed = "move";
+                  setDragging(v.id);
+                }}
+                onDragEnd={() => {
+                  setDragging(null);
+                  setOver(null);
+                }}
+                onDragOver={(e) => {
+                  if (!e.dataTransfer.types.includes(TAB_DRAG)) return;
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = "move";
+                  if (over !== at) setOver(at);
+                }}
+                onDrop={(e) => {
+                  const id = e.dataTransfer.getData(TAB_DRAG);
+                  setDragging(null);
+                  setOver(null);
+                  const moved = views.find((x) => x.id === id);
+                  if (!moved || moved.id === v.id) return;
+                  e.preventDefault();
+                  void moveView(moved, at);
+                }}
+              >
+                <Icon {...ICON_SM} aria-hidden className="r2-view-tab-icon" />
+                <span className="r2-view-tab-name">{v.name}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
       {children}
     </div>
@@ -231,18 +282,17 @@ export function AddViewMenu({
       <button
         ref={button}
         type="button"
-        className="r2-collection-tool"
+        className="r2-view-tab r2-view-tab--add"
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
         aria-label={compact ? "Add a view" : undefined}
         title="Add a view: list, table, board or timeline"
-        data-compact={compact || undefined}
         disabled={busy}
         onClick={() => setOpen((o) => !o)}
       >
         <Plus {...ICON} aria-hidden />
-        {!compact && "Add view"}
+        {!compact && <span className="r2-view-tab-name">Add view</span>}
       </button>
       {open && (
         <div
@@ -250,11 +300,18 @@ export function AddViewMenu({
           role="menu"
           className="r2-view-menu"
           onKeyDown={(e) => {
-            const items = [...(e.currentTarget.querySelectorAll<HTMLElement>("[role=menuitem]") ?? [])];
+            const items = [
+              ...(e.currentTarget.querySelectorAll<HTMLElement>(
+                "[role=menuitem]",
+              ) ?? []),
+            ];
             const at = items.indexOf(document.activeElement as HTMLElement);
             if (e.key === "ArrowDown" || e.key === "ArrowUp") {
               e.preventDefault();
-              items[(at + (e.key === "ArrowDown" ? 1 : -1) + items.length) % items.length]?.focus();
+              items[
+                (at + (e.key === "ArrowDown" ? 1 : -1) + items.length) %
+                  items.length
+              ]?.focus();
             } else if (e.key === "Escape") {
               e.preventDefault();
               e.stopPropagation();
@@ -265,19 +322,29 @@ export function AddViewMenu({
             }
           }}
         >
-          {VIEW_TYPES.map((type, i) => (
-            <button
-              key={type}
-              type="button"
-              role="menuitem"
-              autoFocus={i === 0}
-              className="r2-view-menu-item"
-              onClick={() => void choose(type)}
-            >
-              <span className="r2-view-menu-name">{VIEW_TYPE_LABEL[type]}</span>
-              <span className="r2-view-menu-hint">{VIEW_TYPE_HINT[type]}</span>
-            </button>
-          ))}
+          {VIEW_TYPES.map((type, i) => {
+            const Icon = VIEW_ICON[type];
+            return (
+              <button
+                key={type}
+                type="button"
+                role="menuitem"
+                autoFocus={i === 0}
+                className="r2-view-menu-item"
+                onClick={() => void choose(type)}
+              >
+                <Icon {...ICON} aria-hidden className="r2-view-menu-icon" />
+                <span>
+                  <span className="r2-view-menu-name">
+                    {VIEW_TYPE_LABEL[type]}
+                  </span>
+                  <span className="r2-view-menu-hint">
+                    {VIEW_TYPE_HINT[type]}
+                  </span>
+                </span>
+              </button>
+            );
+          })}
         </div>
       )}
       {notice && (
@@ -289,14 +356,7 @@ export function AddViewMenu({
   );
 }
 
-// ── Options ─────────────────────────────────────────────────────────────────
-
-const SHOWN_LABEL: Record<CollectionViewType, string> = {
-  list: "Details",
-  table: "Columns",
-  board: "On cards",
-  timeline: "On markers",
-};
+// ── Filters: the pure bits ──────────────────────────────────────────────────
 
 /** The choices an "is" filter on `property` offers: its options, or a Relationship's possible targets. */
 function useFilterChoices() {
@@ -304,7 +364,9 @@ function useFilterChoices() {
   return (property: PropertyDefinition): { id: string; name: string }[] => {
     if (property.type !== "relationship") return property.options;
     const spec = targetSpecOf(property);
-    return spec ? candidates(index, spec).map((c) => ({ id: c.id, name: c.title })) : [];
+    return spec
+      ? candidates(index, spec).map((c) => ({ id: c.id, name: c.title }))
+      : [];
   };
 }
 
@@ -313,32 +375,59 @@ function useFilterChoices() {
  * (when it has one), a threshold of 0 for a number, today for a date, and
  * otherwise "not empty" (a read-only field has no empty filter).
  */
-function newFilter(property: PropertyDefinition, choices: { id: string }[]): ViewFilter | null {
+function newFilter(
+  property: PropertyDefinition,
+  choices: { id: string }[],
+): ViewFilter | null {
   for (const op of filterOpsFor(property)) {
-    const next = withOp({ property: property.id, op: "is_not_empty" }, property, op, choices);
+    const next = withOp(
+      { property: property.id, op: "is_not_empty" },
+      property,
+      op,
+      choices,
+    );
     if (next && (op !== "is" || choices.length)) return next;
   }
   return null;
 }
 
 /** `filter` with a new op (keeping or choosing a value as the op needs), or null when none fits. */
-function withOp(filter: ViewFilter, property: PropertyDefinition, op: ViewFilterOp, choices: { id: string }[]): ViewFilter | null {
+function withOp(
+  filter: ViewFilter,
+  property: PropertyDefinition,
+  op: ViewFilterOp,
+  choices: { id: string }[],
+): ViewFilter | null {
   const kept = "value" in filter ? filter.value : undefined;
   switch (op) {
     case "is":
     case "is_not": {
-      const value = typeof kept === "string" && choices.some((c) => c.id === kept) ? kept : choices[0]?.id;
+      const value =
+        typeof kept === "string" && choices.some((c) => c.id === kept)
+          ? kept
+          : choices[0]?.id;
       return value ? { property: filter.property, op, value } : null;
     }
     case "contains":
-      return { property: filter.property, op, value: filter.op === "contains" ? filter.value : "" };
+      return {
+        property: filter.property,
+        op,
+        value: filter.op === "contains" ? filter.value : "",
+      };
     case "gt":
     case "lt": {
       if (property.type === "date") {
-        const value = typeof kept === "string" && /^\d{4}-\d{2}-\d{2}$/.test(kept) ? kept : new Date().toISOString().slice(0, 10);
+        const value =
+          typeof kept === "string" && /^\d{4}-\d{2}-\d{2}$/.test(kept)
+            ? kept
+            : new Date().toISOString().slice(0, 10);
         return { property: filter.property, op, value };
       }
-      return { property: filter.property, op, value: typeof kept === "number" ? kept : 0 };
+      return {
+        property: filter.property,
+        op,
+        value: typeof kept === "number" ? kept : 0,
+      };
     }
     default:
       return { property: filter.property, op };
@@ -357,17 +446,21 @@ function FilterValue({
   choices: { id: string; name: string }[];
   onChange: (next: ViewFilter) => void;
 }) {
-  const [draft, setDraft] = useState("value" in filter ? String(filter.value) : "");
+  const [draft, setDraft] = useState(
+    "value" in filter ? String(filter.value) : "",
+  );
   if (!("value" in filter)) return null;
   if (filter.op === "is" || filter.op === "is_not") {
     return (
       <select
-        className="r2-field r2-schema-type"
+        className="r2-field r2-field--sm"
         aria-label={property.type === "relationship" ? "Item" : "Option"}
         value={filter.value}
         onChange={(e) => onChange({ ...filter, value: e.target.value })}
       >
-        {!choices.some((c) => c.id === filter.value) && <option value={filter.value}>An item in Trash</option>}
+        {!choices.some((c) => c.id === filter.value) && (
+          <option value={filter.value}>An item in Trash</option>
+        )}
         {choices.map((o) => (
           <option key={o.id} value={o.id}>
             {o.name}
@@ -378,13 +471,15 @@ function FilterValue({
   }
   const commit = () => {
     if (filter.op === "contains") {
-      if (draft.trim() && draft.trim() !== filter.value) onChange({ ...filter, value: draft.trim() });
+      if (draft.trim() && draft.trim() !== filter.value)
+        onChange({ ...filter, value: draft.trim() });
       else setDraft(filter.value);
       return;
     }
     if (filter.op !== "gt" && filter.op !== "lt") return;
     if (property.type === "date") {
-      if (/^\d{4}-\d{2}-\d{2}$/.test(draft) && draft !== filter.value) onChange({ ...filter, value: draft });
+      if (/^\d{4}-\d{2}-\d{2}$/.test(draft) && draft !== filter.value)
+        onChange({ ...filter, value: draft });
       else setDraft(String(filter.value));
       return;
     }
@@ -394,9 +489,17 @@ function FilterValue({
   };
   return (
     <input
-      className="r2-field r2-schema-type r2-view-filter-input"
-      aria-label={filter.op === "contains" ? "Text" : property.type === "date" ? "Date" : "Number"}
-      type={property.type === "date" && filter.op !== "contains" ? "date" : "text"}
+      className="r2-field r2-field--sm r2-view-filter-input"
+      aria-label={
+        filter.op === "contains"
+          ? "Text"
+          : property.type === "date"
+            ? "Date"
+            : "Number"
+      }
+      type={
+        property.type === "date" && filter.op !== "contains" ? "date" : "text"
+      }
       inputMode={property.type === "number" ? "decimal" : undefined}
       placeholder={filter.op === "contains" ? "Some words…" : undefined}
       maxLength={200}
@@ -410,304 +513,352 @@ function FilterValue({
   );
 }
 
-export function ViewOptions({
+// ── The toolbar ─────────────────────────────────────────────────────────────
+
+type Tool =
+  "filter" | "sort" | "group" | "axis" | "search" | "properties" | "settings";
+
+/** An owner's request to open one of the toolbar's popovers (a tab double-clicked: settings; a Board without a grouping: its columns). */
+export type ToolRequest = { tool: "settings" | "group" | "axis"; n: number };
+
+const SHOWN_LABEL: Record<CollectionViewType, string> = {
+  list: "Details",
+  table: "Columns",
+  board: "On cards",
+  timeline: "On markers",
+};
+
+/**
+ * One control of the toolbar and the popover under it. The popover is a
+ * small dialog (fields, not a menu): Escape closes it and returns focus;
+ * a click elsewhere closes it (the toolbar handles that, since one is open
+ * at a time). `active`: the control is doing something (a sort is set, two
+ * filters are on), shown in ink.
+ */
+function Tool({
+  id,
+  icon: Icon,
+  label,
+  title,
+  active,
+  open,
+  onToggle,
+  onClose,
+  align = "start",
+  wide,
+  children,
+}: {
+  id: string;
+  icon: typeof List;
+  label: ReactNode;
+  title: string;
+  active?: boolean;
+  open: boolean;
+  onToggle: () => void;
+  onClose: (refocus: boolean) => void;
+  align?: "start" | "end";
+  wide?: boolean;
+  children: ReactNode;
+}) {
+  const button = useRef<HTMLButtonElement>(null);
+  const pop = useRef<HTMLDivElement>(null);
+
+  // Opened: the first field takes focus, so the keyboard carries straight on.
+  useLayoutEffect(() => {
+    if (!open) return;
+    pop.current
+      ?.querySelector<HTMLElement>("input, select, button, [tabindex]")
+      ?.focus();
+  }, [open]);
+
+  return (
+    <div className="r2-tool-wrap">
+      <button
+        ref={button}
+        type="button"
+        className="r2-tool"
+        data-active={active || undefined}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        aria-controls={open ? id : undefined}
+        title={title}
+        onClick={onToggle}
+      >
+        <Icon {...ICON} aria-hidden />
+        <span className="r2-tool-label">{label}</span>
+      </button>
+      {open && (
+        <div
+          ref={pop}
+          id={id}
+          role="dialog"
+          aria-label={title}
+          className="r2-popover r2-tool-pop"
+          data-align={align}
+          data-wide={wide || undefined}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") {
+              e.preventDefault();
+              e.stopPropagation();
+              onClose(true);
+              button.current?.focus();
+            }
+          }}
+        >
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function ViewToolbar({
   view,
   views,
   properties,
-  onDeleted,
   naturalOrder = "Order created",
   itemNoun = "entry",
+  search,
+  onSearch,
+  schemaOpen,
+  onToggleSchema,
+  schemaLabel = "Edit properties",
+  request,
+  children,
 }: {
   view: SavedView;
   views: SavedView[];
   properties: PropertyDefinition[];
-  onDeleted: () => void;
   /** How `sort: null` reads: "Order created" (Entries), "Manuscript order" (Scenes). */
   naturalOrder?: string;
   /** "entry", "scene": what the View shows, for its delete question. */
   itemNoun?: string;
+  /** The quick find on names, this sitting only. */
+  search: string;
+  onSearch: (query: string) => void;
+  /** The owner's property settings (what properties exist), opened inline under the bar. */
+  schemaOpen: boolean;
+  onToggleSchema: () => void;
+  schemaLabel?: string;
+  /** The owner asking for one popover to open (its `n` bumped each time). */
+  request?: ToolRequest;
+  /** Owner-specific actions at the end of the row ("Read"). */
+  children?: ReactNode;
 }) {
   const { updateView, moveView, deleteView } = useViewStore();
   const choicesOf = useFilterChoices();
   const [notice, setNotice] = useNotice(6000);
-  const [name, setName] = useState(view.name);
-  const [confirming, setConfirming] = useState(false);
-  const [busy, setBusy] = useState(false);
+  const [open, setOpen] = useState<Tool | null>(null);
+  const root = useRef<HTMLDivElement>(null);
   const ids = useId();
-  const at = views.findIndex((v) => v.id === view.id);
+  const config = view.config;
+  const known = new Set(properties.map((p) => p.id));
+  const byId = new Map(properties.map((p) => [p.id, p]));
   const shown = shownProperties(view, properties);
   const hidden = hiddenProperties(view, properties);
-  const byId = new Map(properties.map((p) => [p.id, p]));
   const groupable = groupableProperties(properties);
   const sortable = sortableProperties(properties);
   const axes = axisProperties(properties);
   const manuscript = isSceneView(view);
-  const config = view.config;
+  const filters = config.filters.filter((f) => known.has(f.property));
+  const sortedBy =
+    config.sort &&
+    (config.sort.by === "title" ? "Name" : byId.get(config.sort.by)?.name);
+  const groupedBy = config.group_by ? byId.get(config.group_by) : undefined;
+  const axis =
+    config.axis === MANUSCRIPT_AXIS
+      ? "Manuscript"
+      : config.axis
+        ? byId.get(config.axis)?.name
+        : undefined;
+
+  const toggle = (tool: Tool) => setOpen((o) => (o === tool ? null : tool));
+  const close = () => setOpen(null);
+
+  // A tab double-clicked: its settings. A Board asking for its grouping, a
+  // Timeline for its axis: that popover.
+  const seenRequest = useRef(request?.n ?? 0);
+  useEffect(() => {
+    if (request && request.n !== seenRequest.current) {
+      seenRequest.current = request.n;
+      setOpen(request.tool);
+    }
+  }, [request]);
+
+  // A click anywhere else closes the open popover (the search field stays
+  // while it holds a query).
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: PointerEvent) => {
+      if (root.current?.contains(e.target as Node)) return;
+      setOpen((o) => (o === "search" && search ? o : null));
+    };
+    document.addEventListener("pointerdown", onDown);
+    return () => document.removeEventListener("pointerdown", onDown);
+  }, [open, search]);
 
   const save = async (next: CollectionViewConfig) => {
     const error = await updateView(view, { config: next });
     if (error) setNotice("That change couldn’t be saved.");
   };
 
-  const rename = async () => {
-    const next = name.trim();
-    if (!next || next === view.name) {
-      setName(view.name);
-      return;
-    }
-    const error = await updateView(view, { name: next });
-    if (error) {
-      setName(view.name);
-      setNotice("The name couldn’t be saved.");
-    }
-  };
-
-  const remove = async () => {
-    setBusy(true);
-    const error = await deleteView(view);
-    setBusy(false);
-    setConfirming(false);
-    if (error) setNotice("The view couldn’t be deleted.");
-    else onDeleted();
-  };
+  const tool = (key: Tool) => ({
+    open: open === key,
+    onToggle: () => toggle(key),
+    onClose: close,
+  });
 
   return (
-    <section className="r2-schema r2-view-options" aria-label={`Settings for the ${view.name} view`}>
-      <div className="r2-view-head">
-        <label htmlFor={`${ids}-name`} className="sr-only">
-          View name
-        </label>
-        <input
-          id={`${ids}-name`}
-          className="r2-schema-name"
-          maxLength={100}
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          onBlur={() => void rename()}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") e.currentTarget.blur();
-            else if (e.key === "Escape") {
-              e.preventDefault();
-              e.stopPropagation();
-              setName(view.name);
-              requestAnimationFrame(() => (e.target as HTMLInputElement).blur());
-            }
-          }}
-        />
-        <select
-          className="r2-field r2-schema-type"
-          aria-label="Show as"
-          value={view.type}
-          onChange={async (e) => {
-            const error = await updateView(view, { type: e.target.value as CollectionViewType });
-            if (error) setNotice("That change couldn’t be saved.");
-          }}
-        >
-          {VIEW_TYPES.map((t) => (
-            <option key={t} value={t}>
-              {VIEW_TYPE_LABEL[t]}
-            </option>
-          ))}
-        </select>
-        {views.length > 1 && (
-          <span className="r2-schema-actions">
-            <button
-              type="button"
-              className="r2-icon-button"
-              aria-label={`Move ${view.name} left`}
-              disabled={at <= 0}
-              onClick={() => void moveView(view, at - 1)}
-            >
-              <ArrowLeft {...ICON} aria-hidden />
-            </button>
-            <button
-              type="button"
-              className="r2-icon-button"
-              aria-label={`Move ${view.name} right`}
-              disabled={at >= views.length - 1}
-              onClick={() => void moveView(view, at + 1)}
-            >
-              <ArrowRight {...ICON} aria-hidden />
-            </button>
-            <button
-              type="button"
-              className="r2-icon-button"
-              aria-label={`Delete the ${view.name} view`}
-              onClick={() => setConfirming(true)}
-            >
-              <Trash2 {...ICON} aria-hidden />
-            </button>
-          </span>
+    <div
+      ref={root}
+      className="r2-toolbar"
+      role="group"
+      aria-label={`Controls for the ${view.name} view`}
+    >
+      {/* Filter */}
+      <Tool
+        id={`${ids}-filter`}
+        icon={ListFilter}
+        label={filters.length > 0 ? `Filter · ${filters.length}` : "Filter"}
+        title="Which items this view shows"
+        active={filters.length > 0}
+        wide
+        {...tool("filter")}
+      >
+        <p className="r2-tool-pop-title">Filter</p>
+        {filters.length > 0 && (
+          <ul className="r2-view-filters">
+            {config.filters.map((f, i) => {
+              const property = byId.get(f.property);
+              if (!property) return null;
+              const choices = choicesOf(property);
+              const replace = (next: ViewFilter | null) =>
+                next &&
+                void save({
+                  ...config,
+                  filters: config.filters.map((x, j) => (j === i ? next : x)),
+                });
+              return (
+                <li key={i} className="r2-view-inline">
+                  <select
+                    className="r2-field r2-field--sm"
+                    aria-label="Property"
+                    value={property.id}
+                    onChange={(e) => {
+                      const p = byId.get(e.target.value);
+                      if (p) replace(newFilter(p, choicesOf(p)));
+                    }}
+                  >
+                    {properties.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    className="r2-field r2-field--sm"
+                    aria-label="Condition"
+                    value={f.op}
+                    onChange={(e) =>
+                      replace(
+                        withOp(
+                          f,
+                          property,
+                          e.target.value as ViewFilterOp,
+                          choices,
+                        ),
+                      )
+                    }
+                  >
+                    {filterOpsFor(property)
+                      .filter(
+                        (op) =>
+                          (op !== "is" && op !== "is_not") ||
+                          choices.length > 0 ||
+                          f.op === op,
+                      )
+                      .map((op) => (
+                        <option key={op} value={op}>
+                          {filterOpLabel(property, op)}
+                        </option>
+                      ))}
+                  </select>
+                  {/* A fresh field per filter kind, so a draft never carries over. */}
+                  <FilterValue
+                    key={`${f.property}-${f.op}`}
+                    filter={f}
+                    property={property}
+                    choices={choices}
+                    onChange={replace}
+                  />
+                  <button
+                    type="button"
+                    className="r2-icon-button"
+                    aria-label="Remove this filter"
+                    onClick={() =>
+                      void save({
+                        ...config,
+                        filters: config.filters.filter((_, j) => j !== i),
+                      })
+                    }
+                  >
+                    <X {...ICON} aria-hidden />
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
         )}
-      </div>
-
-      {confirming && (
-        <div className="r2-schema-confirm r2-view-confirm" role="group" aria-label="Delete this view">
-          <p>
-            Delete the “{view.name}” view? Only this way of showing them goes — every {itemNoun} and its values stay,
-            and the other views are unchanged.
+        {properties.length > 0 ? (
+          config.filters.length < 20 && (
+            <button
+              type="button"
+              className="r2-prop-add"
+              onClick={() => {
+                const first = properties
+                  .map((p) => newFilter(p, choicesOf(p)))
+                  .find((f) => f !== null);
+                if (first)
+                  void save({ ...config, filters: [...config.filters, first] });
+              }}
+            >
+              <Plus {...ICON} aria-hidden />
+              Add a filter
+            </button>
+          )
+        ) : (
+          <p className="r2-view-muted">
+            Filters use properties. Add one to the{" "}
+            {manuscript ? "scenes" : "collection"} first.
           </p>
-          <button type="button" className="r2-button r2-button--danger" disabled={busy} onClick={() => void remove()}>
-            Delete view
-          </button>
-          <button type="button" className="r2-button" onClick={() => setConfirming(false)}>
-            Cancel
-          </button>
-        </div>
-      )}
-
-      <dl className="r2-view-settings">
-        {view.type === "board" && (
-          <div className="r2-view-setting">
-            <dt id={`${ids}-group`}>Columns by</dt>
-            <dd>
-              {groupable.length > 0 ? (
-                <select
-                  className="r2-field r2-schema-type"
-                  aria-labelledby={`${ids}-group`}
-                  value={config.group_by ?? ""}
-                  onChange={(e) => void save({ ...config, group_by: e.target.value || null })}
-                >
-                  {config.group_by === null && <option value="">Choose a property</option>}
-                  {groupable.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <span className="r2-view-muted">Add a Status, Select or Relationship property to group by.</span>
-              )}
-            </dd>
-          </div>
         )}
+      </Tool>
 
-        {view.type === "timeline" && (
-          <>
-            <div className="r2-view-setting">
-              <dt id={`${ids}-axis`}>Along</dt>
-              <dd>
-                {manuscript || axes.length > 0 ? (
-                  <select
-                    className="r2-field r2-schema-type"
-                    aria-labelledby={`${ids}-axis`}
-                    value={config.axis ?? ""}
-                    onChange={(e) => void save({ ...config, axis: e.target.value || null })}
-                  >
-                    {!config.axis && <option value="">Choose an axis</option>}
-                    {manuscript && <option value={MANUSCRIPT_AXIS}>Manuscript position</option>}
-                    {axes.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name}
-                      </option>
-                    ))}
-                  </select>
-                ) : (
-                  <span className="r2-view-muted">Add a Date or Number property to place {itemNoun === "scene" ? "scenes" : "entries"} along.</span>
-                )}
-              </dd>
-            </div>
-            <div className="r2-view-setting">
-              <dt id={`${ids}-lanes`}>Lanes by</dt>
-              <dd>
-                {groupable.length > 0 ? (
-                  <select
-                    className="r2-field r2-schema-type"
-                    aria-labelledby={`${ids}-lanes`}
-                    value={config.group_by ?? ""}
-                    onChange={(e) => void save({ ...config, group_by: e.target.value || null })}
-                  >
-                    <option value="">No lanes</option>
-                    {groupable.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name}
-                      </option>
-                    ))}
-                  </select>
-                ) : (
-                  <span className="r2-view-muted">Add a Status, Select or Relationship property for lanes.</span>
-                )}
-              </dd>
-            </div>
-          </>
-        )}
-
-        <div className="r2-view-setting">
-          <dt>{SHOWN_LABEL[view.type]}</dt>
-          <dd>
-            {properties.length === 0 ? (
-              <span className="r2-view-muted">No properties yet.</span>
-            ) : (
-              <ul className="r2-view-props">
-                {shown.map((p, i) => (
-                  <li key={p.id}>
-                    <span className="r2-view-prop-name">{p.name}</span>
-                    <span className="r2-schema-actions">
-                      <button
-                        type="button"
-                        className="r2-icon-button"
-                        aria-label={`Move ${p.name} up`}
-                        disabled={i === 0}
-                        onClick={() => void save(withPropertyMoved(config, p.id, -1))}
-                      >
-                        <ArrowUp {...ICON} aria-hidden />
-                      </button>
-                      <button
-                        type="button"
-                        className="r2-icon-button"
-                        aria-label={`Move ${p.name} down`}
-                        disabled={i === shown.length - 1}
-                        onClick={() => void save(withPropertyMoved(config, p.id, 1))}
-                      >
-                        <ArrowDown {...ICON} aria-hidden />
-                      </button>
-                      <button
-                        type="button"
-                        className="r2-icon-button"
-                        aria-pressed
-                        aria-label={`Hide ${p.name}`}
-                        title="Shown — click to hide"
-                        onClick={() => void save(withPropertyShown(config, p.id, false))}
-                      >
-                        <Eye {...ICON} aria-hidden />
-                      </button>
-                    </span>
-                  </li>
-                ))}
-                {hidden.map((p) => (
-                  <li key={p.id} data-hidden="">
-                    <span className="r2-view-prop-name">{p.name}</span>
-                    <span className="r2-schema-actions">
-                      <button
-                        type="button"
-                        className="r2-icon-button"
-                        aria-pressed={false}
-                        aria-label={`Show ${p.name}`}
-                        title="Hidden — click to show"
-                        onClick={() => void save(withPropertyShown(config, p.id, true))}
-                      >
-                        <EyeOff {...ICON} aria-hidden />
-                      </button>
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </dd>
-        </div>
-
-        {view.type !== "timeline" && (
-        <div className="r2-view-setting">
-          <dt id={`${ids}-sort`}>Sort</dt>
-          <dd className="r2-view-inline">
+      {/* Sort: a Timeline is placed by its axis; its sort only orders ties, so it has none here. */}
+      {view.type !== "timeline" && (
+        <Tool
+          id={`${ids}-sort`}
+          icon={ArrowUpDown}
+          label={sortedBy ? `Sort · ${sortedBy}` : "Sort"}
+          title="The order of the items"
+          active={!!config.sort}
+          {...tool("sort")}
+        >
+          <p className="r2-tool-pop-title">Sort by</p>
+          <div className="r2-view-inline">
             <select
-              className="r2-field r2-schema-type"
-              aria-labelledby={`${ids}-sort`}
+              className="r2-field r2-field--sm"
+              aria-label="Sort by"
               value={config.sort?.by ?? ""}
               onChange={(e) =>
                 void save({
                   ...config,
-                  sort: e.target.value ? { by: e.target.value, direction: config.sort?.direction ?? "asc" } : null,
+                  sort: e.target.value
+                    ? {
+                        by: e.target.value,
+                        direction: config.sort?.direction ?? "asc",
+                      }
+                    : null,
                 })
               }
             >
@@ -720,105 +871,448 @@ export function ViewOptions({
               ))}
             </select>
             {config.sort && (
-              <select
-                className="r2-field r2-schema-type"
-                aria-label="Direction"
-                value={config.sort.direction}
-                onChange={(e) =>
-                  config.sort && void save({ ...config, sort: { ...config.sort, direction: e.target.value as "asc" | "desc" } })
-                }
-              >
-                <option value="asc">Ascending</option>
-                <option value="desc">Descending</option>
-              </select>
-            )}
-          </dd>
-        </div>
-        )}
-
-        <div className="r2-view-setting">
-          <dt>Filter</dt>
-          <dd>
-            {config.filters.length > 0 && (
-              <ul className="r2-view-filters">
-                {config.filters.map((f, i) => {
-                  const property = byId.get(f.property);
-                  if (!property) return null;
-                  const choices = choicesOf(property);
-                  const replace = (next: ViewFilter | null) =>
-                    next && void save({ ...config, filters: config.filters.map((x, j) => (j === i ? next : x)) });
-                  return (
-                    <li key={i} className="r2-view-inline">
-                      <select
-                        className="r2-field r2-schema-type"
-                        aria-label="Property"
-                        value={property.id}
-                        onChange={(e) => {
-                          const p = byId.get(e.target.value);
-                          if (p) replace(newFilter(p, choicesOf(p)));
-                        }}
-                      >
-                        {properties.map((p) => (
-                          <option key={p.id} value={p.id}>
-                            {p.name}
-                          </option>
-                        ))}
-                      </select>
-                      <select
-                        className="r2-field r2-schema-type"
-                        aria-label="Condition"
-                        value={f.op}
-                        onChange={(e) => replace(withOp(f, property, e.target.value as ViewFilterOp, choices))}
-                      >
-                        {filterOpsFor(property)
-                          .filter((op) => (op !== "is" && op !== "is_not") || choices.length > 0 || f.op === op)
-                          .map((op) => (
-                            <option key={op} value={op}>
-                              {filterOpLabel(property, op)}
-                            </option>
-                          ))}
-                      </select>
-                      {/* A fresh field per filter kind, so a draft never carries over. */}
-                      <FilterValue key={`${f.property}-${f.op}`} filter={f} property={property} choices={choices} onChange={replace} />
-                      <button
-                        type="button"
-                        className="r2-icon-button"
-                        aria-label="Remove this filter"
-                        onClick={() => void save({ ...config, filters: config.filters.filter((_, j) => j !== i) })}
-                      >
-                        <X {...ICON} aria-hidden />
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-            {properties.length > 0 ? (
-              config.filters.length < 20 && (
+              <span className="r2-tool-seg" role="group" aria-label="Direction">
                 <button
                   type="button"
-                  className="r2-prop-add"
-                  onClick={() => {
-                    const first = properties.map((p) => newFilter(p, choicesOf(p))).find((f) => f !== null);
-                    if (first) void save({ ...config, filters: [...config.filters, first] });
-                  }}
+                  aria-pressed={config.sort.direction === "asc"}
+                  onClick={() =>
+                    config.sort &&
+                    void save({
+                      ...config,
+                      sort: { ...config.sort, direction: "asc" },
+                    })
+                  }
                 >
-                  <Plus {...ICON} aria-hidden />
-                  Add a filter
+                  <ArrowUp {...ICON_SM} aria-hidden />
+                  Ascending
                 </button>
-              )
-            ) : (
-              <span className="r2-view-muted">Filters use properties.</span>
+                <button
+                  type="button"
+                  aria-pressed={config.sort.direction === "desc"}
+                  onClick={() =>
+                    config.sort &&
+                    void save({
+                      ...config,
+                      sort: { ...config.sort, direction: "desc" },
+                    })
+                  }
+                >
+                  <ArrowDown {...ICON_SM} aria-hidden />
+                  Descending
+                </button>
+              </span>
             )}
-          </dd>
-        </div>
-      </dl>
+          </div>
+        </Tool>
+      )}
+
+      {/* A Timeline's axis */}
+      {view.type === "timeline" && (
+        <Tool
+          id={`${ids}-axis`}
+          icon={GitCommitHorizontal}
+          label={axis ? `Along · ${axis}` : "Along"}
+          title="What the items are placed along"
+          active={!!axis}
+          {...tool("axis")}
+        >
+          <p className="r2-tool-pop-title">Along</p>
+          {manuscript || axes.length > 0 ? (
+            <select
+              className="r2-field r2-field--sm"
+              aria-label="Along"
+              value={config.axis ?? ""}
+              onChange={(e) =>
+                void save({ ...config, axis: e.target.value || null })
+              }
+            >
+              {!config.axis && <option value="">Choose an axis</option>}
+              {manuscript && (
+                <option value={MANUSCRIPT_AXIS}>Manuscript position</option>
+              )}
+              {axes.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name} ({p.type === "date" ? "date" : "number"})
+                </option>
+              ))}
+            </select>
+          ) : (
+            <p className="r2-view-muted">
+              Add a Date or Number property to place{" "}
+              {itemNoun === "scene" ? "scenes" : "entries"} along.
+            </p>
+          )}
+        </Tool>
+      )}
+
+      {/* A Board's columns, a Timeline's lanes */}
+      {(view.type === "board" || view.type === "timeline") && (
+        <Tool
+          id={`${ids}-group`}
+          icon={Layers2}
+          label={
+            groupedBy
+              ? `${view.type === "board" ? "Columns" : "Lanes"} · ${groupedBy.name}`
+              : view.type === "board"
+                ? "Columns"
+                : "Lanes"
+          }
+          title={
+            view.type === "board"
+              ? "The property the columns are by"
+              : "The property the lanes are by"
+          }
+          active={!!groupedBy}
+          {...tool("group")}
+        >
+          <p className="r2-tool-pop-title">
+            {view.type === "board" ? "Columns by" : "Lanes by"}
+          </p>
+          {groupable.length > 0 ? (
+            <select
+              className="r2-field r2-field--sm"
+              aria-label={view.type === "board" ? "Columns by" : "Lanes by"}
+              value={config.group_by ?? ""}
+              onChange={(e) =>
+                void save({ ...config, group_by: e.target.value || null })
+              }
+            >
+              {view.type === "board" ? (
+                config.group_by === null && (
+                  <option value="">Choose a property</option>
+                )
+              ) : (
+                <option value="">No lanes</option>
+              )}
+              {groupable.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <p className="r2-view-muted">
+              Add a Status, Select or Relationship property to{" "}
+              {view.type === "board" ? "group by" : "make lanes"}.
+            </p>
+          )}
+        </Tool>
+      )}
+
+      {/* Search: an inline field, not saved. */}
+      <div
+        className="r2-tool-wrap"
+        data-search={open === "search" || search ? "" : undefined}
+      >
+        {open === "search" || search ? (
+          <span className="r2-tool-search">
+            <Search {...ICON} aria-hidden />
+            <input
+              autoFocus
+              type="search"
+              className="r2-tool-search-input"
+              aria-label="Find by name"
+              placeholder="Find by name…"
+              maxLength={200}
+              value={search}
+              onChange={(e) => onSearch(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onSearch("");
+                  setOpen(null);
+                }
+              }}
+              onBlur={() => {
+                if (!search) setOpen((o) => (o === "search" ? null : o));
+              }}
+            />
+            <button
+              type="button"
+              className="r2-icon-button r2-icon-button--xs"
+              aria-label="Clear the search"
+              onClick={() => {
+                onSearch("");
+                setOpen(null);
+              }}
+            >
+              <X {...ICON_SM} aria-hidden />
+            </button>
+          </span>
+        ) : (
+          <button
+            type="button"
+            className="r2-tool"
+            title="Find by name"
+            aria-label="Find by name"
+            onClick={() => setOpen("search")}
+          >
+            <Search {...ICON} aria-hidden />
+          </button>
+        )}
+      </div>
+
+      {/* Properties the View shows */}
+      <Tool
+        id={`${ids}-props`}
+        icon={Rows3}
+        label={SHOWN_LABEL[view.type]}
+        title={`Which properties this ${VIEW_TYPE_LABEL[view.type].toLowerCase()} shows`}
+        align="end"
+        {...tool("properties")}
+      >
+        <p className="r2-tool-pop-title">{SHOWN_LABEL[view.type]}</p>
+        {properties.length === 0 ? (
+          <p className="r2-view-muted">No properties yet.</p>
+        ) : (
+          <ul className="r2-view-props">
+            {shown.map((p, i) => (
+              <li key={p.id}>
+                <span className="r2-view-prop-name">{p.name}</span>
+                <span className="r2-schema-actions">
+                  <button
+                    type="button"
+                    className="r2-icon-button"
+                    aria-label={`Move ${p.name} up`}
+                    disabled={i === 0}
+                    onClick={() =>
+                      void save(withPropertyMoved(config, p.id, -1))
+                    }
+                  >
+                    <ArrowUp {...ICON} aria-hidden />
+                  </button>
+                  <button
+                    type="button"
+                    className="r2-icon-button"
+                    aria-label={`Move ${p.name} down`}
+                    disabled={i === shown.length - 1}
+                    onClick={() =>
+                      void save(withPropertyMoved(config, p.id, 1))
+                    }
+                  >
+                    <ArrowDown {...ICON} aria-hidden />
+                  </button>
+                  <button
+                    type="button"
+                    className="r2-icon-button"
+                    aria-pressed
+                    aria-label={`Hide ${p.name}`}
+                    title="Shown — click to hide"
+                    onClick={() =>
+                      void save(withPropertyShown(config, p.id, false))
+                    }
+                  >
+                    <Eye {...ICON} aria-hidden />
+                  </button>
+                </span>
+              </li>
+            ))}
+            {hidden.map((p) => (
+              <li key={p.id} data-hidden="">
+                <span className="r2-view-prop-name">{p.name}</span>
+                <span className="r2-schema-actions">
+                  <button
+                    type="button"
+                    className="r2-icon-button"
+                    aria-pressed={false}
+                    aria-label={`Show ${p.name}`}
+                    title="Hidden — click to show"
+                    onClick={() =>
+                      void save(withPropertyShown(config, p.id, true))
+                    }
+                  >
+                    <EyeOff {...ICON} aria-hidden />
+                  </button>
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+        <button
+          type="button"
+          className="r2-prop-add"
+          aria-expanded={schemaOpen}
+          onClick={() => {
+            close();
+            onToggleSchema();
+          }}
+        >
+          <Plus {...ICON} aria-hidden />
+          {schemaLabel}
+        </button>
+      </Tool>
+
+      {/* The View itself */}
+      <Tool
+        id={`${ids}-settings`}
+        icon={Ellipsis}
+        label={<span className="sr-only">View settings</span>}
+        title="This view: its name, kind and place"
+        align="end"
+        {...tool("settings")}
+      >
+        <ViewSettings
+          view={view}
+          views={views}
+          itemNoun={itemNoun}
+          onRename={async (name) => {
+            const error = await updateView(view, { name });
+            if (error) setNotice("The name couldn’t be saved.");
+            return !error;
+          }}
+          onRetype={async (type) => {
+            const error = await updateView(view, { type });
+            if (error) setNotice("That change couldn’t be saved.");
+          }}
+          onMove={(to) => void moveView(view, to)}
+          onDelete={async () => {
+            const error = await deleteView(view);
+            if (error) setNotice("The view couldn’t be deleted.");
+            else close();
+          }}
+        />
+      </Tool>
+
+      {children}
 
       {notice && (
-        <p role="status" className="r2-doc-note">
+        <span role="status" className="r2-toolbar-notice">
           {notice}
+        </span>
+      )}
+    </div>
+  );
+}
+
+/** One View's own settings: its name, what it shows as, its place in the row, and the way to delete it. */
+function ViewSettings({
+  view,
+  views,
+  itemNoun,
+  onRename,
+  onRetype,
+  onMove,
+  onDelete,
+}: {
+  view: SavedView;
+  views: SavedView[];
+  itemNoun: string;
+  onRename: (name: string) => Promise<boolean>;
+  onRetype: (type: CollectionViewType) => Promise<void>;
+  onMove: (to: number) => void;
+  onDelete: () => Promise<void>;
+}) {
+  const [name, setName] = useState(view.name);
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const ids = useId();
+  const at = views.findIndex((v) => v.id === view.id);
+
+  const rename = async () => {
+    const next = name.trim();
+    if (!next || next === view.name) {
+      setName(view.name);
+      return;
+    }
+    if (!(await onRename(next))) setName(view.name);
+  };
+
+  return (
+    <div className="r2-view-settings">
+      <label htmlFor={`${ids}-name`} className="r2-tool-pop-title">
+        View name
+      </label>
+      <input
+        id={`${ids}-name`}
+        className="r2-field r2-field--sm r2-view-name"
+        maxLength={100}
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        onBlur={() => void rename()}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") e.currentTarget.blur();
+        }}
+      />
+      <label htmlFor={`${ids}-type`} className="r2-tool-pop-title">
+        Show as
+      </label>
+      <select
+        id={`${ids}-type`}
+        className="r2-field r2-field--sm"
+        value={view.type}
+        onChange={(e) => void onRetype(e.target.value as CollectionViewType)}
+      >
+        {VIEW_TYPES.map((t) => (
+          <option key={t} value={t}>
+            {VIEW_TYPE_LABEL[t]}
+          </option>
+        ))}
+      </select>
+      {views.length > 1 && (
+        <div className="r2-view-settings-row">
+          <span className="r2-schema-actions">
+            <button
+              type="button"
+              className="r2-icon-button"
+              aria-label={`Move ${view.name} left`}
+              disabled={at <= 0}
+              onClick={() => onMove(at - 1)}
+            >
+              <ArrowLeft {...ICON} aria-hidden />
+            </button>
+            <button
+              type="button"
+              className="r2-icon-button"
+              aria-label={`Move ${view.name} right`}
+              disabled={at >= views.length - 1}
+              onClick={() => onMove(at + 1)}
+            >
+              <ArrowRight {...ICON} aria-hidden />
+            </button>
+          </span>
+          {confirming ? (
+            <span className="r2-view-settings-confirm">
+              <button
+                type="button"
+                className="r2-button r2-button--danger r2-button--sm"
+                disabled={busy}
+                onClick={async () => {
+                  setBusy(true);
+                  await onDelete();
+                  setBusy(false);
+                  setConfirming(false);
+                }}
+              >
+                Delete view
+              </button>
+              <button
+                type="button"
+                className="r2-button r2-button--quiet r2-button--sm"
+                onClick={() => setConfirming(false)}
+              >
+                Cancel
+              </button>
+            </span>
+          ) : (
+            <button
+              type="button"
+              className="r2-button r2-button--quiet r2-button--sm"
+              data-tone="danger"
+              onClick={() => setConfirming(true)}
+            >
+              <Trash2 {...ICON} aria-hidden />
+              Delete view
+            </button>
+          )}
+        </div>
+      )}
+      {confirming && (
+        <p className="r2-view-muted">
+          Only this way of showing them goes — every {itemNoun} and its values
+          stay, and the other views are unchanged.
         </p>
       )}
-    </section>
+    </div>
   );
 }

@@ -1,19 +1,19 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Plus, Rows3, SlidersHorizontal } from "lucide-react";
+import { Plus } from "lucide-react";
 import { ICON } from "./icons";
 import { renameWorkspaceCollection } from "@/lib/actions/workspaceCollections";
 import { arrangeEntries, type LaneTargets } from "@/lib/rune2/collectionViews";
 import type { NavEntry } from "@/lib/rune2/navigatorModel";
 import type { SavedView } from "@/lib/types";
 import { CollectionSchema } from "./CollectionSchema";
-import { BoardView, ListView, TableView, type ItemPresenter } from "./CollectionViewBodies";
+import { BoardView, ListView, TableView, quickFind, type ItemPresenter } from "./CollectionViewBodies";
 import { TimelineView } from "./TimelineView";
 import { usePropertyStore } from "./PropertyStore";
 import { useRune2Selection } from "./Rune2Selection";
 import { useNewEntry } from "./useNewEntry";
-import { AddViewMenu, ViewOptions, ViewSwitcher, viewSummary } from "./ViewControls";
+import { AddViewMenu, ViewSwitcher, ViewToolbar, type ToolRequest } from "./ViewControls";
 import { useViewStore } from "./ViewStore";
 import { WorkspaceTitle } from "./WorkspaceTitle";
 
@@ -25,20 +25,18 @@ import { WorkspaceTitle } from "./WorkspaceTitle";
 //
 // Under the title, one quiet line says what the Collection holds (entries,
 // properties, views) — its structure, read rather than explained. Under that,
-// its Views are a local tab row ("List  Table  By Status  +") even while there
-// is only the default List: representations of this one Collection, not
-// working-set tabs, and the `+` is where a Table, Board or Timeline is added.
-// View settings ("View", or double-click a tab) and property settings
-// ("Properties") each open inline above the Entries, one at a time
-// (Milestone 21D made the tab row constant; before, it appeared with a second
-// View).
+// one row over a hairline: its Views as text tabs on the left ("List  Table
+// By Status  +"), representations of this one Collection, not working-set
+// tabs; and on the right the active View's own toolbar (Milestone 21E) —
+// Filter, Sort, a Board's columns or a Timeline's axis and lanes, Search,
+// what the View shows, and the View's settings — each a small popover, so
+// nothing about the View lives anywhere else on the page. The Collection's
+// property settings (what properties exist) open inline under the row.
 //
 // A click opens an Entry in the active tab (the Entry's own line back to its
 // Collection returns here); ⌘/Ctrl-click or a middle click opens it in a tab
 // of its own. Views never join the working-set tabs: the Collection is the
 // object that is open, and its View is remembered for the session.
-
-type Panel = "view" | "properties" | null;
 
 function plural(n: number, one: string, many = `${one}s`) {
   return `${n.toLocaleString()} ${n === 1 ? one : many}`;
@@ -49,14 +47,16 @@ export function CollectionView({ entry }: { entry: NavEntry }) {
   const { available: viewable, viewsOf, activeViewOf } = useViewStore();
   const { add, busy, notice } = useNewEntry(entry.id);
   const bodyRef = useRef<HTMLDivElement>(null);
-  const [panel, setPanel] = useState<Panel>(null);
-  const toggle = (p: Exclude<Panel, null>) => setPanel((open) => (open === p ? null : p));
+  const [schemaOpen, setSchemaOpen] = useState(false);
+  const [request, setRequest] = useState<ToolRequest | undefined>(undefined);
+  const ask = (tool: ToolRequest["tool"]) => setRequest((r) => ({ tool, n: (r?.n ?? 0) + 1 }));
+  const [search, setSearch] = useState("");
 
   const views = viewsOf(entry.id);
   const view = activeViewOf(entry.id);
   const { properties, entryIds, arranged, presenter } = useCollectionItems(entry, view);
-  const hiddenCount = entryIds.length - arranged.length;
-  const summary = viewable ? viewSummary(view, properties) : "";
+  const found = quickFind(arranged, search, presenter);
+  const hiddenCount = entryIds.length - found.length;
   const context = [
     plural(entryIds.length, "entry", "entries"),
     ...(propertied && properties.length > 0 ? [plural(properties.length, "property", "properties")] : []),
@@ -65,7 +65,7 @@ export function CollectionView({ entry }: { entry: NavEntry }) {
 
   return (
     <div className="r2-writing">
-      <div className="r2-doc r2-page r2-collection" data-wide={view.type !== "list" || undefined}>
+      <div className="r2-doc r2-page r2-collection" data-wide={view.type !== "list" || undefined} data-view={view.type}>
         <WorkspaceTitle
           entry={entry}
           rename={renameWorkspaceCollection}
@@ -85,85 +85,71 @@ export function CollectionView({ entry }: { entry: NavEntry }) {
         {propertied && (
           <div className="r2-collection-bar" data-tabs={viewable || undefined}>
             {viewable && (
-              <ViewSwitcher ownerId={entry.id} views={views} active={view} onEdit={() => setPanel("view")}>
+              <ViewSwitcher ownerId={entry.id} views={views} active={view} onEdit={() => ask("settings")}>
                 <AddViewMenu ownerId={entry.id} properties={properties} compact />
               </ViewSwitcher>
             )}
-            <div className="r2-collection-tools">
-              {viewable && (
-                <button
-                  type="button"
-                  className="r2-collection-tool"
-                  aria-expanded={panel === "view"}
-                  onClick={() => toggle("view")}
-                  title="Shown properties, sort and filters for this view"
-                >
-                  <SlidersHorizontal {...ICON} aria-hidden />
-                  {summary ? `View · ${summary}` : "View"}
+            {viewable ? (
+              <ViewToolbar
+                // A fresh toolbar per View, so an open popover never carries over.
+                key={view.id}
+                view={view}
+                views={views}
+                properties={properties}
+                search={search}
+                onSearch={setSearch}
+                schemaOpen={schemaOpen}
+                onToggleSchema={() => setSchemaOpen((o) => !o)}
+                request={request}
+              />
+            ) : (
+              <div className="r2-toolbar">
+                <button type="button" className="r2-tool" aria-expanded={schemaOpen} onClick={() => setSchemaOpen((o) => !o)}>
+                  {properties.length === 0 ? "Properties" : `${properties.length} ${properties.length === 1 ? "property" : "properties"}`}
                 </button>
-              )}
-              <button
-                type="button"
-                className="r2-collection-tool"
-                aria-expanded={panel === "properties"}
-                onClick={() => toggle("properties")}
-              >
-                <Rows3 {...ICON} aria-hidden />
-                {properties.length === 0
-                  ? "Properties"
-                  : `${properties.length} ${properties.length === 1 ? "property" : "properties"}`}
-              </button>
-            </div>
+              </div>
+            )}
           </div>
         )}
-        {propertied && panel === "properties" && (
-          <CollectionSchema ownerId={entry.id} ownerTitle={entry.title} />
-        )}
-        {viewable && panel === "view" && (
-          <ViewOptions
-            // A fresh form per View, so a half-typed name never carries over.
-            key={view.id}
-            view={view}
-            views={views}
-            properties={properties}
-            onDeleted={() => setPanel(null)}
-          />
-        )}
+        {propertied && schemaOpen && <CollectionSchema ownerId={entry.id} ownerTitle={entry.title} />}
 
-        <div ref={bodyRef} className="r2-collection-body">
+        {/* A fresh surface per View: it arrives rather than snaps (r2-view-enter). */}
+        <div key={view.id} ref={bodyRef} className="r2-collection-body r2-view-enter">
           {hiddenCount > 0 && (
             <p className="r2-view-note">
-              Showing {arranged.length.toLocaleString()} of {entryIds.length.toLocaleString()} entries
+              Showing {found.length.toLocaleString()} of {entryIds.length.toLocaleString()} entries
             </p>
           )}
           {view.type === "table" ? (
-            <TableView ownerTitle={entry.title} view={view} properties={properties} entryIds={arranged} presenter={presenter} />
+            <TableView ownerTitle={entry.title} view={view} properties={properties} entryIds={found} total={entryIds.length} presenter={presenter} />
           ) : view.type === "board" ? (
             <BoardView
               ownerId={entry.id}
               addToCollection={entry.id}
               view={view}
               properties={properties}
-              entryIds={arranged}
+              entryIds={found}
+              total={entryIds.length}
               presenter={presenter}
-              onChooseGrouping={() => setPanel("view")}
+              onChooseGrouping={() => ask("group")}
             />
           ) : view.type === "timeline" ? (
             <TimelineView
               ownerId={entry.id}
               view={view}
               properties={properties}
-              entryIds={arranged}
+              entryIds={found}
+              total={entryIds.length}
               presenter={presenter}
               manuscript={false}
-              onChooseAxis={() => setPanel("view")}
+              onChooseAxis={() => ask("axis")}
             />
           ) : (
-            <ListView ownerTitle={entry.title} view={view} properties={properties} entryIds={arranged} presenter={presenter} />
+            <ListView ownerTitle={entry.title} view={view} properties={properties} entryIds={found} total={entryIds.length} presenter={presenter} />
           )}
 
-          {/* Empty: no sentence about it — "New entry" is the whole invitation. */}
-          {view.type !== "board" && (
+          {/* "New entry" is the whole invitation; a Board's lanes each have their own. */}
+          {(view.type !== "board" || found.length === 0) && (
             <button type="button" className="r2-entry-add" disabled={busy} onClick={() => void add()}>
               <Plus {...ICON} aria-hidden />
               New entry

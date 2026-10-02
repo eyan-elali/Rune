@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo } from "react";
-import { BookOpen, LayoutList, Rows3, SlidersHorizontal, X } from "lucide-react";
+import { useMemo, useState } from "react";
+import { BookOpen, LayoutList, X } from "lucide-react";
 import { ICON } from "./icons";
 import { arrangeItems, isFallbackView } from "@/lib/rune2/collectionViews";
 import { openableId } from "@/lib/rune2/references";
@@ -16,11 +16,11 @@ import {
 import type { PropertyValue, SavedView } from "@/lib/types";
 import { CollectionSchema } from "./CollectionSchema";
 import { useLaneTargets } from "./CollectionView";
-import { BoardView, ListView, TableView, type ItemPresenter } from "./CollectionViewBodies";
+import { BoardView, ListView, TableView, quickFind, type ItemPresenter } from "./CollectionViewBodies";
 import { TimelineView } from "./TimelineView";
 import { usePropertyStore } from "./PropertyStore";
 import { useRune2Selection } from "./Rune2Selection";
-import { AddViewMenu, ViewOptions, ViewSwitcher, viewSummary } from "./ViewControls";
+import { AddViewMenu, ViewSwitcher, ViewToolbar, type ToolRequest } from "./ViewControls";
 import { useViewStore } from "./ViewStore";
 
 // The Manuscript's Scenes seen another way (migration 032) — on the
@@ -42,8 +42,10 @@ import { useViewStore } from "./ViewStore";
 // loaded to draw it. Manuscript order is placed Scenes in reading order, then
 // the Unplaced ones under their own heading; it is derived, never stored.
 //
-// "Read" opens the View in Reading Mode: the same Scenes, the View's filters
-// and order, read continuously from their canonical text — never copied.
+// The Views' chrome is the Collection's (CollectionView): text tabs on the
+// left, the active View's toolbar on the right, and "Read", which opens the
+// View in Reading Mode — the same Scenes, the View's filters and order, read
+// continuously from their canonical text, never copied.
 //
 // Progressive disclosure: a writer who has no Scene View sees one quiet line
 // ("View scenes as a list, table or board"); nothing else changes, and
@@ -53,6 +55,9 @@ export function ManuscriptScenes() {
   const { sceneAvailable, manuscriptId } = usePropertyStore();
   const { viewsOf, activeViewOf, scenesOpen, scenePanel, openScenes, closeScenes, setScenePanel } = useViewStore();
   const { openReading } = useRune2Selection();
+  const [request, setRequest] = useState<ToolRequest | undefined>(undefined);
+  const ask = (tool: ToolRequest["tool"]) => setRequest((r) => ({ tool, n: (r?.n ?? 0) + 1 }));
+  const [search, setSearch] = useState("");
   const views = manuscriptId ? viewsOf(manuscriptId) : [];
   const saved = views.filter((v) => !isFallbackView(v));
   const open = scenesOpen || saved.length > 0;
@@ -65,7 +70,7 @@ export function ManuscriptScenes() {
   if (!open) {
     return (
       <div className="r2-scenes-invite">
-        <button type="button" className="r2-collection-tool" onClick={() => openScenes()}>
+        <button type="button" className="r2-tool" onClick={() => openScenes()}>
           <LayoutList {...ICON} aria-hidden />
           View scenes as a list, table or board
         </button>
@@ -73,16 +78,16 @@ export function ManuscriptScenes() {
     );
   }
 
-  const ownProperties = properties.filter((p) => !("native" in p && p.native));
-  const hiddenCount = sceneIds.length - arranged.length;
-  const summary = viewSummary(view, properties);
-  const toggle = (p: "view" | "properties") => setScenePanel((current) => (current === p ? null : p));
-
+  const found = quickFind(arranged, search, presenter);
+  const hiddenCount = sceneIds.length - found.length;
+  const schemaOpen = scenePanel === "properties";
+  
   return (
     <div className="r2-writing r2-scenes-wrap">
       <section
         className="r2-doc r2-page r2-collection r2-scenes"
         data-wide={view.type !== "list" || undefined}
+        data-view={view.type}
         aria-label="Scenes"
       >
         <header className="r2-scenes-head">
@@ -94,92 +99,71 @@ export function ManuscriptScenes() {
           )}
         </header>
 
-        <div className="r2-collection-bar" data-tabs={views.length > 1 || undefined}>
-          {views.length > 1 && (
-            <ViewSwitcher ownerId={manuscriptId} views={views} active={view} onEdit={() => setScenePanel("view")}>
-              <AddViewMenu ownerId={manuscriptId} properties={properties} compact />
-            </ViewSwitcher>
-          )}
-          <div className="r2-collection-tools">
-            {views.length === 1 && <AddViewMenu ownerId={manuscriptId} properties={properties} compact={false} />}
-            <button
-              type="button"
-              className="r2-collection-tool"
-              aria-expanded={scenePanel === "view"}
-              onClick={() => toggle("view")}
-              title="Shown properties, sort and filters for this view"
-            >
-              <SlidersHorizontal {...ICON} aria-hidden />
-              {summary ? `View · ${summary}` : "View"}
-            </button>
-            <button
-              type="button"
-              className="r2-collection-tool"
-              aria-expanded={scenePanel === "properties"}
-              onClick={() => toggle("properties")}
-            >
-              <Rows3 {...ICON} aria-hidden />
-              {ownProperties.length === 0
-                ? "Scene properties"
-                : `${ownProperties.length} scene ${ownProperties.length === 1 ? "property" : "properties"}`}
-            </button>
-            {arranged.length > 0 && (
-              <button
-                type="button"
-                className="r2-collection-tool"
-                onClick={() => openReading({ kind: "view", viewId: view.id })}
-                title="Read these scenes one after another, read-only"
-              >
-                <BookOpen {...ICON} aria-hidden />
-                Read
-              </button>
-            )}
-          </div>
-        </div>
-        {scenePanel === "properties" && <CollectionSchema ownerId={manuscriptId} ownerTitle="Scenes" />}
-        {scenePanel === "view" && (
-          <ViewOptions
+        <div className="r2-collection-bar" data-tabs="">
+          <ViewSwitcher ownerId={manuscriptId} views={views} active={view} onEdit={() => ask("settings")}>
+            <AddViewMenu ownerId={manuscriptId} properties={properties} compact />
+          </ViewSwitcher>
+          <ViewToolbar
             key={view.id}
             view={view}
             views={views}
             properties={properties}
             naturalOrder="Manuscript order"
             itemNoun="scene"
-            onDeleted={() => setScenePanel(null)}
-          />
-        )}
+            search={search}
+            onSearch={setSearch}
+            schemaOpen={schemaOpen}
+            onToggleSchema={() => setScenePanel((current) => (current === "properties" ? null : "properties"))}
+            schemaLabel="Edit scene properties"
+            request={request}
+          >
+            {found.length > 0 && (
+              <button
+                type="button"
+                className="r2-tool"
+                onClick={() => openReading({ kind: "view", viewId: view.id })}
+                title="Read these scenes one after another, read-only"
+              >
+                <BookOpen {...ICON} aria-hidden />
+                <span className="r2-tool-label">Read</span>
+              </button>
+            )}
+          </ViewToolbar>
+        </div>
+        {schemaOpen && <CollectionSchema ownerId={manuscriptId} ownerTitle="Scenes" />}
 
-        <div className="r2-collection-body">
+        <div key={view.id} className="r2-collection-body r2-view-enter">
           {hiddenCount > 0 && (
             <p className="r2-view-note">
-              Showing {arranged.length.toLocaleString()} of {sceneIds.length.toLocaleString()} scenes
+              Showing {found.length.toLocaleString()} of {sceneIds.length.toLocaleString()} scenes
             </p>
           )}
           {view.type === "table" ? (
-            <TableView ownerTitle="the manuscript" view={view} properties={properties} entryIds={arranged} presenter={presenter} />
+            <TableView ownerTitle="the manuscript" view={view} properties={properties} entryIds={found} total={sceneIds.length} presenter={presenter} />
           ) : view.type === "board" ? (
             <BoardView
               ownerId={manuscriptId}
               view={view}
               properties={properties}
-              entryIds={arranged}
+              entryIds={found}
+              total={sceneIds.length}
               presenter={presenter}
-              onChooseGrouping={() => setScenePanel("view")}
+              onChooseGrouping={() => ask("group")}
             />
           ) : view.type === "timeline" ? (
             <TimelineView
               ownerId={manuscriptId}
               view={view}
               properties={properties}
-              entryIds={arranged}
+              entryIds={found}
+              total={sceneIds.length}
               presenter={presenter}
               manuscript
-              onChooseAxis={() => setScenePanel("view")}
+              onChooseAxis={() => ask("axis")}
             />
           ) : (
-            <ListView ownerTitle="the manuscript" view={view} properties={properties} entryIds={arranged} presenter={presenter} />
+            <ListView ownerTitle="the manuscript" view={view} properties={properties} entryIds={found} total={sceneIds.length} presenter={presenter} />
           )}
-          {sceneIds.length === 0 && <p className="r2-entry-empty">No scenes yet.</p>}
         </div>
       </section>
     </div>

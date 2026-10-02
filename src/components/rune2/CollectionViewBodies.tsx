@@ -11,8 +11,8 @@ import {
   type MouseEvent,
   type PointerEvent,
 } from "react";
-import { Plus } from "lucide-react";
-import { ICON } from "./icons";
+import { ArrowDown, ArrowUp, Plus } from "lucide-react";
+import { ICON, ICON_SM } from "./icons";
 import { formatValue, isChoiceType, valueKey, valueLine } from "@/lib/rune2/collectionProperties";
 import {
   boardLanes,
@@ -55,6 +55,12 @@ import { useViewStore } from "./ViewStore";
 //   Board — a lane per option of a select or status property, or per Entry a
 //           Relationship points to (and one for none); moving a card between
 //           lanes sets that value — only that value.
+//
+// Milestone 21E gave the bodies one visual language (rune2.css, "Collection
+// Views"): one hover, one focus, one selected and one dragged state across
+// them, a List that is names first, a Table that is rows and hairlines, a
+// Board with firm lanes and quiet cards. Each says the same thing when it has
+// nothing to show (ViewEmpty).
 
 /** How a View's owner presents its items. */
 export type ItemPresenter = {
@@ -122,8 +128,35 @@ type BodyProps = {
   properties: PropertyDefinition[];
   /** The View's items, arranged. */
   entryIds: string[];
+  /** How many the owner has before the View's filters (and the quick find); absent: unknown. */
+  total?: number;
   presenter: ItemPresenter;
 };
+
+/**
+ * The quick find of the View's toolbar: the arranged items whose name holds
+ * every word of `query` — this sitting only, never saved, never a filter.
+ */
+export function quickFind(arranged: string[], query: string, presenter: ItemPresenter): string[] {
+  const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return arranged;
+  return arranged.filter((id) => {
+    const item = presenter.label(id);
+    if (!item) return false;
+    const text = [item.number, item.title, item.context].filter(Boolean).join(" ").toLowerCase();
+    return words.every((w) => text.includes(w));
+  });
+}
+
+/**
+ * A View with nothing to show, in a few words: "No entries yet" when the
+ * owner has none, else what the View's filters left ("No cards in this view").
+ * The owner's own "New entry" follows it; nothing else is explained.
+ */
+export function ViewEmpty({ total, noun, filtered }: { total: number | undefined; noun: string; filtered: string }) {
+  const none = total === undefined || total === 0;
+  return <p className="r2-view-empty">{none ? `No ${noun.toLowerCase()} yet` : filtered}</p>;
+}
 
 /** The quiet number before a name ("31.2"), when the owner has one. */
 export function ItemNumber({ number }: { number?: string | null }) {
@@ -133,11 +166,11 @@ export function ItemNumber({ number }: { number?: string | null }) {
 
 // ── List ────────────────────────────────────────────────────────────────────
 
-export function ListView({ ownerTitle, view, properties, entryIds, presenter }: BodyProps & { ownerTitle: string }) {
+export function ListView({ ownerTitle, view, properties, entryIds, total, presenter }: BodyProps & { ownerTitle: string }) {
   const open = useOpenItem(presenter);
   const titleOf = useTitleOf();
   const shown = shownProperties(view, properties);
-  if (entryIds.length === 0) return null;
+  if (entryIds.length === 0) return <ViewEmpty total={total} noun={presenter.noun} filtered={`No ${presenter.noun.toLowerCase()} match this view`} />;
   return (
     <ul className="r2-entry-list" aria-label={`${presenter.noun} in ${ownerTitle}`}>
       {entryIds.map((id, at) => {
@@ -167,7 +200,7 @@ export function ListView({ ownerTitle, view, properties, entryIds, presenter }: 
                   <ItemNumber number={item.number} />
                   {item.title}
                 </span>
-                {line.length > 0 && <span className="r2-entry-row-meta">{line.join(" · ")}</span>}
+                {line.length > 0 && <span className="r2-entry-row-meta">{line.join("  ·  ")}</span>}
               </button>
             </li>
           </Fragment>
@@ -179,7 +212,7 @@ export function ListView({ ownerTitle, view, properties, entryIds, presenter }: 
 
 // ── Table ───────────────────────────────────────────────────────────────────
 
-export function TableView({ ownerTitle, view, properties, entryIds, presenter }: BodyProps & { ownerTitle: string }) {
+export function TableView({ ownerTitle, view, properties, entryIds, total, presenter }: BodyProps & { ownerTitle: string }) {
   const { setValue } = usePropertyStore();
   const { updateView } = useViewStore();
   const open = useOpenItem(presenter);
@@ -213,11 +246,16 @@ export function TableView({ ownerTitle, view, properties, entryIds, presenter }:
     return () => clearTimeout(timer);
   }, [notice]);
 
-  if (entryIds.length === 0) return null;
+  if (entryIds.length === 0) return <ViewEmpty total={total} noun={presenter.noun} filtered={`No ${presenter.noun.toLowerCase()} match this view`} />;
   const colId = (propertyId: string) => `${tableId}-c-${propertyId}`;
   const rowId = (entryId: string) => `${tableId}-r-${entryId}`;
   const sortMark = (by: string) =>
-    sort?.by === by ? <span className="r2-table-sort">{sort.direction === "asc" ? "↑" : "↓"}</span> : null;
+    sort?.by === by ? (
+      <span className="r2-table-sort" aria-hidden>
+        {sort.direction === "asc" ? <ArrowUp {...ICON_SM} /> : <ArrowDown {...ICON_SM} />}
+      </span>
+    ) : null;
+  const ariaSort = (by: string) => (sort?.by === by ? (sort.direction === "asc" ? "ascending" : "descending") : undefined);
 
   return (
     <>
@@ -230,7 +268,7 @@ export function TableView({ ownerTitle, view, properties, entryIds, presenter }:
           </colgroup>
           <thead>
             <tr>
-              <th scope="col" id={colId("title")} className="r2-table-title-col">
+              <th scope="col" id={colId("title")} className="r2-table-title-col" aria-sort={ariaSort("title")}>
                 <span className="r2-table-head">
                   {presenter.titleHeader}
                   {sortMark("title")}
@@ -243,7 +281,7 @@ export function TableView({ ownerTitle, view, properties, entryIds, presenter }:
                 />
               </th>
               {shown.map((p, i) => (
-                <th key={p.id} scope="col" id={colId(p.id)} data-type={p.type} data-native={isNative(p) || undefined}>
+                <th key={p.id} scope="col" id={colId(p.id)} data-type={p.type} data-native={isNative(p) || undefined} aria-sort={ariaSort(p.id)}>
                   <span className="r2-table-head">
                     {p.name}
                     {sortMark(p.id)}
@@ -269,7 +307,7 @@ export function TableView({ ownerTitle, view, properties, entryIds, presenter }:
                       <td colSpan={shown.length + 1}>{presenter.sectionTitle}</td>
                     </tr>
                   )}
-                  <tr>
+                  <tr className="r2-table-row">
                     <th scope="row" id={rowId(id)} className="r2-table-title">
                       <button
                         type="button"
@@ -419,6 +457,7 @@ export function BoardView({
   view,
   properties,
   entryIds,
+  total,
   presenter,
   onChooseGrouping,
 }: BodyProps & {
@@ -435,6 +474,7 @@ export function BoardView({
   const { add, busy, notice: addNotice } = useNewEntry(addToCollection ?? "");
   const [notice, setNotice] = useState<string | null>(null);
   const [over, setOver] = useState<string | null>(null);
+  const [dragging, setDragging] = useState<string | null>(null);
   const [newLane, setNewLane] = useState<string | null>(null);
   const values = presenter.values;
 
@@ -480,6 +520,8 @@ export function BoardView({
       </div>
     );
   }
+
+  if (entryIds.length === 0) return <ViewEmpty total={total} noun={presenter.noun} filtered="No cards in this view" />;
 
   const { property, lanes } = board;
   const cardProperties = shownProperties(view, properties).filter((p) => p.id !== property.id);
@@ -565,7 +607,7 @@ export function BoardView({
               )}
               <span className="r2-lane-count">{lane.entryIds.length}</span>
             </header>
-            <ul className="r2-lane-cards">
+            <ul className="r2-lane-cards" data-empty={lane.entryIds.length === 0 || undefined}>
               {lane.entryIds.map((id) => {
                 const item = presenter.label(id);
                 if (!item) return null;
@@ -582,13 +624,18 @@ export function BoardView({
                       data-board-entry={id}
                       data-board-lane={lane.optionId ?? ""}
                       data-unnamed={!item.named || undefined}
+                      data-dragging={dragging === `${id}:${laneKey(lane)}` || undefined}
                       aria-describedby={hintId}
                       draggable
                       onDragStart={(ev) => {
                         ev.dataTransfer.setData(DRAG_TYPE, JSON.stringify({ id, from: lane.optionId }));
                         ev.dataTransfer.effectAllowed = "move";
+                        setDragging(`${id}:${laneKey(lane)}`);
                       }}
-                      onDragEnd={() => setOver(null)}
+                      onDragEnd={() => {
+                        setOver(null);
+                        setDragging(null);
+                      }}
                       {...open(id)}
                       onKeyDown={(ev) => onCardKey(ev, id, at)}
                     >
@@ -596,7 +643,7 @@ export function BoardView({
                         <ItemNumber number={item.number} />
                         {item.title}
                       </span>
-                      {line.length > 0 && <span className="r2-card-meta">{line.join(" · ")}</span>}
+                      {line.length > 0 && <span className="r2-card-meta">{line.join("  ·  ")}</span>}
                     </button>
                   </li>
                 );
