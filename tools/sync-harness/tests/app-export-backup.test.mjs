@@ -488,7 +488,7 @@ test('backup: a versioned, inspectable ZIP holding the whole Project — manuscr
   const { manifest, files } = await unzipAll(bytes);
 
   assert.equal(manifest.format, 'rune-project-backup');
-  assert.equal(manifest.format_version, 1);
+  assert.equal(manifest.format_version, 2);
   assert.equal(manifest.created_at, at.toISOString());
   assert.deepEqual(manifest.project, { id: HOLLOW, title: data.project.title });
   assert.ok(files['README.txt'].includes('Rune can\'t yet read this archive back in'));
@@ -574,7 +574,7 @@ test('backup: a versioned, inspectable ZIP holding the whole Project — manuscr
   assert.deepEqual(files['writing/goals.json'].goals.map((g) => g.target_words), [500]);
 
   // Counts and Trash in the manifest; nothing from the device, the account or another Project.
-  assert.deepEqual(manifest.trash, { chapters: 1, scenes: 2, pages: 1, folders: 1, collections: 1, entries: 2 });
+  assert.deepEqual(manifest.trash, { chapters: 1, scenes: 2, pages: 1, folders: 1, collections: 1, entries: 2, canvases: 0 });
   assert.equal(manifest.counts.scenes, 11);
   const names = Object.keys(files).join('\n');
   assert.doesNotMatch(names, /tab|draft|cache|queue|scroll|profile|billing|xp/i);

@@ -4,6 +4,7 @@ import { renderMarkdown } from "@/lib/export/markdown";
 import { planExport, type ExportChapterRow, type ExportGroupRow, type ExportSceneRow } from "@/lib/export/plan";
 import { proseBlocks, type TNode } from "@/lib/export/prose";
 import { ZipWriter } from "@/lib/export/zipWriter";
+import { attachmentExtension, attachmentUrl } from "@/lib/rune2/attachments";
 
 // Whole-Project Backup (Milestone 19): a complete, inspectable archive of one
 // Project, made on the writer's device — so their work never depends on Rune
@@ -19,8 +20,11 @@ import { ZipWriter } from "@/lib/export/zipWriter";
 // Written: a ZIP of JSON files (every row exactly as stored, canonical ids and
 // all) plus readable Markdown copies of the manuscript and the Pages, with a
 // manifest (format and version, counts, the file list) and a README. The
-// layout is BACKUP_FORMAT_VERSION 1; see README_TEXT for what each file holds
-// and what a future restore would need.
+// layout is BACKUP_FORMAT_VERSION 2 (M22C: version 1 plus the Workspace's
+// Canvases — placements, Sections, notes, connections, images — and the
+// Project's attachments with their bytes); see README_TEXT for what each
+// file holds and what a future restore would need. A version-1 archive is
+// exactly a version-2 one without the canvas and attachment files.
 //
 // Not included: device and interface state (open tabs, scroll positions,
 // panel and navigator state, unsent drafts, offline caches and sync queues),
@@ -28,7 +32,7 @@ import { ZipWriter } from "@/lib/export/zipWriter";
 // billing, and XP.
 
 export const BACKUP_FORMAT = "rune-project-backup";
-export const BACKUP_FORMAT_VERSION = 1;
+export const BACKUP_FORMAT_VERSION = 2;
 
 /** What read_project_backup reads, and how many rows to ask for at a time (large rows, smaller pages). */
 export const BACKUP_KINDS = {
@@ -50,6 +54,10 @@ export const BACKUP_KINDS = {
   workspace_collection_views: 500,
   workspace_collection_entries: 200,
   workspace_entry_values: 500,
+  workspace_canvases: 500,
+  workspace_canvas_items: 500,
+  workspace_canvas_connections: 500,
+  workspace_attachments: 500,
   object_references: 500,
   writing_sessions: 500,
   writing_goals: 500,
@@ -63,12 +71,30 @@ export type BackupData = {
   project: Row & { id: string; title: string };
   manuscript: Row & { id: string };
   rows: Record<BackupKind, Row[]>;
+  /** Each attachment's original bytes by id — or null when they could not be read (recorded, never invented). */
+  bytes: Map<string, Uint8Array | null>;
 };
+
+/** Reads one attachment's original bytes: in the browser, from the server under the writer's own session. */
+export type ReadAttachmentBytes = (attachment: Row & { id: string }) => Promise<Uint8Array | null>;
+
+export async function fetchAttachmentBytes(attachment: Row & { id: string }, fetchImpl: typeof fetch = fetch): Promise<Uint8Array | null> {
+  try {
+    const res = await fetchImpl(attachmentUrl(attachment.id, "original"), { cache: "no-store" });
+    if (!res.ok) return null;
+    return new Uint8Array(await res.arrayBuffer());
+  } catch {
+    return null;
+  }
+}
 
 export class BackupUnavailableError extends Error {}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SupabaseLike = any;
+
+/** Kinds a database may not know yet (older than the migration that added them): read as empty, never as a failure. */
+const OPTIONAL_KINDS: ReadonlySet<BackupKind> = new Set(["workspace_canvases", "workspace_canvas_items", "workspace_canvas_connections", "workspace_attachments"]);
 
 /** Every row of one kind, following the function's cursor until it ends. */
 async function readKind(supabase: SupabaseLike, projectId: string, kind: BackupKind): Promise<Row[]> {
@@ -87,6 +113,7 @@ async function readKind(supabase: SupabaseLike, projectId: string, kind: BackupK
       }
       throw error;
     }
+    if (data?.status === "error" && data.error === "Unknown kind" && OPTIONAL_KINDS.has(kind)) return rows;
     if (data?.status !== "ok") throw new BackupUnavailableError("This project isn’t available to back up.");
     rows.push(...(data.rows as Row[]));
     if (!data.next) return rows;
@@ -102,7 +129,8 @@ async function readKind(supabase: SupabaseLike, projectId: string, kind: BackupK
 export async function loadProjectBackup(
   supabase: SupabaseLike,
   projectId: string,
-  onProgress?: (kind: BackupKind, index: number, total: number) => void
+  onProgress?: (kind: BackupKind, index: number, total: number) => void,
+  readBytes: ReadAttachmentBytes = fetchAttachmentBytes
 ): Promise<BackupData> {
   const { data: project, error: projectErr } = await supabase
     .from("projects")
@@ -124,7 +152,10 @@ export async function loadProjectBackup(
     onProgress?.(kind, i, kinds.length);
     rows[kind] = await readKind(supabase, projectId, kind);
   }
-  return { project, manuscript, rows };
+  // The attachments' bytes, one by one: what could not be read is recorded as missing.
+  const bytes = new Map<string, Uint8Array | null>();
+  for (const a of rows.workspace_attachments) bytes.set(String(a.id), await readBytes(a as Row & { id: string }));
+  return { project, manuscript, rows, bytes };
 }
 
 // ── The archive ──────────────────────────────────────────────────────────────
@@ -181,6 +212,19 @@ JSON or Markdown (UTF-8) and can be opened with any text editor.
   workspace/pages/<id>.json  one Page each (and <id>.md, readable)
   workspace/collections/<id>.json  one Collection each: its properties, Views,
                              Entries (text included) and their values
+  workspace/canvases/<id>.json     one Canvas each: the Canvas, every placement on
+                             it (live cards of Scenes, Chapters, Pages, Entries
+                             and Canvases by their ids; Sections; text notes
+                             with their text; images by attachment id), with
+                             geometry (x, y, width, height, z), Section
+                             membership (section_id) and chosen sizes; and its
+                             connections (placement to placement, direction,
+                             label). "in_trash" on the Canvas; "target_in_trash"
+                             on a placement whose object is in Trash
+  workspace/attachments.json every attachment (an image's file name, type, size,
+                             pixel size, where its bytes are, "bytes_file" — the
+                             file below — or "bytes_missing": true)
+  workspace/attachments/<id>.<ext>  the attachment's original bytes, as uploaded
   references.json            links between Scenes, Pages and Entries
   writing/sessions.json      your writing days for this project (words by day)
   writing/goals.json         the project's goals
@@ -188,9 +232,11 @@ JSON or Markdown (UTF-8) and can be opened with any text editor.
 
 Identity and relationships: every row keeps its Rune id, and rows refer to
 each other by those ids exactly as Rune stores them (a Scene's chapter_id, a
-note's target_id, a reference's source and target). Order is kept by each
-row's "position" and in structure.json. Trash: a row in Trash has a
-"trashed_at" time and "in_trash": true; everything else is active.
+note's target_id, a reference's source and target, a Canvas placement's
+scene_id / document_id / attachment_id). Order is kept by each row's
+"position" and in structure.json. Trash: a row in Trash has a "trashed_at"
+time and "in_trash": true; everything else is active. A Canvas in Trash keeps
+every placement, note and connection it held.
 
 Not included: device and interface state (open tabs, scroll positions,
 unsent drafts, offline caches, sync queues), things Rune recomputes (search,
@@ -199,15 +245,17 @@ backlinks), and account, billing and progression settings.
 Restoring: Rune can't yet read this archive back in. It was designed so that
 it can: a future restore would recreate the rows of each file in dependency
 order (project, manuscript, Groups, Chapters, Scenes, properties and Views,
-notes, History, Milestones, the Workspace, references), keeping every id (or
-mapping them consistently), and would put Trash back in Trash. Until then,
-your text is all here, readable, in manuscript/ and workspace/.
+notes, History, Milestones, the Workspace, attachments — their bytes first,
+then their rows — Canvases, their placements, then their connections,
+references), keeping every id (or mapping them consistently), and would put
+Trash back in Trash. Until then, your text is all here, readable, in
+manuscript/ and workspace/, and your images are in workspace/attachments/.
 `;
 
-/** The archive's files, by path: pure, so the same data always gives the same archive. */
-export function backupFiles(data: BackupData, at: Date): Map<string, string> {
+/** The archive's files, by path: pure, so the same data always gives the same archive. Text files are strings; an attachment's bytes are bytes. */
+export function backupFiles(data: BackupData, at: Date): Map<string, string | Uint8Array> {
   const r = data.rows;
-  const files = new Map<string, string>();
+  const files = new Map<string, string | Uint8Array>();
 
   const chapterInTrash = idSet(r.chapters, trashed);
   const sceneInTrash = idSet(r.scenes, trashed);
@@ -346,6 +394,44 @@ export function backupFiles(data: BackupData, at: Date): Map<string, string> {
     (type === "chapter" && chapterInTrash.has(String(id))) ||
     (type === "page" && docInTrash.has(String(id))) ||
     (type === "entry" && entryInTrash.has(String(id)));
+
+  // Canvases (version 2): each with everything it holds, Trash included. A
+  // placement says if the object it shows is in Trash; an image names its
+  // attachment. Attachments: the rows, and the bytes beside them.
+  const canvasInTrash = idSet(r.workspace_canvases, trashed);
+  const placementTargetInTrash = (i: Row) =>
+    objectInTrash("scene", i.scene_id) ||
+    objectInTrash("chapter", i.chapter_id) ||
+    objectInTrash("page", i.document_id) ||
+    objectInTrash("entry", i.entry_id) ||
+    (i.target_canvas_id != null && canvasInTrash.has(String(i.target_canvas_id)));
+  for (const c of r.workspace_canvases) {
+    const canvasItems = r.workspace_canvas_items.filter((i) => i.canvas_id === c.id).sort((a, b) => Number(a.z) - Number(b.z) || String(a.id).localeCompare(String(b.id)));
+    files.set(
+      `workspace/canvases/${c.id}.json`,
+      json({
+        canvas: withTrash(c, canvasInTrash.has(String(c.id))),
+        items: canvasItems.map((i) => ({ ...i, target_in_trash: placementTargetInTrash(i) })),
+        connections: r.workspace_canvas_connections.filter((k) => k.canvas_id === c.id).sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)) || String(a.id).localeCompare(String(b.id))),
+      })
+    );
+  }
+  let bytesMissing = 0;
+  if (r.workspace_attachments.length > 0) {
+    const listed: Row[] = [];
+    for (const a of r.workspace_attachments) {
+      const bytes = data.bytes.get(String(a.id)) ?? null;
+      const file = `workspace/attachments/${a.id}.${attachmentExtension(String(a.mime_type))}`;
+      if (bytes) {
+        files.set(file, bytes);
+        listed.push({ ...a, bytes_file: file });
+      } else {
+        bytesMissing += 1;
+        listed.push({ ...a, bytes_file: null, bytes_missing: true });
+      }
+    }
+    files.set("workspace/attachments.json", json({ attachments: listed }));
+  }
   files.set(
     "references.json",
     json({
@@ -378,10 +464,12 @@ export function backupFiles(data: BackupData, at: Date): Map<string, string> {
       folders: folderInTrash.size,
       collections: collectionInTrash.size,
       entries: entryInTrash.size,
+      canvases: canvasInTrash.size,
     },
+    attachments: { total: r.workspace_attachments.length, bytes_missing: bytesMissing },
     files: ["README.txt", "manifest.json", ...files.keys()],
   };
-  return new Map([
+  return new Map<string, string | Uint8Array>([
     ["README.txt", README_TEXT],
     ["manifest.json", json(manifest)],
     ...files,
@@ -391,7 +479,8 @@ export function backupFiles(data: BackupData, at: Date): Map<string, string> {
 /** The backup as a ZIP archive's bytes. */
 export async function buildBackupArchive(data: BackupData, at: Date = new Date()): Promise<Uint8Array> {
   const zip = new ZipWriter(at);
-  for (const [path, text] of backupFiles(data, at)) await zip.add(path, text);
+  // Image bytes are already compressed: stored as they are.
+  for (const [path, content] of backupFiles(data, at)) await zip.add(path, content, { store: typeof content !== "string" });
   return zip.finish();
 }
 
@@ -403,9 +492,10 @@ export async function makeProjectBackup(
   supabase: SupabaseLike,
   projectId: string,
   onProgress?: (kind: BackupKind, index: number, total: number) => void,
-  at: Date = new Date()
+  at: Date = new Date(),
+  readBytes: ReadAttachmentBytes = fetchAttachmentBytes
 ): Promise<{ bytes: Uint8Array; fileName: string }> {
-  const data = await loadProjectBackup(supabase, projectId, onProgress);
+  const data = await loadProjectBackup(supabase, projectId, onProgress, readBytes);
   const bytes = await buildBackupArchive(data, at);
   if (bytes.length === 0) throw new Error("backup: empty archive");
   return { bytes, fileName: `${safeFileName(backupFileBase(data.project.title, at), "Rune backup")}.zip` };

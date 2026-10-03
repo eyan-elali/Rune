@@ -8,6 +8,7 @@ import {
   useRef,
   useState,
   useSyncExternalStore,
+  type ClipboardEvent as ReactClipboardEvent,
   type DragEvent,
   type KeyboardEvent,
   type PointerEvent as ReactPointerEvent,
@@ -22,35 +23,52 @@ import {
   AlignStartVertical,
   AlignVerticalDistributeCenter,
   ArrowRight,
+  Copy,
+  FileText,
+  ImagePlus,
   LayoutGrid,
   Link,
   Maximize,
   Minus,
+  PenLine,
+  Pilcrow,
   Plus,
   Redo2,
   Scan,
   Search,
   SquareDashed,
+  Trash2,
   Undo2,
   X,
+  type LucideIcon,
 } from "lucide-react";
 import { ICON } from "./icons";
 import { Tooltip } from "./Tooltip";
-import { renameWorkspaceCanvas } from "@/lib/actions/workspaceCanvas";
+import { convertCanvasNote, renameWorkspaceCanvas } from "@/lib/actions/workspaceCanvas";
+import { imageFilesOf, prepareImage, uploadImage } from "@/lib/attachments/client";
+import { countTextWords } from "@/lib/import/content";
+import { ACCEPTED_IMAGE_ACCEPT, aspectOf } from "@/lib/rune2/attachments";
 import {
+  attachmentIdOf,
   boundsOf,
+  CANVAS_CHROME_SELECTOR,
+  CANVAS_NO_NOTE_SELECTOR,
   DEFAULT_SIZE,
   duplicateNotice,
   fitAll,
   fitRect,
   focusView,
+  imagePlacementSize,
   isInView,
   isPlaceableDrag,
   isSection,
   itemRect,
+  keepAspect,
   marqueeSelection,
   MAX_SIZE,
   MIN_SIZE,
+  noteText,
+  noteTitle,
   panBy,
   parseViewport,
   placementsOf,
@@ -66,7 +84,7 @@ import {
   type Rect,
   type Viewport,
 } from "@/lib/rune2/canvas";
-import { align, distribute, snapEdge, snapRect, tidy, type AlignMode, type DistributeMode, type Guide } from "@/lib/rune2/canvasArrange";
+import { align, arrangeActions, distribute, snapEdge, snapRect, tidy, type AlignMode, type ArrangeAction, type DistributeMode, type Guide } from "@/lib/rune2/canvasArrange";
 import type { FindResult } from "@/lib/rune2/canvasFind";
 import type { CanvasClip, CanvasSession, CanvasSaveStatus } from "@/lib/rune2/canvasSession";
 import type { NavEntry } from "@/lib/rune2/navigatorModel";
@@ -82,6 +100,7 @@ import { DocStatus } from "./DocStatus";
 import { NavigatorMenu, type NavigatorMenuItem } from "./NavigatorMenu";
 import { useRune2Selection } from "./Rune2Selection";
 import { WorkspaceTitle } from "./WorkspaceTitle";
+import { useTrash } from "./WorkspaceTrash";
 
 // The Canvas surface (Milestone 22A; Sections, connections, sizing,
 // arrangement, Find and navigation at scale in 22B): an unbounded plane the
@@ -99,7 +118,10 @@ import { WorkspaceTitle } from "./WorkspaceTitle";
 //   handles on a selected card resize it (its size is then its own); the dot at its right edge
 //                              drags a connection to another card
 //   double-click a card        open the object (a Scene, Page… in the working set; a Canvas opens)
+//   double-click a note        edit it in place; its text is then the textarea's own
+//   right-click a card         its menu: open / edit, convert a note to a Page or a Scene, duplicate, remove
 //   double-click empty space   a new note, ready to type
+//   drop or paste an image     an image placement where it landed (uploaded as a Project attachment)
 //   double-click a Section's title / a connection   rename / label it
 //   Enter                      open the selected card / edit the selected note / rename the Section
 //   Delete / Backspace         remove the selected placements or connection — only those
@@ -124,7 +146,22 @@ const STATUS_LABEL: Record<CanvasSaveStatus, string> = {
   retrying: "Saved on this device",
   trashed: "In Trash",
   unavailable: "Unavailable",
+  unsupported: "Couldn’t save · reload Rune",
 };
+
+const ARRANGE_ICON: Record<string, LucideIcon> = {
+  left: AlignStartVertical,
+  centerX: AlignCenterVertical,
+  right: AlignEndVertical,
+  top: AlignStartHorizontal,
+  centerY: AlignCenterHorizontal,
+  bottom: AlignEndHorizontal,
+  horizontal: AlignHorizontalDistributeCenter,
+  vertical: AlignVerticalDistributeCenter,
+  tidy: LayoutGrid,
+  connect: Link,
+};
+const STRANDED_TEXT = "This Canvas change could not be saved. Reload Rune to update.";
 
 type Handle = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
 const HANDLES: Handle[] = ["nw", "n", "ne", "e", "se", "s", "sw", "w"];
@@ -148,6 +185,8 @@ type Gesture =
 
 type PendingPlacement = { type: CanvasTargetType; targetId: string; label: string; at: Point };
 type Notice = { text: string; existing: string[]; pending: PendingPlacement };
+/** A quiet message about something that happened (an upload, a conversion), with no choice to make. */
+type Message = { text: string; tone?: "warning" };
 
 const DRAG_THRESHOLD = 3;
 const ZOOM_STEP = 1.2;
@@ -174,6 +213,7 @@ const clipboard = new CanvasClipboard();
 
 export default function CanvasSurface({ entry, session }: { entry: NavEntry; session: CanvasSession }) {
   const { index, workspace, select, openInNewTab, canvasFocus, requestCanvasFocus } = useRune2Selection();
+  const { refresh } = useTrash();
   const isOnline = useNetworkStore((s) => s.isOnline);
   useSyncExternalStore(session.subscribe, session.getRevision, session.getRevision);
   const items = session.items;
@@ -305,6 +345,7 @@ export default function CanvasSurface({ entry, session }: { entry: NavEntry; ses
   }, [selectedRaw, session, items]); // eslint-disable-line react-hooks/exhaustive-deps
   const [selectedConnectionRaw, setSelectedConnection] = useState<string | null>(null);
   const selectedConnection = selectedConnectionRaw && session.getConnection(selectedConnectionRaw) ? selectedConnectionRaw : null;
+  const soleSelected = selected.size === 1 ? session.get([...selected][0]) : undefined;
   const [editing, setEditing] = useState<string | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
   const [marquee, setMarquee] = useState<Rect | null>(null);
@@ -314,18 +355,32 @@ export default function CanvasSurface({ entry, session }: { entry: NavEntry; ses
   const [insert, setInsert] = useState<{ at: Point | null } | null>(null);
   const [find, setFind] = useState(false);
   const [arrangeAt, setArrangeAt] = useState<Point | null>(null);
+  const [cardMenu, setCardMenu] = useState<{ id: string; at: Point; items: NavigatorMenuItem[] } | null>(null);
+  const [message, setMessage] = useState<Message | null>(null);
+  const [uploads, setUploads] = useState(0);
   const [dropping, setDropping] = useState(false);
+  const fileInput = useRef<HTMLInputElement>(null);
   const gesture = useRef<Gesture | null>(null);
   const spaceHeld = useRef(false);
   const [dragging, setDragging] = useState(false);
   const arrangeButton = useRef<HTMLButtonElement>(null);
 
+  /** Focus back on the board (after a menu, a field, a dialog), so its shortcuts work again. */
+  const focusBoard = useCallback(() => root.current?.focus({ preventScroll: true }), []);
   const clearTransient = () => {
     setNotice(null);
     setInsert(null);
     setFind(false);
     setArrangeAt(null);
+    setCardMenu(null);
+    setMessage(null);
   };
+  // A message fades on its own.
+  useEffect(() => {
+    if (!message) return;
+    const timer = setTimeout(() => setMessage(null), 7000);
+    return () => clearTimeout(timer);
+  }, [message]);
   const selectItems = (ids: Set<string>) => {
     setSelected(ids);
     if (ids.size > 0) setSelectedConnection(null);
@@ -371,7 +426,10 @@ export default function CanvasSurface({ entry, session }: { entry: NavEntry; ses
     const ids = session.withMembers(direct);
     const from = new Map(ids.map((id) => [id, { x: session.get(id)!.x, y: session.get(id)!.y }]));
     const bounds = boundsOf(rectsOf(ids))!;
-    root.current?.setPointerCapture(e.pointerId);
+    // The pointer is captured only once the press becomes a drag (onPointerMove).
+    // Captured at once, the browser retargets the click and the double-click to
+    // the surface — so a double-click on a note made a NEW note instead of
+    // editing it (M22B's second known issue).
     gesture.current = { kind: "drag", pointerId: e.pointerId, origin: worldPoint(e), ids, direct, from, bounds, applied: { x: 0, y: 0 }, moved: false };
   };
 
@@ -409,7 +467,7 @@ export default function CanvasSurface({ entry, session }: { entry: NavEntry; ses
 
   const onPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
     // Cards handle their own presses (a note being typed into lets this through: its own text selection).
-    if ((e.target as Element).closest(".r2-canvas-ui, .r2-canvas-card, .r2-canvas-section-head, .r2-canvas-handle")) return;
+    if ((e.target as Element).closest(CANVAS_CHROME_SELECTOR)) return;
     if (!vpRef.current) return;
     if (editing) setEditing(null);
     if (renaming) setRenaming(null);
@@ -449,6 +507,7 @@ export default function CanvasSurface({ entry, session }: { entry: NavEntry; ses
         if (Math.hypot(dx * scale, dy * scale) < DRAG_THRESHOLD) return;
         g.moved = true;
         setDragging(true);
+        root.current?.setPointerCapture(e.pointerId);
       }
       // Settle on nearby edges and centres — gently, and only for the group's bounds.
       const moving = { ...g.bounds, x: g.bounds.x + dx, y: g.bounds.y + dy };
@@ -485,10 +544,13 @@ export default function CanvasSurface({ entry, session }: { entry: NavEntry; ses
       const max = MAX_SIZE[item.item_type];
       width = Math.min(max.width, Math.max(min.width, width));
       height = Math.min(max.height, Math.max(min.height, height));
+      // An image keeps its proportions (Shift: free).
+      const ratio = item.item_type === "image" && !e.shiftKey ? (aspectOf(session.getAttachment(attachmentIdOf(item) ?? "")) ?? f.width / f.height) : null;
+      if (ratio) ({ width, height } = keepAspect({ width, height }, ratio));
       if (h.includes("w")) x = f.x + f.width - width;
       if (h.includes("n")) y = f.y + f.height - height;
       // The moving edge settles on a neighbour's edge or centre.
-      const others = snapCandidates(new Set([g.id]));
+      const others = ratio ? [] : snapCandidates(new Set([g.id]));
       const threshold = SNAP_PX / scale;
       const next: Guide[] = [];
       if (h.includes("e") || h.includes("w")) {
@@ -614,6 +676,12 @@ export default function CanvasSurface({ entry, session }: { entry: NavEntry; ses
     setRenaming(id);
   };
 
+  const onRenameSection = (id: string, title: string | null) => {
+    setRenaming((cur) => (cur === id ? null : cur));
+    if (title !== null) session.setSectionTitle(id, title);
+    root.current?.focus({ preventScroll: true });
+  };
+
   const openItem = (item: CanvasItem, newTab = false) => {
     if (item.item_type === "note") {
       selectItems(new Set([item.id]));
@@ -635,7 +703,7 @@ export default function CanvasSurface({ entry, session }: { entry: NavEntry; ses
   // Drops from the navigator (ProjectNavigator marks its rows with the object,
   // and with whether a Canvas can show it — lib/rune2/canvas.ts decides both).
   const onDragOver = (e: DragEvent<HTMLDivElement>) => {
-    if (!isPlaceableDrag(e.dataTransfer.types)) {
+    if (!isPlaceableDrag(e.dataTransfer.types) && !e.dataTransfer.types.includes("Files")) {
       // Not something a Canvas shows: no drop, no highlight — the browser shows "not allowed".
       if (dropping) setDropping(false);
       return;
@@ -649,6 +717,12 @@ export default function CanvasSurface({ entry, session }: { entry: NavEntry; ses
   };
   const onDrop = (e: DragEvent<HTMLDivElement>) => {
     setDropping(false);
+    const files = imageFilesOf(e.dataTransfer);
+    if (files.length > 0) {
+      e.preventDefault();
+      void placeImages(files, worldPoint(e));
+      return;
+    }
     if (!isPlaceableDrag(e.dataTransfer.types)) return;
     const raw = e.dataTransfer.getData(CANVAS_DRAG_OBJECT);
     if (!raw) return;
@@ -695,28 +769,130 @@ export default function CanvasSurface({ entry, session }: { entry: NavEntry; ses
       setSelectedConnection(id);
     }
   };
-  const twoCards = selected.size === 2 && [...selected].every((id) => !isSection(session.get(id)!));
+  const selectedCards = [...selected].filter((id) => !isSection(session.get(id)!)).length;
+  // One rule (lib/rune2/canvasArrange.ts) for the button's enabled state and the menu's items.
+  const arrangeable = arrangeActions(selected.size, selectedCards);
+  const runArrange = (a: ArrangeAction) => {
+    if (a.kind === "align") doAlign(a.mode);
+    else if (a.kind === "distribute") doDistribute(a.mode);
+    else if (a.kind === "tidy") doTidy();
+    else connectSelection();
+  };
+  const arrangeItems = (): NavigatorMenuItem[] =>
+    arrangeable.map((a, i) => {
+      const prev = arrangeable[i - 1];
+      const key = a.kind === "align" || a.kind === "distribute" ? a.mode : a.kind;
+      return {
+        label: a.label,
+        key,
+        icon: ARRANGE_ICON[key],
+        onSelect: () => runArrange(a),
+        section: a.kind === "distribute" && prev?.kind !== "distribute" ? "Distribute" : a.kind === "align" && i === 0 ? "Align" : undefined,
+        separator: (a.kind === "align" && key === "top") || a.kind === "tidy" || a.kind === "connect",
+      };
+    });
 
-  const arrangeItems = (): NavigatorMenuItem[] => {
-    const many = selected.size >= 2;
-    const three = selected.size >= 3;
-    const items: NavigatorMenuItem[] = [
-      { label: "Align left", icon: AlignStartVertical, onSelect: () => doAlign("left"), section: "Align" },
-      { label: "Align centre", icon: AlignCenterVertical, onSelect: () => doAlign("centerX") },
-      { label: "Align right", icon: AlignEndVertical, onSelect: () => doAlign("right") },
-      { label: "Align top", icon: AlignStartHorizontal, onSelect: () => doAlign("top"), separator: true },
-      { label: "Align middle", icon: AlignCenterHorizontal, onSelect: () => doAlign("centerY") },
-      { label: "Align bottom", icon: AlignEndHorizontal, onSelect: () => doAlign("bottom") },
-    ];
-    if (three) {
-      items.push(
-        { label: "Distribute horizontally", icon: AlignHorizontalDistributeCenter, onSelect: () => doDistribute("horizontal"), section: "Distribute" },
-        { label: "Distribute vertically", icon: AlignVerticalDistributeCenter, onSelect: () => doDistribute("vertical") }
-      );
+  // ── Images ────────────────────────────────────────────────────────────────
+  /** Uploads image files as Project attachments and places each where it landed (a little apart). */
+  const placeImages = async (files: File[], at: Point) => {
+    let offset = 0;
+    for (const file of files) {
+      setUploads((n) => n + 1);
+      try {
+        const prepared = await prepareImage(file);
+        const attachment = await uploadImage(session.projectId, prepared);
+        const size = imagePlacementSize(attachment.width, attachment.height);
+        const id = session.addImage(attachment, { x: at.x - size.width / 2 + offset, y: at.y - size.height / 2 + offset }, size);
+        selectItems(new Set([id]));
+        offset += PASTE_OFFSET;
+      } catch (e) {
+        setMessage({ text: e instanceof Error ? e.message : "The image couldn’t be added.", tone: "warning" });
+      } finally {
+        setUploads((n) => n - 1);
+      }
     }
-    if (many) items.push({ label: "Tidy", icon: LayoutGrid, onSelect: doTidy, separator: true });
-    if (twoCards) items.push({ label: "Connect", icon: Link, onSelect: connectSelection, separator: true });
+  };
+  const onPaste = (e: ReactClipboardEvent<HTMLDivElement>) => {
+    if ((e.target as HTMLElement).closest("textarea, input, [contenteditable]")) return;
+    const files = imageFilesOf(e.clipboardData);
+    if (files.length === 0) return;
+    e.preventDefault();
+    void placeImages(files, viewCenter());
+  };
+
+  // ── A card's menu ─────────────────────────────────────────────────────────
+  /** A note becomes a Page or an Unplaced Scene: saved first, converted on the server, replaced here. */
+  const convert = async (id: string, target: "page" | "scene") => {
+    await session.flush();
+    if (!session.canConvert(id)) {
+      setMessage({ text: isOnline ? "This note isn’t saved yet. Try again in a moment." : "Converting needs a connection. The note is unchanged.", tone: "warning" });
+      return;
+    }
+    const content = session.noteContentOf(id);
+    if (!content) return;
+    const text = noteText(content);
+    const r = await convertCanvasNote(id, target, crypto.randomUUID(), noteTitle(text), content, countTextWords(text.replace(/\n/g, " ")));
+    if (r.status === "unsupported") {
+      setMessage({ text: "Converting needs a database update that isn’t in place yet. The note is unchanged.", tone: "warning" });
+      return;
+    }
+    if (r.status === "error") {
+      setMessage({ text: `The note couldn’t be converted (${r.error}). It is unchanged.`, tone: "warning" });
+      return;
+    }
+    session.applyConversion(id, r.item, r.connections);
+    selectItems(new Set([r.item.id]));
+    setMessage({ text: target === "page" ? "The note is now a page." : "The note is now an unplaced scene." });
+    refresh();
+  };
+  const cardMenuItems = (item: CanvasItem): NavigatorMenuItem[] => {
+    const items: NavigatorMenuItem[] = [];
+    if (item.item_type === "note") {
+      items.push(
+        { label: "Edit note", icon: PenLine, hint: "↵", onSelect: () => openItem(item) },
+        {
+          label: "Convert to page",
+          icon: FileText,
+          separator: true,
+          confirm: { message: "Make this note a page? Its text becomes the page’s, and the card shows the page. This can’t be undone.", action: "Convert" },
+          onSelect: () => void convert(item.id, "page"),
+        },
+        {
+          label: "Convert to scene",
+          icon: Pilcrow,
+          confirm: { message: "Make this note an unplaced scene? Its text becomes the scene’s prose, outside the manuscript’s order. This can’t be undone.", action: "Convert" },
+          onSelect: () => void convert(item.id, "scene"),
+        }
+      );
+    } else if (isSection(item)) {
+      items.push({ label: "Rename section", icon: PenLine, hint: "F2", onSelect: () => openItem(item) });
+    } else if (item.item_type !== "image") {
+      const targetId = targetIdOf(item);
+      if (targetId && index.has(targetId)) {
+        items.push({ label: "Open", icon: ArrowRight, hint: "↵", onSelect: () => openItem(item) }, { label: "Open in new tab", onSelect: () => openItem(item, true) });
+      }
+    }
+    items.push(
+      { label: "Duplicate", icon: Copy, hint: "⌘D", separator: true, onSelect: () => { selectItems(new Set([item.id])); const ids = session.duplicate([item.id]); if (ids.length) selectItems(new Set(ids)); } },
+      {
+        label: isSection(item) ? "Remove section" : "Remove from canvas",
+        icon: Trash2,
+        hint: "⌫",
+        tone: "danger",
+        onSelect: () => {
+          session.remove([item.id]);
+          setSelected(new Set());
+          focusBoard();
+        },
+      }
+    );
     return items;
+  };
+  const openCardMenu = (item: CanvasItem, at: Point) => {
+    clearTransient();
+    if (!selected.has(item.id)) selectItems(new Set([item.id]));
+    // Built now, in the event: the menu is a moment's offer for this card.
+    setCardMenu({ id: item.id, at, items: cardMenuItems(item) });
   };
 
   // ── Clipboard ─────────────────────────────────────────────────────────────
@@ -828,6 +1004,12 @@ export default function CanvasSurface({ entry, session }: { entry: NavEntry; ses
       if (item) openItem(item, mod);
       return;
     }
+    if ((e.key === "ContextMenu" || (e.key === "F10" && e.shiftKey)) && soleSelected) {
+      e.preventDefault();
+      const r = cardEls.current.get(soleSelected.id)?.getBoundingClientRect() ?? root.current?.getBoundingClientRect();
+      if (r) openCardMenu(soleSelected, { x: r.left + Math.min(r.width, 120), y: r.top + Math.min(r.height, 32) });
+      return;
+    }
     if (e.key === "F2" && selected.size === 1) {
       const item = session.get([...selected][0]);
       if (item && isSection(item)) {
@@ -901,11 +1083,14 @@ export default function CanvasSurface({ entry, session }: { entry: NavEntry; ses
   const status = session.status;
   const conflicts = session.conflicts;
   const notes = items.filter((i) => i.item_type === "note").length;
+  const images = items.filter((i) => i.item_type === "image").length;
   const sections = items.filter(isSection).length;
-  const placements = items.length - notes - sections;
+  const placements = items.length - notes - sections - images;
+  const stranded = session.stranded;
   const counts = [
     placements > 0 ? plural(placements, "card") : null,
     notes > 0 ? plural(notes, "note") : null,
+    images > 0 ? plural(images, "image") : null,
     sections > 0 ? plural(sections, "section") : null,
     connections.length > 0 ? plural(connections.length, "connection") : null,
   ]
@@ -936,7 +1121,29 @@ export default function CanvasSurface({ entry, session }: { entry: NavEntry; ses
   const sectionCounts = new Map<string, number>();
   for (const i of items) if (i.section_id) sectionCounts.set(i.section_id, (sectionCounts.get(i.section_id) ?? 0) + 1);
 
-  const soleSelected = selected.size === 1 ? session.get([...selected][0]) : undefined;
+  // The cards' callbacks never change identity (a memoized card skips a
+  // re-render on every pan and zoom of a large board); they read the latest
+  // handlers from a ref that is refreshed after each render.
+  const latest = useRef({ onCardPointerDown, openItem, openCardMenu, onRenameSection });
+  useEffect(() => {
+    latest.current = { onCardPointerDown, openItem, openCardMenu, onRenameSection };
+  });
+  const cardPointerDown = useCallback((item: CanvasItem, e: ReactPointerEvent<HTMLDivElement>) => latest.current.onCardPointerDown(item, e), []);
+  const cardDoubleClick = useCallback((item: CanvasItem) => latest.current.openItem(item), []);
+  const cardMenuOpen = useCallback((item: CanvasItem, at: Point) => latest.current.openCardMenu(item, at), []);
+  const noteChange = useCallback((id: string, text: string) => session.setNoteText(id, text), [session]);
+  const noteGrow = useCallback((id: string, height: number) => session.autoGrowNote(id, height), [session]);
+  const noteDone = useCallback(
+    (id: string, refocus: boolean) => {
+      session.endNoteEdit(id);
+      setEditing((cur) => (cur === id ? null : cur));
+      if (refocus) root.current?.focus({ preventScroll: true });
+    },
+    [session]
+  );
+  const sectionHeadDoubleClick = useCallback((it: CanvasItem) => latest.current.openItem(it), []);
+  const sectionRename = useCallback((id: string, title: string | null) => latest.current.onRenameSection(id, title), []);
+
   const showHandles = soleSelected && editing !== soleSelected.id && renaming !== soleSelected.id && !dragging;
   const scale = vp?.scale ?? 1;
   const connection = selectedConnection ? session.getConnection(selectedConnection) : undefined;
@@ -962,8 +1169,21 @@ export default function CanvasSurface({ entry, session }: { entry: NavEntry; ses
       onPointerCancel={endGesture}
       onLostPointerCapture={endGesture}
       onDoubleClick={(e) => {
-        if ((e.target as Element).closest(".r2-canvas-card, .r2-canvas-ui, .r2-canvas-section-head, .r2-canvas-handle, .r2-canvas-lines")) return;
+        if ((e.target as Element).closest(CANVAS_NO_NOTE_SELECTOR)) return;
+        // A double-click retargeted to the surface (a captured pointer) still means what is under it.
+        const under = document.elementFromPoint(e.clientX, e.clientY);
+        if (under?.closest(CANVAS_NO_NOTE_SELECTOR)) {
+          const id = under.closest<HTMLElement>("[data-item]:not([data-section])")?.dataset.item;
+          const item = id ? session.get(id) : undefined;
+          if (item) openItem(item);
+          return;
+        }
         newNote(worldPoint(e));
+      }}
+      onPaste={onPaste}
+      onContextMenu={(e) => {
+        // The board's own ground has no menu; a card opens its own.
+        if (!(e.target as Element).closest(".r2-canvas-card")) e.preventDefault();
       }}
       onKeyDown={onKeyDown}
       onKeyUp={onKeyUp}
@@ -990,16 +1210,9 @@ export default function CanvasSurface({ entry, session }: { entry: NavEntry; ses
                 selected={selected.has(item.id)}
                 renaming={renaming === item.id}
                 count={sectionCounts.get(item.id) ?? 0}
-                onPointerDown={onCardPointerDown}
-                onHeadDoubleClick={(it) => {
-                  selectItems(new Set([it.id]));
-                  setRenaming(it.id);
-                }}
-                onRename={(id, title) => {
-                  setRenaming((cur) => (cur === id ? null : cur));
-                  if (title !== null) session.setSectionTitle(id, title);
-                  root.current?.focus({ preventScroll: true });
-                }}
+                onPointerDown={cardPointerDown}
+                onHeadDoubleClick={sectionHeadDoubleClick}
+                onRename={sectionRename}
               />
             ) : null
           )}
@@ -1022,19 +1235,19 @@ export default function CanvasSurface({ entry, session }: { entry: NavEntry; ses
               <CanvasCard
                 key={item.id}
                 item={item}
-                target={item.item_type === "note" ? null : targetId ? index.get(targetId) : undefined}
+                target={item.item_type === "note" || item.item_type === "image" ? null : targetId ? index.get(targetId) : undefined}
+                attachment={item.item_type === "image" ? session.getAttachment(attachmentIdOf(item) ?? "") : undefined}
                 contentKey={contentKey(item)}
                 selected={selected.has(item.id)}
                 editing={editing === item.id}
+                stranded={stranded.has(item.id)}
                 setEl={setEl}
-                onPointerDown={onCardPointerDown}
-                onDoubleClick={(it) => openItem(it)}
-                onNoteChange={(id, text) => session.setNoteText(id, text)}
-                onNoteGrow={(id, height) => session.autoGrowNote(id, height)}
-                onNoteDone={(id) => {
-                  session.endNoteEdit(id);
-                  setEditing((cur) => (cur === id ? null : cur));
-                }}
+                onPointerDown={cardPointerDown}
+                onDoubleClick={cardDoubleClick}
+                onMenu={cardMenuOpen}
+                onNoteChange={noteChange}
+                onNoteGrow={noteGrow}
+                onNoteDone={noteDone}
               />
             );
           })}
@@ -1118,6 +1331,26 @@ export default function CanvasSurface({ entry, session }: { entry: NavEntry; ses
           </button>
         </Tooltip>
         <span className="r2-canvas-tools-group">
+          <Tooltip label="Add an image">
+            <button type="button" className="r2-icon-button" aria-label="Add an image" aria-busy={uploads > 0 || undefined} onClick={() => fileInput.current?.click()}>
+              <ImagePlus {...ICON} aria-hidden />
+            </button>
+          </Tooltip>
+          <input
+            ref={fileInput}
+            type="file"
+            accept={ACCEPTED_IMAGE_ACCEPT}
+            multiple
+            hidden
+            aria-hidden
+            tabIndex={-1}
+            onChange={(e) => {
+              const files = [...(e.target.files ?? [])];
+              e.target.value = "";
+              if (files.length) void placeImages(files, viewCenter());
+              root.current?.focus({ preventScroll: true });
+            }}
+          />
           <Tooltip label={<>{selected.size ? "Section around the selection" : "New section"} <kbd>S</kbd></>}>
             <button type="button" className="r2-icon-button" aria-label="New section" onClick={newSection}>
               <SquareDashed {...ICON} aria-hidden />
@@ -1131,7 +1364,7 @@ export default function CanvasSurface({ entry, session }: { entry: NavEntry; ses
               aria-label="Arrange"
               aria-haspopup="menu"
               aria-expanded={arrangeAt !== null}
-              disabled={selected.size < 2}
+              disabled={arrangeable.length === 0}
               onClick={() => {
                 const r = arrangeButton.current?.getBoundingClientRect();
                 setArrangeAt(arrangeAt ? null : r ? { x: r.right - 220, y: r.bottom + 6 } : { x: 0, y: 0 });
@@ -1218,9 +1451,29 @@ export default function CanvasSurface({ entry, session }: { entry: NavEntry; ses
         )}
       </div>
       {arrangeAt && <NavigatorMenu label="Arrange the selection" at={arrangeAt} items={arrangeItems()} onClose={() => setArrangeAt(null)} />}
+      {cardMenu && session.has(cardMenu.id) && <NavigatorMenu label="Card actions" at={cardMenu.at} items={cardMenu.items} onClose={() => setCardMenu(null)} />}
 
-      {items.length === 0 && !insert && (
-        <p className="r2-canvas-ui r2-canvas-empty">Double-click anywhere for a note, or add a scene, chapter, page or entry.</p>
+      {items.length === 0 && !insert && uploads === 0 && (
+        <p className="r2-canvas-ui r2-canvas-empty">Double-click anywhere for a note, add a scene, chapter, page or entry, or drop an image.</p>
+      )}
+
+      {message && !notice && (
+        <div className="r2-canvas-ui r2-canvas-notice" role="status" data-tone={message.tone}>
+          <span>{message.text}</span>
+          <button type="button" className="r2-icon-button" aria-label="Dismiss" onClick={() => setMessage(null)}>
+            <X {...ICON} aria-hidden />
+          </button>
+        </div>
+      )}
+
+      {/* Something this server couldn't save (a newer client than the database): kept here and on this device; a reload brings the client that can. */}
+      {(stranded.size > 0 || status === "unsupported") && !notice && !message && (
+        <div className="r2-canvas-ui r2-canvas-notice" role="alert" data-tone="warning">
+          <span>{STRANDED_TEXT}</span>
+          <button type="button" className="r2-button r2-button--quiet r2-button--sm" onClick={() => window.location.reload()}>
+            Reload
+          </button>
+        </div>
       )}
 
       {notice && (
@@ -1320,6 +1573,7 @@ export default function CanvasSurface({ entry, session }: { entry: NavEntry; ses
 
       <DocStatus>
         {counts && <span>{counts}</span>}
+        {uploads > 0 && <span>{uploads === 1 ? "Uploading an image…" : `Uploading ${uploads} images…`}</span>}
         {!isOnline && (status === "pending" || status === "saving" || status === "retrying") ? (
           <span data-tone="offline">Offline · saved on this device</span>
         ) : (

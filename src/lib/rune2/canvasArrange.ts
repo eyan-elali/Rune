@@ -12,6 +12,38 @@ export type Placement = Map<string, { x: number; y: number }>;
 export type AlignMode = "left" | "centerX" | "right" | "top" | "centerY" | "bottom";
 export type DistributeMode = "horizontal" | "vertical";
 
+export type ArrangeAction =
+  | { kind: "align"; mode: AlignMode; label: string }
+  | { kind: "distribute"; mode: DistributeMode; label: string }
+  | { kind: "tidy"; label: string }
+  | { kind: "connect"; label: string };
+
+/**
+ * What "Arrange the selection" offers for a selection of `count` placements,
+ * `cards` of which are cards (not Sections): align needs two, distribute
+ * three, tidy two, connect exactly two cards. One rule for the toolbar
+ * button's enabled state and the menu's items, so neither can disagree.
+ */
+export function arrangeActions(count: number, cards: number): ArrangeAction[] {
+  const out: ArrangeAction[] = [];
+  if (count >= 2) {
+    out.push(
+      { kind: "align", mode: "left", label: "Align left" },
+      { kind: "align", mode: "centerX", label: "Align centre" },
+      { kind: "align", mode: "right", label: "Align right" },
+      { kind: "align", mode: "top", label: "Align top" },
+      { kind: "align", mode: "centerY", label: "Align middle" },
+      { kind: "align", mode: "bottom", label: "Align bottom" }
+    );
+  }
+  if (count >= 3) {
+    out.push({ kind: "distribute", mode: "horizontal", label: "Distribute horizontally" }, { kind: "distribute", mode: "vertical", label: "Distribute vertically" });
+  }
+  if (count >= 2) out.push({ kind: "tidy", label: "Tidy" });
+  if (count === 2 && cards === 2) out.push({ kind: "connect", label: "Connect" });
+  return out;
+}
+
 /** The selection aligned on one edge or axis of its own bounds. */
 export function align(items: readonly Positioned[], mode: AlignMode): Placement {
   const out: Placement = new Map();

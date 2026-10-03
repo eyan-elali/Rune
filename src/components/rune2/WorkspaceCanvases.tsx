@@ -1,7 +1,8 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { sweepProjectAttachments } from "@/lib/actions/workspaceAttachments";
 import { getWorkspaceCanvas, writeCanvasItems } from "@/lib/actions/workspaceCanvas";
 import { CanvasSession, type CanvasChange, type CanvasDraft } from "@/lib/rune2/canvasSession";
 import { deleteCanvasDraft, getCanvasDraft, putCanvasDraft } from "@/lib/rune2/workspaceDrafts";
@@ -91,6 +92,7 @@ class CanvasSessions {
       projectId,
       items: server.items,
       connections: server.connections,
+      attachments: server.attachments,
       // Plain JSON across the wire: a note's document may carry objects
       // without a prototype, which a server action would drop.
       write: (changes: CanvasChange[]) => writeCanvasItems(id, toPlainDocument(changes)),
@@ -156,6 +158,15 @@ export function WorkspaceCanvases() {
   useEffect(() => {
     if (canvasId && userId) void store.open(canvasId, userId);
   }, [canvasId, userId, store]);
+
+  // Housekeeping, once per window and Project: attachments nothing references
+  // any more (after the grace period) are let go — never one a card shows.
+  const swept = useRef(false);
+  useEffect(() => {
+    if (!canvasId || !userId || swept.current || !isOnline) return;
+    swept.current = true;
+    void sweepProjectAttachments(manuscript.project.id).catch(() => undefined);
+  }, [canvasId, userId, isOnline, manuscript.project.id]);
 
   useEffect(() => {
     if (isOnline) store.retryWaiting();

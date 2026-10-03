@@ -1,5 +1,6 @@
-import type { CanvasConnection, CanvasItem, CanvasItemType, CanvasTargetType } from "@/lib/types";
+import type { CanvasConnection, CanvasItem, CanvasItemType, CanvasTargetType, WorkspaceAttachment } from "@/lib/types";
 import {
+  attachmentIdOf,
   byStacking,
   clampSize,
   isSection,
@@ -109,7 +110,13 @@ export type CanvasSaveStatus =
   /** The Canvas was moved to Trash (here or elsewhere): not saving until resumed. */
   | "trashed"
   /** The Canvas no longer exists or isn't reachable by this writer. */
-  | "unavailable";
+  | "unavailable"
+  /**
+   * The server doesn't understand this client's saves at all (the Canvas
+   * function is missing or older than this client): nothing is retried,
+   * every change stays on this device, and the writer is asked to reload.
+   */
+  | "unsupported";
 
 type ItemField = "x" | "y" | "width" | "height" | "z" | "content" | "label" | "section_id" | "manual_size";
 type ConnectionField = "directed" | "label";
@@ -136,16 +143,36 @@ export type CanvasDraft = {
 /** A note whose text was changed here and elsewhere: the writer chooses. */
 export type NoteConflict = { mine: string; theirs: CanvasItem };
 
+/**
+ * Whether a server answer means "this server doesn't support that" — a
+ * client newer than the database (an item type, an op or a kind the
+ * function doesn't know) or a database without the function at all —
+ * rather than "that change is invalid". Such a change is never valid later
+ * on THIS server, and never invalid in itself: it is kept, not dropped.
+ */
+export function isUnsupportedError(message: string | null | undefined): boolean {
+  if (!message) return false;
+  return /unknown (item type|op|kind)/i.test(message) || /could not find the function|does not exist|PGRST202|schema cache/i.test(message);
+}
+
+/** A placement whose content is the writer's own (never re-derivable from a canonical object). */
+function isAuthored(item: Pick<CanvasItem, "item_type"> | undefined): boolean {
+  return item?.item_type === "note" || item?.item_type === "image";
+}
+
 /** What ⌘C takes: rows as they were, to be laid down again (here or on another Canvas) as new rows. */
 export type CanvasClip = { items: CanvasItem[]; connections: CanvasConnection[] };
 
-type Command = { undo: () => void; redo: () => void };
+/** One undo entry, with the ids of the rows it touches (so history about a row that was converted away can be dropped). */
+type Command = { undo: () => void; redo: () => void; ids: readonly string[] };
 
 export type CanvasSessionOptions = {
   canvasId: string;
   projectId: string;
   items: CanvasItem[];
   connections?: CanvasConnection[];
+  /** The attachments the Canvas's image placements show (047). */
+  attachments?: WorkspaceAttachment[];
   write: (changes: CanvasChange[]) => Promise<CanvasWriteOutcome>;
   /** Writes the device copy. Must not throw. */
   persist?: (draft: CanvasDraft) => void;
@@ -170,7 +197,15 @@ export class CanvasSession {
   readonly projectId: string;
   private _items = new Map<string, CanvasItem>();
   private _connections = new Map<string, CanvasConnection>();
+  private _attachments = new Map<string, WorkspaceAttachment>();
   private dirty = new Map<string, Dirty>();
+  /**
+   * Changes this server refused as unsupported (or authored content it
+   * refused for any reason): kept here and on the device, shown, never
+   * retried by this session — a reloaded (newer) client replays them from
+   * the device draft.
+   */
+  private _stranded = new Map<string, Dirty>();
   private inFlight: Map<string, number> | null = null;
   private _status: CanvasSaveStatus = "saved";
   private _conflicts = new Map<string, NoteConflict>();
@@ -204,6 +239,7 @@ export class CanvasSession {
     this.projectId = options.projectId;
     for (const item of options.items) this._items.set(item.id, item);
     for (const c of options.connections ?? []) this._connections.set(c.id, c);
+    for (const a of options.attachments ?? []) this._attachments.set(a.id, a);
   }
 
   // ── Reading ───────────────────────────────────────────────────────────────
@@ -254,6 +290,21 @@ export class CanvasSession {
   }
   get conflicts(): ReadonlyMap<string, NoteConflict> {
     return this._conflicts;
+  }
+  /** The rows this server refused as unsupported (kept, never retried here). */
+  get stranded(): ReadonlySet<string> {
+    return new Set(this._stranded.keys());
+  }
+  getAttachment(id: string): WorkspaceAttachment | undefined {
+    return this._attachments.get(id);
+  }
+  /** Every attachment the session knows (the Canvas's images, and ones uploaded here). */
+  get attachments(): WorkspaceAttachment[] {
+    return [...this._attachments.values()];
+  }
+  /** An attachment uploaded in this window: known to the session before its placement is made. */
+  addAttachment(a: WorkspaceAttachment): void {
+    this._attachments.set(a.id, a);
   }
   get canUndo(): boolean {
     return this.undoStack.length > 0;
@@ -317,6 +368,27 @@ export class CanvasSession {
     item.content = noteDoc(text);
     item.section_id = sectionAt(this._items.values(), item);
     this.run({
+      ids: [item.id],
+      redo: () => this.create(item),
+      undo: () => this.remove([item.id]),
+    });
+    return item.id;
+  }
+
+  /**
+   * A placement of a Project attachment (an image) at a world point, at a
+   * size (the image's own proportions, fit — lib/rune2/canvas.ts
+   * imagePlacementSize). The attachment is referenced, never copied: a second
+   * placement of the same one shows the same bytes. Returns the placement's id.
+   */
+  addImage(attachment: WorkspaceAttachment, at: { x: number; y: number }, size: { width: number; height: number }): string {
+    this._attachments.set(attachment.id, attachment);
+    const item = this.blank("image", at, clampSize("image", size));
+    item.attachment_id = attachment.id;
+    item.label = attachment.file_name.slice(0, 200);
+    item.section_id = sectionAt(this._items.values(), item);
+    this.run({
+      ids: [item.id],
       redo: () => this.create(item),
       undo: () => this.remove([item.id]),
     });
@@ -352,6 +424,7 @@ export class CanvasSession {
     }
     item.section_id = sectionAt(this._items.values(), item);
     this.run({
+      ids: [item.id],
       redo: () => this.create(item),
       undo: () => this.remove([item.id]),
     });
@@ -369,6 +442,7 @@ export class CanvasSession {
     const gathered = [...this._items.values()].filter((i) => !isSection(i) && sectionAt([item], i) === item.id);
     const before = new Map(gathered.map((i) => [i.id, sectionOf(i)]));
     this.run({
+      ids: [item.id, ...before.keys()],
       redo: () => {
         this.create(item);
         for (const id of before.keys()) this.setMembership(id, item.id);
@@ -394,7 +468,7 @@ export class CanvasSession {
       this._items.set(id, { ...it, label });
       this.markDirty(id, ["label"]);
     };
-    this.run({ redo: () => set(next), undo: () => set(prev) });
+    this.run({ ids: [id], redo: () => set(next), undo: () => set(prev) });
   }
 
   // ── Moving and sizing ─────────────────────────────────────────────────────
@@ -454,7 +528,7 @@ export class CanvasSession {
       for (const [id, section] of members) this.setMembership(id, section);
     };
     // Already where it should be; the entry records both ends.
-    this.push({ redo: () => place(to, memberAfter), undo: () => place(from, memberBefore) });
+    this.push({ ids: [...to.keys()], redo: () => place(to, memberAfter), undo: () => place(from, memberBefore) });
     place(to, memberAfter);
     this.afterChange();
   }
@@ -487,7 +561,7 @@ export class CanvasSession {
       this._items.set(id, { ...it, ...rect, manual_size: manual });
       this.markDirty(id, ["x", "y", "width", "height", "manual_size"]);
     };
-    this.push({ redo: () => apply(to, true), undo: () => apply(from, manualBefore) });
+    this.push({ ids: [id], redo: () => apply(to, true), undo: () => apply(from, manualBefore) });
     apply(to, true);
     this.afterChange();
   }
@@ -544,7 +618,7 @@ export class CanvasSession {
         this.markDirty(id, ["x", "y"]);
       }
     };
-    this.run({ redo: () => place(full), undo: () => place(from) });
+    this.run({ ids: [...full.keys()], redo: () => place(full), undo: () => place(from) });
   }
 
   /** Brings cards to the front: a z above every other card's. Saved, not an undo entry (a selection's side effect). Sections keep their own layer. */
@@ -597,7 +671,7 @@ export class CanvasSession {
       this.markDirty(id, ["content"]);
     };
     // Already applied: push the entry without running it again.
-    this.push({ redo: () => set(after), undo: () => set(before) });
+    this.push({ ids: [id], redo: () => set(after), undo: () => set(before) });
   }
 
   // ── Connections ───────────────────────────────────────────────────────────
@@ -627,6 +701,7 @@ export class CanvasSession {
       updated_at: now,
     };
     this.run({
+      ids: [c.id, sourceId, targetId],
       redo: () => this.createConnection(c),
       undo: () => this.deleteConnection(c.id),
     });
@@ -666,7 +741,7 @@ export class CanvasSession {
       this._connections.set(id, { ...cur, ...v });
       this.markDirty(id, fields, "connection");
     };
-    this.run({ redo: () => set(next), undo: () => set(prev) });
+    this.run({ ids: [id], redo: () => set(next), undo: () => set(prev) });
   }
 
   /** Removes connections — only connections. */
@@ -674,6 +749,7 @@ export class CanvasSession {
     const removed = ids.map((id) => this._connections.get(id)).filter((c): c is CanvasConnection => Boolean(c));
     if (removed.length === 0) return;
     this.run({
+      ids: removed.flatMap((c) => [c.id, c.source_item_id, c.target_item_id]),
       redo: () => {
         for (const c of removed) this.deleteConnection(c.id);
       },
@@ -703,6 +779,7 @@ export class CanvasSession {
       for (const m of this.membersOf(s.id)) if (!gone.has(m)) released.set(m, s.id);
     }
     this.run({
+      ids: [...gone, ...released.keys(), ...connections.map((c) => c.id)],
       redo: () => {
         for (const c of connections) this.deleteConnection(c.id);
         for (const m of released.keys()) this.setMembership(m, null);
@@ -777,6 +854,7 @@ export class CanvasSession {
     }
     if (items.length === 0) return [];
     this.run({
+      ids: [...items.map((i) => i.id), ...connections.map((c) => c.id)],
       redo: () => {
         for (const item of items) this.create(item);
         for (const c of connections) this.createConnection(c);
@@ -828,6 +906,62 @@ export class CanvasSession {
   acceptServer(id: string): void {
     if (!this._conflicts.delete(id)) return;
     this.bump();
+  }
+
+  // ── Promotion: a note becomes a Page or a Scene ───────────────────────────
+
+  /**
+   * Whether a note is ready to be converted: it exists, is a note, has
+   * reached the server (a conversion is server-side, of the saved row), has
+   * no unresolved conflict and isn't stranded. The surface flushes first.
+   */
+  canConvert(id: string): boolean {
+    const item = this._items.get(id);
+    if (!item || item.item_type !== "note") return false;
+    if (item.version === 0 || this.dirty.has(id) || this._conflicts.has(id) || this._stranded.has(id)) return false;
+    return !this.halted();
+  }
+
+  /** The text a conversion carries: the note's document as this window shows it. */
+  noteContentOf(id: string): Record<string, unknown> | null {
+    const item = this._items.get(id);
+    return item?.item_type === "note" ? (item.content ?? noteDoc("")) : null;
+  }
+
+  /**
+   * The server converted a note (convert_canvas_note): the note is gone,
+   * replaced by a live placement of the new Page or Scene with the
+   * connections re-made. Applied as the server's truth — nothing dirty,
+   * nothing to undo: a conversion is not undoable (undoing it would mean
+   * deleting a canonical Page or Scene, which no Canvas command may do).
+   * History entries that touched the note are dropped; the rest stays.
+   */
+  applyConversion(noteId: string, item: CanvasItem, connections: CanvasConnection[]): void {
+    this._items.delete(noteId);
+    this.dirty.delete(noteId);
+    this._stranded.delete(noteId);
+    this._conflicts.delete(noteId);
+    this.noteEdits.delete(noteId);
+    for (const c of this.connectionsOf([noteId])) {
+      this._connections.delete(c.id);
+      this.dirty.delete(c.id);
+    }
+    this._items.set(item.id, item);
+    for (const c of connections) {
+      this._connections.set(c.id, c);
+      this.dirty.delete(c.id);
+    }
+    this.forgetHistoryOf([noteId]);
+    this.persist();
+    this.bump();
+  }
+
+  /** Drops every undo and redo entry that touches any of `ids`. */
+  forgetHistoryOf(ids: readonly string[]): void {
+    const set = new Set(ids);
+    const keep = (cmd: Command) => !cmd.ids.some((id) => set.has(id));
+    this.undoStack = this.undoStack.filter(keep);
+    this.redoStack = this.redoStack.filter(keep);
   }
 
   // ── Saving ────────────────────────────────────────────────────────────────
@@ -913,7 +1047,15 @@ export class CanvasSession {
   }
 
   private delete(id: string) {
+    // A stranded row the writer removes is simply gone: it never reached the server.
+    const wasStranded = this._stranded.delete(id);
     if (!this._items.delete(id)) return;
+    if (wasStranded) {
+      for (const m of this.membersOf(id)) this._items.set(m, { ...this._items.get(m)!, section_id: null });
+      for (const c of this.connectionsOf([id])) this.deleteConnection(c.id);
+      this.dirty.delete(id);
+      return;
+    }
     // What the server does on delete (SET NULL, CASCADE), done here too, so the window agrees with it.
     for (const m of this.membersOf(id)) this._items.set(m, { ...this._items.get(m)!, section_id: null });
     for (const c of this.connectionsOf([id])) this.deleteConnection(c.id);
@@ -948,6 +1090,9 @@ export class CanvasSession {
   }
 
   private markDirty(id: string, fields: readonly Field[], kind: Kind = "item") {
+    // A stranded row changes only here: the row itself holds the change, the
+    // draft carries it, and this server is never asked again.
+    if (this._stranded.has(id)) return;
     const d = this.dirty.get(id);
     if (d?.op === "create" && !this.inFlight?.has(id)) {
       d.seq = ++this.seq; // the create carries the whole row
@@ -997,7 +1142,7 @@ export class CanvasSession {
   }
 
   private halted(): boolean {
-    return this._status === "trashed" || this._status === "unavailable";
+    return this._status === "trashed" || this._status === "unavailable" || this._status === "unsupported";
   }
 
   private rowOf(kind: Kind, id: string): CanvasItem | CanvasConnection | undefined {
@@ -1006,7 +1151,9 @@ export class CanvasSession {
 
   private persist() {
     const entries: CanvasDraft["entries"] = [];
-    for (const [id, d] of this.dirty) {
+    // What is unsaved, and what this server refused as unsupported (a newer
+    // client replays both from the draft).
+    for (const [id, d] of [...this._stranded, ...this.dirty]) {
       entries.push({ id, kind: d.kind, op: d.op, fields: [...d.fields], item: d.op === "delete" ? null : (this.rowOf(d.kind, id) ?? null) });
     }
     try {
@@ -1151,6 +1298,14 @@ export class CanvasSession {
       return;
     }
     if (outcome.status === "error") {
+      if (isUnsupportedError(outcome.error)) {
+        // This server can't take this client's saves at all: nothing is
+        // retried (it would never succeed) and nothing is dropped — every
+        // change stays dirty on the device for the reloaded client.
+        this.persist();
+        this.setStatus("unsupported");
+        return;
+      }
       this.failures += 1;
       this.setStatus("retrying");
       const delays = this.opts.retryDelays;
@@ -1194,15 +1349,27 @@ export class CanvasSession {
           else this._connections.delete(r.id);
           this.dirty.delete(r.id);
           break;
-        case "error":
-          // Invalid for the server (a target gone to Trash before the create
-          // landed, say): never valid later. Dropped, never retried forever.
-          if (d?.op === "create") {
+        case "error": {
+          // Unsupported by this server (a placement type it doesn't know),
+          // or the writer's own content refused for any reason: kept —
+          // shown, on the device, never retried here (never valid on this
+          // server), replayed by a newer client. Anything else is invalid
+          // (a target gone to Trash before the create landed, say): never
+          // valid later, dropped, never retried forever.
+          const authored = kind === "item" && isAuthored(row as CanvasItem | undefined);
+          const strand = d && !stale && (isUnsupportedError(r.error) || (authored && d.op === "create" && !isUnsupportedError(r.error) && (row as CanvasItem).item_type === "note"));
+          if (strand && d) {
+            this._stranded.set(r.id, { ...d, fields: new Set(d.fields) });
+            this.dirty.delete(r.id);
+            break;
+          }
+          if (d?.op === "create" && !stale) {
             if (kind === "item") this.dropLocal(r.id);
             else this._connections.delete(r.id);
           }
-          this.dirty.delete(r.id);
+          if (!stale) this.dirty.delete(r.id);
           break;
+        }
       }
     }
     this.persist();
@@ -1215,6 +1382,7 @@ export class CanvasSession {
 
   /** An item the server no longer has: gone here, its members let go, its connections with it (no save: the server did the same). */
   private dropLocal(id: string) {
+    this._stranded.delete(id);
     if (!this._items.delete(id)) return;
     for (const m of this.membersOf(id)) this._items.set(m, { ...this._items.get(m)!, section_id: null });
     for (const c of this.connectionsOf([id])) {
@@ -1225,7 +1393,7 @@ export class CanvasSession {
 }
 
 function targetOf(item: CanvasItem): string | null {
-  return item.scene_id ?? item.chapter_id ?? item.document_id ?? item.entry_id ?? item.target_canvas_id;
+  return item.scene_id ?? item.chapter_id ?? item.document_id ?? item.entry_id ?? item.target_canvas_id ?? attachmentIdOf(item);
 }
 
 function pick<T extends object>(row: T, fields: readonly Field[]): Partial<T> {

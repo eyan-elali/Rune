@@ -170,6 +170,8 @@ export const DEFAULT_SIZE: Record<CanvasItemType, Size> = {
   canvas: { width: 208, height: 72 },
   note: { width: 220, height: 64 },
   section: { width: 640, height: 420 },
+  // An image's default is its own shape, fit within this (imagePlacementSize).
+  image: { width: 320, height: 240 },
 };
 
 /** The smallest and largest a card of each kind may be made. */
@@ -181,6 +183,7 @@ export const MIN_SIZE: Record<CanvasItemType, Size> = {
   canvas: { width: 160, height: 48 },
   note: { width: 120, height: 40 },
   section: { width: 200, height: 120 },
+  image: { width: 48, height: 48 },
 };
 export const MAX_SIZE: Record<CanvasItemType, Size> = {
   scene: { width: 720, height: 720 },
@@ -190,7 +193,39 @@ export const MAX_SIZE: Record<CanvasItemType, Size> = {
   canvas: { width: 720, height: 360 },
   note: { width: 960, height: 1600 },
   section: { width: 8000, height: 8000 },
+  image: { width: 2400, height: 2400 },
 };
+
+/**
+ * The size a newly placed image takes: its own proportions, fit within the
+ * default image frame (never enlarged past its pixels, never below the
+ * minimum). An image without known dimensions takes the frame.
+ */
+export function imagePlacementSize(width: number | null, height: number | null, frame: Size = DEFAULT_SIZE.image): Size {
+  if (!width || !height || width <= 0 || height <= 0) return { ...frame };
+  const scale = Math.min(1, frame.width / width, frame.height / height);
+  return clampSize("image", { width: width * scale, height: height * scale });
+}
+
+/**
+ * A resize of an image that keeps its proportions: the dragged size, fit to
+ * the aspect `ratio` (width / height) along the larger change, within the
+ * kind's bounds.
+ */
+export function keepAspect(size: Size, ratio: number): Size {
+  if (!Number.isFinite(ratio) || ratio <= 0) return clampSize("image", size);
+  const byWidth = { width: size.width, height: size.width / ratio };
+  const byHeight = { width: size.height * ratio, height: size.height };
+  const chosen = byWidth.height <= size.height ? byHeight : byWidth;
+  const min = MIN_SIZE.image;
+  const max = MAX_SIZE.image;
+  let { width, height } = chosen;
+  if (width < min.width) { width = min.width; height = width / ratio; }
+  if (height < min.height) { height = min.height; width = height * ratio; }
+  if (width > max.width) { width = max.width; height = width / ratio; }
+  if (height > max.height) { height = max.height; width = height * ratio; }
+  return { width: Math.round(width), height: Math.round(height) };
+}
 
 /** How tall a note grows on its own while being typed into; past this it scrolls. */
 export const NOTE_AUTO_MAX_HEIGHT = 480;
@@ -213,7 +248,35 @@ export const ITEM_LABEL: Record<CanvasItemType, string> = {
   canvas: "Canvas",
   note: "Note",
   section: "Section",
+  image: "Image",
 };
+
+/** Whether a placement is Canvas-local (no canonical object behind it): a note, a Section, an image. */
+export function isLocal(item: Pick<CanvasItem, "item_type">): boolean {
+  return item.item_type === "note" || item.item_type === "section" || item.item_type === "image";
+}
+
+/** The attachment an image placement shows, or null for anything else. */
+export function attachmentIdOf(item: Pick<CanvasItem, "item_type" | "attachment_id">): string | null {
+  return item.item_type === "image" ? (item.attachment_id ?? null) : null;
+}
+
+/**
+ * The surface's own chrome: a press on any of this is never a press on the
+ * board (no marquee, no pan, no deselection) and a double-click on it is
+ * never a new note. The arrange menu (an .r2-menu rendered inside the
+ * surface) belongs here — without it, pressing a menu item started a marquee
+ * that captured the pointer, so the item's click never fired (M22B's
+ * "Arrange the selection" bug).
+ */
+export const CANVAS_CHROME_SELECTOR = ".r2-canvas-ui, .r2-canvas-card, .r2-canvas-section-head, .r2-canvas-handle, .r2-menu, .r2-popover";
+
+/** The board's chrome plus the connection lines: a double-click there is not a new note either. */
+export const CANVAS_NO_NOTE_SELECTOR = `${CANVAS_CHROME_SELECTOR}, .r2-canvas-lines`;
+
+export function isCanvasChrome(target: { closest(selector: string): unknown } | null | undefined, selector = CANVAS_CHROME_SELECTOR): boolean {
+  return Boolean(target?.closest(selector));
+}
 
 export function isSection(item: Pick<CanvasItem, "item_type">): boolean {
   return item.item_type === "section";
@@ -385,6 +448,21 @@ export function noteText(doc: unknown): string {
   const content = (doc as { content?: unknown } | null)?.content;
   if (!Array.isArray(content)) return "";
   return content.map((block) => blockText(block)).join("\n");
+}
+
+/**
+ * The title a note's text suggests when it becomes a Page or a Scene: its
+ * first line with words in it, trimmed to a title's length at a word — or
+ * null when there is none (then the object is untitled). The whole text,
+ * first line included, stays the body: a title is derived, never cut out.
+ */
+export function noteTitle(text: string, max = 80): string | null {
+  const line = text.split("\n").map((l) => l.replace(/\s+/g, " ").trim()).find((l) => /\p{L}|\p{N}/u.test(l));
+  if (!line) return null;
+  if (line.length <= max) return line;
+  const cut = line.slice(0, max);
+  const at = cut.lastIndexOf(" ");
+  return (at > max * 0.5 ? cut.slice(0, at) : cut).trimEnd();
 }
 
 function blockText(node: unknown): string {

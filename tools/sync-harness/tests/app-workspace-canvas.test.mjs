@@ -254,7 +254,7 @@ test('placements: the database refuses a target of another Project, a Canvas lin
   const good = create('scene', pageId('h4a'));
   const foreign = create('scene', pageId('t1a'));
   const self = create('canvas', t.plot.id);
-  const unknown = { ...create('scene', pageId('h4a')), item_type: 'image' };
+  const unknown = { ...create('scene', pageId('h4a')), item_type: 'video' };
   const trashed = create('page', t.intro.id);
   const noTarget = create('scene', null);
   const rs = results(await canvas.writeCanvasItems(t.plot.id, [good, foreign, self, unknown, trashed, noTarget]));

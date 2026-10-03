@@ -76,27 +76,32 @@ export type ZipReader = {
   has: (name: string) => boolean;
   /** The entry's text (UTF-8), or null when the archive has no such entry. */
   text: (name: string) => Promise<string | null>;
+  /** The entry's bytes, or null when the archive has no such entry. */
+  bytes: (name: string) => Promise<Uint8Array | null>;
 };
 
 export function openZip(bytes: Uint8Array): ZipReader {
   const entries = centralDirectory(bytes);
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const read = async (name: string): Promise<Uint8Array | null> => {
+    const e = entries.get(name);
+    if (!e) return null;
+    if (e.flags & 1) throw new ImportFileError("This Word document is password-protected. Save an unprotected copy and try again.");
+    if (e.offset + 30 > bytes.length || view.getUint32(e.offset, true) !== LOCAL) {
+      throw new ImportFileError("This Word document appears to be damaged.");
+    }
+    const start = e.offset + 30 + view.getUint16(e.offset + 26, true) + view.getUint16(e.offset + 28, true);
+    const data = bytes.subarray(start, start + e.compressedSize);
+    if (e.method === 0) return data;
+    if (e.method === 8) return inflateRaw(data, MAX_ENTRY_BYTES);
+    throw new ImportFileError("This Word document uses a compression Rune can’t read.");
+  };
   return {
     has: (name) => entries.has(name),
     async text(name) {
-      const e = entries.get(name);
-      if (!e) return null;
-      if (e.flags & 1) throw new ImportFileError("This Word document is password-protected. Save an unprotected copy and try again.");
-      if (e.offset + 30 > bytes.length || view.getUint32(e.offset, true) !== LOCAL) {
-        throw new ImportFileError("This Word document appears to be damaged.");
-      }
-      const start = e.offset + 30 + view.getUint16(e.offset + 26, true) + view.getUint16(e.offset + 28, true);
-      const data = bytes.subarray(start, start + e.compressedSize);
-      let raw: Uint8Array;
-      if (e.method === 0) raw = data;
-      else if (e.method === 8) raw = await inflateRaw(data, MAX_ENTRY_BYTES);
-      else throw new ImportFileError("This Word document uses a compression Rune can’t read.");
-      return new TextDecoder("utf-8").decode(raw);
+      const raw = await read(name);
+      return raw === null ? null : new TextDecoder("utf-8").decode(raw);
     },
+    bytes: read,
   };
 }

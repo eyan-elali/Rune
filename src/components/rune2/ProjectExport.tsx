@@ -313,6 +313,8 @@ const KIND_LABELS: Partial<Record<BackupKind, string>> = {
   milestones: "milestones",
   workspace_documents: "pages",
   workspace_collection_entries: "collections",
+  workspace_canvases: "canvases",
+  workspace_attachments: "images",
   object_references: "references",
   writing_sessions: "writing history",
 };

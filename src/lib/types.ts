@@ -152,10 +152,34 @@ export interface WorkspaceCanvas {
 export type WorkspaceCanvasSummary = Pick<WorkspaceCanvas, "id" | "title">;
 
 /** What a Canvas placement shows: a live Rune object, or a Canvas-local note. */
-export type CanvasItemType = "scene" | "chapter" | "page" | "entry" | "canvas" | "note" | "section";
+export type CanvasItemType = "scene" | "chapter" | "page" | "entry" | "canvas" | "note" | "section" | "image";
 
-/** The placement types that show a canonical Rune object (a Section and a note are Canvas-local). */
-export type CanvasTargetType = Exclude<CanvasItemType, "note" | "section">;
+/** The placement types that show a canonical Rune object (a Section, a note and an image are Canvas-local). */
+export type CanvasTargetType = Exclude<CanvasItemType, "note" | "section" | "image">;
+
+/**
+ * A Project attachment (migration 047, table workspace_attachments): a file
+ * the Project owns — an image, in V0 — with its metadata and where its bytes
+ * are. The bytes themselves are served by the server (/api/attachments/<id>),
+ * never addressed by the browser directly. `display_key` names a
+ * browser-sized derivative of a large image; the original is always kept.
+ */
+export interface WorkspaceAttachment {
+  id: string;
+  project_id: string;
+  kind: "image";
+  file_name: string;
+  mime_type: string;
+  byte_size: number;
+  width: number | null;
+  height: number | null;
+  storage_bucket: string;
+  storage_key: string;
+  display_key: string | null;
+  display_width: number | null;
+  display_height: number | null;
+  created_at: string;
+}
 
 /**
  * One placement on one Canvas (table workspace_canvas_items). A live
@@ -174,7 +198,9 @@ export interface CanvasItem {
   document_id: string | null;
   entry_id: string | null;
   target_canvas_id: string | null;
-  /** A live placement: the title when placed (fallback only). A Section (046): its title, null = untitled. */
+  /** An image (047): the Project attachment it shows. Absent on a pre-047 read. */
+  attachment_id?: string | null;
+  /** A live placement: the title when placed (fallback only). A Section (046): its title, null = untitled. An image: its file name. */
   label: string | null;
   content: Record<string, unknown> | null;
   x: number;

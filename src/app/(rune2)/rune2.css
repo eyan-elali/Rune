@@ -7013,6 +7013,61 @@ span.r2-schema-type {
   overflow-y: auto;
 }
 
+/* An image: the picture is the card, framed by the plane's own hairline;
+   it fills the card (the surface keeps the card's proportions as it is
+   resized), crisp at any zoom since the browser scales the decoded bitmap. */
+.r2-canvas-card--image {
+  padding: 0;
+  background: var(--r2-shell-bg);
+  box-shadow: 0 0 0 1px var(--r2-border), var(--r2-shadow-sm);
+}
+.r2-canvas-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
+  pointer-events: none;
+  user-select: none;
+  background: var(--r2-shell-bg);
+}
+.r2-canvas-image-missing {
+  display: flex;
+  align-items: center;
+  gap: var(--r2-space-2);
+  height: 100%;
+  padding: 10px 12px;
+  color: var(--r2-ink-3);
+}
+.r2-canvas-image-missing > span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.r2-canvas-image-missing .r2-canvas-card-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* A card this server couldn't save (a newer client than the database): kept, marked, waiting for a reload. */
+.r2-canvas-card[data-stranded] {
+  box-shadow: 0 0 0 1px var(--r2-warning), var(--r2-shadow-sm);
+}
+.r2-canvas-card-stranded {
+  position: absolute;
+  right: 8px;
+  top: 6px;
+  z-index: 1;
+  padding: 1px 6px;
+  border-radius: var(--r2-radius-xs);
+  background: var(--r2-overlay-bg);
+  font-size: var(--r2-fs-caption);
+  color: var(--r2-warning);
+  pointer-events: none;
+}
+
 /* Far out, a card is its title: the small text goes, so the board stays legible. */
 .r2-canvas-world[data-zoom="far"] .r2-canvas-card-preview,
 .r2-canvas-world[data-zoom="far"] .r2-canvas-card-meta,
@@ -7037,6 +7092,14 @@ span.r2-schema-type {
 }
 .r2-canvas-section[data-selected] {
   box-shadow: inset 0 0 0 1.5px var(--r2-accent);
+}
+/* Two Sections over each other read as two: the upper one's fill stays translucent, its edge a little firmer. */
+.r2-canvas-section:hover {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, rgb(var(--r2-palette-ink)) 18%, transparent);
+}
+/* The board itself, focused by the keyboard: a quiet inner ring. */
+.r2-canvas:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--r2-accent-line);
 }
 .r2-canvas-section-head {
   display: flex;
@@ -7149,7 +7212,7 @@ span.r2-schema-type {
   stroke: var(--r2-accent);
   stroke-width: 1;
   vector-effect: non-scaling-stroke;
-  opacity: 0.7;
+  opacity: 0.9;
 }
 
 /* ── Handles: resize at the edges, connect from the dot at the right ── */
@@ -7239,7 +7302,10 @@ span.r2-schema-type {
   right: 16px;
   top: 14px;
   display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   align-items: center;
+  max-width: calc(100% - 24px);
   gap: var(--r2-space-3);
   padding: 3px;
   border-radius: var(--r2-radius-md);
@@ -7346,6 +7412,13 @@ span.r2-schema-type {
     top: auto;
     bottom: 14px;
     right: 12px;
+    left: 12px;
+    max-width: none;
+    justify-content: center;
+  }
+  .r2-canvas-tools > .r2-action + .r2-canvas-tools-group::before,
+  .r2-canvas-tools-group + .r2-canvas-tools-group::before {
+    display: none;
   }
   .r2-canvas-insert {
     top: auto;
