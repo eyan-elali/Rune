@@ -18,6 +18,7 @@ import { useRune2Selection } from "./Rune2Selection";
 import { Rune2Writing } from "./Rune2Writing";
 import { CollectionView, NewEntryAction } from "./CollectionView";
 import { ManuscriptScenes } from "./ManuscriptScenes";
+import { WorkspaceCanvases } from "./WorkspaceCanvases";
 import { WorkspacePages } from "./WorkspacePages";
 import { useTrash } from "./WorkspaceTrash";
 
@@ -30,7 +31,8 @@ import { useTrash } from "./WorkspaceTrash";
 // a Group shows its overview and, under it, its Scenes — the Manuscript's
 // Scene Views within the Group's scope (ManuscriptScenes); a Workspace Page or
 // Collection Entry opens in its own editor (WorkspacePages); a Collection
-// shows its Entries (CollectionView); with nothing selected, the content area
+// shows its Entries (CollectionView); a Canvas opens its spatial surface
+// (WorkspaceCanvases); with nothing selected, the content area
 // shows its route (the Manuscript overview), and under it the Manuscript's
 // Scene Views over every placed Scene. Overviews and their Scenes take the
 // broad structured-surface geometry (r2-broad); documents stay centred. "Read"
@@ -48,6 +50,7 @@ const KIND_LABEL: Record<NavKind, string> = {
   workspaceFolder: "Folder",
   workspaceCollection: "Collection",
   collectionEntry: "Entry",
+  workspaceCanvas: "Canvas",
 };
 
 function plural(n: number, one: string, many = `${one}s`) {
@@ -349,6 +352,8 @@ export function Rune2SelectionView({ children }: { children: ReactNode }) {
       <Rune2Writing projectId={manuscript.project.id} target={target} />
       {/* Always mounted too: Pages and Entries keep their save engines between views. */}
       <WorkspacePages />
+      {/* And Canvases keep their sessions (arrangement, unsaved changes, undo history). */}
+      <WorkspaceCanvases />
     </>
   );
 }

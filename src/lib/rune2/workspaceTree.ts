@@ -1,21 +1,22 @@
 import type {
+  WorkspaceCanvasSummary,
   WorkspaceCollectionSummary,
   WorkspaceFolderSummary,
   WorkspaceNode,
   WorkspacePageSummary,
 } from "@/lib/types";
 
-// The Workspace tree as the Rune 2.0 shell shows it: Pages, Folders and
-// Collections in the places the writer gave them (migrations 024–025, table
-// workspace_nodes). Pure — no reads — so the server loader and tests share it.
+// The Workspace tree as the Rune 2.0 shell shows it: Pages, Folders,
+// Collections and Canvases in the places the writer gave them (migrations
+// 024–025, 045; table workspace_nodes). Pure — no reads — so the server loader and tests share it.
 // Titles only, never a Page's content. A Collection's Entries are not tree
 // items: its own view lists them.
 
 export type WorkspaceTreeNode = {
   /** The object's Workspace node; null only when the tree can't be read (every Page then shown flat). */
   nodeId: string | null;
-  kind: "page" | "folder" | "collection";
-  /** The Page's, Folder's or Collection's own id — its identity, whatever its place. */
+  kind: "page" | "folder" | "collection" | "canvas";
+  /** The Page's, Folder's, Collection's or Canvas's own id — its identity, whatever its place. */
   id: string;
   title: string | null;
   children: WorkspaceTreeNode[];
@@ -32,17 +33,26 @@ export function buildWorkspaceTree(
   nodes: readonly WorkspaceNode[],
   pages: readonly WorkspacePageSummary[],
   folders: readonly WorkspaceFolderSummary[],
-  collections: readonly WorkspaceCollectionSummary[] = []
+  collections: readonly WorkspaceCollectionSummary[] = [],
+  canvases: readonly WorkspaceCanvasSummary[] = []
 ): WorkspaceTreeNode[] {
   const byId = {
     page: new Map(pages.map((p) => [p.id, p])),
     folder: new Map(folders.map((f) => [f.id, f])),
     collection: new Map(collections.map((c) => [c.id, c])),
+    canvas: new Map(canvases.map((c) => [c.id, c])),
   };
 
   const treeNodes = new Map<string, WorkspaceTreeNode & { parent: string | null; position: number }>();
   for (const n of nodes) {
-    const id = n.target_type === "page" ? n.document_id : n.target_type === "folder" ? n.folder_id : n.collection_id;
+    const id =
+      n.target_type === "page"
+        ? n.document_id
+        : n.target_type === "folder"
+          ? n.folder_id
+          : n.target_type === "canvas"
+            ? n.canvas_id
+            : n.collection_id;
     const target = id ? byId[n.target_type]?.get(id) : undefined;
     if (!id || !target) continue;
     treeNodes.set(n.id, {
@@ -96,6 +106,9 @@ export function buildWorkspaceTree(
   }
   for (const c of collections) {
     if (!placed.has(c.id)) tree.push({ nodeId: null, kind: "collection", id: c.id, title: c.title, children: [] });
+  }
+  for (const c of canvases) {
+    if (!placed.has(c.id)) tree.push({ nodeId: null, kind: "canvas", id: c.id, title: c.title, children: [] });
   }
   for (const p of pages) {
     if (!placed.has(p.id)) tree.push({ nodeId: null, kind: "page", id: p.id, title: p.title, children: [] });

@@ -7,8 +7,8 @@ import type { CollectionEntrySummary } from "@/lib/types";
 // manuscript: it only decides what the navigator shows and gives every
 // Group, Chapter and Scene a lookup entry (title, kind, words, ancestry) for
 // selection and breadcrumbs. Structure and word counts only — never prose.
-// Workspace Pages, Folders, Collections and Collection Entries join the same
-// index (indexWorkspace) so selection and tabs treat them like any other object
+// Workspace Pages, Folders, Collections, Canvases and Collection Entries join
+// the same index (indexWorkspace) so selection and tabs treat them like any other object
 // by id; they carry no words and are never manuscript objects. A Folder is
 // indexed for the navigator and for its items' paths, but is never selected or
 // given a tab (see isSelectable). An Entry is not a tree item, but it is an
@@ -22,7 +22,8 @@ export type NavKind =
   | "workspacePage"
   | "workspaceFolder"
   | "workspaceCollection"
-  | "collectionEntry";
+  | "collectionEntry"
+  | "workspaceCanvas";
 
 /** Whether an object lives in the Workspace rather than the Manuscript. */
 export function isWorkspaceKind(kind: NavKind): boolean {
@@ -30,7 +31,8 @@ export function isWorkspaceKind(kind: NavKind): boolean {
     kind === "workspacePage" ||
     kind === "workspaceFolder" ||
     kind === "workspaceCollection" ||
-    kind === "collectionEntry"
+    kind === "collectionEntry" ||
+    kind === "workspaceCanvas"
   );
 }
 
@@ -92,6 +94,7 @@ export const UNTITLED = {
   folder: "Untitled folder",
   collection: "Untitled collection",
   entry: "Untitled",
+  canvas: "Untitled canvas",
 } as const;
 
 export function groupTitle(title: string | null | undefined): string {
@@ -111,6 +114,9 @@ export function workspaceCollectionTitle(title: string | null | undefined): stri
 }
 export function collectionEntryTitle(title: string | null | undefined): string {
   return title?.trim() || UNTITLED.entry;
+}
+export function workspaceCanvasTitle(title: string | null | undefined): string {
+  return title?.trim() || UNTITLED.canvas;
 }
 export function sceneTitle(title: string | null | undefined): string {
   return title?.trim() || UNTITLED.scene;
@@ -224,7 +230,7 @@ export function indexManuscript(
 }
 
 /**
- * Every Workspace Page, Folder and Collection, by id, from the Workspace tree:
+ * Every Workspace Page, Folder, Collection and Canvas, by id, from the Workspace tree:
  * each with its position among its siblings and the Folders it sits in — and
  * every Collection Entry (`entries`, in list order) under its Collection.
  * `renamed` overlays titles just changed but not yet re-read, as for the
@@ -274,6 +280,20 @@ export function indexWorkspace(
             path: entryPath,
             childCount: 0,
           });
+        });
+        return;
+      }
+      if (node.kind === "canvas") {
+        // A Canvas is a leaf: it holds placements, never tree items.
+        index.set(node.id, {
+          kind: "workspaceCanvas",
+          id: node.id,
+          title: workspaceCanvasTitle(raw),
+          named: Boolean(raw?.trim()),
+          ordinal: at + 1,
+          words: 0,
+          path,
+          childCount: 0,
         });
         return;
       }

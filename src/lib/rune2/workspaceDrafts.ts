@@ -1,4 +1,5 @@
 import { openDB, type DBSchema, type IDBPDatabase } from "idb";
+import type { CanvasDraft } from "./canvasSession";
 import type { PendingNote } from "./revisionNoteSync";
 import type { PageDoc } from "./workspacePageSaver";
 
@@ -20,6 +21,11 @@ import type { PageDoc } from "./workspacePageSaver";
 // or deleted on this device that the server doesn't have yet
 // (revisionNoteSync.ts), keyed by note id. A note leaves it only once saved,
 // or when the writer chooses to let their version go.
+//
+// Version 4 adds canvas_changes: one Canvas's unsaved placement changes
+// (canvasSession.ts — creates, moves, note text, deletes the server doesn't
+// have yet), keyed by Canvas id. Laid over the server's Canvas when it next
+// opens on this device, then saved; empty once everything is on the server.
 
 const DB_NAME = "rune-workspace";
 
@@ -43,20 +49,27 @@ interface RuneWorkspaceDB extends DBSchema {
   entry_drafts: { key: string; value: StoredPageDraft };
   /** Revision Note changes not yet on the server (version 3). */
   note_changes: { key: string; value: PendingNote };
+  /** A Canvas's changes not yet on the server (version 4). */
+  canvas_changes: { key: string; value: StoredCanvasDraft };
 }
+
+export type StoredCanvasDraft = CanvasDraft & { userId: string; projectId: string; savedAt: number };
 
 let dbPromise: Promise<IDBPDatabase<RuneWorkspaceDB>> | null = null;
 
 function db(): Promise<IDBPDatabase<RuneWorkspaceDB>> {
-  // Version 2 adds entry_drafts, version 3 note_changes; existing stores and
-  // their contents are kept as they are.
-  dbPromise ??= openDB<RuneWorkspaceDB>(DB_NAME, 3, {
+  // Version 2 adds entry_drafts, version 3 note_changes, version 4
+  // canvas_changes; existing stores and their contents are kept as they are.
+  dbPromise ??= openDB<RuneWorkspaceDB>(DB_NAME, 4, {
     upgrade(database) {
       for (const store of Object.values(STORES)) {
         if (!database.objectStoreNames.contains(store)) database.createObjectStore(store, { keyPath: "id" });
       }
       if (!database.objectStoreNames.contains("note_changes")) {
         database.createObjectStore("note_changes", { keyPath: "noteId" });
+      }
+      if (!database.objectStoreNames.contains("canvas_changes")) {
+        database.createObjectStore("canvas_changes", { keyPath: "canvasId" });
       }
     },
   });
@@ -114,4 +127,36 @@ export async function putNoteChange(pending: PendingNote): Promise<void> {
 /** Forgets a note change the server now has (or the writer let go). */
 export async function deleteNoteChange(noteId: string): Promise<void> {
   await (await db()).delete("note_changes", noteId);
+}
+
+// ── Canvas changes ────────────────────────────────────────────────────────
+
+/** This writer's unsaved changes to one Canvas, or null (none, another writer's, or storage unavailable). */
+export async function getCanvasDraft(canvasId: string, userId: string): Promise<StoredCanvasDraft | null> {
+  try {
+    const draft = await (await db()).get("canvas_changes", canvasId);
+    return draft && draft.userId === userId ? draft : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Writes the device copy of a Canvas's unsaved changes; an empty draft clears it. Never throws. */
+export async function putCanvasDraft(draft: StoredCanvasDraft): Promise<void> {
+  try {
+    const store = await db();
+    if (draft.entries.length === 0) await store.delete("canvas_changes", draft.canvasId);
+    else await store.put("canvas_changes", draft);
+  } catch {
+    // Storage unavailable.
+  }
+}
+
+/** Forgets a Canvas's device copy (it was permanently deleted). Never throws. */
+export async function deleteCanvasDraft(canvasId: string): Promise<void> {
+  try {
+    await (await db()).delete("canvas_changes", canvasId);
+  } catch {
+    // Storage unavailable.
+  }
 }

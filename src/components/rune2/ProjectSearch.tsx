@@ -17,8 +17,9 @@ import {
 import { ROOT_WORKSPACE } from "./ProjectNavigator";
 import { useRune2Selection } from "./Rune2Selection";
 
-// Project Search: find any Scene, Chapter, Group, Page, Folder, Collection or
-// Entry of this Project and open it. ⌘K / Ctrl-K (or the navigator's search
+// Project Search: find any Scene, Chapter, Group, Page, Folder, Collection,
+// Entry or Canvas of this Project — or a note or Section on a Canvas, by its
+// text — and open it. ⌘K / Ctrl-K (or the navigator's search
 // button) opens a small overlay over the shell; Escape or a click outside
 // closes it, and focus goes back where it was.
 //
@@ -61,7 +62,7 @@ function contentKey(query: string): string {
 }
 
 function SearchDialog({ onClose }: { onClose: () => void }) {
-  const { index, manuscript, select, openInNewTab, setOpenFor, navCollapsed, toggleNav } = useRune2Selection();
+  const { index, manuscript, select, openInNewTab, setOpenFor, navCollapsed, toggleNav, requestCanvasFocus } = useRune2Selection();
   const projectId = manuscript.project.id;
   const listId = useId();
   const [query, setQuery] = useState("");
@@ -112,6 +113,13 @@ function SearchDialog({ onClose }: { onClose: () => void }) {
           document.querySelector<HTMLElement>(`.r2-nav [data-row="${CSS.escape(r.id)}"]`)?.focus()
         )
       );
+      return;
+    }
+    if (r.canvasId) {
+      // Canvas-local writing: the Canvas opens, and the note or Section is brought into view and selected there.
+      requestCanvasFocus({ canvasId: r.canvasId, itemId: r.id });
+      if (newTab) openInNewTab(r.canvasId);
+      else select(r.canvasId);
       return;
     }
     if (newTab) openInNewTab(r.id);

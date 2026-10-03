@@ -481,6 +481,12 @@ function InspectorView() {
         facts = entry ? [`Created ${formatDate(entry.created_at)}`, `Edited ${formatDate(entry.updated_at)}`] : [];
         break;
       }
+      case "workspaceCanvas":
+        kind = "Canvas";
+        where = place(selected.path, "Workspace");
+        facts = [];
+        more = ["A spatial surface: arranging things here never changes the manuscript or the Workspace"];
+        break;
       // Never selected (navigation only), but described if it ever were.
       case "workspaceFolder":
         kind = "Folder";

@@ -102,6 +102,13 @@ type Rune2SelectionValue = {
   /** A Scene whose prose should take focus when its editor appears. */
   focusSceneId: string | null;
   requestSceneFocus: (id: string | null) => void;
+  /**
+   * A placement to select and bring into view once its Canvas shows (a
+   * Project Search result, say): the Canvas and the placement; forgotten by
+   * the surface once done.
+   */
+  canvasFocus: { canvasId: string; itemId: string } | null;
+  requestCanvasFocus: (focus: { canvasId: string; itemId: string } | null) => void;
   /** Shows a title at once, until the manuscript is re-read. */
   setRenamedTitle: (id: string, title: string) => void;
   /** Whether the navigator is retracted — presentation state only. */
@@ -163,6 +170,7 @@ export function Rune2SelectionProvider({
   const [awaitedId, setAwaitedId] = useState<string | null>(null);
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const [focusSceneId, requestSceneFocus] = useState<string | null>(null);
+  const [canvasFocus, requestCanvasFocus] = useState<{ canvasId: string; itemId: string } | null>(null);
   const [panel, setPanel] = useState<PanelView | null>(null);
   const [navCollapsed, setNavCollapsed] = useState(false);
   const [navWidth, setNavWidth] = useState<number | null>(null);
@@ -291,6 +299,8 @@ export function Rune2SelectionProvider({
       setOpenFor,
       focusSceneId,
       requestSceneFocus,
+      canvasFocus,
+      requestCanvasFocus,
       setRenamedTitle,
       navCollapsed,
       toggleNav,
@@ -332,6 +342,7 @@ export function Rune2SelectionProvider({
       open,
       setOpenFor,
       focusSceneId,
+      canvasFocus,
       setRenamedTitle,
       navCollapsed,
       toggleNav,

@@ -135,6 +135,89 @@ export interface WorkspaceCollection {
 export type WorkspaceCollectionSummary = Pick<WorkspaceCollection, "id" | "title">;
 
 /**
+ * A Workspace Canvas (migration 045, table workspace_canvases): a spatial
+ * thinking surface where the writer arranges placements of the book's real
+ * pieces and Canvas-local notes. Belongs to its Project; one canonical place
+ * in the Workspace tree. Spatial placement never changes the book.
+ */
+export interface WorkspaceCanvas {
+  id: string;
+  project_id: string;
+  /** null = untitled. */
+  title: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type WorkspaceCanvasSummary = Pick<WorkspaceCanvas, "id" | "title">;
+
+/** What a Canvas placement shows: a live Rune object, or a Canvas-local note. */
+export type CanvasItemType = "scene" | "chapter" | "page" | "entry" | "canvas" | "note" | "section";
+
+/** The placement types that show a canonical Rune object (a Section and a note are Canvas-local). */
+export type CanvasTargetType = Exclude<CanvasItemType, "note" | "section">;
+
+/**
+ * One placement on one Canvas (table workspace_canvas_items). A live
+ * placement is a reference to its target, never a copy: `label` is only the
+ * title it had when placed, shown if the target is ever unreachable. A note's
+ * `content` is TipTap JSON (paragraphs). `version` is bumped by the database
+ * whenever content, geometry, z or label changes.
+ */
+export interface CanvasItem {
+  id: string;
+  canvas_id: string;
+  project_id: string;
+  item_type: CanvasItemType;
+  scene_id: string | null;
+  chapter_id: string | null;
+  document_id: string | null;
+  entry_id: string | null;
+  target_canvas_id: string | null;
+  /** A live placement: the title when placed (fallback only). A Section (046): its title, null = untitled. */
+  label: string | null;
+  content: Record<string, unknown> | null;
+  x: number;
+  y: number;
+  /** The card's size (046: authoritative — a card never grows with its object's text). */
+  width: number;
+  height: number;
+  z: number;
+  /**
+   * The Section this placement belongs to (migration 046): explicit,
+   * Canvas-local membership. null (or absent on a pre-046 read): none. A
+   * Section's own is always null — never nested.
+   */
+  section_id?: string | null;
+  /** Whether the writer chose this size (046). Until then a note grows as it is first typed into. */
+  manual_size?: boolean;
+  version: number;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * One connection between two placements of one Canvas (migration 046, table
+ * workspace_canvas_connections): a line, or an arrow (`directed`), with an
+ * optional short label. Its ends are placement ids, never canonical object
+ * ids, so the same Scene placed twice may be connected once. Purely visual
+ * and Canvas-local: never a Relationship, a backlink or a dependency.
+ */
+export interface CanvasConnection {
+  id: string;
+  canvas_id: string;
+  project_id: string;
+  source_item_id: string;
+  target_item_id: string;
+  directed: boolean;
+  label: string | null;
+  /** Bumped by the database when directed or label changes. */
+  version: number;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
  * One Entry of a Collection (migration 025, table workspace_collection_entries):
  * a title and freeform rich text. Belongs to exactly one Collection for life.
  * Not manuscript prose — never counted toward any word total.
@@ -386,13 +469,13 @@ export interface ObjectReferenceRow {
   created_at: string;
 }
 
-export type WorkspaceNodeTarget = "page" | "folder" | "collection";
+export type WorkspaceNodeTarget = "page" | "folder" | "collection" | "canvas";
 
 /**
  * One Workspace object's single place in the Workspace tree (table
  * workspace_nodes). Navigation only: the object belongs to the Project
- * wherever its node sits. Exactly one of document_id / folder_id / collection_id is set, matching
- * target_type.
+ * wherever its node sits. Exactly one of document_id / folder_id /
+ * collection_id / canvas_id is set, matching target_type.
  */
 export interface WorkspaceNode {
   id: string;
@@ -401,14 +484,16 @@ export interface WorkspaceNode {
   folder_id: string | null;
   /** Set for target_type "collection" (migration 025); absent on a pre-025 read. */
   collection_id?: string | null;
+  /** Set for target_type "canvas" (migration 045); absent on a pre-045 read. */
+  canvas_id?: string | null;
   /** null = top level of the Workspace. Always a Folder's node otherwise. */
   parent_node_id: string | null;
   /** 1..n among its siblings. */
   position: number;
 }
 
-/** What can be put in a Project's Trash (migrations 030–031). */
-export type TrashObjectType = "page" | "folder" | "collection" | "entry" | "scene" | "chapter";
+/** What can be put in a Project's Trash (migrations 030–031, 037, 045). */
+export type TrashObjectType = "page" | "folder" | "collection" | "entry" | "scene" | "chapter" | "canvas";
 
 /**
  * One item of a Project's Trash (list_workspace_trash): titles, where it came
@@ -444,6 +529,8 @@ export interface TrashItem {
   scenes?: number | null;
   /** Chapter: its Scenes' words; Scene: its own. */
   words?: number | null;
+  /** Canvas (045): how many placements and notes it holds. */
+  items?: number | null;
 }
 
 export interface Chapter {

@@ -8,8 +8,10 @@ import { chapterShowsScenes, type NavEntry } from "./navigatorModel";
 // title is matched exactly as the writer sees it now — a rename, a fallback
 // ("Untitled", "Scene 2") and a Chapter shown as one piece of writing
 // included — and nothing outside the Project can ever be in it. Text inside
-// Scenes, Pages and Entries is found by the server (actions/projectSearch.ts)
-// and arrives as ContentMatches; this module ranks both together.
+// Scenes, Pages and Entries — and in Canvas notes and Section titles (046)
+// — is found by the server (actions/projectSearch.ts) and arrives as
+// ContentMatches; this module ranks both together. A Canvas note is shown
+// as its Canvas, with the matching text, and opens that Canvas at the note.
 //
 // Ranking is predictable, never a score:
 //   0 the title is the query          2 the title contains it
@@ -19,7 +21,7 @@ import { chapterShowsScenes, type NavEntry } from "./navigatorModel";
 // reading order, Unplaced Scenes, then the Workspace as the navigator shows it.
 // Matching ignores case, accents and repeated spaces. Nothing is fuzzy.
 
-export type SearchKind = "group" | "chapter" | "scene" | "page" | "folder" | "collection" | "entry";
+export type SearchKind = "group" | "chapter" | "scene" | "page" | "folder" | "collection" | "entry" | "canvas" | "canvasNote" | "canvasSection";
 
 export const SEARCH_KIND_LABEL: Record<SearchKind, string> = {
   group: "Group",
@@ -29,13 +31,22 @@ export const SEARCH_KIND_LABEL: Record<SearchKind, string> = {
   folder: "Folder",
   collection: "Collection",
   entry: "Entry",
+  canvas: "Canvas",
+  canvasNote: "Note on canvas",
+  canvasSection: "Section on canvas",
 };
 
 /** A query shorter than this is matched against titles only. */
 export const CONTENT_QUERY_MIN = 2;
 
-/** One object whose text contains the query (from the server), with an excerpt. */
-export type ContentMatch = { type: ReferenceObjectType; id: string; snippet: string };
+/**
+ * One object whose text contains the query (from the server), with an
+ * excerpt — or (migration 046) a Canvas note or Section title: `id` is the
+ * placement, `canvas_id` the Canvas it is on.
+ */
+export type ContentMatch =
+  | { type: ReferenceObjectType; id: string; snippet: string }
+  | { type: "canvas_note" | "canvas_section"; id: string; canvas_id: string; snippet: string };
 
 export type SearchObject = {
   /** The canonical id to open: a Chapter's only Scene is found as its Chapter. */
@@ -53,6 +64,11 @@ export type SearchObject = {
   subject: { type: ReferenceObjectType; id: string } | null;
   /** An Entry's Collection. */
   collectionId: string | null;
+  /**
+   * A Canvas note or Section (found by its text): the Canvas to open — `id`
+   * is then the placement to focus there. Absent for every other result.
+   */
+  canvasId?: string;
 };
 
 export type SearchScope = {
@@ -85,6 +101,7 @@ const KIND: Partial<Record<NavEntry["kind"], SearchKind>> = {
   workspaceFolder: "folder",
   workspaceCollection: "collection",
   collectionEntry: "entry",
+  workspaceCanvas: "canvas",
 };
 
 /**
@@ -180,7 +197,12 @@ export function searchProject(
 ): SearchResult[] {
   const q = normalizeQuery(query);
   if (!q) return [];
-  const inText = new Map(content.map((m) => [m.id, m.snippet]));
+  const inText = new Map<string, string>();
+  const onCanvas: ContentMatch[] = [];
+  for (const m of content) {
+    if (m.type === "canvas_note" || m.type === "canvas_section") onCanvas.push(m);
+    else inText.set(m.id, m.snippet);
+  }
   const found: { result: SearchResult; at: number }[] = [];
   objects.forEach((object, at) => {
     if (!inScope(object, scope)) return;
@@ -192,6 +214,21 @@ export function searchProject(
     const snippet = object.subject ? inText.get(object.subject.id) : undefined;
     if (snippet !== undefined) found.push({ result: { ...object, tier: 4, snippet }, at });
   });
+  // Canvas-local writing: found by its text, shown under the Canvas it is on
+  // (which must be in the Project's index — a trashed Canvas is not), after
+  // everything else, in the order the Canvases themselves are listed.
+  const canvasAt = new Map(objects.map((o, at) => [o.id, at] as const));
+  for (const m of onCanvas) {
+    if (m.type !== "canvas_note" && m.type !== "canvas_section") continue;
+    const kind: SearchKind = m.type === "canvas_note" ? "canvasNote" : "canvasSection";
+    if (scope.kinds && !scope.kinds.includes(kind)) continue;
+    const canvas = objects.find((o) => o.id === m.canvas_id && o.kind === "canvas");
+    if (!canvas) continue;
+    found.push({
+      result: { id: m.id, kind, title: canvas.title, context: canvas.context, subject: null, collectionId: null, canvasId: canvas.id, tier: 4, snippet: m.snippet },
+      at: objects.length + (canvasAt.get(canvas.id) ?? 0),
+    });
+  }
   return found.sort((a, b) => a.result.tier - b.result.tier || a.at - b.at).map((f) => f.result);
 }
 

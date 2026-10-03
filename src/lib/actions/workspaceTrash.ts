@@ -3,9 +3,9 @@
 import { createClient } from "@/lib/supabase/server";
 import type { TrashItem, TrashObjectType } from "@/lib/types";
 
-// The Project's Trash (migrations 030, 031, 037): recoverable deletion of
-// Workspace Pages, Folders, Collections and Entries, and of manuscript Scenes
-// and Chapters. Every change is one database function, with ownership checked
+// The Project's Trash (migrations 030, 031, 037, 045): recoverable deletion of
+// Workspace Pages, Folders, Collections, Entries and Canvases, and of
+// manuscript Scenes and Chapters (a Canvas: as a Page, with its items). Every change is one database function, with ownership checked
 // there:
 //   * trash   — the object leaves the Workspace or the manuscript (a Page,
 //               Folder or Collection leaves the tree; a Folder's items move up
@@ -25,7 +25,7 @@ import type { TrashItem, TrashObjectType } from "@/lib/types";
 type ActionResult<T> = { data: T; error: null } | { data: null; error: string };
 type RpcResult<T> = ({ status: "ok" } & T) | { status: "error"; error: string };
 
-const TYPES: readonly TrashObjectType[] = ["page", "folder", "collection", "entry", "scene", "chapter"];
+const TYPES: readonly TrashObjectType[] = ["page", "folder", "collection", "entry", "scene", "chapter", "canvas"];
 
 async function getUser() {
   const supabase = await createClient();

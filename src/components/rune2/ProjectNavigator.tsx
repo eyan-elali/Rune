@@ -25,6 +25,7 @@ import {
   FolderInput,
   FolderOpen,
   FolderPlus,
+  Frame,
   Layers,
   Library,
   ListPlus,
@@ -44,6 +45,7 @@ import { createChapter, removeChapterKeepScenes, updateChapter } from "@/lib/act
 import { createScene, createUnplacedScene, moveSceneToUnplaced, placeScene, renameScene } from "@/lib/actions/scenes";
 import { createGroup, deleteGroup, moveChapter, moveGroup, renameGroup } from "@/lib/actions/structure";
 import { createWorkspacePage, renameWorkspacePage } from "@/lib/actions/workspacePages";
+import { createWorkspaceCanvas, renameWorkspaceCanvas } from "@/lib/actions/workspaceCanvas";
 import {
   createWorkspaceFolder,
   deleteWorkspaceFolder,
@@ -66,6 +68,7 @@ import {
   sceneDestinations,
   type NavEntry,
 } from "@/lib/rune2/navigatorModel";
+import { canvasDragTypes } from "@/lib/rune2/canvas";
 import { indexBeside, moveDestinations, walkWorkspaceTree, type WorkspaceTreeNode } from "@/lib/rune2/workspaceTree";
 import type { ManuscriptOutlineNode } from "@/lib/rune2/projectManuscript";
 import { NavigatorMenu, type NavigatorMenuItem } from "./NavigatorMenu";
@@ -310,6 +313,17 @@ export function ProjectNavigator() {
       return null;
     });
 
+  // A new Canvas opens at once, with its title ready to type (over the surface).
+  const addCanvas = (folder: WorkspaceTreeNode | null = null) =>
+    run(async () => {
+      const r = await createWorkspaceCanvas(projectId, null, folder?.nodeId ?? null);
+      if (r.error !== null) return "Couldn’t create the canvas.";
+      setOpenFor(workspaceOpenPath(folder), true);
+      selectWhenPresent(r.data.canvas.id);
+      requestSceneFocus(r.data.canvas.id);
+      return null;
+    });
+
   // A new Entry opens at once, title first, as a new Page does.
   const addEntry = (collectionId: string) =>
     run(async () => {
@@ -344,7 +358,8 @@ export function ProjectNavigator() {
       entry.kind === "group" ||
       entry.kind === "workspacePage" ||
       entry.kind === "workspaceFolder" ||
-      entry.kind === "workspaceCollection";
+      entry.kind === "workspaceCollection" ||
+      entry.kind === "workspaceCanvas";
     if (next === (entry.named ? entry.title : "") || (!blankAllowed && next === "")) return;
 
     setRenamedTitle(entry.id, next);
@@ -364,6 +379,10 @@ export function ProjectNavigator() {
       if (entry.kind === "workspaceCollection") {
         const r = await renameWorkspaceCollection(entry.id, next || null);
         return r.error ? "Couldn’t rename the collection." : null;
+      }
+      if (entry.kind === "workspaceCanvas") {
+        const r = await renameWorkspaceCanvas(entry.id, next || null);
+        return r.error ? "Couldn’t rename the canvas." : null;
       }
       if (entry.kind === "chapter") {
         const r = await updateChapter(entry.id, { title: next }, projectId);
@@ -403,6 +422,9 @@ export function ProjectNavigator() {
         : []),
       ...(workspace.organizable && workspace.collectable
         ? [{ label: "New collection", icon: Library, onSelect: () => addCollection(folder) }]
+        : []),
+      ...(workspace.organizable && workspace.canvasable
+        ? [{ label: "New canvas", icon: Frame, onSelect: () => addCanvas(folder) }]
         : []),
     ];
   }
@@ -523,6 +545,7 @@ export function ProjectNavigator() {
           ...trashItems(entry),
         ];
       case "workspacePage":
+      case "workspaceCanvas":
         return [rename, ...workspaceMoveItems(entry, at), ...trashItems(entry)];
       case "workspaceCollection":
         return [
@@ -554,6 +577,9 @@ export function ProjectNavigator() {
           { label: "New folder inside", icon: FolderPlus, onSelect: () => addFolder(folder) },
           ...(workspace.collectable
             ? [{ label: "New collection inside", icon: Library, onSelect: () => addCollection(folder) }]
+            : []),
+          ...(workspace.canvasable
+            ? [{ label: "New canvas inside", icon: Frame, onSelect: () => addCanvas(folder) }]
             : []),
           ...workspaceMoveItems(entry, at),
           ...trashItems(entry),
@@ -670,8 +696,10 @@ export function ProjectNavigator() {
       draggable: Boolean(target?.nodeId) && renamingId !== target?.id && !busy,
       onDragStart: (e) => {
         if (!target?.nodeId) return;
-        e.dataTransfer.effectAllowed = "move";
+        e.dataTransfer.effectAllowed = "copyMove";
         e.dataTransfer.setData("text/plain", index.get(target.id)?.title ?? "");
+        // A Canvas (CanvasSurface) accepts the row as a placement — when it is one it can show (lib/rune2/canvas.ts decides).
+        for (const type of canvasDragTypes({ kind: index.get(target.id)?.kind ?? "workspaceFolder" })) e.dataTransfer.setData(type, JSON.stringify({ id: target.id }));
         setDragging(target);
       },
       onDragOver: (e) => {
@@ -944,8 +972,10 @@ export function ProjectNavigator() {
       draggable: movable && renamingId !== target.id && !busy,
       onDragStart: (e) => {
         if (!movable) return;
-        e.dataTransfer.effectAllowed = "move";
+        e.dataTransfer.effectAllowed = "copyMove";
         e.dataTransfer.setData("text/plain", index.get(target.id)?.title ?? "");
+        // A Canvas (CanvasSurface) accepts a Chapter or Scene as a placement, never a Group (lib/rune2/canvas.ts decides).
+        for (const type of canvasDragTypes({ kind: index.get(target.id)?.kind ?? "group" })) e.dataTransfer.setData(type, JSON.stringify({ id: target.id }));
         setMdrag({ kind: target.kind === "group" || target.kind === "chapter" ? target.kind : "scene", id: target.id });
       },
       onDragOver: (e) => {
@@ -1146,6 +1176,14 @@ export function ProjectNavigator() {
                   Empty
                 </p>
               ))}
+          </li>
+        );
+      }
+
+      if (node.kind === "canvas") {
+        return (
+          <li key={node.id}>
+            <NavRow {...shared} icon={Frame} selected={selected?.id === node.id} onSelect={(e) => choose(node.id, e)} />
           </li>
         );
       }

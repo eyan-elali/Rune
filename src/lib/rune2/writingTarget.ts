@@ -57,6 +57,7 @@ export function writingTargetFor(
     case "workspaceFolder":
     case "workspaceCollection":
     case "collectionEntry":
+    case "workspaceCanvas":
       return null;
 
     case "unplacedScene":

@@ -53,7 +53,7 @@ test('a database built from schema.sql alone is identical to baseline + migratio
   assert.deepEqual(diffCounts(a, b), []);
   const versions = async (db) => (await db.query(`select version, name, note from public.schema_migrations order by version`)).rows;
   assert.deepEqual(await versions(fresh), await versions(migrated));
-  assert.deepEqual((await versions(fresh)).map((r) => r.version).slice(-32), ['013', '014', '015', '016', '017', '018', '019', '020', '021', '022', '023', '024', '025', '026', '027', '028', '029', '030', '031', '032', '033', '034', '035', '036', '037', '038', '039', '040', '041', '042', '043', '044']);
+  assert.deepEqual((await versions(fresh)).map((r) => r.version).slice(-34), ['013', '014', '015', '016', '017', '018', '019', '020', '021', '022', '023', '024', '025', '026', '027', '028', '029', '030', '031', '032', '033', '034', '035', '036', '037', '038', '039', '040', '041', '042', '043', '044', '045', '046']);
 });
 
 test('signup still creates the profile and pricing entitlements on the Rune 2.0 schema', async () => {
@@ -2057,4 +2057,131 @@ test('044 requires 043 and refuses on schema.sql, changing nothing', async () =>
   assert.deepEqual(diffCatalogs(before, await captureCatalog(db)).differences, []);
   const fresh = await freshRune2Db();
   await assert.rejects(fresh.exec(readMigration(M044)), /Migration 044 has already been applied/);
+});
+
+// ── migration 045 ─────────────────────────────────────────────────────────────
+
+const M045 = '045_workspace_canvas.sql';
+
+async function db044() {
+  const { db } = await db042WithNotes();
+  await db.exec(readMigration(M043));
+  await db.exec(readMigration(M044));
+  return db;
+}
+
+test('045 on 044: two new tables (canvases, items), the canvas node target, create/write functions, Trash functions accept canvas, backup kinds; no manuscript table, trigger or policy changes; no row changes', async () => {
+  const db = await db044();
+  const rowsOf = async () => {
+    const out = {};
+    for (const t of ['scenes', 'chapters', 'projects', 'manuscripts', 'manuscript_groups', 'revision_notes', 'workspace_nodes', 'workspace_documents', 'workspace_folders', 'workspace_collections', 'workspace_collection_entries', 'object_references', 'writing_sessions']) {
+      out[t] = (await db.query(`select * from public.${t} order by 1`)).rows;
+    }
+    return out;
+  };
+  const dataBefore = await rowsOf();
+  const before = await captureCatalog(db);
+  await db.exec(readMigration(M045));
+  const keys = diffCatalogs(before, await captureCatalog(db)).differences
+    .map((d) => `${d.section}:${d.kind}${d.fields ? '[' + d.fields.join(',') + ']' : ''}:${d.key}`)
+    .filter((k) => !/^relation_counts?:/.test(k))
+    .sort();
+  assert.deepEqual(keys.filter((k) => k.startsWith('relations:')), ['relations:added:workspace_canvas_items', 'relations:added:workspace_canvases']);
+  assert.deepEqual(keys.filter((k) => k.startsWith('columns:added:')).map((k) => k.replace(/^columns:added:/, '')).filter((k) => !/^workspace_canvas/.test(k)), ['workspace_nodes.canvas_id']);
+  assert.deepEqual(keys.filter((k) => k.startsWith('policies:')).sort(), [
+    'policies:added:workspace_canvas_items.workspace_canvas_items: select own',
+    'policies:added:workspace_canvases.workspace_canvases: select own',
+    'policies:added:workspace_canvases.workspace_canvases: update own',
+  ], 'no existing policy changes');
+  const triggers = keys.filter((k) => k.startsWith('triggers:'));
+  assert.deepEqual(triggers.filter((k) => !/:(added):/.test(k)), ['triggers:changed[definition]:workspace_nodes.workspace_nodes_freeze_target'], 'the one redefined trigger: the node freeze learns canvas_id');
+  assert.ok(triggers.filter((k) => k.startsWith('triggers:added:')).every((k) => /workspace_canvas/.test(k)), 'new triggers only on the new tables');
+  const fns = keys.filter((k) => k.startsWith('functions:'));
+  assert.deepEqual(fns.filter((k) => k.startsWith('functions:added:')).map((k) => k.split(':')[2].split('(')[0]).sort(),
+    ['check_workspace_canvas_item', 'create_workspace_canvas', 'freeze_workspace_canvas_item', 'stamp_workspace_canvas_item', 'write_canvas_items']);
+  assert.deepEqual(fns.filter((k) => k.startsWith('functions:changed')).map((k) => k.split(':')[2].split('(')[0]).sort(),
+    ['delete_trashed_workspace_object', 'freeze_workspace_node_target', 'list_workspace_trash', 'owned_workspace_object_project', 'place_new_workspace_object', 'read_project_backup', 'restore_workspace_object', 'trash_workspace_object', 'workspace_object_active', 'workspace_trash_state'],
+    'redefinitions, same signatures');
+  assert.deepEqual(fns.filter((k) => k.startsWith('functions:removed')), []);
+  assert.ok(keys.every((k) => !/(scenes|chapters|manuscript_groups|manuscripts|projects|revision_notes|workspace_documents|workspace_collection_entries)\./.test(k.split(':').slice(2).join(':'))), 'nothing on a manuscript, Page or Entry table');
+  const grants = keys.filter((k) => k.startsWith('function_grants:added:'));
+  assert.deepEqual(grants.filter((k) => / anon /.test(k)), [], 'anon executes nothing new');
+  assert.deepEqual(keys.filter((k) => k.startsWith('table_grants:added:') && /(anon|authenticated) (INSERT|UPDATE|DELETE)/.test(k)).filter((k) => !/workspace_canvases authenticated UPDATE/.test(k)), [], 'clients write neither table but a Canvas\'s title');
+  assert.deepEqual(await rowsOf(), dataBefore, 'no row changes');
+  await assert.rejects(db.exec(readMigration(M045)), /Migration 045 has already been applied/);
+});
+
+test('045 requires 044 and refuses on schema.sql, changing nothing', async () => {
+  const { db } = await db042WithNotes();
+  await db.exec(readMigration(M043));
+  const before = await captureCatalog(db);
+  await assert.rejects(db.exec(readMigration(M045)), /requires migration 044/);
+  assert.deepEqual(diffCatalogs(before, await captureCatalog(db)).differences, []);
+  const fresh = await freshRune2Db();
+  await assert.rejects(fresh.exec(readMigration(M045)), /Migration 045 has already been applied/);
+});
+
+// ── migration 046 ─────────────────────────────────────────────────────────────
+
+const M046 = '046_canvas_organization.sql';
+
+async function db045() {
+  const db = await db044();
+  await db.exec(readMigration(M045));
+  return db;
+}
+
+test('046 on 045: one new table (connections), section_id + manual_size on items, the item type widens to section, connection functions, write/search/backup redefined; no manuscript table, trigger or policy changes; no row changes', async () => {
+  const db = await db045();
+  const rowsOf = async () => {
+    const out = {};
+    for (const t of ['scenes', 'chapters', 'projects', 'manuscripts', 'manuscript_groups', 'revision_notes', 'workspace_nodes', 'workspace_documents', 'workspace_folders', 'workspace_collections', 'workspace_collection_entries', 'object_references', 'writing_sessions', 'workspace_canvases', 'workspace_canvas_items']) {
+      out[t] = (await db.query(`select * from public.${t} order by 1`)).rows;
+    }
+    return out;
+  };
+  const dataBefore = await rowsOf();
+  const before = await captureCatalog(db);
+  await db.exec(readMigration(M046));
+  const keys = diffCatalogs(before, await captureCatalog(db)).differences
+    .map((d) => `${d.section}:${d.kind}${d.fields ? '[' + d.fields.join(',') + ']' : ''}:${d.key}`)
+    .filter((k) => !/^relation_counts?:/.test(k))
+    .sort();
+  assert.deepEqual(keys.filter((k) => k.startsWith('relations:')), ['relations:added:workspace_canvas_connections']);
+  assert.deepEqual(keys.filter((k) => k.startsWith('columns:')).filter((k) => !/workspace_canvas_connections/.test(k)),
+    ['columns:added:workspace_canvas_items.manual_size', 'columns:added:workspace_canvas_items.section_id']);
+  assert.deepEqual(keys.filter((k) => k.startsWith('policies:')), ['policies:added:workspace_canvas_connections.workspace_canvas_connections: select own'], 'no existing policy changes');
+  const triggers = keys.filter((k) => k.startsWith('triggers:'));
+  assert.ok(triggers.every((k) => /workspace_canvas_(items|connections)/.test(k)), `triggers only on the Canvas tables: ${triggers}`);
+  const fns = keys.filter((k) => k.startsWith('functions:'));
+  assert.deepEqual(fns.filter((k) => k.startsWith('functions:added:')).map((k) => k.split(':')[2].split('(')[0]).sort(),
+    ['check_workspace_canvas_connection', 'freeze_workspace_canvas_connection', 'stamp_workspace_canvas_connection']);
+  assert.deepEqual(fns.filter((k) => k.startsWith('functions:changed')).map((k) => k.split(':')[2].split('(')[0]).sort(),
+    ['check_workspace_canvas_item', 'read_project_backup', 'search_project_content', 'stamp_workspace_canvas_item', 'write_canvas_items'],
+    'redefinitions, same signatures');
+  assert.deepEqual(fns.filter((k) => k.startsWith('functions:removed')), []);
+  assert.ok(keys.every((k) => !/(scenes|chapters|manuscript_groups|manuscripts|projects|revision_notes|workspace_documents|workspace_collection_entries|workspace_canvases)\./.test(k.split(':').slice(2).join(':'))), 'nothing on a manuscript, Page, Entry or Canvas table');
+  assert.deepEqual(keys.filter((k) => k.startsWith('function_grants:added:') && / anon /.test(k)), [], 'anon executes nothing new');
+  assert.deepEqual(keys.filter((k) => k.startsWith('table_grants:added:') && /(anon|authenticated) (INSERT|UPDATE|DELETE)/.test(k)), [], 'clients never write connections');
+  assert.deepEqual(await rowsOf(), dataBefore, 'no row changes');
+  // The item type check now admits a Section; a Section in a Section is refused by the table itself.
+  const project = (await db.query(`select id from public.projects limit 1`)).rows[0]?.id;
+  if (project) {
+    const canvas = (await db.query(`insert into public.workspace_canvases (project_id, title) values ($1, 'x') returning id`, [project])).rows[0].id;
+    const section = (await db.query(`insert into public.workspace_canvas_items (canvas_id, project_id, item_type, label, width, height) values ($1, $2, 'section', 'Arc', 600, 400) returning id`, [canvas, project])).rows[0].id;
+    await assert.rejects(db.query(`insert into public.workspace_canvas_items (canvas_id, project_id, item_type, label, width, height, section_id) values ($1, $2, 'section', 'Inner', 100, 100, $3)`, [canvas, project, section]), /cannot be inside a Section|section_not_nested/);
+    const note = (await db.query(`insert into public.workspace_canvas_items (canvas_id, project_id, item_type, content, width, height, section_id) values ($1, $2, 'note', '{"type":"doc","content":[]}', 100, 100, $3) returning id, version`, [canvas, project, section])).rows[0];
+    await db.query(`delete from public.workspace_canvas_items where id = $1`, [section]);
+    assert.deepEqual((await db.query(`select section_id, version from public.workspace_canvas_items where id = $1`, [note.id])).rows[0], { section_id: null, version: note.version + 1 }, 'a deleted Section lets its members go');
+  }
+  await assert.rejects(db.exec(readMigration(M046)), /Migration 046 has already been applied/);
+});
+
+test('046 requires 045 and refuses on schema.sql, changing nothing', async () => {
+  const db = await db044();
+  const before = await captureCatalog(db);
+  await assert.rejects(db.exec(readMigration(M046)), /requires migration 045/);
+  assert.deepEqual(diffCatalogs(before, await captureCatalog(db)).differences, []);
+  const fresh = await freshRune2Db();
+  await assert.rejects(fresh.exec(readMigration(M046)), /Migration 046 has already been applied/);
 });

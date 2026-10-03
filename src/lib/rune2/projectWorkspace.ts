@@ -8,6 +8,7 @@ import type {
   SceneProperty,
   ScenePropertyValue,
   SceneView,
+  WorkspaceCanvasSummary,
   WorkspaceCollectionSummary,
   WorkspaceCollectionView,
   WorkspaceFolderSummary,
@@ -17,8 +18,8 @@ import type {
 import { toReference, type Reference } from "./references";
 import { buildWorkspaceTree, type WorkspaceTreeNode } from "./workspaceTree";
 
-// The Rune 2.0 shell's view of one Project's Workspace: its Pages, Folders and
-// Collections, the tree that places them (migrations 024–025), each
+// The Rune 2.0 shell's view of one Project's Workspace: its Pages, Folders,
+// Collections and Canvases (045), the tree that places them (migrations 024–025), each
 // Collection's Entries, its property definitions and the Entries' values
 // (026), its saved Views (027), and the Project's references between Entries,
 // Pages and Scenes (028) — Relationship values and generic links, from which
@@ -36,6 +37,13 @@ export type ProjectWorkspace = {
   pages: WorkspacePageSummary[];
   folders: WorkspaceFolderSummary[];
   collections: WorkspaceCollectionSummary[];
+  /** Every Canvas of the Project (migration 045). Titles only: a Canvas's items are read when it opens. */
+  canvases: WorkspaceCanvasSummary[];
+  /**
+   * Whether Canvases can be read (migration 045). When not, none is shown or
+   * offered, and the Workspace works exactly as before.
+   */
+  canvasable: boolean;
   /** Every Entry of every Collection, in creation order (each Collection's list order). */
   entries: CollectionEntrySummary[];
   tree: WorkspaceTreeNode[];
@@ -134,6 +142,7 @@ export const loadProjectWorkspace = cache(async (projectId: string): Promise<Pro
     sceneViewsRead,
     revisionNotesRead,
     revisionItemsRead,
+    canvasesRead,
   ] = await Promise.all([
     supabase
       .from("workspace_documents")
@@ -189,7 +198,12 @@ export const loadProjectWorkspace = cache(async (projectId: string): Promise<Pro
     supabase.from("revision_notes").select("group_id").limit(0),
     // No rows: only whether Revision Notes are items (migration 043).
     supabase.from("revision_notes").select("resolved_at").limit(0),
+    supabase.from("workspace_canvases").select("id, title").eq("project_id", projectId),
   ]);
+  // Canvases are optional to everything else (before 045, none).
+  if (canvasesRead.error) console.error(`[rune2] Could not load canvases: ${canvasesRead.error.message}`);
+  const canvases = canvasesRead.error ? [] : ((canvasesRead.data ?? []) as WorkspaceCanvasSummary[]);
+  const canvasable = !canvasesRead.error;
   const revisionNotable = !revisionNotesRead.error;
   const revisionItems = revisionNotable && !revisionItemsRead.error;
   // Scene metadata is optional to everything else: without it (before 032),
@@ -222,6 +236,8 @@ export const loadProjectWorkspace = cache(async (projectId: string): Promise<Pro
   const empty = {
     folders: [],
     collections: [],
+    canvases: [],
+    canvasable: false,
     entries: [],
     organizable: false,
     collectable: false,
@@ -279,8 +295,10 @@ export const loadProjectWorkspace = cache(async (projectId: string): Promise<Pro
     pages,
     folders,
     collections,
+    canvases,
+    canvasable,
     entries,
-    tree: buildWorkspaceTree(nodes, pages, folders, collections),
+    tree: buildWorkspaceTree(nodes, pages, folders, collections, canvases),
     organizable: true,
     collectable: !collectionsError,
     trashable,

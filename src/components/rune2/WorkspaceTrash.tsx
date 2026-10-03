@@ -12,7 +12,7 @@ import {
   type ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
-import { File as PageIcon, FileText, Folder, Library, Pilcrow, StickyNote, X, type LucideIcon } from "lucide-react";
+import { File as PageIcon, FileText, Folder, Frame, Library, Pilcrow, StickyNote, X, type LucideIcon } from "lucide-react";
 import { ICON } from "./icons";
 import {
   deleteTrashedWorkspaceObject,
@@ -26,9 +26,9 @@ import { deletionWarning, TRASH_NOUN, trashContext, trashedWhen, trashItemTitle,
 import type { TrashItem, TrashObjectType } from "@/lib/types";
 import { useRune2Selection } from "./Rune2Selection";
 
-// The Project's Trash (migrations 030, 031, 037): recoverable deletion of
-// Workspace Pages, Folders, Collections and Entries, and of manuscript Scenes
-// and Chapters (a Chapter with its Scenes). Out of the way until needed: a
+// The Project's Trash (migrations 030, 031, 037, 045): recoverable deletion of
+// Workspace Pages, Folders, Collections, Entries and Canvases, and of
+// manuscript Scenes and Chapters (a Chapter with its Scenes). Out of the way until needed: a
 // "Move to Trash" in an item's menu, a quiet "Trash" at the foot of the
 // navigator, and the Trash surface itself — listing what is there, each item
 // restored as the same object or deleted permanently after a confirmation.
@@ -63,6 +63,13 @@ export type DocumentSessions = {
   forget: (id: string, kind: "page" | "entry") => void;
 };
 
+/** What a Canvas's open sessions can be asked to do (WorkspaceCanvases): the same three things. */
+export type CanvasSessionsBinding = {
+  flush: (id: string) => Promise<void>;
+  resume: (id: string) => void;
+  forget: (id: string) => void;
+};
+
 type Notice = { text: string; undo?: { type: TrashObjectType; id: string } };
 
 type TrashValue = {
@@ -78,8 +85,10 @@ type TrashValue = {
   dismissNotice: () => void;
   undo: () => void;
   bindDocuments: (sessions: DocumentSessions | null) => void;
+  bindCanvases: (sessions: CanvasSessionsBinding | null) => void;
   /** For the Trash surface: the open document sessions, and a re-read of the Project. */
   documents: React.RefObject<DocumentSessions | null>;
+  canvases: React.RefObject<CanvasSessionsBinding | null>;
   refresh: () => void;
 };
 
@@ -91,6 +100,7 @@ export function TrashProvider({ children }: { children: ReactNode }) {
   const [, startRefresh] = useTransition();
   const [notice, setNotice] = useState<Notice | null>(null);
   const documents = useRef<DocumentSessions | null>(null);
+  const canvases = useRef<CanvasSessionsBinding | null>(null);
 
   useEffect(() => {
     if (!notice) return;
@@ -117,6 +127,8 @@ export function TrashProvider({ children }: { children: ReactNode }) {
               : [entry.id];
       if (type === "scene" || type === "chapter") {
         await Promise.all(unsaved.map((id) => syncPendingWrite(id).catch(() => undefined)));
+      } else if (type === "canvas") {
+        await canvases.current?.flush(entry.id);
       } else {
         await Promise.all(unsaved.map((id) => documents.current?.flush(id)));
       }
@@ -150,6 +162,7 @@ export function TrashProvider({ children }: { children: ReactNode }) {
         return;
       }
       documents.current?.resume(target.id);
+      canvases.current?.resume(target.id);
       if (target.type !== "folder") selectWhenPresent(target.id);
       refresh();
     });
@@ -157,6 +170,9 @@ export function TrashProvider({ children }: { children: ReactNode }) {
 
   const bindDocuments = useCallback((sessions: DocumentSessions | null) => {
     documents.current = sessions;
+  }, []);
+  const bindCanvases = useCallback((sessions: CanvasSessionsBinding | null) => {
+    canvases.current = sessions;
   }, []);
   const dismissNotice = useCallback(() => setNotice(null), []);
 
@@ -170,7 +186,9 @@ export function TrashProvider({ children }: { children: ReactNode }) {
       dismissNotice,
       undo,
       bindDocuments,
+      bindCanvases,
       documents,
+      canvases,
       refresh,
     }),
     [
@@ -182,6 +200,7 @@ export function TrashProvider({ children }: { children: ReactNode }) {
       dismissNotice,
       undo,
       bindDocuments,
+      bindCanvases,
       refresh,
     ]
   );
@@ -205,6 +224,7 @@ const TYPE_ICON: Record<TrashObjectType, LucideIcon> = {
   entry: StickyNote,
   scene: Pilcrow,
   chapter: FileText,
+  canvas: Frame,
 };
 
 type Listing = { state: "loading" } | { state: "failed" } | { state: "ready"; items: TrashItem[] };
@@ -216,7 +236,7 @@ type Listing = { state: "loading" } | { state: "failed" } | { state: "ready"; it
  */
 export function TrashView() {
   const { manuscript, workspace, setTrashOpen } = useRune2Selection();
-  const { documents, refresh } = useTrash();
+  const { documents, canvases, refresh } = useTrash();
   const projectId = manuscript.project.id;
   const [listing, setListing] = useState<Listing>({ state: "loading" });
   const [confirming, setConfirming] = useState<string | null>(null);
@@ -268,6 +288,7 @@ export function TrashView() {
       return;
     }
     documents.current?.resume(item.id);
+    if (item.type === "canvas") canvases.current?.resume(item.id);
     const title = trashItemTitle(item);
     setStatus(
       item.type === "chapter"
@@ -297,6 +318,7 @@ export function TrashView() {
       return;
     }
     if (item.type === "page" || item.type === "entry") documents.current?.forget(item.id, item.type);
+    if (item.type === "canvas") canvases.current?.forget(item.id);
     setStatus(`“${trashItemTitle(item)}” was deleted permanently.`);
     refresh();
     await load();

@@ -1,7 +1,7 @@
 import type { TrashItem, TrashObjectType } from "@/lib/types";
 import { sceneIsNamed, UNTITLED, type NavEntry, type NavKind } from "./navigatorModel";
 
-// How the Project's Trash (migrations 030, 031, 037) is worded: what can go there, where
+// How the Project's Trash (migrations 030, 031, 037, 045) is worded: what can go there, where
 // an item came from, how long ago, and exactly what a permanent deletion
 // loses. Pure — shared by the Trash overlay and the tests. Titles and counts
 // only, never content.
@@ -14,6 +14,7 @@ const TYPE_OF: Partial<Record<NavKind, TrashObjectType>> = {
   scene: "scene",
   unplacedScene: "scene",
   chapter: "chapter",
+  workspaceCanvas: "canvas",
 };
 
 /** The Trash type of an index entry, or null if it can't go to Trash (a Group: no Trash). */
@@ -28,6 +29,7 @@ export const TRASH_NOUN: Record<TrashObjectType, string> = {
   entry: "Entry",
   scene: "Scene",
   chapter: "Chapter",
+  canvas: "Canvas",
 };
 
 const FALLBACK: Record<TrashObjectType, string> = {
@@ -37,6 +39,7 @@ const FALLBACK: Record<TrashObjectType, string> = {
   entry: UNTITLED.entry,
   scene: UNTITLED.scene,
   chapter: UNTITLED.chapter,
+  canvas: UNTITLED.canvas,
 };
 
 /** An item's title, or its kind's "Untitled …" (a Scene's stored placeholder title reads as untitled too). */
@@ -96,6 +99,12 @@ export function deletionWarning(item: TrashItem): string {
       return `Delete “${title}” permanently? Its writing and property values can’t be recovered.`;
     case "folder":
       return `Delete the folder “${title}” permanently?`;
+    case "canvas": {
+      const items = item.items ?? 0;
+      return items === 0
+        ? `Delete the canvas “${title}” permanently?`
+        : `Delete the canvas “${title}” and its ${plural(items, "item")} permanently? Its notes and arrangement can’t be recovered. Nothing it shows is deleted.`;
+    }
     case "scene":
       return `Delete “${title}” permanently? Its prose and scene properties can’t be recovered. Your writing history is kept.`;
     case "chapter": {

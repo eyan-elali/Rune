@@ -6820,3 +6820,549 @@ span.r2-schema-type {
     right: 4px;
   }
 }
+
+/* ── Canvas (Milestone 22A) ──────────────────────────────────────────────── */
+/* A spatial thinking surface: an unbounded plane in the content tone, with
+   the faintest dot grid that moves with the world so the eye reads panning
+   and zoom. Cards are the only defined surfaces on it — compact previews of
+   the book's pieces, and notes — raised a hair off the plane; selection is
+   the ink-blue ring everything else in the shell uses. No whiteboard
+   chrome: the tools and the title are quiet overlays at the corners, and
+   the surface owns every movement itself (the content column never scrolls
+   under it). */
+
+.r2-main:has(> .r2-canvas) {
+  overflow: hidden;
+}
+.r2-canvas {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+  overflow: hidden;
+  background-color: var(--r2-bg);
+  background-image: radial-gradient(circle, rgba(var(--r2-palette-ink) / 0.09) 1px, transparent 1.2px);
+  /* background-size / background-position are set by the surface (the view). */
+  outline: none;
+  cursor: default;
+  user-select: none;
+  touch-action: none;
+  font-family: var(--r2-font-ui);
+}
+.r2-canvas[data-dragging] {
+  cursor: grabbing;
+}
+/* A navigator row the Canvas can show is over it: the surface says so, quietly. */
+.r2-canvas[data-dropping] {
+  box-shadow: inset 0 0 0 2px var(--r2-accent-line);
+}
+.r2-canvas--empty {
+  display: grid;
+  place-items: center;
+  background-image: none;
+  padding: var(--r2-space-10);
+}
+
+.r2-canvas-world {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  transform-origin: 0 0;
+  will-change: transform;
+}
+.r2-canvas-world[data-animating] {
+  transition: transform var(--r2-frame) var(--r2-ease-frame);
+}
+
+/* ── Cards ── */
+/* A card's size is its own (M22B): what doesn't fit is cut and fades out at
+   the bottom; nothing a Scene gains ever makes its card taller. */
+.r2-canvas-card {
+  position: absolute;
+  left: 0;
+  top: 0;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px 12px 11px;
+  border-radius: var(--r2-radius-md);
+  background: var(--r2-surface-raised);
+  box-shadow: var(--r2-ring), var(--r2-shadow-sm);
+  color: var(--r2-ink-1);
+  cursor: grab;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  transition: box-shadow var(--r2-fast) var(--r2-ease);
+}
+.r2-canvas-card--scene::after,
+.r2-canvas-card--page::after,
+.r2-canvas-card--entry::after,
+.r2-canvas-card--chapter::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 14px;
+  background: linear-gradient(to bottom, transparent, var(--r2-surface-raised));
+  pointer-events: none;
+}
+.r2-canvas-card:hover {
+  box-shadow: 0 0 0 1px var(--r2-border-strong), var(--r2-shadow-sm);
+}
+.r2-canvas-card[data-selected],
+.r2-canvas-card[data-selected]:hover {
+  box-shadow: 0 0 0 1.5px var(--r2-accent), var(--r2-shadow-pop);
+}
+.r2-canvas-card[data-unavailable] {
+  color: var(--r2-ink-3);
+  background: var(--r2-shell-bg);
+  box-shadow: 0 0 0 1px var(--r2-border);
+  cursor: default;
+}
+.r2-canvas-card[data-unavailable][data-selected] {
+  box-shadow: 0 0 0 1.5px var(--r2-accent);
+}
+.r2-canvas-card-eyebrow {
+  font-size: var(--r2-fs-label);
+  letter-spacing: var(--r2-tracking-label);
+  text-transform: uppercase;
+  color: var(--r2-ink-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.r2-canvas-card-title {
+  font-size: var(--r2-fs-row);
+  font-weight: var(--r2-weight-medium);
+  line-height: var(--r2-lh-tight);
+  letter-spacing: var(--r2-tracking-heading);
+  color: inherit;
+}
+.r2-canvas-card-title[data-unnamed] {
+  color: var(--r2-ink-2);
+  font-style: italic;
+}
+.r2-canvas-card-meta {
+  font-size: var(--r2-fs-meta);
+  color: var(--r2-ink-3);
+}
+.r2-canvas-card-preview {
+  margin-top: 3px;
+  font-size: var(--r2-fs-meta);
+  line-height: var(--r2-lh-ui);
+  color: var(--r2-ink-2);
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+/* Manuscript prose previews read in the manuscript's own type. */
+.r2-canvas-card--scene .r2-canvas-card-preview {
+  font-family: var(--r2-prose-font);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.r2-canvas-card-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
+  font-size: var(--r2-fs-caption);
+  color: var(--r2-ink-3);
+}
+.r2-canvas-card--canvas {
+  background: var(--r2-shell-bg);
+}
+
+/* A note: the plane's own paper, a shade warmer; its text is the whole card.
+   It grows while first typed into (the session decides); sized by hand, it
+   keeps that size and its text scrolls. */
+.r2-canvas-card--note {
+  padding: 8px 10px;
+  background: var(--r2-field-bg);
+  box-shadow: 0 0 0 1px var(--r2-border), var(--r2-shadow-sm);
+}
+.r2-canvas-card--note[data-editing] {
+  cursor: text;
+}
+.r2-canvas-note {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 1.5em;
+  padding: 0;
+  border: 0;
+  resize: none;
+  overflow: hidden;
+  background: transparent;
+  font: inherit;
+  font-size: var(--r2-fs-body);
+  line-height: var(--r2-lh-body);
+  color: var(--r2-ink-1);
+  cursor: inherit;
+  pointer-events: none;
+  user-select: none;
+}
+.r2-canvas-card--note[data-editing] .r2-canvas-note {
+  pointer-events: auto;
+  user-select: text;
+  overflow-y: auto;
+}
+
+/* Far out, a card is its title: the small text goes, so the board stays legible. */
+.r2-canvas-world[data-zoom="far"] .r2-canvas-card-preview,
+.r2-canvas-world[data-zoom="far"] .r2-canvas-card-meta,
+.r2-canvas-world[data-zoom="far"] .r2-canvas-card-hint,
+.r2-canvas-world[data-zoom="far"] .r2-canvas-section-count {
+  display: none;
+}
+.r2-canvas-world[data-zoom="far"] .r2-canvas-card-title {
+  font-size: calc(var(--r2-fs-row) * 1.25);
+}
+
+/* ── Sections: quiet regions beneath the cards ── */
+.r2-canvas-section {
+  position: absolute;
+  left: 0;
+  top: 0;
+  box-sizing: border-box;
+  border-radius: var(--r2-radius-lg);
+  background: color-mix(in srgb, rgb(var(--r2-palette-ink)) 3.5%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, rgb(var(--r2-palette-ink)) 10%, transparent);
+  transition: box-shadow var(--r2-fast) var(--r2-ease);
+}
+.r2-canvas-section[data-selected] {
+  box-shadow: inset 0 0 0 1.5px var(--r2-accent);
+}
+.r2-canvas-section-head {
+  display: flex;
+  align-items: center;
+  gap: var(--r2-space-2);
+  height: 34px;
+  padding: 0 12px;
+  cursor: grab;
+  user-select: none;
+}
+.r2-canvas-section-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--r2-font-serif);
+  font-size: var(--r2-fs-heading-sm, 15px);
+  letter-spacing: var(--r2-tracking-heading);
+  color: var(--r2-ink-2);
+}
+.r2-canvas-section-title[data-unnamed] {
+  font-style: italic;
+  color: var(--r2-ink-3);
+}
+.r2-canvas-section-count {
+  font-size: var(--r2-fs-caption);
+  font-variant-numeric: tabular-nums;
+  color: var(--r2-ink-3);
+}
+.r2-canvas-section-field {
+  width: 100%;
+  padding: 2px 4px;
+  margin-left: -4px;
+  border: 0;
+  border-radius: var(--r2-radius-xs);
+  background: var(--r2-field-bg);
+  font-family: var(--r2-font-serif);
+  font-size: var(--r2-fs-heading-sm, 15px);
+  color: var(--r2-ink-1);
+  outline: none;
+  box-shadow: 0 0 0 1px var(--r2-accent-line);
+}
+
+/* ── Connections: lines that recede behind the cards ── */
+.r2-canvas-lines,
+.r2-canvas-guides {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1px;
+  height: 1px;
+  overflow: visible;
+  pointer-events: none;
+}
+.r2-canvas-lines {
+  z-index: 1;
+}
+.r2-canvas-guides {
+  z-index: 100000;
+}
+.r2-canvas-line-hit {
+  stroke: transparent;
+  stroke-width: 14;
+  pointer-events: stroke;
+  cursor: pointer;
+}
+.r2-canvas-line-stroke {
+  stroke: color-mix(in srgb, rgb(var(--r2-palette-ink)) 32%, transparent);
+  stroke-width: 1.25;
+  stroke-linecap: round;
+  fill: none;
+  transition: stroke var(--r2-fast) var(--r2-ease);
+}
+.r2-canvas-line:hover .r2-canvas-line-stroke {
+  stroke: color-mix(in srgb, rgb(var(--r2-palette-ink)) 55%, transparent);
+}
+.r2-canvas-line[data-selected] .r2-canvas-line-stroke {
+  stroke: var(--r2-accent);
+  stroke-width: 1.75;
+}
+#r2-canvas-arrow path {
+  fill: none;
+  stroke: context-stroke;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.r2-canvas-line-label {
+  font-family: var(--r2-font-ui);
+  font-size: 11px;
+  fill: var(--r2-ink-2);
+  paint-order: stroke;
+  stroke: var(--r2-bg);
+  stroke-width: 5px;
+  stroke-linejoin: round;
+  pointer-events: all;
+  cursor: pointer;
+  user-select: none;
+}
+.r2-canvas-line[data-selected] .r2-canvas-line-label {
+  fill: var(--r2-accent);
+}
+.r2-canvas-line-draft {
+  stroke: var(--r2-accent);
+  stroke-width: 1.25;
+  stroke-dasharray: 4 4;
+  fill: none;
+}
+.r2-canvas-guides line {
+  stroke: var(--r2-accent);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+  opacity: 0.7;
+}
+
+/* ── Handles: resize at the edges, connect from the dot at the right ── */
+.r2-canvas-handles {
+  position: absolute;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+}
+.r2-canvas-handle {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--r2-surface-raised);
+  box-shadow: 0 0 0 1.25px var(--r2-accent);
+  pointer-events: auto;
+}
+.r2-canvas-handle[data-handle="nw"] { left: 0; top: 0; cursor: nwse-resize; }
+.r2-canvas-handle[data-handle="n"] { left: 50%; top: 0; cursor: ns-resize; }
+.r2-canvas-handle[data-handle="ne"] { left: 100%; top: 0; cursor: nesw-resize; }
+.r2-canvas-handle[data-handle="e"] { left: 100%; top: 50%; cursor: ew-resize; }
+.r2-canvas-handle[data-handle="se"] { left: 100%; top: 100%; cursor: nwse-resize; }
+.r2-canvas-handle[data-handle="s"] { left: 50%; top: 100%; cursor: ns-resize; }
+.r2-canvas-handle[data-handle="sw"] { left: 0; top: 100%; cursor: nesw-resize; }
+.r2-canvas-handle[data-handle="w"] { left: 0; top: 50%; cursor: ew-resize; }
+.r2-canvas-handle--connect {
+  left: calc(100% + 14px);
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--r2-accent);
+  box-shadow: 0 0 0 3px var(--r2-bg);
+  cursor: crosshair;
+}
+
+/* The selected connection's small bar: a label, the arrow, removal. */
+.r2-canvas-connection {
+  padding-left: var(--r2-space-2);
+}
+.r2-canvas-connection-label {
+  width: 200px;
+  height: var(--r2-control-sm);
+}
+.r2-canvas-find .r2-canvas-insert-list {
+  max-height: min(40vh, 320px);
+}
+.r2-canvas-note::placeholder {
+  color: var(--r2-ink-3);
+}
+.r2-canvas-note:focus,
+.r2-canvas-note:focus-visible {
+  outline: none;
+}
+
+/* ── Marquee ── */
+.r2-canvas-marquee {
+  position: absolute;
+  pointer-events: none;
+  border: 1px solid var(--r2-accent-line);
+  background: var(--r2-selection);
+  border-radius: var(--r2-radius-xs);
+}
+
+/* ── Overlays: title, tools, notices ── */
+.r2-canvas-ui {
+  position: absolute;
+  z-index: 2;
+  user-select: text;
+}
+.r2-canvas-head {
+  left: 28px;
+  top: 20px;
+  width: min(420px, calc(100% - 300px));
+  pointer-events: none;
+}
+.r2-canvas-head .r2-page-head {
+  margin: 0;
+  pointer-events: auto;
+}
+.r2-canvas-head .r2-page-title {
+  font-size: var(--r2-fs-heading);
+  background: transparent;
+}
+.r2-canvas-tools {
+  right: 16px;
+  top: 14px;
+  display: flex;
+  align-items: center;
+  gap: var(--r2-space-3);
+  padding: 3px;
+  border-radius: var(--r2-radius-md);
+  background: color-mix(in srgb, var(--r2-bg) 86%, transparent);
+  backdrop-filter: blur(6px);
+}
+.r2-canvas-tools-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+}
+.r2-canvas-tools-group + .r2-canvas-tools-group::before,
+.r2-canvas-tools > .r2-action + .r2-canvas-tools-group::before {
+  content: "";
+  width: 1px;
+  height: 14px;
+  margin: 0 var(--r2-space-3) 0 var(--r2-space-2);
+  background: var(--r2-border);
+}
+.r2-canvas-zoom {
+  min-width: 44px;
+  height: var(--r2-control-sm);
+  padding: 0 var(--r2-space-2);
+  border-radius: var(--r2-radius-sm);
+  font-size: var(--r2-fs-caption);
+  font-variant-numeric: tabular-nums;
+  color: var(--r2-ink-3);
+}
+.r2-canvas-zoom:hover {
+  color: var(--r2-ink-1);
+  background: var(--r2-hover);
+}
+.r2-canvas-insert {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  width: 360px;
+  max-width: calc(100vw - 32px);
+  padding: var(--r2-space-3);
+}
+.r2-canvas-insert-field {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.r2-canvas-insert-field > svg {
+  position: absolute;
+  left: 10px;
+  color: var(--r2-ink-3);
+  pointer-events: none;
+}
+.r2-canvas-insert-field .r2-field {
+  width: 100%;
+  padding-left: 30px;
+}
+.r2-canvas-insert-list {
+  max-height: min(50vh, 420px);
+  overflow-y: auto;
+}
+
+.r2-canvas-empty {
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  margin: 0;
+  max-width: 34ch;
+  text-align: center;
+  font-size: var(--r2-fs-body);
+  line-height: var(--r2-lh-body);
+  color: var(--r2-ink-3);
+  pointer-events: none;
+}
+
+.r2-canvas-notice {
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: var(--r2-space-3);
+  max-width: calc(100% - 32px);
+  padding: var(--r2-space-2) var(--r2-space-2) var(--r2-space-2) var(--r2-space-5);
+  border-radius: var(--r2-radius-md);
+  background: var(--r2-overlay-bg);
+  box-shadow: var(--r2-ring), var(--r2-shadow-pop);
+  font-size: var(--r2-fs-ui-sm);
+  color: var(--r2-ink-1);
+  animation: r2-pop-in var(--r2-fast) var(--r2-ease);
+}
+.r2-canvas-notice[data-tone="warning"] {
+  color: var(--r2-warning);
+}
+.r2-canvas-notice > span {
+  margin-right: var(--r2-space-2);
+}
+
+@container (max-width: 640px) {
+  .r2-canvas-head {
+    left: 16px;
+    top: 14px;
+    width: calc(100% - 32px);
+  }
+  .r2-canvas-tools {
+    top: auto;
+    bottom: 14px;
+    right: 12px;
+  }
+  .r2-canvas-insert {
+    top: auto;
+    bottom: calc(100% + 6px);
+  }
+  .r2-canvas-notice {
+    bottom: 60px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .r2-canvas-world[data-animating],
+  .r2-canvas-card,
+  .r2-canvas-section,
+  .r2-canvas-line-stroke,
+  .r2-canvas-notice {
+    transition: none;
+    animation: none;
+  }
+}

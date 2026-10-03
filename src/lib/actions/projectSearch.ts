@@ -18,7 +18,8 @@ type ActionResult<T> = { data: T; error: null } | { data: null; error: string };
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 /**
  * The Project's Scenes (placed and Unplaced), Pages and Entries whose text
- * contains `query`, ignoring case. Fewer than CONTENT_QUERY_MIN characters
+ * contains `query`, ignoring case — and, from migration 046, the Canvas
+ * notes and Section titles that do (with their Canvas). Fewer than CONTENT_QUERY_MIN characters
  * (lib/rune2/projectSearch.ts) searches nothing: those match titles only.
  */
 export async function searchProjectContent(projectId: string, query: string): Promise<ActionResult<ContentMatch[]>> {
