@@ -38,6 +38,16 @@ export function openTab(state: TabState, key: string): TabState {
   return { tabs, active: key };
 }
 
+/**
+ * The tab strip's "+" (Open another): a tab for `key` at the end of the
+ * strip, the others kept — unless it has a tab already, which becomes
+ * active (an object is open in at most one tab).
+ */
+export function appendTab(state: TabState, key: string): TabState {
+  if (state.tabs.includes(key)) return state.active === key ? state : { ...state, active: key };
+  return { tabs: [...state.tabs, key], active: key };
+}
+
 /** Closes `key`'s tab; closing the active tab activates the one to its right, else its left. */
 export function closeTab(state: TabState, key: string): TabState {
   const at = state.tabs.indexOf(key);

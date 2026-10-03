@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { PanelLeft, X } from "lucide-react";
+import { PanelLeft, Plus, X } from "lucide-react";
 import { ICON } from "./icons";
 import { Tooltip } from "./Tooltip";
 import { isWorkspaceKind } from "@/lib/rune2/navigatorModel";
@@ -15,8 +15,13 @@ import { MANUSCRIPT_TAB, useRune2Selection, type WorkingTab } from "./Rune2Selec
 // label is always the object's current title. Every tab is one width
 // (rune2.css, --r2-tab-width): a title that does not fit is cut with an
 // ellipsis and given in full by the tooltip. Overflow scrolls sideways —
-// never a second row. When the navigator is retracted, the control that
-// brings it back sits at the row's start.
+// never a second row.
+//
+// The row's two controls (BC-C closeout): at its start, the one control that
+// hides and shows the navigator — always there, in the same place whether the
+// navigator is open or not; after the last tab, "+" (Open another), which
+// opens Project Search to add an object to the working set in a tab of its
+// own. Both fade with the rest of the chrome while the writer types.
 
 function tabLabel(tab: WorkingTab): string {
   return tab.entry?.title ?? "Manuscript";
@@ -38,7 +43,7 @@ function tabPath(tab: WorkingTab): string | null {
 }
 
 export function Rune2Tabs() {
-  const { tabs, activeTab, activateTab, closeTab, navCollapsed, toggleNav } = useRune2Selection();
+  const { tabs, activeTab, activateTab, closeTab, navCollapsed, toggleNav, openSearchToAdd } = useRune2Selection();
   const listRef = useRef<HTMLUListElement>(null);
   // A tab closed from the keyboard hands focus to the tab that takes its place.
   const refocus = useRef(false);
@@ -55,18 +60,17 @@ export function Rune2Tabs() {
 
   return (
     <nav className="r2-tabs" aria-label="Open tabs">
-      {navCollapsed && (
-        <Tooltip label="Show navigator">
-          <button
-            type="button"
-            className="r2-icon-button r2-tabs-nav-toggle"
-            aria-label="Show navigator"
-            onClick={toggleNav}
-          >
-            <PanelLeft {...ICON} aria-hidden />
-          </button>
-        </Tooltip>
-      )}
+      <Tooltip label={navCollapsed ? "Show navigator" : "Hide navigator"}>
+        <button
+          type="button"
+          className="r2-icon-button r2-tabs-nav-toggle"
+          aria-label={navCollapsed ? "Show navigator" : "Hide navigator"}
+          aria-expanded={!navCollapsed}
+          onClick={toggleNav}
+        >
+          <PanelLeft {...ICON} aria-hidden />
+        </button>
+      </Tooltip>
       <ul ref={listRef} role="list">
         {tabs.map((tab) => (
           <Tab
@@ -81,6 +85,17 @@ export function Rune2Tabs() {
           />
         ))}
       </ul>
+      <Tooltip label="Open another">
+        <button
+          type="button"
+          className="r2-icon-button r2-icon-button--xs r2-tabs-add"
+          aria-label="Open another in a new tab"
+          aria-haspopup="dialog"
+          onClick={openSearchToAdd}
+        >
+          <Plus {...ICON} aria-hidden />
+        </button>
+      </Tooltip>
     </nav>
   );
 }

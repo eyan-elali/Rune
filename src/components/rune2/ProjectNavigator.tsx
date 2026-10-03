@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import {
   useEffect,
   useMemo,
@@ -14,10 +13,8 @@ import {
 import { useRouter } from "next/navigation";
 import {
   ArrowDown,
-  ArrowLeft,
   ArrowUp,
   Archive,
-  BookOpen,
   ChevronDown,
   ChevronRight,
   File as PageIcon,
@@ -35,11 +32,9 @@ import {
   PanelTop,
   MoreHorizontal,
   Pencil,
-  PanelLeft,
   Pilcrow,
   Plus,
   Search,
-  Settings,
   Trash2,
   type LucideIcon,
 } from "lucide-react";
@@ -80,6 +75,7 @@ import { useRevisionNotes } from "./RevisionNoteStore";
 import { useRune2Selection } from "./Rune2Selection";
 import { useDragAutoScroll } from "./useDragAutoScroll";
 import { useTrash } from "./WorkspaceTrash";
+import { AccountControl } from "./AccountMenu";
 import { useProjectExport } from "./ProjectExport";
 import { RenameProjectDialog } from "./ProjectDialogs";
 import { trashProject } from "@/lib/actions/projects";
@@ -158,10 +154,10 @@ export function ProjectNavigator() {
     setRenamedTitle,
     requestSceneFocus,
     navCollapsed,
-    toggleNav,
     setSearchOpen,
     trashOpen,
     setTrashOpen,
+    setSettingsOpen,
   } = useRune2Selection();
   const projectId = manuscript.project.id;
   // While Trash fills the content column, no row is the one showing: the
@@ -406,7 +402,9 @@ export function ProjectNavigator() {
     setMenu((prev) => ({ key: (prev?.key ?? 0) + 1, label, at, items }));
 
   // The Project's own actions, from its title: what the Project is called,
-  // reading it out whole, putting it away — and the way out of it.
+  // reading it out whole, putting it away. This book only — Rune's own
+  // places (All projects, Settings, Log out) are the account control's, at
+  // the foot of the navigator.
   function projectItems(): NavigatorMenuItem[] {
     return [
       { label: "Rename project", icon: Pencil, onSelect: () => setRenamingProject(true) },
@@ -417,8 +415,6 @@ export function ProjectNavigator() {
           ]
         : []),
       { label: "Move project to Trash", icon: Trash2, separator: true, onSelect: () => void moveProjectToTrash() },
-      { label: "All projects", icon: BookOpen, separator: true, onSelect: () => router.push("/projects") },
-      { label: "Settings", icon: Settings, onSelect: () => router.push("/settings") },
     ];
   }
 
@@ -1294,11 +1290,6 @@ export function ProjectNavigator() {
             <Search {...ICON} aria-hidden />
           </button>
         </Tooltip>
-        <Tooltip label="Hide navigator">
-          <button type="button" className="r2-icon-button r2-nav-toggle" aria-label="Hide navigator" onClick={toggleNav}>
-            <PanelLeft {...ICON} aria-hidden />
-          </button>
-        </Tooltip>
       </div>
       <div className="r2-nav-progress" data-active={busy || refreshing || undefined} aria-hidden />
 
@@ -1419,22 +1410,23 @@ export function ProjectNavigator() {
         </p>
       )}
 
+      {/* The foot: Rune's account (All projects, Settings, Log out) and the
+          Project's Trash — two quiet controls, not a toolbar. */}
       <div className="r2-nav-footer">
-        <Link href="/projects">
-          <ArrowLeft {...ICON} aria-hidden />
-          Projects
-        </Link>
+        <AccountControl onOpenSettings={() => setSettingsOpen(true)} />
         {trash.available && (
-          <button
-            type="button"
-            className="r2-nav-trash"
-            aria-pressed={trashOpen}
-            data-active={trashOpen || undefined}
-            onClick={() => setTrashOpen(!trashOpen)}
-          >
-            <Trash2 {...ICON} aria-hidden />
-            Trash
-          </button>
+          <Tooltip label={trashOpen ? "Close Trash" : "Trash"}>
+            <button
+              type="button"
+              className="r2-icon-button r2-icon-button--md r2-nav-trash"
+              aria-label="Trash"
+              aria-pressed={trashOpen}
+              data-active={trashOpen || undefined}
+              onClick={() => setTrashOpen(!trashOpen)}
+            >
+              <Trash2 {...ICON} aria-hidden />
+            </button>
+          </Tooltip>
         )}
       </div>
 

@@ -33,6 +33,7 @@ export type NavigatorMenuItem = {
 export function NavigatorMenu({
   label,
   at,
+  above = false,
   items,
   onClose,
 }: {
@@ -40,6 +41,8 @@ export function NavigatorMenu({
   label: string;
   /** Viewport point to open at (the menu's top-left, clamped on screen). */
   at: { x: number; y: number };
+  /** Open upwards from the point instead (its bottom-left): for a control at the foot of the screen. */
+  above?: boolean;
   items: NavigatorMenuItem[];
   onClose: () => void;
 }) {
@@ -54,9 +57,9 @@ export function NavigatorMenu({
     const { width, height } = el.getBoundingClientRect();
     setPos({
       x: Math.max(8, Math.min(at.x, window.innerWidth - width - 8)),
-      y: Math.max(8, Math.min(at.y, window.innerHeight - height - 8)),
+      y: Math.max(8, Math.min(above ? at.y - height : at.y, window.innerHeight - height - 8)),
     });
-  }, [at, confirming]);
+  }, [at, above, confirming]);
 
   // Give focus back to whatever opened the menu, unless the chosen item moved
   // it somewhere on purpose (e.g. a rename field).
@@ -121,6 +124,7 @@ export function NavigatorMenu({
       role={confirming ? "alertdialog" : "menu"}
       aria-label={confirming ? confirming.label : label}
       className="r2-menu"
+      data-above={above || undefined}
       style={{ left: pos.x, top: pos.y }}
       onKeyDown={onKeyDown}
       onContextMenu={(e) => e.preventDefault()}

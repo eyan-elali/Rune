@@ -19,88 +19,36 @@
    read; shadows only under what floats. */
 
 /* ══ 1. Tokens ══════════════════════════════════════════════════════════ */
-/* Feature rules read only these. A later theme (a deep ink/navy shell, a
-   writer's chosen prose surface) overrides the *semantic* tokens on
-   `.r2[data-theme="…"]` or on a surface element; it never touches a feature
-   rule. The palette lines are the one place a raw colour may appear. */
+/* Feature rules read only these. A theme (Light, Candlelight, Dark) or a
+   writing surface overrides the *semantic* colour tokens (themes.ts); it
+   never touches a feature rule, and no feature rule holds a raw colour. */
 
 .r2 {
-  /* ── Palette (private: semantic tokens below read these) ─────────── */
-  --r2-palette-ink: 29 32 37; /* the neutral everything is tinted from */
-  --r2-palette-shadow: 20 24 31;
-  --r2-palette-blue: 47 76 124;
+  /* ── Colour ───────────────────────────────────────────────────────────
+     Every colour token — palette, surfaces, text, structure, semantic
+     states, elevation, the tooltip and the manuscript writing surface
+     (--r2-ms-*) — is defined per theme in src/lib/rune2/themes.ts and
+     rendered by the (rune2) layout as one stylesheet (Beta Completion C).
+     The names are unchanged: feature rules read var(--r2-bg),
+     var(--r2-ink-2), var(--r2-accent)… exactly as before, and never a theme.
 
-  /* ── Surfaces ─────────────────────────────────────────────────────── */
-  --r2-bg: #fbfbfa; /* app: the content field */
-  --r2-shell-bg: #f4f4f2; /* secondary: navigator, tab band, rails */
-  --r2-panel-bg: #f7f7f5; /* the right-hand panel */
-  --r2-nav-bg: var(--r2-shell-bg);
-  --r2-surface-raised: #fdfdfc; /* a field or control lifted off the bg */
-  --r2-field-bg: var(--r2-surface-raised);
-  --r2-surface-sunken: rgba(var(--r2-palette-ink) / 0.025); /* a lane, a gap */
-  --r2-overlay-bg: var(--r2-bg); /* menus, popovers, dialogs, search */
-  --r2-prose-bg: var(--r2-bg); /* the writing surface: a writer's choice later */
-  --r2-hover: rgba(var(--r2-palette-ink) / 0.05);
-  --r2-hover-faint: rgba(var(--r2-palette-ink) / 0.018); /* table rows */
-  --r2-press: rgba(var(--r2-palette-ink) / 0.08);
-  --r2-scrim: rgba(var(--r2-palette-shadow) / 0.28); /* behind a dialog */
-  --r2-scrim-light: rgba(var(--r2-palette-shadow) / 0.08); /* behind search */
-  --r2-scrollbar: rgba(var(--r2-palette-ink) / 0.16);
-
-  /* ── Text: one deliberate hierarchy for the whole shell ───────────
-       1  manuscript, the active title, the active navigation item, headings
-       2  navigator rows, breadcrumbs, top actions, Inspector values
-       3  metadata, counts, placeholders, inactive controls, support text */
-  --r2-ink-1: #1c1f24;
-  --r2-ink-2: #585c64;
-  --r2-ink-3: #8e9198;
-  --r2-ink-disabled: #a9abb0;
-  --r2-ink-inverse: #ffffff; /* on the accent and on danger */
-  --r2-text: var(--r2-ink-1);
-  --r2-muted: var(--r2-ink-2);
-  --r2-faint: var(--r2-ink-3);
-  --r2-prose-ink: var(--r2-ink-1);
-
-  /* ── Structure ────────────────────────────────────────────────────── */
-  --r2-border: #e6e6e3; /* the separator: a hairline, never an outline */
-  --r2-border-strong: #d9d9d5; /* a field's edge, a rule in prose */
-  --r2-accent: #2f4c7c; /* Rune ink blue */
-  --r2-accent-ink: #223b63;
-  --r2-accent-soft: rgba(var(--r2-palette-blue) / 0.09);
-  --r2-accent-soft-hover: rgba(var(--r2-palette-blue) / 0.13);
-  --r2-accent-line: rgba(var(--r2-palette-blue) / 0.28);
-  --r2-focus: var(--r2-accent);
-  --r2-selection: rgba(var(--r2-palette-blue) / 0.16); /* text selection */
-  --r2-selected: var(--r2-accent-soft); /* a selected row, tab, item */
-  --r2-selected-hover: var(--r2-accent-soft-hover);
-  --r2-selected-ink: var(--r2-accent-ink);
-
-  /* ── Semantic states: restrained, used only where the meaning exists ─ */
-  --r2-danger: #a33a32;
-  --r2-danger-strong: #8a2f28; /* a danger button pressed */
-  --r2-danger-soft: rgba(163 58 50 / 0.1);
-  --r2-warning: #8a6116;
-  --r2-warning-soft: rgba(138 97 22 / 0.1);
-  --r2-success: #3b6b45;
-  --r2-success-soft: rgba(59 107 69 / 0.1);
-  --r2-info: var(--r2-accent);
-  --r2-info-soft: var(--r2-accent-soft);
-
-  /* ── Elevation: functional, under what floats ─────────────────────── */
-  --r2-shadow-sm: 0 1px 2px rgba(var(--r2-palette-shadow) / 0.04);
-  /* A floating surface: a crisp contact line and a soft fall that draws in
-     at its edges (negative spread), so it sits close to the page rather
-     than hovering in a haze. */
-  --r2-shadow-pop: 0 1px 2px rgba(var(--r2-palette-shadow) / 0.05), 0 8px 24px -8px rgba(var(--r2-palette-shadow) / 0.14);
-  --r2-shadow-lg: 0 18px 48px rgba(var(--r2-palette-shadow) / 0.1);
-  --r2-ring: 0 0 0 1px var(--r2-border); /* a floating surface's edge */
-  /* An inset side sheet's exposed edges (left, top, bottom — the right is
-     flush with the viewport, where the ring falls outside it): a whisper of
-     a line and the faintest fall of shadow toward the content — a sheet
-     sitting just above the base surface, never a card's outline. */
-  --r2-shadow-sheet: 0 0 0 1px rgba(var(--r2-palette-ink) / 0.05),
-    -12px 0 28px -14px rgba(var(--r2-palette-shadow) / 0.1),
-    0 8px 24px -16px rgba(var(--r2-palette-shadow) / 0.08);
+       Surfaces   bg (content) · shell-bg · panel-bg · nav-bg · page-bg ·
+                  group-bg · surface-raised · raised-hover · field-bg ·
+                  surface-sunken · overlay-bg · prose-bg · hover ·
+                  hover-faint · press · scrim · scrim-light · scrollbar
+       Text       ink-1 (manuscript, active titles, headings) · ink-2
+                  (rows, breadcrumbs, values) · ink-3 (metadata, counts,
+                  placeholders) · ink-disabled · ink-inverse · text ·
+                  muted · faint · prose-ink
+       Structure  border · border-strong · accent · accent-ink ·
+                  accent-soft(-hover) · accent-line · focus · selection ·
+                  selected(-hover) · selected-ink
+       States     danger(-strong, -soft) · warning(-soft) · success(-soft) ·
+                  info(-soft)
+       Elevation  shadow-sm · shadow-pop · shadow-lg · ring · shadow-sheet ·
+                  tooltip-bg · tooltip-ink
+       Manuscript ms-bg · ms-ink · ms-faint · ms-caret · ms-selection ·
+                  ms-rule — the writer's writing surface */
 
   /* ── Radius: modest; a surface is not rounded unless it is a thing ── */
   --r2-radius-xs: 3px; /* checkbox, inline code, marks */
@@ -187,7 +135,6 @@
   /* ── States ───────────────────────────────────────────────────────── */
   --r2-disabled-opacity: 0.5;
 
-  color-scheme: light;
   background: var(--r2-bg);
   color: var(--r2-text);
   font-family: var(--r2-font-ui);
@@ -259,7 +206,7 @@
     color var(--r2-fast) var(--r2-ease);
 }
 .r2-button:hover:not(:disabled) {
-  background: var(--r2-shell-bg);
+  background: var(--r2-raised-hover);
 }
 .r2-button:active:not(:disabled) {
   background: var(--r2-press);
@@ -503,6 +450,15 @@ button.r2-chip:focus-visible {
 @keyframes r2-fade-in {
   from { opacity: 0; }
   to { opacity: 1; }
+}
+
+.r2-menu[data-above] {
+  transform-origin: bottom left;
+  animation-name: r2-pop-up;
+}
+@keyframes r2-pop-up {
+  from { opacity: 0; transform: translateY(3px) scale(0.98); }
+  to { opacity: 1; transform: none; }
 }
 
 /* ── Menu ───────────────────────────────────────────────────────────────
@@ -904,24 +860,6 @@ button.r2-chip:focus-visible {
   flex-shrink: 0;
   color: var(--r2-ink-3);
 }
-/* The collapse control: present, never insistent. */
-.r2-nav-toggle {
-  flex-shrink: 0;
-  opacity: 0;
-  transition: opacity var(--r2-medium) var(--r2-ease), color var(--r2-fast) var(--r2-ease),
-    background-color var(--r2-fast) var(--r2-ease);
-}
-.r2-nav:hover .r2-nav-toggle,
-.r2-nav-toggle:focus-visible,
-.r2-shell[data-narrow] .r2-nav-toggle {
-  opacity: 1;
-}
-@media (hover: none) {
-  .r2-nav-toggle {
-    opacity: 1;
-  }
-}
-
 /* A hairline that runs only while a change is saving or the tree re-reads. */
 .r2-nav-progress {
   position: absolute;
@@ -1219,30 +1157,47 @@ button.r2-disclosure:hover {
   line-height: var(--r2-lh-ui);
 }
 
+/* The foot of the navigator: Rune's account control, and the Project's
+   Trash as one quiet icon — two controls on the shell tone, not a toolbar.
+   The account opens upwards (All projects, Settings, Log out). */
 .r2-nav-footer {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: var(--r2-space-2);
   flex-shrink: 0;
-  padding: var(--r2-space-4) var(--r2-space-4) var(--r2-space-5);
+  padding: var(--r2-space-3) var(--r2-space-4) var(--r2-space-4);
 }
-.r2-nav-footer a,
-.r2-nav-trash {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--r2-space-3);
-  height: var(--r2-control-md);
-  padding: 0 var(--r2-space-4);
-  border-radius: var(--r2-radius);
+.r2-account--nav {
+  flex: 1;
+  min-width: 0;
+  max-width: none;
+  height: var(--r2-control-lg);
+  margin-left: calc(-1 * var(--r2-space-1));
+  padding: 0 var(--r2-space-3);
   font-size: var(--r2-fs-ui-sm);
-  color: var(--r2-ink-3);
-  transition: color var(--r2-fast) var(--r2-ease), background-color var(--r2-fast) var(--r2-ease);
+  font-weight: var(--r2-weight-medium);
+  text-align: left;
 }
-.r2-nav-footer a:hover,
-.r2-nav-trash:hover {
-  color: var(--r2-text);
-  background: var(--r2-hover);
+.r2-account--nav .r2-account-name {
+  flex: 1;
+}
+.r2-account--nav > svg {
+  opacity: 0;
+  transition: opacity var(--r2-medium) var(--r2-ease);
+}
+.r2-nav:hover .r2-account--nav > svg,
+.r2-account--nav:focus-visible > svg,
+.r2-account--nav[aria-expanded="true"] > svg {
+  opacity: 1;
+}
+@media (hover: none) {
+  .r2-account--nav > svg {
+    opacity: 1;
+  }
+}
+.r2-nav-trash[data-active] {
+  color: var(--r2-selected-ink);
+  background: var(--r2-selected);
 }
 
 /* ── Working-set tabs ──────────────────────────────────────────────────── */
@@ -1266,10 +1221,19 @@ button.r2-disclosure:hover {
   transition: background-color var(--r2-fade-in) var(--r2-ease-frame),
     border-color var(--r2-fade-in) var(--r2-ease-frame);
 }
+/* The navigator's one show/hide control: the row's first thing, in the same
+   place whether the navigator is open or retracted. */
 .r2-tabs-nav-toggle {
   flex-shrink: 0;
   align-self: center;
   margin-right: var(--r2-space-3);
+}
+/* "+" (Open another): right after the last tab, secondary — quiet ink, no
+   surface until reached for. It never scrolls with the tabs, so it stays at
+   hand however many are open. */
+.r2-tabs-add {
+  align-self: center;
+  margin-left: var(--r2-space-2);
 }
 /* The band's full height, one pixel over its hairline: the active tab's
    surface covers the line and continues into the content. */
@@ -1541,6 +1505,7 @@ button.r2-disclosure:hover {
    drawn meanwhile. */
 .r2-tabs ul,
 .r2-tabs-nav-toggle,
+.r2-tabs-add,
 .r2-contextbar > * {
   transition: opacity var(--r2-fade-in) var(--r2-ease-frame);
 }
@@ -1549,8 +1514,18 @@ button.r2-disclosure:hover {
   border-bottom-color: transparent;
   transition-duration: var(--r2-fade-out);
 }
+/* Writing the manuscript, the vacated band takes the writer's page
+   (--r2-ms-bg) on the same fade as the chrome leaving it, so the writing
+   surface seems to rise into the space the tabs gave up; reaching for the
+   interface fades the band back to the theme on the same curve. Only the
+   centre column — the navigator and panel keep the theme. Reduced motion
+   makes both changes instant ("Motion off"). */
+.r2-shell[data-writing] .r2-content-layer[data-manuscript] > .r2-tabs {
+  background: var(--r2-ms-bg);
+}
 .r2-shell[data-writing] .r2-tabs ul,
 .r2-shell[data-writing] .r2-tabs-nav-toggle,
+.r2-shell[data-writing] .r2-tabs-add,
 .r2-shell[data-writing] .r2-contextbar > * {
   opacity: 0;
   transition-duration: var(--r2-fade-out);
@@ -1564,10 +1539,6 @@ button.r2-disclosure:hover {
    more (Tooltip.tsx). Portalled to the document, so it is placed on the
    shell's tokens by its own .r2 layer. It appears by opacity alone — no
    movement — and reduced motion makes that instant. */
-.r2 {
-  --r2-tooltip-bg: var(--r2-ink-1);
-  --r2-tooltip-ink: var(--r2-ink-inverse);
-}
 .r2-tooltip-anchor,
 .r2-tooltip-layer {
   display: contents;
@@ -2139,6 +2110,20 @@ button.r2-disclosure:hover {
   background: var(--r2-prose-bg);
 }
 
+/* The writer's writing surface (Beta Completion C). While the manuscript is
+   being written the selection's layer carries data-manuscript, and the
+   context bar, the content and the status zone beneath it are one region
+   painted with the writer's page (--r2-ms-*, themes.ts) — never a sheet on
+   the page, never a shadow: the content area itself becomes that surface.
+   The navigator, the tabs and the panel keep the theme. Inside the region
+   --r2-prose-bg reads the page, and a page of the other scheme brings its
+   own interface ink (themes.ts), so titles and placeholders stay legible. */
+.r2-content-layer[data-manuscript] > .r2-contextbar,
+.r2-content-layer[data-manuscript] .r2-body {
+  background: var(--r2-ms-bg);
+  transition: background-color var(--r2-medium) var(--r2-ease);
+}
+
 /* Spatial stability: the column is placed where it would sit centred in the
    content area with the panel closed, and keeps that place when the panel
    opens as long as it still fits; only when it would be covered does it move,
@@ -2203,18 +2188,18 @@ button.r2-disclosure:hover {
   font-family: var(--r2-prose-font);
   font-size: var(--r2-prose-size);
   line-height: var(--r2-prose-leading);
-  color: var(--r2-faint);
+  color: var(--r2-ms-faint);
   opacity: 0.75;
   cursor: text;
   transition: color var(--r2-medium) var(--r2-ease), opacity var(--r2-medium) var(--r2-ease);
 }
 .r2-doc-begin-line:hover {
-  color: var(--r2-ink-3);
+  color: var(--r2-ms-faint);
   opacity: 1;
 }
 .r2-doc-begin-line:focus-visible {
   outline: none;
-  color: var(--r2-ink-3);
+  color: var(--r2-ms-faint);
   opacity: 1;
 }
 .r2-doc-begin-line:focus-visible::before {
@@ -2224,7 +2209,7 @@ button.r2-disclosure:hover {
   left: -2px;
   width: 2px;
   height: 1.15em;
-  background: var(--r2-accent);
+  background: var(--r2-ms-caret);
 }
 .r2-doc-begin-line[aria-busy] {
   color: var(--r2-ink-3);
@@ -2255,7 +2240,7 @@ button.r2-disclosure:hover {
   line-height: var(--r2-prose-leading);
   letter-spacing: 0.002em;
   color: var(--r2-prose-ink);
-  caret-color: var(--r2-accent);
+  caret-color: var(--r2-ms-caret);
   font-kerning: normal;
   font-variant-ligatures: common-ligatures;
   hanging-punctuation: first;
@@ -2280,7 +2265,7 @@ button.r2-disclosure:hover {
 .r2-prose .ProseMirror :is(h1, h2, h3) {
   margin: 1.6em 0 0.6em;
   font-weight: var(--r2-prose-heading-weight);
-  color: var(--r2-text);
+  color: var(--r2-prose-ink);
 }
 .r2-prose .ProseMirror > :is(h1, h2, h3):first-child {
   margin-top: 0;
@@ -2291,9 +2276,9 @@ button.r2-disclosure:hover {
 .r2-prose .ProseMirror blockquote {
   margin: 1em 0;
   padding-left: 1.25em;
-  border-left: 2px solid var(--r2-border-strong);
+  border-left: 2px solid var(--r2-ms-rule);
   font-style: normal;
-  color: var(--r2-muted);
+  color: color-mix(in srgb, var(--r2-prose-ink) 72%, transparent);
 }
 .r2-prose .ProseMirror :is(ul, ol) {
   margin: 0.6em 0;
@@ -2306,7 +2291,7 @@ button.r2-disclosure:hover {
   margin: 1.6em auto;
   width: 4em;
   border: 0;
-  border-top: 1px solid var(--r2-border-strong);
+  border-top: 1px solid var(--r2-ms-rule);
 }
 .r2-prose .ProseMirror :is(strong, em) {
   color: inherit;
@@ -2315,7 +2300,7 @@ button.r2-disclosure:hover {
   background: var(--r2-selection);
 }
 .r2-prose .ProseMirror .is-empty.is-editor-empty::before {
-  color: var(--r2-faint);
+  color: var(--r2-ms-faint);
   opacity: 0.75;
 }
 
@@ -2346,7 +2331,7 @@ button.r2-disclosure:hover {
   width: 28px;
   height: 1px;
   transform: translateX(-50%);
-  background: var(--r2-border-strong);
+  background: var(--r2-ms-rule);
 }
 .r2-scene[data-state="pending"] {
   min-height: 1.6em;
@@ -4952,10 +4937,6 @@ span.r2-schema-type {
   font-size: var(--r2-fs-ui);
   color: var(--r2-ink-3);
 }
-.r2-nav-trash[data-active] {
-  color: var(--r2-text);
-  background: var(--r2-selected);
-}
 .r2-trash-filter {
   padding: 0 0 10px;
 }
@@ -5831,7 +5812,8 @@ span.r2-schema-type {
    Margin marks (a Scene's revision note, "edit") stay out of the text and
    appear on hover, except the mark of a Scene that has a note. */
 
-.r2-reader {
+.r2-reader,
+.r2-peek {
   --r2-reading-width: calc(var(--r2-reading-measure) + 2 * 72px);
   position: fixed;
   inset: 0;
@@ -5861,13 +5843,50 @@ span.r2-schema-type {
   min-height: 0;
   background: var(--r2-prose-bg);
 }
-.r2-reader[data-mode="peek"] .r2-reader-surface {
+.r2-reader[data-mode="peek"] .r2-reader-surface,
+.r2-peek-surface {
   width: min(var(--r2-reading-width), 100%);
   height: 100%;
   overflow: hidden;
   border-radius: var(--r2-radius-lg);
   box-shadow: 0 0 0 1px rgba(var(--r2-palette-ink) / 0.06), var(--r2-shadow-lg);
   animation: r2-dialog-in var(--r2-medium) var(--r2-ease);
+}
+
+/* A Center Peek of something that is not the manuscript — Settings opened
+   inside a Project (SettingsPeek): the Reading Peek's container, scrim and
+   surface, in the theme (never the writing surface), with one quiet bar —
+   its name and × — over a scrolling body. */
+.r2-peek-surface {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--r2-page-bg);
+}
+.r2-settings-peek {
+  width: min(720px, 100%);
+}
+.r2-peek-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  min-height: var(--r2-bar);
+  padding: var(--r2-space-4) var(--r2-space-4) var(--r2-space-4) var(--r2-space-8);
+  border-bottom: 1px solid var(--r2-border);
+}
+.r2-peek-bar h2 {
+  font-size: var(--r2-fs-heading);
+  font-weight: var(--r2-weight-semibold);
+  letter-spacing: var(--r2-tracking-heading);
+  color: var(--r2-ink-1);
+}
+.r2-peek-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 .r2-reader[data-mode="full"] .r2-reader-surface {
   width: 100%;
@@ -7460,16 +7479,19 @@ span.r2-schema-type {
   }
 }
 
-/* ══ Projects, Trash and Settings (Beta Completion A) ══════════════════ */
+/* ══ Projects, Trash and Settings (Beta Completion A; refined in C) ═════ */
 /* The pages outside a Project: one quiet column under a slim bar holding the
-   wordmark (home) and the account. Lists, not cards: a Project is a row —
-   its title, its size, when it was last worked in — and its few actions sit
-   behind a "⋯" that appears on reach. */
+   wordmark (home) and the account, on the page tone (--r2-page-bg). What the
+   page holds sits on quiet grouped surfaces (--r2-group-bg) a shade off it —
+   hierarchy from tone and space, not from rules. A Project is a row in its
+   group, reached for as a whole; a Settings section is a group of rows. */
 
 .r2-home,
 .r2-settings,
-.r2-page-state {
+.r2-page-state,
+.r2-gate {
   min-height: 100dvh;
+  background: var(--r2-page-bg);
 }
 
 .r2-appbar {
@@ -7514,6 +7536,21 @@ span.r2-schema-type {
   flex-shrink: 0;
   color: var(--r2-ink-3);
 }
+/* The writer's initial: who is signed in, at a glance. */
+.r2-account-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  font-size: 10.5px;
+  font-weight: var(--r2-weight-semibold);
+  line-height: 1;
+  color: var(--r2-accent-ink);
+  background: var(--r2-accent-soft);
+}
 .r2-account-notice {
   position: fixed;
   top: 56px;
@@ -7525,17 +7562,28 @@ span.r2-schema-type {
 .r2-home-main {
   width: min(100%, 760px);
   margin: 0 auto;
-  padding: 56px var(--r2-space-8) 80px;
+  padding: 56px var(--r2-space-8) 96px;
 }
 .r2-home-back {
   display: inline-flex;
   align-items: center;
   gap: var(--r2-space-3);
+  max-width: 100%;
   margin: -28px 0 var(--r2-space-6) calc(-1 * var(--r2-space-3));
   padding: var(--r2-space-2) var(--r2-space-3);
   border-radius: var(--r2-radius);
   font-size: var(--r2-fs-ui-sm);
   color: var(--r2-ink-3);
+  transition: background-color var(--r2-fast) var(--r2-ease), color var(--r2-fast) var(--r2-ease);
+}
+.r2-home-back svg {
+  flex-shrink: 0;
+}
+.r2-home-back-label {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 .r2-home-back:hover {
   color: var(--r2-ink-1);
@@ -7550,10 +7598,11 @@ span.r2-schema-type {
 }
 .r2-home-head h1,
 .r2-settings-head h1 {
-  font-size: var(--r2-fs-title);
+  font-size: 26px;
   font-weight: var(--r2-weight-semibold);
   line-height: var(--r2-lh-tight);
-  letter-spacing: var(--r2-tracking-title);
+  letter-spacing: -0.02em;
+  color: var(--r2-ink-1);
 }
 .r2-home-actions {
   display: flex;
@@ -7561,6 +7610,7 @@ span.r2-schema-type {
   gap: var(--r2-space-4);
 }
 .r2-home-intro {
+  max-width: 560px;
   margin-top: var(--r2-space-4);
   font-size: var(--r2-fs-body);
   line-height: var(--r2-lh-body);
@@ -7581,22 +7631,31 @@ span.r2-schema-type {
 .r2-home-notice button:hover:not(:disabled) {
   text-decoration: underline;
 }
-.r2-home-loading {
-  margin-top: var(--r2-space-9);
-  font-size: var(--r2-fs-body);
-  color: var(--r2-ink-3);
-}
 
+/* The list: one grouped surface; rows parted by space and tone, not rules. */
 .r2-home-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--r2-space-1);
   margin-top: var(--r2-space-8);
-  border-top: 1px solid var(--r2-border);
+  padding: var(--r2-space-3);
+  border-radius: var(--r2-radius-lg);
+  background: var(--r2-group-bg);
+  box-shadow: 0 0 0 1px rgba(var(--r2-palette-ink) / 0.04), var(--r2-shadow-sm);
 }
 .r2-home-row {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: var(--r2-space-4);
-  border-bottom: 1px solid var(--r2-border);
-  transition: opacity var(--r2-fast) var(--r2-ease);
+  border-radius: var(--r2-radius-md);
+  transition: background-color var(--r2-fast) var(--r2-ease), opacity var(--r2-fast) var(--r2-ease);
+}
+.r2-home-row:has(> a.r2-home-row-main:hover),
+.r2-home-row:has(> .r2-home-row-more[aria-expanded="true"]) {
+  background: var(--r2-hover);
+}
+.r2-home-row:has(> a.r2-home-row-main:active) {
+  background: var(--r2-press);
 }
 .r2-home-row[data-pending] {
   opacity: 0.55;
@@ -7604,32 +7663,53 @@ span.r2-schema-type {
 .r2-home-row-main {
   display: flex;
   flex: 1;
-  flex-direction: column;
-  gap: var(--r2-space-2);
+  align-items: center;
+  gap: var(--r2-space-5);
   min-width: 0;
-  padding: var(--r2-space-6) var(--r2-space-4);
-  margin-left: calc(-1 * var(--r2-space-4));
-  border-radius: var(--r2-radius);
+  padding: var(--r2-space-5) var(--r2-space-5);
+  border-radius: inherit;
 }
-a.r2-home-row-main:hover {
-  background: var(--r2-hover-faint);
+a.r2-home-row-main:focus-visible {
+  outline-offset: -2px;
 }
-a.r2-home-row-main:hover .r2-home-title {
+/* A Project's initial, like a small cover: the serif, on a soft ink-blue
+   ground — the one mark of colour on the page. */
+.r2-home-cover {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 34px;
+  height: 42px;
+  border-radius: var(--r2-radius-sm);
+  font-family: var(--r2-prose-font);
+  font-size: 20px;
+  line-height: 1;
   color: var(--r2-accent-ink);
+  background: var(--r2-accent-soft);
+  box-shadow: inset 2px 0 0 rgba(var(--r2-palette-blue) / 0.14);
+}
+.r2-home-row-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
 }
 .r2-home-title {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  font-size: var(--r2-fs-heading);
+  font-family: var(--r2-prose-font);
+  font-size: 18.5px;
   font-weight: var(--r2-weight-medium);
-  letter-spacing: var(--r2-tracking-heading);
+  line-height: 1.25;
   color: var(--r2-ink-1);
-  transition: color var(--r2-fast) var(--r2-ease);
 }
 .r2-home-meta {
   display: flex;
   flex-wrap: wrap;
+  min-height: 1.3em;
   font-size: var(--r2-fs-meta);
   color: var(--r2-ink-3);
   font-variant-numeric: tabular-nums;
@@ -7638,7 +7718,14 @@ a.r2-home-row-main:hover .r2-home-title {
   content: "·";
   margin: 0 8px;
 }
+.r2-home-words {
+  flex-shrink: 0;
+  font-size: var(--r2-fs-ui-sm);
+  color: var(--r2-ink-2);
+  font-variant-numeric: tabular-nums;
+}
 .r2-home-row-more {
+  margin-right: var(--r2-space-4);
   opacity: 0;
 }
 .r2-home-row:hover .r2-home-row-more,
@@ -7652,18 +7739,24 @@ a.r2-home-row-main:hover .r2-home-title {
   }
 }
 
+/* No Projects yet: an invitation, not a wall — a few lines and two ways in. */
 .r2-home-empty {
-  margin-top: 72px;
-  max-width: 440px;
+  margin-top: var(--r2-space-8);
+  padding: 44px 40px 40px;
+  border-radius: var(--r2-radius-lg);
+  background: var(--r2-group-bg);
+  box-shadow: 0 0 0 1px rgba(var(--r2-palette-ink) / 0.04), var(--r2-shadow-sm);
 }
 .r2-home-empty h2 {
+  max-width: 440px;
   font-family: var(--r2-prose-font);
-  font-size: 26px;
+  font-size: 28px;
   font-weight: var(--r2-weight-regular);
-  line-height: 1.25;
+  line-height: 1.2;
   color: var(--r2-ink-1);
 }
 .r2-home-empty p {
+  max-width: 440px;
   margin-top: var(--r2-space-4);
   font-size: var(--r2-fs-body);
   line-height: var(--r2-lh-body);
@@ -7680,28 +7773,41 @@ a.r2-home-row-main:hover .r2-home-title {
   font-size: var(--r2-fs-meta);
   color: var(--r2-ink-3);
 }
+/* An empty Trash: the same surface, quieter. */
+.r2-home-empty--quiet {
+  padding: 28px 28px 30px;
+}
+.r2-home-empty--quiet h2 {
+  font-family: var(--r2-font-ui);
+  font-size: var(--r2-fs-heading);
+  font-weight: var(--r2-weight-medium);
+}
+.r2-home-empty--quiet p {
+  margin-top: var(--r2-space-3);
+  color: var(--r2-ink-3);
+}
 .r2-home-state {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--r2-space-5);
-  margin-top: var(--r2-space-9);
+  margin-top: var(--r2-space-8);
   font-size: var(--r2-fs-body);
   color: var(--r2-ink-2);
 }
 
 .r2-home-foot {
-  margin-top: var(--r2-space-9);
+  margin-top: var(--r2-space-7);
 }
 .r2-home-trash {
   display: inline-flex;
   align-items: center;
   gap: var(--r2-space-3);
-  margin-left: calc(-1 * var(--r2-space-4));
   padding: var(--r2-space-3) var(--r2-space-4);
   border-radius: var(--r2-radius);
   font-size: var(--r2-fs-ui-sm);
   color: var(--r2-ink-3);
+  transition: background-color var(--r2-fast) var(--r2-ease), color var(--r2-fast) var(--r2-ease);
 }
 .r2-home-trash:hover {
   color: var(--r2-ink-1);
@@ -7711,13 +7817,73 @@ a.r2-home-row-main:hover .r2-home-title {
   font-variant-numeric: tabular-nums;
 }
 
+/* Trash's rows: the actions at the right, Restore first; deleting for good
+   is set apart and only words until reached for. */
 .r2-trash-row {
   flex-wrap: wrap;
+}
+.r2-trash-row .r2-home-row-main {
+  flex: 1 1 280px;
 }
 .r2-trash-row-actions {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: var(--r2-space-2);
+  padding: 0 var(--r2-space-4) 0 var(--r2-space-2);
+}
+.r2-trash-row-actions [data-tone="danger"] {
+  margin-left: var(--r2-space-4);
+}
+
+/* Loading: the list's own shape, a few faint rows — never more elaborate
+   than what arrives. They breathe slowly; reduced motion holds them still. */
+.r2-skeleton {
+  display: block;
+  border-radius: var(--r2-radius-sm);
+  background: var(--r2-hover);
+  animation: r2-skeleton 1.6s var(--r2-ease) infinite alternate;
+}
+.r2-skeleton-line {
+  height: 10px;
+}
+.r2-skeleton-line--meta {
+  width: 22%;
+  height: 8px;
+  opacity: 0.6;
+}
+.r2-skeleton-list .r2-home-row-text {
+  gap: 9px;
+}
+.r2-skeleton-list .r2-home-cover {
+  box-shadow: none;
+}
+@keyframes r2-skeleton {
+  from { opacity: 0.55; }
+  to { opacity: 1; }
+}
+.r2-shell-loading .r2-nav-header {
+  padding-right: var(--r2-space-9);
+}
+.r2-shell-loading-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: var(--r2-space-6) var(--r2-space-6);
+}
+.r2-shell-loading-rows .r2-skeleton-line {
+  height: 8px;
+}
+
+/* For assistive technology only. */
+.r2-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }
 
 /* A whole page that is only a message: a Project in Trash, one not found, a
@@ -7735,8 +7901,12 @@ a.r2-home-row-main:hover .r2-home-title {
   color: var(--r2-ink-2);
 }
 .r2-page-state strong {
+  font-size: var(--r2-fs-heading);
   font-weight: var(--r2-weight-semibold);
   color: var(--r2-ink-1);
+}
+.r2-page-state p {
+  max-width: 420px;
 }
 .r2-page-state-detail {
   color: var(--r2-ink-3);
@@ -7764,29 +7934,47 @@ a.r2-home-row-main:hover .r2-home-title {
   color: var(--r2-danger);
 }
 
-/* ── Settings ── */
+/* ── Settings ──
+   Each section: a heading and a line saying whose it is, over one grouped
+   surface of rows. Inside a group the rows are parted by an inset hairline
+   that stops short of the edges; there are no rules between sections. */
 .r2-settings-main {
   width: min(100%, 680px);
   margin: 0 auto;
-  padding: 56px var(--r2-space-8) 96px;
+  padding: 56px var(--r2-space-8) 112px;
+}
+/* In the Project's peek: the same sections, a little less air above them. */
+.r2-settings-main--peek {
+  padding: var(--r2-space-2) var(--r2-space-8) 64px;
 }
 .r2-settings-section {
-  margin-top: 44px;
+  margin-top: 40px;
 }
 .r2-settings-section > h2 {
-  font-size: var(--r2-fs-heading);
+  padding: 0 var(--r2-space-2);
+  font-size: var(--r2-fs-ui);
   font-weight: var(--r2-weight-semibold);
   letter-spacing: var(--r2-tracking-heading);
   color: var(--r2-ink-1);
 }
 .r2-settings-section > p.r2-settings-scope {
-  margin-top: var(--r2-space-2);
+  max-width: 560px;
+  margin-top: var(--r2-space-1);
+  padding: 0 var(--r2-space-2);
   font-size: var(--r2-fs-meta);
+  line-height: var(--r2-lh-ui);
   color: var(--r2-ink-3);
 }
 .r2-settings-rows {
-  margin-top: var(--r2-space-5);
-  border-top: 1px solid var(--r2-border);
+  margin-top: var(--r2-space-4);
+  padding: 0 var(--r2-space-6);
+  border-radius: var(--r2-radius-lg);
+  background: var(--r2-group-bg);
+  box-shadow: 0 0 0 1px rgba(var(--r2-palette-ink) / 0.04), var(--r2-shadow-sm);
+}
+/* The irreversible: its own group, a breath away from the rest. */
+.r2-settings-rows--danger {
+  margin-top: var(--r2-space-6);
 }
 .r2-settings-row {
   display: flex;
@@ -7794,11 +7982,16 @@ a.r2-home-row-main:hover .r2-home-title {
   align-items: center;
   justify-content: space-between;
   gap: var(--r2-space-4) var(--r2-space-7);
-  padding: var(--r2-space-6) 0;
-  border-bottom: 1px solid var(--r2-border);
+  padding: 14px 0;
+}
+.r2-settings-row + .r2-settings-row {
+  box-shadow: 0 -1px 0 color-mix(in srgb, var(--r2-border) 75%, transparent);
+}
+.r2-settings-row--stacked {
+  display: block;
 }
 .r2-settings-row-text {
-  flex: 1 1 260px;
+  flex: 1 1 240px;
   min-width: 0;
 }
 .r2-settings-row-label {
@@ -7807,7 +8000,7 @@ a.r2-home-row-main:hover .r2-home-title {
   color: var(--r2-ink-1);
 }
 .r2-settings-row-help {
-  margin-top: var(--r2-space-2);
+  margin-top: var(--r2-space-1);
   font-size: var(--r2-fs-meta);
   line-height: var(--r2-lh-ui);
   color: var(--r2-ink-3);
@@ -7823,11 +8016,15 @@ a.r2-home-row-main:hover .r2-home-title {
   align-items: center;
   gap: var(--r2-space-2);
 }
+/* What became of a change: room kept for one line only while it says
+   something, so a quiet row stays compact. */
 .r2-settings-status {
-  min-height: 1.4em;
-  margin-top: var(--r2-space-3);
+  margin-top: var(--r2-space-2);
   font-size: var(--r2-fs-meta);
   color: var(--r2-ink-3);
+}
+.r2-settings-status:empty {
+  display: none;
 }
 .r2-settings-status[data-tone="danger"] {
   color: var(--r2-danger);
@@ -7836,12 +8033,13 @@ a.r2-home-row-main:hover .r2-home-title {
   color: var(--r2-success);
 }
 
-/* A choice of two or three: one pressed. */
+/* A choice of two to four: one pressed. */
 .r2-segmented {
   display: inline-flex;
+  flex-wrap: wrap;
   padding: 2px;
   border-radius: var(--r2-radius);
-  background: var(--r2-shell-bg);
+  background: var(--r2-hover);
 }
 .r2-segmented button {
   height: var(--r2-control-sm);
@@ -7856,8 +8054,97 @@ a.r2-home-row-main:hover .r2-home-title {
 }
 .r2-segmented button[aria-pressed="true"] {
   color: var(--r2-ink-1);
-  background: var(--r2-bg);
+  background: var(--r2-surface-raised);
   box-shadow: var(--r2-shadow-sm), var(--r2-ring);
+}
+.r2-segmented button:focus-visible {
+  outline-offset: -1px;
+}
+
+/* The writing surfaces: small pages in their own colours, the chosen one
+   ringed in the accent. The set is centred in its group as one presented
+   choice, and wraps (still centred) where the group is narrow. */
+.r2-surfaces {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--r2-space-5) var(--r2-space-4);
+  margin: var(--r2-space-6) auto var(--r2-space-2);
+}
+.r2-surface-option {
+  width: 78px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--r2-space-3);
+  border-radius: var(--r2-radius-md);
+  text-align: center;
+}
+.r2-surface-option:focus-visible {
+  outline: none;
+}
+.r2-surface-swatch {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  height: 54px;
+  padding: 9px 10px;
+  border-radius: var(--r2-radius-md);
+  box-shadow: 0 0 0 1px rgba(var(--r2-palette-ink) / 0.1);
+  transition: box-shadow var(--r2-fast) var(--r2-ease);
+}
+.r2-surface-swatch-text {
+  font-family: var(--r2-prose-font);
+  font-size: 17px;
+  line-height: 1;
+}
+.r2-surface-swatch-line {
+  position: absolute;
+  right: 10px;
+  bottom: 11px;
+  left: 10px;
+  height: 2px;
+  border-radius: 1px;
+  opacity: 0.55;
+}
+.r2-surface-option:hover .r2-surface-swatch {
+  box-shadow: 0 0 0 1px rgba(var(--r2-palette-ink) / 0.22);
+}
+.r2-surface-option[aria-checked="true"] .r2-surface-swatch,
+.r2-surface-option:focus-visible .r2-surface-swatch {
+  box-shadow: 0 0 0 2px var(--r2-group-bg), 0 0 0 4px var(--r2-accent);
+}
+.r2-surface-label {
+  font-size: var(--r2-fs-meta);
+  color: var(--r2-ink-2);
+}
+.r2-surface-option[aria-checked="true"] .r2-surface-label {
+  font-weight: var(--r2-weight-medium);
+  color: var(--r2-ink-1);
+}
+
+/* The accents: small dots in their own colour, the chosen one ringed. */
+.r2-accents {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--r2-space-3);
+}
+.r2-accent-option {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px rgba(var(--r2-palette-shadow) / 0.12);
+  transition: box-shadow var(--r2-fast) var(--r2-ease), transform var(--r2-fast) var(--r2-ease);
+}
+.r2-accent-option:hover {
+  transform: scale(1.08);
+}
+.r2-accent-option:focus-visible {
+  outline: none;
+}
+.r2-accent-option[aria-checked="true"],
+.r2-accent-option:focus-visible {
+  box-shadow: 0 0 0 2px var(--r2-group-bg), 0 0 0 3.5px var(--r2-ink-2);
 }
 
 /* On or off. */
@@ -7878,7 +8165,7 @@ a.r2-home-row-main:hover .r2-home-title {
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: var(--r2-surface-raised);
+  background: var(--r2-knob);
   box-shadow: var(--r2-shadow-sm);
   transition: transform var(--r2-fast) var(--r2-ease);
 }
@@ -7894,6 +8181,9 @@ a.r2-home-row-main:hover .r2-home-title {
 
 .r2-settings-drafts {
   margin-top: var(--r2-space-4);
+  padding: 0 var(--r2-space-5);
+  border-radius: var(--r2-radius-md);
+  background: var(--r2-surface-sunken);
 }
 .r2-settings-draft {
   display: flex;
@@ -7904,7 +8194,7 @@ a.r2-home-row-main:hover .r2-home-title {
   padding: var(--r2-space-4) 0;
 }
 .r2-settings-draft + .r2-settings-draft {
-  border-top: 1px solid var(--r2-border);
+  box-shadow: 0 -1px 0 color-mix(in srgb, var(--r2-border) 75%, transparent);
 }
 .r2-settings-danger .r2-settings-row-label {
   color: var(--r2-danger);
@@ -7919,6 +8209,12 @@ a.r2-home-row-main:hover .r2-home-title {
 .r2-settings-confirm .r2-field {
   width: 160px;
 }
+.r2-settings-pen {
+  margin-top: var(--r2-space-4);
+}
+.r2-settings-pen .r2-field {
+  width: min(100%, 260px);
+}
 
 @media (max-width: 600px) {
   .r2-appbar {
@@ -7931,16 +8227,30 @@ a.r2-home-row-main:hover .r2-home-title {
   .r2-home-back {
     margin-top: -12px;
   }
+  .r2-home-empty {
+    padding: 32px 24px 28px;
+  }
+  .r2-home-words {
+    display: none;
+  }
+  .r2-settings-rows {
+    padding: 0 var(--r2-space-5);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .r2-home-row,
-  .r2-home-title,
+  .r2-home-back,
+  .r2-home-trash,
   .r2-account,
   .r2-switch,
   .r2-switch::after,
   .r2-segmented button,
+  .r2-surface-swatch,
   .r2-nav-project {
     transition: none;
+  }
+  .r2-skeleton {
+    animation: none;
   }
 }

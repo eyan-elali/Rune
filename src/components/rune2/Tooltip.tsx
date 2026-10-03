@@ -182,9 +182,16 @@ function Bubble({
     };
   }, [onDismiss]);
 
-  const theme = anchor.closest<HTMLElement>(".r2")?.dataset.theme;
+  // Painted on the anchor's theme (and surface, for a tooltip over the manuscript).
+  const root = anchor.closest<HTMLElement>(".r2")?.dataset;
   return createPortal(
-    <div className="r2 r2-tooltip-layer" data-theme={theme}>
+    <div
+      className="r2 r2-tooltip-layer"
+      data-theme={root?.theme}
+      data-accent={root?.accent}
+      data-surface={root?.surface}
+      data-surface-scheme={root?.surfaceScheme}
+    >
       <div
         ref={ref}
         id={id}

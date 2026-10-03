@@ -11,13 +11,17 @@ import { ICON } from "./icons";
 import { ManuscriptImportDialog } from "./ManuscriptImport";
 import { NavigatorMenu, type NavigatorMenuItem } from "./NavigatorMenu";
 import { NewProjectDialog, RenameProjectDialog } from "./ProjectDialogs";
-import { useAppearance } from "./RunePreferences";
+import { useRuneRootProps } from "./RunePreferences";
 
-// Projects (Beta Completion A): the quiet home of the application. The
+// Projects (Beta Completion A; refined in C): the quiet home of the application. The
 // writer's Projects, most recently worked in first, and the two ways to begin
 // one — a blank Project, or an existing manuscript imported. Nothing else
 // competes: no statistics, streaks or suggestions. Each Project opens with a
-// click; its few actions (rename, move to Trash) sit behind its "⋯".
+// click; its few actions (rename, move to Trash) sit behind its "⋯". The
+// list is one quiet grouped surface; a Project in it is a row reached for as
+// a whole — its initial set like a small book cover, its title in the
+// manuscript's serif, when it was last worked in, and its length — with no
+// rule between one and the next.
 //
 // Every action resolves on the server before the list says so: a rename or a
 // move to Trash refreshes the list from the server; a failure is said plainly
@@ -43,7 +47,7 @@ export function ProjectsHome({
   trashedNow: { id: string; title: string } | null;
 }) {
   const router = useRouter();
-  const appearance = useAppearance();
+  const rootProps = useRuneRootProps();
   const [dialog, setDialog] = useState<"new" | "import" | { rename: ProjectSummary } | null>(null);
   const [menu, setMenu] = useState<{ project: ProjectSummary; at: { x: number; y: number } } | null>(null);
   const [notice, setNotice] = useState<Notice | null>(
@@ -101,7 +105,7 @@ export function ProjectsHome({
   const empty = !loadError && projects.length === 0;
 
   return (
-    <div className="r2 r2-home" data-theme={appearance}>
+    <div className="r2 r2-home" {...rootProps}>
       <AppBar account={account} />
       <main className="r2-home-main">
         <div className="r2-home-head">
@@ -159,11 +163,14 @@ export function ProjectsHome({
             {projects.map((p) => (
               <li key={p.id} className="r2-home-row" data-pending={pending === p.id || undefined}>
                 <Link href={`/projects/${p.id}`} className="r2-home-row-main">
-                  <span className="r2-home-title">{p.title}</span>
-                  <span className="r2-home-meta">
-                    <span>{wordsLabel(p.words)}</span>
-                    <EditedLabel iso={p.updatedAt} />
+                  <ProjectCover title={p.title} />
+                  <span className="r2-home-row-text">
+                    <span className="r2-home-title">{p.title}</span>
+                    <span className="r2-home-meta">
+                      <EditedLabel iso={p.updatedAt} />
+                    </span>
                   </span>
+                  <span className="r2-home-words">{wordsLabel(p.words)}</span>
                 </Link>
                 <button
                   type="button"
@@ -210,6 +217,16 @@ export function ProjectsHome({
         />
       )}
     </div>
+  );
+}
+
+/** A Project's initial, set like a small cover: a mark to find it by, not decoration. */
+export function ProjectCover({ title }: { title: string }) {
+  const initial = [...title.trim()][0]?.toLocaleUpperCase() ?? "";
+  return (
+    <span className="r2-home-cover" aria-hidden>
+      {initial}
+    </span>
   );
 }
 

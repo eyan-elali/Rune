@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { deleteAccount, exportUserData } from "@/lib/actions/settings";
 import { updatePenName } from "@/lib/actions/profile";
@@ -27,18 +27,24 @@ import {
   type UnsentWorkspaceWork,
 } from "@/lib/rune2/workspaceDrafts";
 import { useProfileStore } from "@/store/profileStore";
-import { APPEARANCES, type RunePreferences } from "@/lib/rune2/preferences";
+import { ACCENTS, APPEARANCES, WRITING_SURFACES, type RunePreferences } from "@/lib/rune2/preferences";
+import { resolveTheme, surfaceColours } from "@/lib/rune2/themes";
 import { AppBar, useLogOut } from "./AccountMenu";
 import { ICON } from "./icons";
-import { useRunePreferences } from "./RunePreferences";
+import { useResolvedTheme, useRuneAccount, useRunePreferences, useRuneRootProps, useSystemDark } from "./RunePreferences";
+import { Tooltip } from "./Tooltip";
 import { EDITOR_FONTS } from "./useEditorFont";
 
-// Settings (Beta Completion A). Four short sections, each saying whose it is:
+// Settings (Beta Completion A; grouped and given Appearance in C). Short
+// sections, each saying whose it is, each a quiet grouped surface:
 //   Writing      account-wide preferences (lib/rune2/preferences.ts) — they
 //                follow the writer to every Project and device
+//   Appearance   the theme around the writing, and the writing surface
+//                (the manuscript's own page) — account-wide too
 //   Projects     where a Project's own settings are, and Project Trash
 //   This device  the writing kept in this browser until the server has it
-//   Account      pen name, email, a copy of the writing, log out, delete
+//   Account      pen name, email, a copy of the writing, log out — and,
+//                set apart from everything else, deleting the account
 // Everything else belongs where it is used (a Scene's properties, a View's
 // configuration, a Canvas's arrangement, the manuscript's structure) and is
 // not repeated here. Each change says it was saved only after the server
@@ -50,9 +56,116 @@ export function RuneSettings({
   account,
   trashedCount,
   profileError,
+  returnTo = null,
 }: {
   account: Account;
   trashedCount: number;
+  profileError: string | null;
+  /** The Project Settings was opened from, to go back to. */
+  returnTo?: { id: string; title: string } | null;
+}) {
+  const rootProps = useRuneRootProps();
+  return (
+    <div className="r2 r2-settings" {...rootProps}>
+      <AppBar account={account} />
+      <main className="r2-settings-main">
+        <Link href={returnTo ? `/projects/${returnTo.id}` : "/projects"} className="r2-home-back">
+          <ArrowLeft {...ICON} aria-hidden />
+          <span className="r2-home-back-label">{returnTo ? returnTo.title : "Projects"}</span>
+        </Link>
+        <div className="r2-settings-head">
+          <h1>Settings</h1>
+        </div>
+        <SettingsSections account={account} trashedCount={trashedCount} profileError={profileError} />
+      </main>
+    </div>
+  );
+}
+
+/**
+ * Settings inside a Project (BC-C closeout): the same sections, in a Center
+ * Peek over the Project — the Reading Peek's surface and scrim — so the
+ * writer's tabs, selection, editors and scroll stay exactly as they were
+ * beneath, and closing it (Escape, the scrim, ×) returns them there. Focus
+ * goes back to what opened it.
+ */
+export function SettingsPeek({ onClose }: { onClose: () => void }) {
+  const account = useRuneAccount();
+  const [trashedCount, setTrashedCount] = useState<number | null>(null);
+  const [returnFocus] = useState(() => (typeof document !== "undefined" ? document.activeElement : null));
+  const close = useCallback(() => {
+    onClose();
+    // Back to what opened it — the account control, when the menu that held
+    // "Settings" had already gone by the time the peek arrived.
+    const el =
+      returnFocus instanceof HTMLElement && returnFocus.isConnected && returnFocus !== document.body
+        ? returnFocus
+        : document.querySelector<HTMLElement>(".r2-account--nav");
+    if (el) requestAnimationFrame(() => el.focus());
+  }, [onClose, returnFocus]);
+
+  // The count Settings' Projects section mentions, read under the writer's own access.
+  useEffect(() => {
+    let live = true;
+    void createClient()
+      .from("projects")
+      .select("id", { count: "exact", head: true })
+      .not("trashed_at", "is", null)
+      .then(({ count }) => {
+        if (live) setTrashedCount(count ?? 0);
+      });
+    return () => {
+      live = false;
+    };
+  }, []);
+
+  // Escape closes — unless something inside handled it (a dialog, a field).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || e.defaultPrevented) return;
+      if (document.querySelector(".r2-dialog-backdrop")) return;
+      e.preventDefault();
+      close();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [close]);
+
+  return (
+    <div className="r2-peek" role="dialog" aria-modal="true" aria-labelledby="r2-settings-peek-title">
+      <div className="r2-reader-scrim" aria-hidden onMouseDown={close} />
+      <div className="r2-peek-surface r2-settings-peek">
+        <header className="r2-peek-bar">
+          <h2 id="r2-settings-peek-title">Settings</h2>
+          <Tooltip label="Close">
+            <button type="button" className="r2-icon-button" aria-label="Close Settings" autoFocus onClick={close}>
+              <X {...ICON} aria-hidden />
+            </button>
+          </Tooltip>
+        </header>
+        <div className="r2-peek-body">
+          <div className="r2-settings-main r2-settings-main--peek">
+            {account ? (
+              <SettingsSections account={account} trashedCount={trashedCount} profileError={null} />
+            ) : (
+              <p className="r2-settings-scope">Settings aren’t available here.</p>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Every section of Settings — the one implementation, on its page and in the Project's peek. */
+export function SettingsSections({
+  account,
+  trashedCount,
+  profileError,
+}: {
+  account: Account;
+  /** Projects in Trash, or null while not yet known. */
+  trashedCount: number | null;
   profileError: string | null;
 }) {
   const prefs = useRunePreferences();
@@ -65,17 +178,7 @@ export function RuneSettings({
   }
 
   return (
-    <div className="r2 r2-settings" data-theme={prefs.appearance}>
-      <AppBar account={account} />
-      <main className="r2-settings-main">
-        <Link href="/projects" className="r2-home-back">
-          <ArrowLeft {...ICON} aria-hidden />
-          Projects
-        </Link>
-        <div className="r2-settings-head">
-          <h1>Settings</h1>
-        </div>
-
+    <>
         <section className="r2-settings-section" aria-labelledby="settings-writing">
           <h2 id="settings-writing">Writing</h2>
           <p className="r2-settings-scope">For all your projects, on every device.</p>
@@ -108,23 +211,54 @@ export function RuneSettings({
                 onClick={() => void change("spellcheck", !prefs.spellcheck)}
               />
             </Row>
-            {/* Appearance: offered once there is more than one to choose (themes, Beta Completion C). */}
-            {APPEARANCES.length > 1 && (
-              <Row label="Appearance" status={status.appearance}>
-                <div className="r2-segmented" role="group" aria-label="Appearance">
-                  {APPEARANCES.map((a) => (
-                    <button
-                      key={a.id}
-                      type="button"
-                      aria-pressed={prefs.appearance === a.id}
-                      onClick={() => void change("appearance", a.id)}
-                    >
-                      {a.label}
-                    </button>
-                  ))}
+          </div>
+        </section>
+
+        <section className="r2-settings-section" aria-labelledby="settings-appearance">
+          <h2 id="settings-appearance">Appearance</h2>
+          <p className="r2-settings-scope">For all your projects, on every device.</p>
+          <div className="r2-settings-rows">
+            <Row
+              label="Theme"
+              help={<ThemeHelp />}
+              status={status.appearance}
+            >
+              <div className="r2-segmented" role="group" aria-label="Theme">
+                {APPEARANCES.map((a) => (
+                  <button
+                    key={a.id}
+                    type="button"
+                    aria-pressed={prefs.appearance === a.id}
+                    onClick={() => void change("appearance", a.id)}
+                  >
+                    {a.label}
+                  </button>
+                ))}
+              </div>
+            </Row>
+            <Row
+              label="Accent colour"
+              help={`${ACCENTS.find((a) => a.id === prefs.accent)?.label ?? "Rune Blue"} — for selection, focus and the active tab. Never your prose or your page.`}
+              status={status.accent}
+              labelId="settings-accent-label"
+            >
+              <AccentPicker value={prefs.accent} onChange={(id) => void change("accent", id)} />
+            </Row>
+            <div className="r2-settings-row r2-settings-row--stacked">
+              <div className="r2-settings-row-text">
+                <div className="r2-settings-row-label" id="settings-surface-label">
+                  Writing surface
                 </div>
-              </Row>
-            )}
+                <p className="r2-settings-row-help">
+                  The page your manuscript is written and read on. Default follows the theme; the others stay the same in
+                  every theme.
+                </p>
+              </div>
+              <SurfacePicker value={prefs.writingSurface} onChange={(id) => void change("writingSurface", id)} />
+              <p className="r2-settings-status" role="status" data-tone={status.writingSurface?.tone}>
+                {status.writingSurface?.text ?? ""}
+              </p>
+            </div>
           </div>
         </section>
 
@@ -138,7 +272,7 @@ export function RuneSettings({
             <Row
               label="Trash"
               help={
-                trashedCount > 0
+                trashedCount !== null && trashedCount > 0
                   ? `${trashedCount.toLocaleString()} ${trashedCount === 1 ? "project" : "projects"} in Trash, kept whole until you restore or delete them.`
                   : "Projects you move to Trash are kept whole until you restore or delete them."
               }
@@ -153,8 +287,7 @@ export function RuneSettings({
         <DeviceSection />
 
         <AccountSection account={account} profileError={profileError} />
-      </main>
-    </div>
+    </>
   );
 }
 
@@ -164,17 +297,22 @@ function Row({
   status,
   children,
   danger,
+  labelId,
 }: {
   label: string;
-  help?: string;
+  help?: React.ReactNode;
   status?: Status;
   children?: React.ReactNode;
   danger?: boolean;
+  /** An id for the label, for a control that names itself by it. */
+  labelId?: string;
 }) {
   return (
     <div className={`r2-settings-row${danger ? " r2-settings-danger" : ""}`}>
       <div className="r2-settings-row-text">
-        <div className="r2-settings-row-label">{label}</div>
+        <div className="r2-settings-row-label" id={labelId}>
+          {label}
+        </div>
         {help && <p className="r2-settings-row-help">{help}</p>}
         {status !== undefined && (
           <p className="r2-settings-status" role="status" data-tone={status?.tone}>
@@ -183,6 +321,90 @@ function Row({
         )}
       </div>
       {children && <div className="r2-settings-row-actions">{children}</div>}
+    </div>
+  );
+}
+
+/** Under Theme: what System is doing on this device right now. */
+function ThemeHelp() {
+  const { appearance } = useRunePreferences();
+  const dark = useSystemDark();
+  if (appearance !== "system") return "Rune around your writing: the navigator, panels, menus and views.";
+  return `Follows this device’s appearance — ${resolveTheme("system", dark) === "dark" ? "Dark" : "Light"} right now.`;
+}
+
+/**
+ * The writing surfaces as a row of small pages, each in its own colours with
+ * a line of its own ink, the chosen one ringed. A radio group: arrows move
+ * between them, as in any set of choices.
+ */
+function SurfacePicker({ value, onChange }: { value: RunePreferences["writingSurface"]; onChange: (id: RunePreferences["writingSurface"]) => void }) {
+  const theme = useResolvedTheme();
+  const onKeyDown = radioArrows(WRITING_SURFACES.map((s) => s.id), value, onChange);
+  return (
+    <div className="r2-surfaces" role="radiogroup" aria-labelledby="settings-surface-label" onKeyDown={onKeyDown}>
+      {WRITING_SURFACES.map((s) => {
+        const c = surfaceColours(s.id, theme);
+        const chosen = value === s.id;
+        return (
+          <button
+            key={s.id}
+            type="button"
+            role="radio"
+            aria-checked={chosen}
+            tabIndex={chosen ? 0 : -1}
+            data-choice={s.id}
+            className="r2-surface-option"
+            onClick={() => onChange(s.id)}
+          >
+            <span className="r2-surface-swatch" style={{ background: c["ms-bg"], color: c["ms-ink"] }} aria-hidden>
+              <span className="r2-surface-swatch-text">Aa</span>
+              <span className="r2-surface-swatch-line" style={{ background: c["ms-faint"] }} />
+            </span>
+            <span className="r2-surface-label">{s.label}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Arrow keys move the choice within a radio group, as in any set of choices. */
+function radioArrows<T extends string>(ids: readonly T[], value: T, onChange: (id: T) => void) {
+  return (e: React.KeyboardEvent<HTMLDivElement>) => {
+    const step = e.key === "ArrowRight" || e.key === "ArrowDown" ? 1 : e.key === "ArrowLeft" || e.key === "ArrowUp" ? -1 : 0;
+    if (!step) return;
+    e.preventDefault();
+    const next = ids[(ids.indexOf(value) + step + ids.length) % ids.length];
+    onChange(next);
+    e.currentTarget.querySelector<HTMLElement>(`[data-choice="${next}"]`)?.focus();
+  };
+}
+
+/** The accents as small dots in their own colour for the theme showing, the chosen one ringed. */
+function AccentPicker({ value, onChange }: { value: RunePreferences["accent"]; onChange: (id: RunePreferences["accent"]) => void }) {
+  const theme = useResolvedTheme();
+  const onKeyDown = radioArrows(ACCENTS.map((a) => a.id), value, onChange);
+  return (
+    <div className="r2-accents" role="radiogroup" aria-labelledby="settings-accent-label" onKeyDown={onKeyDown}>
+      {ACCENTS.map((a) => {
+        const chosen = value === a.id;
+        return (
+          <Tooltip key={a.id} label={a.label}>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={chosen}
+              aria-label={a.label}
+              tabIndex={chosen ? 0 : -1}
+              data-choice={a.id}
+              className="r2-accent-option"
+              style={{ background: a.values[theme].accent }}
+              onClick={() => onChange(a.id)}
+            />
+          </Tooltip>
+        );
+      })}
     </div>
   );
 }
@@ -549,11 +771,10 @@ function AccountSection({ account, profileError }: { account: Account; profileEr
               Pen name
             </label>
             <p className="r2-settings-row-help">The name Rune uses for you.</p>
-            <div className="r2-settings-confirm" style={{ marginTop: 8 }}>
+            <div className="r2-settings-confirm r2-settings-pen">
               <input
                 id="settings-pen-name"
                 className="r2-field"
-                style={{ width: 240 }}
                 value={penName}
                 maxLength={PEN_NAME_MAX_LENGTH}
                 autoComplete="nickname"
@@ -587,6 +808,9 @@ function AccountSection({ account, profileError }: { account: Account; profileEr
           </button>
           {out.dialog}
         </Row>
+      </div>
+      {/* Set apart: the one irreversible thing on this page. */}
+      <div className="r2-settings-rows r2-settings-rows--danger">
         <Row
           label="Delete account"
           help="Permanently deletes your account and every project in it, including Trash. This can’t be undone."

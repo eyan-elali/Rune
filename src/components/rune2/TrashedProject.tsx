@@ -4,14 +4,14 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { restoreProject } from "@/lib/actions/projects";
-import { useAppearance } from "./RunePreferences";
+import { useRuneRootProps } from "./RunePreferences";
 
 // What opening a Project in Trash shows (an old link, a bookmark, another
 // tab): the Project is not entered; the writer can restore it — exactly as it
 // was — or go back to Projects.
 export function TrashedProject({ project }: { project: { id: string; title: string } }) {
   const router = useRouter();
-  const appearance = useAppearance();
+  const rootProps = useRuneRootProps();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -33,7 +33,7 @@ export function TrashedProject({ project }: { project: { id: string; title: stri
   }
 
   return (
-    <div className="r2 r2-page-state" data-theme={appearance}>
+    <div className="r2 r2-page-state" {...rootProps}>
       <p>
         <strong>{project.title}</strong> is in Trash.
       </p>

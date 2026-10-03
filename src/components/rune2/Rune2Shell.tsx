@@ -8,6 +8,7 @@ import { ProjectNavigator } from "./ProjectNavigator";
 import { Rune2ContextBar, Rune2SelectionView } from "./Rune2Content";
 import { Rune2Panel } from "./Rune2Panel";
 import { ReadingMode } from "./ReadingMode";
+import { SettingsPeek } from "./RuneSettings";
 import { ProjectExportDialogs, ProjectExportProvider } from "./ProjectExport";
 import { ProjectSearch } from "./ProjectSearch";
 import { PropertyStoreProvider } from "./PropertyStore";
@@ -18,7 +19,8 @@ import { Rune2Tabs } from "./Rune2Tabs";
 import { ViewStoreProvider } from "./ViewStore";
 import { TrashProvider, TrashView } from "./WorkspaceTrash";
 import { useEditorFont } from "./useEditorFont";
-import { useRunePreferences } from "./RunePreferences";
+import { useRunePreferences, useRuneRootProps } from "./RunePreferences";
+import { writingTargetFor } from "@/lib/rune2/writingTarget";
 import { useWritingChrome } from "./useWritingChrome";
 
 // The Rune 2.0 application shell:
@@ -51,6 +53,11 @@ import { useWritingChrome } from "./useWritingChrome";
 // positions are kept) along with the panel and status inside it, which
 // belong to that selection. Closing Trash shows the layer again.
 //
+// Settings, opened from the account control at the navigator's foot, is a
+// Center Peek over the shell in the same way (SettingsPeek): everything
+// beneath stays mounted and inert, and closing it returns the writer to
+// exactly where they were.
+//
 // Reading Mode (ReadingMode) lies over the whole shell in the same spirit: a
 // Peek dims the shell behind a centred reading surface; Full Reading Mode
 // hides the navigator and the content column and takes the frame. Both leave
@@ -58,8 +65,12 @@ import { useWritingChrome } from "./useWritingChrome";
 // the writer to exactly the context they left. The shell carries
 // `data-reading` meanwhile, and `data-editor-font` always (the writer's
 // manuscript type, useEditorFont), which the prose tokens read. It carries
-// the writer's appearance as `data-theme` (RunePreferences), and their
+// the writer's theme and writing surface (useRuneRootProps), and their
 // spelling-check choice as `spellcheck`, which every editor inside inherits.
+// While the manuscript is being written, the selection's layer carries
+// `data-manuscript`: the context bar, the content and the status beneath it
+// are then the writing surface's region (themes.ts) — painted with the
+// writer's chosen page, in that page's ink.
 
 export const NAV_DEFAULT = 252;
 export const NAV_MIN = 200;
@@ -97,10 +108,26 @@ export function Rune2Shell({
 }
 
 function Frame({ children }: { children: ReactNode }) {
-  const { navCollapsed, setNavCollapsed, navWidth, setNavWidth, trashOpen, panel, reading, readingMode } =
-    useRune2Selection();
+  const {
+    navCollapsed,
+    setNavCollapsed,
+    navWidth,
+    setNavWidth,
+    trashOpen,
+    panel,
+    reading,
+    readingMode,
+    selected,
+    index,
+    settingsOpen,
+    setSettingsOpen,
+  } = useRune2Selection();
+  // Over the shell (the reader, Settings), the frame beneath is inert but kept.
+  const covered = reading !== null || settingsOpen;
+  const writingManuscript = writingTargetFor(selected, index) !== null;
   const { font } = useEditorFont();
-  const { appearance, spellcheck } = useRunePreferences();
+  const { spellcheck } = useRunePreferences();
+  const rootProps = useRuneRootProps();
   const root = useRef<HTMLDivElement>(null);
   const [resizing, setResizing] = useState(false);
   // Where the writing surfaces' document status is carried to (DocStatus).
@@ -140,11 +167,11 @@ function Frame({ children }: { children: ReactNode }) {
       data-trash={trashOpen || undefined}
       data-reading={reading ? readingMode : undefined}
       data-editor-font={font}
-      data-theme={appearance}
+      {...rootProps}
       spellCheck={spellcheck}
     >
       {/* The column retracts by width; the navigator inside keeps its own. */}
-      <div className="r2-nav-column" inert={reading ? true : undefined}>
+      <div className="r2-nav-column" inert={covered || undefined}>
         <ProjectNavigator />
         {!navCollapsed && (
           <Resizer
@@ -160,8 +187,13 @@ function Frame({ children }: { children: ReactNode }) {
         )}
       </div>
 
-      <div className="r2-content" inert={reading ? true : undefined}>
-        <div className="r2-content-layer" inert={trashOpen || undefined} aria-hidden={trashOpen || undefined}>
+      <div className="r2-content" inert={covered || undefined}>
+        <div
+          className="r2-content-layer"
+          inert={trashOpen || undefined}
+          aria-hidden={trashOpen || undefined}
+          data-manuscript={writingManuscript || undefined}
+        >
           <Rune2Tabs />
           <Rune2ContextBar />
           {/* The body: the content, the contextual panel beside it, and the
@@ -183,6 +215,7 @@ function Frame({ children }: { children: ReactNode }) {
 
       {reading && <ReadingMode key={reading.kind === "view" ? reading.viewId : "manuscript"} source={reading} mode={readingMode} />}
       <ProjectSearch />
+      {settingsOpen && <SettingsPeek onClose={() => setSettingsOpen(false)} />}
       <ProjectExportDialogs />
     </div>
   );

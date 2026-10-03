@@ -17,6 +17,8 @@ interface SupportedDeviceGateProps {
   children: ReactNode;
   variant: WaitingRoomVariant;
   preferences?: Record<string, unknown> | null;
+  /** What paints before the device is known (the server render); the legacy splash if omitted. */
+  placeholder?: ReactNode;
 }
 
 // Gates authenticated app content behind a phone-width check. Renders
@@ -25,7 +27,7 @@ interface SupportedDeviceGateProps {
 // glimpses onboarding, the dashboard, or the editor before the gate
 // resolves, and children are never mounted at all when gated — heavy
 // client experiences like the Tiptap editor simply never initialize.
-export function SupportedDeviceGate({ children, variant, preferences }: SupportedDeviceGateProps) {
+export function SupportedDeviceGate({ children, variant, preferences, placeholder }: SupportedDeviceGateProps) {
   const [isSupported, setIsSupported] = useState<boolean | null>(null);
 
   useIsomorphicLayoutEffect(() => {
@@ -41,6 +43,7 @@ export function SupportedDeviceGate({ children, variant, preferences }: Supporte
   }, []);
 
   if (isSupported === null) {
+    if (placeholder !== undefined) return <>{placeholder}</>;
     return (
       <div
         className="flex min-h-screen items-center justify-center"

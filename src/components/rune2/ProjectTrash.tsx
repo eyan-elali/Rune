@@ -10,8 +10,8 @@ import { AppBar } from "./AccountMenu";
 import { ICON } from "./icons";
 import { DeleteProjectDialog } from "./ProjectDialogs";
 import { BackupDialog } from "./ProjectExport";
-import { wordsLabel } from "./ProjectsHome";
-import { useAppearance } from "./RunePreferences";
+import { ProjectCover, wordsLabel } from "./ProjectsHome";
+import { useRuneRootProps } from "./RunePreferences";
 
 // Project Trash: each trashed Project with what can be done with it — Restore
 // (identity and content intact), a backup (it only reads), and permanent
@@ -32,7 +32,7 @@ export function ProjectTrash({
   loadError: string | null;
 }) {
   const router = useRouter();
-  const appearance = useAppearance();
+  const rootProps = useRuneRootProps();
   const [pending, setPending] = useState<string | null>(null);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [dialog, setDialog] = useState<{ kind: "delete" | "backup"; project: TrashedProjectSummary } | null>(null);
@@ -53,7 +53,7 @@ export function ProjectTrash({
   }
 
   return (
-    <div className="r2 r2-home" data-theme={appearance}>
+    <div className="r2 r2-home" {...rootProps}>
       <AppBar account={account} />
       <main className="r2-home-main">
         <Link href="/projects" className="r2-home-back">
@@ -81,18 +81,22 @@ export function ProjectTrash({
             </button>
           </div>
         ) : projects.length === 0 ? (
-          <div className="r2-home-state">
-            <p>Trash is empty.</p>
+          <div className="r2-home-empty r2-home-empty--quiet">
+            <h2>Trash is empty.</h2>
+            <p>A project you move to Trash waits here, whole, until you restore it or delete it permanently.</p>
           </div>
         ) : (
           <ul className="r2-home-list" aria-label="Projects in Trash">
             {projects.map((p) => (
               <li key={p.id} className="r2-home-row r2-trash-row" data-pending={pending === p.id || undefined}>
                 <div className="r2-home-row-main">
-                  <span className="r2-home-title">{p.title}</span>
-                  <span className="r2-home-meta">
-                    <span>{wordsLabel(p.words)}</span>
-                    <TrashedLabel iso={p.trashedAt} />
+                  <ProjectCover title={p.title} />
+                  <span className="r2-home-row-text">
+                    <span className="r2-home-title">{p.title}</span>
+                    <span className="r2-home-meta">
+                      <span>{wordsLabel(p.words)}</span>
+                      <TrashedLabel iso={p.trashedAt} />
+                    </span>
                   </span>
                 </div>
                 <div className="r2-trash-row-actions">

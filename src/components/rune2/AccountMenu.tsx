@@ -3,7 +3,7 @@
 import { useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { BookOpen, ChevronDown, LogOut, Settings } from "lucide-react";
+import { BookOpen, ChevronDown, ChevronsUpDown, LogOut, Settings } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { getOfflineStorageSummary } from "@/lib/offline/db";
 import { flushPendingQueue } from "@/lib/offline/syncEngine";
@@ -12,10 +12,18 @@ import { countUnsentWorkspaceWork } from "@/lib/rune2/workspaceDrafts";
 import { useProfileStore } from "@/store/profileStore";
 import { ICON_SM_BOLD } from "./icons";
 import { NavigatorMenu, type NavigatorMenuItem } from "./NavigatorMenu";
+import { useRuneAccount } from "./RunePreferences";
 
 // The account menu (Beta Completion A): who is signed in, and the three
 // places an account goes — Projects, Settings, and out. Nothing else: no
 // plan, no upgrade, no profile.
+//
+// Two places show it (Beta Completion C): the slim bar over the pages outside
+// a Project, and — so Settings never means leaving the book — the foot of a
+// Project's navigator (AccountControl), where it opens upwards and Settings
+// opens in a Center Peek over the Project (SettingsPeek) instead of leaving
+// it. It is Rune's control, not the Project's: the Project's own actions stay
+// under its title.
 
 /**
  * Logging out, safely: first any writing still waiting on this device is
@@ -97,6 +105,29 @@ export function useLogOut(): { logOut: () => void; busy: boolean; error: string 
   return { logOut: () => void logOut(), busy: state === "checking" || state === "out", error, dialog };
 }
 
+/**
+ * The account's menu items: Projects, Settings, Log out. Inside a Project
+ * (`openSettings` given) Settings opens over it; elsewhere it is the page.
+ */
+function accountItems(
+  name: string,
+  push: (href: string) => void,
+  logOut: () => void,
+  openSettings: (() => void) | null
+): NavigatorMenuItem[] {
+  return [
+    // Who is signed in, as a quiet label over the list.
+    { label: openSettings ? "All projects" : "Projects", icon: BookOpen, section: name, onSelect: () => push("/projects") },
+    { label: "Settings", icon: Settings, onSelect: openSettings ?? (() => push("/settings")) },
+    { label: "Log out", icon: LogOut, separator: true, onSelect: logOut },
+  ];
+}
+
+/** The writer's initial, for the account control. */
+function initialOf(name: string): string {
+  return [...name.trim()][0]?.toLocaleUpperCase() ?? "";
+}
+
 export function AccountMenu({ account }: { account: Account }) {
   const router = useRouter();
   const button = useRef<HTMLButtonElement>(null);
@@ -108,13 +139,6 @@ export function AccountMenu({ account }: { account: Account }) {
     const r = button.current?.getBoundingClientRect();
     if (r) setAt({ x: r.right - 200, y: r.bottom + 4 });
   }
-
-  const items: NavigatorMenuItem[] = [
-    // Who is signed in, as a quiet label over the list.
-    { label: "Projects", icon: BookOpen, section: name, onSelect: () => router.push("/projects") },
-    { label: "Settings", icon: Settings, onSelect: () => router.push("/settings") },
-    { label: "Log out", icon: LogOut, separator: true, onSelect: logOut },
-  ];
 
   return (
     <>
@@ -130,9 +154,66 @@ export function AccountMenu({ account }: { account: Account }) {
         <span className="r2-account-name">{busy ? "Logging out…" : name}</span>
         <ChevronDown {...ICON_SM_BOLD} aria-hidden />
       </button>
-      {at && <NavigatorMenu label="Account" at={at} items={items} onClose={() => setAt(null)} />}
+      {at && (
+        <NavigatorMenu label="Account" at={at} items={accountItems(name, (href) => router.push(href), logOut, null)} onClose={() => setAt(null)} />
+      )}
       {error && (
         <p role="alert" className="r2-notice r2-account-notice" data-tone="danger">
+          {error}
+        </p>
+      )}
+      {dialog}
+    </>
+  );
+}
+
+/**
+ * The account at the foot of a Project's navigator: the writer's initial and
+ * name, opening upwards to All projects, Settings (in a Center Peek over the
+ * Project) and Log out.
+ */
+export function AccountControl({ onOpenSettings }: { onOpenSettings: () => void }) {
+  const account = useRuneAccount();
+  const router = useRouter();
+  const button = useRef<HTMLButtonElement>(null);
+  const [at, setAt] = useState<{ x: number; y: number } | null>(null);
+  const { logOut, busy, error, dialog } = useLogOut();
+  const name = account ? account.penName || account.email : "Account";
+
+  function open() {
+    const r = button.current?.getBoundingClientRect();
+    if (r) setAt({ x: r.left, y: r.top - 4 });
+  }
+
+  return (
+    <>
+      <button
+        ref={button}
+        type="button"
+        className="r2-account r2-account--nav"
+        aria-haspopup="menu"
+        aria-expanded={at !== null}
+        aria-label={`Account — ${name}`}
+        onClick={() => (at ? setAt(null) : open())}
+        disabled={busy}
+      >
+        <span className="r2-account-mark" aria-hidden>
+          {initialOf(name)}
+        </span>
+        <span className="r2-account-name">{busy ? "Logging out…" : name}</span>
+        <ChevronsUpDown {...ICON_SM_BOLD} aria-hidden />
+      </button>
+      {at && (
+        <NavigatorMenu
+          label="Account"
+          at={at}
+          above
+          items={accountItems(account?.email ?? name, (href) => router.push(href), logOut, onOpenSettings)}
+          onClose={() => setAt(null)}
+        />
+      )}
+      {error && (
+        <p role="alert" className="r2-notice r2-nav-notice" data-tone="danger">
           {error}
         </p>
       )}

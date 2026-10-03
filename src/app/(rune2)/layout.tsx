@@ -5,9 +5,11 @@ import { createClient } from "@/lib/supabase/server";
 import { SupportedDeviceGate } from "@/components/layout/SupportedDeviceGate";
 import NetworkProvider from "@/components/providers/NetworkProvider";
 import { RegistrationTracker } from "@/components/RegistrationTracker";
-import { RunePreferencesProvider } from "@/components/rune2/RunePreferences";
+import { RunePreferencesProvider, RuneRoot } from "@/components/rune2/RunePreferences";
 import { Rune2Session } from "@/components/rune2/Rune2Session";
 import { isPenNameMissing } from "@/lib/penName";
+import { accountOf } from "@/lib/rune2/account";
+import { buildThemeCss } from "@/lib/rune2/themes";
 import type { PricingCohort } from "@/lib/pricing";
 import type { Profile } from "@/lib/types";
 import "./rune2.css";
@@ -20,6 +22,10 @@ import "./rune2.css";
 // stores the save engine reads, NetworkProvider (online state + background
 // sync of the offline queue), and the writer's account-wide preferences
 // (RunePreferences), seeded here from the server so the first paint is right.
+// The themes and writing surfaces (lib/rune2/themes.ts) arrive as one
+// stylesheet with the page itself, before any Rune root paints.
+
+const THEME_CSS = buildThemeCss();
 
 export const metadata: Metadata = {
   title: "Rune",
@@ -45,7 +51,8 @@ export default async function RuneLayout({ children }: { children: ReactNode }) 
   }
 
   return (
-    <RunePreferencesProvider initial={profile?.preferences ?? null}>
+    <RunePreferencesProvider initial={profile?.preferences ?? null} account={accountOf(user, profile)}>
+      <style id="r2-themes" dangerouslySetInnerHTML={{ __html: THEME_CSS }} />
       <NetworkProvider />
       {/* A new signup's CompleteRegistration pixel (?registered=1), outside the device gate. */}
       <RegistrationTracker />
@@ -56,6 +63,9 @@ export default async function RuneLayout({ children }: { children: ReactNode }) 
       <SupportedDeviceGate
         variant="returning"
         preferences={profile?.preferences as Record<string, unknown> | null}
+        // Until the device is known (the server's paint), the writer's own
+        // theme — never the Rune 1.x splash, which would flash another palette.
+        placeholder={<RuneRoot className="r2-gate" aria-hidden />}
       >
         {children}
       </SupportedDeviceGate>

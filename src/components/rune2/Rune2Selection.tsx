@@ -6,6 +6,7 @@ import type { ProjectWorkspace } from "@/lib/rune2/projectWorkspace";
 import { indexManuscript, indexWorkspace, isSelectable, type NavEntry } from "@/lib/rune2/navigatorModel";
 import { readingTabKey, type ReadingPosition, type ReadingSource } from "@/lib/rune2/reading";
 import {
+  appendTab,
   closeTab as closeTabIn,
   forgetTabs,
   MANUSCRIPT_TAB,
@@ -131,6 +132,19 @@ type Rune2SelectionValue = {
   /** Whether Project Search is open — presentation state only. */
   searchOpen: boolean;
   setSearchOpen: (open: boolean | ((open: boolean) => boolean)) => void;
+  /**
+   * Why search is open: "go" (⌘K, the navigator's search) opens a result as
+   * everywhere else; "add" (the tab strip's "+") opens it in a tab of its own
+   * at the end of the strip, the others kept.
+   */
+  searchIntent: "go" | "add";
+  /** Opens Project Search to add an object to the working set. */
+  openSearchToAdd: () => void;
+  /** "Open another": `id` in a tab of its own at the end of the strip, or its existing tab. */
+  appendToWorkingSet: (id: string | null) => void;
+  /** Whether Settings is open in a Center Peek over the Project (the Project beneath untouched). */
+  settingsOpen: boolean;
+  setSettingsOpen: (open: boolean) => void;
   /** Whether the content column shows the Project's Trash instead of the selection. */
   trashOpen: boolean;
   setTrashOpen: (open: boolean) => void;
@@ -175,7 +189,18 @@ export function Rune2SelectionProvider({
   const [navCollapsed, setNavCollapsed] = useState(false);
   const [navWidth, setNavWidth] = useState<number | null>(null);
   const [panelWidth, setPanelWidth] = useState<number | null>(null);
-  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchOpen, setSearchOpenState] = useState(false);
+  const [searchIntent, setSearchIntent] = useState<"go" | "add">("go");
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  // Any opening other than the "+" is a plain search.
+  const setSearchOpen = useCallback((open: boolean | ((open: boolean) => boolean)) => {
+    setSearchIntent("go");
+    setSearchOpenState(open);
+  }, []);
+  const openSearchToAdd = useCallback(() => {
+    setSearchIntent("add");
+    setSearchOpenState(true);
+  }, []);
   const [trashOpen, setTrashOpen] = useState(false);
   const [reading, setReading] = useState<ReadingSource | null>(null);
   const [readingMode, setReadingMode] = useState<ReadingMode>("peek");
@@ -232,6 +257,16 @@ export function Rune2SelectionProvider({
       requestSceneFocus(null);
       setTrashOpen(false);
       setTabState((prev) => openTab(resolveTabs(prev, has), id ?? MANUSCRIPT_TAB));
+    },
+    [has]
+  );
+  const appendToWorkingSet = useCallback(
+    (id: string | null) => {
+      if (id !== null && !has(id)) return;
+      setAwaitedId(null);
+      requestSceneFocus(null);
+      setTrashOpen(false);
+      setTabState((prev) => appendTab(resolveTabs(prev, has), id ?? MANUSCRIPT_TAB));
     },
     [has]
   );
@@ -314,6 +349,11 @@ export function Rune2SelectionProvider({
       closePanel,
       searchOpen,
       setSearchOpen,
+      searchIntent,
+      openSearchToAdd,
+      appendToWorkingSet,
+      settingsOpen,
+      setSettingsOpen,
       trashOpen,
       setTrashOpen,
       reading,
@@ -352,6 +392,11 @@ export function Rune2SelectionProvider({
       togglePanel,
       closePanel,
       searchOpen,
+      setSearchOpen,
+      searchIntent,
+      openSearchToAdd,
+      appendToWorkingSet,
+      settingsOpen,
       trashOpen,
       reading,
       readingMode,

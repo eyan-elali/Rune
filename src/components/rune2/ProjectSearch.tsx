@@ -62,7 +62,21 @@ function contentKey(query: string): string {
 }
 
 function SearchDialog({ onClose }: { onClose: () => void }) {
-  const { index, manuscript, select, openInNewTab, setOpenFor, navCollapsed, toggleNav, requestCanvasFocus } = useRune2Selection();
+  const {
+    index,
+    manuscript,
+    select,
+    openInNewTab,
+    appendToWorkingSet,
+    searchIntent,
+    setOpenFor,
+    navCollapsed,
+    toggleNav,
+    requestCanvasFocus,
+  } = useRune2Selection();
+  // Opened from the tab strip's "+": whatever is chosen joins the working set
+  // in a tab of its own at the end (or goes to its tab), the others kept.
+  const adding = searchIntent === "add";
   const projectId = manuscript.project.id;
   const listId = useId();
   const [query, setQuery] = useState("");
@@ -104,6 +118,7 @@ function SearchDialog({ onClose }: { onClose: () => void }) {
 
   const open = (r: SearchResult, newTab: boolean) => {
     onClose();
+    const go = (id: string) => (adding ? appendToWorkingSet(id) : newTab ? openInNewTab(id) : select(id));
     if (r.kind === "folder") {
       // Navigation only: open the navigator down to it and put focus there.
       setOpenFor([ROOT_WORKSPACE, ...(index.get(r.id)?.path.map((p) => p.id) ?? []), r.id], true);
@@ -118,12 +133,10 @@ function SearchDialog({ onClose }: { onClose: () => void }) {
     if (r.canvasId) {
       // Canvas-local writing: the Canvas opens, and the note or Section is brought into view and selected there.
       requestCanvasFocus({ canvasId: r.canvasId, itemId: r.id });
-      if (newTab) openInNewTab(r.canvasId);
-      else select(r.canvasId);
+      go(r.canvasId);
       return;
     }
-    if (newTab) openInNewTab(r.id);
-    else select(r.id);
+    go(r.id);
   };
 
   const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
@@ -153,7 +166,12 @@ function SearchDialog({ onClose }: { onClose: () => void }) {
   return (
     <>
       <div className="r2-search-scrim" aria-hidden onPointerDown={dismiss} />
-      <div role="dialog" aria-modal="true" aria-label="Search this project" className="r2-search">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={adding ? "Open another in a new tab" : "Search this project"}
+        className="r2-search"
+      >
         <div className="r2-search-field">
           <Search {...ICON} aria-hidden className="r2-search-icon" />
           <input
@@ -163,8 +181,8 @@ function SearchDialog({ onClose }: { onClose: () => void }) {
             aria-controls={listId}
             aria-autocomplete="list"
             aria-activedescendant={results.length ? `${listId}-${at}` : undefined}
-            aria-label="Search this project"
-            placeholder="Search this project"
+            aria-label={adding ? "Find something to open in a new tab" : "Search this project"}
+            placeholder={adding ? "Open another…" : "Search this project"}
             spellCheck={false}
             autoComplete="off"
             maxLength={200}
