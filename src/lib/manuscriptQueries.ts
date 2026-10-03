@@ -1,5 +1,6 @@
 import type { Chapter, ManuscriptGroup, UnplacedScene } from "@/lib/types";
 import { orderChaptersInManuscript } from "@/lib/manuscriptStructure";
+import { readAllRows } from "@/lib/readAllRows";
 
 // Rune 2.0 manuscript reads shared by server actions, route handlers and
 // browser components: Project → Manuscript → (Groups →) Chapters → placed
@@ -11,8 +12,8 @@ import { orderChaptersInManuscript } from "@/lib/manuscriptStructure";
 //
 // Chapters belong to a Manuscript (chapters.manuscript_id), not directly to a
 // Project, so every "chapters of this project" read resolves the Project's
-// Manuscript first. Placed Scenes are read by chapter_id, which by
-// construction excludes Unplaced Scenes (chapter_id null) — the ordered
+// Manuscript first. Placed Scenes are those of a Chapter read alongside
+// them; Unplaced Scenes (chapter_id null) are never placed — the ordered
 // manuscript never includes them.
 //
 // Deliberately flat queries (no PostgREST embeds), so the regression harness
@@ -75,33 +76,37 @@ export async function getChaptersWithScenesByProject(
   if (manuscripts.error) return { data: byProject, error: manuscripts.error };
   if (manuscripts.data.size === 0) return { data: byProject, error: null };
 
-  const { data: chapters, error: chapterError } = await supabase
-    .from("chapters")
-    .select("*")
-    .in("manuscript_id", [...manuscripts.data.keys()])
-    .order("position", { ascending: true });
-  if (chapterError) return { data: byProject, error: chapterError };
+  // Chapters, Groups and Scenes all hang off the Manuscript ids, so they are
+  // read side by side: two round trips in all, not four (every Project open
+  // and every refresh after an edit waits on this). Each a page at a time,
+  // never cut short at the API's row cap (a writer's Projects together can
+  // hold more Scenes than one request returns).
+  const manuscriptIds = [...manuscripts.data.keys()];
+  let chapterRows: Chapter[];
+  let groupRows: Pick<ManuscriptGroup, "id" | "manuscript_id" | "parent_group_id" | "position">[];
+  let sceneRows: (SceneSummary & { chapter_id: string | null; position: number })[];
+  try {
+    [chapterRows, groupRows, sceneRows] = await Promise.all([
+      readAllRows<Chapter>(() => supabase.from("chapters").select("*").in("manuscript_id", manuscriptIds)),
+      readAllRows<Pick<ManuscriptGroup, "id" | "manuscript_id" | "parent_group_id" | "position">>(() =>
+        supabase.from("manuscript_groups").select("id, manuscript_id, parent_group_id, position").in("manuscript_id", manuscriptIds)
+      ),
+      readAllRows<SceneSummary & { chapter_id: string | null; position: number }>(() =>
+        supabase.from("scenes").select("id, chapter_id, title, word_count, version, position").in("manuscript_id", manuscriptIds)
+      ),
+    ]);
+  } catch (e) {
+    return { data: byProject, error: e as QueryError };
+  }
+  chapterRows.sort(byPosition);
 
-  const { data: groups, error: groupError } = await supabase
-    .from("manuscript_groups")
-    .select("id, manuscript_id, parent_group_id, position")
-    .in("manuscript_id", [...manuscripts.data.keys()]);
-  if (groupError) return { data: byProject, error: groupError };
-
-  const chapterRows = (chapters ?? []) as Chapter[];
-  const scenesByChapter = new Map<string, SceneSummary[]>();
-  if (chapterRows.length > 0) {
-    const { data: scenes, error: sceneError } = await supabase
-      .from("scenes")
-      .select("id, chapter_id, title, word_count, version")
-      .in("chapter_id", chapterRows.map((c) => c.id))
-      .order("position", { ascending: true });
-    if (sceneError) return { data: byProject, error: sceneError };
-    for (const s of (scenes ?? []) as (SceneSummary & { chapter_id: string })[]) {
-      const list = scenesByChapter.get(s.chapter_id) ?? [];
-      list.push({ id: s.id, title: s.title, word_count: s.word_count, version: s.version });
-      scenesByChapter.set(s.chapter_id, list);
-    }
+  // Placed Scenes only: those of a Chapter read above. An Unplaced Scene
+  // (chapter_id null) — or one under a Chapter not shown — never joins the
+  // ordered manuscript.
+  const scenesByChapter = new Map<string, SceneSummary[]>(chapterRows.map((c) => [c.id, []]));
+  for (const s of sceneRows.sort(byPosition)) {
+    const list = s.chapter_id === null ? undefined : scenesByChapter.get(s.chapter_id);
+    list?.push({ id: s.id, title: s.title, word_count: s.word_count, version: s.version });
   }
 
   for (const chapter of chapterRows) {
@@ -109,7 +114,6 @@ export async function getChaptersWithScenesByProject(
     if (!projectId) continue;
     byProject[projectId].push({ ...chapter, scenes: scenesByChapter.get(chapter.id) ?? [] });
   }
-  const groupRows = (groups ?? []) as Pick<ManuscriptGroup, "id" | "manuscript_id" | "parent_group_id" | "position">[];
   for (const [manuscriptId, projectId] of manuscripts.data) {
     byProject[projectId] = orderChaptersInManuscript(
       byProject[projectId],
@@ -117,6 +121,11 @@ export async function getChaptersWithScenesByProject(
     );
   }
   return { data: byProject, error: null };
+}
+
+/** By position, then id: one order, whatever order the rows were read in. */
+function byPosition(a: { id: string; position: number }, b: { id: string; position: number }): number {
+  return a.position - b.position || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
 }
 
 /** One Project's Chapters in manuscript reading order, each with its placed Scenes. */

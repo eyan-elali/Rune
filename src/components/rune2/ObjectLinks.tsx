@@ -108,6 +108,7 @@ export function ObjectLinks({
                 chosen={related.map((r) => r.reference.target.id)}
                 multi
                 label="Link to"
+                align="end"
                 exclude={new Set([subject.id])}
                 onChoose={(c) => void toggle({ type: c.type, id: c.id })}
                 onClose={(refocus) => {

@@ -85,6 +85,16 @@ function SearchDialog({ onClose }: { onClose: () => void }) {
   const [inText, setInText] = useState<Record<string, ContentMatch[] | "failed">>({});
   // Where focus was when search opened (read before the input takes it).
   const [returnFocus] = useState(() => document.activeElement);
+  // However it closes (⌘K again included), a keyboard left on nothing goes back where it was.
+  useEffect(
+    () => () => {
+      requestAnimationFrame(() => {
+        const now = document.activeElement;
+        if ((!now || now === document.body) && returnFocus instanceof HTMLElement && returnFocus.isConnected) returnFocus.focus();
+      });
+    },
+    [returnFocus]
+  );
 
   const key = contentKey(query);
   const searchesText = key.length >= CONTENT_QUERY_MIN;
@@ -229,6 +239,14 @@ function SearchDialog({ onClose }: { onClose: () => void }) {
           </ul>
         )}
         {noResults && <p className="r2-search-empty">No results for “{trimmed}”</p>}
+        {/* What the list holds, heard as it changes (the list itself is not read out). */}
+        <p role="status" className="sr-only">
+          {noResults
+            ? `No results for “${trimmed}”`
+            : results.length > 0 && trimmed
+              ? `${results.length} ${results.length === 1 ? "result" : "results"}${known === "failed" ? ", titles only" : ""}`
+              : ""}
+        </p>
         {known === "failed" && results.length > 0 && (
           <p className="r2-search-note">Titles only — text couldn’t be searched just now.</p>
         )}

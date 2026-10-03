@@ -15,6 +15,7 @@ import { SCENE_RESTORED_EVENT } from "@/lib/sceneRestoredEvent";
 import { useNetworkStore } from "@/store/networkStore";
 import { InspectorSection } from "./InspectorSection";
 import { ProseSnapshot } from "./ProseSnapshot";
+import { useModalFocus } from "./useModalFocus";
 
 // Scene History (migration 036): a quiet way into a Scene's earlier texts,
 // from the Inspector — never inside the manuscript editor. The Inspector shows
@@ -152,6 +153,14 @@ function SceneHistoryDialog({
   useEffect(() => {
     dialogRef.current?.focus();
   }, []);
+  useModalFocus(dialogRef);
+
+  // Leaving the question (Escape, Cancel, or the restore's answer) unmounts
+  // the button that had focus: keep the keyboard in the dialog.
+  function endConfirm() {
+    setConfirming(false);
+    dialogRef.current?.focus();
+  }
 
   const selected = history?.revisions.find((r) => r.id === selectedId) ?? null;
   const preview = selectedId ? previews[selectedId] : undefined;
@@ -180,7 +189,7 @@ function SceneHistoryDialog({
         return;
       }
       const r = await restoreSceneRevision(selected.id, history.scene.version);
-      setConfirming(false);
+      endConfirm();
       switch (r.status) {
         case "ok":
           await cacheScene(r.scene, projectId);
@@ -217,7 +226,7 @@ function SceneHistoryDialog({
           if (e.key === "Escape") {
             e.preventDefault();
             e.stopPropagation();
-            if (confirming) setConfirming(false);
+            if (confirming) endConfirm();
             else if (!restoring) onClose();
           }
         }}
@@ -271,7 +280,15 @@ function SceneHistoryDialog({
               )}
             </div>
 
-            <div className="r2-history-preview" aria-live="polite">
+            {/* Heard: which version is open, never the whole of its prose. */}
+            <p role="status" className="sr-only">
+              {selected && preview === undefined
+                ? "Opening…"
+                : selected && preview && preview !== "failed"
+                  ? `${historyTime(preview.saved_at)} · ${wordsLabel(preview.word_count)}`
+                  : ""}
+            </p>
+            <div className="r2-history-preview">
               {!selected ? (
                 <p className="r2-history-hint">Choose a version to read it.</p>
               ) : preview === undefined ? (
@@ -304,7 +321,7 @@ function SceneHistoryDialog({
                 Replace the scene’s current text with the version from {historyTime(selected.saved_at)}? The current
                 text stays in this history.
               </p>
-              <button type="button" className="r2-button" disabled={restoring} onClick={() => setConfirming(false)}>
+              <button type="button" className="r2-button" disabled={restoring} onClick={endConfirm}>
                 Cancel
               </button>
               <button type="button" className="r2-button r2-button--primary" disabled={restoring} autoFocus onClick={restore}>

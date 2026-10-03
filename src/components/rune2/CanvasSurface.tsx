@@ -927,6 +927,11 @@ export default function CanvasSurface({ entry, session }: { entry: NavEntry; ses
     const target = e.target as HTMLElement;
     if (target.closest("textarea, input, [contenteditable]")) return;
     const mod = e.metaKey || e.ctrlKey;
+    // A control of the Canvas's own chrome (the toolbar, a notice's actions,
+    // the Arrange or card menu) keeps its keys: Space and Enter press it, the
+    // arrows move through a menu, Delete is not "remove the selection". Escape
+    // and the ⌘ shortcuts still reach the Canvas.
+    if (target !== e.currentTarget && target.closest(".r2-canvas-ui, .r2-menu") && e.key !== "Escape" && !mod) return;
     const key = e.key.toLowerCase();
     if (e.key === " ") {
       spaceHeld.current = true;
@@ -1438,7 +1443,16 @@ export default function CanvasSurface({ entry, session }: { entry: NavEntry; ses
             </button>
           </Tooltip>
         </span>
-        {insert && <CanvasInsert canvasId={entry.id} onChoose={chooseInsert} onClose={() => setInsert(null)} />}
+        {insert && (
+          <CanvasInsert
+            canvasId={entry.id}
+            onChoose={chooseInsert}
+            onClose={() => {
+              setInsert(null);
+              root.current?.focus({ preventScroll: true });
+            }}
+          />
+        )}
         {find && (
           <CanvasFind
             items={items}
@@ -1578,7 +1592,15 @@ export default function CanvasSurface({ entry, session }: { entry: NavEntry; ses
         </div>
       )}
 
-      <DocStatus>
+      <DocStatus
+        announce={
+          !isOnline && (status === "pending" || status === "saving" || status === "retrying")
+            ? "Offline · saved on this device"
+            : status === "saved" || status === "pending" || status === "saving"
+              ? null
+              : STATUS_LABEL[status]
+        }
+      >
         {counts && <span>{counts}</span>}
         {uploads > 0 && <span>{uploads === 1 ? "Uploading an image…" : `Uploading ${uploads} images…`}</span>}
         {!isOnline && (status === "pending" || status === "saving" || status === "retrying") ? (

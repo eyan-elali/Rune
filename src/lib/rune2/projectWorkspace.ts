@@ -1,5 +1,6 @@
 import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
+import { readAll } from "@/lib/readAllRows";
 import type {
   CollectionEntrySummary,
   CollectionProperty,
@@ -144,36 +145,35 @@ export const loadProjectWorkspace = cache(async (projectId: string): Promise<Pro
     revisionItemsRead,
     canvasesRead,
   ] = await Promise.all([
-    supabase
-      .from("workspace_documents")
-      .select("id, title, created_at, updated_at")
-      .eq("project_id", projectId)
-      .order("created_at", { ascending: true })
-      .order("id", { ascending: true }),
+    // The tables that grow with the writer's work are read a page at a time
+    // (readAll): one request would be cut short at the API's row cap.
+    readAll<WorkspacePageSummary>(() =>
+      supabase.from("workspace_documents").select("id, title, created_at, updated_at").eq("project_id", projectId)
+    ).then(inCreationOrder),
     supabase.from("workspace_folders").select("id, title").eq("project_id", projectId),
     // Every column: collection_id exists only from 025, and a read naming it
     // would fail before then.
-    supabase.from("workspace_nodes").select("*").eq("project_id", projectId),
+    readAll<WorkspaceNode>(() => supabase.from("workspace_nodes").select("*").eq("project_id", projectId)),
     supabase.from("workspace_collections").select("id, title").eq("project_id", projectId),
-    supabase
-      .from("workspace_collection_entries")
-      .select("id, collection_id, title, created_at, updated_at")
-      .eq("project_id", projectId)
-      .order("created_at", { ascending: true })
-      .order("id", { ascending: true }),
+    readAll<CollectionEntrySummary>(() =>
+      supabase.from("workspace_collection_entries").select("id, collection_id, title, created_at, updated_at").eq("project_id", projectId)
+    ).then(inCreationOrder),
     // Every column: the relation_* columns exist only from 028.
     supabase
       .from("workspace_collection_properties")
       .select("*")
       .eq("project_id", projectId)
       .order("position", { ascending: true }),
-    supabase.from("workspace_entry_values").select("entry_id, property_id, value").eq("project_id", projectId),
+    readAll<EntryPropertyValue>(
+      () => supabase.from("workspace_entry_values").select("entry_id, property_id, value").eq("project_id", projectId),
+      ["entry_id", "property_id"]
+    ),
     supabase
       .from("workspace_collection_views")
       .select("id, collection_id, project_id, name, type, position, config, created_at, updated_at")
       .eq("project_id", projectId)
       .order("position", { ascending: true }),
-    supabase.from("object_references").select("*").eq("project_id", projectId),
+    readAll<ObjectReferenceRow>(() => supabase.from("object_references").select("*").eq("project_id", projectId)),
     // No rows: only whether the column exists (migration 030).
     supabase.from("workspace_folders").select("trashed_at").eq("project_id", projectId).limit(0),
     // Likewise for Scene Trash (migration 031).
@@ -186,7 +186,10 @@ export const loadProjectWorkspace = cache(async (projectId: string): Promise<Pro
       .select("*")
       .eq("project_id", projectId)
       .order("position", { ascending: true }),
-    supabase.from("scene_property_values").select("scene_id, property_id, value").eq("project_id", projectId),
+    readAll<ScenePropertyValue>(
+      () => supabase.from("scene_property_values").select("scene_id, property_id, value").eq("project_id", projectId),
+      ["scene_id", "property_id"]
+    ),
     // Every column: group_id (the View's Base, 044) is absent before that
     // migration, and a View without one is the Manuscript's.
     supabase
@@ -310,6 +313,12 @@ export const loadProjectWorkspace = cache(async (projectId: string): Promise<Pro
     ...scenes,
   };
 });
+
+/** Rows read in key order, put back in the order they were made (created_at, then id). */
+function inCreationOrder<T extends { id: string; created_at: string }>(read: { data: T[]; error: { message: string } | null }) {
+  read.data.sort((a, b) => (a.created_at === b.created_at ? (a.id < b.id ? -1 : 1) : a.created_at < b.created_at ? -1 : 1));
+  return read;
+}
 
 /** A property as read before migration 028 has no relation_* columns: it points nowhere. */
 function withRelationDefaults(p: Partial<CollectionProperty>): CollectionProperty {

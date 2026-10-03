@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { createProject, deleteTrashedProject, renameProject } from "@/lib/actions/projects";
 import { PROJECT_TITLE_MAX } from "@/lib/projectCreation";
+import { useModalFocus } from "./useModalFocus";
 
 // The Project dialogs of the Projects surface and the Project shell (Beta
 // Completion A): New project, Rename, and Delete permanently. Each says what
@@ -26,6 +27,8 @@ function Dialog({
   role?: "dialog" | "alertdialog";
 }) {
   const titleId = useId();
+  const ref = useRef<HTMLDivElement>(null);
+  useModalFocus(ref);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape" && !busy) {
@@ -38,7 +41,7 @@ function Dialog({
   }, [onClose, busy]);
   return (
     <div className="r2-dialog-backdrop" onMouseDown={(e) => e.target === e.currentTarget && !busy && onClose()}>
-      <div className="r2-dialog r2-project-dialog" role={role} aria-modal="true" aria-labelledby={titleId}>
+      <div ref={ref} className="r2-dialog r2-project-dialog" role={role} aria-modal="true" aria-labelledby={titleId}>
         <h2 id={titleId}>{title}</h2>
         {children(titleId)}
       </div>

@@ -1,6 +1,7 @@
 import { buildManuscriptOutline, orderChaptersInManuscript, type OutlineNode } from "@/lib/manuscriptStructure";
 import { chapterTitle, sceneIsNamed, sceneLabel } from "@/lib/rune2/navigatorModel";
 import { hasText, proseBlocks, type ProseBlock, type TNode } from "./prose";
+import { readAllRows } from "@/lib/readAllRows";
 
 // The one export pipeline (Milestone 19). Every export — the whole
 // Manuscript, one Chapter, one Scene — is the same three steps:
@@ -255,31 +256,10 @@ export class ExportUnavailableError extends Error {}
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SupabaseLike = any;
 
-/** Rows per request: below PostgREST's max-rows cap, so a page is never silently cut short. */
-const PAGE = 500;
-
-/**
- * Every row a query matches, a page at a time in id order (keyset: never
- * skips or repeats a row, and never hits the server's row cap). Throws on a
- * failed read, so nothing partial is ever exported.
- */
-export async function readAllRows<T extends { id: string }>(
-  query: () => SupabaseLike,
-  pageSize = PAGE
-): Promise<T[]> {
-  const rows: T[] = [];
-  let after: string | null = null;
-  for (;;) {
-    let q = query();
-    if (after !== null) q = q.gt("id", after);
-    const { data, error } = await q.order("id", { ascending: true }).limit(pageSize);
-    if (error) throw error;
-    const page = (data ?? []) as T[];
-    rows.push(...page);
-    if (page.length < pageSize) return rows;
-    after = page[page.length - 1].id;
-  }
-}
+// Every row of a scope, a page at a time (lib/readAllRows.ts): never cut
+// short at the API's row cap, and a failed read throws, so nothing partial is
+// ever exported.
+export { readAllRows };
 
 const SCENE_COLUMNS = "id, chapter_id, title, position, content, word_count, trashed_at";
 const CHAPTER_COLUMNS = "id, title, position, group_id, trashed_at";

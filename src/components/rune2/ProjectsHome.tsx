@@ -177,6 +177,7 @@ export function ProjectsHome({
                   className="r2-icon-button r2-home-row-more"
                   aria-label={`Actions for ${p.title}`}
                   aria-haspopup="menu"
+                  aria-expanded={menu?.project.id === p.id}
                   disabled={pending === p.id}
                   onClick={(e) => openMenu(p, e)}
                 >

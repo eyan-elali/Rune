@@ -42,7 +42,7 @@ test('Settings from a Project opens in a Center Peek over the kept shell; /setti
   const shell = read('src/components/rune2/Rune2Shell.tsx');
   assert.match(shell, /\{settingsOpen && <SettingsPeek onClose=\{\(\) => setSettingsOpen\(false\)\} \/>\}/);
   assert.match(shell, /const covered = reading !== null \|\| settingsOpen;/);
-  assert.match(shell, /<div className="r2-nav-column" inert=\{covered \|\| undefined\}>/, 'the navigator stays mounted, inert beneath');
+  assert.match(shell, /<div className="r2-nav-column" inert=\{covered \|\| navCollapsed \|\| undefined\}>/, 'the navigator stays mounted, inert beneath (and when retracted)');
   assert.match(shell, /<div className="r2-content" inert=\{covered \|\| undefined\}>/, 'tabs, editors and scroll stay mounted beneath');
 
   const s = code(read('src/components/rune2/RuneSettings.tsx'));
@@ -90,7 +90,8 @@ test('typing the manuscript: the vacated tab band takes the writing surface on t
     for (const s of themes.WRITING_SURFACES) assert.ok(themes.parseColour(themes.surfaceColours(s.id, theme)['ms-bg']), `${theme}/${s.id}`);
   }
   // Reduced motion: every transition is instant, the state still changes.
-  assert.match(css, /@media \(prefers-reduced-motion: reduce\) \{\s*\.r2 \*,\s*\.r2 \*::before,\s*\.r2 \*::after \{\s*transition-duration: 0ms !important;/);
+  // (BC-D: the roots themselves too — the shell carries .r2.)
+  assert.match(css, /@media \(prefers-reduced-motion: reduce\) \{\s*\.r2,\s*\.r2::before,\s*\.r2::after,\s*\.r2 \*,\s*\.r2 \*::before,\s*\.r2 \*::after \{\s*transition-duration: 0ms !important;/);
   // The trigger itself is untouched: an attribute the hook sets.
   assert.match(read('src/components/rune2/useWritingChrome.ts'), /el\.setAttribute\("data-writing", ""\)/);
 });

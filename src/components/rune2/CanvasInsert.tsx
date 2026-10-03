@@ -7,6 +7,7 @@ import type { CanvasTargetType } from "@/lib/types";
 import { PLACEABLE_SEARCH_KINDS, PLACEMENT_BY_SEARCH_KIND } from "@/lib/rune2/canvas";
 import { SEARCH_KIND_LABEL, searchObjects, searchProject, type SearchObject } from "@/lib/rune2/projectSearch";
 import { useRune2Selection } from "./Rune2Selection";
+import { useFloating } from "./useFloating";
 
 // "Add to canvas": find an existing Scene, Chapter, Page, Entry or Canvas of
 // this Project and place it. Project Search's own matching and ranking
@@ -34,6 +35,8 @@ export function CanvasInsert({
 }) {
   const { index } = useRune2Selection();
   const ref = useRef<HTMLDivElement>(null);
+  // Under the Canvas toolbar, at its right; whole inside the window at any width or zoom.
+  useFloating(ref, { align: "end", gap: 6 });
   const listId = useId();
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
@@ -56,6 +59,11 @@ export function CanvasInsert({
     : objects;
   const shown = matches.slice(0, SHOWN);
   const at = Math.min(active, Math.max(shown.length - 1, 0));
+
+  // The keyboard's row stays in sight as the arrows move past the list's edge.
+  useEffect(() => {
+    document.getElementById(`${listId}-${at}`)?.scrollIntoView({ block: "nearest" });
+  }, [listId, at]);
 
   const choose = (o: SearchObject) => {
     const type = PLACEMENT[o.kind];

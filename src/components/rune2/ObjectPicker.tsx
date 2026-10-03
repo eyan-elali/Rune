@@ -6,6 +6,7 @@ import { ICON_SM_BOLD } from "./icons";
 import { searchObjects } from "@/lib/rune2/projectSearch";
 import { candidates, type Candidate, type TargetSpec } from "@/lib/rune2/references";
 import { useRune2Selection } from "./Rune2Selection";
+import { useFloating } from "./useFloating";
 
 // Find an existing object to point to: a Relationship's value (an Entry of
 // one Collection, a Page, a Scene) or a link from the Inspector (any of
@@ -26,7 +27,7 @@ export function ObjectPicker({
   onChoose,
   onClear,
   onClose,
-  floating = false,
+  align = "start",
 }: {
   spec: TargetSpec;
   /** Ids already chosen (marked; choosing one again un-chooses it). */
@@ -39,8 +40,8 @@ export function ObjectPicker({
   onChoose: (candidate: Candidate) => void;
   onClear?: () => void;
   onClose: (refocus: boolean) => void;
-  /** Place the picker over the page under its anchor (fixed), closing when the page scrolls. */
-  floating?: boolean;
+  /** Which edge of its anchor it lines up with (it still opens inward near the window's edge). */
+  align?: "start" | "end";
 }) {
   const { index } = useRune2Selection();
   const ref = useRef<HTMLDivElement>(null);
@@ -52,20 +53,11 @@ export function ObjectPicker({
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
 
+  // Over the page, under its anchor, whole inside the window (useFloating).
+  useFloating(ref, { align, inset: align === "start" ? 6 : 5, onAway: () => close.current(false) });
   useLayoutEffect(() => {
-    const el = ref.current;
-    const anchor = el?.parentElement;
-    if (!floating || !el || !anchor) return;
-    const r = anchor.getBoundingClientRect();
-    el.style.top = `${r.bottom + 4}px`;
-    el.style.left = `${Math.max(8, Math.min(r.left - 6, window.innerWidth - 328))}px`;
-    el.style.visibility = "visible";
-    const onScroll = (e: Event) => {
-      if (!ref.current?.contains(e.target as Node)) close.current(false);
-    };
-    window.addEventListener("scroll", onScroll, true);
-    return () => window.removeEventListener("scroll", onScroll, true);
-  }, [floating]);
+    ref.current?.querySelector("input")?.focus({ preventScroll: true });
+  }, []);
 
   // Close on a pointer press outside the anchor (its own button toggles it).
   useEffect(() => {
@@ -83,6 +75,11 @@ export function ObjectPicker({
   // Long lists stay quick to scan: the first 60 matches; typing narrows.
   const shown = matches.slice(0, 60);
   const at = Math.min(active, Math.max(shown.length - 1, 0));
+
+  // The keyboard's row stays in sight as the arrows move past the list's edge.
+  useEffect(() => {
+    document.getElementById(`${listId}-${at}`)?.scrollIntoView({ block: "nearest" });
+  }, [listId, at]);
 
   const choose = (c: Candidate) => {
     onChoose(c);
@@ -104,11 +101,8 @@ export function ObjectPicker({
     <div
       ref={ref}
       className="r2-prop-picker r2-object-picker"
-      data-floating={floating ? "" : undefined}
-      style={floating ? { visibility: "hidden" } : undefined}
     >
       <input
-        autoFocus
         className="r2-field r2-prop-picker-input"
         placeholder="Find…"
         aria-label={`Find for ${label}`}

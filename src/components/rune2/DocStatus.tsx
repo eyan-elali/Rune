@@ -22,11 +22,20 @@ export function StatusSlotProvider({ slot, children }: { slot: HTMLElement | nul
   return <StatusSlotContext.Provider value={slot}>{children}</StatusSlotContext.Provider>;
 }
 
-export function DocStatus({ children }: { children: ReactNode }) {
+// Not a live region: the word count changes with every word typed and the
+// save state with every pause, and a screen reader would read both out
+// endlessly. What a writer must hear is announced: a problem is a role="alert"
+// where it is written, and `announce` — the save state when it is something
+// other than routine (offline, kept on this device) — goes to a polite region
+// that stays mounted, so its changes are heard.
+export function DocStatus({ announce = null, children }: { announce?: string | null; children: ReactNode }) {
   const slot = useContext(StatusSlotContext);
   const status = (
-    <div className="r2-doc-status" aria-live="polite">
+    <div className="r2-doc-status">
       {children}
+      <span role="status" className="sr-only">
+        {announce}
+      </span>
     </div>
   );
   return slot ? createPortal(status, slot) : status;

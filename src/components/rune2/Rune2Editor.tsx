@@ -213,7 +213,7 @@ export default function Rune2Editor({
       </article>
 
       {shown.length > 0 && (
-        <DocStatus>
+        <DocStatus announce={syncStatus === "offline_dirty" || syncStatus === "failed" || !isOnline ? statusLabel : null}>
           <span className="tabular-nums">
             {words.toLocaleString()} {words === 1 ? "word" : "words"}
           </span>

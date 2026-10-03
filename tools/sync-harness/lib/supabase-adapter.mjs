@@ -171,7 +171,9 @@ class Query {
         if (this.orders.length) {
           sql += ' order by ' + this.orders.map((o) => `${ident(o.col, 'column')} ${o.ascending ? 'asc' : 'desc'}`).join(', ');
         }
-        if (this.limitN !== null) sql += ` limit ${Number(this.limitN)}`;
+        const cap = this.client.maxRows;
+        const limit = this.limitN === null ? cap : cap === null ? this.limitN : Math.min(this.limitN, cap);
+        if (limit !== null) sql += ` limit ${Number(limit)}`;
         return { sql, params };
       }
       case 'insert': {
@@ -241,9 +243,13 @@ class Query {
  * Supabase identity. `userId: null` with role 'anon' models a signed-out
  * browser; role 'service_role' models the service-role key (bypasses RLS).
  */
-export function createSupabaseAdapter(db, { userId = null, role = userId ? 'authenticated' : 'anon' } = {}) {
+// `maxRows`: PostgREST's max-rows cap (Supabase: 1000 by default). A select
+// returns at most that many rows, silently — as the real API does — so a test
+// can prove a reader pages instead of trusting one request.
+export function createSupabaseAdapter(db, { userId = null, role = userId ? 'authenticated' : 'anon', maxRows = null } = {}) {
   const client = {
     db,
+    maxRows,
     identity: { role, userId },
     calls: [], // { kind: 'from'|'rpc', name } — lets tests assert which paths ran
     from(table) {

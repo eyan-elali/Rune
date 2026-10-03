@@ -3,6 +3,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Search } from "lucide-react";
 import { ICON } from "./icons";
+import { useFloating } from "./useFloating";
 import { findOnCanvas, type FindResult } from "@/lib/rune2/canvasFind";
 import type { NavEntry } from "@/lib/rune2/navigatorModel";
 import type { CanvasConnection, CanvasItem } from "@/lib/types";
@@ -31,6 +32,8 @@ export function CanvasFind({
   onClose: () => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  // Under the Canvas toolbar, at its right; whole inside the window at any width or zoom.
+  useFloating(ref, { align: "end", gap: 6 });
   const listId = useId();
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);

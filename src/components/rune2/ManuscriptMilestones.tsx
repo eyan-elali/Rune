@@ -31,6 +31,7 @@ import {
 } from "@/lib/rune2/history";
 import { sceneLabel } from "@/lib/rune2/navigatorModel";
 import { ProseSnapshot } from "./ProseSnapshot";
+import { useModalFocus } from "./useModalFocus";
 
 // Named Manuscript Milestones (migration 036), from the Manuscript's
 // Inspector: "Draft 1", "Sent to editor". Saving one keeps the whole
@@ -337,6 +338,7 @@ export function MilestoneViewer({
   useEffect(() => {
     dialogRef.current?.focus();
   }, []);
+  useModalFocus(dialogRef);
 
   /** Brings a Chapter or Scene of the snapshot into view and gives it focus. */
   function go(to: MilestoneTarget, smooth: boolean) {

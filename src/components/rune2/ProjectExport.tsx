@@ -24,6 +24,7 @@ import {
   type ExportSource,
 } from "@/lib/export/plan";
 import { useRune2Selection } from "./Rune2Selection";
+import { useModalFocus } from "./useModalFocus";
 
 // Export and Whole-Project Backup (Milestone 19): one dialog for "Export
 // Manuscript", "Export Chapter" and "Export Scene" — the same pipeline
@@ -115,7 +116,10 @@ async function unsavedScenes(ids: string[]): Promise<number> {
   }
 }
 
+/** Escape (never mid-work) and the modal focus contract; returns the dialog's ref. */
 function useDialogKeys(onClose: () => void, busy: boolean) {
+  const ref = useRef<HTMLDivElement>(null);
+  useModalFocus(ref);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape" && !busy) {
@@ -126,6 +130,7 @@ function useDialogKeys(onClose: () => void, busy: boolean) {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose, busy]);
+  return ref;
 }
 
 const TITLES: Record<ExportScope["kind"], string> = {
@@ -145,7 +150,7 @@ function ExportDialog({ scope, onClose }: { scope: ExportScope; onClose: () => v
   const [name, setName] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [reload, setReload] = useState(0);
-  useDialogKeys(onClose, busy);
+  const dialog = useDialogKeys(onClose, busy);
 
   useEffect(() => {
     let cancelled = false;
@@ -210,7 +215,7 @@ function ExportDialog({ scope, onClose }: { scope: ExportScope; onClose: () => v
 
   return (
     <div className="r2-dialog-backdrop" onMouseDown={(e) => e.target === e.currentTarget && !busy && onClose()}>
-      <div className="r2-dialog r2-export" role="dialog" aria-modal="true" aria-labelledby="r2-export-title">
+      <div ref={dialog} className="r2-dialog r2-export" role="dialog" aria-modal="true" aria-labelledby="r2-export-title">
         <h2 id="r2-export-title">{TITLES[scope.kind]}</h2>
         {exportDoc && scope.kind !== "manuscript" && <p className="r2-export-subject">{exportDoc.subject}</p>}
         {!source && !error && <p aria-live="polite">Reading the manuscript…</p>}
@@ -342,7 +347,7 @@ export function BackupDialog({ project, onClose }: { project: { id: string; titl
   }, []);
   // The file stays in memory for the fallback link until the dialog closes or a new backup replaces it.
   useEffect(() => () => ready?.release(), [ready]);
-  useDialogKeys(onClose, busy);
+  const dialog = useDialogKeys(onClose, busy);
 
   async function run() {
     if (busy) return;
@@ -380,7 +385,7 @@ export function BackupDialog({ project, onClose }: { project: { id: string; titl
 
   return (
     <div className="r2-dialog-backdrop" onMouseDown={(e) => e.target === e.currentTarget && !busy && onClose()}>
-      <div className="r2-dialog r2-export" role="dialog" aria-modal="true" aria-labelledby="r2-backup-title">
+      <div ref={dialog} className="r2-dialog r2-export" role="dialog" aria-modal="true" aria-labelledby="r2-backup-title">
         <h2 id="r2-backup-title">Download project backup</h2>
         <p>
           A complete copy of <strong>{project.title}</strong> as a .zip file: every scene (placed, unplaced

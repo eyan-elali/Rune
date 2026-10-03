@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode, type RefObject } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { BookOpen, ChevronDown, ChevronsUpDown, LogOut, Settings } from "lucide-react";
@@ -13,6 +13,7 @@ import { useProfileStore } from "@/store/profileStore";
 import { ICON_SM_BOLD } from "./icons";
 import { NavigatorMenu, type NavigatorMenuItem } from "./NavigatorMenu";
 import { useRuneAccount } from "./RunePreferences";
+import { useModalFocus } from "./useModalFocus";
 
 // The account menu (Beta Completion A): who is signed in, and the three
 // places an account goes — Projects, Settings, and out. Nothing else: no
@@ -32,11 +33,21 @@ import { useRuneAccount } from "./RunePreferences";
  * next time they sign in here; logging out never discards it. Returns the
  * action, its progress, and the question to render when there is one.
  */
-export function useLogOut(): { logOut: () => void; busy: boolean; error: string | null; dialog: ReactNode } {
+export function useLogOut(
+  /** Where the keyboard goes back to when the unsent-writing question is answered "Stay" (the menu's control). */
+  returnFocus?: RefObject<HTMLElement | null>
+): { logOut: () => void; busy: boolean; error: string | null; dialog: ReactNode } {
   const router = useRouter();
   const userId = useProfileStore((s) => s.profile?.id);
   const [state, setState] = useState<"checking" | "out" | { waiting: string[] } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const asking = state !== null && typeof state === "object";
+  useModalFocus(dialogRef, asking);
+  const stay = () => {
+    setState(null);
+    returnFocus?.current?.focus();
+  };
 
   async function signOut() {
     setState("out");
@@ -83,15 +94,29 @@ export function useLogOut(): { logOut: () => void; busy: boolean; error: string 
 
   const dialog =
     state !== null && typeof state === "object" ? (
-      <div className="r2-dialog-backdrop" onMouseDown={(e) => e.target === e.currentTarget && setState(null)}>
-        <div className="r2-dialog" role="alertdialog" aria-modal="true" aria-labelledby="r2-logout-title">
+      <div className="r2-dialog-backdrop" onMouseDown={(e) => e.target === e.currentTarget && stay()}>
+        <div
+          ref={dialogRef}
+          className="r2-dialog"
+          role="alertdialog"
+          aria-modal="true"
+          aria-labelledby="r2-logout-title"
+          aria-describedby="r2-logout-detail"
+          onKeyDown={(e) => {
+            if (e.key === "Escape") {
+              e.preventDefault();
+              e.stopPropagation();
+              stay();
+            }
+          }}
+        >
           <h2 id="r2-logout-title">Some writing hasn’t been saved to Rune yet</h2>
-          <p>
+          <p id="r2-logout-detail">
             Writing in {state.waiting.join(", ")} is only on this device so far. It stays here if you log out, and is
             saved the next time you sign in on this device.
           </p>
           <div className="r2-dialog-actions">
-            <button type="button" className="r2-button" onClick={() => setState(null)} autoFocus>
+            <button type="button" className="r2-button" onClick={stay} autoFocus>
               Stay signed in
             </button>
             <button type="button" className="r2-button r2-button--primary" onClick={() => void signOut()}>
@@ -132,7 +157,7 @@ export function AccountMenu({ account }: { account: Account }) {
   const router = useRouter();
   const button = useRef<HTMLButtonElement>(null);
   const [at, setAt] = useState<{ x: number; y: number } | null>(null);
-  const { logOut, busy, error, dialog } = useLogOut();
+  const { logOut, busy, error, dialog } = useLogOut(button);
   const name = account.penName || account.email;
 
   function open() {
@@ -177,7 +202,7 @@ export function AccountControl({ onOpenSettings }: { onOpenSettings: () => void 
   const router = useRouter();
   const button = useRef<HTMLButtonElement>(null);
   const [at, setAt] = useState<{ x: number; y: number } | null>(null);
-  const { logOut, busy, error, dialog } = useLogOut();
+  const { logOut, busy, error, dialog } = useLogOut(button);
   const name = account ? account.penName || account.email : "Account";
 
   function open() {

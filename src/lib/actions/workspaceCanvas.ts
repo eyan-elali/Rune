@@ -5,6 +5,7 @@ import type { CanvasConnection, CanvasItem, WorkspaceAttachment, WorkspaceCanvas
 import { attachmentIdOf, previewText } from "@/lib/rune2/canvas";
 import type { CanvasChange, CanvasWriteOutcome, CanvasWriteResult } from "@/lib/rune2/canvasSession";
 import { normalizeTitle } from "@/lib/rune2/versionedContent";
+import { readAll } from "@/lib/readAllRows";
 
 // Workspace Canvases (migration 045): a Canvas is a Workspace object — it
 // belongs to its Project, has one place in the Workspace tree (created with
@@ -92,8 +93,9 @@ export async function getWorkspaceCanvas(
 
   const [canvasRead, itemsRead, connectionsRead] = await Promise.all([
     supabase.from("workspace_canvases").select("*").eq("id", canvasId).maybeSingle(),
-    supabase.from("workspace_canvas_items").select("*").eq("canvas_id", canvasId),
-    supabase.from("workspace_canvas_connections").select("*").eq("canvas_id", canvasId),
+    // A page at a time: a large Canvas would otherwise be cut short at the API's row cap.
+    readAll<CanvasItem>(() => supabase.from("workspace_canvas_items").select("*").eq("canvas_id", canvasId)),
+    readAll<CanvasConnection>(() => supabase.from("workspace_canvas_connections").select("*").eq("canvas_id", canvasId)),
   ]);
   if (canvasRead.error) return { data: null, error: canvasRead.error.message };
   if (!canvasRead.data) return { data: null, error: "Canvas not found" };

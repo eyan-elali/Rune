@@ -30,6 +30,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+import { useFloating } from "./useFloating";
 import { ICON, ICON_SM } from "./icons";
 import {
   filterOpLabel,
@@ -255,7 +256,9 @@ export function AddViewMenu({
   const [notice, setNotice] = useNotice();
   const ref = useRef<HTMLDivElement>(null);
   const button = useRef<HTMLButtonElement>(null);
+  const menu = useRef<HTMLDivElement>(null);
   const menuId = useId();
+  useFloating(menu, { open, anchor: () => button.current, onAway: () => setOpen(false) });
 
   useEffect(() => {
     if (!open) return;
@@ -296,6 +299,7 @@ export function AddViewMenu({
       </button>
       {open && (
         <div
+          ref={menu}
           id={menuId}
           role="menu"
           className="r2-view-menu"
@@ -562,13 +566,15 @@ function Tool({
 }) {
   const button = useRef<HTMLButtonElement>(null);
   const pop = useRef<HTMLDivElement>(null);
+  // Hung from the control's right edge so it opens into the page; whole in the window.
+  useFloating(pop, { open, anchor: () => button.current, align: "end", gap: 4 });
 
   // Opened: the first field takes focus, so the keyboard carries straight on.
   useLayoutEffect(() => {
     if (!open) return;
     pop.current
       ?.querySelector<HTMLElement>("input, select, button, [tabindex]")
-      ?.focus();
+      ?.focus({ preventScroll: true });
   }, [open]);
 
   return (

@@ -16,6 +16,7 @@ import {
   type Role,
 } from "@/lib/import/structure";
 import type { ImportNotice, ParsedFile } from "@/lib/import/types";
+import { useModalFocus } from "./useModalFocus";
 
 // Manuscript Import (Rune 2.0, Milestone 15): choose a file → Rune reads it
 // here, on the writer's device → a preview of the Groups, Chapters and Scenes
@@ -56,9 +57,14 @@ export function ManuscriptImportDialog({ onClose }: { onClose: () => void }) {
   // One id per confirmation attempt, reused by its retries: never two Projects.
   const requestId = useRef<string | null>(null);
 
+  const dialog = useRef<HTMLDivElement>(null);
+  useModalFocus(dialog);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !importing) onClose();
+      if (e.key === "Escape" && !importing) {
+        e.stopPropagation();
+        onClose();
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -134,6 +140,7 @@ export function ManuscriptImportDialog({ onClose }: { onClose: () => void }) {
   return (
     <div className="r2-dialog-backdrop" onMouseDown={(e) => e.target === e.currentTarget && !importing && onClose()}>
       <div
+        ref={dialog}
         className="r2-dialog r2-import"
         role="dialog"
         aria-modal="true"

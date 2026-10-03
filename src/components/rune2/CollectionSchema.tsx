@@ -194,6 +194,13 @@ function SchemaRow({
   const [confirming, setConfirming] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const nameId = useId();
+  const confirmId = useId();
+  const removeButton = useRef<HTMLButtonElement>(null);
+  // Leaving the question puts the keyboard back on the control that asked it.
+  const cancelRemove = () => {
+    setConfirming(null);
+    removeButton.current?.focus();
+  };
   const types = convertibleTypes(property.type);
 
   const rename = async () => {
@@ -345,6 +352,7 @@ function SchemaRow({
             <ArrowDown {...ICON} aria-hidden />
           </button>
           <button
+            ref={removeButton}
             type="button"
             className="r2-icon-button"
             aria-label={`Remove ${property.name}`}
@@ -356,8 +364,21 @@ function SchemaRow({
       </div>
 
       {confirming !== null && (
-        <div className="r2-schema-confirm" role="alertdialog" aria-label={`Remove ${property.name}?`}>
-          <p>
+        <div
+          className="r2-schema-confirm"
+          role="alertdialog"
+          aria-label={`Remove ${property.name}?`}
+          aria-describedby={confirmId}
+          onKeyDown={(e) => {
+            // Escape answers this question only — never the panel around it.
+            if (e.key === "Escape") {
+              e.preventDefault();
+              e.stopPropagation();
+              cancelRemove();
+            }
+          }}
+        >
+          <p id={confirmId}>
             {confirming === 0
               ? `Remove “${property.name}”? No ${one} has a value for it.${everywhere}`
               : property.type === "relationship"
@@ -373,7 +394,7 @@ function SchemaRow({
           >
             Remove
           </button>
-          <button type="button" className="r2-button" disabled={busy} onClick={() => setConfirming(null)}>
+          <button type="button" className="r2-button" disabled={busy} onClick={cancelRemove}>
             Cancel
           </button>
         </div>
@@ -389,6 +410,12 @@ function OptionsEditor({ property, onNotice }: { property: PropertyDefinition; o
   const { values, updateProperty } = usePropertyStore();
   const [adding, setAdding] = useState("");
   const [confirm, setConfirm] = useState<{ id: string; uses: number } | null>(null);
+  const confirmId = useId();
+  const addInput = useRef<HTMLInputElement>(null);
+  const cancelRemove = () => {
+    setConfirm(null);
+    addInput.current?.focus();
+  };
 
   const save = async (options: { id?: string; name: string }[], failure: string) => {
     const r = await updateProperty(property, { options });
@@ -423,6 +450,7 @@ function OptionsEditor({ property, onNotice }: { property: PropertyDefinition; o
         />
       ))}
       <input
+        ref={addInput}
         className="r2-field r2-field--sm r2-schema-option-add"
         placeholder="Add an option"
         aria-label={`Add an option to ${property.name}`}
@@ -439,15 +467,27 @@ function OptionsEditor({ property, onNotice }: { property: PropertyDefinition; o
         }}
       />
       {confirm && (
-        <div className="r2-schema-confirm" role="alertdialog" aria-label="Remove option?">
-          <p>
+        <div
+          className="r2-schema-confirm"
+          role="alertdialog"
+          aria-label="Remove option?"
+          aria-describedby={confirmId}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") {
+              e.preventDefault();
+              e.stopPropagation();
+              cancelRemove();
+            }
+          }}
+        >
+          <p id={confirmId}>
             Remove “{property.options.find((o) => o.id === confirm.id)?.name}”? It will be cleared from{" "}
             {isSceneProperty(property) ? plural(confirm.uses, "scene") : plural(confirm.uses, "entry", "entries")}.
           </p>
           <button type="button" className="r2-button r2-button--danger" autoFocus onClick={() => void removeOption(confirm.id)}>
             Remove
           </button>
-          <button type="button" className="r2-button" onClick={() => setConfirm(null)}>
+          <button type="button" className="r2-button" onClick={cancelRemove}>
             Cancel
           </button>
         </div>

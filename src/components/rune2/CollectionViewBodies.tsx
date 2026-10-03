@@ -332,7 +332,6 @@ export function TableView({ ownerTitle, view, properties, entryIds, total, prese
                             property={p}
                             value={presenter.values.get(valueKey(id, p.id))}
                             labelId={`${colId(p.id)} ${rowId(id)}`}
-                            floating
                             ownerId={id}
                             onSave={async (next) => {
                               const error = await setValue(id, p.id, next);

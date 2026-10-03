@@ -453,9 +453,9 @@ export function ReadingMode({ source, mode }: { source: ReadingSource; mode: Mod
               <MessageSquarePlus {...ICON} aria-hidden />
             </button>
           )}
+          {/* A Tab stop (shown on focus): leaving the reader for this scene's editor has no other keyboard path. */}
           <button
             type="button"
-            tabIndex={-1}
             className="r2-reading-mark r2-reading-mark--edit"
             title={`Edit ${where}`}
             aria-label={`Edit ${where}`}

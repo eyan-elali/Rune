@@ -25,6 +25,7 @@ import type { CollectionPropertyType, PropertyDefinition, PropertyValue, Referen
 import { useProfileStore } from "@/store/profileStore";
 import { CollectionSchema } from "./CollectionSchema";
 import { ObjectPicker } from "./ObjectPicker";
+import { useFloating } from "./useFloating";
 import { usePropertyStore } from "./PropertyStore";
 import { useRune2Selection } from "./Rune2Selection";
 import { useOpenObject } from "./useOpenObject";
@@ -313,22 +314,20 @@ function PropertyRow({
 /**
  * One value, edited in place — the same editor wherever a value appears (an
  * Entry's properties, a Table cell), writing the one canonical value.
- * `labelId`: the id(s) naming it. `floating`: its option picker is placed
- * over the page, for places that clip (a Table scrolls sideways).
+ * `labelId`: the id(s) naming it. Its pickers float over the page
+ * (useFloating), so they open the same in a Table cell as in the Inspector.
  */
 export function PropertyValueEditor({
   property,
   value,
   labelId,
   onSave,
-  floating = false,
   ownerId,
 }: {
   property: PropertyDefinition;
   value: PropertyValue | undefined;
   labelId: string;
   onSave: (value: PropertyValue | null) => Promise<void>;
-  floating?: boolean;
   /** The Entry or Scene the value belongs to (never offered as its own Relationship target). */
   ownerId?: string;
 }) {
@@ -357,7 +356,7 @@ export function PropertyValueEditor({
     case "select":
     case "status":
     case "multi_select":
-      return <ChoiceValue property={property} value={value} labelId={labelId} onSave={onSave} floating={floating} />;
+      return <ChoiceValue property={property} value={value} labelId={labelId} onSave={onSave} />;
     case "relationship":
       return (
         <RelationshipValue
@@ -365,7 +364,6 @@ export function PropertyValueEditor({
           value={value}
           labelId={labelId}
           onSave={onSave}
-          floating={floating}
           ownerId={ownerId}
         />
       );
@@ -382,14 +380,12 @@ function RelationshipValue({
   value,
   labelId,
   onSave,
-  floating,
   ownerId,
 }: {
   property: PropertyDefinition;
   value: PropertyValue | undefined;
   labelId: string;
   onSave: (value: PropertyValue | null) => Promise<void>;
-  floating: boolean;
   ownerId?: string;
 }) {
   const { index } = useRune2Selection();
@@ -436,7 +432,6 @@ function RelationshipValue({
           multi={many}
           label={property.name}
           exclude={ownerId ? new Set([ownerId]) : undefined}
-          floating={floating}
           onChoose={(c) => {
             if (!many) void onSave(ids[0] === c.id ? null : [c.id]);
             else void onSave(ids.includes(c.id) ? ids.filter((x) => x !== c.id) : [...ids, c.id]);
@@ -634,13 +629,11 @@ function ChoiceValue({
   value,
   labelId,
   onSave,
-  floating,
 }: {
   property: PropertyDefinition;
   value: PropertyValue | undefined;
   labelId: string;
   onSave: (value: PropertyValue | null) => Promise<void>;
-  floating: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const button = useRef<HTMLButtonElement>(null);
@@ -667,7 +660,6 @@ function ChoiceValue({
           property={property}
           value={value}
           onSave={onSave}
-          floating={floating}
           onClose={(refocus) => {
             setOpen(false);
             if (refocus) button.current?.focus();
@@ -701,14 +693,11 @@ function OptionPicker({
   value,
   onSave,
   onClose,
-  floating,
 }: {
   property: PropertyDefinition;
   value: PropertyValue | undefined;
   onSave: (value: PropertyValue | null) => Promise<void>;
   onClose: (refocus: boolean) => void;
-  /** Place the picker over the page under its value (fixed), closing when the page scrolls. */
-  floating: boolean;
 }) {
   const { updateProperty } = usePropertyStore();
   const ref = useRef<HTMLDivElement>(null);
@@ -717,21 +706,13 @@ function OptionPicker({
     close.current = onClose;
   });
 
+  // Over the page, under its value, whole inside the window; it lines its
+  // text up with the value's and opens inward near the window's edge. It never
+  // widens or scrolls the column it was opened in.
+  useFloating(ref, { inset: 6, onAway: () => close.current(false) });
   useLayoutEffect(() => {
-    const el = ref.current;
-    const anchor = el?.parentElement;
-    if (!floating || !el || !anchor) return;
-    const r = anchor.getBoundingClientRect();
-    el.style.top = `${r.bottom + 4}px`;
-    el.style.left = `${Math.max(8, Math.min(r.left - 6, window.innerWidth - 288))}px`;
-    el.style.visibility = "visible";
-    // A scroll anywhere but inside the picker moves the anchor away: close.
-    const onScroll = (e: Event) => {
-      if (!ref.current?.contains(e.target as Node)) close.current(false);
-    };
-    window.addEventListener("scroll", onScroll, true);
-    return () => window.removeEventListener("scroll", onScroll, true);
-  }, [floating]);
+    ref.current?.querySelector("input")?.focus({ preventScroll: true });
+  }, []);
   const listId = useId();
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
@@ -745,6 +726,11 @@ function OptionPicker({
   const exact = property.options.some((o) => o.name.toLowerCase() === q.toLowerCase());
   const canCreate = q !== "" && !exact;
   const count = matches.length + (canCreate ? 1 : 0);
+
+  // The keyboard's row stays in sight as the arrows move past the list's edge.
+  useEffect(() => {
+    document.getElementById(`${listId}-${Math.min(active, count - 1)}`)?.scrollIntoView({ block: "nearest" });
+  }, [listId, active, count]);
 
   // Close on a pointer press outside the value (its own button toggles it).
   useEffect(() => {
@@ -788,15 +774,8 @@ function OptionPicker({
   };
 
   return (
-    <div
-      ref={ref}
-      className="r2-prop-picker"
-      data-floating={floating ? "" : undefined}
-      // Hidden until placed (useLayoutEffect, before paint).
-      style={floating ? { visibility: "hidden" } : undefined}
-    >
+    <div ref={ref} className="r2-prop-picker">
       <input
-        autoFocus
         className="r2-field r2-prop-picker-input"
         placeholder={property.options.length ? "Find or add an option…" : "Add an option…"}
         aria-label={`Options for ${property.name}`}

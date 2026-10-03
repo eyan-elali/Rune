@@ -1270,6 +1270,7 @@ export function ProjectNavigator() {
           className="r2-nav-project"
           title={manuscript.project.title}
           aria-haspopup="menu"
+          aria-expanded={menu?.label === `${manuscript.project.title} actions`}
           aria-label={`${manuscript.project.title} — project actions`}
           onClick={(e) => {
             const r = e.currentTarget.getBoundingClientRect();

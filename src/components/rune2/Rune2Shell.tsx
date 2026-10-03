@@ -150,8 +150,20 @@ function Frame({ children }: { children: ReactNode }) {
       if (target?.closest(".r2-nav-column, .r2-menu, .r2-popover, .r2-dialog")) return;
       setNavCollapsed(true);
     };
+    // Escape from inside it closes it too (a menu or field in it answers its
+    // own Escape first), and the keyboard goes to the toggle that reopens it.
+    const onKeyDown = (e: globalThis.KeyboardEvent) => {
+      if (e.key !== "Escape" || e.defaultPrevented) return;
+      if (!(e.target as Element | null)?.closest?.(".r2-nav-column")) return;
+      setNavCollapsed(true);
+      root.current?.querySelector<HTMLElement>(".r2-tabs-nav-toggle")?.focus();
+    };
     document.addEventListener("pointerdown", onPointerDown, true);
-    return () => document.removeEventListener("pointerdown", onPointerDown, true);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown, true);
+      document.removeEventListener("keydown", onKeyDown);
+    };
   }, [narrow, navCollapsed, setNavCollapsed]);
 
   const style = navWidth !== null ? ({ "--r2-nav-full": `${navWidth}px` } as CSSProperties) : undefined;
@@ -171,7 +183,8 @@ function Frame({ children }: { children: ReactNode }) {
       spellCheck={spellcheck}
     >
       {/* The column retracts by width; the navigator inside keeps its own. */}
-      <div className="r2-nav-column" inert={covered || undefined}>
+      {/* Retracted, the navigator is clipped to nothing — and out of the Tab order with it. */}
+      <div className="r2-nav-column" inert={covered || navCollapsed || undefined}>
         <ProjectNavigator />
         {!navCollapsed && (
           <Resizer

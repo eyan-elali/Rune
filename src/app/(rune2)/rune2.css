@@ -441,6 +441,14 @@ button.r2-chip:focus-visible {
   transform-origin: top left;
   animation: r2-pop-in var(--r2-medium) var(--r2-ease-frame);
 }
+/* Opened upward (no room below): it settles from below instead. */
+.r2-popover[data-side="top"],
+.r2-menu[data-side="top"],
+.r2-prop-picker[data-side="top"],
+.r2-view-menu[data-side="top"] {
+  transform-origin: bottom left;
+  animation-name: r2-pop-up;
+}
 /* Arriving: from a little above and a little smaller — it settles, it does
    not drop in. Leaving is instant: a surface asked to go is gone. */
 @keyframes r2-pop-in {
@@ -452,10 +460,6 @@ button.r2-chip:focus-visible {
   to { opacity: 1; }
 }
 
-.r2-menu[data-above] {
-  transform-origin: bottom left;
-  animation-name: r2-pop-up;
-}
 @keyframes r2-pop-up {
   from { opacity: 0; transform: translateY(3px) scale(0.98); }
   to { opacity: 1; transform: none; }
@@ -486,6 +490,10 @@ button.r2-chip:focus-visible {
 .r2-menu-item[data-active] {
   background: var(--r2-hover);
   outline: none;
+}
+/* The keyboard's item also carries the focus ring (a tint alone reads at 1.1:1). */
+.r2-menu-item:focus-visible {
+  box-shadow: inset 0 0 0 1.5px var(--r2-focus);
 }
 .r2-menu-item:disabled,
 .r2-menu-item[aria-disabled="true"] {
@@ -2773,6 +2781,8 @@ button.r2-disclosure:hover {
 .r2-prop-date {
   width: auto;
   min-width: 11rem;
+  /* Never wider than the value's column: a narrow Inspector doesn't scroll sideways. */
+  max-width: calc(100% + 12px);
 }
 .r2-prop-hint {
   display: block;
@@ -2811,13 +2821,15 @@ button.r2-disclosure:hover {
   vertical-align: middle;
 }
 
+/* Over the page, never inside the column it opened from: placed by
+   useFloating (lib/rune2/floating.ts) so it stays whole in the window and
+   never widens, scrolls or shifts an Inspector or a Table. */
 .r2-prop-picker {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: -6px;
-  z-index: 30;
-  width: min(280px, 100%);
-  min-width: 220px;
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 50;
+  width: 280px;
 }
 .r2-prop-picker-input {
   width: 100%;
@@ -3190,8 +3202,9 @@ span.r2-schema-type {
   align-items: flex-end;
 }
 .r2-view-menu {
-  position: absolute;
-  top: calc(100% + 4px);
+  /* Placed over the page by useFloating. */
+  position: fixed;
+  top: 0;
   left: 0;
   z-index: 40;
   width: 264px;
@@ -3209,6 +3222,9 @@ span.r2-schema-type {
 .r2-view-menu-item:focus-visible {
   background: var(--r2-hover);
   outline: none;
+}
+.r2-view-menu-item:focus-visible {
+  box-shadow: inset 0 0 0 1.5px var(--r2-focus);
 }
 .r2-view-menu-icon {
   flex: none;
@@ -3302,8 +3318,15 @@ span.r2-schema-type {
 }
 /* Less room: the words go, the glyphs stay (a dot marks an active one). */
 @container (max-width: 980px) {
+  /* Hidden from sight only: the words stay the button's name ("Sort · Name"). */
   .r2-collection .r2-tool-label {
-    display: none;
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
   .r2-collection .r2-tool {
     padding: 0 6px;
@@ -3352,9 +3375,10 @@ span.r2-schema-type {
 /* A popover under its control: a small dialog of fields in the overlay
    surface, hung from the control's right edge so it opens into the page. */
 .r2-tool-pop {
-  position: absolute;
-  top: calc(100% + 4px);
-  right: 0;
+  /* Placed over the page by useFloating, hung from the control's right edge. */
+  position: fixed;
+  top: 0;
+  left: 0;
   z-index: 40;
   width: 300px;
   padding: 10px 12px 12px;
@@ -3551,7 +3575,7 @@ span.r2-schema-type {
 .r2-entry-row:focus-visible {
   outline: none;
   background: var(--r2-hover);
-  box-shadow: inset 0 0 0 1px var(--r2-accent-line);
+  box-shadow: inset 0 0 0 1.5px var(--r2-focus);
 }
 @container (max-width: 640px) {
   .r2-entry-row {
@@ -3670,8 +3694,7 @@ span.r2-schema-type {
   transition: background-color var(--r2-fast) var(--r2-ease);
 }
 .r2-col-resize:hover::after,
-.r2-col-resize:active::after,
-.r2-col-resize:focus-visible::after {
+.r2-col-resize:active::after {
   background: var(--r2-accent-line);
 }
 .r2-col-resize:active::after {
@@ -3679,6 +3702,9 @@ span.r2-schema-type {
 }
 .r2 .r2-col-resize:focus-visible {
   outline: none;
+}
+.r2-col-resize:focus-visible::after {
+  background: var(--r2-focus);
 }
 .r2-table td {
   /* A long value stays inside its column; the margin keeps focus rings whole. */
@@ -3736,19 +3762,11 @@ span.r2-schema-type {
 .r2-table-title button:focus-visible {
   outline: none;
   background: var(--r2-hover);
-  box-shadow: inset 0 0 0 1px var(--r2-accent-line);
+  box-shadow: inset 0 0 0 1.5px var(--r2-focus);
 }
 .r2-table-row:hover > *,
 .r2-table-row:focus-within > * {
   background: var(--r2-hover-faint);
-}
-
-/* A picker over the page (a Table cell's). */
-.r2-prop-picker[data-floating] {
-  position: fixed;
-  right: auto;
-  z-index: 50;
-  width: 280px;
 }
 
 /* ── Board ───────────────────────────────────────────────────────────── */
@@ -4130,7 +4148,7 @@ span.r2-schema-type {
 .r2-timeline-item:focus-visible {
   outline: none;
   background: var(--r2-hover);
-  box-shadow: inset 0 0 0 1px var(--r2-accent-line);
+  box-shadow: inset 0 0 0 1.5px var(--r2-focus);
 }
 .r2-timeline-item[data-unnamed] .r2-timeline-item-title {
   color: var(--r2-ink-3);
@@ -4556,12 +4574,20 @@ span.r2-schema-type {
 
 /* ── Motion off ────────────────────────────────────────────────────────── */
 
+/* Reduced motion: every state change still happens, at once — nothing
+   slides, settles, glides or fades in. Covers the roots themselves (the
+   shell, a portaled tooltip layer) as well as everything inside them. */
 @media (prefers-reduced-motion: reduce) {
+  .r2,
+  .r2::before,
+  .r2::after,
   .r2 *,
   .r2 *::before,
   .r2 *::after {
     transition-duration: 0ms !important;
     animation-duration: 0ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
   }
   .r2-nav-progress[data-active]::after {
     animation: none;
@@ -4636,11 +4662,7 @@ span.r2-schema-type {
 }
 
 /* The object search: a title, and where it lives in a quieter voice. */
-.r2-object-picker {
-  width: min(320px, 100%);
-  min-width: 240px;
-}
-.r2-prop-picker.r2-object-picker[data-floating] {
+.r2-prop-picker.r2-object-picker {
   width: 320px;
 }
 .r2-object-picker-title {
@@ -4737,11 +4759,8 @@ span.r2-schema-type {
   display: inline-block;
 }
 /* The picker opens under the section's head, aligned to the panel's gutter. */
-.r2-links-add .r2-prop-picker {
-  left: auto;
-  right: -5px;
+.r2-links-add .r2-prop-picker.r2-object-picker {
   width: 268px;
-  min-width: 0;
 }
 
 /* ── Project Search ─────────────────────────────────────────────────────
@@ -6031,7 +6050,7 @@ span.r2-schema-type {
 }
 .r2-reader-body:focus-visible {
   outline: none;
-  box-shadow: inset 0 0 0 2px var(--r2-accent-line);
+  box-shadow: inset 0 0 0 1.5px var(--r2-focus);
   border-radius: 0;
 }
 .r2-reader-inner {
@@ -7138,7 +7157,7 @@ span.r2-schema-type {
 }
 /* The board itself, focused by the keyboard: a quiet inner ring. */
 .r2-canvas:focus-visible {
-  box-shadow: inset 0 0 0 2px var(--r2-accent-line);
+  box-shadow: inset 0 0 0 1.5px var(--r2-focus);
 }
 .r2-canvas-section-head {
   display: flex;
@@ -7378,9 +7397,10 @@ span.r2-schema-type {
   background: var(--r2-hover);
 }
 .r2-canvas-insert {
-  position: absolute;
-  right: 0;
-  top: calc(100% + 6px);
+  /* Placed over the page by useFloating. */
+  position: fixed;
+  left: 0;
+  top: 0;
   width: 360px;
   max-width: calc(100vw - 32px);
   padding: var(--r2-space-3);

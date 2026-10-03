@@ -1,8 +1,9 @@
 "use client";
 
-import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { Check, type LucideIcon } from "lucide-react";
 import { ICON, ICON_SM_BOLD } from "./icons";
+import { placeFloating, pointRect } from "@/lib/rune2/floating";
 
 // A small contextual menu for the navigator (row "+" and "⋯" buttons, right
 // click). Fixed-positioned at a point so the navigator's scroll container
@@ -47,18 +48,30 @@ export function NavigatorMenu({
   onClose: () => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState(at);
+  const confirmId = useId();
+  const [pos, setPos] = useState<{ x: number; y: number; side: "top" | "bottom"; maxHeight: number | null }>({
+    ...at,
+    side: above ? "top" : "bottom",
+    maxHeight: null,
+  });
   const [confirming, setConfirming] = useState<NavigatorMenuItem | null>(null);
 
-  // Keep the menu on screen.
+  // Keep the menu whole on screen (lib/rune2/floating.ts): it flips when
+  // there is no room on its side, and a long list ("Move to") is capped to
+  // the window and scrolls — at any window height or browser zoom.
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const { width, height } = el.getBoundingClientRect();
-    setPos({
-      x: Math.max(8, Math.min(at.x, window.innerWidth - width - 8)),
-      y: Math.max(8, Math.min(above ? at.y - height : at.y, window.innerHeight - height - 8)),
+    el.style.maxHeight = "";
+    const p = placeFloating({
+      anchor: pointRect(at.x, at.y),
+      size: { width: el.offsetWidth, height: el.offsetHeight },
+      viewport: { width: document.documentElement.clientWidth, height: window.innerHeight },
+      side: above ? "top" : "bottom",
+      gap: 0,
     });
+    el.style.maxHeight = p.maxHeight === null ? "" : `${p.maxHeight}px`;
+    setPos({ x: p.x, y: p.y, side: p.side, maxHeight: p.maxHeight });
   }, [at, above, confirming]);
 
   // Give focus back to whatever opened the menu, unless the chosen item moved
@@ -123,15 +136,16 @@ export function NavigatorMenu({
       ref={ref}
       role={confirming ? "alertdialog" : "menu"}
       aria-label={confirming ? confirming.label : label}
+      aria-describedby={confirming ? confirmId : undefined}
       className="r2-menu"
-      data-above={above || undefined}
-      style={{ left: pos.x, top: pos.y }}
+      data-side={pos.side}
+      style={{ left: pos.x, top: pos.y, maxHeight: pos.maxHeight ?? undefined, overflowY: pos.maxHeight === null ? undefined : "auto" }}
       onKeyDown={onKeyDown}
       onContextMenu={(e) => e.preventDefault()}
     >
       {confirming?.confirm ? (
         <div className="r2-menu-confirm">
-          <p>{confirming.confirm.message}</p>
+          <p id={confirmId}>{confirming.confirm.message}</p>
           <div className="r2-menu-confirm-actions">
             <button type="button" data-menu-item className="r2-button r2-button--quiet r2-button--sm" onClick={() => setConfirming(null)}>
               Cancel

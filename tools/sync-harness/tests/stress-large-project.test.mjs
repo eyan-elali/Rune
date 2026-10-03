@@ -144,8 +144,12 @@ before(async () => {
   sb = signIn(WRITER);
 });
 
+// The real API's row cap (Supabase's default max-rows): a reader that trusts
+// one request loses rows here exactly as it would in production (BC-D).
+const MAX_ROWS = 1000;
+
 function signIn(userId) {
-  const client = createSupabaseAdapter(db, { userId });
+  const client = createSupabaseAdapter(db, { userId, maxRows: MAX_ROWS });
   for (const mod of [route, scenes, structure, trash, pages, tree, collections, props, views, refs, notes, history, milestones,
     sceneProps, sceneViews, canvas, projects, search, workspace, manuscriptLoader]) {
     mod.setServerClient(client);
@@ -589,7 +593,8 @@ test('1. loadProjectManuscript and loadProjectWorkspace: every count equals what
     const activeValues = await count(db, `select 1 from public.workspace_entry_values v join public.workspace_collection_entries e on e.id = v.entry_id where v.project_id = $1 and e.trashed_at is null`, [F.project]);
     const everyValue = await count(db, `select 1 from public.workspace_entry_values where project_id = $1`, [F.project]);
     assert.ok(everyValue > activeValues, 'the trashed Entries have values');
-    assert.equal(w.values.length, activeValues, 'only active Entries\' values are loaded');
+    assert.ok(activeValues > MAX_ROWS, `more values (${activeValues}) than one API request returns: the loader must page (BC-D)`);
+    assert.equal(w.values.length, activeValues, 'only active Entries\' values are loaded — every one of them, past the row cap');
     assert.ok(w.values.every((v) => w.entries.some((e) => e.id === v.entry_id)), 'every loaded value belongs to a loaded (active) Entry');
     // Every Collection gets a default "List" View on creation: Characters has 5; the trashed Places has 1, hidden with it (051).
     assert.equal(w.views.filter((v) => v.collection_id === F.characters.id).length, 5);
