@@ -1,114 +1,23 @@
-import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
-import { AppShell } from "@/components/layout/AppShell";
-import { SupportedDeviceGate } from "@/components/layout/SupportedDeviceGate";
-import NetworkProvider from "@/components/providers/NetworkProvider";
-import { RegistrationTracker } from "@/components/RegistrationTracker";
-import { isPenNameMissing } from "@/lib/penName";
+import Link from "next/link";
 import type { ReactNode } from "react";
-import type { Profile } from "@/lib/types";
+import { requireAdmin } from "@/lib/actions/admin";
 
-function isNetworkError(err: { message?: string; status?: number } | null): boolean {
-  if (!err) return false;
-  if ("status" in err && err.status === 0) return true;
-  const msg = (err.message ?? "").toLowerCase();
-  return (
-    msg.includes("failed to fetch") ||
-    msg.includes("fetch failed") ||
-    msg.includes("load failed") ||
-    msg.includes("networkerror") ||
-    msg.includes("network request failed")
-  );
-}
-
-export default async function AppLayout({ children }: { children: ReactNode }) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-
-  // When offline, getUser() cannot reach Supabase to validate the JWT.
-  // Fall back to getSession() which reads from cookies locally (no network call).
-  let effectiveUser = user;
-  if (!effectiveUser && isNetworkError(authError)) {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    effectiveUser = session?.user ?? null;
-  }
-
-  if (!effectiveUser) {
-    redirect("/login");
-  }
-
-  // Skip these fetches when offline — they will fail anyway and AppShell handles null.
-  // Project count is fetched (not manuscript content, just a head count) once here
-  // and reused both for the update notice and to distinguish a new/onboarding
-  // account from a returning one for the phone waiting-room copy.
-  const [{ data: profile, error: profileError }, { count: projectCount }, { data: entitlement }] =
-    effectiveUser
-      ? await Promise.all([
-          supabase.from("profiles").select("*").eq("id", effectiveUser.id).single(),
-          supabase
-            .from("projects")
-            .select("id", { count: "exact", head: true })
-            .eq("user_id", effectiveUser.id),
-          supabase
-            .from("user_pricing_entitlements")
-            .select("pricing_cohort, pricing_notice_resolved_at, founder_offer_status")
-            .eq("user_id", effectiveUser.id)
-            .maybeSingle(),
-        ])
-      : [{ data: null, error: null }, { count: null }, { data: null }];
-
-  // Every account needs a chosen pen name before entering the writing
-  // experience. Only redirect on a confirmed, successful lookup — a failed
-  // fetch (e.g. offline) falls through rather than risking a redirect loop
-  // or blocking offline access to a profile we simply couldn't read.
-  if (!profileError && profile && isPenNameMissing(profile.display_name)) {
-    redirect("/complete-profile");
-  }
-
-  // Pricing notice: one-time announcement for eligible legacy free users
-  // about the new starter_2k allowance + private founding-price offer.
-  // Takes priority over the returning-user update notice (deferred to a
-  // later app entry) rather than stacking two modals.
-  const showPricingNotice =
-    !!profile &&
-    entitlement?.pricing_cohort === "legacy_15k" &&
-    (profile.has_written_first_words || (projectCount ?? 0) > 0) &&
-    profile.subscription_tier !== "scribe" &&
-    !entitlement?.pricing_notice_resolved_at &&
-    entitlement?.founder_offer_status === "eligible";
-
-  let showUpdateNotice = false;
-  if (profile) {
-    const prefs = (profile.preferences as Record<string, unknown>) ?? {};
-    const hasSeenNotice = prefs.has_seen_guides_update_notice === true;
-    showUpdateNotice = !hasSeenNotice && (projectCount ?? 0) > 0;
-  }
-  if (showPricingNotice) showUpdateNotice = false;
-
-  const gateVariant = (projectCount ?? 0) > 0 ? "returning" : "new";
+// What remains of the Rune 1.x application frame: Pulse, the founder's
+// private analytics, admin-only. The writer-facing Rune 1.x surfaces
+// (Dashboard, Projects, editor, Profile, Arena, Settings) are retired —
+// Rune 2.0 owns /projects and /settings, and next.config.ts redirects the
+// old addresses. Pulse keeps the legacy page styles it was built with.
+export default async function PulseFrameLayout({ children }: { children: ReactNode }) {
+  await requireAdmin();
 
   return (
-    <>
-      <NetworkProvider />
-      <RegistrationTracker />
-      <SupportedDeviceGate
-        variant={gateVariant}
-        preferences={profile?.preferences as Record<string, unknown> | null}
-      >
-        <AppShell
-          profile={profile as Profile | null}
-          showUpdateNotice={showUpdateNotice}
-          showPricingNotice={showPricingNotice}
-          pricingCohort={entitlement?.pricing_cohort ?? null}
-        >
-          {children}
-        </AppShell>
-      </SupportedDeviceGate>
-    </>
+    <div className="flex min-h-screen w-full flex-col" style={{ background: "var(--bg-primary)" }}>
+      <div className="px-10 pt-6 text-sm">
+        <Link href="/projects" style={{ color: "var(--color-mist)" }}>
+          ← Projects
+        </Link>
+      </div>
+      <main className="min-h-0 flex-1">{children}</main>
+    </div>
   );
 }

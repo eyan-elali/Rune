@@ -1,0 +1,542 @@
+"use client";
+
+import { useCallback, useEffect, useState, type FormEvent } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { ArrowLeft } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
+import { deleteAccount, exportUserData } from "@/lib/actions/settings";
+import { updatePenName } from "@/lib/actions/profile";
+import {
+  clearSceneCache,
+  discardRetiredDraft,
+  getOfflineStorageSummary,
+  getRetiredDraftText,
+  getRetiredDrafts,
+  type RetiredDraft,
+} from "@/lib/offline/db";
+import { flushPendingQueue } from "@/lib/offline/syncEngine";
+import { PEN_NAME_MAX_LENGTH } from "@/lib/penName";
+import type { Account } from "@/lib/rune2/account";
+import { APPEARANCES, type RunePreferences } from "@/lib/rune2/preferences";
+import { AppBar, useLogOut } from "./AccountMenu";
+import { ICON } from "./icons";
+import { useRunePreferences } from "./RunePreferences";
+import { EDITOR_FONTS } from "./useEditorFont";
+
+// Settings (Beta Completion A). Four short sections, each saying whose it is:
+//   Writing      account-wide preferences (lib/rune2/preferences.ts) — they
+//                follow the writer to every Project and device
+//   Projects     where a Project's own settings are, and Project Trash
+//   This device  the writing kept in this browser until the server has it
+//   Account      pen name, email, a copy of the writing, log out, delete
+// Everything else belongs where it is used (a Scene's properties, a View's
+// configuration, a Canvas's arrangement, the manuscript's structure) and is
+// not repeated here. Each change says it was saved only after the server
+// confirms it; a failure puts the control back and says so.
+
+type Status = { text: string; tone?: "danger" | "success" } | null;
+
+export function RuneSettings({
+  account,
+  trashedCount,
+  profileError,
+}: {
+  account: Account;
+  trashedCount: number;
+  profileError: string | null;
+}) {
+  const prefs = useRunePreferences();
+  const [status, setStatus] = useState<Partial<Record<keyof RunePreferences, Status>>>({});
+
+  async function change<K extends keyof RunePreferences>(key: K, value: RunePreferences[K]) {
+    setStatus((s) => ({ ...s, [key]: { text: "Saving…" } }));
+    const error = await prefs.update({ [key]: value } as Partial<RunePreferences>);
+    setStatus((s) => ({ ...s, [key]: error ? { text: error, tone: "danger" } : { text: "Saved.", tone: "success" } }));
+  }
+
+  return (
+    <div className="r2 r2-settings" data-theme={prefs.appearance}>
+      <AppBar account={account} />
+      <main className="r2-settings-main">
+        <Link href="/projects" className="r2-home-back">
+          <ArrowLeft {...ICON} aria-hidden />
+          Projects
+        </Link>
+        <div className="r2-settings-head">
+          <h1>Settings</h1>
+        </div>
+
+        <section className="r2-settings-section" aria-labelledby="settings-writing">
+          <h2 id="settings-writing">Writing</h2>
+          <p className="r2-settings-scope">For all your projects, on every device.</p>
+          <div className="r2-settings-rows">
+            <Row
+              label="Manuscript type"
+              help="How your manuscript reads while you write and in Reading Mode. The rest of Rune is unchanged."
+              status={status.editorFont}
+            >
+              <div className="r2-segmented" role="group" aria-label="Manuscript type">
+                {EDITOR_FONTS.map((f) => (
+                  <button
+                    key={f.id}
+                    type="button"
+                    aria-pressed={prefs.editorFont === f.id}
+                    onClick={() => void change("editorFont", f.id)}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+            </Row>
+            <Row label="Check spelling" help="Your browser underlines words it doesn’t recognise as you write." status={status.spellcheck}>
+              <button
+                type="button"
+                role="switch"
+                className="r2-switch"
+                aria-checked={prefs.spellcheck}
+                aria-label="Check spelling"
+                onClick={() => void change("spellcheck", !prefs.spellcheck)}
+              />
+            </Row>
+            {/* Appearance: offered once there is more than one to choose (themes, Beta Completion C). */}
+            {APPEARANCES.length > 1 && (
+              <Row label="Appearance" status={status.appearance}>
+                <div className="r2-segmented" role="group" aria-label="Appearance">
+                  {APPEARANCES.map((a) => (
+                    <button
+                      key={a.id}
+                      type="button"
+                      aria-pressed={prefs.appearance === a.id}
+                      onClick={() => void change("appearance", a.id)}
+                    >
+                      {a.label}
+                    </button>
+                  ))}
+                </div>
+              </Row>
+            )}
+          </div>
+        </section>
+
+        <section className="r2-settings-section" aria-labelledby="settings-projects">
+          <h2 id="settings-projects">Projects</h2>
+          <p className="r2-settings-scope">
+            A project’s own settings — its title, export, backup, moving it to Trash — are in its menu: open the project
+            and choose its title.
+          </p>
+          <div className="r2-settings-rows">
+            <Row
+              label="Trash"
+              help={
+                trashedCount > 0
+                  ? `${trashedCount.toLocaleString()} ${trashedCount === 1 ? "project" : "projects"} in Trash, kept whole until you restore or delete them.`
+                  : "Projects you move to Trash are kept whole until you restore or delete them."
+              }
+            >
+              <Link href="/projects/trash" className="r2-button r2-button--sm">
+                Open Trash
+              </Link>
+            </Row>
+          </div>
+        </section>
+
+        <DeviceSection />
+
+        <AccountSection account={account} profileError={profileError} />
+      </main>
+    </div>
+  );
+}
+
+function Row({
+  label,
+  help,
+  status,
+  children,
+  danger,
+}: {
+  label: string;
+  help?: string;
+  status?: Status;
+  children?: React.ReactNode;
+  danger?: boolean;
+}) {
+  return (
+    <div className={`r2-settings-row${danger ? " r2-settings-danger" : ""}`}>
+      <div className="r2-settings-row-text">
+        <div className="r2-settings-row-label">{label}</div>
+        {help && <p className="r2-settings-row-help">{help}</p>}
+        {status !== undefined && (
+          <p className="r2-settings-status" role="status" data-tone={status?.tone}>
+            {status?.text ?? ""}
+          </p>
+        )}
+      </div>
+      {children && <div className="r2-settings-row-actions">{children}</div>}
+    </div>
+  );
+}
+
+// ── This device ─────────────────────────────────────────────────────────────
+// The offline save queue (IndexedDB): writing waiting to reach the server,
+// conflicts to resolve in their scene, unsent drafts whose scene is gone (copy
+// or discard — never dropped silently), and the read-only cache.
+
+type Summary = { pending: number; conflicts: number; retired: number; cached: number };
+
+function DeviceSection() {
+  const [summary, setSummary] = useState<Summary | null>(null);
+  const [drafts, setDrafts] = useState<RetiredDraft[]>([]);
+  const [busy, setBusy] = useState<"sync" | "clear" | null>(null);
+  const [confirmClear, setConfirmClear] = useState(false);
+  const [confirmDiscard, setConfirmDiscard] = useState<string | null>(null);
+  const [status, setStatus] = useState<Status>(null);
+
+  const load = useCallback(async () => {
+    const s = await getOfflineStorageSummary();
+    const d = s.retired > 0 ? await getRetiredDrafts() : [];
+    setSummary(s);
+    setDrafts(d);
+  }, []);
+
+  // What this device holds, read once on arrival (and again after each action).
+  useEffect(() => {
+    let live = true;
+    getOfflineStorageSummary()
+      .then(async (s) => ({ s, d: s.retired > 0 ? await getRetiredDrafts() : [] }))
+      .then(({ s, d }) => {
+        if (!live) return;
+        setSummary(s);
+        setDrafts(d);
+      });
+    return () => {
+      live = false;
+    };
+  }, []);
+
+  async function syncNow() {
+    setBusy("sync");
+    setStatus(null);
+    try {
+      const r = await flushPendingQueue();
+      const parts: string[] = [];
+      if (r.synced > 0) parts.push(`${r.synced} saved`);
+      if (r.conflicts > 0) parts.push(`${r.conflicts} need${r.conflicts === 1 ? "s" : ""} review`);
+      if (r.failed > 0) parts.push(`${r.failed} couldn’t be sent yet`);
+      setStatus({
+        text: parts.length > 0 ? `${parts.join(", ")}.` : "Nothing was waiting.",
+        tone: r.failed > 0 || r.conflicts > 0 ? "danger" : "success",
+      });
+    } catch {
+      setStatus({ text: "Couldn’t reach Rune. Your writing stays on this device.", tone: "danger" });
+    } finally {
+      setBusy(null);
+      await load();
+    }
+  }
+
+  async function clearCache() {
+    setBusy("clear");
+    setStatus(null);
+    try {
+      const n = await clearSceneCache();
+      setStatus({ text: n > 0 ? `Cleared ${n} cached scene${n === 1 ? "" : "s"}.` : "There was nothing to clear.", tone: "success" });
+    } catch {
+      setStatus({ text: "The cache couldn’t be cleared.", tone: "danger" });
+    } finally {
+      setConfirmClear(false);
+      setBusy(null);
+      await load();
+    }
+  }
+
+  async function copyDraft(sceneId: string) {
+    const text = await getRetiredDraftText(sceneId);
+    if (text === null) {
+      setStatus({ text: "That draft is no longer here.", tone: "danger" });
+      await load();
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(text);
+      setStatus({ text: "Draft copied.", tone: "success" });
+    } catch {
+      setStatus({ text: "It couldn’t be copied. Check your browser’s clipboard permission.", tone: "danger" });
+    }
+  }
+
+  async function discardDraft(sceneId: string) {
+    const ok = await discardRetiredDraft(sceneId);
+    setConfirmDiscard(null);
+    setStatus(ok ? { text: "Draft discarded.", tone: "success" } : { text: "That draft couldn’t be discarded.", tone: "danger" });
+    await load();
+  }
+
+  const waiting = summary ? summary.pending : null;
+
+  return (
+    <section className="r2-settings-section" aria-labelledby="settings-device">
+      <h2 id="settings-device">This device</h2>
+      <p className="r2-settings-scope">Only this browser. Writing is kept here until Rune has it.</p>
+      <div className="r2-settings-rows">
+        <Row
+          label="Writing waiting to be saved"
+          help={
+            summary === null
+              ? "Checking…"
+              : waiting === 0 && summary.conflicts === 0
+                ? "Everything written here has been saved to Rune."
+                : [
+                    waiting ? `${waiting} scene${waiting === 1 ? "" : "s"} waiting to be sent` : null,
+                    summary.conflicts
+                      ? `${summary.conflicts} scene${summary.conflicts === 1 ? "" : "s"} to review — open ${summary.conflicts === 1 ? "it" : "each"} to choose which version to keep`
+                      : null,
+                  ]
+                    .filter(Boolean)
+                    .join(". ") + "."
+          }
+          status={status}
+        >
+          <button type="button" className="r2-button r2-button--sm" disabled={busy !== null} onClick={() => void syncNow()}>
+            {busy === "sync" ? "Sending…" : "Send now"}
+          </button>
+        </Row>
+
+        {drafts.length > 0 && (
+          <div className="r2-settings-row">
+            <div className="r2-settings-row-text">
+              <div className="r2-settings-row-label">Unsent drafts</div>
+              <p className="r2-settings-row-help">
+                Written to scenes that no longer exist in Rune, so they can’t be saved there. Nothing was discarded: copy
+                the text to keep it, or discard it.
+              </p>
+              <div className="r2-settings-drafts">
+                {drafts.map((d) => (
+                  <div key={d.sceneId} className="r2-settings-draft">
+                    <span className="r2-settings-row-value">
+                      {d.title ?? "Untitled scene"} · {d.wordCount.toLocaleString()} word{d.wordCount === 1 ? "" : "s"}
+                    </span>
+                    {confirmDiscard === d.sceneId ? (
+                      <span className="r2-settings-row-actions">
+                        <button type="button" className="r2-button r2-button--danger r2-button--sm" onClick={() => void discardDraft(d.sceneId)}>
+                          Discard draft
+                        </button>
+                        <button type="button" className="r2-button r2-button--quiet r2-button--sm" onClick={() => setConfirmDiscard(null)}>
+                          Cancel
+                        </button>
+                      </span>
+                    ) : (
+                      <span className="r2-settings-row-actions">
+                        <button type="button" className="r2-button r2-button--sm" onClick={() => void copyDraft(d.sceneId)}>
+                          Copy text
+                        </button>
+                        <button type="button" className="r2-button r2-button--quiet r2-button--sm" onClick={() => setConfirmDiscard(d.sceneId)}>
+                          Discard…
+                        </button>
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        <Row
+          label="Cached scenes"
+          help={`${summary ? summary.cached.toLocaleString() : "—"} kept for reading offline. Clearing frees space; it never removes writing waiting to be saved.`}
+        >
+          {confirmClear ? (
+            <>
+              <button type="button" className="r2-button r2-button--sm" disabled={busy !== null} onClick={() => void clearCache()}>
+                {busy === "clear" ? "Clearing…" : "Clear cache"}
+              </button>
+              <button type="button" className="r2-button r2-button--quiet r2-button--sm" onClick={() => setConfirmClear(false)}>
+                Cancel
+              </button>
+            </>
+          ) : (
+            <button type="button" className="r2-button r2-button--quiet r2-button--sm" disabled={busy !== null} onClick={() => setConfirmClear(true)}>
+              Clear…
+            </button>
+          )}
+        </Row>
+      </div>
+    </section>
+  );
+}
+
+// ── Account ─────────────────────────────────────────────────────────────────
+
+function AccountSection({ account, profileError }: { account: Account; profileError: string | null }) {
+  const router = useRouter();
+  const [penName, setPenName] = useState(account.penName ?? "");
+  const [savedPenName, setSavedPenName] = useState(account.penName ?? "");
+  const [penStatus, setPenStatus] = useState<Status>(profileError ? { text: "Your profile couldn’t be loaded.", tone: "danger" } : null);
+  const [savingPen, setSavingPen] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportStatus, setExportStatus] = useState<Status>(null);
+  const out = useLogOut();
+  const [deleting, setDeleting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [deleteStatus, setDeleteStatus] = useState<Status>(null);
+
+  async function savePen(e: FormEvent) {
+    e.preventDefault();
+    if (savingPen || penName.trim() === savedPenName) return;
+    setSavingPen(true);
+    setPenStatus({ text: "Saving…" });
+    try {
+      const r = await updatePenName(penName);
+      if (r.error !== null) setPenStatus({ text: r.error, tone: "danger" });
+      else {
+        setSavedPenName(r.data);
+        setPenName(r.data);
+        setPenStatus({ text: "Saved.", tone: "success" });
+        router.refresh();
+      }
+    } catch {
+      setPenStatus({ text: "You appear to be offline. Nothing was changed.", tone: "danger" });
+    } finally {
+      setSavingPen(false);
+    }
+  }
+
+  async function exportData() {
+    setExporting(true);
+    setExportStatus(null);
+    try {
+      const { data, error } = await exportUserData();
+      if (error || !data) {
+        setExportStatus({ text: "Your writing couldn’t be read for the download. Try again.", tone: "danger" });
+        return;
+      }
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `rune-export-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      setExportStatus({ text: "Saved to your downloads.", tone: "success" });
+    } catch {
+      setExportStatus({ text: "You appear to be offline. Try again when you’re connected.", tone: "danger" });
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  async function removeAccount() {
+    if (confirmDelete !== "DELETE" || deleting) return;
+    setDeleting(true);
+    setDeleteStatus(null);
+    try {
+      const { error } = await deleteAccount();
+      if (error) {
+        setDeleteStatus({ text: error, tone: "danger" });
+        setDeleting(false);
+        return;
+      }
+      await createClient().auth.signOut();
+      window.location.href = "/";
+    } catch {
+      setDeleteStatus({ text: "You appear to be offline. Nothing was deleted.", tone: "danger" });
+      setDeleting(false);
+    }
+  }
+
+  return (
+    <section className="r2-settings-section" aria-labelledby="settings-account">
+      <h2 id="settings-account">Account</h2>
+      <div className="r2-settings-rows">
+        <div className="r2-settings-row">
+          <form className="r2-settings-row-text" onSubmit={savePen}>
+            <label htmlFor="settings-pen-name" className="r2-settings-row-label">
+              Pen name
+            </label>
+            <p className="r2-settings-row-help">The name Rune uses for you.</p>
+            <div className="r2-settings-confirm" style={{ marginTop: 8 }}>
+              <input
+                id="settings-pen-name"
+                className="r2-field"
+                style={{ width: 240 }}
+                value={penName}
+                maxLength={PEN_NAME_MAX_LENGTH}
+                autoComplete="nickname"
+                disabled={savingPen}
+                onChange={(e) => setPenName(e.target.value)}
+              />
+              <button type="submit" className="r2-button r2-button--sm" disabled={savingPen || penName.trim() === savedPenName || !penName.trim()}>
+                Save
+              </button>
+            </div>
+            <p className="r2-settings-status" role="status" data-tone={penStatus?.tone}>
+              {penStatus?.text ?? ""}
+            </p>
+          </form>
+        </div>
+        <Row label="Email" help="The address you sign in with.">
+          <span className="r2-settings-row-value">{account.email}</span>
+        </Row>
+        <Row
+          label="Download your writing"
+          help="Every project’s manuscript — chapters and scenes — as one JSON file. For a complete copy of one project, use its backup."
+          status={exportStatus}
+        >
+          <button type="button" className="r2-button r2-button--sm" disabled={exporting} onClick={() => void exportData()}>
+            {exporting ? "Preparing…" : "Download"}
+          </button>
+        </Row>
+        <Row label="Log out" status={out.error ? { text: out.error, tone: "danger" } : undefined}>
+          <button type="button" className="r2-button r2-button--sm" disabled={out.busy} onClick={out.logOut}>
+            {out.busy ? "Logging out…" : "Log out"}
+          </button>
+          {out.dialog}
+        </Row>
+        <Row
+          label="Delete account"
+          help="Permanently deletes your account and every project in it, including Trash. This can’t be undone."
+          status={deleteStatus}
+          danger
+        >
+          {confirmDelete === null ? (
+            <button type="button" className="r2-button r2-button--quiet r2-button--sm" data-tone="danger" onClick={() => setConfirmDelete("")}>
+              Delete account…
+            </button>
+          ) : (
+            <span className="r2-settings-confirm">
+              <label htmlFor="settings-delete-confirm" className="r2-settings-row-help">
+                Type DELETE to confirm
+              </label>
+              <input
+                id="settings-delete-confirm"
+                className="r2-field r2-field--sm"
+                value={confirmDelete}
+                autoComplete="off"
+                spellCheck={false}
+                placeholder="DELETE"
+                autoFocus
+                disabled={deleting}
+                onChange={(e) => setConfirmDelete(e.target.value)}
+              />
+              <button
+                type="button"
+                className="r2-button r2-button--danger r2-button--sm"
+                disabled={confirmDelete !== "DELETE" || deleting}
+                onClick={() => void removeAccount()}
+              >
+                {deleting ? "Deleting…" : "Delete account permanently"}
+              </button>
+              <button type="button" className="r2-button r2-button--quiet r2-button--sm" disabled={deleting} onClick={() => setConfirmDelete(null)}>
+                Cancel
+              </button>
+            </span>
+          )}
+        </Row>
+      </div>
+    </section>
+  );
+}

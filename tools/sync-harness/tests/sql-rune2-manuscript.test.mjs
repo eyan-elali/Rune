@@ -152,8 +152,12 @@ test('creating a Project creates exactly one Manuscript, readable only by its ow
 test('deleting a Project deletes its Manuscript, Chapters, Scenes (placed and Unplaced) and their writing history', async () => {
   const db = await seededDb();
   const m = await manuscriptOf(db, projectId('hollow'));
-  const del = await as(db, ALICE).from('projects').delete().eq('id', projectId('hollow')).select('id');
-  assert.equal(del.data.length, 1);
+  // Clients cannot DELETE a Project (049): only a Project in Trash is deleted, by delete_trashed_project.
+  const direct = await as(db, ALICE).from('projects').delete().eq('id', projectId('hollow')).select('id');
+  assert.ok(direct.error, 'a client DELETE is refused');
+  assert.equal((await as(db, ALICE).rpc('trash_project', { p_project_id: projectId('hollow') })).data.status, 'ok');
+  const del = await as(db, ALICE).rpc('delete_trashed_project', { p_project_id: projectId('hollow') });
+  assert.equal(del.data.status, 'ok', JSON.stringify(del));
   const counts = await one(db, `select
       (select count(*)::int from public.manuscripts where id = $1) as manuscripts,
       (select count(*)::int from public.chapters where manuscript_id = $1) as chapters,

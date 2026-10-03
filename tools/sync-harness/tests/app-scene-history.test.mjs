@@ -116,6 +116,14 @@ async function liveState(db) {
 
 // ── 1. Checkpoints ────────────────────────────────────────────────────────────
 
+
+/** Permanent Project deletion, the only way there is (049): to Trash, then deleted from Trash. */
+async function purgeProject(id) {
+  const t = await projects.trashProject(id);
+  if (t.error !== null) return { error: t.error };
+  return projects.deleteTrashedProject(id);
+}
+
 test('checkpoint: the first save after a pause keeps the text it replaces — same Scene, its words, title and time', async () => {
   const db = await seededDb();
   const before = await sceneRow(db, pageId('h1a'));
@@ -519,7 +527,7 @@ test('history is not live: not searched, not duplicated; deleting the Project ta
   assert.equal((await one(db, `select count(*)::int as n from public.scene_revisions where manuscript_id = $1`, [copyManuscript])).n, 0);
   assert.equal((await one(db, `select count(*)::int as n from public.manuscript_milestones where manuscript_id = $1`, [copyManuscript])).n, 0);
 
-  assert.equal((await projects.deleteProject(HOLLOW)).error, null);
+  assert.equal((await purgeProject(HOLLOW)).error, null);
   const m = await all(db, `select id from public.manuscripts where project_id = $1`, [HOLLOW]);
   assert.deepEqual(m, []);
   assert.equal((await one(db, `select count(*)::int as n from public.manuscript_milestones`)).n, 0);

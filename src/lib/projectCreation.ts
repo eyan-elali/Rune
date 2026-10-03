@@ -38,6 +38,9 @@ export type CreateProjectResult =
     }
   | { status: "error"; error: string };
 
+/** The longest Project title the app accepts (a rename; creation trims, as the database does). */
+export const PROJECT_TITLE_MAX = 200;
+
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function createProjectChecked(

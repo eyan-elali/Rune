@@ -51,8 +51,7 @@ export async function createGameSession(
     console.error("❌ SUPABASE INSERT ERROR:", error);
     return { data: null, error: error.message };
   }
-  revalidatePath("/profile");
-  revalidatePath("/dashboard");
+  revalidatePath("/projects");
   return { data: data as { id: string }, error: null };
 }
 
@@ -141,9 +140,6 @@ export async function appendSprintToProject(
 
   revalidateProjectTotals(projectId);
 
-  revalidatePath(`/projects/${projectId}`);
-  revalidatePath(`/projects/${projectId}/chapters/${chapterId}`);
-
   return { data: { id: result.id }, error: null };
 }
 
@@ -205,11 +201,6 @@ export async function appendToExistingScene(
 
   if (projectId) {
     revalidateProjectTotals(projectId);
-
-    revalidatePath(`/projects/${projectId}`);
-    if (scene.chapter_id) {
-      revalidatePath(`/projects/${projectId}/chapters/${scene.chapter_id}`);
-    }
   }
 
   return { data: { id: sceneId }, error: null };

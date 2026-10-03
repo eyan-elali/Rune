@@ -11,6 +11,7 @@
 //
 //   from(t).select('a, b' | '*', { count: 'exact', head: true }?)
 //          .eq / neq / gt / gte / lt / lte / is / in / filter(col, op, val)
+//          .not(col, 'is', null)
 //          .order(col, { ascending }) .limit(n)
 //          .single() / .maybeSingle() / await
 //   from(t).insert(obj | obj[]) [.select(cols)] [.single()]
@@ -20,7 +21,7 @@
 //   auth.getUser() / auth.getSession()
 //
 // Anything else — embedded resources like 'pages(id)', JSON-path filters,
-// upsert, or/not/range/textSearch — throws "adapter: unsupported …" so a test
+// upsert, or/range/textSearch, any other not() — throws "adapter: unsupported …" so a test
 // can never silently pass on a shape this adapter doesn't really implement.
 import { withRole } from './pg.mjs';
 
@@ -129,6 +130,11 @@ class Query {
     return this._f(c, 'is', v);
   }
   in(c, arr) { return this._f(c, 'in', arr); }
+  // Only the negated null test (`.not(col, 'is', null)`); any other negation is unsupported.
+  not(c, op, v) {
+    if (op !== 'is' || (v !== null && v !== 'null')) throw new Error(`adapter: unsupported not(${c}, ${op}, ${v})`);
+    return this._f(c, 'is not', null);
+  }
   filter(c, op, v) {
     if (!(op in OPS) && op !== 'is') throw new Error(`adapter: unsupported filter operator ${op}`);
     if (op === 'is') return this.is(c, v === 'null' ? null : v);
@@ -147,6 +153,7 @@ class Query {
     const parts = this.filters.map(({ col, op, value }) => {
       const c = ident(col, 'column');
       if (op === 'is') return value === null ? `${c} is null` : `${c} is ${value ? 'true' : 'false'}`;
+      if (op === 'is not') return `${c} is not null`;
       if (op === 'in') { params.push(value); return `${c} = any($${params.length})`; }
       params.push(param(value));
       return `${c} ${OPS[op]} $${params.length}`;

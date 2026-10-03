@@ -34,7 +34,7 @@ export default function CompleteProfileClient() {
       return;
     }
 
-    const redirectTo = result.redirectTo ?? "/dashboard";
+    const redirectTo = result.redirectTo ?? "/projects";
     if (redirectTo === "/auth/continue") {
       // /auth/continue is a route handler, not a page — a full navigation
       // ensures it actually runs server-side rather than 404ing under

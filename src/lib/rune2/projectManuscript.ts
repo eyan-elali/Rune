@@ -20,6 +20,8 @@ export type ManuscriptOutlineNode = OutlineNode<ManuscriptGroup, ChapterWithScen
 
 export type ProjectManuscript = {
   project: { id: string; title: string };
+  /** When the Project went to Trash (049), or null while it is active. */
+  trashedAt: string | null;
   outline: ManuscriptOutlineNode[];
   groupCount: number;
   chapterCount: number;
@@ -41,7 +43,7 @@ export const loadProjectManuscript = cache(
     const supabase = await createClient();
 
     const [{ data: project }, chapters, groups, unplaced] = await Promise.all([
-      supabase.from("projects").select("id, title").eq("id", projectId).maybeSingle(),
+      supabase.from("projects").select("id, title, trashed_at").eq("id", projectId).maybeSingle(),
       getChaptersWithScenes(supabase, projectId),
       getManuscriptGroups(supabase, projectId),
       getUnplacedSceneSummaries(supabase, projectId),
@@ -52,7 +54,8 @@ export const loadProjectManuscript = cache(
     if (error) throw new Error(`Could not load the manuscript: ${error.message}`);
 
     return {
-      project: project as { id: string; title: string },
+      project: { id: project.id as string, title: project.title as string },
+      trashedAt: (project.trashed_at as string | null) ?? null,
       outline: buildManuscriptOutline(groups.data, chapters.data),
       groupCount: groups.data.length,
       chapterCount: chapters.data.length,
@@ -63,16 +66,3 @@ export const loadProjectManuscript = cache(
     };
   }
 );
-
-/** The Project the writer most recently worked in — the Dashboard's "current" Project. */
-export async function getMostRecentProjectId(userId: string): Promise<string | null> {
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("projects")
-    .select("id")
-    .eq("user_id", userId)
-    .order("updated_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  return (data?.id as string | undefined) ?? null;
-}

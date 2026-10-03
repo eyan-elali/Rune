@@ -102,6 +102,14 @@ async function assertTotalsAgree(db, pid, userId, expected, context = '') {
 
 // ── 1. one counting rule ──────────────────────────────────────────────────────
 
+
+/** Permanent Project deletion, the only way there is (049): to Trash, then deleted from Trash. */
+async function purgeProject(id) {
+  const t = await projects.trashProject(id);
+  if (t.error !== null) return { error: t.error };
+  return projects.deleteTrashedProject(id);
+}
+
 test('counting: the app rule, the SQL rule and the stored total agree for every Project; Unplaced words are excluded', async () => {
   const db = await seededDb();
   await db.exec(readMigration('020_manuscript_totals.sql').match(/^update public\.projects p[\s\S]*?;$/m)[0]); // heal ash's stale 999
@@ -182,7 +190,7 @@ test('stored total: correct after every save, creation, move, reorder, deletion 
   const dup = await projects.duplicateProject(tide);
   assert.equal(dup.error, null, dup.error);
   await assertTotalsAgree(db, dup.data.id, BRAM, expected, 'the duplicate');
-  assert.equal((await projects.deleteProject(dup.data.id)).error, null, 'a Project deletion cascades through the trigger cleanly');
+  assert.equal((await purgeProject(dup.data.id)).error, null, 'a Project deletion cascades through the trigger cleanly');
   assert.equal((await one(db, `select count(*)::int as n from public.scenes s join public.manuscripts m on m.id = s.manuscript_id where m.project_id = $1`, [dup.data.id])).n, 0);
   await assertTotalsAgree(db, tide, BRAM, expected, 'the source, after its copy is deleted');
 });

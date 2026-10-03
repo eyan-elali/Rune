@@ -45,7 +45,7 @@ export default async function OnboardingPage() {
 
   // Users with existing projects belong in the app, not onboarding.
   if ((count ?? 0) > 0) {
-    redirect("/dashboard");
+    redirect("/projects");
   }
 
   // Best-effort — analytics must never block onboarding from rendering.

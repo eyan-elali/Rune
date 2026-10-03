@@ -226,6 +226,15 @@ export const RUNE2_NOTES = {
     'Clients cannot INSERT projects (create_project_checked and',
     'duplicate_project_checked create them) or change word_count',
     '(projects_protect_word_count). creation_request_id deduplicates retries.',
+    'trashed_at (049): in Project Trash — kept whole, left out of the Projects list;',
+    'moved only by trash_project / restore_project (projects_protect_trashed_at).',
+    'Clients cannot DELETE: delete_trashed_project deletes only a trashed Project.',
+  ],
+  project_storage_purges: [
+    'Object-storage bytes owed a removal after their Project was deleted (049):',
+    'the attachment keys delete_trashed_project recorded in the same transaction.',
+    'The server removes the bytes, then the row; an unfinished purge is retried.',
+    'No FK (the Project is gone). Owner reads and deletes; nothing else.',
   ],
   scenes: [
     'Manuscript prose. A Scene BELONGS to one Manuscript (manuscript_id, never',

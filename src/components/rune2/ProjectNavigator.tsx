@@ -16,6 +16,9 @@ import {
   ArrowDown,
   ArrowLeft,
   ArrowUp,
+  Archive,
+  BookOpen,
+  ChevronDown,
   ChevronRight,
   File as PageIcon,
   FilePlus,
@@ -36,6 +39,7 @@ import {
   Pilcrow,
   Plus,
   Search,
+  Settings,
   Trash2,
   type LucideIcon,
 } from "lucide-react";
@@ -77,6 +81,8 @@ import { useRune2Selection } from "./Rune2Selection";
 import { useDragAutoScroll } from "./useDragAutoScroll";
 import { useTrash } from "./WorkspaceTrash";
 import { useProjectExport } from "./ProjectExport";
+import { RenameProjectDialog } from "./ProjectDialogs";
+import { trashProject } from "@/lib/actions/projects";
 
 // The Rune 2.0 project navigator: the Manuscript (Groups → Chapters → Scenes)
 // in reading order, then Unplaced Scenes, then the Workspace (its Pages,
@@ -171,6 +177,7 @@ export function ProjectNavigator() {
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [menu, setMenu] = useState<MenuState | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [renamingProject, setRenamingProject] = useState(false);
   const [dragging, setDragging] = useState<WorkspaceTreeNode | null>(null);
   const [mdrag, setMdrag] = useState<ManuscriptDrag | null>(null);
   const [drop, setDrop] = useState<{ id: string; side: DropSide } | null>(null);
@@ -397,6 +404,41 @@ export function ProjectNavigator() {
 
   const openMenu = (label: string, at: { x: number; y: number }, items: NavigatorMenuItem[]) =>
     setMenu((prev) => ({ key: (prev?.key ?? 0) + 1, label, at, items }));
+
+  // The Project's own actions, from its title: what the Project is called,
+  // reading it out whole, putting it away — and the way out of it.
+  function projectItems(): NavigatorMenuItem[] {
+    return [
+      { label: "Rename project", icon: Pencil, onSelect: () => setRenamingProject(true) },
+      ...(exporter
+        ? [
+            { label: "Export manuscript…", icon: FileDown, onSelect: () => exporter.openExport({ kind: "manuscript" }) },
+            { label: "Download project backup…", icon: Archive, onSelect: () => exporter.openBackup() },
+          ]
+        : []),
+      { label: "Move project to Trash", icon: Trash2, separator: true, onSelect: () => void moveProjectToTrash() },
+      { label: "All projects", icon: BookOpen, separator: true, onSelect: () => router.push("/projects") },
+      { label: "Settings", icon: Settings, onSelect: () => router.push("/settings") },
+    ];
+  }
+
+  async function moveProjectToTrash() {
+    setBusy(true);
+    setNotice(null);
+    try {
+      const r = await trashProject(projectId);
+      if (r.error !== null) {
+        setNotice("Couldn’t move the project to Trash.");
+        setBusy(false);
+        return;
+      }
+      // Recoverable: Projects offers Undo.
+      router.push(`/projects?trashed=${projectId}`);
+    } catch {
+      setNotice("You appear to be offline. Nothing was changed.");
+      setBusy(false);
+    }
+  }
 
   function manuscriptAddItems(): NavigatorMenuItem[] {
     return [
@@ -1227,9 +1269,20 @@ export function ProjectNavigator() {
       inert={navCollapsed || undefined}
     >
       <div className="r2-nav-header">
-        <span className="r2-nav-project" title={manuscript.project.title}>
-          {manuscript.project.title}
-        </span>
+        <button
+          type="button"
+          className="r2-nav-project"
+          title={manuscript.project.title}
+          aria-haspopup="menu"
+          aria-label={`${manuscript.project.title} — project actions`}
+          onClick={(e) => {
+            const r = e.currentTarget.getBoundingClientRect();
+            openMenu(`${manuscript.project.title} actions`, { x: r.left, y: r.bottom + 4 }, projectItems());
+          }}
+        >
+          <span className="r2-nav-project-title">{manuscript.project.title}</span>
+          <ChevronDown {...ICON_SM_BOLD} aria-hidden />
+        </button>
         <Tooltip label={<>Search <kbd>⌘K</kbd></>}>
           <button
             type="button"
@@ -1367,9 +1420,9 @@ export function ProjectNavigator() {
       )}
 
       <div className="r2-nav-footer">
-        <Link href="/dashboard">
+        <Link href="/projects">
           <ArrowLeft {...ICON} aria-hidden />
-          Back to Rune
+          Projects
         </Link>
         {trash.available && (
           <button
@@ -1392,6 +1445,16 @@ export function ProjectNavigator() {
           at={menu.at}
           items={menu.items}
           onClose={() => setMenu(null)}
+        />
+      )}
+      {renamingProject && (
+        <RenameProjectDialog
+          project={manuscript.project}
+          onClose={() => setRenamingProject(false)}
+          onRenamed={() => {
+            setRenamingProject(false);
+            startRefresh(() => router.refresh());
+          }}
         />
       )}
     </nav>

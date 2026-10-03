@@ -14,7 +14,6 @@ import { getOfflineDB, getPendingWrite, storeOfflineWritingCredit, SCENE_CACHE_S
 import { useNetworkStore } from "@/store/networkStore";
 import { awardProjectXp } from "@/lib/actions/xp";
 import { xpRewardForWords } from "@/lib/xp";
-import { unlockToastMessage } from "@/lib/unlockables";
 import { useEditorStore } from "@/store/editorStore";
 import { useModeStore } from "@/store/modeStore";
 import { useProfileStore } from "@/store/profileStore";
@@ -369,10 +368,10 @@ export function useSceneEditor({
           void awardProjectXp(xpGain, { mode: "project" }, sessionId.current).then((result) => {
             if (result.data) {
               setStoredProfile(result.data);
+              // XP and Levels are legacy (retired in Rune 2.0): still recorded,
+              // never announced — no unlock toast in the writing surface.
               if (result.data.leveledUp) {
                 setPendingLevelUp({ newLevel: result.data.newLevel, newUnlockables: result.data.newUnlockables });
-              } else if (result.data.newUnlockables.length > 0) {
-                showToast(unlockToastMessage(result.data.newUnlockables), "success");
               }
               if (!isFocusModeRef.current) {
                 setXpFlash({ id: Date.now(), amount: xpGain });

@@ -292,7 +292,8 @@ function NoteBody({
       readOnly={!editing}
       tabIndex={editing ? 0 : -1}
       value={text}
-      spellCheck={editing}
+      // Checked only while editing, and then as the writer chose (inherited from the shell).
+      spellCheck={editing ? undefined : false}
       onChange={(e) => onChange(id, e.target.value)}
       onBlur={() => {
         if (!editing) return;

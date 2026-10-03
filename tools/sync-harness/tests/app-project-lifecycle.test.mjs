@@ -142,6 +142,14 @@ async function structureOf(db, pid) {
 
 // ── 1. atomic creation ────────────────────────────────────────────────────────
 
+
+/** Permanent Project deletion, the only way there is (049): to Trash, then deleted from Trash. */
+async function purgeProject(id) {
+  const t = await projects.trashProject(id);
+  if (t.error !== null) return { error: t.error };
+  return projects.deleteTrashedProject(id);
+}
+
 test('createProject, createProjectWithDraft and onboarding: ONE database call creates Project → Manuscript → "Chapter 1" → empty "Scene 1"', async () => {
   const db = await seededDb();
   const sb = signIn(db, CORA);
@@ -443,7 +451,7 @@ test('a Chapter removal that fails part-way rolls back completely: the Chapter a
 test('deleting a Project still removes its whole Manuscript (the non-cascading Scene→Chapter FK does not block it)', async () => {
   const db = await seededDb();
   signIn(db, BRAM);
-  assert.deepEqual(await projects.deleteProject(projectId('tide')), { error: null });
+  assert.deepEqual(await purgeProject(projectId('tide')), { error: null });
   const left = await one(db, `select
     (select count(*)::int from public.chapters where id = any($1::uuid[])) as chapters,
     (select count(*)::int from public.scenes where id = any($2::uuid[])) as scenes`,

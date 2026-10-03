@@ -39,7 +39,7 @@ export default async function CompleteProfilePage() {
       .from("projects")
       .select("id", { count: "exact", head: true })
       .eq("user_id", user.id);
-    redirect((count ?? 0) > 0 ? "/dashboard" : "/onboarding");
+    redirect((count ?? 0) > 0 ? "/projects" : "/onboarding");
   }
 
   return (

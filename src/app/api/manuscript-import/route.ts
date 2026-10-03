@@ -38,6 +38,5 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: result.error }, { status: 422 });
   }
   revalidatePath("/projects");
-  revalidatePath("/dashboard");
   return NextResponse.json(result.data);
 }

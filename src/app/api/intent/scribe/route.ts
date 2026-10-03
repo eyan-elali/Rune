@@ -39,12 +39,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(result.url);
     }
     if (result.status === "already_subscribed") {
-      return NextResponse.redirect(`${origin}/dashboard`);
+      return NextResponse.redirect(`${origin}/projects`);
     }
     // "unauthenticated" can't happen here (we just checked); "error" means
     // Checkout itself couldn't be reached — the account is fine either way,
     // so land them in the workspace rather than a dead end.
-    return NextResponse.redirect(`${origin}/dashboard?checkoutError=1`);
+    return NextResponse.redirect(`${origin}/projects?checkoutError=1`);
   }
 
   const response = NextResponse.redirect(

@@ -64,7 +64,7 @@ export default function LoginClient({ hasScribeIntent = false }: LoginClientProp
         // signInWithPassword just set to already be on the request.
         window.location.href = "/auth/continue";
       } else {
-        router.push("/dashboard");
+        router.push("/projects");
         router.refresh();
       }
     }

@@ -182,7 +182,7 @@ test('bundle: real revalidateProjectTotals runs against PGlite (Rune 2.0 schema)
   assert.equal(await stored(), 140, 'the app helper never writes the total');
   assert.deepEqual(
     mod.revalidateCalls.map((c) => c.path),
-    [`/projects/${PROJ}`, '/profile'],
+    [`/projects/${PROJ}`, '/projects'],
     'next/cache mock recorded revalidatePath calls'
   );
 });

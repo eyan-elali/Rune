@@ -16,6 +16,10 @@ export interface UserPreferences {
    * affects manuscript editing and reading prose only, never the interface.
    */
   rune2EditorFont?: Rune2EditorFont;
+  /** Rune 2.0: the browser's spelling check while writing (on unless false). */
+  rune2Spellcheck?: boolean;
+  /** Rune 2.0 appearance id (lib/rune2/preferences.ts APPEARANCES). */
+  rune2Appearance?: string;
 }
 
 export type Rune2EditorFont = "serif" | "sans";

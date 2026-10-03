@@ -411,13 +411,11 @@ export function OnboardingClient({ authorName, initialTheme }: Props) {
       return;
     }
 
-    const { projectId, chapterId } = json.data;
+    // Into the new Project (the Rune 2.0 shell). The Rune 1.x editor
+    // tutorial the old chapter route offered is retired with that editor.
+    const { projectId } = json.data;
     startTransition(() => {
-      router.replace(
-        chapterId
-          ? `/projects/${projectId}/chapters/${chapterId}?tutorial=editor`
-          : `/projects/${projectId}`
-      );
+      router.replace(`/projects/${projectId}`);
     });
   }, [title, firstSentence, letterContent, theme, reducedMotion, router, startTransition]);
 

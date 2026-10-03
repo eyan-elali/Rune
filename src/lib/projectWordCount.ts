@@ -2,8 +2,7 @@ import { revalidatePath } from "next/cache";
 
 /**
  * Invalidates the caches that display a project's ordered manuscript total —
- * the project detail page and the profile page — after a change to its
- * Scenes.
+ * the Project and the Projects list — after a change to its Scenes.
  *
  * It does not write projects.word_count. The database maintains that column
  * (trigger scenes_refresh_project_word_count, migration 020) in the same
@@ -14,5 +13,5 @@ import { revalidatePath } from "next/cache";
  */
 export function revalidateProjectTotals(projectId: string): void {
   revalidatePath(`/projects/${projectId}`);
-  revalidatePath("/profile");
+  revalidatePath("/projects");
 }

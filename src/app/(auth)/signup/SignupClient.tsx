@@ -60,7 +60,7 @@ export default function SignupClient({ hasScribeIntent = false }: SignupClientPr
         data: { display_name: normalizedDisplayName },
         emailRedirectTo: (() => {
           const u = new URL('/auth/callback', window.location.origin)
-          u.searchParams.set('next', '/dashboard')
+          u.searchParams.set('next', '/projects')
           u.searchParams.set('intent', 'signup')
           return u.toString()
         })(),

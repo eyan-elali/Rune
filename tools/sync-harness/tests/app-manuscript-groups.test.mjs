@@ -138,6 +138,14 @@ async function buildHollowStructure() {
 
 // ── 1. nested Groups, Chapter placement ────────────────────────────────────────
 
+
+/** Permanent Project deletion, the only way there is (049): to Trash, then deleted from Trash. */
+async function purgeProject(id) {
+  const t = await projects.trashProject(id);
+  if (t.error !== null) return { error: t.error };
+  return projects.deleteTrashedProject(id);
+}
+
 test('nested Groups: Chapters move into and out of Groups; ids, Scenes, history and totals are untouched; the app reads in the new order', async () => {
   const db = await seededDb();
   signIn(db, ALICE);
@@ -386,11 +394,11 @@ test('createChapter appends after the last top-level Group; duplicateProject cop
   assert.equal(await storedTotal(db, dup.id), 1320);
   await assertStructure(db);
 
-  assert.deepEqual(await projects.deleteProject(dup.id), { error: null });
+  assert.deepEqual(await purgeProject(dup.id), { error: null });
   signIn(db, ALICE);
-  assert.deepEqual(await projects.deleteProject(HOLLOW), { error: null }, 'nested Groups do not block a Project deletion');
+  assert.deepEqual(await purgeProject(HOLLOW), { error: null }, 'nested Groups do not block a Project deletion');
   signIn(db, BRAM);
-  assert.deepEqual(await projects.deleteProject(TIDE), { error: null });
+  assert.deepEqual(await purgeProject(TIDE), { error: null });
   assert.equal((await one(db, `select count(*)::int as n from public.manuscript_groups`)).n, 0);
 });
 
@@ -554,7 +562,7 @@ test('Today\'s Words, streaks, daily history and all-time words do not drop when
     .map((r) => r.words_added), [61]);
 
   // Deleting a whole Project still removes that Project's history (unchanged).
-  assert.deepEqual(await projects.deleteProject(projectId('ash')), { error: null });
+  assert.deepEqual(await purgeProject(projectId('ash')), { error: null });
   assert.equal((await one(db, `select count(*)::int as n from public.writing_sessions where project_id = $1`, [projectId('ash')])).n, 0);
   assert.equal((await one(db, `select count(*)::int as n from public.writing_sessions where user_id = $1 and session_date = '2026-08-03'`, [ALICE])).n, 1,
     'hollow\'s row that day stays');

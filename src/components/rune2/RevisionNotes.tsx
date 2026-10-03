@@ -369,7 +369,6 @@ export function NoteComposer({
         value={draft}
         maxLength={REVISION_NOTE_MAX}
         disabled={!sync}
-        spellCheck
         autoFocus={autoFocus}
         onChange={(e) => setDraft(e.target.value)}
         onKeyDown={keyDown}
@@ -384,7 +383,6 @@ export function NoteComposer({
           value={details}
           maxLength={REVISION_NOTE_MAX}
           disabled={!sync}
-          spellCheck
           onChange={(e) => setDetails(e.target.value)}
           onKeyDown={keyDown}
         />
@@ -507,7 +505,6 @@ function NoteItem({ note, label }: { note: ShownNote; label: string }) {
               autoFocus
               value={text}
               maxLength={REVISION_NOTE_MAX}
-              spellCheck
               onChange={(e) => {
                 draft.current.body = e.target.value;
                 setText(e.target.value);
@@ -521,7 +518,6 @@ function NoteItem({ note, label }: { note: ShownNote; label: string }) {
                 placeholder="Details — optional"
                 value={details}
                 maxLength={REVISION_NOTE_MAX}
-                spellCheck
                 onChange={(e) => {
                   draft.current.details = e.target.value;
                   setDetails(e.target.value);

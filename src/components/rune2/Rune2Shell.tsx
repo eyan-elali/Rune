@@ -18,6 +18,7 @@ import { Rune2Tabs } from "./Rune2Tabs";
 import { ViewStoreProvider } from "./ViewStore";
 import { TrashProvider, TrashView } from "./WorkspaceTrash";
 import { useEditorFont } from "./useEditorFont";
+import { useRunePreferences } from "./RunePreferences";
 import { useWritingChrome } from "./useWritingChrome";
 
 // The Rune 2.0 application shell:
@@ -56,7 +57,9 @@ import { useWritingChrome } from "./useWritingChrome";
 // everything beneath mounted and merely inert, so closing the reader returns
 // the writer to exactly the context they left. The shell carries
 // `data-reading` meanwhile, and `data-editor-font` always (the writer's
-// manuscript type, useEditorFont), which the prose tokens read.
+// manuscript type, useEditorFont), which the prose tokens read. It carries
+// the writer's appearance as `data-theme` (RunePreferences), and their
+// spelling-check choice as `spellcheck`, which every editor inside inherits.
 
 export const NAV_DEFAULT = 252;
 export const NAV_MIN = 200;
@@ -97,6 +100,7 @@ function Frame({ children }: { children: ReactNode }) {
   const { navCollapsed, setNavCollapsed, navWidth, setNavWidth, trashOpen, panel, reading, readingMode } =
     useRune2Selection();
   const { font } = useEditorFont();
+  const { appearance, spellcheck } = useRunePreferences();
   const root = useRef<HTMLDivElement>(null);
   const [resizing, setResizing] = useState(false);
   // Where the writing surfaces' document status is carried to (DocStatus).
@@ -136,6 +140,8 @@ function Frame({ children }: { children: ReactNode }) {
       data-trash={trashOpen || undefined}
       data-reading={reading ? readingMode : undefined}
       data-editor-font={font}
+      data-theme={appearance}
+      spellCheck={spellcheck}
     >
       {/* The column retracts by width; the navigator inside keeps its own. */}
       <div className="r2-nav-column" inert={reading ? true : undefined}>

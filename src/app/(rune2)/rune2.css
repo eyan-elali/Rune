@@ -872,17 +872,37 @@ button.r2-chip:focus-visible {
   padding: 0 var(--r2-space-4) 0 var(--r2-space-6);
 }
 
+/* The Project's name, which opens the Project's actions (BC-A): read as a
+   title, reached for like a control — a quiet hover, a small chevron. */
 .r2-nav-project {
+  display: flex;
+  align-items: center;
+  gap: var(--r2-space-2);
   flex: 1;
   min-width: 0;
-  margin-right: var(--r2-space-3);
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+  height: var(--r2-control-md);
+  margin: 0 var(--r2-space-3) 0 calc(-1 * var(--r2-space-3));
+  padding: 0 var(--r2-space-3);
+  border-radius: var(--r2-radius);
   font-size: var(--r2-fs-ui);
   font-weight: var(--r2-weight-semibold);
   letter-spacing: var(--r2-tracking-heading);
   color: var(--r2-ink-1);
+  text-align: left;
+  transition: background-color var(--r2-fast) var(--r2-ease);
+}
+.r2-nav-project:hover {
+  background: var(--r2-hover);
+}
+.r2-nav-project-title {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.r2-nav-project svg {
+  flex-shrink: 0;
+  color: var(--r2-ink-3);
 }
 /* The collapse control: present, never insistent. */
 .r2-nav-toggle {
@@ -7437,5 +7457,490 @@ span.r2-schema-type {
   .r2-canvas-notice {
     transition: none;
     animation: none;
+  }
+}
+
+/* ══ Projects, Trash and Settings (Beta Completion A) ══════════════════ */
+/* The pages outside a Project: one quiet column under a slim bar holding the
+   wordmark (home) and the account. Lists, not cards: a Project is a row —
+   its title, its size, when it was last worked in — and its few actions sit
+   behind a "⋯" that appears on reach. */
+
+.r2-home,
+.r2-settings,
+.r2-page-state {
+  min-height: 100dvh;
+}
+
+.r2-appbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--r2-space-6);
+  height: 52px;
+  padding: 0 var(--r2-space-8);
+}
+.r2-wordmark {
+  font-family: var(--r2-prose-font);
+  font-size: 19px;
+  font-weight: var(--r2-weight-medium);
+  letter-spacing: 0.01em;
+  color: var(--r2-ink-1);
+}
+.r2-account {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--r2-space-3);
+  max-width: 260px;
+  height: var(--r2-control-md);
+  padding: 0 var(--r2-space-4);
+  border-radius: var(--r2-radius);
+  font-size: var(--r2-fs-ui-sm);
+  color: var(--r2-ink-2);
+  transition: background-color var(--r2-fast) var(--r2-ease), color var(--r2-fast) var(--r2-ease);
+}
+.r2-account:hover:not(:disabled),
+.r2-account[aria-expanded="true"] {
+  color: var(--r2-ink-1);
+  background: var(--r2-hover);
+}
+.r2-account-name {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.r2-account svg {
+  flex-shrink: 0;
+  color: var(--r2-ink-3);
+}
+.r2-account-notice {
+  position: fixed;
+  top: 56px;
+  right: var(--r2-space-8);
+  z-index: 40;
+  max-width: 320px;
+}
+
+.r2-home-main {
+  width: min(100%, 760px);
+  margin: 0 auto;
+  padding: 56px var(--r2-space-8) 80px;
+}
+.r2-home-back {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--r2-space-3);
+  margin: -28px 0 var(--r2-space-6) calc(-1 * var(--r2-space-3));
+  padding: var(--r2-space-2) var(--r2-space-3);
+  border-radius: var(--r2-radius);
+  font-size: var(--r2-fs-ui-sm);
+  color: var(--r2-ink-3);
+}
+.r2-home-back:hover {
+  color: var(--r2-ink-1);
+  background: var(--r2-hover);
+}
+.r2-home-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--r2-space-5) var(--r2-space-6);
+}
+.r2-home-head h1,
+.r2-settings-head h1 {
+  font-size: var(--r2-fs-title);
+  font-weight: var(--r2-weight-semibold);
+  line-height: var(--r2-lh-tight);
+  letter-spacing: var(--r2-tracking-title);
+}
+.r2-home-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--r2-space-4);
+}
+.r2-home-intro {
+  margin-top: var(--r2-space-4);
+  font-size: var(--r2-fs-body);
+  line-height: var(--r2-lh-body);
+  color: var(--r2-ink-2);
+}
+.r2-home-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--r2-space-5);
+  margin-top: var(--r2-space-7);
+}
+.r2-home-notice button {
+  flex-shrink: 0;
+  font-weight: var(--r2-weight-medium);
+  color: var(--r2-accent);
+}
+.r2-home-notice button:hover:not(:disabled) {
+  text-decoration: underline;
+}
+.r2-home-loading {
+  margin-top: var(--r2-space-9);
+  font-size: var(--r2-fs-body);
+  color: var(--r2-ink-3);
+}
+
+.r2-home-list {
+  margin-top: var(--r2-space-8);
+  border-top: 1px solid var(--r2-border);
+}
+.r2-home-row {
+  display: flex;
+  align-items: center;
+  gap: var(--r2-space-4);
+  border-bottom: 1px solid var(--r2-border);
+  transition: opacity var(--r2-fast) var(--r2-ease);
+}
+.r2-home-row[data-pending] {
+  opacity: 0.55;
+}
+.r2-home-row-main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--r2-space-2);
+  min-width: 0;
+  padding: var(--r2-space-6) var(--r2-space-4);
+  margin-left: calc(-1 * var(--r2-space-4));
+  border-radius: var(--r2-radius);
+}
+a.r2-home-row-main:hover {
+  background: var(--r2-hover-faint);
+}
+a.r2-home-row-main:hover .r2-home-title {
+  color: var(--r2-accent-ink);
+}
+.r2-home-title {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: var(--r2-fs-heading);
+  font-weight: var(--r2-weight-medium);
+  letter-spacing: var(--r2-tracking-heading);
+  color: var(--r2-ink-1);
+  transition: color var(--r2-fast) var(--r2-ease);
+}
+.r2-home-meta {
+  display: flex;
+  flex-wrap: wrap;
+  font-size: var(--r2-fs-meta);
+  color: var(--r2-ink-3);
+  font-variant-numeric: tabular-nums;
+}
+.r2-home-meta > *:not(:empty) + *:not(:empty)::before {
+  content: "·";
+  margin: 0 8px;
+}
+.r2-home-row-more {
+  opacity: 0;
+}
+.r2-home-row:hover .r2-home-row-more,
+.r2-home-row-more:focus-visible,
+.r2-home-row-more[aria-expanded="true"] {
+  opacity: 1;
+}
+@media (hover: none) {
+  .r2-home-row-more {
+    opacity: 1;
+  }
+}
+
+.r2-home-empty {
+  margin-top: 72px;
+  max-width: 440px;
+}
+.r2-home-empty h2 {
+  font-family: var(--r2-prose-font);
+  font-size: 26px;
+  font-weight: var(--r2-weight-regular);
+  line-height: 1.25;
+  color: var(--r2-ink-1);
+}
+.r2-home-empty p {
+  margin-top: var(--r2-space-4);
+  font-size: var(--r2-fs-body);
+  line-height: var(--r2-lh-body);
+  color: var(--r2-ink-2);
+}
+.r2-home-empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--r2-space-4);
+  margin-top: var(--r2-space-8);
+}
+.r2-home-empty p.r2-home-empty-hint {
+  margin-top: var(--r2-space-6);
+  font-size: var(--r2-fs-meta);
+  color: var(--r2-ink-3);
+}
+.r2-home-state {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--r2-space-5);
+  margin-top: var(--r2-space-9);
+  font-size: var(--r2-fs-body);
+  color: var(--r2-ink-2);
+}
+
+.r2-home-foot {
+  margin-top: var(--r2-space-9);
+}
+.r2-home-trash {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--r2-space-3);
+  margin-left: calc(-1 * var(--r2-space-4));
+  padding: var(--r2-space-3) var(--r2-space-4);
+  border-radius: var(--r2-radius);
+  font-size: var(--r2-fs-ui-sm);
+  color: var(--r2-ink-3);
+}
+.r2-home-trash:hover {
+  color: var(--r2-ink-1);
+  background: var(--r2-hover);
+}
+.r2-home-trash-count {
+  font-variant-numeric: tabular-nums;
+}
+
+.r2-trash-row {
+  flex-wrap: wrap;
+}
+.r2-trash-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--r2-space-2);
+}
+
+/* A whole page that is only a message: a Project in Trash, one not found, a
+   failure. Centred, a few lines, its actions under them. */
+.r2-page-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--r2-space-4);
+  padding: var(--r2-space-8);
+  text-align: center;
+  font-size: var(--r2-fs-body);
+  line-height: var(--r2-lh-body);
+  color: var(--r2-ink-2);
+}
+.r2-page-state strong {
+  font-weight: var(--r2-weight-semibold);
+  color: var(--r2-ink-1);
+}
+.r2-page-state-detail {
+  color: var(--r2-ink-3);
+}
+.r2-page-state .r2-import-error {
+  color: var(--r2-danger);
+}
+.r2-page-state-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--r2-space-4);
+  margin-top: var(--r2-space-5);
+}
+
+.r2-project-dialog-label {
+  display: block;
+  margin-top: var(--r2-space-7);
+}
+.r2-project-dialog-field {
+  width: 100%;
+  margin-top: var(--r2-space-3);
+}
+.r2-project-dialog .r2-import-error {
+  color: var(--r2-danger);
+}
+
+/* ── Settings ── */
+.r2-settings-main {
+  width: min(100%, 680px);
+  margin: 0 auto;
+  padding: 56px var(--r2-space-8) 96px;
+}
+.r2-settings-section {
+  margin-top: 44px;
+}
+.r2-settings-section > h2 {
+  font-size: var(--r2-fs-heading);
+  font-weight: var(--r2-weight-semibold);
+  letter-spacing: var(--r2-tracking-heading);
+  color: var(--r2-ink-1);
+}
+.r2-settings-section > p.r2-settings-scope {
+  margin-top: var(--r2-space-2);
+  font-size: var(--r2-fs-meta);
+  color: var(--r2-ink-3);
+}
+.r2-settings-rows {
+  margin-top: var(--r2-space-5);
+  border-top: 1px solid var(--r2-border);
+}
+.r2-settings-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--r2-space-4) var(--r2-space-7);
+  padding: var(--r2-space-6) 0;
+  border-bottom: 1px solid var(--r2-border);
+}
+.r2-settings-row-text {
+  flex: 1 1 260px;
+  min-width: 0;
+}
+.r2-settings-row-label {
+  font-size: var(--r2-fs-ui);
+  font-weight: var(--r2-weight-medium);
+  color: var(--r2-ink-1);
+}
+.r2-settings-row-help {
+  margin-top: var(--r2-space-2);
+  font-size: var(--r2-fs-meta);
+  line-height: var(--r2-lh-ui);
+  color: var(--r2-ink-3);
+}
+.r2-settings-row-value {
+  font-size: var(--r2-fs-ui-sm);
+  color: var(--r2-ink-2);
+  overflow-wrap: anywhere;
+}
+.r2-settings-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--r2-space-2);
+}
+.r2-settings-status {
+  min-height: 1.4em;
+  margin-top: var(--r2-space-3);
+  font-size: var(--r2-fs-meta);
+  color: var(--r2-ink-3);
+}
+.r2-settings-status[data-tone="danger"] {
+  color: var(--r2-danger);
+}
+.r2-settings-status[data-tone="success"] {
+  color: var(--r2-success);
+}
+
+/* A choice of two or three: one pressed. */
+.r2-segmented {
+  display: inline-flex;
+  padding: 2px;
+  border-radius: var(--r2-radius);
+  background: var(--r2-shell-bg);
+}
+.r2-segmented button {
+  height: var(--r2-control-sm);
+  padding: 0 var(--r2-space-5);
+  border-radius: var(--r2-radius-sm);
+  font-size: var(--r2-fs-ui-sm);
+  color: var(--r2-ink-2);
+  transition: background-color var(--r2-fast) var(--r2-ease), color var(--r2-fast) var(--r2-ease);
+}
+.r2-segmented button:hover:not(:disabled) {
+  color: var(--r2-ink-1);
+}
+.r2-segmented button[aria-pressed="true"] {
+  color: var(--r2-ink-1);
+  background: var(--r2-bg);
+  box-shadow: var(--r2-shadow-sm), var(--r2-ring);
+}
+
+/* On or off. */
+.r2-switch {
+  position: relative;
+  flex-shrink: 0;
+  width: 32px;
+  height: 18px;
+  border-radius: var(--r2-radius-pill);
+  background: var(--r2-border-strong);
+  transition: background-color var(--r2-fast) var(--r2-ease);
+}
+.r2-switch::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--r2-surface-raised);
+  box-shadow: var(--r2-shadow-sm);
+  transition: transform var(--r2-fast) var(--r2-ease);
+}
+.r2-switch[aria-checked="true"] {
+  background: var(--r2-accent);
+}
+.r2-switch[aria-checked="true"]::after {
+  transform: translateX(14px);
+}
+.r2-switch:disabled {
+  opacity: var(--r2-disabled-opacity);
+}
+
+.r2-settings-drafts {
+  margin-top: var(--r2-space-4);
+}
+.r2-settings-draft {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--r2-space-3) var(--r2-space-5);
+  padding: var(--r2-space-4) 0;
+}
+.r2-settings-draft + .r2-settings-draft {
+  border-top: 1px solid var(--r2-border);
+}
+.r2-settings-danger .r2-settings-row-label {
+  color: var(--r2-danger);
+}
+.r2-settings-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--r2-space-4);
+  width: 100%;
+}
+.r2-settings-confirm .r2-field {
+  width: 160px;
+}
+
+@media (max-width: 600px) {
+  .r2-appbar {
+    padding: 0 var(--r2-space-6);
+  }
+  .r2-home-main,
+  .r2-settings-main {
+    padding: 36px var(--r2-space-6) 64px;
+  }
+  .r2-home-back {
+    margin-top: -12px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .r2-home-row,
+  .r2-home-title,
+  .r2-account,
+  .r2-switch,
+  .r2-switch::after,
+  .r2-segmented button,
+  .r2-nav-project {
+    transition: none;
   }
 }

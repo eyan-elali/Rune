@@ -2,8 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
-import { FileUp } from "lucide-react";
-import { ICON } from "./icons";
 import { IMPORT_ACCEPT, ImportFileError, parseImportFile, titleFromFileName } from "@/lib/import/readFile";
 import {
   buildPlan,
@@ -44,20 +42,8 @@ function plural(n: number, one: string, many = `${one}s`) {
 
 type Read = { fileName: string; bytes: Uint8Array; parsed: ParsedFile & { hardWrapped?: boolean }; lines: Line[] };
 
-export function ImportManuscriptLauncher() {
-  const [open, setOpen] = useState(false);
-  return (
-    <>
-      <button type="button" className="r2-import-launch" onClick={() => setOpen(true)}>
-        <FileUp {...ICON} aria-hidden />
-        Import a manuscript…
-      </button>
-      {open && <ManuscriptImportDialog onClose={() => setOpen(false)} />}
-    </>
-  );
-}
-
-function ManuscriptImportDialog({ onClose }: { onClose: () => void }) {
+/** The import dialog. A successful import opens the new Project. */
+export function ManuscriptImportDialog({ onClose }: { onClose: () => void }) {
   const router = useRouter();
   const input = useRef<HTMLInputElement>(null);
   const [read, setRead] = useState<Read | null>(null);
@@ -132,13 +118,13 @@ function ManuscriptImportDialog({ onClose }: { onClose: () => void }) {
       const body = (await res.json().catch(() => null)) as { projectId?: string; error?: string } | null;
       if (!res.ok || !body?.projectId) {
         setError(body?.error ?? "The import couldn’t be saved. Nothing was created.");
+        setImporting(false);
         return;
       }
-      router.push(`/rune2/${body.projectId}`);
-      onClose();
+      // Saved: open the new Project. The dialog stays (busy) until the page changes.
+      router.push(`/projects/${body.projectId}`);
     } catch {
       setError("You appear to be offline. Nothing was created; try again when you’re connected.");
-    } finally {
       setImporting(false);
     }
   }
@@ -163,7 +149,7 @@ function ManuscriptImportDialog({ onClose }: { onClose: () => void }) {
               Choose a Word document (.docx), Markdown (.md) or plain text (.txt) file. Rune reads it on this
               device and shows you the parts, chapters and scenes it finds before anything is saved.
             </p>
-            <p>The import becomes a new project. This project isn’t changed.</p>
+            <p>The import becomes a new project, with the file’s text as its manuscript.</p>
             {error && (
               <p role="alert" className="r2-import-error">
                 {error}

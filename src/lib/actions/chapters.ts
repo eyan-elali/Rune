@@ -115,7 +115,6 @@ export async function removeChapterKeepScenes(
   if (result.status !== "ok") return { error: result.error };
 
   revalidateProjectTotals(projectId);
-  revalidatePath(`/projects/${projectId}/unplaced`);
   return { error: null, unplacedSceneIds: result.unplaced_scene_ids };
 }
 

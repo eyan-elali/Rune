@@ -5,7 +5,9 @@ import { createClient } from "@/lib/supabase/server";
 import type { Project, Chapter, PlacedScene } from "@/lib/types";
 import { calculateChapterWordCount, calculateProjectWordCount } from "@/lib/manuscript";
 import { getChaptersWithScenes } from "@/lib/manuscriptQueries";
-import { createProjectChecked } from "@/lib/projectCreation";
+import { createProjectChecked, PROJECT_TITLE_MAX } from "@/lib/projectCreation";
+import { deleteTrashedProject as deleteTrashedProjectWithStorage, sweepProjectStoragePurges } from "@/lib/projectLifecycle";
+import { supabaseAttachmentStorage } from "@/lib/attachments/storage";
 
 type ActionResult<T> = { data: T; error: null } | { data: null; error: string };
 
@@ -17,6 +19,7 @@ async function getUser() {
   return { supabase, user };
 }
 
+/** The writer's active Projects (never those in Trash), most recently worked in first. */
 export async function getProjects(): Promise<ActionResult<Project[]>> {
   const { supabase, user } = await getUser();
   if (!user) return { data: null, error: "Not authenticated" };
@@ -25,8 +28,24 @@ export async function getProjects(): Promise<ActionResult<Project[]>> {
     .from("projects")
     .select("*")
     .eq("user_id", user.id)
-    .order("is_pinned", { ascending: false })
+    .is("trashed_at", null)
     .order("updated_at", { ascending: false });
+
+  if (error) return { data: null, error: error.message };
+  return { data: data ?? [], error: null };
+}
+
+/** The writer's Projects in Trash, most recently trashed first. */
+export async function getTrashedProjects(): Promise<ActionResult<Project[]>> {
+  const { supabase, user } = await getUser();
+  if (!user) return { data: null, error: "Not authenticated" };
+
+  const { data, error } = await supabase
+    .from("projects")
+    .select("*")
+    .eq("user_id", user.id)
+    .not("trashed_at", "is", null)
+    .order("trashed_at", { ascending: false });
 
   if (error) return { data: null, error: error.message };
   return { data: data ?? [], error: null };
@@ -56,7 +75,6 @@ export async function createProject(
   if (result.status !== "ok") return { data: null, error: result.error ?? "Couldn’t create the project" };
 
   revalidatePath("/projects");
-  revalidatePath("/dashboard");
   return { data: result.project, error: null };
 }
 
@@ -79,6 +97,61 @@ export async function updateProject(
   revalidatePath("/projects");
   revalidatePath(`/projects/${id}`);
   return { data, error: null };
+}
+
+/** Renames a Project. The title is trimmed and required. */
+export async function renameProject(id: string, title: string): Promise<ActionResult<Project>> {
+  const trimmed = title.trim();
+  if (!trimmed) return { data: null, error: "A project needs a title." };
+  if (trimmed.length > PROJECT_TITLE_MAX) return { data: null, error: `A title can be up to ${PROJECT_TITLE_MAX} characters.` };
+  return updateProject(id, { title: trimmed });
+}
+
+type ProjectLifecycleResult = { status: "ok"; project: Project } | { status: "error"; error: string };
+
+async function lifecycle(fn: "trash_project" | "restore_project", id: string): Promise<ActionResult<Project>> {
+  const { supabase, user } = await getUser();
+  if (!user) return { data: null, error: "Not authenticated" };
+
+  const { data, error } = await supabase.rpc(fn, { p_project_id: id });
+  if (error) return { data: null, error: error.message };
+  const result = data as ProjectLifecycleResult | null;
+  if (!result) return { data: null, error: "Nothing changed. Try again." };
+  if (result.status !== "ok") return { data: null, error: result.error };
+
+  revalidatePath("/projects");
+  revalidatePath("/projects/trash");
+  return { data: result.project, error: null };
+}
+
+/** Moves a Project to Trash: it leaves the Projects list, keeping everything it holds. */
+export async function trashProject(id: string): Promise<ActionResult<Project>> {
+  return lifecycle("trash_project", id);
+}
+
+/** Brings a Project back from Trash, exactly as it was. */
+export async function restoreProject(id: string): Promise<ActionResult<Project>> {
+  return lifecycle("restore_project", id);
+}
+
+/**
+ * Permanently deletes a Project that is in Trash — every row it owns, and
+ * its attachments' bytes in storage (lib/projectLifecycle.ts). An active
+ * Project is refused.
+ */
+export async function deleteTrashedProject(id: string): Promise<{ error: string | null }> {
+  const { supabase, user } = await getUser();
+  if (!user) return { error: "Not authenticated" };
+
+  const storage = supabaseAttachmentStorage();
+  const result = await deleteTrashedProjectWithStorage(supabase, storage, id);
+  if (result.error !== null) return { error: result.error };
+  // Anything an earlier deletion could not finish removing.
+  await sweepProjectStoragePurges(supabase, storage).catch(() => undefined);
+
+  revalidatePath("/projects");
+  revalidatePath("/projects/trash");
+  return { error: null };
 }
 
 type DuplicateProjectCheckedResult =
@@ -131,21 +204,6 @@ export async function toggleProjectPin(
   return { error: null };
 }
 
-export async function deleteProject(id: string): Promise<{ error: string | null }> {
-  const { supabase, user } = await getUser();
-  if (!user) return { error: "Not authenticated" };
-
-  const { error } = await supabase
-    .from("projects")
-    .delete()
-    .eq("id", id)
-    .eq("user_id", user.id);
-
-  if (error) return { error: error.message };
-  revalidatePath("/projects");
-  return { error: null };
-}
-
 export async function getProjectStats(
   projectId: string
 ): Promise<{ chapterCount: number; totalWords: number }> {
@@ -176,7 +234,6 @@ export async function createProjectWithDraft(
 
   const { project, chapter, scene_id: sceneId } = result;
   revalidatePath("/projects");
-  revalidatePath("/dashboard");
   // Only possible on a retry whose Project has since lost its first Chapter or Scene.
   if (!chapter || !sceneId) return { data: null, error: "This story already exists — open it from your projects." };
 

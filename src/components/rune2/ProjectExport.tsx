@@ -75,8 +75,13 @@ export function ProjectExportDialogs() {
   return api.open.kind === "export" ? (
     <ExportDialog scope={api.open.scope} onClose={api.close} />
   ) : (
-    <BackupDialog onClose={api.close} />
+    <ShellBackupDialog onClose={api.close} />
   );
+}
+
+function ShellBackupDialog({ onClose }: { onClose: () => void }) {
+  const { manuscript } = useRune2Selection();
+  return <BackupDialog project={manuscript.project} onClose={onClose} />;
 }
 
 /** The Manuscript's own actions, on its overview: export the book, or back up the whole project. */
@@ -319,8 +324,8 @@ const KIND_LABELS: Partial<Record<BackupKind, string>> = {
   writing_sessions: "writing history",
 };
 
-function BackupDialog({ onClose }: { onClose: () => void }) {
-  const { manuscript } = useRune2Selection();
+/** The whole-Project backup. Reads only, so it also serves a Project in Trash. */
+export function BackupDialog({ project, onClose }: { project: { id: string; title: string }; onClose: () => void }) {
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -345,7 +350,7 @@ function BackupDialog({ onClose }: { onClose: () => void }) {
     setError(null);
     setReady(null);
     try {
-      const { bytes, fileName } = await makeProjectBackup(createClient(), manuscript.project.id, (kind, i, total) => {
+      const { bytes, fileName } = await makeProjectBackup(createClient(), project.id, (kind, i, total) => {
         const label = KIND_LABELS[kind];
         if (label && mounted.current) setProgress(`Reading ${label}… (${i + 1} of ${total})`);
       });
@@ -378,7 +383,7 @@ function BackupDialog({ onClose }: { onClose: () => void }) {
       <div className="r2-dialog r2-export" role="dialog" aria-modal="true" aria-labelledby="r2-backup-title">
         <h2 id="r2-backup-title">Download project backup</h2>
         <p>
-          A complete copy of <strong>{manuscript.project.title}</strong> as a .zip file: every scene (placed, unplaced
+          A complete copy of <strong>{project.title}</strong> as a .zip file: every scene (placed, unplaced
           and in Trash), its structure, revision notes, scene history and milestones, Workspace pages and collections,
           and your writing history for this project.
         </p>
