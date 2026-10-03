@@ -5,7 +5,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { sweepProjectAttachments } from "@/lib/actions/workspaceAttachments";
 import { getWorkspaceCanvas, writeCanvasItems } from "@/lib/actions/workspaceCanvas";
 import { CanvasSession, type CanvasChange, type CanvasDraft } from "@/lib/rune2/canvasSession";
-import { deleteCanvasDraft, getCanvasDraft, putCanvasDraft } from "@/lib/rune2/workspaceDrafts";
+import { deleteCanvasDraft, getCanvasDraft, markCanvasDraftUnavailable, putCanvasDraft } from "@/lib/rune2/workspaceDrafts";
 import { toPlainDocument } from "@/lib/rune2/workspaceDocument";
 import { useNetworkStore } from "@/store/networkStore";
 import { useProfileStore } from "@/store/profileStore";
@@ -97,6 +97,11 @@ class CanvasSessions {
       // without a prototype, which a server action would drop.
       write: (changes: CanvasChange[]) => writeCanvasItems(id, toPlainDocument(changes)),
       persist: (d: CanvasDraft) => void putCanvasDraft({ ...d, userId, projectId, savedAt: Date.now() }),
+      // Gone for good (not Trash): its unsaved notes can never reach it.
+      // Marked so Settings → This device offers their text to copy.
+      onStatus: (status) => {
+        if (status === "unavailable") void markCanvasDraftUnavailable(id);
+      },
     });
     if (draft) session.applyDraft(draft);
     this.set(id, { state: "ready", session });

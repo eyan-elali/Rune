@@ -8,6 +8,7 @@ import {
   syncPendingWrite,
   flushPendingQueue,
   forceWriteLocalContent,
+  isUnsupportedSaveFailure,
 } from '@/lib/offline/syncEngine';
 import { getOfflineDB, cacheScene, storeOfflineWritingCredit } from '@/lib/offline/db';
 import {
@@ -676,6 +677,90 @@ async function klserver() {
   check('KLSERVER: server advanced from the kept baseline (56w)', server.scenes.get(PAGE).word_count === 56, '');
 }
 
+// ── S10 (BC-B): auth ambiguity is never "the Scene is gone". No browser
+//    session, a server action answering 'Not authenticated', and a Trash-state
+//    lookup refused for auth all leave the prose 'failed' (retried), never
+//    'retired', and never consult or trust a 'missing' answer.
+async function s10() {
+  resetServer();
+  await createPageAndPrimeCache();
+  await writeToPendingQueue(PAGE, USER, doc(140), 140);
+
+  // (a) The browser has no session (expired, or logged out in another tab).
+  server.session = null;
+  const logs = captureConsole();
+  await syncPendingWrite(PAGE, 'online', 0);
+  let pending = await getPending();
+  check('S10a: no session → failed, prose kept, nothing sent', pending?.syncStatus === 'failed' && pending?.wordCount === 140 && saveCalls() === 0 && !server.log.some((l) => l.op === 'workspace_trash_state'), JSON.stringify(pending?.syncStatus));
+
+  // (b) The session is back but the server action sees no user (cookie expired mid-request).
+  server.session = { user: { id: USER } };
+  server.rpcMode = 'unauthenticated';
+  await flushPendingQueue();
+  pending = await getPending();
+  check('S10b: server says Not authenticated → pending with the reason, retried, never retired', pending?.syncStatus === 'pending' && /Not authenticated/.test(pending?.lastError ?? '') , JSON.stringify(pending));
+  server.rpcMode = 'ok';
+
+  // (c) The Scene read answers no rows and the Trash lookup is refused for auth: ambiguous, never 'missing'.
+  trashServerScene(PAGE);
+  server.trashStateMode = 'auth_error';
+  await flushPendingQueue();
+  pending = await getPending();
+  check('S10c: Trash lookup refused for auth → failed, not retired', pending?.syncStatus === 'failed' && pending?.wordCount === 140, JSON.stringify(pending?.syncStatus));
+  logs.restore();
+
+  // Identity resolved and the Scene restored: the queued prose lands.
+  server.trashStateMode = 'ok';
+  restoreServerScene(PAGE);
+  const res = await flushPendingQueue();
+  check('S10: once identity and the Scene are back, the prose is saved', res.synced === 1 && server.scenes.get(PAGE).word_count === 140 && (await getPending()) === null, JSON.stringify(res));
+}
+
+// ── S11 (BC-B): a stale client against a server without the save function.
+//    The prose is kept and marked; the timed flush leaves it alone (the
+//    answer would not change); a writer-initiated send and a direct sync (a
+//    reloaded editor) try again; an updated server takes it.
+async function s11() {
+  resetServer();
+  await createPageAndPrimeCache();
+  await writeToPendingQueue(PAGE, USER, doc(90), 90);
+  server.rpcMode = 'missing_function';
+  const logs = captureConsole();
+  await syncPendingWrite(PAGE, 'online', 0);
+  let pending = await getPending();
+  check('S11: missing function → failed with the reason, prose kept', pending?.syncStatus === 'failed' && isUnsupportedSaveFailure(pending) && pending?.wordCount === 90, JSON.stringify(pending));
+  const callsBefore = saveCalls();
+  await flushPendingQueue();
+  await flushPendingQueue();
+  check('S11: the timed flush does not retry it', saveCalls() === callsBefore && (await getPending())?.syncStatus === 'failed', String(saveCalls()));
+  await flushPendingQueue({ includeUnsupported: true });
+  check('S11: a writer-initiated send tries again', saveCalls() === callsBefore + 1, String(saveCalls()));
+  logs.restore();
+  check('S11: the failure is logged once', logs.lines.filter((l) => l.includes('schema cache')).length === 1, JSON.stringify(logs.lines));
+  // The server is updated (or the client reloaded against a current one): a direct sync saves it.
+  server.rpcMode = 'ok';
+  await syncPendingWrite(PAGE, 'online', 0);
+  check('S11: saved once the server has the function', (await getPending()) === null && server.scenes.get(PAGE).word_count === 90, '');
+}
+
+// ── S12 (BC-B): a trailing keystroke on a Scene whose row is in Trash
+//    elsewhere keeps the prose 'failed' (not 'retired'); the queue summary
+//    reports the failure and its reason, scoped to the writer.
+async function s12() {
+  resetServer();
+  await createPageAndPrimeCache();
+  await writeToPendingQueue(PAGE, USER, doc(60), 60);
+  trashServerScene(PAGE);
+  const logs = captureConsole();
+  await flushPendingQueue();
+  logs.restore();
+  const pending = await getPending();
+  check('S12: in Trash elsewhere → failed with its reason', pending?.syncStatus === 'failed' && /Trash/.test(pending?.lastError ?? ''), JSON.stringify(pending?.lastError));
+  const mine = await getOfflineStorageSummary(USER);
+  const theirs = await getOfflineStorageSummary('someone-else');
+  check('S12: the summary counts the failure with its reason, for this writer only', mine.pending === 1 && mine.failed === 1 && /Trash/.test(mine.failedReason ?? '') && theirs.pending === 0 && theirs.failed === 0, JSON.stringify({ mine, theirs }));
+}
+
 // ── MIG: the Rune 2.0 canonical cutover lands while a write is queued offline.
 //    PAGE is a non-canonical sibling in a canonical chapter, so the approved
 //    mapping (architecture doc §42) makes it an Unplaced Scene. pending_writes
@@ -725,7 +810,7 @@ async function migration(tag, bumpVersion) {
 const mig = () => migration('MIG', false);
 const migbump = () => migration('MIGBUMP', true);
 
-const scenarios = { r1, r2, r3, r6, r7, g1, g2, g3, w, f, i, m, s1, s2, s3, s4, s5, s6, s7, s8, s9, kl, klrace, klext, klrepeat, klmeta, klserver, mig, migbump };
+const scenarios = { r1, r2, r3, r6, r7, g1, g2, g3, w, f, i, m, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11, s12, kl, klrace, klext, klrepeat, klmeta, klserver, mig, migbump };
 const name = process.env.SCENARIO;
 if (!scenarios[name]) { console.error('unknown scenario', name); process.exit(2); }
 await scenarios[name]();

@@ -255,9 +255,11 @@ export async function deleteAccount(): Promise<ActionResult> {
 
   // The account's attachment bytes live outside the database, so the cascade
   // below cannot reach them: remove them first (every Project's, and any an
-  // earlier Project deletion left recorded). Best effort: a failure is logged
-  // (no keys, no content) and never blocks the deletion the writer asked for;
-  // bytes left behind then sit under the deleted Projects' key prefixes.
+  // earlier Project deletion left recorded), with every key recorded as a
+  // purge before its bytes go (lib/projectLifecycle.ts). Best effort: a
+  // failure is logged (no keys, no content) and never blocks the deletion the
+  // writer asked for; bytes left behind stay recorded in
+  // project_storage_purges under the deleted account's id, for an operator.
   await removeAccountAttachmentBytes(admin, user.id);
 
   const { error } = await admin.auth.admin.deleteUser(user.id);
@@ -267,27 +269,14 @@ export async function deleteAccount(): Promise<ActionResult> {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function removeAccountAttachmentBytes(admin: any, userId: string): Promise<void> {
   try {
-    const { data: projects } = await admin.from("projects").select("id").eq("user_id", userId);
-    const projectIds = ((projects ?? []) as { id: string }[]).map((p) => p.id);
-    const keys: string[] = [];
-    if (projectIds.length > 0) {
-      const { data: rows } = await admin
-        .from("workspace_attachments")
-        .select("storage_key, display_key")
-        .in("project_id", projectIds);
-      for (const r of (rows ?? []) as { storage_key: string; display_key: string | null }[]) {
-        keys.push(r.storage_key);
-        if (r.display_key) keys.push(r.display_key);
-      }
+    const [{ supabaseAttachmentStorage }, { purgeAccountAttachmentBytes }] = await Promise.all([
+      import("@/lib/attachments/storage"),
+      import("@/lib/projectLifecycle"),
+    ]);
+    const { remaining } = await purgeAccountAttachmentBytes(admin, supabaseAttachmentStorage(), userId);
+    if (remaining > 0) {
+      console.error("[deleteAccount] attachment bytes could not all be removed; purges stay recorded", { remaining });
     }
-    const { data: purges } = await admin.from("project_storage_purges").select("id, storage_keys").eq("user_id", userId);
-    for (const p of (purges ?? []) as { storage_keys: string[] }[]) keys.push(...p.storage_keys);
-    if (keys.length === 0) return;
-
-    const { supabaseAttachmentStorage } = await import("@/lib/attachments/storage");
-    const storage = supabaseAttachmentStorage();
-    for (let i = 0; i < keys.length; i += 500) await storage.remove(keys.slice(i, i + 500));
-    await admin.from("project_storage_purges").delete().eq("user_id", userId);
   } catch {
     console.error("[deleteAccount] attachment bytes could not all be removed", { succeeded: false });
   }

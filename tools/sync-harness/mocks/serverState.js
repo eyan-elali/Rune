@@ -23,7 +23,9 @@ export const server = {
   // Only the SECURITY DEFINER workspace_trash_state RPC can tell it apart from
   // a permanently deleted Scene.
   trashed: new Set(),
-  trashStateMode: 'ok', // 'ok' | 'error'
+  trashStateMode: 'ok', // 'ok' | 'error' | 'auth_error'
+  // Auth (BC-B): null models an expired/absent browser session.
+  session: { user: { id: 'user-1' } },
   log: [],
 };
 
@@ -35,6 +37,7 @@ export function resetServer() {
   server.fetchHangResolvers = [];
   server.trashed = new Set();
   server.trashStateMode = 'ok';
+  server.session = { user: { id: 'user-1' } };
   server.log = [];
 }
 
@@ -60,6 +63,10 @@ export async function workspaceTrashState({ p_type, p_id }) {
   server.log.push({ op: 'workspace_trash_state', id: p_id, type: p_type });
   if (server.trashStateMode === 'error') {
     return { error: { message: 'TypeError: Failed to fetch' }, data: null };
+  }
+  // PostgREST with an expired JWT, or the anon role (execute revoked, 030).
+  if (server.trashStateMode === 'auth_error') {
+    return { error: { code: 'PGRST301', message: 'JWT expired' }, data: null };
   }
   if (p_type !== 'scene' || !server.scenes.has(p_id)) return { error: null, data: { status: 'ok', state: 'missing' } };
   return { error: null, data: { status: 'ok', state: server.trashed.has(p_id) ? 'trashed' : 'active' } };
@@ -132,6 +139,14 @@ export async function saveSceneChecked({ p_scene_id, p_content, p_word_count, p_
   }
   if (server.rpcMode === 'error') {
     return { error: { message: 'simulated postgres error (P0001)' }, data: null };
+  }
+  // An older server (or a rolled-back one): the function the client calls is not there.
+  if (server.rpcMode === 'missing_function') {
+    return { error: { code: 'PGRST202', message: 'Could not find the function public.save_scene_checked(p_content, p_expected_version, p_scene_id, p_word_count) in the schema cache' }, data: null };
+  }
+  // The server action's own answer when the request carries no usable session.
+  if (server.rpcMode === 'unauthenticated') {
+    return { error: null, data: { status: 'error', error: 'Not authenticated' } };
   }
   const row = server.scenes.get(p_scene_id);
   if (!row || server.trashed.has(p_scene_id)) return { error: null, data: { status: 'error', error: 'Scene not found' } };

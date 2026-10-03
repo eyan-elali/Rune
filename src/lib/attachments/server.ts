@@ -1,5 +1,6 @@
 import type { WorkspaceAttachment } from "@/lib/types";
 import { ATTACHMENT_BUCKET, ATTACHMENT_GRACE_HOURS, cleanFileName, imageUploadProblem, storageKeyFor } from "@/lib/rune2/attachments";
+import { carryOutStoragePurge, type StoragePurge } from "@/lib/projectLifecycle";
 
 // Project attachments on the server (Milestone 22C, migration 047): storing
 // an upload's bytes, registering them as the Project's attachment, serving
@@ -19,9 +20,14 @@ import { ATTACHMENT_BUCKET, ATTACHMENT_GRACE_HOURS, cleanFileName, imageUploadPr
 //
 // Lifecycle: bytes are stored first, then the row; a registration that fails
 // removes the bytes again (never a stray object). Deletion is the reverse
-// and only for rows nothing references, after the grace period: bytes first,
-// then the row (delete_workspace_attachments refuses a row referenced
-// meanwhile). Nothing here is reachable from a Canvas placement's deletion.
+// and only for rows nothing references, after the grace period: the ROW
+// first — delete_workspace_attachments (migration 050) deletes, under the
+// Project's Workspace lock, only the rows still unreferenced and records
+// their storage keys as a purge in the same transaction — then the bytes,
+// and then the purge record. Bytes are never removed while a row references
+// them, and a row never outlives its bytes: a purge whose bytes cannot be
+// removed stays recorded and is retried by sweepProjectStoragePurges.
+// Nothing here is reachable from a Canvas placement's deletion.
 
 export type StoredBytes = { bytes: Uint8Array; contentType: string };
 
@@ -138,9 +144,12 @@ export async function readAttachment(
 
 /**
  * Removes what nothing references any more: the Project's attachments
- * without a placement anywhere, older than the grace period — bytes first,
- * then the row (refused if referenced meanwhile). Returns how many rows went.
- * Quiet on a database without 047 (nothing to sweep).
+ * without a placement anywhere, older than the grace period — the rows first
+ * (only those still unreferenced, each recording a purge of its bytes in the
+ * same transaction), then the bytes of each purge, then the purge record.
+ * Returns how many rows went. Quiet on a database without 047 (nothing to
+ * sweep); on one with 047 but without 050 the delete returns no `purges`, so
+ * the bytes of the deleted ids are removed directly, as before.
  */
 export async function sweepUnreferencedAttachments(
   supabase: SupabaseLike,
@@ -153,18 +162,31 @@ export async function sweepUnreferencedAttachments(
   if (error || data?.status !== "ok") return { removed: 0 };
   const rows = (data.attachments ?? []) as WorkspaceAttachment[];
   if (rows.length === 0) return { removed: 0 };
-  const removable: WorkspaceAttachment[] = [];
-  for (const a of rows) {
-    try {
-      await storage.remove([a.storage_key, ...(a.display_key ? [a.display_key] : [])]);
-      removable.push(a);
-    } catch {
-      // Its bytes stay, and so does the row: tried again next time.
+
+  const del = await supabase.rpc("delete_workspace_attachments", { p_project_id: projectId, p_ids: rows.map((a) => a.id) });
+  const result = del.data as { status: "ok"; deleted?: string[]; purges?: StoragePurge[] } | { status: "error" } | null;
+  if (del.error || !result || result.status !== "ok") return { removed: 0 };
+  const deleted = result.deleted ?? [];
+  if (deleted.length === 0) return { removed: 0 };
+
+  if (Array.isArray(result.purges)) {
+    // 050: each deleted row's bytes are owed as a recorded purge — removed
+    // here, or left recorded for the purge sweep.
+    for (const purge of result.purges) await carryOutStoragePurge(supabase, storage, purge);
+  } else {
+    // 047 without 050: the rows are gone and nothing recorded their bytes;
+    // remove them now (a removal that fails leaves nothing to retry — the
+    // pre-050 order's own limitation, until 050 is applied).
+    const gone = new Set(deleted);
+    for (const a of rows) {
+      if (!gone.has(a.id)) continue;
+      try {
+        await storage.remove([a.storage_key, ...(a.display_key ? [a.display_key] : [])]);
+      } catch {
+        // Nothing recorded to retry: see above.
+      }
     }
   }
-  if (removable.length === 0) return { removed: 0 };
-  const del = await supabase.rpc("delete_workspace_attachments", { p_project_id: projectId, p_ids: removable.map((a) => a.id) });
-  const deleted = (del.data?.deleted as string[] | undefined) ?? [];
   return { removed: deleted.length };
 }
 

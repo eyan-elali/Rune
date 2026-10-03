@@ -18,6 +18,15 @@ import {
 import { flushPendingQueue } from "@/lib/offline/syncEngine";
 import { PEN_NAME_MAX_LENGTH } from "@/lib/penName";
 import type { Account } from "@/lib/rune2/account";
+import {
+  countUnsentWorkspaceWork,
+  discardStrandedDraft,
+  getStrandedDraftText,
+  listStrandedDrafts,
+  type StrandedDraft,
+  type UnsentWorkspaceWork,
+} from "@/lib/rune2/workspaceDrafts";
+import { useProfileStore } from "@/store/profileStore";
 import { APPEARANCES, type RunePreferences } from "@/lib/rune2/preferences";
 import { AppBar, useLogOut } from "./AccountMenu";
 import { ICON } from "./icons";
@@ -183,43 +192,61 @@ function Row({
 // conflicts to resolve in their scene, unsent drafts whose scene is gone (copy
 // or discard — never dropped silently), and the read-only cache.
 
-type Summary = { pending: number; conflicts: number; retired: number; cached: number };
+type Summary = { pending: number; failed: number; failedReason: string | null; conflicts: number; retired: number; cached: number };
+
+const STRANDED_NOUN: Record<StrandedDraft["kind"], string> = { page: "page", entry: "entry", canvas: "canvas" };
 
 function DeviceSection() {
+  const userId = useProfileStore((s) => s.profile?.id);
   const [summary, setSummary] = useState<Summary | null>(null);
+  const [workspace, setWorkspace] = useState<UnsentWorkspaceWork | null>(null);
   const [drafts, setDrafts] = useState<RetiredDraft[]>([]);
+  const [stranded, setStranded] = useState<StrandedDraft[]>([]);
   const [busy, setBusy] = useState<"sync" | "clear" | null>(null);
   const [confirmClear, setConfirmClear] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState<string | null>(null);
   const [status, setStatus] = useState<Status>(null);
 
-  const load = useCallback(async () => {
-    const s = await getOfflineStorageSummary();
+  // What this device holds for this writer: the manuscript queue, the
+  // Workspace's unsent drafts, and drafts whose object is gone for good.
+  const read = useCallback(async () => {
+    const [s, w, st] = await Promise.all([
+      getOfflineStorageSummary(userId),
+      userId ? countUnsentWorkspaceWork(userId) : null,
+      userId ? listStrandedDrafts(userId) : [],
+    ]);
     const d = s.retired > 0 ? await getRetiredDrafts() : [];
-    setSummary(s);
-    setDrafts(d);
-  }, []);
+    return { s, w, st, d };
+  }, [userId]);
 
-  // What this device holds, read once on arrival (and again after each action).
+  const load = useCallback(async () => {
+    const { s, w, st, d } = await read();
+    setSummary(s);
+    setWorkspace(w);
+    setStranded(st);
+    setDrafts(d);
+  }, [read]);
+
+  // Read once on arrival (and again after each action).
   useEffect(() => {
     let live = true;
-    getOfflineStorageSummary()
-      .then(async (s) => ({ s, d: s.retired > 0 ? await getRetiredDrafts() : [] }))
-      .then(({ s, d }) => {
-        if (!live) return;
-        setSummary(s);
-        setDrafts(d);
-      });
+    void read().then(({ s, w, st, d }) => {
+      if (!live) return;
+      setSummary(s);
+      setWorkspace(w);
+      setStranded(st);
+      setDrafts(d);
+    });
     return () => {
       live = false;
     };
-  }, []);
+  }, [read]);
 
   async function syncNow() {
     setBusy("sync");
     setStatus(null);
     try {
-      const r = await flushPendingQueue();
+      const r = await flushPendingQueue({ includeUnsupported: true });
       const parts: string[] = [];
       if (r.synced > 0) parts.push(`${r.synced} saved`);
       if (r.conflicts > 0) parts.push(`${r.conflicts} need${r.conflicts === 1 ? "s" : ""} review`);
@@ -274,6 +301,35 @@ function DeviceSection() {
   }
 
   const waiting = summary ? summary.pending : null;
+  const workspaceParts = workspace
+    ? [
+        workspace.documents ? `${workspace.documents} page${workspace.documents === 1 ? "" : "s"} or entr${workspace.documents === 1 ? "y" : "ies"}` : null,
+        workspace.notes ? `${workspace.notes} revision note${workspace.notes === 1 ? "" : "s"}` : null,
+        workspace.canvases ? `${workspace.canvases} canvas${workspace.canvases === 1 ? "" : "es"}` : null,
+      ].filter((p): p is string => p !== null)
+    : [];
+
+  async function copyStranded(d: StrandedDraft) {
+    const text = userId ? await getStrandedDraftText(d.kind, d.id, userId) : null;
+    if (text === null) {
+      setStatus({ text: "That draft is no longer here.", tone: "danger" });
+      await load();
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(text);
+      setStatus({ text: "Draft copied.", tone: "success" });
+    } catch {
+      setStatus({ text: "It couldn’t be copied. Check your browser’s clipboard permission.", tone: "danger" });
+    }
+  }
+
+  async function discardStranded(d: StrandedDraft) {
+    const ok = userId ? await discardStrandedDraft(d.kind, d.id, userId) : false;
+    setConfirmDiscard(null);
+    setStatus(ok ? { text: "Draft discarded.", tone: "success" } : { text: "That draft couldn’t be discarded.", tone: "danger" });
+    await load();
+  }
 
   return (
     <section className="r2-settings-section" aria-labelledby="settings-device">
@@ -285,12 +341,19 @@ function DeviceSection() {
           help={
             summary === null
               ? "Checking…"
-              : waiting === 0 && summary.conflicts === 0
+              : waiting === 0 && summary.conflicts === 0 && workspaceParts.length === 0
                 ? "Everything written here has been saved to Rune."
                 : [
                     waiting ? `${waiting} scene${waiting === 1 ? "" : "s"} waiting to be sent` : null,
+                    // A save that failed is still kept and retried; its reason (never prose) says what Rune saw last.
+                    summary.failed && summary.failedReason
+                      ? `${summary.failed === 1 ? "The last attempt" : "The last attempts"} failed: ${summary.failedReason}`
+                      : null,
                     summary.conflicts
                       ? `${summary.conflicts} scene${summary.conflicts === 1 ? "" : "s"} to review — open ${summary.conflicts === 1 ? "it" : "each"} to choose which version to keep`
+                      : null,
+                    workspaceParts.length > 0
+                      ? `Unsent workspace writing in ${workspaceParts.join(", ")} — it is sent when you open ${workspaceParts.length === 1 && !workspaceParts[0].includes("note") ? "it" : "its project"}`
                       : null,
                   ]
                     .filter(Boolean)
@@ -303,15 +366,43 @@ function DeviceSection() {
           </button>
         </Row>
 
-        {drafts.length > 0 && (
+        {(drafts.length > 0 || stranded.length > 0) && (
           <div className="r2-settings-row">
             <div className="r2-settings-row-text">
               <div className="r2-settings-row-label">Unsent drafts</div>
               <p className="r2-settings-row-help">
-                Written to scenes that no longer exist in Rune, so they can’t be saved there. Nothing was discarded: copy
-                the text to keep it, or discard it.
+                Written to scenes, pages, entries or canvases that no longer exist in Rune, so they can’t be saved there.
+                Nothing was discarded: copy the text to keep it, or discard it.
               </p>
               <div className="r2-settings-drafts">
+                {stranded.map((d) => (
+                  <div key={`${d.kind}:${d.id}`} className="r2-settings-draft">
+                    <span className="r2-settings-row-value">
+                      {d.kind === "canvas"
+                        ? `Canvas · ${d.notes} note${d.notes === 1 ? "" : "s"} · ${d.words.toLocaleString()} word${d.words === 1 ? "" : "s"}`
+                        : `${STRANDED_NOUN[d.kind][0].toUpperCase()}${STRANDED_NOUN[d.kind].slice(1)} · ${d.words.toLocaleString()} word${d.words === 1 ? "" : "s"}`}
+                    </span>
+                    {confirmDiscard === `${d.kind}:${d.id}` ? (
+                      <span className="r2-settings-row-actions">
+                        <button type="button" className="r2-button r2-button--danger r2-button--sm" onClick={() => void discardStranded(d)}>
+                          Discard draft
+                        </button>
+                        <button type="button" className="r2-button r2-button--quiet r2-button--sm" onClick={() => setConfirmDiscard(null)}>
+                          Cancel
+                        </button>
+                      </span>
+                    ) : (
+                      <span className="r2-settings-row-actions">
+                        <button type="button" className="r2-button r2-button--sm" onClick={() => void copyStranded(d)}>
+                          Copy text
+                        </button>
+                        <button type="button" className="r2-button r2-button--quiet r2-button--sm" onClick={() => setConfirmDiscard(`${d.kind}:${d.id}`)}>
+                          Discard…
+                        </button>
+                      </span>
+                    )}
+                  </div>
+                ))}
                 {drafts.map((d) => (
                   <div key={d.sceneId} className="r2-settings-draft">
                     <span className="r2-settings-row-value">

@@ -41,7 +41,7 @@ const PNG = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72
 const JPG = new Uint8Array([255, 216, 255, 224, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 255, 217]);
 
 let legacy;
-let canvas, pages, scenes, trash, search, attachmentsLib, attachmentsAction, uploadRoute, readRoute, storageMock, backupLib, zipLib;
+let canvas, pages, scenes, trash, search, attachmentsLib, attachmentsAction, uploadRoute, readRoute, storageMock, backupLib, zipLib, lifecycle;
 let workspace, manuscriptLoader, nav, engine, canvasModel, arrange, rules, sessionMod, clientLib;
 before(async () => {
   legacy = await createTestDb();
@@ -54,6 +54,7 @@ before(async () => {
   trash = await bundleForTest('src/lib/actions/workspaceTrash.ts', { name: 'cm_trash' });
   search = await bundleForTest('src/lib/actions/projectSearch.ts', { name: 'cm_search' });
   attachmentsLib = await bundleForTest('src/lib/attachments/server.ts', { name: 'cm_attachments' });
+  lifecycle = await bundleForTest('src/lib/projectLifecycle.ts', { name: 'cm_lifecycle' });
   attachmentsAction = await bundleForTest('src/lib/actions/workspaceAttachments.ts', { name: 'cm_attachments_action', aliases: storageAlias });
   uploadRoute = await bundleForTest('src/app/api/attachments/route.ts', { name: 'cm_upload_route', aliases: storageAlias });
   readRoute = await bundleForTest('src/app/api/attachments/[id]/route.ts', { name: 'cm_read_route', aliases: storageAlias });
@@ -208,7 +209,7 @@ test('db: an image placement references the attachment (same Project only); seve
   assert.deepEqual(await manuscriptState(db), before, 'no Scene, Chapter, total, session or Page changed');
 });
 
-test('db + server: the lifecycle rule — a referenced attachment is never swept; an unreferenced one waits out the grace period, then its bytes go before its row; one referenced meanwhile keeps its row; permanent Canvas deletion makes its images unreferenced', async () => {
+test('db + server: the lifecycle rule — a referenced attachment is never swept; an unreferenced one waits out the grace period, then its row goes before its bytes (a purge recorded in the same transaction); one referenced meanwhile keeps its row and bytes; permanent Canvas deletion makes its images unreferenced', async () => {
   const db = await seededDb();
   const { sb, plot, store } = await hollow(db);
   const shown = await storeImage(sb, store, HOLLOW, { fileName: 'shown.png' });
@@ -221,26 +222,47 @@ test('db + server: the lifecycle rule — a referenced attachment is never swept
   const listed = (await sb.rpc('list_unreferenced_attachments', { p_project_id: HOLLOW, p_older_than: '24 hours' })).data;
   assert.deepEqual(listed.attachments.map((x) => x.id), [orphan.id], 'referenced and young rows are not listed');
   assert.deepEqual((await as(db, BRAM).rpc('list_unreferenced_attachments', { p_project_id: HOLLOW, p_older_than: '24 hours' })).data, { status: 'error', error: 'Project not found' });
-  // delete refuses what is referenced (or referenced meanwhile), takes the rest.
+  // delete refuses what is referenced (or referenced meanwhile), takes the rest — and records the bytes of what it took as a purge (050).
   const del = (await sb.rpc('delete_workspace_attachments', { p_project_id: HOLLOW, p_ids: [shown.id, orphan.id, fresh.id] })).data;
   assert.deepEqual(del.deleted.sort(), [orphan.id, fresh.id].sort(), 'referenced: kept; unreferenced: deleted (the server only ever asks for listed, old ones)');
   assert.equal((await one(db, `select count(*)::int as n from public.workspace_attachments where id = $1`, [shown.id])).n, 1);
+  assert.equal(del.purges.length, 1, 'one purge per bucket');
+  assert.deepEqual([...del.purges[0].storage_keys].sort(), [orphan.storage_key, orphan.display_key, fresh.storage_key].sort(), 'every key of the deleted rows, display derivatives too');
+  assert.ok(store.objects.has(orphan.storage_key) && store.objects.has(fresh.storage_key), 'the function never touches bytes');
+  const recorded = await all(db, `select user_id, project_id, storage_bucket, storage_keys from public.project_storage_purges`);
+  assert.deepEqual(recorded.map((r) => [r.user_id, r.project_id, r.storage_bucket]), [[ALICE, HOLLOW, orphan.storage_bucket]]);
+  // The server finishes the purge: bytes, then the record.
+  assert.deepEqual(await lifecycle.sweepProjectStoragePurges(sb, store), { completed: 1, remaining: 0 });
+  assert.ok(!store.objects.has(orphan.storage_key) && !store.objects.has(orphan.display_key) && !store.objects.has(fresh.storage_key), 'bytes gone');
+  assert.equal((await one(db, `select count(*)::int as n from public.project_storage_purges`)).n, 0);
 
-  // The sweep end to end: bytes first, then the row; the referenced one untouched.
+  // (a) The sweep end to end: the row first, then its bytes, then the purge record; the referenced one untouched.
   const orphan2 = await storeImage(sb, store, HOLLOW, { fileName: 'orphan2.png', display: { bytes: JPG, mimeType: 'image/jpeg', width: 1, height: 1 } });
   await db.query(`update public.workspace_attachments set created_at = now() - interval '2 days' where id = $1`, [orphan2.id]);
-  assert.deepEqual(await attachmentsLib.sweepUnreferencedAttachments(sb, store, HOLLOW), { removed: 1 });
+  const observed = { ...store, download: store.download.bind(store), upload: store.upload.bind(store), remove: async (keys) => {
+    assert.equal((await one(db, `select count(*)::int as n from public.workspace_attachments where id = $1`, [orphan2.id])).n, 0, 'the row is already gone when its bytes are removed');
+    assert.equal((await one(db, `select count(*)::int as n from public.project_storage_purges`)).n, 1, 'and the purge is recorded');
+    return store.remove(keys);
+  } };
+  assert.deepEqual(await attachmentsLib.sweepUnreferencedAttachments(sb, observed, HOLLOW), { removed: 1 });
   assert.equal(store.objects.has(orphan2.storage_key) || store.objects.has(orphan2.display_key), false, 'bytes gone');
   assert.equal((await one(db, `select count(*)::int as n from public.workspace_attachments where id = $1`, [orphan2.id])).n, 0, 'row gone');
+  assert.equal((await one(db, `select count(*)::int as n from public.project_storage_purges`)).n, 0, 'no purge row remains');
   assert.ok(store.objects.has(shown.storage_key), 'the shown image keeps its bytes');
   assert.deepEqual(await attachmentsLib.sweepUnreferencedAttachments(sb, store, HOLLOW), { removed: 0 }, 'nothing left to sweep');
-  // A store that refuses keeps the row (tried again later).
+  // (c) A store that refuses: the row is gone, the purge stays recorded, and a later purge sweep finishes it.
   const stubborn = await storeImage(sb, store, HOLLOW, { fileName: 'stubborn.png' });
   await db.query(`update public.workspace_attachments set created_at = now() - interval '2 days' where id = $1`, [stubborn.id]);
   const failing = { ...store, download: store.download.bind(store), upload: store.upload.bind(store), remove: async () => { throw new Error('storage down'); } };
-  assert.deepEqual(await attachmentsLib.sweepUnreferencedAttachments(sb, failing, HOLLOW), { removed: 0 });
-  assert.equal((await one(db, `select count(*)::int as n from public.workspace_attachments where id = $1`, [stubborn.id])).n, 1, 'bytes undeletable: the row stays');
-  assert.deepEqual(await attachmentsLib.sweepUnreferencedAttachments(sb, store, HOLLOW), { removed: 1 });
+  assert.deepEqual(await attachmentsLib.sweepUnreferencedAttachments(sb, failing, HOLLOW), { removed: 1 });
+  assert.equal((await one(db, `select count(*)::int as n from public.workspace_attachments where id = $1`, [stubborn.id])).n, 0, 'the row never outlives its bytes: it is gone');
+  assert.ok(store.objects.has(stubborn.storage_key), 'bytes still there');
+  const owed = await one(db, `select user_id, project_id, storage_keys from public.project_storage_purges`);
+  assert.deepEqual(owed, { user_id: ALICE, project_id: HOLLOW, storage_keys: [stubborn.storage_key] }, 'recorded, to be retried');
+  assert.deepEqual(await attachmentsLib.sweepUnreferencedAttachments(sb, store, HOLLOW), { removed: 0 }, 'nothing listed any more');
+  assert.deepEqual(await lifecycle.sweepProjectStoragePurges(sb, store), { completed: 1, remaining: 0 });
+  assert.ok(!store.objects.has(stubborn.storage_key), 'the purge sweep removes the bytes');
+  assert.equal((await one(db, `select count(*)::int as n from public.project_storage_purges`)).n, 0, 'and the record');
 
   // Canvas Trash keeps the image placement and its attachment; restore shows it; permanent deletion removes the placement and leaves the attachment for the sweep.
   ok(await trash.trashWorkspaceObject('canvas', plot.id));
@@ -254,6 +276,77 @@ test('db + server: the lifecycle rule — a referenced attachment is never swept
   assert.equal((await one(db, `select count(*)::int as n from public.workspace_canvas_items where id = $1`, [img.id])).n, 0);
   assert.equal((await one(db, `select count(*)::int as n from public.workspace_attachments where id = $1`, [shown.id])).n, 1, 'never deleted by a cascade from a placement');
   assert.deepEqual((await sb.rpc('list_unreferenced_attachments', { p_project_id: HOLLOW, p_older_than: '0 hours' })).data.attachments.map((x) => x.id), [shown.id], 'now unreferenced: the sweep takes it after the grace period');
+});
+
+test('db + server: the sweep race — a placement made after the list and before the delete keeps its row AND its bytes; a purge is the owner’s alone and another Project is never touched; without 050 the sweep still removes the deleted ids’ bytes; the Canvas action also finishes owed purges', async () => {
+  const db = await seededDb();
+  const { sb, plot, store } = await hollow(db);
+  const late = await storeImage(sb, store, HOLLOW, { fileName: 'late.png', display: { bytes: JPG, mimeType: 'image/jpeg', width: 1, height: 1 } });
+  const gone = await storeImage(sb, store, HOLLOW, { fileName: 'gone.png' });
+  await db.query(`update public.workspace_attachments set created_at = now() - interval '2 days' where id in ($1, $2)`, [late.id, gone.id]);
+  // Bram's own old, unreferenced attachment in another Project: never part of Alice's sweep.
+  const bramStore = new attachmentsLib.MemoryAttachmentStorage();
+  const theirs = await storeImage(as(db, BRAM), bramStore, TIDE, { fileName: 'theirs.png' });
+  await db.query(`update public.workspace_attachments set created_at = now() - interval '2 days' where id = $1`, [theirs.id]);
+
+  // (b) By hand, in the sweep's order: list, then a placement lands (a replayed device draft), then delete.
+  const listed = (await sb.rpc('list_unreferenced_attachments', { p_project_id: HOLLOW, p_older_than: '24 hours' })).data.attachments.map((x) => x.id);
+  assert.deepEqual(listed.sort(), [late.id, gone.id].sort());
+  const placement = create('image', late.id);
+  allOk(await canvas.writeCanvasItems(plot.id, [placement]));
+  const del = (await sb.rpc('delete_workspace_attachments', { p_project_id: HOLLOW, p_ids: listed })).data;
+  assert.deepEqual(del.deleted, [gone.id], 'the row referenced meanwhile is kept');
+  assert.deepEqual(del.purges.map((p) => p.storage_keys), [[gone.storage_key]], 'only the deleted row’s bytes are owed');
+  assert.ok(store.objects.has(late.storage_key) && store.objects.has(late.display_key), 'its bytes are never removed');
+  assert.equal((await one(db, `select count(*)::int as n from public.workspace_attachments where id = $1`, [late.id])).n, 1);
+  // The same race through the real sweep: the placement lands between its two calls.
+  const late2 = await storeImage(sb, store, HOLLOW, { fileName: 'late2.png' });
+  await db.query(`update public.workspace_attachments set created_at = now() - interval '2 days' where id = $1`, [late2.id]);
+  const racy = { ...sb, rpc: async (fn, args) => {
+    const r = await sb.rpc(fn, args);
+    if (fn === 'list_unreferenced_attachments') allOk(await canvas.writeCanvasItems(plot.id, [create('image', late2.id)]));
+    return r;
+  } };
+  assert.deepEqual(await attachmentsLib.sweepUnreferencedAttachments(racy, store, HOLLOW), { removed: 0 });
+  assert.ok(store.objects.has(late2.storage_key), 'bytes kept');
+  assert.equal((await one(db, `select count(*)::int as n from public.workspace_attachments where id = $1`, [late2.id])).n, 1, 'row kept');
+  const read = await attachmentsLib.readAttachment(sb, store, late2.id, 'original');
+  assert.ok(read && read.bytes.length === PNG.length, 'the image is still served');
+
+  // (d) The purge is Alice's alone; Bram's Project and bytes are untouched; Bram's sweep cannot reach it.
+  const purges = await all(db, `select user_id, project_id from public.project_storage_purges`);
+  assert.deepEqual(purges, [{ user_id: ALICE, project_id: HOLLOW }]);
+  assert.deepEqual((await as(db, BRAM).from('project_storage_purges').select('*')).data, []);
+  assert.deepEqual(await lifecycle.sweepProjectStoragePurges(as(db, BRAM), bramStore), { completed: 0, remaining: 0 });
+  assert.ok(store.objects.has(gone.storage_key), 'Bram’s sweep removed nothing of Alice’s');
+  assert.equal((await one(db, `select count(*)::int as n from public.workspace_attachments where id = $1`, [theirs.id])).n, 1, 'Bram’s attachment is not swept by Alice');
+  assert.ok(bramStore.objects.has(theirs.storage_key));
+  assert.deepEqual((await sb.rpc('delete_workspace_attachments', { p_project_id: TIDE, p_ids: [theirs.id] })).data, { status: 'error', error: 'Project not found' });
+  assert.deepEqual((await sb.rpc('delete_workspace_attachments', { p_project_id: HOLLOW, p_ids: [theirs.id] })).data, { status: 'ok', deleted: [], purges: [] }, 'another Project’s id under Alice’s Project: nothing');
+  assert.equal((await one(db, `select count(*)::int as n from public.project_storage_purges`)).n, 1, 'no purge recorded for nothing');
+  // The Canvas action: the attachment sweep, then the owed purge.
+  signIn(db, ALICE);
+  storageMock.memory.objects.set(gone.storage_key, store.objects.get(gone.storage_key));
+  assert.deepEqual(await attachmentsAction.sweepProjectAttachments(HOLLOW), { removed: 0 });
+  assert.ok(!storageMock.memory.objects.has(gone.storage_key), 'the action removed the owed bytes');
+  assert.equal((await one(db, `select count(*)::int as n from public.project_storage_purges`)).n, 0, 'and cleared the record');
+  store.objects.delete(gone.storage_key);
+
+  // Without 050 (the delete returns no `purges`): the deleted ids' bytes are removed directly, as before.
+  const old = await storeImage(sb, store, HOLLOW, { fileName: 'old.png', display: { bytes: JPG, mimeType: 'image/jpeg', width: 1, height: 1 } });
+  await db.query(`update public.workspace_attachments set created_at = now() - interval '2 days' where id = $1`, [old.id]);
+  const pre050 = { ...sb, rpc: async (fn, args) => {
+    const r = await sb.rpc(fn, args);
+    if (fn === 'delete_workspace_attachments' && r.data?.status === 'ok') {
+      await db.query(`delete from public.project_storage_purges where project_id = $1`, [HOLLOW]);
+      return { ...r, data: { status: 'ok', deleted: r.data.deleted } };
+    }
+    return r;
+  } };
+  assert.deepEqual(await attachmentsLib.sweepUnreferencedAttachments(pre050, store, HOLLOW), { removed: 1 });
+  assert.ok(!store.objects.has(old.storage_key) && !store.objects.has(old.display_key), 'bytes removed by the fallback');
+  assert.equal((await one(db, `select count(*)::int as n from public.workspace_attachments where id = $1`, [old.id])).n, 0);
+  assert.ok(store.objects.has(late.storage_key) && store.objects.has(late2.storage_key), 'referenced images keep their bytes throughout');
 });
 
 test('routes: upload stores bytes and registers the row as the writer; the read serves the owner (display variant when there is one), 404s another writer and a stranger id; bad uploads are refused with nothing stored', async () => {
@@ -784,4 +877,64 @@ test('backup v2: Canvases are first-class — placements with geometry, Sections
   assert.deepEqual(Array.from(await backupLib.fetchAttachmentBytes({ id: a.id }, fakeFetch)), Array.from(PNG));
   assert.deepEqual(calls, [`/api/attachments/${a.id}`]);
   assert.equal(await backupLib.fetchAttachmentBytes({ id: a.id }, async () => ({ ok: false })), null);
+});
+
+test('session (BC-B): a note whose text was changed here and whose row was deleted elsewhere is never dropped — stranded as gone, kept in the draft, replayed as stranded by the next client, never resurrected on the server; a duplicate saves its text as a new row; geometry of a gone row is simply dropped', async () => {
+  const server = fakeServer();
+  const { session, timers, drafts } = makeSession(server);
+  const note = session.createNote({ x: 0, y: 0 }, SIZE, 'first thought');
+  const card = session.addPlacement('scene', 'scene-1', 'Scene', { x: 300, y: 0 }, CARD);
+  await timers.advance(400);
+  assert.equal(server.rows.has(note), true);
+
+  // Offline here: the note's text changes and the card moves; meanwhile both rows are deleted elsewhere.
+  server.fail = 1;
+  session.setNoteText(note, 'first thought, kept');
+  session.endNoteEdit(note);
+  session.moveLive([card], 50, 0);
+  session.commitMove(new Map([[card, { x: 300, y: 0 }]]));
+  await timers.advance(400);
+  assert.equal(session.status, 'retrying');
+  server.rows.delete(note);
+  server.rows.delete(card);
+  await timers.advance(2000);
+  assert.equal(session.status, 'saved');
+  assert.equal(session.has(card), false, 'a placement gone elsewhere is gone here (its geometry was nothing of the writer\'s)');
+  assert.equal(session.has(note), true, 'the note with the writer\'s text is kept');
+  assert.equal(session.strandedReason(note), 'gone');
+  assert.equal(canvasModel.noteText(session.get(note).content), 'first thought, kept');
+  assert.equal(server.rows.has(note), false, 'never resurrected');
+  const entry = drafts.at(-1).entries.find((e) => e.id === note);
+  assert.equal(entry.stranded, 'gone', 'the device draft carries it, marked');
+  const calls = server.calls.length;
+  await timers.advance(60000);
+  assert.equal(server.calls.length, calls, 'never retried');
+
+  // The next client (a reload) replays the draft: the note is shown, stranded, not sent.
+  let m = 0;
+  const again = makeSession(fakeServer(), { newId: () => `22222222-0000-4000-8000-${String(++m).padStart(12, '0')}` });
+  again.session.applyDraft(drafts.at(-1));
+  await again.timers.advance(0);
+  assert.equal(again.session.has(note), true);
+  assert.equal(again.session.strandedReason(note), 'gone');
+  assert.equal(again.session.status, 'saved');
+
+  // Duplicating it is the writer keeping the text: a new row, saved; removing it lets it go — no server call either way for the gone row.
+  const [copy] = again.session.duplicate([note]);
+  await again.timers.advance(400);
+  assert.equal(again.session.strandedReason(copy), undefined);
+  assert.equal(again.session.get(copy).version, 1, 'the copy is on the server');
+  again.session.remove([note]);
+  await again.timers.advance(400);
+  assert.equal(again.session.has(note), false);
+  assert.equal(again.drafts.at(-1).entries.some((e) => e.id === note), false, 'and out of the draft');
+
+  // An older draft (no `stranded` field) holding a note text edit against a vanished row is treated the same.
+  const old = makeSession(fakeServer());
+  old.session.applyDraft({ canvasId: 'cv', entries: [{ id: note, kind: 'item', op: 'update', fields: ['content'], item: { ...session.get(note) } }] });
+  assert.equal(old.session.strandedReason(note), 'gone');
+  // ...but a geometry-only edit against a vanished row is dropped, as before.
+  const geo = makeSession(fakeServer());
+  geo.session.applyDraft({ canvasId: 'cv', entries: [{ id: 'x-gone', kind: 'item', op: 'update', fields: ['x', 'y'], item: { ...session.get(note), id: 'x-gone' } }] });
+  assert.equal(geo.session.has('x-gone'), false);
 });

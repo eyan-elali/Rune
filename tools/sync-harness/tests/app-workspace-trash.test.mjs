@@ -303,6 +303,47 @@ test('entry: trash leaves every View; its body, values and relationships survive
   assert.deepEqual(await snapshot(), before, 'the same Entry, values and reference rows — nothing duplicated');
 });
 
+test('Trash visibility (051): an Entry\'s values and a Collection\'s Views are readable only while their owner is active — hidden in Trash, back on restore, never another account\'s', async () => {
+  const db = await seededDb();
+  const t = await hollow(db);
+  const alice = signIn(db, ALICE);
+  ok(await props.setEntryPropertyValue(t.nerai.id, t.role.id, 'Protagonist'));
+  const extraView = ok(await views.createCollectionView(t.characters.id, 'Board', 'board'));
+  const values = (sb) => sb.from('workspace_entry_values').select('entry_id, property_id').eq('entry_id', t.nerai.id);
+  const viewRows = (sb) => sb.from('workspace_collection_views').select('id').eq('collection_id', t.characters.id);
+  const viewCount = (await all(db, `select id from public.workspace_collection_views where collection_id = $1`, [t.characters.id])).length;
+  assert.ok(viewCount >= 2 && viewCount === (await viewRows(alice)).data.length, 'active: every View readable');
+  assert.equal((await values(alice)).data.length, 1, 'active: the value readable');
+  const loadedBefore = await workspace.loadProjectWorkspace(HOLLOW);
+  assert.ok(loadedBefore.values.some((v) => v.entry_id === t.nerai.id) && loadedBefore.views.some((v) => v.id === extraView.id));
+
+  // The Entry in Trash: its value is hidden (the row is kept); restore brings it back unchanged.
+  ok(await trash.trashWorkspaceObject('entry', t.nerai.id));
+  assert.deepEqual((await values(alice)).data, [], 'in Trash: hidden');
+  assert.equal((await all(db, `select 1 from public.workspace_entry_values where entry_id = $1`, [t.nerai.id])).length, 1, 'the row is kept');
+  assert.ok(!(await workspace.loadProjectWorkspace(HOLLOW)).values.some((v) => v.entry_id === t.nerai.id));
+  ok(await trash.restoreWorkspaceObject('entry', t.nerai.id));
+  assert.deepEqual((await values(alice)).data, [{ entry_id: t.nerai.id, property_id: t.role.id }], 'restored: readable again');
+
+  // The Collection in Trash: its Views are hidden (kept), and so are its Entries' values; restore brings all back.
+  ok(await trash.trashWorkspaceObject('collection', t.characters.id));
+  assert.deepEqual((await viewRows(alice)).data, [], 'in Trash: no View readable');
+  assert.deepEqual((await values(alice)).data, [], 'an active Entry of a trashed Collection: its values hidden too, as the Entry is');
+  assert.equal((await all(db, `select id from public.workspace_collection_views where collection_id = $1`, [t.characters.id])).length, viewCount, 'the rows are kept');
+  const loadedTrashed = await workspace.loadProjectWorkspace(HOLLOW);
+  assert.ok(!loadedTrashed.views.some((v) => v.collection_id === t.characters.id) && !loadedTrashed.values.some((v) => v.entry_id === t.nerai.id));
+  ok(await trash.restoreWorkspaceObject('collection', t.characters.id));
+  assert.equal((await viewRows(alice)).data.length, viewCount, 'restored: every View readable');
+  assert.equal((await values(alice)).data.length, 1);
+
+  // Another account reads nothing of them, active or not.
+  const bram = signIn(db, BRAM);
+  assert.deepEqual((await values(bram)).data, []);
+  assert.deepEqual((await viewRows(bram)).data, []);
+  assert.deepEqual((await bram.from('workspace_entry_values').select('entry_id').eq('project_id', HOLLOW)).data, []);
+  assert.deepEqual((await bram.from('workspace_collection_views').select('id').eq('project_id', HOLLOW)).data, []);
+});
+
 test('entry: permanent deletion removes its values and references, never the objects it pointed to', async () => {
   const db = await seededDb();
   const t = await hollow(db);

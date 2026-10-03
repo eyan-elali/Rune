@@ -10,6 +10,7 @@ import {
   type ReactNode,
   type RefObject,
 } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSceneEditor, type DisplaySyncStatus } from "@/components/editor/useSceneEditor";
 import { DocStatus } from "./DocStatus";
@@ -70,11 +71,15 @@ export type Rune2EditorProps = {
 type BlockState = { words: number; syncStatus: DisplaySyncStatus };
 type BlockHandle = { focusEnd: () => void; openConflict: () => void };
 
-const STATUS_LABEL: Record<Exclude<DisplaySyncStatus, "conflict">, string> = {
+// One vocabulary with the Workspace surfaces: "Saved" only once the server
+// confirmed it; "Saved on this device" whenever the writing is durable here
+// but not yet there (offline, or a failed attempt being retried).
+const STATUS_LABEL: Record<Exclude<DisplaySyncStatus, "conflict" | "unsupported" | "retired">, string> = {
   synced: "Saved",
   online_dirty: "Saving…",
   syncing: "Saving…",
   offline_dirty: "Saved on this device",
+  failed: "Saved on this device",
 };
 
 // The surface shows one save state for all its Scenes: the one most in need
@@ -84,7 +89,10 @@ const STATUS_RANK: Record<DisplaySyncStatus, number> = {
   online_dirty: 1,
   syncing: 2,
   offline_dirty: 3,
-  conflict: 4,
+  failed: 4,
+  conflict: 5,
+  unsupported: 6,
+  retired: 7,
 };
 
 export default function Rune2Editor({
@@ -143,7 +151,11 @@ export default function Rune2Editor({
   if (header === null) return null;
 
   const statusLabel =
-    syncStatus === "conflict" ? null : !isOnline && syncStatus === "synced" ? "Offline" : STATUS_LABEL[syncStatus];
+    syncStatus === "conflict" || syncStatus === "unsupported" || syncStatus === "retired"
+      ? null
+      : !isOnline && syncStatus === "synced"
+        ? "Offline"
+        : STATUS_LABEL[syncStatus];
   const lastSceneId = scenes.length > 0 ? scenes[scenes.length - 1].id : null;
 
   return (
@@ -217,8 +229,24 @@ export default function Rune2Editor({
             >
               Changed elsewhere — review
             </button>
+          ) : syncStatus === "unsupported" ? (
+            // This server can't take this client's saves: the writing is kept
+            // on this device and sent again by a reloaded client.
+            <span className="r2-page-conflict" role="alert">
+              <span>Couldn’t save — kept on this device.</span>
+              <button type="button" onClick={() => window.location.reload()}>
+                Reload Rune
+              </button>
+            </span>
+          ) : syncStatus === "retired" ? (
+            // The Scene is gone for good (deleted from Trash elsewhere): the
+            // text typed here is held in Settings to copy, never dropped.
+            <span className="r2-page-conflict" role="alert">
+              <span>This scene was deleted. Your unsaved text is kept in</span>
+              <Link href="/settings">Settings</Link>
+            </span>
           ) : (
-            <span data-tone={syncStatus === "offline_dirty" || !isOnline ? "offline" : undefined}>
+            <span data-tone={syncStatus === "offline_dirty" || syncStatus === "failed" || !isOnline ? "offline" : undefined}>
               {statusLabel}
             </span>
           )}

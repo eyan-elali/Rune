@@ -162,6 +162,8 @@ const ARRANGE_ICON: Record<string, LucideIcon> = {
   connect: Link,
 };
 const STRANDED_TEXT = "This Canvas change could not be saved. Reload Rune to update.";
+// A note changed here whose row was removed elsewhere: its text is kept, unsaved, until the writer decides.
+const GONE_NOTE_TEXT = "A note you changed was removed elsewhere. Its text is kept here unsaved — duplicate it to keep it, or remove it.";
 
 type Handle = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
 const HANDLES: Handle[] = ["nw", "n", "ne", "e", "se", "s", "sw", "w"];
@@ -1467,12 +1469,17 @@ export default function CanvasSurface({ entry, session }: { entry: NavEntry; ses
       )}
 
       {/* Something this server couldn't save (a newer client than the database): kept here and on this device; a reload brings the client that can. */}
-      {(stranded.size > 0 || status === "unsupported") && !notice && !message && (
+      {([...stranded].some((id) => session.strandedReason(id) !== "gone") || status === "unsupported") && !notice && !message && (
         <div className="r2-canvas-ui r2-canvas-notice" role="alert" data-tone="warning">
           <span>{STRANDED_TEXT}</span>
           <button type="button" className="r2-button r2-button--quiet r2-button--sm" onClick={() => window.location.reload()}>
             Reload
           </button>
+        </div>
+      )}
+      {[...stranded].some((id) => session.strandedReason(id) === "gone") && status !== "unsupported" && !notice && !message && (
+        <div className="r2-canvas-ui r2-canvas-notice" role="alert" data-tone="warning">
+          <span>{GONE_NOTE_TEXT}</span>
         </div>
       )}
 

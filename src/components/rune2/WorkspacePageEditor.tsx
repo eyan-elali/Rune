@@ -49,6 +49,9 @@ import { WorkspaceTitle } from "./WorkspaceTitle";
 // A document holding something this editor doesn't know (written by a newer
 // Rune) is shown read-only rather than risk saving it without that part.
 
+// One vocabulary with the manuscript and Canvas surfaces: "Saved" only once
+// the server confirmed it; "Saved on this device" whenever the writing is
+// durable here but not yet there (offline, or a failed save being retried).
 const STATUS_LABEL: Record<Exclude<PageSaveStatus, "conflict" | "unavailable" | "trashed">, string> = {
   saved: "Saved",
   pending: "Saving…",
@@ -203,8 +206,11 @@ export default function WorkspacePageEditor({ entry, session }: { entry: NavEntr
   const statusLabel =
     status === "conflict" || status === "unavailable" || status === "trashed"
       ? null
-      : !isOnline && status === "saved"
-        ? "Offline"
+      : !isOnline
+        ? status === "saved"
+          ? "Offline"
+          : // Nothing is being sent while offline: the writing waits on this device.
+            "Saved on this device"
         : STATUS_LABEL[status];
 
   return (

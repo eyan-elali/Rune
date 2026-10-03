@@ -4,6 +4,7 @@ import { createGameSession } from '@/lib/actions/games'
 import { awardProjectXp } from '@/lib/actions/xp'
 import { afterSceneSync, syncSceneWithLimitCheck } from '@/lib/actions/scenes'
 import { recordWordsWritten } from '@/lib/actions/writingStats'
+import { isMissingServerFunction } from '@/lib/offline/serverCompat'
 
 // ── Write queue ───────────────────────────────────────────────────────────────
 
@@ -70,6 +71,17 @@ function stableStringify(value: unknown): string {
 // A row still 'syncing' this long after it was marked is treated as stranded
 // (its request can't still be running) and revived by the background flush.
 const STRANDED_SYNCING_MS = 2 * 60 * 1000
+
+// Whether a queued save last failed because this server lacks the save
+// function the client calls (an older server behind a newer client). The
+// prose is kept and the row stays 'failed', but the timed background flush
+// leaves it alone: the answer would not change until the client reloads or
+// the server is updated. A reload replays it (the editor syncs the Scene it
+// opens directly), as do "Send now" and logging out, which pass
+// `includeUnsupported`.
+export function isUnsupportedSaveFailure(write: Pick<PendingWrite, 'syncStatus' | 'lastError'>): boolean {
+  return write.syncStatus === 'failed' && isMissingServerFunction(write.lastError)
+}
 
 // Whether a queued save carries prose the server has not confirmed. The last
 // confirmed server copy is the cache's serverContent baseline; a save whose
@@ -435,6 +447,14 @@ async function doSyncPendingWrite(
     }
 
     if (syncResult.status === 'error') {
+      if (isMissingServerFunction(syncResult.error)) {
+        // This server has no save function this client can call: never a
+        // reason to drop or retire the prose, and no reason to retry on a
+        // timer either (see isUnsupportedSaveFailure). The editor shows it
+        // and asks for a reload.
+        await failAttempt('failed', syncResult.error)
+        return
+      }
       // Server or DB error — leave as pending for retry, but record the real
       // reason instead of discarding it.
       await failAttempt('pending', syncResult.error)
@@ -504,7 +524,14 @@ async function doSyncPendingWrite(
 
 let _flushing = false
 
-export async function flushPendingQueue(): Promise<{
+export async function flushPendingQueue(options: {
+  /**
+   * Also retry saves this server last refused as unsupported
+   * (isUnsupportedSaveFailure) — for a writer-initiated attempt ("Send now",
+   * logging out). The timed flush leaves them for a reloaded client.
+   */
+  includeUnsupported?: boolean
+} = {}): Promise<{
   synced: number
   failed: number
   conflicts: number
@@ -536,7 +563,7 @@ export async function flushPendingQueue(): Promise<{
     const retryable = all.filter(
       (w) =>
         w.syncStatus === 'pending' ||
-        w.syncStatus === 'failed' ||
+        (w.syncStatus === 'failed' && (options.includeUnsupported || !isUnsupportedSaveFailure(w))) ||
         w.syncStatus === 'conflict' ||
         (w.syncStatus === 'syncing' &&
           !inFlightSyncs.has(w.id) &&

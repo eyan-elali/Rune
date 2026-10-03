@@ -10,7 +10,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { getLocalDateString } from "@/lib/utils";
 import { recordWordsWritten } from "@/lib/actions/writingStats";
 import { writeToPendingQueue, syncPendingWrite } from "@/lib/offline/syncEngine";
-import { getOfflineDB, getPendingWrite, storeOfflineWritingCredit, SCENE_CACHE_STORE } from "@/lib/offline/db";
+import { getOfflineDB, getPendingWrite, storeOfflineWritingCredit, SCENE_CACHE_STORE, type PendingWrite } from "@/lib/offline/db";
+import { isMissingServerFunction } from "@/lib/offline/serverCompat";
 import { useNetworkStore } from "@/store/networkStore";
 import { awardProjectXp } from "@/lib/actions/xp";
 import { xpRewardForWords } from "@/lib/xp";
@@ -33,23 +34,52 @@ import { SCENE_RESTORED_EVENT } from "@/lib/sceneRestoredEvent";
 // Depends on the profile store (user id, preferences) and the
 // network store being hydrated, as the (app) and (rune2) layouts do.
 
-export type DisplaySyncStatus = 'synced' | 'online_dirty' | 'offline_dirty' | 'syncing' | 'conflict'
+// What the surface says about the Scene's writing. Every state is read from
+// the durable queue row, never from what this tab hoped a request would do:
+//   synced         nothing queued: the server holds everything typed here
+//   online_dirty   queued; a save is due or under way (shown as saving)
+//   syncing        a save request is in flight
+//   offline_dirty  queued while offline: kept on this device, sent on reconnect
+//   failed         the last attempt failed (server error, in Trash elsewhere,
+//                  another account's row, no session): kept here, retried
+//   conflict       the server changed meanwhile: the writer chooses
+//   unsupported    this server can't take this client's saves (no save
+//                  function): kept here, not retried until a reload
+//   retired        the Scene is gone for good: the text is kept in
+//                  Settings → This device for the writer to copy
+export type DisplaySyncStatus =
+  | 'synced'
+  | 'online_dirty'
+  | 'offline_dirty'
+  | 'syncing'
+  | 'failed'
+  | 'conflict'
+  | 'unsupported'
+  | 'retired'
 
-async function readDbSyncStatus(sceneId: string): Promise<string | null> {
+type QueueRow = Pick<PendingWrite, 'syncStatus' | 'lastError'> | null
+
+async function readDbSyncStatus(sceneId: string): Promise<QueueRow> {
   try {
     const db = await getOfflineDB()
     const pending = await db.get('pending_writes', sceneId)
-    return pending?.syncStatus ?? null
+    return pending ? { syncStatus: pending.syncStatus, lastError: pending.lastError } : null
   } catch {
     return null
   }
 }
 
-function mapDisplayStatus(dbStatus: string | null, online: boolean): DisplaySyncStatus {
-  if (!dbStatus) return 'synced'
+function mapDisplayStatus(row: QueueRow, online: boolean): DisplaySyncStatus {
+  if (!row) return 'synced'
+  if (row.syncStatus === 'retired') return 'retired'
   if (!online) return 'offline_dirty'
-  if (dbStatus === 'conflict') return 'conflict'
-  if (dbStatus === 'syncing') return 'syncing'
+  if (row.syncStatus === 'conflict') return 'conflict'
+  if (row.syncStatus === 'syncing') return 'syncing'
+  // A 'pending' row keeps its lastError only when its last attempt failed
+  // (a keystroke writes a fresh row): that too is a failure being retried.
+  if (row.syncStatus === 'failed' || row.lastError) {
+    return isMissingServerFunction(row.lastError) ? 'unsupported' : 'failed'
+  }
   return 'online_dirty'
 }
 
@@ -169,7 +199,7 @@ export function useSceneEditor({
     if (isOnline && wasOffline) {
       void (async () => {
         const dbStatus = await readDbSyncStatus(sceneId);
-        if (dbStatus === 'pending' || dbStatus === 'failed') {
+        if (dbStatus?.syncStatus === 'pending' || dbStatus?.syncStatus === 'failed') {
           const pendingBefore = await getPendingWrite(sceneId);
           setSyncStatusAndRef('syncing');
           await syncPendingWrite(sceneId, 'online', expectedServerWordCountRef.current);
@@ -178,7 +208,7 @@ export function useSceneEditor({
           if (!afterStatus && pendingBefore) {
             expectedServerWordCountRef.current = pendingBefore.wordCount;
           }
-        } else if (dbStatus === 'syncing') {
+        } else if (dbStatus?.syncStatus === 'syncing') {
           setSyncStatusAndRef('syncing');
         } else {
           setSyncStatusAndRef(mapDisplayStatus(dbStatus, true));
@@ -379,6 +409,10 @@ export function useSceneEditor({
                 xpFlashTimerRef.current = setTimeout(() => setXpFlash(null), 2200);
               }
             }
+          }).catch(() => {
+            // XP is legacy and best-effort: a failed award (offline, a server
+            // error) never surfaces as an unhandled rejection; the prose is
+            // already queued and the writing credit has its own retry path.
           });
         }
       }, Math.max(autoSaveDelayRef.current, 2500));
@@ -513,7 +547,7 @@ export function useSceneEditor({
             // 'conflict' indicator below; nothing here should second-guess it or
             // force the user through a separate manual "sync" step for what is,
             // in the single-tab-online case, just autosave finishing its job.
-            if (pending.syncStatus !== 'conflict' && isOnlineRef.current) {
+            if (pending.syncStatus !== 'conflict' && pending.syncStatus !== 'retired' && isOnlineRef.current) {
               setSyncStatusAndRef('syncing');
               await syncPendingWrite(sceneIdForDraftCheck, 'online', expectedWordCountForDraftCheck);
             }

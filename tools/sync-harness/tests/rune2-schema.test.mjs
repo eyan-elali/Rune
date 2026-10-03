@@ -53,7 +53,7 @@ test('a database built from schema.sql alone is identical to baseline + migratio
   assert.deepEqual(diffCounts(a, b), []);
   const versions = async (db) => (await db.query(`select version, name, note from public.schema_migrations order by version`)).rows;
   assert.deepEqual(await versions(fresh), await versions(migrated));
-  assert.deepEqual((await versions(fresh)).map((r) => r.version).slice(-37), ['013', '014', '015', '016', '017', '018', '019', '020', '021', '022', '023', '024', '025', '026', '027', '028', '029', '030', '031', '032', '033', '034', '035', '036', '037', '038', '039', '040', '041', '042', '043', '044', '045', '046', '047', '048', '049']);
+  assert.deepEqual((await versions(fresh)).map((r) => r.version).slice(-39), ['013', '014', '015', '016', '017', '018', '019', '020', '021', '022', '023', '024', '025', '026', '027', '028', '029', '030', '031', '032', '033', '034', '035', '036', '037', '038', '039', '040', '041', '042', '043', '044', '045', '046', '047', '048', '049', '050', '051']);
 });
 
 test('signup still creates the profile and pricing entitlements on the Rune 2.0 schema', async () => {
@@ -2255,6 +2255,62 @@ test('048 on 047: one new function (convert_canvas_note), nothing else; refuses 
   assert.deepEqual(keys.filter((k) => !k.startsWith('function_grants:')), ['functions:added:convert_canvas_note(p_item_id uuid, p_target text, p_new_item_id uuid, p_title text, p_content jsonb, p_word_count integer)']);
   assert.deepEqual(keys.filter((k) => k.startsWith('function_grants:') && / anon /.test(k)), []);
   await assert.rejects(db.exec(readMigration(M048)), /Migration 048 has already been applied/);
+});
+
+// ── migrations 049 and 050 ────────────────────────────────────────────────────
+
+const M049 = '049_project_trash.sql';
+const M050 = '050_attachment_purge.sql';
+
+async function db049() {
+  const db = await db046();
+  for (const m of [M047, M048, M049]) await db.exec(readMigration(m));
+  return db;
+}
+
+test('050 on 049: delete_workspace_attachments redefined (same signature), nothing else; refuses out of order and twice', async () => {
+  const db = await db049();
+  const before = await captureCatalog(db);
+  await db.exec(readMigration(M050));
+  const keys = diffCatalogs(before, await captureCatalog(db)).differences
+    .map((d) => `${d.section}:${d.kind}:${d.key}`)
+    .filter((k) => !/^relation_counts?:/.test(k))
+    .sort();
+  assert.deepEqual(keys, ['functions:changed:delete_workspace_attachments(p_project_id uuid, p_ids uuid[])']);
+  await assert.rejects(db.exec(readMigration(M050)), /Migration 050 has already been applied/);
+  // Out of order: refused on 048, changing nothing; already inside schema.sql.
+  const early = await db046();
+  await early.exec(readMigration(M047));
+  await early.exec(readMigration(M048));
+  const earlyBefore = await captureCatalog(early);
+  await assert.rejects(early.exec(readMigration(M050)), /requires migration 049/);
+  assert.deepEqual(diffCatalogs(earlyBefore, await captureCatalog(early)).differences, []);
+  const fresh = await freshRune2Db();
+  await assert.rejects(fresh.exec(readMigration(M050)), /Migration 050 has already been applied/);
+});
+
+const M051 = '051_trash_visibility_values_views.sql';
+
+test('051 on 050: the select policies of workspace_entry_values and workspace_collection_views redefined, nothing else; refuses out of order and twice', async () => {
+  const db = await db049();
+  await db.exec(readMigration(M050));
+  const before = await captureCatalog(db);
+  await db.exec(readMigration(M051));
+  const keys = diffCatalogs(before, await captureCatalog(db)).differences
+    .map((d) => `${d.section}:${d.kind}:${d.key}`)
+    .filter((k) => !/^relation_counts?:/.test(k))
+    .sort();
+  assert.deepEqual(keys, [
+    'policies:changed:workspace_collection_views.workspace_collection_views: select own',
+    'policies:changed:workspace_entry_values.workspace_entry_values: select own',
+  ]);
+  await assert.rejects(db.exec(readMigration(M051)), /Migration 051 has already been applied/);
+  const early = await db049();
+  const earlyBefore = await captureCatalog(early);
+  await assert.rejects(early.exec(readMigration(M051)), /requires migration 050/);
+  assert.deepEqual(diffCatalogs(earlyBefore, await captureCatalog(early)).differences, []);
+  const fresh = await freshRune2Db();
+  await assert.rejects(fresh.exec(readMigration(M051)), /Migration 051 has already been applied/);
 });
 
 test('047 requires 046, 048 requires 047; both refuse on schema.sql, changing nothing', async () => {

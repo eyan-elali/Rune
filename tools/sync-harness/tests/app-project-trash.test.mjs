@@ -355,3 +355,46 @@ test('an image registered after the deletion began is refused and its bytes remo
   assert.ok(r.error, 'registration refused');
   assert.equal([...storageMock.memory.objects.keys()].filter((k) => k.startsWith(HOLLOW)).length, 0, 'no stray bytes');
 });
+
+test('account deletion (BC-B): every attachment byte of the account goes, recorded as a purge before it is removed; a removal that fails stays recorded under the account; another account’s bytes and purges are untouched', async () => {
+  const db = await seededDb();
+  const alice = signIn(db, ALICE);
+  const kept = await storeImage(alice, HOLLOW, 'kept.png');
+  const ashImage = await storeImage(alice, projectId('ash'), 'ash.png');
+  // A purge an earlier Project deletion left owed.
+  const owed = await storeImage(alice, HOLLOW, 'owed.png');
+  await db.query(`delete from public.workspace_attachments where id = $1`, [owed.id]);
+  await db.query(`insert into public.project_storage_purges (user_id, project_id, storage_bucket, storage_keys) values ($1, $2, $3, $4)`,
+    [ALICE, HOLLOW, owed.storage_bucket, [owed.storage_key, owed.display_key]]);
+  const bram = signIn(db, BRAM);
+  const bramImage = await storeImage(bram, TIDE, 'tide.png');
+
+  const admin = createSupabaseAdapter(db, { userId: null, role: 'service_role' });
+  // First the removal of one Project's bytes fails: its record stays, the rest finishes.
+  const remove = storageMock.memory.remove;
+  storageMock.memory.remove = async (keys) => {
+    if (keys.some((k) => k.startsWith(projectId('ash')))) throw new Error('storage unavailable');
+    return remove.call(storageMock.memory, keys);
+  };
+  let r;
+  try {
+    r = await lifecycle.purgeAccountAttachmentBytes(admin, storageMock.memory, ALICE);
+  } finally {
+    storageMock.memory.remove = remove;
+  }
+  assert.deepEqual(r, { completed: 2, remaining: 1 });
+  for (const k of [kept.storage_key, kept.display_key, owed.storage_key, owed.display_key]) assert.ok(!storageMock.memory.objects.has(k), 'removed');
+  assert.ok(storageMock.memory.objects.has(ashImage.storage_key), 'the failed removal left its bytes');
+  const left = await all(db, `select user_id, project_id, storage_keys from public.project_storage_purges order by created_at`);
+  assert.deepEqual(left.map((p) => [p.user_id, p.project_id, [...p.storage_keys].sort()]), [[ALICE, projectId('ash'), [ashImage.storage_key, ashImage.display_key].sort()]], 'recorded, auditable');
+  assert.ok(storageMock.memory.objects.has(bramImage.storage_key), 'another account’s bytes untouched');
+
+  // Retried (the auth deletion failed, so the attachment rows are still there): the live rows are
+  // recorded again — removing bytes already gone is harmless — and the owed record is finished.
+  assert.deepEqual(await lifecycle.purgeAccountAttachmentBytes(admin, storageMock.memory, ALICE), { completed: 3, remaining: 0 });
+  assert.ok(!storageMock.memory.objects.has(ashImage.storage_key));
+  assert.equal((await one(db, `select count(*)::int as n from public.project_storage_purges`)).n, 0);
+  // Nothing to do for an account without attachments; another account's bytes are never touched by it.
+  assert.deepEqual(await lifecycle.purgeAccountAttachmentBytes(admin, storageMock.memory, '00000000-0000-4000-8000-00000000beef'), { completed: 0, remaining: 0 });
+  assert.ok(storageMock.memory.objects.has(bramImage.storage_key));
+});

@@ -124,8 +124,15 @@ type Field = ItemField | ConnectionField;
 type Kind = "item" | "connection";
 const GEOMETRY: readonly ItemField[] = ["x", "y", "width", "height", "z"];
 
+/** Why a row is stranded (kept here, never retried by this session): see `stranded`. */
+export type StrandedReason =
+  /** This server refused it as unsupported (or refused the writer's note): a newer client replays it. */
+  | "unsupported"
+  /** A note whose row was deleted elsewhere while its text was changed here: nothing to replay it into. */
+  | "gone";
+
 /** What of one row is not yet on the server. */
-type Dirty = { kind: Kind; op: "create" | "update" | "delete"; fields: Set<Field>; seq: number };
+type Dirty = { kind: Kind; op: "create" | "update" | "delete"; fields: Set<Field>; seq: number; why?: StrandedReason };
 
 /** This device's copy of what the server doesn't have yet: full rows for creates and updates. */
 export type CanvasDraft = {
@@ -137,6 +144,8 @@ export type CanvasDraft = {
     op: "create" | "update" | "delete";
     fields: Field[];
     item: CanvasItem | CanvasConnection | null;
+    /** Kept, never retried by the client that wrote it (see StrandedReason); absent: unsaved, to be sent. */
+    stranded?: StrandedReason;
   }[];
 };
 
@@ -291,9 +300,12 @@ export class CanvasSession {
   get conflicts(): ReadonlyMap<string, NoteConflict> {
     return this._conflicts;
   }
-  /** The rows this server refused as unsupported (kept, never retried here). */
+  /** The rows kept here and never retried by this session: refused as unsupported, or a note whose row is gone. */
   get stranded(): ReadonlySet<string> {
     return new Set(this._stranded.keys());
+  }
+  strandedReason(id: string): StrandedReason | undefined {
+    return this._stranded.get(id)?.why;
   }
   getAttachment(id: string): WorkspaceAttachment | undefined {
     return this._attachments.get(id);
@@ -343,7 +355,16 @@ export class CanvasSession {
         }
         continue;
       }
-      if (!server) continue; // gone meanwhile: nothing to update
+      if (!server) {
+        // Gone meanwhile: nothing to update — unless the draft holds the
+        // writer's own note text, which is never dropped for that: shown,
+        // stranded, for them to keep (duplicate) or remove.
+        if (kind === "item" && (e.stranded === "gone" || e.fields.includes("content")) && isNoteWithText(e.item as CanvasItem)) {
+          this._items.set(e.id, e.item as CanvasItem);
+          this._stranded.set(e.id, { kind, op: "update", fields: new Set(e.fields), seq: ++this.seq, why: "gone" });
+        }
+        continue;
+      }
       if (server.version === e.item.version) {
         (rows as Map<string, CanvasItem | CanvasConnection>).set(e.id, { ...server, ...pick(e.item, e.fields) });
         this.dirty.set(e.id, { kind, op: "update", fields: new Set(e.fields), seq: ++this.seq });
@@ -1154,7 +1175,14 @@ export class CanvasSession {
     // What is unsaved, and what this server refused as unsupported (a newer
     // client replays both from the draft).
     for (const [id, d] of [...this._stranded, ...this.dirty]) {
-      entries.push({ id, kind: d.kind, op: d.op, fields: [...d.fields], item: d.op === "delete" ? null : (this.rowOf(d.kind, id) ?? null) });
+      entries.push({
+        id,
+        kind: d.kind,
+        op: d.op,
+        fields: [...d.fields],
+        item: d.op === "delete" ? null : (this.rowOf(d.kind, id) ?? null),
+        ...(d.why ? { stranded: d.why } : {}),
+      });
     }
     try {
       this.opts.persist?.({ canvasId: this.canvasId, entries });
@@ -1344,7 +1372,16 @@ export class CanvasSession {
           break;
         }
         case "missing":
-          // Deleted elsewhere: it is gone here too (with what the server would take with it).
+          // Deleted elsewhere: it is gone here too (with what the server would
+          // take with it) — except a note whose text was changed here: the
+          // writer's words are never dropped for a deletion made elsewhere.
+          // Kept, stranded (nothing to save it into), for them to duplicate
+          // or remove.
+          if (kind === "item" && d && d.fields.has("content") && isNoteWithText(row as CanvasItem | undefined)) {
+            this._stranded.set(r.id, { ...d, fields: new Set(d.fields), why: "gone" });
+            this.dirty.delete(r.id);
+            break;
+          }
           if (kind === "item") this.dropLocal(r.id);
           else this._connections.delete(r.id);
           this.dirty.delete(r.id);
@@ -1357,9 +1394,11 @@ export class CanvasSession {
           // (a target gone to Trash before the create landed, say): never
           // valid later, dropped, never retried forever.
           const authored = kind === "item" && isAuthored(row as CanvasItem | undefined);
-          const strand = d && !stale && (isUnsupportedError(r.error) || (authored && d.op === "create" && !isUnsupportedError(r.error) && (row as CanvasItem).item_type === "note"));
+          // A note's own text (its create, or a text edit) is never dropped on a refusal.
+          const ownText = authored && (row as CanvasItem).item_type === "note" && (d?.op === "create" || d?.fields.has("content"));
+          const strand = d && !stale && (isUnsupportedError(r.error) || ownText);
           if (strand && d) {
-            this._stranded.set(r.id, { ...d, fields: new Set(d.fields) });
+            this._stranded.set(r.id, { ...d, fields: new Set(d.fields), why: "unsupported" });
             this.dirty.delete(r.id);
             break;
           }
@@ -1390,6 +1429,10 @@ export class CanvasSession {
       this.dirty.delete(c.id);
     }
   }
+}
+
+function isNoteWithText(item: Pick<CanvasItem, "item_type" | "content"> | undefined): boolean {
+  return item?.item_type === "note" && noteText(item.content).trim() !== "";
 }
 
 function targetOf(item: CanvasItem): string | null {

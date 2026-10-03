@@ -8,6 +8,8 @@ import { createClient } from "@/lib/supabase/client";
 import { getOfflineStorageSummary } from "@/lib/offline/db";
 import { flushPendingQueue } from "@/lib/offline/syncEngine";
 import type { Account } from "@/lib/rune2/account";
+import { countUnsentWorkspaceWork } from "@/lib/rune2/workspaceDrafts";
+import { useProfileStore } from "@/store/profileStore";
 import { ICON_SM_BOLD } from "./icons";
 import { NavigatorMenu, type NavigatorMenuItem } from "./NavigatorMenu";
 
@@ -24,7 +26,8 @@ import { NavigatorMenu, type NavigatorMenuItem } from "./NavigatorMenu";
  */
 export function useLogOut(): { logOut: () => void; busy: boolean; error: string | null; dialog: ReactNode } {
   const router = useRouter();
-  const [state, setState] = useState<"checking" | "out" | { waiting: number } | null>(null);
+  const userId = useProfileStore((s) => s.profile?.id);
+  const [state, setState] = useState<"checking" | "out" | { waiting: string[] } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function signOut() {
@@ -44,13 +47,27 @@ export function useLogOut(): { logOut: () => void; busy: boolean; error: string 
     setState("checking");
     setError(null);
     try {
-      await flushPendingQueue();
+      await flushPendingQueue({ includeUnsupported: true });
     } catch {
       // Counted below either way.
     }
-    const { pending, conflicts } = await getOfflineStorageSummary();
-    if (pending + conflicts > 0) {
-      setState({ waiting: pending + conflicts });
+    // Every kind of unsent writing this writer has on this device, not only
+    // the manuscript's queue: Pages and Entries, Revision Notes, Canvases
+    // (their open sessions save on their own; what is still unsent is in
+    // the device store either way).
+    const [scenes, workspace] = await Promise.all([
+      getOfflineStorageSummary(userId),
+      userId ? countUnsentWorkspaceWork(userId) : { documents: 0, notes: 0, canvases: 0 },
+    ]);
+    const plural = (n: number, one: string, many = `${one}s`) => (n > 0 ? `${n} ${n === 1 ? one : many}` : null);
+    const waiting = [
+      plural(scenes.pending + scenes.conflicts, "scene"),
+      plural(workspace.documents, "page or entry", "pages or entries"),
+      plural(workspace.notes, "revision note"),
+      plural(workspace.canvases, "canvas", "canvases"),
+    ].filter((p): p is string => p !== null);
+    if (waiting.length > 0) {
+      setState({ waiting });
       return;
     }
     await signOut();
@@ -62,8 +79,8 @@ export function useLogOut(): { logOut: () => void; busy: boolean; error: string 
         <div className="r2-dialog" role="alertdialog" aria-modal="true" aria-labelledby="r2-logout-title">
           <h2 id="r2-logout-title">Some writing hasn’t been saved to Rune yet</h2>
           <p>
-            {state.waiting === 1 ? "One scene has" : `${state.waiting} scenes have`} writing that is only on this device.
-            It stays here if you log out, and is saved the next time you sign in on this device.
+            Writing in {state.waiting.join(", ")} is only on this device so far. It stays here if you log out, and is
+            saved the next time you sign in on this device.
           </p>
           <div className="r2-dialog-actions">
             <button type="button" className="r2-button" onClick={() => setState(null)} autoFocus>

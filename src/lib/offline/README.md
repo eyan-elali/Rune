@@ -54,6 +54,7 @@ Outcomes:
 | `version_mismatch` | `pending`, `retryCount + 1`, one retry scheduled after 2 s |
 | `word_limit_blocked` (only from a Rune 2.0 database before migration 037, which retired the limit) | `pending`; `rune-word-limit-blocked` event dispatched (no listener since 037: the write stays queued and retries) |
 | `error` / thrown exception | `pending` with `lastError` |
+| `error` whose message says this server lacks the save function (`isMissingServerFunction`, `serverCompat.ts`: "could not find the function", PGRST202, schema cache) | `failed` with `lastError`. An older server behind a newer client: the prose is kept, the editor shows "Couldn't save — kept on this device · Reload Rune", and the timed flush skips the row (`isUnsupportedSaveFailure`); a reload (the editor syncs the Scene it opens directly), "Send now" and logging out (`flushPendingQueue({ includeUnsupported: true })`) try again |
 | No auth session, read error (including network failure), or the row was queued by a different account on this browser | `failed` with `lastError` — prose is preserved, retried |
 | Scene row not readable: `workspace_trash_state('scene', id)` (SECURITY DEFINER, sees through RLS) answers **trashed** | Queued content already on the server (equals the cache's `serverContent` baseline, or holds no words): row deleted, one `console.warn`. Otherwise `failed` — retried, and saves once the Scene is restored |
 | … answers **missing** (permanently deleted, or never this account's) | Queued content already on the server: row deleted. Otherwise `retired` (terminal) with `retiredReason` — prose kept for Settings → Sync. Never retried; a save is never attempted, so a deleted Scene is never resurrected |
@@ -73,7 +74,7 @@ Concurrency: `syncPendingWrite` calls for the same Scene are coalesced (`inFligh
 
 ## Reconnect / background sync
 
-`NetworkProvider` calls `flushPendingQueue()` on the browser `online` event and every 30 seconds. The flush retries `pending` and `failed` rows, **re-evaluates** `conflict` rows (false conflicts self-heal; genuine ones stay `conflict`), skips `retired` rows, and revives a `syncing` row that no caller in this tab owns and that was marked more than two minutes ago (or by an earlier client, with no `syncingSince`) — a sync a closed tab never finished. A module-level `_flushing` flag prevents overlapping flushes. It then applies `pending_writing_credits` via `recordWordsWritten`, and `rune-sync-queue-updated` is dispatched so the editor refreshes its status.
+`NetworkProvider` calls `flushPendingQueue()` on the browser `online` event and every 30 seconds. The flush retries `pending` and `failed` rows (except a `failed` row this server refused as unsupported — see the table above), **re-evaluates** `conflict` rows (false conflicts self-heal; genuine ones stay `conflict`), skips `retired` rows, and revives a `syncing` row that no caller in this tab owns and that was marked more than two minutes ago (or by an earlier client, with no `syncingSince`) — a sync a closed tab never finished. A module-level `_flushing` flag prevents overlapping flushes. It then applies `pending_writing_credits` via `recordWordsWritten`, and `rune-sync-queue-updated` is dispatched so the editor refreshes its status.
 
 ## Conflict resolution (`SyncConflictModal`)
 
@@ -82,7 +83,7 @@ Concurrency: `syncPendingWrite` calls for the same Scene are coalesced (`inFligh
 
 ## Settings → Sync tab
 
-Counts come from `getOfflineStorageSummary()`. **Clear cache** (`clearSceneCache()`) removes only `page_cache` entries with no `pending_writes` row. Cache eviction (`evictOldCacheEntries`, max 20) likewise never evicts a Scene with a pending write.
+Counts come from `getOfflineStorageSummary(userId)` — this writer's rows only (IndexedDB is per browser, not per account), with the number of failed attempts and the latest recorded reason. Settings → This device also lists, beside retired Scene drafts, stranded Workspace drafts (`lib/rune2/workspaceDrafts.ts`: a Page, Entry or Canvas draft whose saver reported the object gone for good) with Copy text / Discard, and counts every kind of unsent Workspace work (`countUnsentWorkspaceWork`), which the logout warning counts too. **Clear cache** (`clearSceneCache()`) removes only `page_cache` entries with no `pending_writes` row. Cache eviction (`evictOldCacheEntries`, max 20) likewise never evicts a Scene with a pending write.
 
 ## Required database objects
 

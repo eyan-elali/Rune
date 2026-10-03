@@ -450,27 +450,49 @@ export async function getCachedChapterMeta(
 
 // ── Offline storage summary ────────────────────────────────────────────────────
 
-export async function getOfflineStorageSummary(): Promise<{
+export type OfflineStorageSummary = {
+  // Queued saves not yet confirmed by the server (pending, syncing or failed).
   pending: number
+  // Of those, saves whose last attempt failed, and the most recent reason
+  // recorded on one of them (a diagnostic sentence, never prose).
+  failed: number
+  failedReason: string | null
   conflicts: number
   // Unsent drafts whose Scene is gone from the server; see getRetiredDrafts.
   retired: number
   cached: number
-}> {
+}
+
+/**
+ * What the queue holds. With `userId`, only this writer's rows: IndexedDB is
+ * per browser, not per account, so another writer's queued saves on a shared
+ * device are not this writer's unsent work.
+ */
+export async function getOfflineStorageSummary(userId?: string): Promise<OfflineStorageSummary> {
   try {
     const db = await getOfflineDB()
     const [allWrites, allCached] = await Promise.all([
       db.getAll('pending_writes'),
       db.getAll(SCENE_CACHE_STORE),
     ])
-    const pending = allWrites.filter(
+    const writes = userId ? allWrites.filter((w) => w.userId === userId) : allWrites
+    const pending = writes.filter(
       (w) => w.syncStatus === 'pending' || w.syncStatus === 'syncing' || w.syncStatus === 'failed'
     ).length
-    const conflicts = allWrites.filter((w) => w.syncStatus === 'conflict').length
-    const retired = allWrites.filter((w) => w.syncStatus === 'retired').length
-    return { pending, conflicts, retired, cached: allCached.length }
+    const failedRows = writes.filter((w) => w.syncStatus === 'failed' || (w.syncStatus === 'pending' && w.lastError))
+    const latestFailure = failedRows.sort((a, b) => (b.lastErrorAt ?? 0) - (a.lastErrorAt ?? 0))[0]
+    const conflicts = writes.filter((w) => w.syncStatus === 'conflict').length
+    const retired = writes.filter((w) => w.syncStatus === 'retired').length
+    return {
+      pending,
+      failed: failedRows.length,
+      failedReason: latestFailure?.lastError ?? null,
+      conflicts,
+      retired,
+      cached: allCached.length,
+    }
   } catch {
-    return { pending: 0, conflicts: 0, retired: 0, cached: 0 }
+    return { pending: 0, failed: 0, failedReason: null, conflicts: 0, retired: 0, cached: 0 }
   }
 }
 

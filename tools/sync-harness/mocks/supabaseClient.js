@@ -6,7 +6,7 @@ export function createClient() {
   return {
     auth: {
       async getSession() {
-        return { data: { session: { user: { id: 'user-1' } } } };
+        return { data: { session: server.session } };
       },
     },
     from(table) {

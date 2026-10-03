@@ -1,5 +1,7 @@
 import { openDB, type DBSchema, type IDBPDatabase } from "idb";
+import { plainTextOfContent } from "@/lib/offline/db";
 import type { CanvasDraft } from "./canvasSession";
+import { noteText } from "./canvas";
 import type { PendingNote } from "./revisionNoteSync";
 import type { PageDoc } from "./workspacePageSaver";
 
@@ -41,6 +43,13 @@ export type StoredPageDraft = {
   baseVersion: number;
   dirty: boolean;
   savedAt: number;
+  /**
+   * The object is gone for good (deleted from Trash elsewhere, or no longer
+   * this writer's), so this unsaved writing can never reach it: kept here
+   * for the writer to copy or discard (Settings → This device). Cleared by
+   * the next ordinary write of the draft (the saver persisting again).
+   */
+  unavailable?: boolean;
 };
 
 interface RuneWorkspaceDB extends DBSchema {
@@ -53,7 +62,7 @@ interface RuneWorkspaceDB extends DBSchema {
   canvas_changes: { key: string; value: StoredCanvasDraft };
 }
 
-export type StoredCanvasDraft = CanvasDraft & { userId: string; projectId: string; savedAt: number };
+export type StoredCanvasDraft = CanvasDraft & { userId: string; projectId: string; savedAt: number; unavailable?: boolean };
 
 let dbPromise: Promise<IDBPDatabase<RuneWorkspaceDB>> | null = null;
 
@@ -158,5 +167,146 @@ export async function deleteCanvasDraft(canvasId: string): Promise<void> {
     await (await db()).delete("canvas_changes", canvasId);
   } catch {
     // Storage unavailable.
+  }
+}
+
+// ── Unsent work on this device ────────────────────────────────────────────
+//
+// Everything of one writer's that this device holds and the server does not
+// yet: unsaved Page and Entry drafts, Revision Note changes, and Canvas
+// changes. Read by the logout warning (which must be truthful about every
+// kind of unsent writing, not only the manuscript's queue) and by Settings.
+
+export type UnsentWorkspaceWork = { documents: number; notes: number; canvases: number };
+
+export async function countUnsentWorkspaceWork(userId: string): Promise<UnsentWorkspaceWork> {
+  try {
+    const store = await db();
+    const [pages, entries, notes, canvases] = await Promise.all([
+      store.getAll(STORES.page),
+      store.getAll(STORES.entry),
+      store.getAll("note_changes"),
+      store.getAll("canvas_changes"),
+    ]);
+    const mine = <T extends { userId: string }>(rows: T[]) => rows.filter((r) => r.userId === userId);
+    return {
+      documents: mine([...pages, ...entries]).filter((d) => d.dirty).length,
+      notes: mine(notes).length,
+      canvases: mine(canvases).filter((c) => c.entries.length > 0).length,
+    };
+  } catch {
+    return { documents: 0, notes: 0, canvases: 0 };
+  }
+}
+
+// ── Stranded drafts ───────────────────────────────────────────────────────
+//
+// A draft whose object is gone for good: the saver reported it unavailable
+// (not in Trash — permanently deleted elsewhere, or no longer the writer's),
+// so nothing will ever save it. Marked here so Settings can offer its text,
+// the way a retired Scene draft is offered (lib/offline/db.ts). The writer
+// decides; nothing is discarded on their behalf.
+
+export type StrandedDraft = {
+  kind: DraftKind | "canvas";
+  id: string;
+  projectId: string;
+  savedAt: number;
+  /** A short measure of what is held: words of a document, notes of a Canvas. */
+  words: number;
+  notes: number;
+};
+
+/** Marks a Page's or Entry's draft as unsaveable for good. Only a dirty draft is worth keeping. Never throws. */
+export async function markPageDraftUnavailable(id: string, kind: DraftKind): Promise<void> {
+  try {
+    const store = await db();
+    const draft = await store.get(STORES[kind], id);
+    if (!draft || !draft.dirty) return;
+    await store.put(STORES[kind], { ...draft, unavailable: true });
+  } catch {
+    // Storage unavailable.
+  }
+}
+
+/** Marks a Canvas's draft as unsaveable for good. Never throws. */
+export async function markCanvasDraftUnavailable(canvasId: string): Promise<void> {
+  try {
+    const store = await db();
+    const draft = await store.get("canvas_changes", canvasId);
+    if (!draft || draft.entries.length === 0) return;
+    await store.put("canvas_changes", { ...draft, unavailable: true });
+  } catch {
+    // Storage unavailable.
+  }
+}
+
+function countWords(text: string): number {
+  return text.split(/\s+/).filter((w) => w !== "").length;
+}
+
+/** The note texts a Canvas draft holds (its creates and text edits — never a note only moved), the writer's own words on it. */
+function canvasDraftNotes(draft: CanvasDraft): string[] {
+  return draft.entries
+    .filter((e) => (e.op === "create" || (e.op === "update" && e.fields.includes("content"))) && e.item && (e.item as { item_type?: string }).item_type === "note")
+    .map((e) => noteText((e.item as { content?: unknown }).content).trim())
+    .filter((t) => t !== "");
+}
+
+/** This writer's stranded drafts, newest first. */
+export async function listStrandedDrafts(userId: string): Promise<StrandedDraft[]> {
+  try {
+    const store = await db();
+    const out: StrandedDraft[] = [];
+    for (const kind of ["page", "entry"] as const) {
+      for (const d of await store.getAll(STORES[kind])) {
+        if (d.userId !== userId || !d.unavailable || !d.dirty) continue;
+        out.push({ kind, id: d.id, projectId: d.projectId, savedAt: d.savedAt, words: countWords(plainTextOfContent(d.content)), notes: 0 });
+      }
+    }
+    for (const c of await store.getAll("canvas_changes")) {
+      if (c.userId !== userId || !c.unavailable) continue;
+      const notes = canvasDraftNotes(c);
+      // A Canvas draft without any note text holds only geometry: nothing of the writer's words to offer.
+      if (notes.length === 0) continue;
+      out.push({ kind: "canvas", id: c.canvasId, projectId: c.projectId, savedAt: c.savedAt, words: countWords(notes.join(" ")), notes: notes.length });
+    }
+    return out.sort((a, b) => b.savedAt - a.savedAt);
+  } catch {
+    return [];
+  }
+}
+
+/** The plain text of one stranded draft (null when there is no such draft). */
+export async function getStrandedDraftText(kind: StrandedDraft["kind"], id: string, userId: string): Promise<string | null> {
+  try {
+    const store = await db();
+    if (kind === "canvas") {
+      const c = await store.get("canvas_changes", id);
+      return c && c.userId === userId ? canvasDraftNotes(c).join("\n\n") : null;
+    }
+    const d = await store.get(STORES[kind], id);
+    return d && d.userId === userId ? plainTextOfContent(d.content) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Discards one stranded draft. Only a draft marked unavailable can be discarded this way. */
+export async function discardStrandedDraft(kind: StrandedDraft["kind"], id: string, userId: string): Promise<boolean> {
+  try {
+    const store = await db();
+    if (kind === "canvas") {
+      const c = await store.get("canvas_changes", id);
+      if (!c || c.userId !== userId || !c.unavailable) return false;
+      await store.delete("canvas_changes", id);
+      return true;
+    }
+    const d = await store.get(STORES[kind], id);
+    if (!d || d.userId !== userId || !d.unavailable) return false;
+    await store.delete(STORES[kind], id);
+    return true;
+  } catch {
+    return false;
   }
 }

@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { getWorkspacePage, saveWorkspacePageContent } from "@/lib/actions/workspacePages";
 import { getCollectionEntry, saveCollectionEntryContent } from "@/lib/actions/workspaceCollections";
-import { deletePageDraft, getPageDraft, putPageDraft, type DraftKind } from "@/lib/rune2/workspaceDrafts";
+import { deletePageDraft, getPageDraft, markPageDraftUnavailable, putPageDraft, type DraftKind } from "@/lib/rune2/workspaceDrafts";
 import { toPlainDocument } from "@/lib/rune2/workspaceDocument";
 import { openPage, PageSaver, type PageDraft, type PageSaveStatus } from "@/lib/rune2/workspacePageSaver";
 import { useNetworkStore } from "@/store/networkStore";
@@ -119,6 +119,9 @@ class PageSessions {
       onStatus: (status) => {
         session.status = status;
         session.listeners.forEach((l) => l());
+        // Gone for good (not Trash): the unsaved writing can never reach it.
+        // Marked so Settings → This device offers its text to copy.
+        if (status === "unavailable") void markPageDraftUnavailable(id, kind);
       },
     });
     session.status = session.saver.status;
