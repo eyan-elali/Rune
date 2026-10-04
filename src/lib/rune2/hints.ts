@@ -10,12 +10,12 @@
 
 export const HINTS = {
   collection: {
-    title: "Organize things that share a structure.",
-    body: "Each item here is an entry — a character, a place, a source. Properties are what entries share, like a role or a date. Views show the same entries as a table, a board, a list or a timeline.",
+    title: "Collections organize things that share a structure.",
+    body: "Add entries — a character, a place, a source — then give them properties and views when you need them.",
   },
   timeline: {
     title: "A timeline along one axis.",
-    body: "Items sit along the axis named at the top left — manuscript order, or a date or number property. Choose another axis in this view’s options.",
+    body: "Items sit along the axis named at the top left — manuscript order, or a date or number property. Change it in the view’s options.",
   },
 } as const satisfies Record<string, { title: string; body: string }>;
 

@@ -14,7 +14,13 @@ import {
 } from "react";
 import { updateRunePreferences } from "@/lib/actions/settings";
 import type { Account } from "@/lib/rune2/account";
-import { PREFERENCE_KEYS, readRunePreferences, type AppearanceId, type RunePreferences } from "@/lib/rune2/preferences";
+import {
+  hasChosenAppearance,
+  PREFERENCE_KEYS,
+  readRunePreferences,
+  type AppearanceId,
+  type RunePreferences,
+} from "@/lib/rune2/preferences";
 import { resolveTheme, THEME_SCHEME, writingSurface, type ResolvedThemeId } from "@/lib/rune2/themes";
 import type { UserPreferences } from "@/lib/types";
 import { useProfileStore } from "@/store/profileStore";
@@ -34,8 +40,18 @@ import { useProfileStore } from "@/store/profileStore";
 // marks <html> with the theme as painted, for the backdrop past a page's
 // edges, and follows the operating system while System is chosen (never
 // writing anything back: the stored choice stays "system").
+//
+// An account that has never chosen an appearance reads as the default
+// (Light). Through onboarding the layout passes `unchosenAppearance="system"`,
+// so until the writer chooses, every root here — the device gate's
+// placeholder, the onboarding page, its dialogs — carries the front door's
+// System theme and nothing flashes Light (Beta Completion E). The stored
+// preferences are untouched: `appearance` is what is PAINTED; the first
+// appearance the writer saves (any value) ends it.
 
 type Api = RunePreferences & {
+  /** Whether the account has saved an appearance; until it has, `appearance` may be the unchosen presentation. */
+  appearanceChosen: boolean;
   /** Changes and saves preferences; resolves with the error, or null once the server has them. */
   update: (change: Partial<RunePreferences>) => Promise<string | null>;
 };
@@ -45,14 +61,20 @@ const Ctx = createContext<Api | null>(null);
 export function RunePreferencesProvider({
   initial,
   account = null,
+  unchosenAppearance,
   children,
 }: {
   initial: unknown;
   /** Who is signed in, for the account control wherever it appears. */
   account?: Account | null;
+  /** What an account that has not yet chosen an appearance is shown (the default when omitted). */
+  unchosenAppearance?: AppearanceId;
   children: ReactNode;
 }) {
   const [prefs, setPrefs] = useState<RunePreferences>(() => readRunePreferences(initial));
+  const [chosen, setChosen] = useState(() => hasChosenAppearance(initial));
+  // The same, for an update's "before" (set at once by update, before React re-renders).
+  const chosenRef = useRef(chosen);
   // The latest preferences, for an update's "before" (kept in step after each render, and at once by apply).
   const current = useRef(prefs);
   useLayoutEffect(() => {
@@ -64,7 +86,9 @@ export function RunePreferencesProvider({
     async (change: Partial<RunePreferences>) => {
       const before = current.current;
       const keys = Object.keys(change) as (keyof RunePreferences)[];
-      if (keys.every((k) => before[k] === change[k])) return null;
+      // Saving an appearance for the first time is a change even to the same value: it is now chosen.
+      const choosing = !chosenRef.current && keys.includes("appearance");
+      if (!choosing && keys.every((k) => before[k] === change[k])) return null;
 
       const apply = (next: RunePreferences) => {
         current.current = next;
@@ -73,6 +97,10 @@ export function RunePreferencesProvider({
         setStorePreferences(Object.fromEntries(keys.map((k) => [PREFERENCE_KEYS[k], next[k]])) as Partial<UserPreferences>);
       };
       apply({ ...before, ...change });
+      if (choosing) {
+        chosenRef.current = true;
+        setChosen(true);
+      }
 
       let error: string | null;
       try {
@@ -84,16 +112,25 @@ export function RunePreferencesProvider({
       if (error !== null) {
         // Only what this change touched goes back.
         apply({ ...current.current, ...Object.fromEntries(keys.map((k) => [k, before[k]])) });
+        if (choosing) {
+          chosenRef.current = false;
+          setChosen(false);
+        }
       }
       return error;
     },
     [setStorePreferences]
   );
 
-  const api = useMemo<Api>(() => ({ ...prefs, update }), [prefs, update]);
+  // What is painted: the stored choice, or — not yet chosen — what the layout asked for.
+  const appearance = chosen || unchosenAppearance === undefined ? prefs.appearance : unchosenAppearance;
+  const api = useMemo<Api>(
+    () => ({ ...prefs, appearance, appearanceChosen: chosen, update }),
+    [prefs, appearance, chosen, update]
+  );
 
   // The page behind Rune: <html> takes the theme as painted while Rune is open.
-  const painted = useResolvedTheme(prefs.appearance);
+  const painted = useResolvedTheme(appearance);
   useEffect(() => {
     const html = document.documentElement;
     html.dataset.r2Theme = painted;
@@ -136,7 +173,11 @@ export function useResolvedTheme(appearance?: AppearanceId): ResolvedThemeId {
   return resolveTheme(appearance ?? own, useSystemDark());
 }
 
-const FALLBACK: Api = { ...readRunePreferences(null), update: async () => "Preferences aren’t available here." };
+const FALLBACK: Api = {
+  ...readRunePreferences(null),
+  appearanceChosen: false,
+  update: async () => "Preferences aren’t available here.",
+};
 
 export function useRunePreferences(): Api {
   return useContext(Ctx) ?? FALLBACK;

@@ -43,21 +43,16 @@ export function OpenQuestions({ initialNotes }: { initialNotes: FounderNote[] })
   }
 
   return (
-    <PulseCard className="flex flex-col p-6">
+    <PulseCard className="flex flex-col">
       <PulseCardLabel>Open Questions</PulseCardLabel>
 
-      <div className="mb-5 flex items-start gap-2 border-b pb-5" style={{ borderColor: "var(--color-border)" }}>
+      <div className="r2-pulse-compose">
         <textarea
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           placeholder="Is onboarding too long? Does Structure outperform Dashboard?"
           rows={2}
-          className="flex-1 resize-none rounded-md px-3 py-2 text-sm outline-none"
-          style={{
-            background: "var(--surface-card)",
-            border: "1px solid var(--color-border-strong)",
-            color: "var(--text-primary)",
-          }}
+          className="r2-field r2-pulse-textarea flex-1 resize-none"
           onKeyDown={(e) => {
             if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) handleAdd();
           }}
@@ -65,8 +60,7 @@ export function OpenQuestions({ initialNotes }: { initialNotes: FounderNote[] })
         <button
           onClick={handleAdd}
           disabled={!draft.trim() || isPending}
-          className="shrink-0 rounded-md px-3 py-2 text-xs font-medium transition-opacity hover:opacity-80 disabled:opacity-40"
-          style={{ background: "var(--color-gold)", color: "var(--color-ink)" }}
+          className="r2-button r2-button--primary shrink-0"
         >
           Add
         </button>
@@ -82,7 +76,7 @@ export function OpenQuestions({ initialNotes }: { initialNotes: FounderNote[] })
             <li
               key={note.id}
               className="group flex items-start justify-between gap-3 rounded-md px-3 py-2.5"
-              style={{ background: "color-mix(in srgb, var(--color-gold) 4%, transparent)" }}
+              style={{ background: "var(--r2-hover-faint)" }}
             >
               <div className="min-w-0">
                 <p className="text-sm leading-relaxed" style={{ color: "var(--text-primary)" }}>
@@ -95,8 +89,8 @@ export function OpenQuestions({ initialNotes }: { initialNotes: FounderNote[] })
               <button
                 onClick={() => handleDelete(note.id)}
                 aria-label="Delete note"
-                className="shrink-0 text-xs opacity-0 transition-opacity hover:opacity-100 group-hover:opacity-60"
-                style={{ color: "var(--color-crimson)" }}
+                className="r2-button r2-button--quiet r2-button--sm r2-pulse-remove shrink-0"
+                data-tone="danger"
               >
                 Remove
               </button>

@@ -216,7 +216,11 @@ test('first paint: the layout renders the stylesheet and seeds the preferences; 
   const layout = read('src/app/(rune2)/layout.tsx');
   assert.match(layout, /const THEME_CSS = buildThemeCss\(\);/);
   assert.match(layout, /<style id="r2-themes" dangerouslySetInnerHTML=\{\{ __html: THEME_CSS \}\} \/>/);
-  assert.match(layout, /<RunePreferencesProvider initial=\{profile\?\.preferences \?\? null\} account=\{accountOf\(user, profile\)\}>/);
+  // Seeded from the profile; the unchosen-appearance presentation (onboarding's theme continuity) is the only other prop.
+  assert.match(
+    layout,
+    /<RunePreferencesProvider\s+initial=\{profile\?\.preferences \?\? null\}\s+account=\{accountOf\(user, profile\)\}\s+unchosenAppearance=\{unchosenAppearance\}\s*>/
+  );
 
   // Every element that opens a Rune root spreads the root props (or is a RuneRoot); none names a theme itself.
   const files = [];

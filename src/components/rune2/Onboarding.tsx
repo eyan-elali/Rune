@@ -2,12 +2,12 @@
 
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, FileUp, PenLine } from "lucide-react";
+import { ArrowLeft, Check, FileUp, PenLine } from "lucide-react";
 import { beginOnboarding, chooseOnboardingPath, completeOnboarding, createOnboardingProject } from "@/lib/actions/onboarding";
 import type { OnboardingStep } from "@/lib/onboarding";
 import { PROJECT_TITLE_MAX } from "@/lib/projectCreation";
 import { APPEARANCES, type AppearanceId } from "@/lib/rune2/preferences";
-import { ICON } from "./icons";
+import { ICON, ICON_SM_BOLD } from "./icons";
 import { ManuscriptImportDialog } from "./ManuscriptImport";
 import { useRunePreferences, useRuneRootProps } from "./RunePreferences";
 
@@ -26,6 +26,12 @@ import { useRunePreferences, useRuneRootProps } from "./RunePreferences";
 // this where to resume. Each step's heading takes focus as it appears, for
 // the keyboard and screen readers; motion is a short fade, none when the
 // writer asks for reduced motion (rune2.css).
+//
+// Composition: one centred stage. Two kinds of screen — a MOMENT (Welcome,
+// arrival) is set centred and sparse; a TASK (the choices, the title, the
+// model, the appearance) keeps its text naturally left-aligned inside the
+// same stage. The theme is the writer's own throughout: until they choose
+// one, the layout paints System, the front door's theme (RunePreferences).
 
 type Step = OnboardingStep | "appearance" | "arrival";
 
@@ -82,7 +88,7 @@ export function Onboarding({
       </header>
       <main className="r2-onb-main">
         {step === "welcome" && (
-          <Screen key="welcome" title="Your story has a place now.">
+          <Screen key="welcome" mode="moment" title="Your story has a place now.">
             <p className="r2-onb-lede">
               Rune keeps your manuscript at the center, with a workspace that can grow around it only when you need it.
             </p>
@@ -157,7 +163,7 @@ export function Onboarding({
         {step === "model" && (
           <Screen key="model" title="Write here. Build around it only when you need to.">
             <MentalModel />
-            <p className="r2-onb-lede r2-onb-lede--center">You never need to build a system just to start writing.</p>
+            <p className="r2-onb-lede r2-onb-lede--close">You never need to build a system just to start writing.</p>
             <Actions>
               <button type="button" className="r2-button r2-button--primary r2-onb-primary" onClick={() => go("appearance")}>
                 Continue
@@ -169,7 +175,7 @@ export function Onboarding({
         {step === "appearance" && <AppearanceStep onDone={() => go("arrival")} />}
 
         {step === "arrival" && (
-          <Screen key="arrival" title="Your desk is ready.">
+          <Screen key="arrival" mode="moment" title="Your desk is ready.">
             <Actions>
               <button
                 type="button"
@@ -201,14 +207,27 @@ export function Onboarding({
   );
 }
 
-/** One screen: its heading (focused as it appears) and what follows. */
-function Screen({ title, children, back }: { title: string; children?: ReactNode; back?: () => void }) {
+/**
+ * One screen: its heading (focused as it appears) and what follows. A
+ * "moment" is set centred; a task keeps its natural left alignment.
+ */
+function Screen({
+  title,
+  children,
+  back,
+  mode = "task",
+}: {
+  title: string;
+  children?: ReactNode;
+  back?: () => void;
+  mode?: "moment" | "task";
+}) {
   const heading = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
     heading.current?.focus({ preventScroll: true });
   }, []);
   return (
-    <section className="r2-onb-screen" aria-labelledby="r2-onb-title">
+    <section className={mode === "moment" ? "r2-onb-screen r2-onb-screen--moment" : "r2-onb-screen"} aria-labelledby="r2-onb-title">
       {back && (
         <button type="button" className="r2-button r2-button--quiet r2-button--sm r2-onb-back" onClick={back}>
           <ArrowLeft {...ICON} aria-hidden />
@@ -301,19 +320,24 @@ function ImportStep({
 }
 
 /**
- * The one idea: the Manuscript is the book; the Workspace is everything
- * around it, built only as the book asks. Drawn, not listed — the book as a
- * column of chapters and scenes; the workspace as a few things set loosely
- * around it.
+ * The one idea, drawn rather than listed: the Manuscript is the book — a
+ * page of chapters and the rhythm of prose, set as the foundation; the
+ * Workspace is whatever the writer gathers around it, named loosely, with
+ * no box of its own. Whitespace does the structuring.
  */
 function MentalModel() {
   return (
-    <div className="r2-onb-model" role="img" aria-label="Your Manuscript is the book itself — chapters, scenes, your prose in order. The Workspace around it holds notes, characters, research and anything else you choose to build.">
+    <div
+      className="r2-onb-model"
+      role="img"
+      aria-label="Your Manuscript is the book itself — chapters, scenes, your prose in order. The Workspace around it holds characters, research, notes and anything else you choose to build."
+    >
       <div className="r2-onb-model-book" aria-hidden>
         <p className="r2-onb-model-kind">Manuscript</p>
         <p className="r2-onb-model-what">Your book</p>
         <div className="r2-onb-model-page">
           <span className="r2-onb-model-chapter">Chapter 1</span>
+          <span className="r2-onb-model-scene" />
           <span className="r2-onb-model-scene" />
           <span className="r2-onb-model-scene r2-onb-model-scene--short" />
           <span className="r2-onb-model-chapter">Chapter 2</span>
@@ -325,13 +349,13 @@ function MentalModel() {
       <div className="r2-onb-model-space" aria-hidden>
         <p className="r2-onb-model-kind">Workspace</p>
         <p className="r2-onb-model-what">Everything around it</p>
-        <div className="r2-onb-model-things">
-          <span>Notes</span>
-          <span>Characters</span>
-          <span>Research</span>
-          <span>A map of ideas</span>
-          <span className="r2-onb-model-more">whatever you choose</span>
-        </div>
+        <ul className="r2-onb-model-things">
+          <li>Characters</li>
+          <li>Research</li>
+          <li>Notes</li>
+          <li>Ideas</li>
+          <li className="r2-onb-model-more">whatever you choose</li>
+        </ul>
         <p className="r2-onb-model-note">Grows only when the book asks for it.</p>
       </div>
     </div>
@@ -339,12 +363,19 @@ function MentalModel() {
 }
 
 function AppearanceStep({ onDone }: { onDone: () => void }) {
-  const { appearance, accent, update } = useRunePreferences();
+  const { appearance, appearanceChosen, accent, update } = useRunePreferences();
   const [error, setError] = useState<string | null>(null);
   const choose = async (id: AppearanceId) => {
     setError(null);
     const failure = await update({ appearance: id });
     if (failure) setError(failure);
+  };
+  // Leaving without choosing keeps the desk as it has looked all along: the
+  // theme painted so far becomes the account's own, so arrival and the
+  // Project continue it. (If that save fails the writer is not held here.)
+  const done = () => {
+    if (!appearanceChosen) void update({ appearance }).catch(() => {});
+    onDone();
   };
   const label = (id: AppearanceId) => APPEARANCES.find((a) => a.id === id)?.label ?? id;
   return (
@@ -369,7 +400,10 @@ function AppearanceStep({ onDone }: { onDone: () => void }) {
                 <span className="r2-onb-theme-line r2-onb-theme-line--short" />
               </span>
             </span>
-            <span className="r2-onb-theme-name">{label(id)}</span>
+            <span className="r2-onb-theme-name">
+              {label(id)}
+              <Check {...ICON_SM_BOLD} className="r2-onb-theme-check" aria-hidden />
+            </span>
           </button>
         ))}
       </div>
@@ -379,6 +413,7 @@ function AppearanceStep({ onDone }: { onDone: () => void }) {
         className="r2-button r2-button--quiet r2-button--sm r2-onb-system"
         onClick={() => void choose("system")}
       >
+        {appearance === "system" && <Check {...ICON_SM_BOLD} aria-hidden />}
         {appearance === "system" ? "Matching your system’s light or dark setting" : "Match my system instead"}
       </button>
       {error && (
@@ -387,10 +422,10 @@ function AppearanceStep({ onDone }: { onDone: () => void }) {
         </p>
       )}
       <Actions>
-        <button type="button" className="r2-button r2-button--primary r2-onb-primary" onClick={onDone}>
+        <button type="button" className="r2-button r2-button--primary r2-onb-primary" onClick={done}>
           Continue
         </button>
-        <button type="button" className="r2-button r2-button--quiet" onClick={onDone}>
+        <button type="button" className="r2-button r2-button--quiet" onClick={done}>
           Skip
         </button>
       </Actions>

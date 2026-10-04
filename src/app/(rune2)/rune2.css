@@ -8488,10 +8488,18 @@ a.r2-home-row-main:focus-visible {
 }
 
 /* ── Onboarding ─────────────────────────────────────────────────────── */
+/* One centred stage, the width of a generous page. Two kinds of screen: a
+   MOMENT (Welcome, arrival) is set centred and sparse; a TASK keeps its text
+   left-aligned inside the same stage. Hierarchy comes from type and space —
+   a heading in the prose serif with real presence, a measured lede, one
+   primary action — and almost never from a rule or a box. The theme is the
+   writer's own from the first paint; a change of theme crossfades the
+   surface (not under reduced motion). */
 .r2-onb {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+  transition: background-color var(--r2-frame) var(--r2-ease), color var(--r2-frame) var(--r2-ease);
 }
 .r2-onb-head {
   display: flex;
@@ -8504,47 +8512,50 @@ a.r2-home-row-main:focus-visible {
   flex: 1;
   flex-direction: column;
   justify-content: center;
-  width: min(100%, 720px);
+  width: min(100%, 640px);
   margin: 0 auto;
-  padding: 24px var(--r2-space-8) 96px;
+  padding: 24px var(--r2-space-8) 120px;
 }
 .r2-onb-screen {
-  animation: r2-onb-in 360ms var(--r2-ease) both;
+  animation: r2-onb-in 420ms var(--r2-ease) both;
 }
 @keyframes r2-onb-in {
-  from { opacity: 0; transform: translateY(6px); }
+  from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: none; }
 }
 .r2-onb-screen h1 {
-  max-width: 22ch;
+  max-width: 20ch;
   font-family: var(--r2-prose-font);
-  font-size: clamp(30px, 4.6vw, 40px);
+  font-size: clamp(32px, 4.8vw, 42px);
   font-weight: var(--r2-weight-regular);
-  line-height: 1.15;
+  line-height: 1.14;
+  letter-spacing: -0.012em;
+  text-wrap: balance;
   color: var(--r2-ink-1);
 }
 .r2-onb-screen h1:focus {
   outline: none;
 }
 .r2-onb-back {
-  margin: 0 0 var(--r2-space-7) calc(-1 * var(--r2-space-4));
+  margin: 0 0 var(--r2-space-8) calc(-1 * var(--r2-space-4));
   color: var(--r2-ink-3);
 }
 .r2-onb-lede {
-  max-width: 34rem;
-  margin-top: var(--r2-space-6);
-  font-size: 16px;
+  max-width: 32rem;
+  margin-top: var(--r2-space-7);
+  font-size: 16.5px;
   line-height: 1.6;
   color: var(--r2-ink-2);
 }
-.r2-onb-lede--center {
-  margin-top: var(--r2-space-8);
-}
-.r2-onb-promise {
-  max-width: 34rem;
+.r2-onb-lede--close {
   margin-top: var(--r2-space-9);
-  padding-top: var(--r2-space-6);
-  border-top: 1px solid var(--r2-border);
+  color: var(--r2-ink-3);
+}
+/* The authorship promise: a quieter paragraph a breath below, parted by
+   space alone. */
+.r2-onb-promise {
+  max-width: 30rem;
+  margin-top: var(--r2-space-10);
   font-size: var(--r2-fs-body);
   line-height: var(--r2-lh-body);
   color: var(--r2-ink-3);
@@ -8552,6 +8563,8 @@ a.r2-home-row-main:focus-visible {
 .r2-onb-promise strong {
   display: block;
   margin-bottom: var(--r2-space-2);
+  font-family: var(--r2-prose-font);
+  font-size: 18px;
   font-weight: var(--r2-weight-medium);
   color: var(--r2-ink-1);
 }
@@ -8560,12 +8573,12 @@ a.r2-home-row-main:focus-visible {
   flex-wrap: wrap;
   align-items: center;
   gap: var(--r2-space-4);
-  margin-top: var(--r2-space-9);
+  margin-top: var(--r2-space-10);
 }
 .r2-onb-primary {
-  height: 36px;
-  min-width: 120px;
-  padding: 0 var(--r2-space-7);
+  height: 38px;
+  min-width: 128px;
+  padding: 0 var(--r2-space-8);
   font-size: var(--r2-fs-body);
 }
 .r2-onb-open {
@@ -8579,47 +8592,83 @@ a.r2-home-row-main:focus-visible {
   color: var(--r2-ink-3);
 }
 .r2-onb-error {
-  max-width: 34rem;
+  max-width: 32rem;
   margin-top: var(--r2-space-7);
 }
 
-/* How are you starting: two equal choices. */
+/* A moment: everything set on the centre line, the heading a little larger. */
+.r2-onb-screen--moment {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-bottom: 6vh;
+  text-align: center;
+}
+.r2-onb-screen--moment h1 {
+  max-width: 18ch;
+  font-size: clamp(36px, 5.4vw, 48px);
+}
+.r2-onb-screen--moment .r2-onb-lede,
+.r2-onb-screen--moment .r2-onb-promise {
+  margin-left: auto;
+  margin-right: auto;
+}
+.r2-onb-screen--moment .r2-onb-actions {
+  justify-content: center;
+}
+
+/* How are you starting: two equal paths, parted by space. No border at rest;
+   a soft surface that deepens when reached for, the ring only for the
+   keyboard. */
 .r2-onb-choices {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: var(--r2-space-6);
-  margin-top: var(--r2-space-9);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--r2-space-5);
+  margin-top: var(--r2-space-10);
 }
 .r2-onb-choice {
   display: grid;
   justify-items: start;
+  align-content: start;
   gap: var(--r2-space-3);
-  padding: var(--r2-space-8) var(--r2-space-8) var(--r2-space-8);
-  border: 1px solid var(--r2-border);
+  min-height: 188px;
+  padding: var(--r2-space-8) var(--r2-space-8) var(--r2-space-9);
   border-radius: var(--r2-radius-lg);
   text-align: left;
   color: var(--r2-ink-3);
-  background: var(--r2-surface-raised);
-  transition: border-color var(--r2-fast) var(--r2-ease), background-color var(--r2-fast) var(--r2-ease);
+  background: var(--r2-group-bg);
+  transition: background-color var(--r2-fast) var(--r2-ease), color var(--r2-fast) var(--r2-ease);
 }
 .r2-onb-choice:hover:not(:disabled) {
-  border-color: var(--r2-border-strong);
-  background: var(--r2-raised-hover);
+  color: var(--r2-ink-2);
+  background: var(--r2-hover);
+}
+.r2-onb-choice:active:not(:disabled) {
+  background: var(--r2-press);
+}
+.r2-onb-choice:focus-visible {
+  outline-offset: 2px;
+  border-radius: var(--r2-radius-lg);
+}
+.r2-onb-choice:disabled {
+  opacity: var(--r2-disabled-opacity);
 }
 .r2-onb-choice-title {
-  margin-top: var(--r2-space-4);
+  margin-top: var(--r2-space-7);
   font-family: var(--r2-prose-font);
-  font-size: 21px;
+  font-size: 23px;
+  line-height: 1.2;
   color: var(--r2-ink-1);
 }
 .r2-onb-choice-detail {
   font-size: var(--r2-fs-body);
+  line-height: var(--r2-lh-ui);
   color: var(--r2-ink-2);
 }
 
 /* What are you working on: one line, set like a title page. */
 .r2-onb-form {
-  margin-top: var(--r2-space-9);
+  margin-top: var(--r2-space-10);
 }
 .r2-onb-title-input {
   width: 100%;
@@ -8628,7 +8677,7 @@ a.r2-home-row-main:focus-visible {
   border-bottom: 1px solid var(--r2-border-strong);
   border-radius: 0;
   font-family: var(--r2-prose-font);
-  font-size: 26px;
+  font-size: 28px;
   color: var(--r2-ink-1);
   background: transparent;
   transition: border-color var(--r2-fast) var(--r2-ease);
@@ -8642,39 +8691,38 @@ a.r2-home-row-main:focus-visible {
   border-bottom-color: var(--r2-focus);
 }
 
-/* The mental model: the book as a column; the workspace loosely around it. */
+/* The mental model, drawn: the book as a page — the one surface on the
+   screen, so it reads as the foundation — and the workspace beside it with
+   no box of its own, a loose column of names. Space, not rules, parts them. */
 .r2-onb-model {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--r2-space-6);
-  margin-top: var(--r2-space-9);
-}
-.r2-onb-model-book,
-.r2-onb-model-space {
-  padding: var(--r2-space-7);
-  border-radius: var(--r2-radius-lg);
-}
-.r2-onb-model-book {
-  background: var(--r2-surface-raised);
-  box-shadow: var(--r2-ring), var(--r2-shadow-sm);
-}
-.r2-onb-model-space {
-  border: 1px dashed var(--r2-border-strong);
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  column-gap: var(--r2-space-10);
+  align-items: start;
+  margin-top: var(--r2-space-10);
 }
 .r2-onb-model-kind {
-  font-size: var(--r2-fs-heading);
+  font-size: var(--r2-fs-label);
   font-weight: var(--r2-weight-semibold);
-  color: var(--r2-ink-1);
+  letter-spacing: var(--r2-tracking-caps);
+  text-transform: uppercase;
+  color: var(--r2-ink-3);
 }
 .r2-onb-model-what {
-  margin-top: var(--r2-space-1);
-  font-size: var(--r2-fs-ui-sm);
-  color: var(--r2-ink-3);
+  margin-top: var(--r2-space-2);
+  font-family: var(--r2-prose-font);
+  font-size: 20px;
+  line-height: 1.25;
+  color: var(--r2-ink-1);
 }
 .r2-onb-model-page {
   display: grid;
   gap: 7px;
   margin-top: var(--r2-space-7);
+  padding: var(--r2-space-7) var(--r2-space-7) var(--r2-space-8);
+  border-radius: var(--r2-radius-md);
+  background: var(--r2-prose-bg);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--r2-border) 80%, transparent), var(--r2-shadow-sm);
 }
 .r2-onb-model-chapter {
   font-family: var(--r2-prose-font);
@@ -8682,56 +8730,61 @@ a.r2-home-row-main:focus-visible {
   color: var(--r2-ink-1);
 }
 .r2-onb-model-chapter:not(:first-child) {
-  margin-top: var(--r2-space-4);
+  margin-top: var(--r2-space-5);
 }
 .r2-onb-model-scene {
-  height: 5px;
-  border-radius: 3px;
-  background: var(--r2-border-strong);
+  height: 4px;
+  border-radius: 2px;
+  background: var(--r2-ink-3);
+  opacity: 0.32;
 }
 .r2-onb-model-scene--short {
-  width: 62%;
+  width: 58%;
 }
 .r2-onb-model-scene--mid {
-  width: 80%;
+  width: 78%;
 }
+/* The workspace's names: one loose column, set in the serif at the size of
+   the book's chapters, with the open-ended last line quieter. */
 .r2-onb-model-things {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--r2-space-3);
-  margin-top: var(--r2-space-7);
+  display: grid;
+  gap: var(--r2-space-4);
+  margin-top: var(--r2-space-9);
+  padding: var(--r2-space-5) 0 var(--r2-space-5) var(--r2-space-6);
+  border-left: 1px solid var(--r2-border);
+  list-style: none;
 }
-.r2-onb-model-things span {
-  padding: var(--r2-space-2) var(--r2-space-4);
-  border: 1px solid var(--r2-border);
-  border-radius: var(--r2-radius);
-  font-size: var(--r2-fs-ui-sm);
+.r2-onb-model-things li {
+  font-family: var(--r2-prose-font);
+  font-size: 16px;
+  line-height: 1.3;
   color: var(--r2-ink-2);
-  background: var(--r2-bg);
 }
 .r2-onb-model-things .r2-onb-model-more {
-  border-style: dashed;
+  font-style: italic;
   color: var(--r2-ink-3);
-  background: transparent;
 }
 .r2-onb-model-note {
-  margin-top: var(--r2-space-7);
+  margin-top: var(--r2-space-6);
+  max-width: 24rem;
   font-size: var(--r2-fs-ui-sm);
   line-height: var(--r2-lh-ui);
   color: var(--r2-ink-3);
 }
 
-/* Make the desk yours: three small desks, each in its own theme. */
+/* Make the desk yours: three small desks, each in its own theme. The chosen
+   one sits on a faint accent-tinted ground with its name marked — no heavy
+   box; the keyboard ring is the only outline. */
 .r2-onb-themes {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--r2-space-6);
-  margin-top: var(--r2-space-8);
+  gap: var(--r2-space-4);
+  margin-top: var(--r2-space-9);
 }
 .r2-onb-theme {
   display: grid;
   gap: var(--r2-space-4);
-  padding: var(--r2-space-3);
+  padding: var(--r2-space-4) var(--r2-space-4) var(--r2-space-5);
   border-radius: var(--r2-radius-lg);
   text-align: left;
   transition: background-color var(--r2-fast) var(--r2-ease);
@@ -8739,17 +8792,23 @@ a.r2-home-row-main:focus-visible {
 .r2-onb-theme:hover {
   background: var(--r2-hover);
 }
+.r2-onb-theme[aria-checked="true"] {
+  background: var(--r2-accent-soft);
+}
+.r2-onb-theme:focus-visible {
+  outline-offset: 2px;
+  border-radius: var(--r2-radius-lg);
+}
 .r2-onb-theme-preview {
   display: flex;
-  height: 104px;
+  height: 124px;
   overflow: hidden;
   border-radius: var(--r2-radius-md);
   background: var(--r2-bg);
-  box-shadow: 0 0 0 1px var(--r2-border-strong);
-  transition: box-shadow var(--r2-fast) var(--r2-ease);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--r2-border-strong) 70%, transparent);
 }
 .r2-onb-theme[aria-checked="true"] .r2-onb-theme-preview {
-  box-shadow: 0 0 0 2px var(--r2-accent);
+  box-shadow: 0 0 0 1px var(--r2-accent-line);
 }
 .r2-onb-theme-nav {
   width: 26%;
@@ -8760,7 +8819,7 @@ a.r2-home-row-main:focus-visible {
   flex: 1;
   align-content: start;
   gap: 6px;
-  padding: 18px 16px;
+  padding: 20px 18px;
   background: var(--r2-ms-bg, var(--r2-bg));
 }
 .r2-onb-theme-line {
@@ -8780,22 +8839,47 @@ a.r2-home-row-main:focus-visible {
   width: 60%;
 }
 .r2-onb-theme-name {
-  padding-left: var(--r2-space-1);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--r2-space-3);
+  padding: 0 var(--r2-space-1);
   font-size: var(--r2-fs-ui);
-  color: var(--r2-ink-1);
+  color: var(--r2-ink-2);
+}
+.r2-onb-theme[aria-checked="true"] .r2-onb-theme-name {
+  font-weight: var(--r2-weight-medium);
+  color: var(--r2-accent-ink);
+}
+.r2-onb-theme-check {
+  flex-shrink: 0;
+  color: var(--r2-accent);
+  opacity: 0;
+  transition: opacity var(--r2-fast) var(--r2-ease);
+}
+.r2-onb-theme[aria-checked="true"] .r2-onb-theme-check {
+  opacity: 1;
 }
 .r2-onb-system {
-  margin: var(--r2-space-5) 0 0 calc(-1 * var(--r2-space-4));
+  margin: var(--r2-space-6) 0 0 0;
   color: var(--r2-ink-3);
 }
 .r2-onb-system[aria-pressed="true"] {
-  color: var(--r2-accent);
+  color: var(--r2-accent-ink);
+  background: var(--r2-accent-soft);
 }
 
 @media (max-width: 640px) {
   .r2-onb-model,
-  .r2-onb-themes {
+  .r2-onb-themes,
+  .r2-onb-choices {
     grid-template-columns: 1fr;
+  }
+  .r2-onb-model-space {
+    margin-top: var(--r2-space-9);
+  }
+  .r2-onb-choice {
+    min-height: 0;
   }
   .r2-public-head,
   .r2-public-main,
@@ -8807,36 +8891,45 @@ a.r2-home-row-main:focus-visible {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .r2-onb {
+    transition: none;
+  }
   .r2-onb-screen {
     animation: none;
   }
 }
 
 /* ── One-time hints ─────────────────────────────────────────────────── */
+/* Teaching never outweighs the surface it teaches: a light ground, two
+   lines at most, the title running into its sentence, and a way to put it
+   away. */
 .r2-hint {
   display: flex;
   align-items: flex-start;
-  gap: var(--r2-space-5);
-  max-width: 560px;
-  margin: var(--r2-space-6) 0 var(--r2-space-2);
-  padding: var(--r2-space-5) var(--r2-space-4) var(--r2-space-5) var(--r2-space-6);
+  gap: var(--r2-space-4);
+  max-width: 620px;
+  margin: var(--r2-space-5) 0 var(--r2-space-2);
+  padding: var(--r2-space-4) var(--r2-space-3) var(--r2-space-4) var(--r2-space-5);
   border-radius: var(--r2-radius-md);
-  background: var(--r2-accent-soft);
+  background: var(--r2-group-bg);
 }
 .r2-hint-text {
   flex: 1;
   min-width: 0;
-}
-.r2-hint-text p {
+  padding-top: 2px;
   font-size: var(--r2-fs-ui-sm);
   line-height: var(--r2-lh-body);
-  color: var(--r2-ink-2);
+  color: var(--r2-ink-3);
 }
 .r2-hint-text .r2-hint-title {
-  margin-bottom: var(--r2-space-2);
-  font-size: var(--r2-fs-ui);
+  display: inline;
+  margin-right: var(--r2-space-2);
   font-weight: var(--r2-weight-medium);
   color: var(--r2-ink-1);
+}
+.r2-hint .r2-icon-button {
+  flex-shrink: 0;
+  color: var(--r2-ink-3);
 }
 
 /* ── The Workspace, empty: what it is for, and where to begin ───────── */
@@ -8853,9 +8946,17 @@ a.r2-home-row-main:focus-visible {
   gap: var(--r2-space-5);
 }
 
-/* The Canvas, empty: two lines in place of one. */
+/* The Canvas, empty: a quiet invitation — the idea in the serif, then how,
+   then the one reassurance. */
 .r2-canvas-empty p + p {
-  margin-top: var(--r2-space-4);
+  margin-top: var(--r2-space-3);
+}
+.r2-canvas-empty .r2-canvas-empty-idea {
+  margin-bottom: var(--r2-space-4);
+  font-family: var(--r2-prose-font);
+  font-size: 21px;
+  line-height: 1.2;
+  color: var(--r2-ink-2);
 }
 
 /* ── Feedback ───────────────────────────────────────────────────────── */
@@ -8902,4 +9003,419 @@ a.r2-home-row-main:focus-visible {
 .r2-settings-links {
   display: flex;
   gap: var(--r2-space-2);
+}
+
+/* ══ Pulse ══════════════════════════════════════════════════════════════
+   The founder's private operational room (admin-only; the (app) layout).
+   Rune's language, compact: the same tokens, type and controls, on quiet
+   grouped surfaces — editorial and operational where the product is
+   editorial and spacious. Its sections were built on the Rune 1.x variable
+   names; inside this root those names ARE the semantic tokens, so no colour
+   of its own exists here and every theme and accent reaches it. */
+.r2-pulse {
+  --color-ink: var(--r2-ink-1);
+  --color-sepia: var(--r2-group-bg);
+  --color-gold: var(--r2-accent);
+  --color-gold-dim: var(--r2-accent-ink);
+  --color-crimson: var(--r2-danger);
+  --color-sage: var(--r2-success);
+  --color-mist: var(--r2-ink-3);
+  --color-border: var(--r2-border);
+  --color-border-strong: var(--r2-border-strong);
+  --color-shadow: transparent;
+  --bg-primary: var(--r2-page-bg);
+  --surface-card: var(--r2-surface-raised);
+  --text-primary: var(--r2-ink-1);
+  --text-muted: var(--r2-ink-3);
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  font-size: var(--r2-fs-ui);
+  line-height: var(--r2-lh-ui);
+  color: var(--r2-ink-2);
+  background: var(--r2-page-bg);
+}
+.r2-pulse .font-rune-serif {
+  font-family: var(--r2-prose-font);
+}
+.r2-pulse-bar {
+  height: 56px;
+}
+.r2-pulse-back {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--r2-space-3);
+  height: var(--r2-control-md);
+  margin-left: calc(-1 * var(--r2-space-4));
+  padding: 0 var(--r2-space-4);
+  border-radius: var(--r2-radius);
+  font-size: var(--r2-fs-ui-sm);
+  color: var(--r2-ink-3);
+  transition: background-color var(--r2-fast) var(--r2-ease), color var(--r2-fast) var(--r2-ease);
+}
+.r2-pulse-back:hover {
+  color: var(--r2-ink-1);
+  background: var(--r2-hover);
+}
+.r2-pulse-main {
+  flex: 1;
+}
+.r2-pulse-page {
+  width: min(100%, 1180px);
+  margin: 0 auto;
+  padding: 24px var(--r2-space-9) 112px;
+}
+.r2-pulse-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--r2-space-5) var(--r2-space-7);
+  margin-bottom: var(--r2-space-8);
+}
+.r2-pulse-head h1 {
+  font-size: 26px;
+  font-weight: var(--r2-weight-semibold);
+  line-height: var(--r2-lh-tight);
+  letter-spacing: -0.02em;
+  color: var(--r2-ink-1);
+}
+.r2-pulse-sub {
+  margin-top: var(--r2-space-3);
+  font-size: var(--r2-fs-body);
+  color: var(--r2-ink-3);
+}
+.r2-pulse-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--r2-space-4);
+}
+
+/* The analytics: a chapter of their own, after the beta, with its controls
+   in the chapter's own heading row. */
+.r2-pulse-chapter {
+  margin-top: 56px;
+}
+.r2-pulse-chapter-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--r2-space-5) var(--r2-space-7);
+  margin-bottom: var(--r2-space-6);
+  padding: 0 var(--r2-space-2);
+}
+.r2-pulse-chapter-head h2 {
+  font-size: var(--r2-fs-ui);
+  font-weight: var(--r2-weight-semibold);
+  letter-spacing: var(--r2-tracking-heading);
+  color: var(--r2-ink-1);
+}
+.r2-pulse-section {
+  margin-top: var(--r2-space-6);
+}
+.r2-pulse-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--r2-space-6);
+}
+.r2-pulse-pair--wide {
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+}
+@media (max-width: 900px) {
+  .r2-pulse-pair,
+  .r2-pulse-pair--wide {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* A section: the grouped surface Settings and Projects sit on. */
+.r2-pulse-group {
+  min-width: 0;
+  padding: var(--r2-space-7) var(--r2-space-8) var(--r2-space-8);
+  border-radius: var(--r2-radius-lg);
+  background: var(--r2-group-bg);
+  box-shadow: 0 0 0 1px rgba(var(--r2-palette-ink) / 0.04), var(--r2-shadow-sm);
+}
+.r2-pulse-label-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--r2-space-3) var(--r2-space-5);
+  margin-bottom: var(--r2-space-5);
+}
+.r2-pulse-label {
+  font-size: var(--r2-fs-label);
+  font-weight: var(--r2-weight-semibold);
+  letter-spacing: var(--r2-tracking-caps);
+  text-transform: uppercase;
+  color: var(--r2-ink-3);
+}
+.r2-pulse-label--emphasis {
+  font-size: var(--r2-fs-heading);
+  font-weight: var(--r2-weight-semibold);
+  letter-spacing: var(--r2-tracking-heading);
+  text-transform: none;
+  color: var(--r2-ink-1);
+}
+.r2-pulse-help {
+  max-width: 60ch;
+  font-size: var(--r2-fs-meta);
+  line-height: var(--r2-lh-ui);
+  color: var(--r2-ink-3);
+}
+.r2-pulse-help--lead {
+  margin: calc(-1 * var(--r2-space-2)) 0 var(--r2-space-6);
+}
+.r2-pulse-label + .r2-pulse-help--lead {
+  margin-top: var(--r2-space-2);
+}
+.r2-pulse-faint {
+  font-size: var(--r2-fs-caption);
+  line-height: var(--r2-lh-ui);
+  color: var(--r2-faint);
+}
+.r2-pulse-empty {
+  padding: var(--r2-space-5) 0;
+  font-size: var(--r2-fs-body);
+  color: var(--r2-ink-3);
+}
+.r2-pulse-subsection {
+  margin-top: var(--r2-space-9);
+}
+.r2-pulse-scroll {
+  max-height: 380px;
+  overflow-y: auto;
+}
+
+/* Figures: a number with its label beneath, set in a line — typography does
+   the hierarchy; a figure that opens a list is a quiet button. */
+.r2-pulse-figures {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--r2-space-5) var(--r2-space-10);
+  margin: 0;
+}
+.r2-pulse-figures > div,
+.r2-pulse-figure {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--r2-space-1);
+  min-width: 0;
+}
+.r2-pulse-figures dd,
+.r2-pulse-figure-value {
+  margin: 0;
+  font-family: var(--r2-prose-font);
+  font-size: 30px;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  color: var(--r2-ink-1);
+}
+.r2-pulse-figures dt,
+.r2-pulse-figure-label {
+  font-size: var(--r2-fs-meta);
+  color: var(--r2-ink-3);
+}
+.r2-pulse-figures--buttons {
+  gap: var(--r2-space-4) var(--r2-space-7);
+}
+.r2-pulse-figure {
+  padding: var(--r2-space-4) var(--r2-space-5);
+  margin: calc(-1 * var(--r2-space-4)) 0;
+  border-radius: var(--r2-radius-md);
+  text-align: left;
+  transition: background-color var(--r2-fast) var(--r2-ease);
+}
+.r2-pulse-figure:hover {
+  background: var(--r2-hover);
+}
+.r2-pulse-figure[data-primary] .r2-pulse-figure-value {
+  font-weight: var(--r2-weight-medium);
+}
+.r2-pulse-brief {
+  font-family: var(--r2-prose-font);
+  font-size: 21px;
+  line-height: 1.45;
+  color: var(--r2-ink-1);
+}
+
+/* The one field and action that run the beta. */
+.r2-pulse-approve {
+  display: grid;
+  grid-template-columns: minmax(0, 360px) max-content;
+  align-items: center;
+  justify-content: start;
+  gap: var(--r2-space-3) var(--r2-space-4);
+  margin-top: var(--r2-space-8);
+}
+.r2-pulse-approve .r2-pulse-help {
+  grid-column: 1 / -1;
+}
+.r2-pulse-beta .r2-notice {
+  margin-top: var(--r2-space-5);
+  max-width: 48ch;
+}
+.r2-pulse-beta .r2-pulse-scroll {
+  margin-top: var(--r2-space-7);
+}
+
+/* Rows and tables: a hairline between rows at most, generous but not loose,
+   the primary text in ink and the rest quiet. */
+.r2-pulse-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--r2-fs-ui-sm);
+  text-align: left;
+}
+.r2-pulse-table th {
+  padding: 0 var(--r2-space-5) var(--r2-space-3) 0;
+  font-size: var(--r2-fs-label);
+  font-weight: var(--r2-weight-medium);
+  letter-spacing: var(--r2-tracking-label);
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--r2-ink-3);
+}
+.r2-pulse-table td {
+  padding: var(--r2-space-4) var(--r2-space-5) var(--r2-space-4) 0;
+  vertical-align: top;
+  color: var(--r2-ink-2);
+  box-shadow: 0 -1px 0 color-mix(in srgb, var(--r2-border) 75%, transparent);
+}
+.r2-pulse-table th:last-child,
+.r2-pulse-table td:last-child {
+  padding-right: 0;
+}
+.r2-pulse-table tbody tr:hover td {
+  background: var(--r2-hover-faint);
+}
+.r2-pulse-primary {
+  color: var(--r2-ink-1);
+}
+.r2-pulse-secondary {
+  margin-top: 2px;
+  font-size: var(--r2-fs-meta);
+  color: var(--r2-ink-3);
+}
+.r2-pulse-meta {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  color: var(--r2-ink-3);
+}
+.r2-pulse-actions {
+  text-align: right;
+}
+.r2-pulse-standing {
+  font-size: var(--r2-fs-meta);
+  white-space: nowrap;
+  color: var(--r2-ink-3);
+}
+.r2-pulse-standing[data-tone="approved"] {
+  color: var(--r2-accent-ink);
+}
+.r2-pulse-standing[data-tone="active"] {
+  color: var(--r2-success);
+}
+
+/* Feedback: read before anything else, so the body is body text. */
+.r2-pulse-feedback {
+  display: grid;
+  gap: var(--r2-space-2);
+}
+.r2-pulse-feedback li {
+  padding: var(--r2-space-5) var(--r2-space-5);
+  border-radius: var(--r2-radius-md);
+  background: var(--r2-hover-faint);
+}
+.r2-pulse-feedback-body {
+  font-size: var(--r2-fs-body);
+  line-height: var(--r2-lh-body);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--r2-ink-1);
+}
+.r2-pulse-feedback-meta {
+  margin-top: var(--r2-space-3);
+  font-size: var(--r2-fs-meta);
+  color: var(--r2-ink-3);
+}
+
+/* Composers (open questions, exclusions) and their remove actions. */
+.r2-pulse-compose {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--r2-space-3);
+  margin-bottom: var(--r2-space-7);
+}
+.r2-pulse-compose--stack {
+  display: grid;
+  gap: var(--r2-space-3);
+}
+.r2-pulse-compose--stack > div {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--r2-space-3);
+}
+.r2-pulse-compose .r2-notice {
+  width: 100%;
+}
+.r2-pulse textarea.r2-field {
+  height: auto;
+  min-height: 56px;
+  padding: var(--r2-space-3) var(--r2-space-4);
+  line-height: var(--r2-lh-ui);
+}
+.r2-pulse-remove {
+  opacity: 0;
+}
+li:hover .r2-pulse-remove,
+.r2-pulse-remove:focus-visible {
+  opacity: 1;
+}
+
+/* The internal-accounts switch. */
+.r2-pulse-internal-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--r2-ink-3);
+}
+.r2-pulse-internal[data-on] {
+  color: var(--r2-danger);
+}
+.r2-pulse-internal[data-on] .r2-pulse-internal-dot {
+  background: var(--r2-danger);
+}
+
+/* The detail sheet: Rune's overlay surface; its legacy class names inside
+   read the mapped tokens. */
+.r2-pulse-back-link {
+  font-size: var(--r2-fs-ui-sm);
+  color: var(--r2-accent-ink);
+}
+.r2-pulse-back-link:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 720px) {
+  .r2-pulse-page {
+    padding-left: var(--r2-space-6);
+    padding-right: var(--r2-space-6);
+  }
+  .r2-pulse-approve {
+    grid-template-columns: 1fr;
+  }
+  .r2-pulse-group {
+    padding: var(--r2-space-6);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .r2-pulse-sheet,
+  .r2-pulse-scrim {
+    transition: none !important;
+  }
 }

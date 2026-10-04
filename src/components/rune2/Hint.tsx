@@ -27,7 +27,7 @@ export function HintsProvider({ initial, children }: { initial: unknown; childre
 }
 
 /**
- * A hint, once: its few lines and a way to put it away. Given several, the
+ * A hint, once: its two lines and a way to put it away. Given several, the
  * first not yet seen — one at a time, never a stack. Nothing outside the
  * provider (it would never be recorded).
  */
@@ -38,10 +38,10 @@ export function OneTimeHint({ id: ids, className }: { id: HintId | readonly Hint
   const hint = HINTS[id];
   return (
     <aside className={className ? `r2-hint ${className}` : "r2-hint"} aria-label={hint.title} data-hint={id}>
-      <div className="r2-hint-text">
-        <p className="r2-hint-title">{hint.title}</p>
-        <p>{hint.body}</p>
-      </div>
+      <p className="r2-hint-text">
+        <span className="r2-hint-title">{hint.title}</span>
+        {hint.body}
+      </p>
       <button type="button" className="r2-icon-button r2-icon-button--xs" aria-label="Dismiss" onClick={() => api.dismiss(id)}>
         <X {...ICON_SM_BOLD} aria-hidden />
       </button>

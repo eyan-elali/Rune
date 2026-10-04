@@ -1471,8 +1471,9 @@ export default function CanvasSurface({ entry, session }: { entry: NavEntry; ses
 
       {items.length === 0 && !insert && uploads === 0 && (
         <div className="r2-canvas-ui r2-canvas-empty">
-          <p>Think in space. Add a scene, chapter, page or entry — the real thing, not a copy — or drop an image.</p>
-          <p>Double-click empty space for a note. Arranging things here never changes your manuscript’s order.</p>
+          <p className="r2-canvas-empty-idea">Think in space.</p>
+          <p>Add scenes, pages or entries, or drop an image. Double-click empty space for a note.</p>
+          <p>Arranging things here never changes your manuscript’s order.</p>
         </div>
       )}
 

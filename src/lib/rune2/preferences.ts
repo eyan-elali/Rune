@@ -70,6 +70,18 @@ export function resolveAppearance(v: unknown): AppearanceId {
   return isAppearanceId(v) ? v : DEFAULT_APPEARANCE;
 }
 
+/**
+ * Whether the account has ever chosen an appearance (a stored value the
+ * registry knows). An account that has not is shown the default — except
+ * through onboarding, where the layout shows System until the writer
+ * chooses, so the journey continues the front door's theme instead of
+ * flashing Light (RunePreferencesProvider's `unchosenAppearance`).
+ */
+export function hasChosenAppearance(stored: unknown): boolean {
+  const p = stored && typeof stored === "object" && !Array.isArray(stored) ? (stored as Record<string, unknown>) : {};
+  return isAppearanceId(p.rune2Appearance);
+}
+
 // ── Writing surface ─────────────────────────────────────────────────────────
 // The manuscript's page, separate from the theme: "theme" (Default) takes the
 // theme's own; the others are curated surfaces with their own ink. Unknown

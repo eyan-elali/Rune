@@ -23,11 +23,12 @@ const CATEGORY: Record<string, string> = {
   other: "Other",
 };
 
-const input = {
-  background: "var(--surface-card)",
-  border: "1px solid var(--color-border-strong)",
-  color: "var(--text-primary)",
-};
+/** Where a person stands, as one word. */
+function standing(p: BetaOverviewRow): { label: string; tone: "waiting" | "approved" | "active" } {
+  if (p.acceptedAt) return { label: "In Rune", tone: "active" };
+  if (p.approvedAt) return { label: "Approved", tone: "approved" };
+  return { label: "Waiting", tone: "waiting" };
+}
 
 export function ClosedBeta({
   initial,
@@ -61,118 +62,135 @@ export function ClosedBeta({
   const waiting = people.filter((p) => !p.approvedAt).length;
   const approved = people.filter((p) => p.approvedAt && !p.acceptedAt).length;
   const active = people.filter((p) => p.acceptedAt).length;
+  const feedback = data?.feedback ?? [];
 
   return (
-    <PulseCard className="flex flex-col p-6">
-      <PulseCardLabel>Closed Beta</PulseCardLabel>
-      <p className="mb-4 text-xs" style={{ color: "var(--color-mist)", opacity: 0.75 }}>
-        {waiting} waiting · {approved} approved, not yet signed in · {active} in Rune. Approving an email lets its account
-        into Rune the next time it signs in; write to the writer yourself to tell them.
-      </p>
+    <PulseCard className="r2-pulse-beta">
+      <PulseCardLabel emphasis>Closed Beta</PulseCardLabel>
 
-      <div className="mb-5 flex items-start gap-2 border-b pb-5" style={{ borderColor: "var(--color-border)" }}>
+      {/* Where the beta stands: three figures in a line, not three cards. */}
+      <dl className="r2-pulse-figures" aria-label="Closed beta standing">
+        <div>
+          <dd>{waiting}</dd>
+          <dt>waiting</dt>
+        </div>
+        <div>
+          <dd>{approved}</dd>
+          <dt>approved, not yet signed in</dt>
+        </div>
+        <div>
+          <dd>{active}</dd>
+          <dt>in Rune</dt>
+        </div>
+      </dl>
+
+      <form
+        className="r2-pulse-approve"
+        onSubmit={(e) => {
+          e.preventDefault();
+          approve(email);
+        }}
+      >
+        <label htmlFor="pulse-approve-email" className="sr-only">
+          Email to approve
+        </label>
         <input
+          id="pulse-approve-email"
           type="email"
+          className="r2-field"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder="writer@example.com"
-          className="flex-1 rounded-md px-3 py-2 text-xs outline-none"
-          style={input}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") approve(email);
-          }}
+          autoComplete="off"
         />
-        <button
-          onClick={() => approve(email)}
-          disabled={!email.trim() || isPending}
-          className="shrink-0 rounded-md px-3 py-2 text-xs font-medium transition-opacity hover:opacity-80 disabled:opacity-40"
-          style={{ background: "var(--color-gold)", color: "var(--color-ink)" }}
-        >
+        <button type="submit" className="r2-button r2-button--primary" disabled={!email.trim() || isPending}>
           Approve
         </button>
-      </div>
+        <p className="r2-pulse-help">
+          An approved email is let into Rune the next time it signs in. Write to the writer yourself to tell them.
+        </p>
+      </form>
       {error && (
-        <p className="mb-4 text-xs" style={{ color: "var(--color-crimson)" }}>
+        <p role="alert" className="r2-notice" data-tone="danger">
           {error}
         </p>
       )}
 
       {people.length === 0 ? (
-        <p className="text-sm" style={{ color: "var(--color-mist)" }}>
-          No one on the waitlist or approved yet.
-        </p>
+        <p className="r2-pulse-empty">No one on the waitlist or approved yet.</p>
       ) : (
-        <div className="max-h-[360px] overflow-y-auto">
-          <table className="w-full text-left text-xs">
-            <thead style={{ color: "var(--color-mist)" }}>
+        <div className="r2-pulse-scroll">
+          <table className="r2-pulse-table">
+            <thead>
               <tr>
-                <th className="py-2 pr-3 font-medium">Email</th>
-                <th className="py-2 pr-3 font-medium">Waitlist</th>
-                <th className="py-2 pr-3 font-medium">Approved</th>
-                <th className="py-2 pr-3 font-medium">In Rune</th>
-                <th className="py-2 font-medium" />
+                <th scope="col">Writer</th>
+                <th scope="col">Standing</th>
+                <th scope="col">Waitlisted</th>
+                <th scope="col">Approved</th>
+                <th scope="col">Signed in</th>
+                <th scope="col">
+                  <span className="sr-only">Actions</span>
+                </th>
               </tr>
             </thead>
-            <tbody style={{ color: "var(--text-primary)" }}>
-              {people.map((p) => (
-                <tr key={p.email} className="border-t" style={{ borderColor: "var(--color-border)" }}>
-                  <td className="py-2 pr-3 align-top">
-                    <div>{p.email}</div>
-                    {(p.name || p.writes) && (
-                      <div className="mt-0.5" style={{ color: "var(--color-mist)" }}>
-                        {[p.name, p.writes].filter(Boolean).join(" · ")}
-                      </div>
-                    )}
-                  </td>
-                  <td className="py-2 pr-3 align-top">{fmtDate(p.waitlistedAt)}</td>
-                  <td className="py-2 pr-3 align-top">{fmtDate(p.approvedAt)}</td>
-                  <td className="py-2 pr-3 align-top">{p.acceptedAt ? fmtDate(p.acceptedAt) : "Not yet"}</td>
-                  <td className="py-2 text-right align-top">
-                    {!p.approvedAt && (
-                      <button
-                        onClick={() => approve(p.email)}
-                        disabled={isPending}
-                        className="rounded-md px-2 py-1 text-xs transition-opacity hover:opacity-80 disabled:opacity-40"
-                        style={{ border: "1px solid var(--color-border-strong)" }}
-                      >
-                        Approve
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
+            <tbody>
+              {people.map((p) => {
+                const s = standing(p);
+                return (
+                  <tr key={p.email}>
+                    <td>
+                      <div className="r2-pulse-primary">{p.email}</div>
+                      {(p.name || p.writes) && (
+                        <div className="r2-pulse-secondary">{[p.name, p.writes].filter(Boolean).join(" · ")}</div>
+                      )}
+                    </td>
+                    <td>
+                      <span className="r2-pulse-standing" data-tone={s.tone}>
+                        {s.label}
+                      </span>
+                    </td>
+                    <td className="r2-pulse-meta">{fmtDate(p.waitlistedAt)}</td>
+                    <td className="r2-pulse-meta">{fmtDate(p.approvedAt)}</td>
+                    <td className="r2-pulse-meta">{p.acceptedAt ? fmtDate(p.acceptedAt) : "Not yet"}</td>
+                    <td className="r2-pulse-actions">
+                      {!p.approvedAt && (
+                        <button
+                          type="button"
+                          className="r2-button r2-button--sm"
+                          onClick={() => approve(p.email)}
+                          disabled={isPending}
+                        >
+                          Approve
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
       )}
 
-      <div className="mt-6">
+      <div className="r2-pulse-subsection">
         <PulseCardLabel>Feedback</PulseCardLabel>
+        {feedback.length === 0 ? (
+          <p className="r2-pulse-empty">No feedback yet.</p>
+        ) : (
+          <ul role="list" className="r2-pulse-feedback r2-pulse-scroll">
+            {feedback.map((f) => (
+              <li key={f.id}>
+                <p className="r2-pulse-feedback-body">{f.body}</p>
+                <p className="r2-pulse-feedback-meta">
+                  {[f.category ? CATEGORY[f.category] ?? f.category : null, f.writer, f.route, fmtDate(f.createdAt)]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
-      {(data?.feedback ?? []).length === 0 ? (
-        <p className="text-sm" style={{ color: "var(--color-mist)" }}>
-          No feedback yet.
-        </p>
-      ) : (
-        <ul role="list" className="max-h-[360px] space-y-2 overflow-y-auto">
-          {(data?.feedback ?? []).map((f) => (
-            <li
-              key={f.id}
-              className="rounded-md px-3 py-2.5"
-              style={{ background: "color-mix(in srgb, var(--color-gold) 4%, transparent)" }}
-            >
-              <p className="whitespace-pre-wrap text-sm" style={{ color: "var(--text-primary)" }}>
-                {f.body}
-              </p>
-              <p className="mt-1 text-xs" style={{ color: "var(--color-mist)" }}>
-                {[f.category ? CATEGORY[f.category] ?? f.category : null, f.writer, f.route, fmtDate(f.createdAt)]
-                  .filter(Boolean)
-                  .join(" · ")}
-              </p>
-            </li>
-          ))}
-        </ul>
-      )}
     </PulseCard>
   );
 }

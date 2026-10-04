@@ -43,25 +43,20 @@ export function InternalAccounts({ initialUsers }: { initialUsers: ExcludedUser[
   }
 
   return (
-    <PulseCard className="flex flex-col p-6">
+    <PulseCard className="flex flex-col">
       <PulseCardLabel>Internal Accounts</PulseCardLabel>
-      <p className="mb-4 text-xs" style={{ color: "var(--color-mist)", opacity: 0.75 }}>
+      <p className="r2-pulse-help r2-pulse-help--lead">
         Founder and controlled test accounts excluded from Pulse&apos;s default metrics. Their
         analytics stay recorded — only what Pulse counts by default changes.
       </p>
 
-      <div className="mb-5 space-y-2 border-b pb-5" style={{ borderColor: "var(--color-border)" }}>
+      <div className="r2-pulse-compose r2-pulse-compose--stack">
         <input
           type="text"
           value={userId}
           onChange={(e) => setUserId(e.target.value)}
           placeholder="Exact user UUID"
-          className="w-full rounded-md px-3 py-2 text-xs outline-none"
-          style={{
-            background: "var(--surface-card)",
-            border: "1px solid var(--color-border-strong)",
-            color: "var(--text-primary)",
-          }}
+          className="r2-field w-full"
         />
         <div className="flex items-start gap-2">
           <input
@@ -69,12 +64,7 @@ export function InternalAccounts({ initialUsers }: { initialUsers: ExcludedUser[
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             placeholder="Reason (e.g. founder account, QA)"
-            className="flex-1 rounded-md px-3 py-2 text-xs outline-none"
-            style={{
-              background: "var(--surface-card)",
-              border: "1px solid var(--color-border-strong)",
-              color: "var(--text-primary)",
-            }}
+            className="r2-field flex-1"
             onKeyDown={(e) => {
               if (e.key === "Enter") handleAdd();
             }}
@@ -82,8 +72,7 @@ export function InternalAccounts({ initialUsers }: { initialUsers: ExcludedUser[
           <button
             onClick={handleAdd}
             disabled={!userId.trim() || isPending}
-            className="shrink-0 rounded-md px-3 py-2 text-xs font-medium transition-opacity hover:opacity-80 disabled:opacity-40"
-            style={{ background: "var(--color-gold)", color: "var(--color-ink)" }}
+            className="r2-button r2-button--primary shrink-0"
           >
             Exclude
           </button>
@@ -105,7 +94,7 @@ export function InternalAccounts({ initialUsers }: { initialUsers: ExcludedUser[
             <li
               key={u.userId}
               className="group flex items-start justify-between gap-3 rounded-md px-3 py-2.5"
-              style={{ background: "color-mix(in srgb, var(--color-gold) 4%, transparent)" }}
+              style={{ background: "var(--r2-hover-faint)" }}
             >
               <div className="min-w-0">
                 <p className="truncate text-sm" style={{ color: "var(--text-primary)" }}>
@@ -119,8 +108,8 @@ export function InternalAccounts({ initialUsers }: { initialUsers: ExcludedUser[
               <button
                 onClick={() => handleRemove(u.userId)}
                 aria-label="Remove exclusion"
-                className="shrink-0 text-xs opacity-0 transition-opacity hover:opacity-100 group-hover:opacity-60"
-                style={{ color: "var(--color-crimson)" }}
+                className="r2-button r2-button--quiet r2-button--sm r2-pulse-remove shrink-0"
+                data-tone="danger"
               >
                 Remove
               </button>

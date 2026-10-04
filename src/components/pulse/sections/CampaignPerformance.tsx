@@ -15,9 +15,9 @@ export function CampaignPerformance({ data }: { data: CampaignRow[] }) {
   const { openCampaignDrilldown } = usePulseDrawer();
 
   return (
-    <PulseCard className="p-6">
+    <PulseCard>
       <PulseCardLabel>Campaign Performance</PulseCardLabel>
-      <p className="mb-4 -mt-1 text-xs leading-relaxed" style={{ color: "var(--color-mist)", opacity: 0.65 }}>
+      <p className="r2-pulse-help r2-pulse-help--lead">
         Signups are counted in the selected range. First saves, 2nd-day return, and subscribers
         are counted whenever they happen, even after the range ends.
       </p>
@@ -28,14 +28,14 @@ export function CampaignPerformance({ data }: { data: CampaignRow[] }) {
         </p>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
+          <table className="r2-pulse-table">
             <thead>
-              <tr style={{ borderBottom: "1px solid var(--color-border)" }}>
-                <th className="pb-2 pr-4 text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--color-mist)" }}>
+              <tr>
+                <th scope="col">
                   Campaign
                 </th>
                 {COLUMNS.map((col) => (
-                  <th key={col.key} className="pb-2 pl-4 text-right text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--color-mist)" }}>
+                  <th key={col.key} scope="col" className="text-right">
                     {col.label}
                   </th>
                 ))}
@@ -43,12 +43,12 @@ export function CampaignPerformance({ data }: { data: CampaignRow[] }) {
             </thead>
             <tbody>
               {data.map((row) => (
-                <tr key={row.campaign} style={{ borderBottom: "1px solid var(--color-border)" }}>
-                  <td className="max-w-[180px] truncate py-2.5 pr-4" style={{ color: "var(--text-primary)" }} title={row.campaign}>
+                <tr key={row.campaign}>
+                  <td className="r2-pulse-primary max-w-[180px] truncate" title={row.campaign}>
                     {row.campaign}
                   </td>
                   {COLUMNS.map((col) => (
-                    <td key={col.key} className="py-2.5 pl-4 text-right">
+                    <td key={col.key} className="text-right">
                       <button
                         onClick={() => openCampaignDrilldown(row.campaign, col.key, `${row.campaign} — ${col.label}`)}
                         className="tabular-nums transition-opacity hover:opacity-70"

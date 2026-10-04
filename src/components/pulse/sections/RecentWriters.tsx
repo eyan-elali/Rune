@@ -42,22 +42,15 @@ export function RecentWriters({ initialWriters }: { initialWriters: WriterSummar
   }, [trimmedQuery, range, includeInternal]);
 
   return (
-    <PulseCard className="flex flex-col p-6">
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--color-mist)" }}>
-          Recent Writers
-        </p>
+    <PulseCard className="flex flex-col">
+      <div className="r2-pulse-label-row">
+        <h2 className="r2-pulse-label">Recent Writers</h2>
         <input
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search by name…"
-          className="w-40 rounded-md px-3 py-1.5 text-xs outline-none"
-          style={{
-            background: "var(--surface-card)",
-            border: "1px solid var(--color-border-strong)",
-            color: "var(--text-primary)",
-          }}
+          className="r2-field r2-field--sm w-44"
         />
       </div>
 

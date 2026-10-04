@@ -15,7 +15,7 @@ export function OnboardingInsights({ data }: { data: OnboardingInsightsData }) {
   ];
 
   return (
-    <PulseCard className="p-6">
+    <PulseCard>
       <PulseCardLabel>Onboarding Insights</PulseCardLabel>
 
       {data.onboardedCount === 0 ? (
@@ -23,26 +23,23 @@ export function OnboardingInsights({ data }: { data: OnboardingInsightsData }) {
           No onboarding behavior data in this range yet.
         </p>
       ) : (
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <div className="r2-pulse-figures r2-pulse-figures--buttons">
           {items.map((item) => (
             <button
               key={item.label}
+              type="button"
               onClick={() => openOnboardingDrilldown(item.kind, item.label)}
-              className="-mx-2 -my-1.5 flex flex-col items-start rounded-md px-2 py-1.5 text-left transition-colors hover:bg-rune-gold/5"
+              className="r2-pulse-figure"
             >
-              <p className="font-rune-serif text-3xl leading-tight" style={{ color: "var(--text-primary)" }}>
-                {item.percent}%
-              </p>
-              <p className="mt-1.5 text-xs uppercase tracking-widest" style={{ color: "var(--color-mist)" }}>
-                {item.label}
-              </p>
+              <span className="r2-pulse-figure-value">{item.percent}%</span>
+              <span className="r2-pulse-figure-label">{item.label}</span>
             </button>
           ))}
         </div>
       )}
 
       {(data.hasIncompleteFirstSentenceCoverage || data.hasIneligibleLetterCohort) && (
-        <p className="mt-5 text-[11px]" style={{ color: "var(--color-mist)", opacity: 0.5 }}>
+        <p className="r2-pulse-faint mt-5">
           {data.hasIncompleteFirstSentenceCoverage &&
             "First-sentence figures apply only to writers whose onboarding was tracked by analytics. "}
           {data.hasIneligibleLetterCohort &&

@@ -19,24 +19,15 @@ export function IncludeInternalToggle({ includeInternal }: { includeInternal: bo
 
   return (
     <button
+      type="button"
       onClick={toggle}
       role="switch"
       aria-checked={includeInternal}
       title="When on, founder and test accounts are counted in every metric below."
-      className="inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs transition-colors duration-150"
-      style={{
-        background: includeInternal
-          ? "color-mix(in srgb, var(--color-crimson) 10%, transparent)"
-          : "color-mix(in srgb, var(--color-gold) 6%, transparent)",
-        border: "1px solid var(--color-border)",
-        color: includeInternal ? "var(--color-crimson)" : "var(--color-mist)",
-      }}
+      className="r2-button r2-button--quiet r2-button--sm r2-pulse-internal"
+      data-on={includeInternal || undefined}
     >
-      <span
-        aria-hidden="true"
-        className="h-1.5 w-1.5 rounded-full"
-        style={{ background: includeInternal ? "var(--color-crimson)" : "var(--color-mist)" }}
-      />
+      <span className="r2-pulse-internal-dot" aria-hidden />
       {includeInternal ? "Including internal accounts" : "Internal accounts excluded"}
     </button>
   );
