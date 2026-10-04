@@ -1,5 +1,13 @@
 import type { WorkspaceAttachment } from "@/lib/types";
-import { ATTACHMENT_BUCKET, ATTACHMENT_GRACE_HOURS, cleanFileName, imageUploadProblem, storageKeyFor } from "@/lib/rune2/attachments";
+import {
+  ATTACHMENT_BUCKET,
+  ATTACHMENT_GRACE_HOURS,
+  cleanFileName,
+  imageBytesMatchType,
+  imageUploadProblem,
+  isAcceptedImageType,
+  storageKeyFor,
+} from "@/lib/rune2/attachments";
 import { carryOutStoragePurge, type StoragePurge } from "@/lib/projectLifecycle";
 
 // Project attachments on the server (Milestone 22C, migration 047): storing
@@ -69,10 +77,17 @@ export async function storeImageAttachment(
   if (!UUID.test(upload.projectId)) return { data: null, error: "Project not found", status: 404 };
   const problem = imageUploadProblem({ type: upload.mimeType, size: upload.bytes.byteLength });
   if (problem) return { data: null, error: problem, status: 415 };
+  // The declared type is the browser's word; the bytes must agree (so no
+  // HTML, SVG or script is ever stored — or later served — as an image).
+  if (!imageBytesMatchType(upload.mimeType, upload.bytes)) return { data: null, error: "That image couldn’t be read.", status: 415 };
   if (!(upload.width > 0 && upload.height > 0)) return { data: null, error: "That image couldn’t be read.", status: 422 };
   const display = upload.display ?? null;
   if (display && !(display.width > 0 && display.height > 0 && display.bytes.byteLength > 0)) {
     return { data: null, error: "That image couldn’t be read.", status: 422 };
+  }
+  // The derivative is held to the same rule as the original.
+  if (display && (imageUploadProblem({ type: display.mimeType, size: display.bytes.byteLength }) || !imageBytesMatchType(display.mimeType, display.bytes))) {
+    return { data: null, error: "That image couldn’t be read.", status: 415 };
   }
 
   const id = newId();
@@ -139,7 +154,11 @@ export async function readAttachment(
   const key = variant === "display" && a.display_key ? a.display_key : a.storage_key;
   const stored = await storage.download(key);
   if (!stored) return null;
-  return { ...stored, contentType: stored.contentType || a.mime_type, fileName: a.file_name, attachment: a };
+  // Served only as a picture: the type the store reports when it is an
+  // accepted image type, else the row's (validated on registration), else
+  // nothing active — never a type that could make the bytes a document.
+  const contentType = isAcceptedImageType(stored.contentType) ? stored.contentType.toLowerCase() : isAcceptedImageType(a.mime_type) ? a.mime_type.toLowerCase() : "application/octet-stream";
+  return { ...stored, contentType, fileName: a.file_name, attachment: a };
 }
 
 /**

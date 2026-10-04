@@ -5,6 +5,7 @@
 //   '@/lib/supabase/server' → mocks/supabaseServer.js  (setServerClient)
 //   'next/cache'            → mocks/nextCache.js       (revalidateCalls)
 //   'next/server'           → mocks/nextServer.js      (NextResponse)
+//   'next/headers'          → mocks/nextHeaders.js     (an empty request)
 //
 // Every other '@/…' import resolves to the real file under src/. Extra
 // aliases can be passed per bundle. The returned module re-exports the target
@@ -20,6 +21,7 @@ const DEFAULT_ALIASES = {
   '@/lib/supabase/server': path.join(HARNESS_DIR, 'mocks/supabaseServer.js'),
   'next/cache': path.join(HARNESS_DIR, 'mocks/nextCache.js'),
   'next/server': path.join(HARNESS_DIR, 'mocks/nextServer.js'),
+  'next/headers': path.join(HARNESS_DIR, 'mocks/nextHeaders.js'),
 };
 
 function resolveRepoSrc(spec) {

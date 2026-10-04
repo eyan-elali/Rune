@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { recordSignupCompletedEvent } from "@/lib/actions/analytics";
+import { recordSignupCompletedEvent } from "@/lib/actions/signupAnalytics";
 import { PEN_NAME_MAX_LENGTH, getPenNameValidationError, normalizePenName } from "@/lib/penName";
 
 // Create account (Beta Completion E): for the closed beta, with the email an

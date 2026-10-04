@@ -118,7 +118,10 @@ body {
   background: rgba(201, 168, 76, 0.5);
 }
 
-* {
+/* Legacy surfaces only: a Rune 2.0 root (.r2) paints its own, accent-aware
+   scrollbars (rune2.css), and a declaration on every element here would
+   beat what its descendants inherit from that root. */
+*:not(.r2, .r2 *) {
   scrollbar-width: thin;
   scrollbar-color: rgba(201, 168, 76, 0.3) transparent;
 }

@@ -24,7 +24,7 @@ export function PublicFrame({ children, nav }: { children: ReactNode; nav?: Reac
       <footer className="r2-public-foot">
         <Link href="/privacy">Privacy</Link>
         <Link href="/terms">Terms</Link>
-        <a href="mailto:support@rune.app">Support</a>
+        <a href="mailto:support@rune-app.com">Support</a>
       </footer>
     </div>
   );

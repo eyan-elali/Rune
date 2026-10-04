@@ -8,6 +8,7 @@ import { recordAnalyticsEvent } from '@/lib/actions/analytics'
 import { COMPLETE_PROFILE_PATH, needsProfileCompletion, readProfileState } from '@/lib/accountGate'
 import { PURCHASE_INTENT_COOKIE, parsePurchaseIntent } from '@/lib/purchaseIntent'
 import { BILLING_OPEN } from '@/lib/beta'
+import { safeNextPath } from '@/lib/authRedirect'
 
 // Best-effort: reads the first-touch cookie and persists the attribution row
 // for the just-verified user. Never throws — a failure here must not block
@@ -71,7 +72,8 @@ export async function GET(request: NextRequest) {
   // of the PKCE code: verified the same way, then routed exactly the same.
   const tokenHash = searchParams.get('token_hash')
   const otpType = searchParams.get('type')
-  const next = searchParams.get('next') ?? '/projects'
+  // Only a path of this app (lib/authRedirect.ts): a link can carry any `next`.
+  const next = safeNextPath(searchParams.get('next') ?? '/projects')
   const intent = searchParams.get('intent')
 
   if (code || (tokenHash && isEmailOtpType(otpType))) {

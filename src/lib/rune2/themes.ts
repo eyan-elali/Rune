@@ -64,7 +64,9 @@ export const PALETTE_TOKENS = [
   "press",
   "scrim",
   "scrim-light",
-  "scrollbar",
+  "scrollbar", //      a scrollbar's thumb at rest: the accent, subdued
+  "scrollbar-hover", // the thumb under the pointer
+  "scrollbar-active", // the thumb being dragged
   // Text
   "ink-1",
   "ink-2",
@@ -121,6 +123,8 @@ export type PaletteToken = (typeof PALETTE_TOKENS)[number];
 /** The manuscript tokens a writing surface sets. */
 export const SURFACE_TOKENS = ["ms-bg", "ms-ink", "ms-faint", "ms-caret", "ms-selection", "ms-rule"] as const satisfies readonly PaletteToken[];
 type SurfaceToken = (typeof SURFACE_TOKENS)[number];
+/** The surface tokens that read the accent: painted in the manuscript region, where the page's scheme has chosen the accent's variant. */
+export const ACCENT_SURFACE_TOKENS = ["ms-caret", "ms-selection"] as const satisfies readonly SurfaceToken[];
 
 // ── Light ──────────────────────────────────────────────────────────────────
 // The M21 palette, the neutral default: one off-white system, the frame a
@@ -149,7 +153,9 @@ const LIGHT: Palette = {
   press: "rgba(var(--r2-palette-ink) / 0.08)",
   scrim: "rgba(var(--r2-palette-shadow) / 0.28)",
   "scrim-light": "rgba(var(--r2-palette-shadow) / 0.08)",
-  scrollbar: "rgba(var(--r2-palette-ink) / 0.16)",
+  scrollbar: "rgba(var(--r2-palette-blue) / 0.3)",
+  "scrollbar-hover": "rgba(var(--r2-palette-blue) / 0.5)",
+  "scrollbar-active": "var(--r2-accent)",
 
   "ink-1": "#1c1f24",
   "ink-2": "#585c64",
@@ -224,7 +230,8 @@ const CANDLELIGHT: Palette = {
   hover: "rgba(var(--r2-palette-ink) / 0.055)",
   "hover-faint": "rgba(var(--r2-palette-ink) / 0.02)",
   press: "rgba(var(--r2-palette-ink) / 0.09)",
-  scrollbar: "rgba(var(--r2-palette-ink) / 0.18)",
+  scrollbar: "rgba(var(--r2-palette-blue) / 0.3)",
+  "scrollbar-hover": "rgba(var(--r2-palette-blue) / 0.5)",
 
   "ink-1": "#2a251f",
   "ink-2": "#5f584e",
@@ -279,7 +286,9 @@ const DARK: Palette = {
   press: "rgba(var(--r2-palette-ink) / 0.1)",
   scrim: "rgba(0 0 0 / 0.5)",
   "scrim-light": "rgba(0 0 0 / 0.22)",
-  scrollbar: "rgba(var(--r2-palette-ink) / 0.17)",
+  scrollbar: "rgba(var(--r2-palette-blue) / 0.3)",
+  "scrollbar-hover": "rgba(var(--r2-palette-blue) / 0.5)",
+  "scrollbar-active": "var(--r2-accent)",
 
   "ink-1": "#e4e6ea",
   "ink-2": "#a8acb4",
@@ -357,7 +366,10 @@ export function resolveTheme(theme: ThemeId, systemDark: boolean): ResolvedTheme
 // ── Writing surfaces ───────────────────────────────────────────────────────
 // A small, curated set — never a colour picker. Each is a complete
 // treatment: page, prose ink, the faint ink of a placeholder or a Scene
-// break, the caret, the selection, the rule. "Default" is the theme's own.
+// break, the rule. "Default" is the theme's own. The caret and the text
+// selection are the writer's accent (ACCENT_SURFACE_TOKENS), in the variant
+// made for the page's scheme — so a selection in prose is the same colour as
+// a selection anywhere else in Rune, and never a blue the writer did not choose.
 
 type SurfaceDef = {
   id: string;
@@ -377,8 +389,8 @@ export const WRITING_SURFACES = [
       "ms-bg": "#ffffff",
       "ms-ink": "#1b1d21",
       "ms-faint": "#8a8c92",
-      "ms-caret": "#2f4c7c",
-      "ms-selection": "rgba(47 76 124 / 0.16)",
+      "ms-caret": "var(--r2-accent)",
+      "ms-selection": "rgba(var(--r2-palette-blue) / 0.16)",
       "ms-rule": "#dcdcd8",
     },
   },
@@ -390,8 +402,8 @@ export const WRITING_SURFACES = [
       "ms-bg": "#f6f3ec",
       "ms-ink": "#25221d",
       "ms-faint": "#8c8578",
-      "ms-caret": "#2f4c7c",
-      "ms-selection": "rgba(47 76 124 / 0.15)",
+      "ms-caret": "var(--r2-accent)",
+      "ms-selection": "rgba(var(--r2-palette-blue) / 0.15)",
       "ms-rule": "#d9d2c4",
     },
   },
@@ -403,8 +415,8 @@ export const WRITING_SURFACES = [
       "ms-bg": "#f2e9d8",
       "ms-ink": "#2d261d",
       "ms-faint": "#877b67",
-      "ms-caret": "#5b4424",
-      "ms-selection": "rgba(150 110 50 / 0.2)",
+      "ms-caret": "var(--r2-accent)",
+      "ms-selection": "rgba(var(--r2-palette-blue) / 0.2)",
       "ms-rule": "#d8cbb2",
     },
   },
@@ -416,8 +428,8 @@ export const WRITING_SURFACES = [
       "ms-bg": "#eaebed",
       "ms-ink": "#202227",
       "ms-faint": "#7d8088",
-      "ms-caret": "#2f4c7c",
-      "ms-selection": "rgba(47 76 124 / 0.17)",
+      "ms-caret": "var(--r2-accent)",
+      "ms-selection": "rgba(var(--r2-palette-blue) / 0.17)",
       "ms-rule": "#cfd1d5",
     },
   },
@@ -429,8 +441,8 @@ export const WRITING_SURFACES = [
       "ms-bg": "#26282c",
       "ms-ink": "#d6d8dc",
       "ms-faint": "#80848b",
-      "ms-caret": "#9cb4dc",
-      "ms-selection": "rgba(143 170 216 / 0.3)",
+      "ms-caret": "var(--r2-accent)",
+      "ms-selection": "rgba(var(--r2-palette-blue) / 0.3)",
       "ms-rule": "#3c3f45",
     },
   },
@@ -449,8 +461,14 @@ export function writingSurface(id: WritingSurfaceId): SurfaceDef {
 export function surfaceColours(surface: WritingSurfaceId, theme: ResolvedThemeId): Record<SurfaceToken, string> {
   const s = writingSurface(surface);
   const palette = PALETTES[theme];
+  // A surface of the other scheme paints its region with that scheme's
+  // interface palette (buildThemeCss), and its caret and selection with it.
+  const region = s.scheme && s.scheme !== THEME_SCHEME[theme] ? PALETTES[s.scheme] : palette;
   const out = {} as Record<SurfaceToken, string>;
-  for (const t of SURFACE_TOKENS) out[t] = resolveToken(palette, s.tokens ? s.tokens[t] : palette[t]);
+  for (const t of SURFACE_TOKENS) {
+    const value = s.tokens ? s.tokens[t] : palette[t];
+    out[t] = resolveToken((ACCENT_SURFACE_TOKENS as readonly string[]).includes(t) ? region : palette, value);
+  }
   return out;
 }
 
@@ -601,9 +619,13 @@ export function buildThemeCss(): string {
   css.push(`.r2[data-theme="dark"]{${declarations(DARK, "dark")}}`);
   css.push(`${DARK_MEDIA}{.r2[data-theme="system"]{${declarations(DARK, "dark")}}}`);
 
-  // Writing surfaces: the manuscript tokens, on the root.
+  // Writing surfaces: the manuscript tokens, on the root — except the
+  // accent-derived ones, painted in the region below.
   for (const s of WRITING_SURFACES) {
-    if (s.tokens) css.push(`.r2[data-surface="${s.id}"]{${declarations(s.tokens, null)}}`);
+    if (!s.tokens) continue;
+    const own: Partial<Record<PaletteToken, string>> = { ...s.tokens };
+    for (const t of ACCENT_SURFACE_TOKENS) delete own[t];
+    css.push(`.r2[data-surface="${s.id}"]{${declarations(own, null)}}`);
   }
 
   // Accents, over each theme (Rune Blue is the palettes' own, so it needs none).
@@ -629,6 +651,15 @@ export function buildThemeCss(): string {
     css.push(
       `${DARK_MEDIA}{.r2[data-theme="system"][data-surface-scheme="light"]${sel} ${region}{${declarations(a.values.light, null)}}}`
     );
+  }
+
+  // A surface's caret and selection: the accent as the region resolves it —
+  // the writer's accent, in the variant made for the page's scheme.
+  for (const s of WRITING_SURFACES) {
+    if (!s.tokens) continue;
+    const own: Partial<Record<PaletteToken, string>> = {};
+    for (const t of ACCENT_SURFACE_TOKENS) own[t] = s.tokens[t];
+    css.push(`.r2[data-surface="${s.id}"] ${region}{${declarations(own, null)}}`);
   }
 
   // The region reads the manuscript tokens.

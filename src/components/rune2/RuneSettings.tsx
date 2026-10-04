@@ -316,8 +316,8 @@ function AboutSection() {
           </button>
         </Row>
         <Row label="Support" help="For anything about your account or your writing.">
-          <a href="mailto:support@rune.app" className="r2-settings-row-value">
-            support@rune.app
+          <a href="mailto:support@rune-app.com" className="r2-settings-row-value">
+            support@rune-app.com
           </a>
         </Row>
         <Row label="Privacy and terms">

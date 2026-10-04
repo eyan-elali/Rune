@@ -6,7 +6,9 @@
 //   * the operator's list and approval (an admin, in Pulse).
 // Nothing here reads or sends manuscript content.
 
+import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
+import { clientIpFromHeaders, consumeRateLimit } from "@/lib/rateLimit";
 import { createServiceClient } from "@/lib/supabase/service";
 import { getCurrentAdmin } from "@/lib/actions/admin";
 import { recordAnalyticsEvent } from "@/lib/actions/analytics";
@@ -40,6 +42,13 @@ export async function joinBetaWaitlist(input: { email: string; name?: string; wr
   if (!isPlausibleEmail(email)) return { error: "Enter an email address we can reach you at." };
   const name = typeof input.name === "string" ? input.name.trim().slice(0, WAITLIST_NAME_MAX) : "";
   const writes = typeof input.writes === "string" ? input.writes.trim().slice(0, WAITLIST_WRITES_MAX) : "";
+
+  // Abuse guard (security audit): the RPC is anon-callable and every distinct
+  // address is a row, so one client gets a handful of joins per window.
+  // Per-instance, best-effort — see src/lib/rateLimit.ts for the caveats.
+  if (!consumeRateLimit(`waitlist:${clientIpFromHeaders(await headers())}`, 5, 10 * 60 * 1000).allowed) {
+    return { error: "Too many attempts. Please try again in a few minutes." };
+  }
 
   const supabase = await createClient();
   const { error } = await supabase.rpc("join_beta_waitlist", {
@@ -82,6 +91,13 @@ export async function submitFeedback(input: { body: string; category?: string | 
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { error: "You’re signed out. Sign in again to send feedback." };
+
+  // Abuse guard (security audit): feedback rows are unbounded per writer
+  // (5,000 chars each, read back in Pulse). Twenty per writer per hour is
+  // far above honest use. Per-instance, best-effort — see src/lib/rateLimit.ts.
+  if (!consumeRateLimit(`feedback:${user.id}`, 20, 60 * 60 * 1000).allowed) {
+    return { error: "You’ve sent a lot of feedback just now. Please try again in a little while." };
+  }
 
   const { error } = await supabase.from("beta_feedback").insert({ user_id: user.id, category, body, context });
   if (error) {

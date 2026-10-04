@@ -28,8 +28,12 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       "Content-Type": found.contentType,
       "Content-Length": String(found.bytes.byteLength),
       "Cache-Control": "private, max-age=31536000, immutable",
-      "Content-Disposition": `inline; filename*=UTF-8''${encodeURIComponent(found.fileName)}`,
+      // RFC 5987 ext-value: percent-encoded, including the characters
+      // encodeURIComponent leaves alone that the grammar does not ("'" is its delimiter).
+      "Content-Disposition": `inline; filename*=UTF-8''${encodeURIComponent(found.fileName).replace(/[!'()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`)}`,
       "X-Content-Type-Options": "nosniff",
+      // Defence in depth: whatever the bytes are, they run nothing and load nothing.
+      "Content-Security-Policy": "default-src 'none'; sandbox",
     },
   });
 }

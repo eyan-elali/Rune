@@ -140,7 +140,9 @@ export function Rune2Writing({ projectId, target }: { projectId: string; target:
   const header = target ? (
     <header className="r2-doc-head">
       {target.kind === "scenes" && target.eyebrow && <p className="r2-doc-eyebrow">{target.eyebrow}</p>}
-      <h1 className="r2-doc-title">{target.title}</h1>
+      <h1 className="r2-doc-title">
+        <span className="r2-doc-title-text">{target.title}</span>
+      </h1>
     </header>
   ) : null;
 
@@ -182,6 +184,7 @@ export function Rune2Writing({ projectId, target }: { projectId: string; target:
       focusSceneId={focusSceneId}
       onFocusHandled={clearFocusRequest}
       header={header}
+      titleText={target?.title ?? ""}
       placeholder={placeholder}
     />
   );

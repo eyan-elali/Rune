@@ -138,20 +138,45 @@
   background: var(--r2-bg);
   color: var(--r2-text);
   font-family: var(--r2-font-ui);
+  scrollbar-width: thin;
   scrollbar-color: var(--r2-scrollbar) transparent;
   -webkit-font-smoothing: antialiased;
 }
 
 /* ══ 2. Base ════════════════════════════════════════════════════════════ */
 
+/* Scrollbars: a quiet track, the thumb the writer's accent — subdued at rest,
+   clearer under the pointer, the accent itself while dragged (themes.ts
+   scrollbar tokens). WebKit/Blink draw the thumb's own states; Firefox has
+   one colour per scroller, so there the thumb brightens while the pointer is
+   over its scrolling region. */
 .r2 ::-webkit-scrollbar {
   width: 10px;
+  height: 10px;
 }
 .r2 ::-webkit-scrollbar-thumb {
   border: 3px solid transparent;
   border-radius: 8px;
   background: var(--r2-scrollbar);
   background-clip: padding-box;
+}
+.r2 ::-webkit-scrollbar-thumb:hover {
+  background: var(--r2-scrollbar-hover);
+  background-clip: padding-box;
+}
+.r2 ::-webkit-scrollbar-thumb:active {
+  background: var(--r2-scrollbar-active);
+  background-clip: padding-box;
+}
+/* scrollbar-color inherits; scrollbar-width does not, so every scroller
+   under a Rune root takes the thin bar here. (A browser that honours these
+   two properties ignores the ::-webkit-scrollbar rules above; one that does
+   not, keeps them.) */
+.r2 :where(*) {
+  scrollbar-width: thin;
+}
+.r2 :where(:hover) {
+  scrollbar-color: var(--r2-scrollbar-hover) transparent;
 }
 
 /* Keyboard focus: one ring, everywhere. Pointer focus shows nothing. A
@@ -913,6 +938,14 @@ button.r2-chip:focus-visible {
 .r2-nav:hover .r2-nav-scroll::-webkit-scrollbar-thumb,
 .r2-nav:focus-within .r2-nav-scroll::-webkit-scrollbar-thumb {
   background: var(--r2-scrollbar);
+  background-clip: padding-box;
+}
+.r2-nav .r2-nav-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--r2-scrollbar-hover);
+  background-clip: padding-box;
+}
+.r2-nav .r2-nav-scroll::-webkit-scrollbar-thumb:active {
+  background: var(--r2-scrollbar-active);
   background-clip: padding-box;
 }
 
@@ -2306,6 +2339,22 @@ button.r2-disclosure:hover {
 }
 .r2-prose .ProseMirror ::selection {
   background: var(--r2-selection);
+}
+/* A Chapter-wide selection (ChapterSelection): the Scenes beyond the one the
+   browser is selecting in paint the same highlight as a decoration, and the
+   title when it is part of the selection. */
+.r2-prose .ProseMirror .r2-xsel {
+  background: var(--r2-selection);
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+.r2-doc[data-chapter-selection] .ProseMirror ::selection {
+  background: transparent;
+}
+.r2-doc[data-title-selected] .r2-doc-title-text {
+  background: var(--r2-selection);
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
 }
 .r2-prose .ProseMirror .is-empty.is-editor-empty::before {
   color: var(--r2-ms-faint);

@@ -17,6 +17,8 @@ import { DocStatus } from "./DocStatus";
 import { SyncConflictModal } from "@/components/editor/SyncConflictModal";
 import { useNetworkStore } from "@/store/networkStore";
 import type { Scene } from "@/lib/types";
+import type { Editor } from "@tiptap/react";
+import { chapterSelectionPlugin, useChapterSelection } from "./ChapterSelection";
 
 // The Rune 2.0 writing surface: Rune's trusted editor engine (useSceneEditor —
 // the same saving, offline queue, sync, conflict and word-count behaviour as
@@ -32,10 +34,12 @@ import type { Scene } from "@/lib/types";
 // its live editor; a Scene that leaves is flushed by the engine's unmount
 // path and hands its last content back to the host.
 //
-// Deliberately not continuous across Scene boundaries (yet): a selection
-// cannot span two Scenes, Backspace at a Scene's start does not merge it
-// into the one before, arrow keys stop at a Scene's edge, and undo is per
-// Scene. No toolbar: formatting is by keyboard (⌘B, ⌘I) and Markdown shortcuts.
+// Deliberately not continuous across Scene boundaries for editing: Backspace
+// at a Scene's start does not merge it into the one before, arrow keys stop
+// at a Scene's edge, and undo is per Scene. Selecting and copying ARE
+// continuous: ⌘A selects the whole Chapter and a drag runs from one Scene
+// into the next (ChapterSelection), read-only, serialised in manuscript
+// order. No toolbar: formatting is by keyboard (⌘B, ⌘I) and Markdown shortcuts.
 
 export type SurfaceScene = {
   id: string;
@@ -64,12 +68,14 @@ export type Rune2EditorProps = {
   onFocusHandled: () => void;
   /** Heading and context rendered above the prose; null renders nothing at all. */
   header: ReactNode | null;
+  /** The document's title as plain text: copied with a Chapter-wide selection. */
+  titleText: string;
   /** Rendered in place of the prose when there are no Scenes. */
   placeholder?: ReactNode;
 };
 
 type BlockState = { words: number; syncStatus: DisplaySyncStatus };
-type BlockHandle = { focusEnd: () => void; openConflict: () => void };
+type BlockHandle = { focusEnd: () => void; openConflict: () => void; editor: Editor | null };
 
 // One vocabulary with the Workspace surfaces: "Saved" only once the server
 // confirmed it; "Saved on this device" whenever the writing is durable here
@@ -105,6 +111,7 @@ export default function Rune2Editor({
   focusSceneId,
   onFocusHandled,
   header,
+  titleText,
   placeholder,
 }: Rune2EditorProps) {
   const isOnline = useNetworkStore((s) => s.isOnline);
@@ -148,6 +155,20 @@ export default function Rune2Editor({
     if (viewKey) rootRef.current?.closest("main")?.scrollTo({ top: 0 });
   }, [viewKey]);
 
+  // The Chapter as one document to select and copy (ChapterSelection).
+  const articleRef = useRef<HTMLElement>(null);
+  const sceneIds = scenes.map((s) => s.id);
+  const editorOf = useCallback((id: string) => handles.current.get(id)?.editor, []);
+  const scroller = useCallback(() => rootRef.current?.closest("main") ?? null, []);
+  const selection = useChapterSelection({
+    rootRef: articleRef,
+    sceneIds,
+    editorOf,
+    title: titleText,
+    scroller,
+    viewKey,
+  });
+
   if (header === null) return null;
 
   const statusLabel =
@@ -161,8 +182,11 @@ export default function Rune2Editor({
   return (
     <div className="r2-writing" ref={rootRef}>
       <article
+        ref={articleRef}
         className="r2-doc r2-doc--manuscript"
         data-marks={marks || undefined}
+        data-chapter-selection={selection.mode ?? undefined}
+        data-title-selected={selection.titleSelected || undefined}
         // Clicking the empty page below the prose continues writing at the end.
         onMouseDown={(e) => {
           const handle = lastSceneId ? handles.current.get(lastSceneId) : undefined;
@@ -173,6 +197,9 @@ export default function Rune2Editor({
         }}
       >
         {header}
+        <p className="r2-visually-hidden" role="status" aria-live="polite">
+          {selection.announcement}
+        </p>
         {scenes.length > 0 ? (
           <div className="r2-scenes">
             {scenes.map((item) =>
@@ -306,6 +333,16 @@ function SceneBlock({
   useEffect(() => {
     onReport(sceneId, { words, syncStatus });
   }, [onReport, sceneId, words, syncStatus]);
+
+  // Its part of a Chapter-wide selection (presentation only; never a document change).
+  useEffect(() => {
+    if (!editor) return;
+    const plugin = chapterSelectionPlugin();
+    editor.registerPlugin(plugin);
+    return () => {
+      if (!editor.isDestroyed) editor.unregisterPlugin(plugin.spec.key as never);
+    };
+  }, [editor]);
   useEffect(() => () => onReport(sceneId, null), [onReport, sceneId]);
 
   useEffect(() => {
@@ -313,6 +350,7 @@ function SceneBlock({
     map.set(sceneId, {
       focusEnd: () => editor?.commands.focus("end"),
       openConflict: () => setConflictModalOpen(true),
+      editor: editor ?? null,
     });
     return () => {
       map.delete(sceneId);

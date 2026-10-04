@@ -32,6 +32,28 @@ export function attachmentExtension(mime: string): string {
   return EXTENSION[mime.toLowerCase()] ?? "bin";
 }
 
+/**
+ * Whether these bytes begin the way a file of this type does (PNG, JPEG,
+ * GIF, WebP signatures). The declared type comes from the browser; the
+ * server trusts it only when the bytes agree, so nothing but a picture is
+ * ever stored or served as one.
+ */
+export function imageBytesMatchType(mime: string, bytes: Uint8Array): boolean {
+  const at = (i: number) => bytes[i] ?? -1;
+  switch (mime.toLowerCase()) {
+    case "image/png":
+      return at(0) === 0x89 && at(1) === 0x50 && at(2) === 0x4e && at(3) === 0x47 && at(4) === 0x0d && at(5) === 0x0a && at(6) === 0x1a && at(7) === 0x0a;
+    case "image/jpeg":
+      return at(0) === 0xff && at(1) === 0xd8 && at(2) === 0xff;
+    case "image/gif":
+      return at(0) === 0x47 && at(1) === 0x49 && at(2) === 0x46 && at(3) === 0x38 && (at(4) === 0x37 || at(4) === 0x39) && at(5) === 0x61;
+    case "image/webp":
+      return at(0) === 0x52 && at(1) === 0x49 && at(2) === 0x46 && at(3) === 0x46 && at(8) === 0x57 && at(9) === 0x45 && at(10) === 0x42 && at(11) === 0x50;
+    default:
+      return false;
+  }
+}
+
 /** Why a file can't be an image attachment, or null when it can. */
 export function imageUploadProblem(file: { type: string; size: number }): string | null {
   if (!isAcceptedImageType(file.type)) return "Rune can hold PNG, JPEG, GIF and WebP images.";
