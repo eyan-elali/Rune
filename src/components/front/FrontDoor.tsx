@@ -62,7 +62,7 @@ export function WaitlistForm({ defaultEmail = "", collapsed = false }: { default
   return (
     <form className="r2-front-form" onSubmit={submit} aria-label="Join the beta" aria-describedby="waitlist-purpose" noValidate>
       <p id="waitlist-purpose" className="r2-front-purpose">
-        Join the closed-beta waitlist. We’ll use your email only to contact you about Rune beta access.
+        Join the closed-beta waitlist. We’ll use your email only to contact you about Sutura beta access.
       </p>
       <label className="r2-front-field">
         <span>Email</span>

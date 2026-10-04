@@ -501,7 +501,7 @@ type AccentDef = { id: string; label: string; values: Readonly<Record<ResolvedTh
 export const ACCENTS = [
   {
     id: "blue",
-    label: "Rune Blue",
+    label: "Sutura Blue",
     values: {
       light: accent(LIGHT["palette-blue"], LIGHT.accent, LIGHT["accent-ink"]),
       candlelight: accent(CANDLELIGHT["palette-blue"], CANDLELIGHT.accent, CANDLELIGHT["accent-ink"]),

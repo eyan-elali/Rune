@@ -1,6 +1,8 @@
-# CLAUDE.md — Rune
+# CLAUDE.md — Sutura
 
-> This file is the product and engineering source of truth for Claude Code when working on Rune.
+> This file is the product and engineering source of truth for Claude Code when working on Sutura.
+>
+> **Rune 2.0 was the development name for the product now branded Sutura.** "Rune" below, and in code, migrations and internal identifiers (`rune2`, `RuneRoot`, `rune-offline`, `rune-project-backup`), is that history; the product writers see is Sutura. Identity lives in `src/lib/brand.ts`: name **Sutura**, canonical URL **https://writesutura.com** (apex; `www` redirects), **support@writesutura.com**, **privacy@writesutura.com**, the approved wordmark and monogram in `public/brand/sutura/`. Do not rename internal identifiers for brand purity: browser storage, backup formats, analytics events and schema names are compatibility contracts.
 >
 > Read it before making changes. Then inspect the actual code, migrations, and current branch before assuming a feature is already implemented.
 >
@@ -38,7 +40,9 @@ Rune 2.0 decisions do not authorize implementation. Start Rune 2.0 migration wor
 
 ### Current state of the `rune-2` branch (closed-beta release candidate)
 
-On `rune-2`, Rune 2.0 **is** the product. Treat this as the active truth when a later section still describes Rune 1.x:
+On `rune-2`, Rune 2.0 **is** the product, branded **Sutura**. Treat this as the active truth when a later section still describes Rune 1.x:
+
+- Every user-facing surface says Sutura and shows the approved wordmark (`src/components/brand/Wordmark.tsx`: dark ink on Light/Candlelight, light ink on Dark, System follows the OS). Favicons, Apple touch icon and manifest icons are derived from `public/brand/sutura/sutura-favicon-source.png` into `public/brand/sutura/web/`.
 
 - The app runs on the Rune 2.0 database (Manuscript, Groups, Chapters, Scenes, Unplaced Scenes, Workspace, Collections, Canvas). There are no `pages` and no canonical logic here.
 - `/projects` is the home. The Rune 1.x Dashboard, Profile, Arena (`/games`) and legacy editor UI are deleted; their old URLs redirect (`src/lib/legacyRedirects.ts`). `/settings` is Rune 2.0 Settings. Pulse (`/pulse`) is the only surface left in the `(app)` group.
@@ -50,9 +54,9 @@ On `rune-2`, Rune 2.0 **is** the product. Treat this as the active truth when a 
 
 ---
 
-## 1. What Rune Is
+## 1. What Sutura Is
 
-Rune is a **writing companion and manuscript workspace built for novelists**.
+Sutura (developed as Rune 2.0) is a **writing companion and manuscript workspace built for novelists**.
 
 It gives fiction writers a calm place to:
 
@@ -167,7 +171,7 @@ Rune should never feel like a childish game, a neon gamer product, or a habit ap
 
 Rune’s product principle is explicit:
 
-> **Rune will never use AI to write, rewrite, or complete a writer’s story.**
+> **Sutura will never use AI to write, rewrite, or complete a writer’s story.**
 
 Do not:
 
@@ -180,7 +184,7 @@ Do not:
 The approved onboarding language is:
 
 > **Your words remain your own.**  
-> Rune will never use AI to write, rewrite, or complete your story.
+> Sutura will never use AI to write, rewrite, or complete your story.
 
 This promise is specifically about the writer’s manuscript and creative writing experience. Do not broaden it into claims about every internal business process unless that has been explicitly decided.
 
@@ -501,7 +505,7 @@ It runs once per account. The (rune2) layout has already required sign-in, beta 
 
 ### Principles that still apply
 
-- Rune respects the writer’s authorship: **“Your words remain your own.”** Rune will never use AI to write, rewrite, or complete the story.
+- Sutura respects the writer’s authorship: **“Your words remain your own.”** Sutura will never use AI to write, rewrite, or complete the story.
 - Perfection is not required; the writer should feel they have a place to return to.
 - Where the account is in the journey is **server state** (`account_onboarding`). A refresh resumes; a completed journey (or an account from before onboarding existed) goes to Projects.
 - The Project is created by **one authoritative server operation**. Once it exists, the journey resumes after it — never a second Project. Avoid duplicate projects and route/save race conditions.

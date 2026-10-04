@@ -39,7 +39,7 @@ export async function parseImportFile(
   options: TextOptions = {}
 ): Promise<ParsedFile & { hardWrapped?: boolean }> {
   const format = formatOf(fileName);
-  if (!format) throw new ImportFileError("Rune can import .docx, .md and .txt files.");
+  if (!format) throw new ImportFileError("Sutura can import .docx, .md and .txt files.");
   if (bytes.byteLength > MAX_BYTES) throw new ImportFileError("This file is too large to import (the limit is 40 MB).");
   if (bytes.byteLength === 0) throw new ImportFileError("This file is empty.");
   let parsed: ParsedFile & { hardWrapped?: boolean };
@@ -54,7 +54,7 @@ export async function parseImportFile(
   else parsed = parseText(decodeText(bytes), options);
   parsed = { ...parsed, blocks: resolveBlankParagraphs(parsed.blocks) };
   if (parsed.blocks.every((b) => b.kind === "paragraph" && b.blank)) {
-    throw new ImportFileError("Rune couldn’t find any text in this file.");
+    throw new ImportFileError("Sutura couldn’t find any text in this file.");
   }
   return parsed;
 }

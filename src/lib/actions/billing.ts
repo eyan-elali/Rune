@@ -100,7 +100,7 @@ async function verifyStripeCustomerOwnership(
  * Shared by every checkout-session creator so there's one place that talks
  * to stripe.customers.create.
  */
-const BILLING_CLOSED_MESSAGE = 'Rune is free during the closed beta. There is nothing to buy.'
+const BILLING_CLOSED_MESSAGE = 'Sutura is free during the closed beta. There is nothing to buy.'
 
 export async function getOrCreateStripeCustomerId(
   supabase: Awaited<ReturnType<typeof createClient>>,

@@ -183,9 +183,9 @@ function readableMarkdown(title: string, content: unknown): string {
 export const README_TEXT = `RUNE PROJECT BACKUP
 ===================
 
-This archive is a complete copy of one Rune project, made on your device.
-It holds everything Rune keeps for the project, including what is in its
-Trash, so your work never depends on Rune to be read. Every file is plain
+This archive is a complete copy of one Sutura project, made on your device.
+It holds everything Sutura keeps for the project, including what is in its
+Trash, so your work never depends on Sutura to be read. Every file is plain
 JSON or Markdown (UTF-8) and can be opened with any text editor.
 
   manifest.json              what this is: format "${BACKUP_FORMAT}", its version,
@@ -230,8 +230,8 @@ JSON or Markdown (UTF-8) and can be opened with any text editor.
   writing/goals.json         the project's goals
   legacy/checklist.json      the older project checklist (Rune 1.x), if any
 
-Identity and relationships: every row keeps its Rune id, and rows refer to
-each other by those ids exactly as Rune stores them (a Scene's chapter_id, a
+Identity and relationships: every row keeps its Sutura id, and rows refer to
+each other by those ids exactly as Sutura stores them (a Scene's chapter_id, a
 note's target_id, a reference's source and target, a Canvas placement's
 scene_id / document_id / attachment_id). Order is kept by each row's
 "position" and in structure.json. Trash: a row in Trash has a "trashed_at"
@@ -239,10 +239,10 @@ time and "in_trash": true; everything else is active. A Canvas in Trash keeps
 every placement, note and connection it held.
 
 Not included: device and interface state (open tabs, scroll positions,
-unsent drafts, offline caches, sync queues), things Rune recomputes (search,
+unsent drafts, offline caches, sync queues), things Sutura recomputes (search,
 backlinks), and account, billing and progression settings.
 
-Restoring: Rune can't yet read this archive back in. It was designed so that
+Restoring: Sutura can't yet read this archive back in. It was designed so that
 it can: a future restore would recreate the rows of each file in dependency
 order (project, manuscript, Groups, Chapters, Scenes, properties and Views,
 notes, History, Milestones, the Workspace, attachments — their bytes first,
@@ -453,7 +453,7 @@ export function backupFiles(data: BackupData, at: Date): Map<string, string | Ui
     format: BACKUP_FORMAT,
     format_version: BACKUP_FORMAT_VERSION,
     created_at: at.toISOString(),
-    generator: "Rune",
+    generator: "Sutura",
     project: { id: data.project.id, title: data.project.title },
     manuscript_id: data.manuscript.id,
     counts,
@@ -498,11 +498,11 @@ export async function makeProjectBackup(
   const data = await loadProjectBackup(supabase, projectId, onProgress, readBytes);
   const bytes = await buildBackupArchive(data, at);
   if (bytes.length === 0) throw new Error("backup: empty archive");
-  return { bytes, fileName: `${safeFileName(backupFileBase(data.project.title, at), "Rune backup")}.zip` };
+  return { bytes, fileName: `${safeFileName(backupFileBase(data.project.title, at), "Sutura backup")}.zip` };
 }
 
 /** "The Hollow – Rune backup 2026-09-29" */
 export function backupFileBase(title: string, at: Date): string {
   const day = `${at.getFullYear()}-${String(at.getMonth() + 1).padStart(2, "0")}-${String(at.getDate()).padStart(2, "0")}`;
-  return `${title.trim() || "Untitled"} – Rune backup ${day}`;
+  return `${title.trim() || "Untitled"} – Sutura backup ${day}`;
 }

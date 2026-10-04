@@ -111,7 +111,7 @@ export function FeedbackDialog({ where, onClose }: { where: FeedbackWhere; onClo
               autoFocus
             />
             <p className="r2-feedback-privacy">
-              Sent with your message: where you were in Rune and your browser and device type. Never your manuscript, pages
+              Sent with your message: where you were in Sutura and your browser and device type. Never your manuscript, pages
               or notes.
             </p>
             {error && (

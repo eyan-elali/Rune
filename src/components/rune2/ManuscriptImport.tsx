@@ -94,7 +94,7 @@ export function ManuscriptImportDialog({
       const first = buildPlan(lines, {}, parsed.suggestedTitle ?? titleFromFileName(fileName));
       setTitle(first.title);
     } catch (e) {
-      setError(e instanceof ImportFileError ? e.message : "Rune couldn’t read this file. Nothing was imported.");
+      setError(e instanceof ImportFileError ? e.message : "Sutura couldn’t read this file. Nothing was imported.");
     } finally {
       setReading(false);
     }
@@ -169,7 +169,7 @@ export function ManuscriptImportDialog({
         {!plan && (
           <>
             <p>
-              Choose a Word document (.docx), Markdown (.md) or plain text (.txt) file. Rune reads it on this
+              Choose a Word document (.docx), Markdown (.md) or plain text (.txt) file. Sutura reads it on this
               device and shows you the parts, chapters and scenes it finds before anything is saved.
             </p>
             <p>The import becomes a new project, with the file’s text as its manuscript.</p>
@@ -247,7 +247,7 @@ export function ManuscriptImportDialog({
               </label>
             )}
 
-            <div className="r2-import-outline" role="group" aria-label="What Rune found">
+            <div className="r2-import-outline" role="group" aria-label="What Sutura found">
               {plan.titleLine !== null && lineByIndex.get(plan.titleLine) && (
                 <LineRow
                   line={lineByIndex.get(plan.titleLine)!}

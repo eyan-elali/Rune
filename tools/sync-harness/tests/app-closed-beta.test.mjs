@@ -141,7 +141,7 @@ test('the (rune2) layout turns an account without access away on the server; the
     assert.ok(fs.existsSync(path.join(REPO_DIR, 'src/app/(rune2)', page)), `${page} sits under the gated layout`);
   }
   const front = read('src/app/(front)/page.tsx');
-  assert.match(front, /Rune is currently in closed beta\./);
+  assert.match(front, /Sutura is currently in closed beta\./);
   assert.match(front, /We’re inviting writers in gradually while we finish the first release\./);
   assert.match(front, /You’re on the list\./);
   assert.doesNotMatch(code('src/app/(front)/page.tsx'), /beta_access|invite id|permission|denied|unauthori[sz]ed|403|pricing|\$\d/i,
@@ -376,9 +376,9 @@ test('onboarding copy: the authorship promise, the mental model, and no feature 
   const ui = read('src/components/rune2/Onboarding.tsx');
   for (const line of [
     'Your story has a place now.',
-    'Rune keeps your manuscript at the center, with a workspace that can grow around it only when you need it.',
+    'Sutura keeps your manuscript at the center, with a workspace that can grow around it only when you need it.',
     'Your words remain your own.',
-    'Rune will never use AI to write, rewrite, or complete your story.',
+    'Sutura will never use AI to write, rewrite, or complete your story.',
     'How are you starting?', 'Start something new', 'Begin with a clean manuscript.', 'Bring in a manuscript', 'Import your existing writing.',
     'What are you working on?', 'You can change this anytime.',
     'Write here. Build around it only when you need to.', 'You never need to build a system just to start writing.',
@@ -475,7 +475,7 @@ test('feedback: the writer\'s text, an optional category and safe context — no
   const ui = code('src/components/rune2/Feedback.tsx');
   assert.doesNotMatch(ui, /editor|getHTML|getText|useRune2Selection|scene\.content|innerText|textContent|localStorage/,
     'the dialog reads nothing from the product\'s content');
-  assert.match(code('src/components/rune2/AccountMenu.tsx'), /label: "Send feedback"[^}]*section: "Rune beta"/, 'in the account menu, under a quiet Beta label');
+  assert.match(code('src/components/rune2/AccountMenu.tsx'), /label: "Send feedback"[^}]*section: "Sutura beta"/, 'in the account menu, under a quiet Beta label');
 });
 
 test('feedback: a writer cannot insert as someone else, and cannot read anyone\'s', async () => {

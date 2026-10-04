@@ -39,7 +39,7 @@ export default function CompleteProfileClient({ initialPenName = "" }: { initial
   return (
     <section className="r2-auth-card" aria-labelledby="auth-title">
       <h1 id="auth-title">Choose your pen name.</h1>
-      <p className="r2-auth-lede">The name Rune uses for you. You can change it later in Settings.</p>
+      <p className="r2-auth-lede">The name Sutura uses for you. You can change it later in Settings.</p>
 
       <form onSubmit={handleSubmit} noValidate className="r2-auth-form">
         <label className="r2-auth-field">

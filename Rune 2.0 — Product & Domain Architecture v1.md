@@ -1,5 +1,7 @@
 # Rune 2.0 — Product & Domain Architecture
 
+> **Naming.** Rune 2.0 was the development name for the product now branded **Sutura** (https://writesutura.com). This document keeps its filename and its historical "Rune" wording so references stay resolvable; wherever it describes the current product, read Rune 2.0 as Sutura. The authorship promise is now worded: *Sutura will never use AI to write, rewrite, or complete a writer's story.*
+
 > **Status.** This document is the authoritative source for Rune 2.0 product and domain architecture. `CLAUDE.md` defers to it for Rune 2.0 decisions.
 >
 > It describes the **target** product. It does not describe what is currently deployed. Much of the current codebase still implements the pre-2.0 model: word-limit pricing, XP and Levels, Arena, and Pages as manuscript prose. Those systems are retired through staged, compatibility-safe migration (§45). They are never ripped out because this document deprecates them.

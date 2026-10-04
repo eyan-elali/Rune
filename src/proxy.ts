@@ -144,8 +144,9 @@ export async function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     /*
-     * Match all paths except: static files, _next internals, favicon.
+     * Match all paths except: static files, _next internals, favicon, and
+     * the public metadata files (web manifest, social card) — never signed-in.
      */
-    "/((?!api/webhooks/stripe|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!api/webhooks/stripe|_next/static|_next/image|favicon.ico|manifest.webmanifest|opengraph-image|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useToastStore } from "@/store/toastStore";
 import { Button } from "@/components/ui/Button";
+import { Wordmark } from "@/components/brand/Wordmark";
 import {
   requestDesktopLinkEmail,
   triggerAutomaticDesktopLinkEmail,
@@ -132,19 +133,15 @@ export function PhoneWaitingRoom({ variant, initialEmailSentAt }: PhoneWaitingRo
       }}
     >
       <main className="rune-waiting-room w-full max-w-[400px] text-center">
-        <span
-          className="mb-8 inline-block select-none font-rune-serif text-xl"
-          style={{ color: "var(--color-gold)", letterSpacing: "0.3em", fontStyle: "italic" }}
-          aria-hidden="true"
-        >
-          Rune
+        <span className="mb-8 inline-block select-none" aria-hidden="true">
+          <Wordmark label={false} />
         </span>
 
         <h1
           className="font-rune-serif text-3xl font-semibold leading-tight"
           style={{ color: "var(--text-primary)" }}
         >
-          {variant === "new" ? "Welcome to Rune." : "Welcome back."}
+          {variant === "new" ? "Welcome to Sutura." : "Welcome back."}
         </h1>
 
         <div className="mt-4 flex flex-col gap-3">
@@ -160,7 +157,7 @@ export function PhoneWaitingRoom({ variant, initialEmailSentAt }: PhoneWaitingRo
                 className="font-rune-serif text-base leading-relaxed"
                 style={{ color: "var(--text-primary)", opacity: 0.9 }}
               >
-                Rune is designed for long-form writing, so your first writing session begins
+                Sutura is designed for long-form writing, so your first writing session begins
                 on a desktop or supported tablet.
               </p>
             </>
@@ -169,7 +166,7 @@ export function PhoneWaitingRoom({ variant, initialEmailSentAt }: PhoneWaitingRo
               className="font-rune-serif text-base leading-relaxed"
               style={{ color: "var(--text-primary)", opacity: 0.9 }}
             >
-              Rune is designed for long-form writing, so your manuscript stays on a desktop
+              Sutura is designed for long-form writing, so your manuscript stays on a desktop
               or supported tablet — pick up exactly where you left off.
             </p>
           )}
@@ -181,7 +178,7 @@ export function PhoneWaitingRoom({ variant, initialEmailSentAt }: PhoneWaitingRo
               className="text-xs uppercase tracking-[0.2em]"
               style={{ color: "var(--onboarding-muted)" }}
             >
-              When you open Rune, you&rsquo;ll
+              When you open Sutura, you&rsquo;ll
             </p>
             <ol className="mt-4 flex flex-col gap-2.5">
               {ANTICIPATION_STEPS.map((step, i) => (

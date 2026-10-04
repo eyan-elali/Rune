@@ -10,6 +10,7 @@ import { APPEARANCES, type AppearanceId } from "@/lib/rune2/preferences";
 import { ICON, ICON_SM_BOLD } from "./icons";
 import { ManuscriptImportDialog } from "./ManuscriptImport";
 import { useRunePreferences, useRuneRootProps } from "./RunePreferences";
+import { Wordmark } from "@/components/brand/Wordmark";
 
 // Onboarding (Beta Completion E): a short transition into Rune — not a
 // feature tour, not a motivational sequence. One idea per screen:
@@ -82,18 +83,16 @@ export function Onboarding({
   return (
     <div className="r2 r2-onb" {...rootProps}>
       <header className="r2-onb-head">
-        <span className="r2-wordmark" aria-hidden>
-          Rune
-        </span>
+        <Wordmark label={false} />
       </header>
       <main className="r2-onb-main">
         {step === "welcome" && (
           <Screen key="welcome" mode="moment" title="Your story has a place now.">
             <p className="r2-onb-lede">
-              Rune keeps your manuscript at the center, with a workspace that can grow around it only when you need it.
+              Sutura keeps your manuscript at the center, with a workspace that can grow around it only when you need it.
             </p>
             <p className="r2-onb-promise">
-              <strong>Your words remain your own.</strong> Rune will never use AI to write, rewrite, or complete your story.
+              <strong>Your words remain your own.</strong> Sutura will never use AI to write, rewrite, or complete your story.
             </p>
             <Actions>
               <button
@@ -191,7 +190,7 @@ export function Onboarding({
                   })
                 }
               >
-                {project ? `Open ${project.title}` : "Open Rune"}
+                {project ? `Open ${project.title}` : "Open Sutura"}
               </button>
             </Actions>
           </Screen>
@@ -304,10 +303,10 @@ function ImportStep({
   return (
     <Screen key="import" title="Bring in your manuscript." back={onBack}>
       <p className="r2-onb-lede">
-        Choose a file and Rune shows you the chapters and scenes it finds — you can correct them before anything is
+        Choose a file and Sutura shows you the chapters and scenes it finds — you can correct them before anything is
         created.
       </p>
-      <p className="r2-onb-hint">Rune reads Word (.docx), Markdown and plain text files.</p>
+      <p className="r2-onb-hint">Sutura reads Word (.docx), Markdown and plain text files.</p>
       <Actions>
         <button type="button" className="r2-button r2-button--primary r2-onb-primary" onClick={() => setOpen(true)}>
           <FileUp {...ICON} aria-hidden />
@@ -380,7 +379,7 @@ function AppearanceStep({ onDone }: { onDone: () => void }) {
   const label = (id: AppearanceId) => APPEARANCES.find((a) => a.id === id)?.label ?? id;
   return (
     <Screen key="appearance" title="Make the desk yours.">
-      <p className="r2-onb-lede">Choose how Rune looks. You can change this anytime in Settings.</p>
+      <p className="r2-onb-lede">Choose how Sutura looks. You can change this anytime in Settings.</p>
       <div className="r2-onb-themes" role="radiogroup" aria-label="Appearance">
         {DESK_THEMES.map((id) => (
           <button

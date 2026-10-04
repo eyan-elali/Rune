@@ -1,6 +1,6 @@
-# Rune — Deployment Guide
+# Sutura — Deployment Guide
 
-Step-by-step instructions for deploying Rune to production.
+Step-by-step instructions for deploying Sutura (developed as Rune 2.0) to production.
 
 > [!IMPORTANT]
 > **Database changes follow `tools/db-audit/STAGING.md`.** Take a manual backup
@@ -123,12 +123,50 @@ Or trigger a deployment by pushing to your main branch.
 
 After your first Vercel deployment:
 
-1. Copy your production URL (e.g. `https://rune.vercel.app`).
+1. Use the canonical production URL: `https://writesutura.com` (the apex; `www` redirects to it).
 2. In Supabase → **Authentication → URL Configuration**:
-   - **Site URL**: set to your production URL
-   - **Redirect URLs**: add `https://your-domain.vercel.app/auth/callback`
+   - **Site URL**: `https://writesutura.com`
+   - **Redirect URLs**: add `https://writesutura.com/auth/callback` (keep the local
+     development callback, e.g. `http://localhost:3000/auth/callback`, alongside it)
 
 This is required for magic-link login and email confirmation to work in production.
+
+---
+
+## The Sutura domain (writesutura.com)
+
+Rune 2.0 was the development name of the product now branded **Sutura**. Its
+canonical address is `https://writesutura.com` (`src/lib/brand.ts`, `SITE_URL`):
+metadata, social cards and the web manifest use it. Auth emails and Stripe
+return URLs use `NEXT_PUBLIC_APP_URL` (or the browser's own origin), so set that
+variable in Vercel Production to `https://writesutura.com`.
+
+Cutover, in order — none of it is automated by this repository:
+
+1. **Vercel → Project → Settings → Domains:** add `writesutura.com` and
+   `www.writesutura.com`. Make the apex the primary domain and set `www` to
+   redirect to it (308). `next.config.ts` also redirects `www` → apex as a
+   fallback.
+2. **GoDaddy → DNS:** add exactly the records Vercel shows for each domain
+   (do not copy values from elsewhere). Remove conflicting A/CNAME records
+   GoDaddy created by default (parked page, forwarding).
+3. Wait for Vercel to show both domains as valid and the certificates issued;
+   check `https://writesutura.com` and that `https://www.writesutura.com/x?y=1`
+   lands on `https://writesutura.com/x?y=1`.
+4. **Vercel env:** `NEXT_PUBLIC_APP_URL=https://writesutura.com` (Production),
+   then redeploy so the client bundle picks it up.
+5. **Supabase → Authentication → URL Configuration:** Site URL
+   `https://writesutura.com`; add `https://writesutura.com/auth/callback` to
+   Redirect URLs. Keep the old production callback until no confirmation or
+   sign-in email sent before the cutover can still be opened.
+6. **Supabase email templates / SMTP sender**, if customised: update any
+   product name, old domain or `@rune-app.com` sender address.
+7. **Mailboxes:** confirm `support@writesutura.com` and
+   `privacy@writesutura.com` receive mail before the cutover — the app and the
+   legal pages link to them.
+8. **Third parties:** Meta (Events Manager domain verification / pixel
+   allowed domains), PromoteKit (site URL), Stripe (webhook endpoint and
+   branding, when billing reopens), Google Search Console if used.
 
 ---
 
@@ -190,7 +228,7 @@ the entitlement tables are part of the schema built in Step 2.
 | `STRIPE_SECRET_KEY` | From Stripe Dashboard → Developers → API keys |
 | `STRIPE_WEBHOOK_SECRET` | From webhook endpoint signing secret |
 | `SUPABASE_SERVICE_ROLE_KEY` | From Supabase → Project Settings → API (service_role key) |
-| `NEXT_PUBLIC_APP_URL` | Your production URL (e.g. `https://rune.vercel.app`) — used for Stripe redirect URLs |
+| `NEXT_PUBLIC_APP_URL` | Your production URL (`https://writesutura.com`) — used for auth email and Stripe redirect URLs |
 | `NEXT_PUBLIC_STRIPE_SCRIBE_MONTHLY_USD` | Price ID for Scribe monthly USD |
 | `NEXT_PUBLIC_STRIPE_SCRIBE_MONTHLY_CAD` | Price ID for Scribe monthly CAD |
 | `NEXT_PUBLIC_STRIPE_SCRIBE_ANNUAL_USD` | Price ID for Scribe annual USD |

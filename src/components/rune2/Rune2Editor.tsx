@@ -262,7 +262,7 @@ export default function Rune2Editor({
             <span className="r2-page-conflict" role="alert">
               <span>Couldn’t save — kept on this device.</span>
               <button type="button" onClick={() => window.location.reload()}>
-                Reload Rune
+                Reload Sutura
               </button>
             </span>
           ) : syncStatus === "retired" ? (

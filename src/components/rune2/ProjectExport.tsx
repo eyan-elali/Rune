@@ -166,7 +166,7 @@ function ExportDialog({ scope, onClose }: { scope: ExportScope; onClose: () => v
         setError(null);
       } catch (e) {
         if (cancelled) return;
-        setError(e instanceof ExportUnavailableError ? e.message : "Rune couldn’t read the manuscript to export it. Nothing was changed.");
+        setError(e instanceof ExportUnavailableError ? e.message : "Sutura couldn’t read the manuscript to export it. Nothing was changed.");
       }
     })();
     return () => {
@@ -393,7 +393,7 @@ export function BackupDialog({ project, onClose }: { project: { id: string; titl
           and your writing history for this project.
         </p>
         <p>
-          It’s made on this device, in open formats (JSON and Markdown) you can read without Rune. Rune can’t restore
+          It’s made on this device, in open formats (JSON and Markdown) you can read without Sutura. Sutura can’t restore
           a backup yet.
         </p>
         {progress && (

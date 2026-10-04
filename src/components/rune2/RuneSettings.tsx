@@ -35,6 +35,7 @@ import { ICON } from "./icons";
 import { useResolvedTheme, useRuneAccount, useRunePreferences, useRuneRootProps, useSystemDark } from "./RunePreferences";
 import { Tooltip } from "./Tooltip";
 import { EDITOR_FONTS } from "./useEditorFont";
+import { SUPPORT_EMAIL } from "@/lib/brand";
 
 // Settings (Beta Completion A; grouped and given Appearance in C). Short
 // sections, each saying whose it is, each a quiet grouped surface:
@@ -186,7 +187,7 @@ export function SettingsSections({
           <div className="r2-settings-rows">
             <Row
               label="Manuscript type"
-              help="How your manuscript reads while you write and in Reading Mode. The rest of Rune is unchanged."
+              help="How your manuscript reads while you write and in Reading Mode. The rest of Sutura is unchanged."
               status={status.editorFont}
             >
               <div className="r2-segmented" role="group" aria-label="Manuscript type">
@@ -239,7 +240,7 @@ export function SettingsSections({
             </Row>
             <Row
               label="Accent colour"
-              help={`${ACCENTS.find((a) => a.id === prefs.accent)?.label ?? "Rune Blue"} — for selection, focus and the active tab. Never your prose or your page.`}
+              help={`${ACCENTS.find((a) => a.id === prefs.accent)?.label ?? "Sutura Blue"} — for selection, focus and the active tab. Never your prose or your page.`}
               status={status.accent}
               labelId="settings-accent-label"
             >
@@ -303,10 +304,10 @@ function AboutSection() {
   return (
     <section className="r2-settings-section" aria-labelledby="settings-about">
       <h2 id="settings-about">
-        About Rune <span className="r2-beta-tag">Beta</span>
+        About Sutura <span className="r2-beta-tag">Beta</span>
       </h2>
       <p className="r2-settings-scope">
-        Rune is in closed beta: free, with everything in it open to you. Some things will change as we learn from the
+        Sutura is in closed beta: free, with everything in it open to you. Some things will change as we learn from the
         writers using it — your feedback is how we decide what.
       </p>
       <div className="r2-settings-rows">
@@ -316,8 +317,8 @@ function AboutSection() {
           </button>
         </Row>
         <Row label="Support" help="For anything about your account or your writing.">
-          <a href="mailto:support@rune-app.com" className="r2-settings-row-value">
-            support@rune-app.com
+          <a href={`mailto:${SUPPORT_EMAIL}`} className="r2-settings-row-value">
+            {SUPPORT_EMAIL}
           </a>
         </Row>
         <Row label="Privacy and terms">
@@ -374,7 +375,7 @@ function Row({
 function ThemeHelp() {
   const { appearance } = useRunePreferences();
   const dark = useSystemDark();
-  if (appearance !== "system") return "Rune around your writing: the navigator, panels, menus and views.";
+  if (appearance !== "system") return "Sutura around your writing: the navigator, panels, menus and views.";
   return `Follows this device’s appearance — ${resolveTheme("system", dark) === "dark" ? "Dark" : "Light"} right now.`;
 }
 
@@ -523,7 +524,7 @@ function DeviceSection() {
         tone: r.failed > 0 || r.conflicts > 0 ? "danger" : "success",
       });
     } catch {
-      setStatus({ text: "Couldn’t reach Rune. Your writing stays on this device.", tone: "danger" });
+      setStatus({ text: "Couldn’t reach Sutura. Your writing stays on this device.", tone: "danger" });
     } finally {
       setBusy(null);
       await load();
@@ -601,7 +602,7 @@ function DeviceSection() {
   return (
     <section className="r2-settings-section" aria-labelledby="settings-device">
       <h2 id="settings-device">This device</h2>
-      <p className="r2-settings-scope">Only this browser. Writing is kept here until Rune has it.</p>
+      <p className="r2-settings-scope">Only this browser. Writing is kept here until Sutura has it.</p>
       <div className="r2-settings-rows">
         <Row
           label="Writing waiting to be saved"
@@ -609,7 +610,7 @@ function DeviceSection() {
             summary === null
               ? "Checking…"
               : waiting === 0 && summary.conflicts === 0 && workspaceParts.length === 0
-                ? "Everything written here has been saved to Rune."
+                ? "Everything written here has been saved to Sutura."
                 : [
                     waiting ? `${waiting} scene${waiting === 1 ? "" : "s"} waiting to be sent` : null,
                     // A save that failed is still kept and retried; its reason (never prose) says what Rune saw last.
@@ -638,7 +639,7 @@ function DeviceSection() {
             <div className="r2-settings-row-text">
               <div className="r2-settings-row-label">Unsent drafts</div>
               <p className="r2-settings-row-help">
-                Written to scenes, pages, entries or canvases that no longer exist in Rune, so they can’t be saved there.
+                Written to scenes, pages, entries or canvases that no longer exist in Sutura, so they can’t be saved there.
                 Nothing was discarded: copy the text to keep it, or discard it.
               </p>
               <div className="r2-settings-drafts">
@@ -774,7 +775,7 @@ function AccountSection({ account, profileError }: { account: Account; profileEr
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `rune-export-${new Date().toISOString().slice(0, 10)}.json`;
+      a.download = `sutura-export-${new Date().toISOString().slice(0, 10)}.json`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -815,7 +816,7 @@ function AccountSection({ account, profileError }: { account: Account; profileEr
             <label htmlFor="settings-pen-name" className="r2-settings-row-label">
               Pen name
             </label>
-            <p className="r2-settings-row-help">The name Rune uses for you.</p>
+            <p className="r2-settings-row-help">The name Sutura uses for you.</p>
             <div className="r2-settings-confirm r2-settings-pen">
               <input
                 id="settings-pen-name"

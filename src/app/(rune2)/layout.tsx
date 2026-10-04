@@ -44,7 +44,7 @@ import "./rune2.css";
 const THEME_CSS = buildThemeCss();
 
 export const metadata: Metadata = {
-  title: "Rune",
+  title: "Sutura",
 };
 
 export default async function RuneLayout({ children }: { children: ReactNode }) {

@@ -973,3 +973,36 @@ html[data-theme="the-void"] .ProseMirror .is-empty.is-editor-empty::before {
   --text-on-accent:     var(--color-ink);
   --editor-text:        var(--color-ink);
 }
+
+/* ── The Sutura wordmark (src/components/brand/Wordmark.tsx) ──────────────
+   Two inks of the approved image; the surface picks one. Dark ink on Light
+   and Candlelight, light ink on Dark, and System follows the OS. Lives here,
+   not in rune2.css, so the legal pages (outside the .r2 frame) can use it. */
+.r2-brand {
+  display: inline-flex;
+  align-items: center;
+  line-height: 0;
+}
+.r2-brand-ink {
+  display: block;
+  height: var(--r2-brand-height, 22px);
+  width: auto;
+  max-width: none;
+}
+.r2-brand-ink--light,
+.r2-brand[data-tone="on-dark"] .r2-brand-ink--dark,
+.r2[data-theme="dark"] .r2-brand[data-tone="auto"] .r2-brand-ink--dark {
+  display: none;
+}
+.r2-brand[data-tone="on-dark"] .r2-brand-ink--light,
+.r2[data-theme="dark"] .r2-brand[data-tone="auto"] .r2-brand-ink--light {
+  display: block;
+}
+@media (prefers-color-scheme: dark) {
+  .r2[data-theme="system"] .r2-brand[data-tone="auto"] .r2-brand-ink--dark {
+    display: none;
+  }
+  .r2[data-theme="system"] .r2-brand[data-tone="auto"] .r2-brand-ink--light {
+    display: block;
+  }
+}

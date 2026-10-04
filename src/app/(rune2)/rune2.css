@@ -7571,11 +7571,11 @@ span.r2-schema-type {
   height: 52px;
   padding: 0 var(--r2-space-8);
 }
+/* The home link around the Sutura wordmark (the image: .r2-brand, globals.css). */
 .r2-wordmark {
-  font-family: var(--r2-prose-font);
-  font-size: 19px;
-  font-weight: var(--r2-weight-medium);
-  letter-spacing: 0.01em;
+  display: inline-flex;
+  align-items: center;
+  border-radius: var(--r2-radius-sm);
   color: var(--r2-ink-1);
 }
 .r2-account {

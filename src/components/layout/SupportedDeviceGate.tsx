@@ -2,6 +2,7 @@
 
 import { useEffect, useLayoutEffect, useState, type ReactNode } from "react";
 import { PhoneWaitingRoom, type WaitingRoomVariant } from "./PhoneWaitingRoom";
+import { Wordmark } from "@/components/brand/Wordmark";
 
 // useLayoutEffect is a no-op (with a console warning) during SSR, so this
 // falls back to useEffect on the server render pass and only switches to
@@ -50,11 +51,8 @@ export function SupportedDeviceGate({ children, variant, preferences, placeholde
         style={{ background: "var(--bg-primary)" }}
         aria-hidden="true"
       >
-        <span
-          className="select-none font-rune-serif text-2xl opacity-60"
-          style={{ color: "var(--color-gold)", letterSpacing: "0.3em", fontStyle: "italic" }}
-        >
-          Rune
+        <span className="select-none opacity-60">
+          <Wordmark label={false} />
         </span>
       </div>
     );

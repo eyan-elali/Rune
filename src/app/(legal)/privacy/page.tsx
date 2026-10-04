@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
+import { PRIVACY_EMAIL, SUPPORT_EMAIL } from "@/lib/brand";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy — Rune",
-  description: "How Rune, a writing companion for novelists, collects, uses, stores and deletes your information.",
+  title: "Privacy Policy — Sutura",
+  description: "How Sutura, a writing companion for novelists, collects, uses, stores and deletes your information.",
 };
 
 // Closed-beta Privacy Policy (pre-beta audit, section V). Every statement
@@ -19,8 +20,6 @@ export const metadata: Metadata = {
 // Québec's Law 25 and PIPEDA before the beta opens widely.
 
 const LAST_UPDATED = "October 4, 2026";
-const PRIVACY_EMAIL = "privacy@rune-app.com";
-const SUPPORT_EMAIL = "support@rune-app.com";
 
 export default function PrivacyPage() {
   return (
@@ -59,22 +58,22 @@ export default function PrivacyPage() {
         style={{ fontSize: "1rem", color: "var(--color-mist)" }}
       >
         <p>
-          Rune is a writing companion for novelists, operated from Québec, Canada. This policy explains what
-          information Rune collects while you use it, why, where it is kept, who processes it on our behalf, and how
-          to see, export or delete it. Rune is currently in a free, invite-only closed beta; this policy describes
+          Sutura is a writing companion for novelists, operated from Québec, Canada. This policy explains what
+          information Sutura collects while you use it, why, where it is kept, who processes it on our behalf, and how
+          to see, export or delete it. Sutura is currently in a free, invite-only closed beta; this policy describes
           the beta as it works today and will be updated before anything changes.
         </p>
 
         <Section title="1. The short version">
           <p>
-            <Em>Your words remain your own.</Em> Rune will never use AI to write, rewrite, or complete your story.
-            Your manuscript is stored so that Rune can show it back to you, keep it in sync between your devices,
+            <Em>Your words remain your own.</Em> Sutura will never use AI to write, rewrite, or complete your story.
+            Your manuscript is stored so that Sutura can show it back to you, keep it in sync between your devices,
             back it up and export it. It is never sold, never shared with advertisers, and never used to train
             artificial-intelligence or machine-learning models.
           </p>
         </Section>
 
-        <Section title="2. What Rune collects, and why">
+        <Section title="2. What Sutura collects, and why">
           <p>
             <Em>Account.</Em> Your email address and a password (stored only in hashed form by our authentication
             provider), or a sign-in link sent to your email. Needed to create and secure your account and to send
@@ -82,10 +81,10 @@ export default function PrivacyPage() {
           </p>
           <p>
             <Em>Profile.</Em> The pen name you choose, and your preferences (theme, writing font, interface
-            settings). Shown to you inside Rune; the pen name is also shown to us next to any feedback you send.
+            settings). Shown to you inside Sutura; the pen name is also shown to us next to any feedback you send.
           </p>
           <p>
-            <Em>Your writing.</Em> Everything you create in Rune: projects, manuscripts, groups, chapters and
+            <Em>Your writing.</Em> Everything you create in Sutura: projects, manuscripts, groups, chapters and
             scenes (stored as structured editor data), revision history checkpoints and milestones, revision
             notes, workspace pages, folders, collections and their entries and properties, canvases, references
             between objects, and anything you move to Trash until you delete it. Images you add to a canvas are
@@ -95,7 +94,7 @@ export default function PrivacyPage() {
           <p>
             <Em>Imported manuscripts.</Em> When you import a Word, Markdown or text file, the file is read on your
             own device. The file itself is not uploaded. Only the chapters, scenes and prose you confirm are sent to
-            Rune, where they become a new project like any other.
+            Sutura, where they become a new project like any other.
           </p>
           <p>
             <Em>Writing history.</Em> How many words you added on each day, per project and scene, and any goals
@@ -103,7 +102,7 @@ export default function PrivacyPage() {
             word total as project-level history; deleting a project deletes its history.
           </p>
           <p>
-            <Em>Product analytics.</Em> A small set of named events about how Rune is used (for example that an
+            <Em>Product analytics.</Em> A small set of named events about how Sutura is used (for example that an
             account signed up, opened its first project, completed onboarding, reached a word milestone, exported,
             or sent feedback), with the date, the project involved and a few non-identifying details such as a
             feedback category. These events never contain manuscript text, titles, notes, feedback text or email
@@ -114,7 +113,7 @@ export default function PrivacyPage() {
           <p>
             <Em>Feedback.</Em> What you write in the feedback form, the category you pick, and context about where
             you were: the page path (identifiers only, never anything you typed), the surface (for example
-            “scene” or “canvas”), your device class, browser family, window size and the build of Rune. Nothing
+            “scene” or “canvas”), your device class, browser family, window size and the build of Sutura. Nothing
             from your manuscript or workspace is read or attached.
           </p>
           <p>
@@ -125,20 +124,20 @@ export default function PrivacyPage() {
           <p>
             <Em>Technical information.</Em> Like any website, our hosting provider and authentication provider
             receive your IP address, browser type and the pages requested as part of serving them, and keep
-            short-lived request logs. Rune does not build profiles from these logs.
+            short-lived request logs. Sutura does not build profiles from these logs.
           </p>
         </Section>
 
-        <Section title="3. What Rune does not do with your writing">
+        <Section title="3. What Sutura does not do with your writing">
           <p>
-            Rune only processes your writing to provide the product: storing it, displaying it to you, syncing it,
-            producing the exports and backups you ask for, and counting words for your own progress. Rune does not
+            Sutura only processes your writing to provide the product: storing it, displaying it to you, syncing it,
+            producing the exports and backups you ask for, and counting words for your own progress. Sutura does not
             sell your writing, share it with advertisers, use it to train artificial-intelligence or
-            machine-learning models, or send it to any AI service. Rune will never use AI to write, rewrite, or
+            machine-learning models, or send it to any AI service. Sutura will never use AI to write, rewrite, or
             complete your story.
           </p>
           <p>
-            <Em>Who at Rune can see it.</Em> Rune is run by a very small team. Our internal product dashboard is
+            <Em>Who at Sutura can see it.</Em> Sutura is run by a very small team. Our internal product dashboard is
             built so that it never displays manuscript prose, notes or private writing; it shows account-level
             facts such as sign-up dates, word counts and the feedback you send us. Separately, as the operator of
             the database, we do hold administrative credentials that could technically read stored content. We
@@ -149,44 +148,44 @@ export default function PrivacyPage() {
 
         <Section title="4. Who processes your information">
           <p>
-            Rune does not sell or rent personal information. The following providers process it on our behalf,
+            Sutura does not sell or rent personal information. The following providers process it on our behalf,
             under their own terms and privacy policies, to run the service:
           </p>
           <p>
             <Em>Supabase</Em> — authentication, the database that holds your account and writing, the private file
-            storage for images, and the emails Rune sends for account confirmation and sign-in links.
+            storage for images, and the emails Sutura sends for account confirmation and sign-in links.
           </p>
           <p>
-            <Em>Vercel</Em> — hosts the Rune application and serves it to your browser, and keeps the request
+            <Em>Vercel</Em> — hosts the Sutura application and serves it to your browser, and keeps the request
             logs described above.
           </p>
           <p>
-            <Em>Meta (Meta Pixel)</Em> — a measurement script from Meta is included on Rune’s public front page
+            <Em>Meta (Meta Pixel)</Em> — a measurement script from Meta is included on Sutura’s public front page
             for visitors who are not signed in. It reports page views there to Meta, so that we can measure whether
-            people who see Rune mentioned on Meta platforms go on to visit. It sets Meta’s own cookies in your
-            browser. It is not loaded inside the signed-in Rune application, and it never receives manuscript
+            people who see Sutura mentioned on Meta platforms go on to visit. It sets Meta’s own cookies in your
+            browser. It is not loaded inside the signed-in Sutura application, and it never receives manuscript
             content, titles, notes or feedback.
           </p>
           <p>
-            <Em>PromoteKit</Em> — a referral-tracking script is included on Rune’s public front page for visitors
-            who are not signed in, and is not loaded inside the signed-in Rune application. It records
-            whether you arrived through a referral link. Rune does not currently offer paid plans or a referral
+            <Em>PromoteKit</Em> — a referral-tracking script is included on Sutura’s public front page for visitors
+            who are not signed in, and is not loaded inside the signed-in Sutura application. It records
+            whether you arrived through a referral link. Sutura does not currently offer paid plans or a referral
             programme, so this script has no effect on your account during the beta.
           </p>
           <p>
-            <Em>Stripe</Em> — Rune’s code contains payment integration for a future paid plan. During the closed
+            <Em>Stripe</Em> — Sutura’s code contains payment integration for a future paid plan. During the closed
             beta no payment is requested, no card details are collected, and nothing is sent to Stripe.
           </p>
           <p>
-            Rune does not use AI or machine-learning services on your data.
+            Sutura does not use AI or machine-learning services on your data.
           </p>
         </Section>
 
         <Section title="5. Where your information is stored">
           <p>
-            Rune is operated from Québec, Canada. Our providers store and process information on servers that may
+            Sutura is operated from Québec, Canada. Our providers store and process information on servers that may
             be located outside Québec and outside Canada, including in the United States, where it is subject to
-            the laws of those places. By using Rune you understand that your information, including your writing,
+            the laws of those places. By using Sutura you understand that your information, including your writing,
             may be stored and processed there.
           </p>
         </Section>
@@ -196,10 +195,10 @@ export default function PrivacyPage() {
             Your writing is kept in a database with row-level security, so that the application can only ever read
             and write the rows belonging to the signed-in account. Images are kept in a private bucket that is
             never addressed from the browser. Connections use TLS, and our providers report that stored data is
-            encrypted at rest. Rune never logs manuscript content.
+            encrypted at rest. Sutura never logs manuscript content.
           </p>
           <p>
-            No service can promise absolute security, and Rune is a small, early product in beta. Use a strong,
+            No service can promise absolute security, and Sutura is a small, early product in beta. Use a strong,
             unique password, sign out on shared devices, and keep your own backups (see Section 8). If we learn of
             a breach that presents a risk of serious injury to you, we will notify you and the Commission d’accès
             à l’information du Québec as the law requires.
@@ -210,21 +209,21 @@ export default function PrivacyPage() {
           <p>
             <Em>Necessary.</Em> Session cookies from our authentication provider keep you signed in. A cookie
             named <code>rune_attribution</code> holds the campaign parameters described in Section 2 for up to
-            30 days, only if you arrived through a tagged link. Rune also keeps data in your browser’s local
+            30 days, only if you arrived through a tagged link. Sutura also keeps data in your browser’s local
             storage (preferences, a tutorial flag, the one-time registration marker) and in IndexedDB, where
             unsaved writing is held so that it survives an offline moment and is sent when you reconnect.
-            Blocking these will stop Rune from working properly.
+            Blocking these will stop Sutura from working properly.
           </p>
           <p>
             <Em>Measurement.</Em> The Meta Pixel and PromoteKit scripts described in Section 4 set their own
             cookies when you visit the public front page while signed out. Blocking them does not affect your
-            ability to use Rune.
+            ability to use Sutura.
           </p>
         </Section>
 
         <Section title="8. Your copies: export and backup">
           <p>
-            You never need to ask us for a copy of your writing. From inside Rune you can export a manuscript as
+            You never need to ask us for a copy of your writing. From inside Sutura you can export a manuscript as
             Word, PDF, Markdown or plain text; download a complete backup of a project (every chapter, scene,
             note, page, collection, canvas and image, including what is in Trash, as a ZIP archive built on your
             own device); and download every project’s manuscript as one JSON file from Settings. If you need a
@@ -261,7 +260,7 @@ export default function PrivacyPage() {
 
         <Section title="11. Your rights">
           <p>
-            You may ask to see the personal information Rune holds about you, to correct it, to receive it in a
+            You may ask to see the personal information Sutura holds about you, to correct it, to receive it in a
             portable form, to withdraw consent to optional uses, and to have it deleted. Québec’s privacy law and
             Canada’s federal privacy law also give you the right to complain to a supervisory authority (in
             Québec, the Commission d’accès à l’information). Write to{" "}
@@ -272,7 +271,7 @@ export default function PrivacyPage() {
 
         <Section title="12. Children">
           <p>
-            Rune is written for adult novelists. You must be at least 13 years old to use it, and under Québec law
+            Sutura is written for adult novelists. You must be at least 13 years old to use it, and under Québec law
             a person under 14 needs a parent or guardian to consent on their behalf. If you believe a child has
             created an account, write to <MailLink address={PRIVACY_EMAIL} /> and we will delete it.
           </p>
@@ -280,16 +279,16 @@ export default function PrivacyPage() {
 
         <Section title="13. Changes to this policy">
           <p>
-            Rune is in beta and this policy will change as the product does, in particular before any paid plan
+            Sutura is in beta and this policy will change as the product does, in particular before any paid plan
             is introduced. When we make a material change we will update the date at the top of this page and
-            tell signed-in writers inside Rune or by email. Continued use after a change means you accept the
+            tell signed-in writers inside Sutura or by email. Continued use after a change means you accept the
             updated policy; if you do not, you can export your writing and delete your account.
           </p>
         </Section>
 
         <Section title="14. Who is responsible, and how to reach us">
           <p>
-            Rune is operated by its founder in Québec, Canada, who is the person in charge of the protection of
+            Sutura is operated by its founder in Québec, Canada, who is the person in charge of the protection of
             personal information for the purposes of Québec’s privacy law. For anything about this policy or your
             information, write to <MailLink address={PRIVACY_EMAIL} />. For help with your account or your
             writing, write to <MailLink address={SUPPORT_EMAIL} />.

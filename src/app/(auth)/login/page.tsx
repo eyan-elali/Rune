@@ -3,7 +3,7 @@ import LoginClient from "./LoginClient";
 
 export const metadata: Metadata = {
   title: "Sign in",
-  description: "Sign in to Rune and get back to your manuscript.",
+  description: "Sign in to Sutura and get back to your manuscript.",
 };
 
 export default function LoginPage() {

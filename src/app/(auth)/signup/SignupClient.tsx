@@ -105,7 +105,7 @@ export default function SignupClient() {
   return (
     <section className="r2-auth-card" aria-labelledby="auth-title">
       <h1 id="auth-title">Create your account</h1>
-      <p className="r2-auth-lede">Rune is in closed beta. Use the email address your invitation was sent to.</p>
+      <p className="r2-auth-lede">Sutura is in closed beta. Use the email address your invitation was sent to.</p>
 
       <form onSubmit={handleSubmit} noValidate className="r2-auth-form">
         <label className="r2-auth-field">
@@ -163,7 +163,7 @@ export default function SignupClient() {
 
         {notInvited && (
           <p role="alert" className="r2-notice">
-            This email hasn’t been invited yet. Rune is in closed beta — <Link href="/">join the waitlist</Link> and
+            This email hasn’t been invited yet. Sutura is in closed beta — <Link href="/">join the waitlist</Link> and
             we’ll write when there’s a place for you.
           </p>
         )}
@@ -179,7 +179,7 @@ export default function SignupClient() {
       </form>
 
       <p className="r2-auth-foot r2-auth-legal">
-        By creating an account, you agree to Rune’s <Link href="/terms">Terms</Link> and acknowledge the{" "}
+        By creating an account, you agree to Sutura’s <Link href="/terms">Terms</Link> and acknowledge the{" "}
         <Link href="/privacy">Privacy Policy</Link>.
       </p>
       <p className="r2-auth-foot">

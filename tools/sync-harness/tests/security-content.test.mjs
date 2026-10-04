@@ -149,7 +149,7 @@ test('import: malformed, truncated and lying archives fail with a clear error, n
   // An unsupported compression method.
   const bzip = Buffer.from(real);
   bzip.writeUInt16LE(12, cdStart + 10);
-  await assert.rejects(reader.parseImportFile('x.docx', new Uint8Array(bzip)), /compression Rune can’t read/);
+  await assert.rejects(reader.parseImportFile('x.docx', new Uint8Array(bzip)), /compression Sutura can’t read/);
   // No zip64, no encryption, no fs: nothing an archive names is ever written anywhere.
 });
 

@@ -7,6 +7,7 @@ import { ICON } from "@/components/rune2/icons";
 import { createClient } from "@/lib/supabase/server";
 import { buildThemeCss } from "@/lib/rune2/themes";
 import "@/app/(rune2)/rune2.css";
+import { Wordmark } from "@/components/brand/Wordmark";
 
 // What remains of the Rune 1.x application frame: Pulse, the founder's
 // private analytics, admin-only. The writer-facing Rune 1.x surfaces
@@ -37,9 +38,7 @@ export default async function PulseFrameLayout({ children }: { children: ReactNo
             <ArrowLeft {...ICON} aria-hidden />
             Projects
           </Link>
-          <span className="r2-wordmark" aria-hidden>
-            Rune
-          </span>
+          <Wordmark className="r2-wordmark" label={false} />
         </header>
         <main className="r2-pulse-main">{children}</main>
       </RuneRoot>

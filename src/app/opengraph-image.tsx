@@ -1,11 +1,17 @@
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import { ImageResponse } from "next/og";
+import { POSITIONING, PRODUCT_NAME } from "@/lib/brand";
 
-export const runtime = "edge";
-export const alt = "Rune — Write more. Fear less.";
+export const alt = `${PRODUCT_NAME} — ${POSITIONING}`;
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
+// The social card: the approved Sutura wordmark (light ink) on a dark field,
+// with the positioning line. Rendered once at build time.
 export default async function Image() {
+  const wordmark = await readFile(join(process.cwd(), "public/brand/sutura/web/sutura-wordmark-light.png"));
+  const src = `data:image/png;base64,${wordmark.toString("base64")}`;
   return new ImageResponse(
     (
       <div
@@ -16,64 +22,30 @@ export default async function Image() {
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          background: "#1a1614",
+          background: "#18191d",
         }}
       >
-        {/* Subtle radial glow */}
         <div
           style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background:
-              "radial-gradient(ellipse at 50% 40%, rgba(44,36,32,0.9) 0%, #1a1614 65%)",
-          }}
-        />
-
-        {/* Wordmark */}
-        <div
-          style={{
-            position: "relative",
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
-            gap: "24px",
+            gap: "36px",
           }}
         >
+          {/* eslint-disable-next-line jsx-a11y/alt-text -- ImageResponse markup, not a page */}
+          <img src={src} width={493} height={150} />
           <span
             style={{
               fontFamily: "Georgia, serif",
-              fontSize: "140px",
-              color: "#f5f0e8",
-              letterSpacing: "0.08em",
-              lineHeight: 1,
-            }}
-          >
-            Rune
-          </span>
-          <span
-            style={{
-              fontFamily: "Georgia, serif",
-              fontSize: "28px",
-              color: "#6b6560",
-              letterSpacing: "0.14em",
+              fontSize: "30px",
+              color: "#a7a8ad",
+              letterSpacing: "0.04em",
               fontStyle: "italic",
             }}
           >
-            A home for writing novels.
+            {POSITIONING}
           </span>
-
-          {/* Gold accent line */}
-          <div
-            style={{
-              width: "80px",
-              height: "1px",
-              background: "rgba(201,168,76,0.45)",
-              marginTop: "8px",
-            }}
-          />
         </div>
       </div>
     ),

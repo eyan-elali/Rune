@@ -54,7 +54,7 @@ export function SceneHistorySection({ sceneId, projectId }: { sceneId: string; p
     setOpenAt(at);
   };
 
-  const caption = recent === null ? null : recent.length === 0 ? "Rune keeps earlier versions of this scene as you write." : "Kept automatically as you write.";
+  const caption = recent === null ? null : recent.length === 0 ? "Sutura keeps earlier versions of this scene as you write." : "Kept automatically as you write.";
   return (
     <InspectorSection
       title="History"
@@ -251,7 +251,7 @@ function SceneHistoryDialog({
               </p>
               {history.revisions.length === 0 ? (
                 <p className="r2-history-none">
-                  No earlier versions yet. Rune keeps a scene’s text when you come back to it after a pause, and
+                  No earlier versions yet. Sutura keeps a scene’s text when you come back to it after a pause, and
                   about once an hour while you write.
                 </p>
               ) : (

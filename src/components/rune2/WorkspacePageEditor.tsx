@@ -253,7 +253,7 @@ export default function WorkspacePageEditor({ entry, session }: { entry: NavEntr
       <DocStatus announce={!unreadable && (status === "retrying" || !isOnline) ? statusLabel : null}>
         {unreadable ? (
           <span className="r2-page-conflict" role="alert">
-            This {doc.noun} holds something this version of Rune can’t show, so it’s read-only here. Reload to edit it.
+            This {doc.noun} holds something this version of Sutura can’t show, so it’s read-only here. Reload to edit it.
           </span>
         ) : status === "conflict" ? (
           <span className="r2-page-conflict" role="alert">

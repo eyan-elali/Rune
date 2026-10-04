@@ -25,7 +25,7 @@ const CATEGORY: Record<string, string> = {
 
 /** Where a person stands, as one word. */
 function standing(p: BetaOverviewRow): { label: string; tone: "waiting" | "approved" | "active" } {
-  if (p.acceptedAt) return { label: "In Rune", tone: "active" };
+  if (p.acceptedAt) return { label: "In Sutura", tone: "active" };
   if (p.approvedAt) return { label: "Approved", tone: "approved" };
   return { label: "Waiting", tone: "waiting" };
 }
@@ -80,7 +80,7 @@ export function ClosedBeta({
         </div>
         <div>
           <dd>{active}</dd>
-          <dt>in Rune</dt>
+          <dt>in Sutura</dt>
         </div>
       </dl>
 
@@ -107,7 +107,7 @@ export function ClosedBeta({
           Approve
         </button>
         <p className="r2-pulse-help">
-          An approved email is let into Rune the next time it signs in. Write to the writer yourself to tell them.
+          An approved email is let into Sutura the next time it signs in. Write to the writer yourself to tell them.
         </p>
       </form>
       {error && (

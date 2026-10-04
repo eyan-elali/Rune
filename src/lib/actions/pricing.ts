@@ -62,7 +62,7 @@ export async function createFoundingCheckoutSession(): Promise<{
   error: string | null;
 }> {
   // Closed beta (Beta Completion E): free; nothing starts a checkout (lib/beta.ts).
-  if (!BILLING_OPEN) return { url: null, error: "Rune is free during the closed beta. There is nothing to buy." };
+  if (!BILLING_OPEN) return { url: null, error: "Sutura is free during the closed beta. There is nothing to buy." };
   const supabase = await createClient();
   const {
     data: { user },

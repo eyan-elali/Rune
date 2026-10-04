@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
+import { PRIVACY_EMAIL, SUPPORT_EMAIL } from "@/lib/brand";
 
 export const metadata: Metadata = {
-  title: "Terms of Service — Rune",
-  description: "The terms on which Rune, a writing companion for novelists, is offered during its closed beta.",
+  title: "Terms of Service — Sutura",
+  description: "The terms on which Sutura, a writing companion for novelists, is offered during its closed beta.",
 };
 
 // Closed-beta Terms (pre-beta audit, sections W–Y). The Rune 1.x commercial
@@ -15,8 +16,6 @@ export const metadata: Metadata = {
 // This is not legal advice.
 
 const LAST_UPDATED = "October 4, 2026";
-const SUPPORT_EMAIL = "support@rune-app.com";
-const PRIVACY_EMAIL = "privacy@rune-app.com";
 
 export default function TermsPage() {
   return (
@@ -55,17 +54,17 @@ export default function TermsPage() {
         style={{ fontSize: "1rem", color: "var(--color-mist)" }}
       >
         <p>
-          These terms govern your use of Rune (the “Service”), a writing companion for novelists operated from
+          These terms govern your use of Sutura (the “Service”), a writing companion for novelists operated from
           Québec, Canada. By creating an account or using the Service you agree to them and to the{" "}
           <a href="/privacy" style={{ color: "var(--color-gold)" }}>
             Privacy Policy
           </a>
-          . If you do not agree, please do not use Rune.
+          . If you do not agree, please do not use Sutura.
         </p>
 
-        <Section title="1. Rune is in closed beta">
+        <Section title="1. Sutura is in closed beta">
           <p>
-            Rune is currently offered as a free, invite-only closed beta. Access is given by hand to the email
+            Sutura is currently offered as a free, invite-only closed beta. Access is given by hand to the email
             addresses we invite; joining the waitlist does not create an account or guarantee an invitation.
             There is no paid plan, no trial and no charge of any kind during the beta.
           </p>
@@ -80,37 +79,37 @@ export default function TermsPage() {
 
         <Section title="2. Your account">
           <p>
-            You need an account to use Rune. Keep your sign-in details to yourself; you are responsible for what
+            You need an account to use Sutura. Keep your sign-in details to yourself; you are responsible for what
             happens under your account, and you should tell us at once if you believe it has been used without
             your permission. Give us an email address we can reach you at.
           </p>
           <p>
-            You must be at least 13 years old to use Rune. Rune is written for adult novelists and is not
-            directed at children; if you are a minor where you live, use Rune only with the agreement of a parent
+            You must be at least 13 years old to use Sutura. Sutura is written for adult novelists and is not
+            directed at children; if you are a minor where you live, use Sutura only with the agreement of a parent
             or guardian.
           </p>
         </Section>
 
         <Section title="3. Your writing is yours">
           <p>
-            Everything you write or add to Rune — manuscripts, chapters, scenes, notes, workspace pages,
-            collections, canvases, images and anything else you create (“your Content”) — belongs to you. Rune
+            Everything you write or add to Sutura — manuscripts, chapters, scenes, notes, workspace pages,
+            collections, canvases, images and anything else you create (“your Content”) — belongs to you. Sutura
             claims no ownership of it and no rights in it beyond the limited permission below.
           </p>
           <p>
-            So that Rune can work, you give us permission to store your Content, keep it in sync between your
+            So that Sutura can work, you give us permission to store your Content, keep it in sync between your
             devices, back it up, display it to you, count its words for your own progress, and produce the exports
             and backups you ask for. That permission exists only to operate the Service for you, lasts only while
-            your Content is in Rune, and is the whole of it.
+            your Content is in Sutura, and is the whole of it.
           </p>
           <p>
-            Rune will never use your Content to train or improve artificial-intelligence or machine-learning
+            Sutura will never use your Content to train or improve artificial-intelligence or machine-learning
             models, never sell or license it, and never share it with third parties except the providers that
-            host the Service for us (named in the Privacy Policy) or when the law requires. Rune will never use
+            host the Service for us (named in the Privacy Policy) or when the law requires. Sutura will never use
             AI to write, rewrite, or complete your story.
           </p>
           <p>
-            You are responsible for your Content. You confirm that you have the right to put it in Rune and that
+            You are responsible for your Content. You confirm that you have the right to put it in Sutura and that
             it does not infringe anyone else’s rights or break the law.
           </p>
         </Section>
@@ -123,41 +122,41 @@ export default function TermsPage() {
             even if other parts of the Service are withdrawn.
           </p>
           <p>
-            Rune saves your work automatically and keeps copies to recover from failures, but it is beta software
-            run by a very small team. Keep your own backups. Rune is not a substitute for them, and you should not
-            rely on Rune as the only copy of your manuscript.
+            Sutura saves your work automatically and keeps copies to recover from failures, but it is beta software
+            run by a very small team. Keep your own backups. Sutura is not a substitute for them, and you should not
+            rely on Sutura as the only copy of your manuscript.
           </p>
         </Section>
 
         <Section title="5. What you agree not to do">
           <p>
-            Do not use Rune to store or share content that is unlawful, that infringes others’ rights, or that
+            Do not use Sutura to store or share content that is unlawful, that infringes others’ rights, or that
             you have no right to use. Do not try to get into other accounts or parts of the Service you are not
             meant to reach, probe or overload the Service, upload malicious code, or use automated tools to use
-            the Service at a rate no writer could. Do not resell access to Rune or let others use your
+            the Service at a rate no writer could. Do not resell access to Sutura or let others use your
             invitation. Do not try to circumvent the beta’s invitation.
           </p>
         </Section>
 
-        <Section title="6. Rune’s own material">
+        <Section title="6. Sutura’s own material">
           <p>
-            The Service itself — its design, interface, name, wordmark and code — belongs to Rune and its
+            The Service itself — its design, interface, name, wordmark and code — belongs to Sutura and its
             licensors and is protected by copyright and trademark law. You may not copy, modify, redistribute or
-            reverse-engineer it, except where the law allows. Your Content is not Rune’s material.
+            reverse-engineer it, except where the law allows. Your Content is not Sutura’s material.
           </p>
         </Section>
 
         <Section title="7. Feedback">
           <p>
             The beta exists to be improved by your feedback. Suggestions, bug reports and ideas you send us may
-            be used freely to improve Rune without any obligation to you. This never extends to your Content,
+            be used freely to improve Sutura without any obligation to you. This never extends to your Content,
             which Section 3 governs.
           </p>
         </Section>
 
         <Section title="8. Availability">
           <p>
-            Rune is provided on an “as is” and “as available” basis. We do not promise that the Service will be
+            Sutura is provided on an “as is” and “as available” basis. We do not promise that the Service will be
             uninterrupted, timely, error-free or available at any particular moment, and we may take it down for
             maintenance or to fix a problem without notice. Offline work in your browser is a convenience, not a
             guarantee.
@@ -180,7 +179,7 @@ export default function TermsPage() {
 
         <Section title="10. No warranties">
           <p>
-            To the fullest extent the law allows, Rune disclaims all warranties, express or implied, including
+            To the fullest extent the law allows, Sutura disclaims all warranties, express or implied, including
             merchantability, fitness for a particular purpose and non-infringement. Some places do not allow
             certain warranties to be excluded, in which case those exclusions apply to you only as far as the law
             permits. Nothing in these terms limits any protection the law gives you as a consumer that cannot be
@@ -190,11 +189,11 @@ export default function TermsPage() {
 
         <Section title="11. Limitation of liability">
           <p>
-            To the fullest extent the law allows, Rune and the people who run it are not liable for indirect,
+            To the fullest extent the law allows, Sutura and the people who run it are not liable for indirect,
             incidental, special, consequential or punitive damages, or for loss of data, profits or goodwill,
             arising from your use of or inability to use the Service, even if we were told such loss was
-            possible. Because the beta is free, Rune’s total liability to you for all claims relating to the
-            Service is limited to the greater of the amount you paid Rune in the twelve months before the claim
+            possible. Because the beta is free, Sutura’s total liability to you for all claims relating to the
+            Service is limited to the greater of the amount you paid Sutura in the twelve months before the claim
             and one hundred dollars. This section does not limit liability that the law does not allow to be
             limited.
           </p>
@@ -217,9 +216,9 @@ export default function TermsPage() {
 
         <Section title="13. Changes to these terms">
           <p>
-            We will update these terms as Rune moves out of beta, and in particular before introducing any paid
+            We will update these terms as Sutura moves out of beta, and in particular before introducing any paid
             plan. When we make a material change we will update the date at the top of this page and tell
-            signed-in writers inside Rune or by email. Continued use after a change means you accept the updated
+            signed-in writers inside Sutura or by email. Continued use after a change means you accept the updated
             terms; if you do not, export your writing and delete your account.
           </p>
         </Section>

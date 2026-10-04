@@ -146,7 +146,7 @@ const STATUS_LABEL: Record<CanvasSaveStatus, string> = {
   retrying: "Saved on this device",
   trashed: "In Trash",
   unavailable: "Unavailable",
-  unsupported: "Couldn’t save · reload Rune",
+  unsupported: "Couldn’t save · reload Sutura",
 };
 
 const ARRANGE_ICON: Record<string, LucideIcon> = {
@@ -161,7 +161,7 @@ const ARRANGE_ICON: Record<string, LucideIcon> = {
   tidy: LayoutGrid,
   connect: Link,
 };
-const STRANDED_TEXT = "This Canvas change could not be saved. Reload Rune to update.";
+const STRANDED_TEXT = "This Canvas change could not be saved. Reload Sutura to update.";
 // A note changed here whose row was removed elsewhere: its text is kept, unsaved, until the writer decides.
 const GONE_NOTE_TEXT = "A note you changed was removed elsewhere. Its text is kept here unsaved — duplicate it to keep it, or remove it.";
 

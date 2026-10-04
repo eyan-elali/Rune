@@ -14,7 +14,7 @@ type Mode = "password" | "magic-link";
 /** Supabase's own wording, in Rune's. */
 function friendlyError(message: string): string {
   if (/signups not allowed/i.test(message)) {
-    return "There’s no Rune account for that email yet. If you’ve been invited, create your account first.";
+    return "There’s no Sutura account for that email yet. If you’ve been invited, create your account first.";
   }
   if (/invalid login credentials/i.test(message)) return "That email and password don’t match.";
   if (/email not confirmed/i.test(message)) return "Confirm your email first — the link is in the message we sent you.";

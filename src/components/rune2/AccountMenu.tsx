@@ -18,10 +18,11 @@ import { NavigatorMenu, type NavigatorMenuItem } from "./NavigatorMenu";
 import { useRuneAccount } from "./RunePreferences";
 import { useRune2Selection } from "./Rune2Selection";
 import { useModalFocus } from "./useModalFocus";
+import { Wordmark } from "@/components/brand/Wordmark";
 
 // The account menu (Beta Completion A): who is signed in, and the places an
 // account goes — Projects, Settings, and out — and, for the closed beta
-// (Beta Completion E), Send feedback under a quiet "Rune beta" label. Nothing
+// (Beta Completion E), Send feedback under a quiet "Sutura beta" label. Nothing
 // else: no plan, no upgrade, no profile.
 //
 // Two places show it (Beta Completion C): the slim bar over the pages outside
@@ -115,7 +116,7 @@ export function useLogOut(
             }
           }}
         >
-          <h2 id="r2-logout-title">Some writing hasn’t been saved to Rune yet</h2>
+          <h2 id="r2-logout-title">Some writing hasn’t been saved to Sutura yet</h2>
           <p id="r2-logout-detail">
             Writing in {state.waiting.join(", ")} is only on this device so far. It stays here if you log out, and is
             saved the next time you sign in on this device.
@@ -151,7 +152,7 @@ function accountItems(
     // Who is signed in, as a quiet label over the list.
     { label: openSettings ? "All projects" : "Projects", icon: BookOpen, section: name, onSelect: () => push("/projects") },
     { label: "Settings", icon: Settings, onSelect: openSettings ?? (() => push("/settings")) },
-    { label: "Send feedback", icon: MessageSquare, section: "Rune beta", onSelect: openFeedback },
+    { label: "Send feedback", icon: MessageSquare, section: "Sutura beta", onSelect: openFeedback },
     { label: "Log out", icon: LogOut, separator: true, onSelect: logOut },
   ];
 }
@@ -291,8 +292,8 @@ export function AccountControl({ onOpenSettings }: { onOpenSettings: () => void 
 export function AppBar({ account }: { account: Account }) {
   return (
     <header className="r2-appbar">
-      <Link href="/projects" className="r2-wordmark" aria-label="Rune — Projects">
-        Rune
+      <Link href="/projects" className="r2-wordmark" aria-label="Sutura — Projects">
+        <Wordmark label={false} />
       </Link>
       <AccountMenu account={account} />
     </header>

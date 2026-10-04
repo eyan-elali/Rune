@@ -94,7 +94,7 @@ export function openZip(bytes: Uint8Array): ZipReader {
     const data = bytes.subarray(start, start + e.compressedSize);
     if (e.method === 0) return data;
     if (e.method === 8) return inflateRaw(data, MAX_ENTRY_BYTES);
-    throw new ImportFileError("This Word document uses a compression Rune can’t read.");
+    throw new ImportFileError("This Word document uses a compression Sutura can’t read.");
   };
   return {
     has: (name) => entries.has(name),

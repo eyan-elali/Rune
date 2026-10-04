@@ -491,7 +491,7 @@ test('backup: a versioned, inspectable ZIP holding the whole Project — manuscr
   assert.equal(manifest.format_version, 2);
   assert.equal(manifest.created_at, at.toISOString());
   assert.deepEqual(manifest.project, { id: HOLLOW, title: data.project.title });
-  assert.ok(files['README.txt'].includes('Rune can\'t yet read this archive back in'));
+  assert.ok(files['README.txt'].includes('Sutura can\'t yet read this archive back in'));
   assert.equal(files['project.json'].project.id, HOLLOW);
   assert.equal(files['project.json'].manuscript.id, f.ms);
 
@@ -743,7 +743,7 @@ test('backup completion: one call reads, writes and names a non-empty ZIP; its f
   const result = await backup.makeProjectBackup(as(db, ALICE), HOLLOW, (kind, i, total) => progress.push(`${i + 1}/${total}`), at);
   assert.ok(result.bytes.length > 1000, `${result.bytes.length} bytes`);
   assert.deepEqual([...result.bytes.slice(0, 4)], [0x50, 0x4b, 0x03, 0x04], 'a ZIP');
-  assert.match(result.fileName, /^.+ – Rune backup 2026-09-29\.zip$/);
+  assert.match(result.fileName, /^.+ – Sutura backup 2026-09-29\.zip$/);
   assert.equal(progress.at(-1), `${progress.length}/${progress.length}`, 'every kind reported, to the last');
   assert.ok(zip.openZip(result.bytes).has('manifest.json'));
   await assert.rejects(backup.makeProjectBackup(as(db, BRAM), HOLLOW), /isn’t available to back up/);
@@ -755,12 +755,12 @@ test('download handoff: one object URL, an <a download> click with the file name
   const b = fakeBrowser();
   try {
     const bytes = new Uint8Array([0x50, 0x4b, 1, 2, 3]);
-    const d = download.prepareDownload(bytes, 'The Hollow – Rune backup 2026-09-29.zip', 'application/zip');
+    const d = download.prepareDownload(bytes, 'The Hollow – Sutura backup 2026-09-29.zip', 'application/zip');
     assert.deepEqual(b.events, [['create', 'blob:test/1', 5, 'application/zip']]);
     assert.equal(d.url, 'blob:test/1');
     assert.equal(d.size, 5);
     d.start();
-    assert.deepEqual(b.events.slice(1), [['click', 'blob:test/1', 'The Hollow – Rune backup 2026-09-29.zip'], ['removed']]);
+    assert.deepEqual(b.events.slice(1), [['click', 'blob:test/1', 'The Hollow – Sutura backup 2026-09-29.zip'], ['removed']]);
     assert.equal(b.body.children.length, 0, 'the anchor is cleaned up');
     assert.ok(b.live.has(d.url), 'not revoked on start: the fallback link still works');
     d.start();

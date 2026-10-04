@@ -56,7 +56,7 @@ export function imageBytesMatchType(mime: string, bytes: Uint8Array): boolean {
 
 /** Why a file can't be an image attachment, or null when it can. */
 export function imageUploadProblem(file: { type: string; size: number }): string | null {
-  if (!isAcceptedImageType(file.type)) return "Rune can hold PNG, JPEG, GIF and WebP images.";
+  if (!isAcceptedImageType(file.type)) return "Sutura can hold PNG, JPEG, GIF and WebP images.";
   if (file.size <= 0) return "That file is empty.";
   if (file.size > MAX_IMAGE_BYTES) return `An image can be up to ${Math.round(MAX_IMAGE_BYTES / 1024 / 1024)} MB.`;
   return null;

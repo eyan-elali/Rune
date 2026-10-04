@@ -1,4 +1,5 @@
 import { RuneRoot } from "@/components/rune2/RunePreferences";
+import { Wordmark } from "@/components/brand/Wordmark";
 
 // Projects, while the list is read: the page's frame in the writer's theme,
 // and in the list's place a few quiet rows of the list's own shape (never
@@ -7,7 +8,9 @@ export default function ProjectsLoading() {
   return (
     <RuneRoot className="r2-home">
       <div className="r2-appbar" aria-hidden>
-        <span className="r2-wordmark">Rune</span>
+        <span className="r2-wordmark">
+          <Wordmark label={false} />
+        </span>
       </div>
       <main className="r2-home-main">
         <div className="r2-home-head">

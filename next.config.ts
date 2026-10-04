@@ -4,7 +4,7 @@ import { LEGACY_REDIRECTS } from "./src/lib/legacyRedirects";
 // ── Browser security headers (pre-beta security audit, sections N/O) ────────
 //
 // Every response carries the non-CSP headers below outright; they are safe
-// for Rune as built (nothing embeds Rune in a frame, nothing needs camera /
+// for Sutura as built (nothing embeds Sutura in a frame, nothing needs camera /
 // microphone / geolocation, every asset is served with a real Content-Type).
 //
 // The Content-Security-Policy ships REPORT-ONLY until a browser pass of the
@@ -88,7 +88,17 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   // The retired Rune 1.x addresses (and /rune2) lead into Rune 2.0.
   async redirects() {
-    return LEGACY_REDIRECTS.map((r) => ({ ...r, permanent: false }));
+    return [
+      // Sutura's canonical host is the apex (src/lib/brand.ts SITE_URL). Vercel's
+      // domain settings should redirect www too; this covers it if they don't.
+      {
+        source: "/:path*",
+        has: [{ type: "host" as const, value: "www.writesutura.com" }],
+        destination: "https://writesutura.com/:path*",
+        permanent: true,
+      },
+      ...LEGACY_REDIRECTS.map((r) => ({ ...r, permanent: false })),
+    ];
   },
   async headers() {
     return [{ source: "/(.*)", headers: securityHeaders }];
