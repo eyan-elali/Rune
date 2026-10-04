@@ -1,7 +1,6 @@
 "use client";
 
 import { usePulseDrawer } from "@/components/pulse/PulseDrawer";
-import { PulseCard } from "@/components/pulse/PulseCard";
 import type { HeartbeatMetrics } from "@/lib/actions/pulse";
 
 export function Heartbeat({ data }: { data: HeartbeatMetrics }) {
@@ -16,32 +15,24 @@ export function Heartbeat({ data }: { data: HeartbeatMetrics }) {
 
   return (
     <div>
-      <p className="mb-1 text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--color-mist)" }}>
-        Heartbeat
-      </p>
-      <p className="mb-3 text-xs leading-relaxed" style={{ color: "var(--color-mist)", opacity: 0.65 }}>
+      <h2 className="r2-pulse-label">Heartbeat</h2>
+      <p className="r2-pulse-help r2-pulse-help--lead">
         Events that happened in the selected range — not funnel conversion or current totals.
       </p>
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+      <div className="r2-pulse-figures r2-pulse-figures--buttons">
         {items.map((item, i) => {
           const isPrimary = i < 2;
           return (
-            <PulseCard key={item.label} tier={isPrimary ? "elevated" : "default"} className="overflow-hidden">
-              <button
-                onClick={() => openDrilldown(item.kind, item.label)}
-                className="flex w-full flex-col items-start px-6 py-5 text-left transition-colors hover:bg-rune-gold/5"
-              >
-                <p
-                  className={`font-rune-serif text-3xl leading-tight ${isPrimary ? "font-semibold" : ""}`}
-                  style={{ color: "var(--text-primary)" }}
-                >
-                  {item.value.toLocaleString()}
-                </p>
-                <p className="mt-1.5 text-xs uppercase tracking-widest" style={{ color: "var(--color-mist)" }}>
-                  {item.label}
-                </p>
-              </button>
-            </PulseCard>
+            <button
+              key={item.label}
+              type="button"
+              onClick={() => openDrilldown(item.kind, item.label)}
+              className="r2-pulse-figure"
+              data-primary={isPrimary || undefined}
+            >
+              <span className="r2-pulse-figure-value">{item.value.toLocaleString()}</span>
+              <span className="r2-pulse-figure-label">{item.label}</span>
+            </button>
           );
         })}
       </div>

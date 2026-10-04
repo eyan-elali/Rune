@@ -2,19 +2,19 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { recalculateProjectWordCount } from "@/lib/projectWordCount";
+import { revalidateProjectTotals } from "@/lib/projectWordCount";
+import { getManuscriptIdForProject, getProjectIdForManuscript } from "@/lib/manuscriptQueries";
 
 type ActionResult<T> = { data: T; error: null } | { data: null; error: string };
 
-type SavePageCheckedResult =
+// Rune 2.0 has no free-word limit (migration 037): these RPCs never block.
+type SaveSceneCheckedResult =
   | { status: "ok"; updated_at: string; version: number }
-  | { status: "word_limit_blocked"; limit: number }
   | { status: "version_mismatch" }
   | { status: "error"; error: string };
 
-type InsertPageCheckedResult =
+type InsertSceneCheckedResult =
   | { status: "ok"; id: string }
-  | { status: "word_limit_blocked"; limit: number }
   | { status: "error"; error: string };
 
 export async function createGameSession(
@@ -51,8 +51,7 @@ export async function createGameSession(
     console.error("❌ SUPABASE INSERT ERROR:", error);
     return { data: null, error: error.message };
   }
-  revalidatePath("/profile");
-  revalidatePath("/dashboard");
+  revalidatePath("/projects");
   return { data: data as { id: string }, error: null };
 }
 
@@ -81,9 +80,9 @@ function htmlToTiptapDoc(html: string): Record<string, unknown> {
 }
 
 /**
- * Creates a new "Sprint" page from an Arena session and saves it, subject to
- * the account-wide free-word limit. Delegates the check-and-insert to
- * insert_page_checked() (migration 011) — a single atomic database function,
+ * Creates a new "Sprint" Scene at the end of a Chapter from an Arena session,
+ * subject to the account-wide free-word limit. Delegates the check-and-insert
+ * to insert_scene_checked() — a single atomic database function,
  * so a concurrent editor save (or another Arena save) can't race this and
  * jointly exceed the limit.
  */
@@ -101,26 +100,19 @@ export async function appendSprintToProject(
   if (!user) return { data: null, error: "Not authenticated" };
 
   // Verify chapter belongs to the project
-  const { data: chapter, error: chapterError } = await supabase
-    .from("chapters")
-    .select("id")
-    .eq("id", chapterId)
-    .eq("project_id", projectId)
-    .single();
+  const manuscriptId = await getManuscriptIdForProject(supabase, projectId);
+  const { data: chapter, error: chapterError } = manuscriptId
+    ? await supabase
+        .from("chapters")
+        .select("id")
+        .eq("id", chapterId)
+        .eq("manuscript_id", manuscriptId)
+        .single()
+    : { data: null, error: null };
 
   if (chapterError || !chapter) {
     return { data: null, error: "Chapter not found in this project" };
   }
-
-  // Find next position
-  const { data: existing } = await supabase
-    .from("pages")
-    .select("position")
-    .eq("chapter_id", chapterId)
-    .order("position", { ascending: false })
-    .limit(1);
-
-  const position = existing && existing.length > 0 ? existing[0].position + 1 : 0;
 
   const now = new Date();
   const title = `Sprint: ${now.toLocaleDateString("en-US", {
@@ -131,46 +123,35 @@ export async function appendSprintToProject(
 
   const content = htmlToTiptapDoc(html);
 
-  const { data, error } = await supabase.rpc("insert_page_checked", {
+  const { data, error } = await supabase.rpc("insert_scene_checked", {
     p_chapter_id: chapterId,
     p_title: title,
     p_content: content,
     p_word_count: wordCount,
-    p_position: position,
+    // The database appends to the Chapter under the per-account lock (018).
+    p_position: null,
   });
 
   if (error) return { data: null, error: error.message };
 
-  const result = data as InsertPageCheckedResult;
+  const result = data as InsertSceneCheckedResult;
 
-  if (result.status === "word_limit_blocked") {
-    return {
-      data: null,
-      error: `This would put you over your ${result.limit.toLocaleString()}-word free limit. Upgrade to Scribe to keep writing.`,
-    };
-  }
-  if (result.status === "error") return { data: null, error: result.error };
+  if (result.status !== "ok") return { data: null, error: result.error ?? "Couldn’t add the scene" };
 
-  // Canonical-aware recalculation — the new sprint page may not be the
-  // canonical page for its chapter, in which case it must not count toward
-  // the project total any more than any other non-canonical draft would.
-  await recalculateProjectWordCount(supabase, projectId);
-
-  revalidatePath(`/projects/${projectId}`);
-  revalidatePath(`/projects/${projectId}/chapters/${chapterId}`);
+  revalidateProjectTotals(projectId);
 
   return { data: { id: result.id }, error: null };
 }
 
 /**
- * Appends an Arena session's words onto an existing page, subject to the
+ * Appends an Arena session's words onto an existing Scene, subject to the
  * account-wide free-word limit. Delegates the check-and-update to
- * save_page_checked() (migration 011) — the same atomic function the
+ * save_scene_checked() — the same atomic function the
  * editor's autosave path uses, so this can't race a concurrent editor save
  * (or another Arena save) and jointly exceed the limit.
  */
-export async function appendToExistingPage(
-  pageId: string,
+export async function appendToExistingScene(
+  sceneId: string,
   html: string,
   additionalWordCount: number
 ): Promise<ActionResult<{ id: string }>> {
@@ -180,19 +161,19 @@ export async function appendToExistingPage(
   } = await supabase.auth.getUser();
   if (!user) return { data: null, error: "Not authenticated" };
 
-  const { data: page, error: fetchError } = await supabase
-    .from("pages")
-    .select("id, content, word_count, chapter_id")
-    .eq("id", pageId)
+  const { data: scene, error: fetchError } = await supabase
+    .from("scenes")
+    .select("id, content, word_count, chapter_id, manuscript_id")
+    .eq("id", sceneId)
     .single();
 
-  if (fetchError || !page) return { data: null, error: "Page not found" };
+  if (fetchError || !scene) return { data: null, error: "Scene not found" };
 
-  const newWordCount = (page.word_count ?? 0) + additionalWordCount;
+  const newWordCount = (scene.word_count ?? 0) + additionalWordCount;
 
   const newDoc = htmlToTiptapDoc(html);
   const existingNodes =
-    (page.content as { type: string; content?: unknown[] } | null)?.content ?? [];
+    (scene.content as { type: string; content?: unknown[] } | null)?.content ?? [];
   const newNodes = (newDoc.content as unknown[]) ?? [];
 
   const mergedContent = {
@@ -200,8 +181,8 @@ export async function appendToExistingPage(
     content: [...existingNodes, { type: "horizontalRule" }, ...newNodes],
   };
 
-  const { data, error } = await supabase.rpc("save_page_checked", {
-    p_page_id: pageId,
+  const { data, error } = await supabase.rpc("save_scene_checked", {
+    p_scene_id: sceneId,
     p_content: mergedContent,
     p_word_count: newWordCount,
     p_expected_version: null,
@@ -209,36 +190,20 @@ export async function appendToExistingPage(
 
   if (error) return { data: null, error: error.message };
 
-  const result = data as SavePageCheckedResult;
+  const result = data as SaveSceneCheckedResult;
 
-  if (result.status === "word_limit_blocked") {
-    return {
-      data: null,
-      error: `This would put you over your ${result.limit.toLocaleString()}-word free limit. Upgrade to Scribe to keep writing.`,
-    };
-  }
   if (result.status === "version_mismatch") {
-    return { data: null, error: "This page changed elsewhere. Please try again." };
+    return { data: null, error: "This scene changed elsewhere. Please try again." };
   }
-  if (result.status === "error") return { data: null, error: result.error };
+  if (result.status !== "ok") return { data: null, error: result.error ?? "Couldn’t save the scene" };
 
-  const { data: chapter } = await supabase
-    .from("chapters")
-    .select("project_id")
-    .eq("id", page.chapter_id)
-    .single();
+  const projectId = await getProjectIdForManuscript(supabase, scene.manuscript_id);
 
-  if (chapter) {
-    // Canonical-aware recalculation — appending to a non-canonical page must
-    // not count toward the project total any more than any other
-    // non-canonical draft would.
-    await recalculateProjectWordCount(supabase, chapter.project_id);
-
-    revalidatePath(`/projects/${chapter.project_id}`);
-    revalidatePath(`/projects/${chapter.project_id}/chapters/${page.chapter_id}`);
+  if (projectId) {
+    revalidateProjectTotals(projectId);
   }
 
-  return { data: { id: pageId }, error: null };
+  return { data: { id: sceneId }, error: null };
 }
 
 export type CombatRecord = { wins: number; losses: number };

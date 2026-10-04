@@ -41,6 +41,6 @@ export async function getCurrentAdmin(): Promise<AdminUser | null> {
 // redirect (which must not be caught) for anyone who isn't a signed-in admin.
 export async function requireAdmin(): Promise<AdminUser> {
   const admin = await getCurrentAdmin();
-  if (!admin) redirect("/dashboard");
+  if (!admin) redirect("/projects");
   return admin;
 }

@@ -2,16 +2,20 @@
   "name": "rune-sync-harness",
   "private": true,
   "type": "module",
-  "description": "Deterministic reproduction/verification harness for the offline sync engine (real syncEngine.ts + db.ts, mocked network boundary) and for migration 011's SQL functions (real Postgres via PGlite).",
+  "description": "Rune regression harness: the offline sync engine (real syncEngine.ts + db.ts, mocked network boundary) and SQL/RLS/RPC behaviour in real Postgres (PGlite) behind a minimal Supabase shim. Test runner: node:test.",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "build": "node build.mjs",
     "sync": "node build.mjs && node run-all.mjs",
-    "sql": "node sqltest.mjs",
-    "test": "npm run sync && npm run sql && node sqldrift.mjs"
+    "sql": "node --test --test-concurrency=1 tests/sql-*.test.mjs",
+    "test": "node build.mjs && node --test --test-concurrency=1 tests/*.test.mjs",
+    "schema": "node build-schema.mjs"
   },
   "devDependencies": {
-    "@electric-sql/pglite": "^0.2.17",
-    "esbuild": "^0.25.0",
-    "fake-indexeddb": "^6.0.0"
+    "@electric-sql/pglite": "0.2.17",
+    "esbuild": "0.25.12",
+    "fake-indexeddb": "6.2.5"
   }
 }

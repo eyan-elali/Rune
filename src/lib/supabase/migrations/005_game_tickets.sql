@@ -1,3 +1,8 @@
+-- HISTORICAL — DO NOT RE-RUN. Already applied to production and contained in the
+-- production baseline (src/lib/supabase/schema.sql, generated 2026-09-24). Kept for
+-- history only; recorded as applied in public.schema_migrations by migration 013.
+-- Re-running historical migrations can regress production. See README.md here.
+
 CREATE TABLE IF NOT EXISTS public.game_tickets (
   id           uuid  PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id      uuid  REFERENCES public.profiles(id) ON DELETE CASCADE,

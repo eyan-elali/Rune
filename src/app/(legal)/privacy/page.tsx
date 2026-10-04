@@ -1,11 +1,25 @@
 import type { Metadata } from "next";
+import { PRIVACY_EMAIL, SUPPORT_EMAIL } from "@/lib/brand";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy — Rune",
-  description: "Read the Privacy Policy for Rune, the gamified writing environment.",
+  title: "Privacy Policy — Sutura",
+  description: "How Sutura, a writing companion for novelists, collects, uses, stores and deletes your information.",
 };
 
-const LAST_UPDATED = "June 20, 2026";
+// Closed-beta Privacy Policy (pre-beta audit, section V). Every statement
+// here is checked against the code: Supabase (auth, Postgres, private
+// storage bucket), Vercel hosting, the first-party analytics_events and
+// acquisition_attribution tables, the Meta Pixel and PromoteKit scripts
+// (components/MarketingTrackers.tsx, signed-out front page only), the beta waitlist and feedback (migration 052), account
+// deletion (lib/actions/settings.ts), and the two exports. Where a fact
+// cannot be read from the repository (hosting regions, backup retention,
+// the Meta "advanced matching" dashboard setting) the text says so in
+// general terms rather than guessing.
+//
+// This is not legal advice. It needs review by a professional familiar with
+// Québec's Law 25 and PIPEDA before the beta opens widely.
+
+const LAST_UPDATED = "October 4, 2026";
 
 export default function PrivacyPage() {
   return (
@@ -43,244 +57,241 @@ export default function PrivacyPage() {
         className="space-y-12 font-rune-serif leading-[1.9]"
         style={{ fontSize: "1rem", color: "var(--color-mist)" }}
       >
-        <Section title="1. Information We Collect">
+        <p>
+          Sutura is a writing companion for novelists, operated from Québec, Canada. This policy explains what
+          information Sutura collects while you use it, why, where it is kept, who processes it on our behalf, and how
+          to see, export or delete it. Sutura is currently in a free, invite-only closed beta; this policy describes
+          the beta as it works today and will be updated before anything changes.
+        </p>
+
+        <Section title="1. The short version">
           <p>
-            When you create a Rune account, we collect your email address and any
-            display name you choose to provide. During your use of the Service, we
-            also collect the content you write (stored as structured JSON), your
-            project and chapter metadata, word counts, game session results, and XP
-            and level data associated with your account.
-          </p>
-          <p>
-            We also automatically collect certain technical information when you
-            access the Service, including your IP address, browser type, operating
-            system, referring URLs, and pages visited. This information is used
-            for operating and improving the Service.
-          </p>
-          <p>
-            If you interact with our advertising campaigns, we may also receive
-            event data from Meta (such as PageView and CompleteRegistration events)
-            to help us understand how visitors reach and engage with Rune. This is
-            described further in Sections 4 and 6. Your manuscript content is never
-            included in any advertising event data.
+            <Em>Your words remain your own.</Em> Sutura will never use AI to write, rewrite, or complete your story.
+            Your manuscript is stored so that Sutura can show it back to you, keep it in sync between your devices,
+            back it up and export it. It is never sold, never shared with advertisers, and never used to train
+            artificial-intelligence or machine-learning models.
           </p>
         </Section>
 
-        <Section title="2. How We Use Your Information">
+        <Section title="2. What Sutura collects, and why">
           <p>
-            We use the information we collect to operate and maintain the Service,
-            authenticate your account, calculate and display your XP and progression,
-            process subscription payments, and send transactional emails such as
-            magic-link sign-ins and billing receipts.
+            <Em>Account.</Em> Your email address and a password (stored only in hashed form by our authentication
+            provider), or a sign-in link sent to your email. Needed to create and secure your account and to send
+            account emails such as confirmation and sign-in links.
           </p>
           <p>
-            We may also use certain account information (such as whether you
-            completed registration) to measure the performance of advertising
-            campaigns and improve the relevance of ads shown to prospective users.
-            This measurement uses aggregated signals and does not involve sharing
-            your writing content with any advertising platform.
+            <Em>Profile.</Em> The pen name you choose, and your preferences (theme, writing font, interface
+            settings). Shown to you inside Sutura; the pen name is also shown to us next to any feedback you send.
           </p>
           <p>
-            We do not use your writing content for any purpose other than storing and
-            displaying it back to you. We will never use your User Content to train
-            machine learning models, generate AI outputs, or share it with third
-            parties for any reason other than those required by law.
-          </p>
-        </Section>
-
-        <Section title="3. Your Writing Belongs to You">
-          <p>
-            Your manuscripts, chapters, and pages are entirely yours. Rune claims no
-            ownership over anything you write in the Service.
+            <Em>Your writing.</Em> Everything you create in Sutura: projects, manuscripts, groups, chapters and
+            scenes (stored as structured editor data), revision history checkpoints and milestones, revision
+            notes, workspace pages, folders, collections and their entries and properties, canvases, references
+            between objects, and anything you move to Trash until you delete it. Images you add to a canvas are
+            stored as files in a private storage bucket, together with a smaller display copy. All of this is
+            collected for one purpose: to give it back to you.
           </p>
           <p>
-            We do not sell your writing. We do not share your manuscripts with
-            advertisers. We do not use your writing to train artificial intelligence
-            or machine learning models — not now, not in the future. Rune only
-            processes your writing content to provide you with the product: storing
-            it, displaying it back to you, and syncing it across your devices.
-          </p>
-        </Section>
-
-        <Section title="4. Third-Party Services">
-          <p>
-            Rune uses <strong style={{ color: "var(--color-parchment)" }}>Supabase</strong> for authentication and database storage. Your
-            email address and account data are processed and stored by Supabase in
-            accordance with their own privacy policy. Supabase is GDPR-compliant and
-            SOC 2 Type II certified.
+            <Em>Imported manuscripts.</Em> When you import a Word, Markdown or text file, the file is read on your
+            own device. The file itself is not uploaded. Only the chapters, scenes and prose you confirm are sent to
+            Sutura, where they become a new project like any other.
           </p>
           <p>
-            Rune uses <strong style={{ color: "var(--color-parchment)" }}>Stripe</strong> to process all subscription payments. When you
-            subscribe to a paid plan, your payment card details are collected and
-            stored directly by Stripe — Rune never sees or stores raw card numbers.
-            Stripe&apos;s handling of your payment data is governed by their own
-            privacy policy and PCI DSS compliance program.
+            <Em>Writing history.</Em> How many words you added on each day, per project and scene, and any goals
+            you set. Used for Today’s Words, progress and writing-day history. Deleting a scene keeps that day’s
+            word total as project-level history; deleting a project deletes its history.
           </p>
           <p>
-            Rune is hosted on <strong style={{ color: "var(--color-parchment)" }}>Vercel</strong>, a cloud deployment platform. Vercel
-            may process request logs and infrastructure data as part of delivering
-            the Service. Vercel&apos;s data handling is governed by their own privacy
-            policy.
+            <Em>Product analytics.</Em> A small set of named events about how Sutura is used (for example that an
+            account signed up, opened its first project, completed onboarding, reached a word milestone, exported,
+            or sent feedback), with the date, the project involved and a few non-identifying details such as a
+            feedback category. These events never contain manuscript text, titles, notes, feedback text or email
+            addresses. If you arrive from a link carrying campaign parameters (UTM fields or a Meta click
+            identifier), those parameters and the page you landed on are kept in a cookie for up to 30 days and,
+            if you then sign up, recorded once against your account so we can tell where writers came from.
           </p>
           <p>
-            Rune uses <strong style={{ color: "var(--color-parchment)" }}>Meta Pixel</strong> and related Meta business tools to measure
-            advertising performance, understand how visitors interact with our
-            website, and improve the relevance of our advertising campaigns. Meta
-            Pixel may track events such as PageView and CompleteRegistration. Rune
-            does not share manuscript content, chapter data, or writing with Meta.
-            Meta&apos;s use of this data is governed by Meta&apos;s own privacy policy.
+            <Em>Feedback.</Em> What you write in the feedback form, the category you pick, and context about where
+            you were: the page path (identifiers only, never anything you typed), the surface (for example
+            “scene” or “canvas”), your device class, browser family, window size and the build of Sutura. Nothing
+            from your manuscript or workspace is read or attached.
           </p>
           <p>
-            We have also enabled Automatic Advanced Matching, which allows Meta to
-            use information provided during signup — such as your email address —
-            to help match website events to Meta accounts for advertising measurement
-            purposes. This is used solely for campaign analytics, not for targeting
-            ads based on what you write.
+            <Em>Beta waitlist.</Em> If you join the waitlist: your email address, and if you choose to give them,
+            your name and a line about what you write, with the time you joined. Used only to invite you to the
+            beta and to write to you about it.
+          </p>
+          <p>
+            <Em>Technical information.</Em> Like any website, our hosting provider and authentication provider
+            receive your IP address, browser type and the pages requested as part of serving them, and keep
+            short-lived request logs. Sutura does not build profiles from these logs.
           </p>
         </Section>
 
-        <Section title="5. Data Storage and Security">
+        <Section title="3. What Sutura does not do with your writing">
           <p>
-            Your data is stored in a Supabase-managed PostgreSQL database with
-            row-level security enabled, ensuring that no user can access another
-            user&apos;s data through the application layer. All data is encrypted at
-            rest and in transit using industry-standard TLS encryption.
+            Sutura only processes your writing to provide the product: storing it, displaying it to you, syncing it,
+            producing the exports and backups you ask for, and counting words for your own progress. Sutura does not
+            sell your writing, share it with advertisers, use it to train artificial-intelligence or
+            machine-learning models, or send it to any AI service. Sutura will never use AI to write, rewrite, or
+            complete your story.
           </p>
           <p>
-            While we implement reasonable administrative, technical, and physical
-            safeguards, no method of transmission over the internet is 100% secure.
-            We cannot guarantee absolute security and encourage you to use a strong,
-            unique password and to sign out of shared devices when finished.
-          </p>
-        </Section>
-
-        <Section title="6. Cookies">
-          <p>
-            Rune uses two categories of cookies and similar technologies:
-          </p>
-          <p>
-            <strong style={{ color: "var(--color-parchment)" }}>Essential cookies</strong> are required for the Service to function.
-            These include authentication cookies set by Supabase to maintain your
-            signed-in session, session management tokens, and security cookies that
-            protect against unauthorized access. Disabling these cookies will
-            prevent you from remaining signed in to Rune.
-          </p>
-          <p>
-            <strong style={{ color: "var(--color-parchment)" }}>Analytics and advertising technologies</strong> include the Meta Pixel,
-            which places cookies or uses browser storage to measure advertising
-            performance and track conversion events (such as CompleteRegistration).
-            These technologies help us understand how users discover Rune and
-            improve our advertising campaigns. They are active on our marketing
-            pages and on signup and login flows.
-          </p>
-          <p>
-            You may configure your browser to refuse or delete cookies. Blocking
-            essential cookies will prevent Rune from functioning. Blocking
-            advertising cookies will limit our ability to measure campaign
-            performance but will not affect your ability to use the Service once
-            signed in.
+            <Em>Who at Sutura can see it.</Em> Sutura is run by a very small team. Our internal product dashboard is
+            built so that it never displays manuscript prose, notes or private writing; it shows account-level
+            facts such as sign-up dates, word counts and the feedback you send us. Separately, as the operator of
+            the database, we do hold administrative credentials that could technically read stored content. We
+            use that access only to keep the service running, to investigate a problem you report, or when the law
+            requires it, and never to read your writing out of curiosity or for any other purpose.
           </p>
         </Section>
 
-        <Section title="7. Your Rights">
+        <Section title="4. Who processes your information">
           <p>
-            Depending on your location, you may have certain rights regarding your
-            personal data, including the right to access the data we hold about you,
-            correct inaccurate information, request deletion of your account and
-            associated data, and obtain a portable copy of your writing content.
+            Sutura does not sell or rent personal information. The following providers process it on our behalf,
+            under their own terms and privacy policies, to run the service:
           </p>
           <p>
-            You can export your writing at any time from your account settings.
-            To request account deletion or a full data export, contact us at{" "}
-            <a
-              href="mailto:privacy@rune.app"
-              className="transition-colors duration-150"
-              style={{ color: "var(--color-gold)" }}
-            >
-              privacy@rune.app
-            </a>
-            . We will fulfill verified requests within 30 days.
-          </p>
-        </Section>
-
-        <Section title="8. Data Retention">
-          <p>
-            We retain your account data and writing content for as long as your
-            account remains active. If you delete your account, we will permanently
-            delete your data within 30 days of the deletion request, except where we
-            are required by law to retain certain records (such as billing
-            transaction logs, which are retained for a minimum of 7 years).
+            <Em>Supabase</Em> — authentication, the database that holds your account and writing, the private file
+            storage for images, and the emails Sutura sends for account confirmation and sign-in links.
           </p>
           <p>
-            Anonymized and aggregated data — such as total words written across the
-            platform or aggregate game session statistics with no personally
-            identifying information — may be retained indefinitely for the purpose
-            of improving the Service.
+            <Em>Vercel</Em> — hosts the Sutura application and serves it to your browser, and keeps the request
+            logs described above.
+          </p>
+          <p>
+            <Em>Meta (Meta Pixel)</Em> — a measurement script from Meta is included on Sutura’s public front page
+            for visitors who are not signed in. It reports page views there to Meta, so that we can measure whether
+            people who see Sutura mentioned on Meta platforms go on to visit. It sets Meta’s own cookies in your
+            browser. It is not loaded inside the signed-in Sutura application, and it never receives manuscript
+            content, titles, notes or feedback.
+          </p>
+          <p>
+            <Em>PromoteKit</Em> — a referral-tracking script is included on Sutura’s public front page for visitors
+            who are not signed in, and is not loaded inside the signed-in Sutura application. It records
+            whether you arrived through a referral link. Sutura does not currently offer paid plans or a referral
+            programme, so this script has no effect on your account during the beta.
+          </p>
+          <p>
+            <Em>Stripe</Em> — Sutura’s code contains payment integration for a future paid plan. During the closed
+            beta no payment is requested, no card details are collected, and nothing is sent to Stripe.
+          </p>
+          <p>
+            Sutura does not use AI or machine-learning services on your data.
           </p>
         </Section>
 
-        <Section title="9. Children's Privacy">
+        <Section title="5. Where your information is stored">
           <p>
-            The Service is not directed to children under the age of 13. We do not
-            knowingly collect personal information from children under 13. If you
-            become aware that a child has provided us with personal information
-            without parental consent, please contact us at{" "}
-            <a
-              href="mailto:privacy@rune.app"
-              className="transition-colors duration-150"
-              style={{ color: "var(--color-gold)" }}
-            >
-              privacy@rune.app
-            </a>{" "}
-            and we will take steps to delete such information promptly.
-          </p>
-          <p>
-            If you are between 13 and 18 years of age, you should review these terms
-            with a parent or guardian before creating an account or providing any
-            personal information through the Service.
+            Sutura is operated from Québec, Canada. Our providers store and process information on servers that may
+            be located outside Québec and outside Canada, including in the United States, where it is subject to
+            the laws of those places. By using Sutura you understand that your information, including your writing,
+            may be stored and processed there.
           </p>
         </Section>
 
-        <Section title="10. Changes to This Policy">
+        <Section title="6. Security">
           <p>
-            We may update this Privacy Policy from time to time to reflect changes
-            in our practices or for legal, regulatory, or operational reasons. When
-            we make material changes, we will update the &quot;Last updated&quot;
-            date at the top of this page and, where appropriate, notify you by email.
+            Your writing is kept in a database with row-level security, so that the application can only ever read
+            and write the rows belonging to the signed-in account. Images are kept in a private bucket that is
+            never addressed from the browser. Connections use TLS, and our providers report that stored data is
+            encrypted at rest. Sutura never logs manuscript content.
           </p>
           <p>
-            We encourage you to review this Privacy Policy periodically. Your
-            continued use of the Service following the posting of changes constitutes
-            your acceptance of those changes. If you object to any changes, you may
-            close your account.
+            No service can promise absolute security, and Sutura is a small, early product in beta. Use a strong,
+            unique password, sign out on shared devices, and keep your own backups (see Section 8). If we learn of
+            a breach that presents a risk of serious injury to you, we will notify you and the Commission d’accès
+            à l’information du Québec as the law requires.
           </p>
         </Section>
 
-        <Section title="11. Contact">
+        <Section title="7. Cookies and storage in your browser">
           <p>
-            If you have any questions, concerns, or requests regarding this Privacy
-            Policy or your personal data, please contact us at{" "}
-            <a
-              href="mailto:privacy@rune.app"
-              className="transition-colors duration-150"
-              style={{ color: "var(--color-gold)" }}
-            >
-              privacy@rune.app
-            </a>
-            . We are committed to resolving privacy-related concerns transparently
-            and within a reasonable timeframe.
+            <Em>Necessary.</Em> Session cookies from our authentication provider keep you signed in. A cookie
+            named <code>rune_attribution</code> holds the campaign parameters described in Section 2 for up to
+            30 days, only if you arrived through a tagged link. Sutura also keeps data in your browser’s local
+            storage (preferences, a tutorial flag, the one-time registration marker) and in IndexedDB, where
+            unsaved writing is held so that it survives an offline moment and is sent when you reconnect.
+            Blocking these will stop Sutura from working properly.
           </p>
           <p>
-            For general support or account questions, please reach out through your
-            account settings or at{" "}
-            <a
-              href="mailto:support@rune.app"
-              className="transition-colors duration-150"
-              style={{ color: "var(--color-gold)" }}
-            >
-              support@rune.app
-            </a>
-            .
+            <Em>Measurement.</Em> The Meta Pixel and PromoteKit scripts described in Section 4 set their own
+            cookies when you visit the public front page while signed out. Blocking them does not affect your
+            ability to use Sutura.
+          </p>
+        </Section>
+
+        <Section title="8. Your copies: export and backup">
+          <p>
+            You never need to ask us for a copy of your writing. From inside Sutura you can export a manuscript as
+            Word, PDF, Markdown or plain text; download a complete backup of a project (every chapter, scene,
+            note, page, collection, canvas and image, including what is in Trash, as a ZIP archive built on your
+            own device); and download every project’s manuscript as one JSON file from Settings. If you need a
+            copy of information that is not in those exports, write to us.
+          </p>
+        </Section>
+
+        <Section title="9. Deleting your account">
+          <p>
+            You can delete your account yourself in Settings. Deletion is immediate: your account, profile,
+            preferences, every project (including Trash) and everything in them, your writing history, feedback,
+            analytics events and attribution record are deleted from the live database, and the image files
+            belonging to your projects are removed from storage. Deleted writing cannot be recovered by us, so
+            export first.
+          </p>
+          <p>
+            What remains after deletion: a minimal record that the account existed (your email address, pen name,
+            and the date of deletion), kept so that we can answer later questions about the deletion and keep
+            account statistics honest; if you had joined the beta waitlist or been invited, your email address on
+            that list; and copies in our providers’ routine backups, which are kept for a limited period for
+            disaster recovery and then expire. We cannot promise instant erasure from every backup.
+          </p>
+        </Section>
+
+        <Section title="10. How long we keep information">
+          <p>
+            Your account and writing are kept for as long as your account exists. Scene history checkpoints are
+            thinned automatically as new ones are made, so older checkpoints are not kept forever. The beta
+            waitlist is kept while the beta is invite-only. Product analytics events and the deletion record are
+            kept in identifiable form until the account is deleted and in the minimal form described in Section 9
+            afterwards. We may keep aggregated statistics that identify no one indefinitely.
+          </p>
+        </Section>
+
+        <Section title="11. Your rights">
+          <p>
+            You may ask to see the personal information Sutura holds about you, to correct it, to receive it in a
+            portable form, to withdraw consent to optional uses, and to have it deleted. Québec’s privacy law and
+            Canada’s federal privacy law also give you the right to complain to a supervisory authority (in
+            Québec, the Commission d’accès à l’information). Write to{" "}
+            <MailLink address={PRIVACY_EMAIL} /> and we will answer within 30 days. We will need to confirm that
+            the request comes from the account holder.
+          </p>
+        </Section>
+
+        <Section title="12. Children">
+          <p>
+            Sutura is written for adult novelists. You must be at least 13 years old to use it, and under Québec law
+            a person under 14 needs a parent or guardian to consent on their behalf. If you believe a child has
+            created an account, write to <MailLink address={PRIVACY_EMAIL} /> and we will delete it.
+          </p>
+        </Section>
+
+        <Section title="13. Changes to this policy">
+          <p>
+            Sutura is in beta and this policy will change as the product does, in particular before any paid plan
+            is introduced. When we make a material change we will update the date at the top of this page and
+            tell signed-in writers inside Sutura or by email. Continued use after a change means you accept the
+            updated policy; if you do not, you can export your writing and delete your account.
+          </p>
+        </Section>
+
+        <Section title="14. Who is responsible, and how to reach us">
+          <p>
+            Sutura is operated by its founder in Québec, Canada, who is the person in charge of the protection of
+            personal information for the purposes of Québec’s privacy law. For anything about this policy or your
+            information, write to <MailLink address={PRIVACY_EMAIL} />. For help with your account or your
+            writing, write to <MailLink address={SUPPORT_EMAIL} />.
           </p>
         </Section>
 
@@ -306,6 +317,22 @@ export default function PrivacyPage() {
         </div>
       </div>
     </article>
+  );
+}
+
+function Em({ children }: { children: React.ReactNode }) {
+  return <strong style={{ color: "var(--color-parchment)" }}>{children}</strong>;
+}
+
+function MailLink({ address }: { address: string }) {
+  return (
+    <a
+      href={`mailto:${address}`}
+      className="transition-colors duration-150"
+      style={{ color: "var(--color-gold)" }}
+    >
+      {address}
+    </a>
   );
 }
 

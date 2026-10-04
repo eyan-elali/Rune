@@ -1,5 +1,3 @@
-"use server";
-
 // Single write path for Rune's first-party analytics. analytics_events has
 // RLS enabled with zero user-facing policies (same pattern as
 // deleted_accounts), so every write goes through a service-role client here
@@ -17,6 +15,12 @@
 // Requires SUPABASE_SERVICE_ROLE_KEY in .env.local (server-only, no
 // NEXT_PUBLIC_ prefix) — matches the existing pattern in
 // src/lib/actions/settings.ts's deleteAccount().
+//
+// Deliberately NOT a "use server" module: recordAnalyticsEvent takes the
+// user id it writes for, so it must only ever be called by server code that
+// has established that identity itself. A "use server" file makes every
+// export a Server Action the browser can invoke directly; the one event a
+// client records lives in signupAnalytics.ts instead.
 
 import type { AnalyticsEventName } from "@/lib/analyticsEvents";
 
@@ -67,32 +71,4 @@ export async function recordAnalyticsEvent(
 
   if (error) return { error: error.message, code: error.code };
   return { error: null };
-}
-
-// Narrow, client-callable server action for the one event in this taxonomy
-// that has no server-side completion point to hook into: supabase.auth.signUp()
-// talks directly to Supabase's REST API, and — because email confirmation is
-// required — no session exists yet for a server component/action to derive
-// identity from. This function is deliberately scoped to write only
-// "signup_completed" for a userId it has independently verified corresponds
-// to a real profiles row, so a compromised/malicious client cannot use it to
-// forge arbitrary events or attribute events to a different user's account.
-// It must never be widened into a general-purpose "record any event for any
-// user" entry point — recordAnalyticsEvent() above stays server-only for that.
-export async function recordSignupCompletedEvent(
-  userId: string
-): Promise<{ error: string | null }> {
-  const admin = await getServiceClient();
-  if (!admin) {
-    return { error: "Analytics is not configured (missing SUPABASE_SERVICE_ROLE_KEY)." };
-  }
-
-  const { data: profile } = await admin
-    .from("profiles")
-    .select("id")
-    .eq("id", userId)
-    .maybeSingle();
-  if (!profile) return { error: null };
-
-  return recordAnalyticsEvent({ userId, eventName: "signup_completed" });
 }

@@ -1,3 +1,8 @@
+-- HISTORICAL — DO NOT RE-RUN. Already applied to production and contained in the
+-- production baseline (src/lib/supabase/schema.sql, generated 2026-09-24). Kept for
+-- history only; recorded as applied in public.schema_migrations by migration 013.
+-- Re-running historical migrations can regress production. See README.md here.
+
 -- Ensure pages table has updated_at with microsecond precision
 ALTER TABLE public.pages
   ALTER COLUMN updated_at SET DEFAULT now(),

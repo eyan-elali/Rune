@@ -1,7 +1,10 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { getProjectIdsByManuscript } from "@/lib/manuscriptQueries";
 import type { UserPreferences } from "@/lib/types";
+import { readRunePreferences, validatePreferenceChange, type RunePreferences } from "@/lib/rune2/preferences";
+import { HINTS_KEY, isHintId, readSeenHints } from "@/lib/rune2/hints";
 
 type ActionResult = { error: string | null };
 
@@ -67,6 +70,66 @@ export async function updatePreferences(
   return { error: error?.message ?? null };
 }
 
+/**
+ * Saves account-wide Rune preferences (lib/rune2/preferences.ts): only those
+ * keys, only valid values, merged into the writer's other preferences.
+ * Returns what is stored afterwards, so a caller never assumes a write it
+ * cannot see.
+ */
+export async function updateRunePreferences(
+  change: Partial<RunePreferences>
+): Promise<{ data: RunePreferences; error: null } | { data: null; error: string }> {
+  const checked = validatePreferenceChange(change);
+  if (checked.error !== null) return { data: null, error: checked.error };
+
+  const { supabase, user } = await getAuthUser();
+  if (!user) return { data: null, error: "Not authenticated" };
+
+  const { data: profile, error: readError } = await supabase
+    .from("profiles")
+    .select("preferences")
+    .eq("id", user.id)
+    .single();
+  if (readError || !profile) return { data: null, error: "Your preferences couldn’t be read. Nothing was changed." };
+
+  const merged = { ...((profile.preferences as Record<string, unknown> | null) ?? {}), ...checked.patch };
+  const { data: saved, error } = await supabase
+    .from("profiles")
+    .update({ preferences: merged })
+    .eq("id", user.id)
+    .select("preferences")
+    .single();
+  if (error || !saved) return { data: null, error: "Your preference couldn’t be saved. Try again." };
+
+  return { data: readRunePreferences(saved.preferences), error: null };
+}
+
+/**
+ * A one-time hint has been seen (lib/rune2/hints.ts): recorded on the account,
+ * merged into the writer's other preferences, so it never returns on any
+ * device. Idempotent; only known hint ids are accepted.
+ */
+export async function markHintSeen(id: string): Promise<{ error: string | null }> {
+  if (!isHintId(id)) return { error: "Unknown hint." };
+  const { supabase, user } = await getAuthUser();
+  if (!user) return { error: "Not authenticated" };
+
+  const { data: profile, error: readError } = await supabase
+    .from("profiles")
+    .select("preferences")
+    .eq("id", user.id)
+    .single();
+  if (readError || !profile) return { error: "Couldn’t be saved." };
+  const prefs = (profile.preferences as Record<string, unknown> | null) ?? {};
+  const seen = readSeenHints(prefs);
+  if (seen.includes(id)) return { error: null };
+  const { error } = await supabase
+    .from("profiles")
+    .update({ preferences: { ...prefs, [HINTS_KEY]: [...seen, id] } })
+    .eq("id", user.id);
+  return { error: error ? "Couldn’t be saved." : null };
+}
+
 export async function exportUserData(): Promise<{
   data: unknown;
   error: string | null;
@@ -80,23 +143,39 @@ export async function exportUserData(): Promise<{
     .eq("user_id", user.id);
 
   const projectIds = (projects ?? []).map((p: { id: string }) => p.id);
+  let manuscripts: unknown[] = [];
+  let manuscriptGroups: unknown[] = [];
   let chapters: unknown[] = [];
-  let pages: unknown[] = [];
+  let scenes: unknown[] = [];
 
   if (projectIds.length > 0) {
-    const { data: chapterData } = await supabase
-      .from("chapters")
+    const { data: manuscriptData } = await supabase
+      .from("manuscripts")
       .select("*")
       .in("project_id", projectIds);
-    chapters = chapterData ?? [];
+    manuscripts = manuscriptData ?? [];
 
-    const chapterIds = (chapterData ?? []).map((c: { id: string }) => c.id);
-    if (chapterIds.length > 0) {
-      const { data: pageData } = await supabase
-        .from("pages")
+    const manuscriptIds = (manuscriptData ?? []).map((m: { id: string }) => m.id);
+    if (manuscriptIds.length > 0) {
+      // Parts, Books, Acts… (chapters.group_id refers to these).
+      const { data: groupData } = await supabase
+        .from("manuscript_groups")
         .select("*")
-        .in("chapter_id", chapterIds);
-      pages = pageData ?? [];
+        .in("manuscript_id", manuscriptIds);
+      manuscriptGroups = groupData ?? [];
+
+      const { data: chapterData } = await supabase
+        .from("chapters")
+        .select("*")
+        .in("manuscript_id", manuscriptIds);
+      chapters = chapterData ?? [];
+
+      // Every Scene the writer owns, placed and Unplaced.
+      const { data: sceneData } = await supabase
+        .from("scenes")
+        .select("*")
+        .in("manuscript_id", manuscriptIds);
+      scenes = sceneData ?? [];
     }
   }
 
@@ -105,8 +184,10 @@ export async function exportUserData(): Promise<{
       exported_at: new Date().toISOString(),
       user_id: user.id,
       projects: projects ?? [],
+      manuscripts,
+      manuscript_groups: manuscriptGroups,
       chapters,
-      pages,
+      scenes,
     },
     error: null,
   };
@@ -127,16 +208,20 @@ export async function getRecentEditorChapter(): Promise<{
   const projectIds = (projects ?? []).map((p: { id: string }) => p.id);
   if (!projectIds.length) return null;
 
+  const { data: projectIdByManuscript } = await getProjectIdsByManuscript(supabase, projectIds);
+  if (projectIdByManuscript.size === 0) return null;
+
   const { data: chapters } = await supabase
     .from("chapters")
-    .select("id, project_id")
-    .in("project_id", projectIds)
+    .select("id, manuscript_id")
+    .in("manuscript_id", [...projectIdByManuscript.keys()])
     .order("updated_at", { ascending: false })
     .limit(1);
 
   const chapter = chapters?.[0];
-  if (!chapter) return null;
-  return { projectId: chapter.project_id, chapterId: chapter.id };
+  const projectId = chapter ? projectIdByManuscript.get(chapter.manuscript_id) : undefined;
+  if (!chapter || !projectId) return null;
+  return { projectId, chapterId: chapter.id };
 }
 
 export async function markFirstWordsSaved(): Promise<ActionResult> {
@@ -195,6 +280,31 @@ export async function deleteAccount(): Promise<ActionResult> {
     was_excluded_account: Boolean(exclusion),
   });
 
+  // The account's attachment bytes live outside the database, so the cascade
+  // below cannot reach them: remove them first (every Project's, and any an
+  // earlier Project deletion left recorded), with every key recorded as a
+  // purge before its bytes go (lib/projectLifecycle.ts). Best effort: a
+  // failure is logged (no keys, no content) and never blocks the deletion the
+  // writer asked for; bytes left behind stay recorded in
+  // project_storage_purges under the deleted account's id, for an operator.
+  await removeAccountAttachmentBytes(admin, user.id);
+
   const { error } = await admin.auth.admin.deleteUser(user.id);
   return { error: error?.message ?? null };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function removeAccountAttachmentBytes(admin: any, userId: string): Promise<void> {
+  try {
+    const [{ supabaseAttachmentStorage }, { purgeAccountAttachmentBytes }] = await Promise.all([
+      import("@/lib/attachments/storage"),
+      import("@/lib/projectLifecycle"),
+    ]);
+    const { remaining } = await purgeAccountAttachmentBytes(admin, supabaseAttachmentStorage(), userId);
+    if (remaining > 0) {
+      console.error("[deleteAccount] attachment bytes could not all be removed; purges stay recorded", { remaining });
+    }
+  } catch {
+    console.error("[deleteAccount] attachment bytes could not all be removed", { succeeded: false });
+  }
 }

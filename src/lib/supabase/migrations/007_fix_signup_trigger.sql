@@ -1,3 +1,10 @@
+-- HISTORICAL — DO NOT RE-RUN. Already applied to production and contained in the
+-- production baseline (src/lib/supabase/schema.sql, generated 2026-09-24). Kept for
+-- history only; recorded as applied in public.schema_migrations by migration 013.
+-- Re-running historical migrations can regress production. See README.md here.
+-- SUPERSEDED by 009. Re-running this file replaces handle_new_user() with a
+-- version that no longer creates pricing entitlements for new signups.
+
 -- ── Migration 007: Fix new-user signup trigger ────────────────────────────────
 --
 -- Problem: handle_new_user() only inserts (id, display_name, avatar_url).

@@ -8,6 +8,7 @@
 // state (profiles.subscription_tier, user_pricing_entitlements) rather than
 // trusting anything passed in.
 
+import { BILLING_OPEN } from "@/lib/beta";
 import { randomUUID } from "crypto";
 import { createClient } from "@/lib/supabase/server";
 import { stripe } from "@/lib/stripe/client";
@@ -60,6 +61,8 @@ export async function createFoundingCheckoutSession(): Promise<{
   url: string | null;
   error: string | null;
 }> {
+  // Closed beta (Beta Completion E): free; nothing starts a checkout (lib/beta.ts).
+  if (!BILLING_OPEN) return { url: null, error: "Sutura is free during the closed beta. There is nothing to buy." };
   const supabase = await createClient();
   const {
     data: { user },

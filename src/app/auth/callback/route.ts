@@ -1,11 +1,14 @@
 import { createServerClient } from '@supabase/ssr'
+import type { EmailOtpType } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { ATTRIBUTION_COOKIE_NAME, deserializeAttributionCookie } from '@/lib/attribution'
 import { recordFirstTouchAttribution } from '@/lib/actions/attribution'
 import { recordAnalyticsEvent } from '@/lib/actions/analytics'
-import { isPenNameMissing } from '@/lib/penName'
+import { COMPLETE_PROFILE_PATH, needsProfileCompletion, readProfileState } from '@/lib/accountGate'
 import { PURCHASE_INTENT_COOKIE, parsePurchaseIntent } from '@/lib/purchaseIntent'
+import { BILLING_OPEN } from '@/lib/beta'
+import { safeNextPath } from '@/lib/authRedirect'
 
 // Best-effort: reads the first-touch cookie and persists the attribution row
 // for the just-verified user. Never throws — a failure here must not block
@@ -57,20 +60,31 @@ async function recordEmailVerifiedEvent(userId: string) {
   }
 }
 
+const EMAIL_OTP_TYPES: readonly string[] = ['signup', 'invite', 'magiclink', 'recovery', 'email_change', 'email']
+function isEmailOtpType(v: string | null): v is EmailOtpType {
+  return v !== null && EMAIL_OTP_TYPES.includes(v)
+}
+
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get('code')
-  const next = searchParams.get('next') ?? '/dashboard'
+  // A link in the token-hash form ({{ .TokenHash }} email templates) instead
+  // of the PKCE code: verified the same way, then routed exactly the same.
+  const tokenHash = searchParams.get('token_hash')
+  const otpType = searchParams.get('type')
+  // Only a path of this app (lib/authRedirect.ts): a link can carry any `next`.
+  const next = safeNextPath(searchParams.get('next') ?? '/projects')
   const intent = searchParams.get('intent')
 
-  if (code) {
+  if (code || (tokenHash && isEmailOtpType(otpType))) {
     const isNewSignup = intent === 'signup'
     // A pending Scribe purchase intent always takes priority over the
     // ordinary destination — /auth/continue consumes it (creating the
     // Checkout session) and only then falls back to the same
     // onboarding/dashboard routing this would otherwise do directly. When
     // there's no intent, behavior is byte-for-byte the same as before.
-    const hasPendingScribeIntent = parsePurchaseIntent(
+    // Closed beta (Beta Completion E): no purchase is ever continued (lib/beta.ts).
+    const hasPendingScribeIntent = BILLING_OPEN && parsePurchaseIntent(
       request.cookies.get(PURCHASE_INTENT_COOKIE)?.value
     ) !== null
     const baseDestination = hasPendingScribeIntent
@@ -103,8 +117,10 @@ export async function GET(request: NextRequest) {
       }
     )
 
-    const { data, error } = await supabase.auth.exchangeCodeForSession(code)
-    if (!error) {
+    const { data, error } = code
+      ? await supabase.auth.exchangeCodeForSession(code)
+      : await supabase.auth.verifyOtp({ token_hash: tokenHash!, type: otpType as EmailOtpType })
+    if (!error && data.user) {
       // Use the user returned directly by the exchange rather than a
       // follow-up getUser() call. exchangeCodeForSession's success branch
       // guarantees a non-null user (see AuthTokenResponse), whereas a
@@ -116,19 +132,13 @@ export async function GET(request: NextRequest) {
       await recordEmailVerifiedEvent(user.id)
       await persistFirstTouchAttribution(request, redirectResponse, user.id)
 
-      // Every account needs a chosen pen name before entering the writing
-      // experience. Only override the destination on a confirmed,
-      // successful lookup — a failed fetch falls through to the original
-      // destination rather than risking a redirect loop.
-      let destination = baseDestination
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('display_name')
-        .eq('id', user.id)
-        .maybeSingle()
-      if (!profileError && isPenNameMissing(profile?.display_name)) {
-        destination = '/complete-profile'
-      }
+      // Every account needs a profile with a chosen pen name before entering
+      // the writing experience (lib/accountGate.ts) — an account with no
+      // profile row at all included. Only a failed lookup falls through to
+      // the original destination (whose layout asks again) rather than
+      // risking a redirect loop.
+      const profileState = await readProfileState(supabase, user.id, 'display_name')
+      const destination = needsProfileCompletion(profileState) ? COMPLETE_PROFILE_PATH : baseDestination
 
       const finalUrl = new URL(`${origin}${destination}`)
       if (isNewSignup) {
@@ -138,7 +148,7 @@ export async function GET(request: NextRequest) {
       redirectResponse.cookies.getAll().forEach((cookie) => finalResponse.cookies.set(cookie))
       return finalResponse
     }
-    console.error('[auth/callback] exchangeCodeForSession failed:', error.message)
+    console.error('[auth/callback] session exchange failed:', error?.message ?? 'no user')
   }
 
   return NextResponse.redirect(`${origin}/login?error=confirmation_failed`)

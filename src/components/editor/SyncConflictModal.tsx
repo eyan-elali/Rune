@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { getOfflineDB } from "@/lib/offline/db";
+import { getOfflineDB, SCENE_CACHE_STORE } from "@/lib/offline/db";
 import { forceWriteLocalContent } from "@/lib/offline/syncEngine";
 
 interface LocalDraftInfo {
@@ -19,7 +19,7 @@ interface ServerVersionInfo {
 }
 
 interface SyncConflictModalProps {
-  pageId: string;
+  sceneId: string;
   /** Called only after the server confirmed it now holds the local draft. */
   onKeepLocal: (keptWordCount: number) => void;
   onKeepServer: (serverContent: Record<string, unknown>, serverWordCount: number) => void;
@@ -31,7 +31,7 @@ interface SyncConflictModalProps {
 const KEEP_LOCAL_ERROR_MESSAGES: Record<string, string> = {
   auth: "Your session has expired. Your draft is safe on this device — sign in again, then retry.",
   not_found:
-    "This page no longer exists on the server. Your draft is safe on this device — copy it into another page or contact support.",
+    "This scene no longer exists on the server. Your draft is safe on this device — copy it into another scene or contact support.",
   network: "Could not reach the server. Your draft is safe on this device — check your connection and try again.",
   server:
     "The server rejected the save. Your draft is safe on this device — please try again.",
@@ -47,7 +47,7 @@ function formatTime(ts: number | string) {
 }
 
 export function SyncConflictModal({
-  pageId,
+  sceneId,
   onKeepLocal,
   onKeepServer,
   onClose,
@@ -64,7 +64,7 @@ export function SyncConflictModal({
     async function loadVersions() {
       try {
         const db = await getOfflineDB();
-        const pending = await db.get("pending_writes", pageId);
+        const pending = await db.get("pending_writes", sceneId);
         if (pending) {
           setLocalDraft({
             content: pending.content,
@@ -74,13 +74,13 @@ export function SyncConflictModal({
         }
 
         const supabase = createClient();
-        // Plain list select, not .single() — zero rows (page deleted /
+        // Plain list select, not .single() — zero rows (scene deleted /
         // inaccessible) must be distinguishable from a query error instead of
         // both collapsing into PGRST116's generic coercion message.
         const { data: rows, error } = await supabase
-          .from("pages")
+          .from("scenes")
           .select("content, word_count, updated_at, version")
-          .eq("id", pageId);
+          .eq("id", sceneId);
 
         if (error) {
           setLoadError("Could not load the server version.");
@@ -88,7 +88,7 @@ export function SyncConflictModal({
         }
         if (!rows || rows.length === 0) {
           setLoadError(
-            "This page no longer exists on the server. Your local draft is safe on this device."
+            "This scene no longer exists on the server. Your local draft is safe on this device."
           );
           return;
         }
@@ -108,7 +108,7 @@ export function SyncConflictModal({
     }
 
     void loadVersions();
-  }, [pageId]);
+  }, [sceneId]);
 
   useEffect(() => {
     containerRef.current?.focus();
@@ -119,11 +119,10 @@ export function SyncConflictModal({
     setResolveError(null);
     setResolving("local");
     try {
-      const result = await forceWriteLocalContent(pageId);
+      const result = await forceWriteLocalContent(sceneId);
+      // Only a database from before migration 037 can still answer this.
       if (result.status === "word_limit_blocked") {
-        setResolveError(
-          "This would put you over your free-word limit. Your draft is safe — continue with Scribe to save it, or export it."
-        );
+        setResolveError("Your draft is safe on this device, but it couldn’t be saved just now. Try again in a moment.");
         setResolving(null);
         return;
       }
@@ -147,14 +146,14 @@ export function SyncConflictModal({
     setResolving("server");
     try {
       const db = await getOfflineDB();
-      await db.delete("pending_writes", pageId);
+      await db.delete("pending_writes", sceneId);
 
       // Always write the actual fetched server content into cache — even when no
       // prior cache entry exists, so offline navigation reflects the chosen version.
-      const existingCache = await db.get("page_cache", pageId);
-      await db.put("page_cache", {
+      const existingCache = await db.get(SCENE_CACHE_STORE, sceneId);
+      await db.put(SCENE_CACHE_STORE, {
         ...(existingCache ?? {}),
-        id: pageId,
+        id: sceneId,
         content: serverVersion.content,
         wordCount: serverVersion.wordCount,
         serverUpdatedAt: serverVersion.updatedAt,
@@ -219,7 +218,7 @@ export function SyncConflictModal({
           className="mb-1.5 font-rune-serif text-[1.15rem] leading-snug"
           style={{ color: "var(--text-primary)" }}
         >
-          This page was changed elsewhere while you had an unsynced local draft.
+          This scene was changed elsewhere while you had an unsynced local draft.
         </p>
         <p className="mb-7 text-sm" style={{ color: "var(--color-mist)" }}>
           Choose which version to keep.

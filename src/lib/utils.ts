@@ -14,3 +14,11 @@ export function getLocalDateString(date = new Date()): string {
   const d = String(date.getDate()).padStart(2, "0");
   return `${y}-${m}-${d}`;
 }
+
+/**
+ * True on a manuscript editor route — a Chapter, or the Project's Unplaced
+ * Scenes — where Focus Mode hides the surrounding chrome.
+ */
+export function isManuscriptEditorPath(pathname: string): boolean {
+  return pathname.includes("/chapters/") || /^\/projects\/[^/]+\/unplaced\/?$/.test(pathname);
+}

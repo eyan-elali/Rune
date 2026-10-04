@@ -1,6 +1,26 @@
-# Rune — Deployment Guide
+# Sutura — Deployment Guide
 
-Step-by-step instructions for deploying Rune to production.
+Step-by-step instructions for deploying Sutura (developed as Rune 2.0) to production.
+
+> [!IMPORTANT]
+> **Database changes follow `tools/db-audit/STAGING.md`.** Take a manual backup
+> (production has no managed backups or PITR on the Free plan), rehearse on a
+> disposable staging project, and check the exact expected catalog diff. Never
+> re-run migrations 001–012 against any database. They are history and are
+> already contained in the Rune 1.x baseline
+> (`src/lib/supabase/baseline/production-2026-09-24.sql`). Re-running `007`
+> regresses signup.
+>
+> **Rune 2.0 branch:** `src/lib/supabase/schema.sql` is now the Rune 2.0 schema
+> (Scenes, Manuscripts), and the application code on this branch targets it
+> (`scenes`, `chapters.manuscript_id`, `save_scene_checked`). This branch does
+> **not** run against the Rune 1.x production database; do not deploy it there.
+> Production stays on the Rune 1.x baseline until the Rune 1.x → Rune 2.0 data
+> migration.
+>
+> The Stripe section below still describes an obsolete Arcane tier and old
+> prices. The current required environment variables are listed in
+> `src/lib/env.ts`.
 
 ---
 
@@ -22,14 +42,40 @@ Step-by-step instructions for deploying Rune to production.
 
 ---
 
-## Step 2 — Run the Database Schema
+## Step 2 — Build the Database Schema
 
-1. In the Supabase dashboard, go to **SQL Editor**.
-2. Click **New query**.
-3. Paste the entire contents of `src/lib/supabase/schema.sql`.
-4. Click **Run**.
+**A new Rune 2.0 database** is built from one file:
 
-This creates all tables, enables Row Level Security, and installs the trigger that auto-creates a `profiles` row on sign-up.
+```bash
+psql "$DB_URL" -X -1 -v ON_ERROR_STOP=1 -f src/lib/supabase/schema.sql
+```
+
+`schema.sql` is generated (`npm --prefix tools/sync-harness run schema`) from
+the Rune 1.x baseline plus every migration from 013 onward, and records those
+migrations in `public.schema_migrations`. Apply only migrations numbered above
+the last one it records. To check the result, run `tools/db-audit/catalog.sql`
+and compare it with the locally built catalog:
+
+```bash
+npm --prefix tools/sync-harness run schema -- --check --catalog /tmp/rune2-expected.json
+node tools/db-audit/diff-catalog.mjs /tmp/rune2-expected.json <export> --expect schema-only
+```
+
+**A Rune 1.x database** (production, or a staging rehearsal of it) is the
+baseline plus 013 and 014 — never 015, which refuses databases holding
+manuscripts:
+
+```bash
+psql "$DB_URL" -X -1 -v ON_ERROR_STOP=1 -f src/lib/supabase/baseline/production-2026-09-24.sql
+psql "$DB_URL" -X -1 -v ON_ERROR_STOP=1 -f src/lib/supabase/migrations/013_schema_migrations_ledger.sql
+psql "$DB_URL" -X -1 -v ON_ERROR_STOP=1 -f src/lib/supabase/migrations/014_assert_production_baseline.sql
+```
+
+Compare with
+`node tools/db-audit/diff-catalog.mjs src/lib/supabase/catalog/production-2026-09-24.json <export> --expect schema-only`
+(before 013). The Rune 2.0 database created empty from the old baseline gets
+013 onward by `tools/db-audit/STAGING.md` Part 5. To see which migrations it
+actually has, read its live ledger with `npm run db:migrations` (read-only).
 
 ---
 
@@ -77,12 +123,50 @@ Or trigger a deployment by pushing to your main branch.
 
 After your first Vercel deployment:
 
-1. Copy your production URL (e.g. `https://rune.vercel.app`).
+1. Use the canonical production URL: `https://writesutura.com` (the apex; `www` redirects to it).
 2. In Supabase → **Authentication → URL Configuration**:
-   - **Site URL**: set to your production URL
-   - **Redirect URLs**: add `https://your-domain.vercel.app/auth/callback`
+   - **Site URL**: `https://writesutura.com`
+   - **Redirect URLs**: add `https://writesutura.com/auth/callback` (keep the local
+     development callback, e.g. `http://localhost:3000/auth/callback`, alongside it)
 
 This is required for magic-link login and email confirmation to work in production.
+
+---
+
+## The Sutura domain (writesutura.com)
+
+Rune 2.0 was the development name of the product now branded **Sutura**. Its
+canonical address is `https://writesutura.com` (`src/lib/brand.ts`, `SITE_URL`):
+metadata, social cards and the web manifest use it. Auth emails and Stripe
+return URLs use `NEXT_PUBLIC_APP_URL` (or the browser's own origin), so set that
+variable in Vercel Production to `https://writesutura.com`.
+
+Cutover, in order — none of it is automated by this repository:
+
+1. **Vercel → Project → Settings → Domains:** add `writesutura.com` and
+   `www.writesutura.com`. Make the apex the primary domain and set `www` to
+   redirect to it (308). `next.config.ts` also redirects `www` → apex as a
+   fallback.
+2. **GoDaddy → DNS:** add exactly the records Vercel shows for each domain
+   (do not copy values from elsewhere). Remove conflicting A/CNAME records
+   GoDaddy created by default (parked page, forwarding).
+3. Wait for Vercel to show both domains as valid and the certificates issued;
+   check `https://writesutura.com` and that `https://www.writesutura.com/x?y=1`
+   lands on `https://writesutura.com/x?y=1`.
+4. **Vercel env:** `NEXT_PUBLIC_APP_URL=https://writesutura.com` (Production),
+   then redeploy so the client bundle picks it up.
+5. **Supabase → Authentication → URL Configuration:** Site URL
+   `https://writesutura.com`; add `https://writesutura.com/auth/callback` to
+   Redirect URLs. Keep the old production callback until no confirmation or
+   sign-in email sent before the cutover can still be opened.
+6. **Supabase email templates / SMTP sender**, if customised: update any
+   product name, old domain or `@rune-app.com` sender address.
+7. **Mailboxes:** confirm `support@writesutura.com` and
+   `privacy@writesutura.com` receive mail before the cutover — the app and the
+   legal pages link to them.
+8. **Third parties:** Meta (Events Manager domain verification / pixel
+   allowed domains), PromoteKit (site URL), Stripe (webhook endpoint and
+   branding, when billing reopens), Google Search Console if used.
 
 ---
 
@@ -132,12 +216,10 @@ For local webhook testing: `stripe listen --forward-to localhost:3000/api/webhoo
 
 Go to **Settings → Billing → Customer portal** in the Stripe dashboard and enable it.
 
-### 4. Run DB migrations
+### 4. Database
 
-Run these SQL files in order in the Supabase SQL Editor:
-- `src/lib/supabase/migrations/004_billing.sql` — adds billing columns to profiles + subscription_events table
-- `src/lib/supabase/migrations/005_game_tickets.sql` — game_tickets table + increment RPC
-- `src/lib/supabase/migrations/006_offline_sync.sql` — ensures `updated_at NOT NULL` on pages, adds `version` integer column, installs `page_version_trigger` for optimistic locking. **Must be run before deploying the offline-sync feature.**
+Nothing Stripe-specific to run: the billing columns, `subscription_events` and
+the entitlement tables are part of the schema built in Step 2.
 
 ### Environment variables for Stripe
 
@@ -146,7 +228,7 @@ Run these SQL files in order in the Supabase SQL Editor:
 | `STRIPE_SECRET_KEY` | From Stripe Dashboard → Developers → API keys |
 | `STRIPE_WEBHOOK_SECRET` | From webhook endpoint signing secret |
 | `SUPABASE_SERVICE_ROLE_KEY` | From Supabase → Project Settings → API (service_role key) |
-| `NEXT_PUBLIC_APP_URL` | Your production URL (e.g. `https://rune.vercel.app`) — used for Stripe redirect URLs |
+| `NEXT_PUBLIC_APP_URL` | Your production URL (`https://writesutura.com`) — used for auth email and Stripe redirect URLs |
 | `NEXT_PUBLIC_STRIPE_SCRIBE_MONTHLY_USD` | Price ID for Scribe monthly USD |
 | `NEXT_PUBLIC_STRIPE_SCRIBE_MONTHLY_CAD` | Price ID for Scribe monthly CAD |
 | `NEXT_PUBLIC_STRIPE_SCRIBE_ANNUAL_USD` | Price ID for Scribe annual USD |

@@ -4,6 +4,11 @@ import { createClient } from "@/lib/supabase/server";
 import type { Project } from "@/lib/types";
 import { recordAnalyticsEvent } from "@/lib/actions/analytics";
 import { computeStreaks } from "@/lib/streaks";
+import { calculateProjectWordCount } from "@/lib/manuscript";
+import {
+  getChaptersWithScenesByProject,
+  getManuscriptIdForProject,
+} from "@/lib/manuscriptQueries";
 
 type ActionResult<T> = { data: T; error: null } | { data: null; error: string };
 
@@ -50,7 +55,7 @@ async function checkWritingDayMilestones(
 export async function recordWordsWritten(
   projectId: string | null,
   wordsAdded: number,
-  pageId: string | null = null,
+  sceneId: string | null = null,
   // sessionDate must be a YYYY-MM-DD local-calendar date supplied by the client.
   // Falls back to UTC date only when called outside a browser context.
   sessionDate?: string
@@ -62,9 +67,9 @@ export async function recordWordsWritten(
 
   const date = sessionDate ?? new Date().toISOString().slice(0, 10);
 
-  // When a pageId is specified, skip the RPC and go straight to a page-keyed upsert.
-  // The RPC doesn't know about page_id, so letting it run would update the wrong row.
-  if (pageId === null) {
+  // When a sceneId is specified, skip the RPC and go straight to a Scene-keyed upsert.
+  // The RPC doesn't know about scene_id, so letting it run would update the wrong row.
+  if (sceneId === null) {
     const { error } = await supabase.rpc("increment_writing_session", {
       p_user_id: user.id,
       p_project_id: projectId,
@@ -77,19 +82,20 @@ export async function recordWordsWritten(
     }
   }
 
-  // Manual upsert — match by page_id when provided, otherwise by project_id
+  // Manual upsert — match by scene_id when provided, otherwise by project_id
   const baseQuery = supabase
     .from("writing_sessions")
     .select("id, words_added")
     .eq("user_id", user.id)
     .eq("session_date", date);
 
+  // Project-level and account-level rows have no Scene: never match a Scene's row.
   const { data: existing } = await (
-    pageId !== null
-      ? baseQuery.eq("page_id", pageId)
+    sceneId !== null
+      ? baseQuery.eq("scene_id", sceneId)
       : projectId
-      ? baseQuery.eq("project_id", projectId)
-      : baseQuery.is("project_id", null)
+      ? baseQuery.eq("project_id", projectId).is("scene_id", null)
+      : baseQuery.is("project_id", null).is("scene_id", null)
   ).maybeSingle();
 
   if (existing) {
@@ -98,13 +104,20 @@ export async function recordWordsWritten(
       .update({ words_added: existing.words_added + wordsAdded })
       .eq("id", existing.id);
   } else {
-    await supabase.from("writing_sessions").insert({
+    const { error: insertError } = await supabase.from("writing_sessions").insert({
       user_id: user.id,
       project_id: projectId,
-      page_id: pageId,
+      scene_id: sceneId,
       session_date: date,
       words_added: wordsAdded,
     });
+    // The Scene was deleted before this credit arrived (e.g. queued offline).
+    // The writing still happened: record it as Project-level history, as the
+    // database does with a deleted Scene's own history (migration 022).
+    if (insertError?.code === "23503" && sceneId !== null) {
+      await recordWordsWritten(projectId, wordsAdded, null, date);
+      return;
+    }
   }
 
   await checkWritingDayMilestones(supabase, user.id);
@@ -205,12 +218,15 @@ export async function getChapterProgress(
 ): Promise<{ completed: number; total: number }> {
   const supabase = await createClient();
 
-  const { data } = await supabase
-    .from("chapters")
-    .select("id, is_completed")
-    .eq("project_id", projectId);
+  const manuscriptId = await getManuscriptIdForProject(supabase, projectId);
+  const { data } = manuscriptId
+    ? await supabase
+        .from("chapters")
+        .select("id, is_completed")
+        .eq("manuscript_id", manuscriptId)
+    : { data: [] };
 
-  const chapters = data ?? [];
+  const chapters = (data ?? []) as { id: string; is_completed: boolean }[];
   return {
     total: chapters.length,
     completed: chapters.filter((c) => c.is_completed).length,
@@ -249,42 +265,9 @@ export async function getGoals(userId: string): Promise<WritingGoal[]> {
   const projectWordCounts: Record<string, number> = {};
 
   if (projectIds.length > 0) {
-    const { data: chapters } = await supabase
-      .from("chapters")
-      .select("id, project_id")
-      .in("project_id", projectIds);
-
-    if (chapters && chapters.length > 0) {
-      const chapterIds = chapters.map((c) => c.id);
-
-      const { data: pages } = await supabase
-        .from("pages")
-        .select("id, chapter_id, word_count, is_canonical, position")
-        .in("chapter_id", chapterIds)
-        .order("position", { ascending: true });
-
-      for (const projectId of projectIds) {
-        const projectChapterIds = chapters
-          .filter((c) => c.project_id === projectId)
-          .map((c) => c.id);
-
-        let total = 0;
-        for (const chapterId of projectChapterIds) {
-          const chapterPages = (pages ?? []).filter(
-            (p) => p.chapter_id === chapterId
-          );
-          const canonicalPage = chapterPages.find((p) => p.is_canonical);
-          if (canonicalPage) {
-            total += canonicalPage.word_count ?? 0;
-          } else {
-            total += chapterPages.reduce(
-              (sum, p) => sum + (p.word_count ?? 0),
-              0
-            );
-          }
-        }
-        projectWordCounts[projectId] = total;
-      }
+    const { data: chaptersByProject } = await getChaptersWithScenesByProject(supabase, projectIds);
+    for (const projectId of projectIds) {
+      projectWordCounts[projectId] = calculateProjectWordCount(chaptersByProject[projectId] ?? []);
     }
   }
 

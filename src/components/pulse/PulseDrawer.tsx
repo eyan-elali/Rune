@@ -285,10 +285,10 @@ export function PulseDrawerProvider({
       {/* Overlay */}
       <div
         aria-hidden="true"
-        className="fixed inset-0 z-40 transition-opacity duration-300"
+        className="r2-pulse-scrim fixed inset-0 z-40 transition-opacity duration-300"
         style={{
-          background: "var(--color-ink)",
-          opacity: isOpen ? 0.3 : 0,
+          background: "var(--r2-scrim)",
+          opacity: isOpen ? 1 : 0,
           pointerEvents: isOpen ? "auto" : "none",
         }}
         onClick={close}
@@ -300,14 +300,14 @@ export function PulseDrawerProvider({
         role="dialog"
         aria-modal="true"
         aria-label="Pulse detail"
-        className={`fixed right-0 top-0 z-50 flex h-full w-full flex-col overflow-y-auto transition-transform duration-300 ${
+        className={`r2-pulse-sheet fixed right-0 top-0 z-50 flex h-full w-full flex-col overflow-y-auto transition-transform duration-300 ${
           state.mode === "table" ? "max-w-[880px]" : "max-w-[440px]"
         }`}
         style={{
-          background: "var(--surface-card)",
-          borderLeft: "1px solid var(--color-border)",
+          background: "var(--r2-overlay-bg)",
+          borderLeft: "1px solid var(--r2-border)",
           transform: isOpen ? "translateX(0)" : "translateX(100%)",
-          boxShadow: "-10px 0 40px var(--color-shadow)",
+          boxShadow: "var(--r2-shadow-sheet)",
         }}
       >
         {state.mode === "list" && (
@@ -363,11 +363,7 @@ function DrawerHeader({
     >
       <div className="min-w-0 flex-1 pr-4">
         {onBack && (
-          <button
-            onClick={onBack}
-            className="mb-2 text-xs transition-opacity hover:opacity-70"
-            style={{ color: "var(--color-gold-dim)" }}
-          >
+          <button type="button" onClick={onBack} className="r2-pulse-back-link mb-2">
             ← Back
           </button>
         )}
@@ -382,10 +378,10 @@ function DrawerHeader({
         </p>
       </div>
       <button
+        type="button"
         onClick={onClose}
         aria-label="Close panel"
-        className="ml-4 mt-0.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded transition-opacity hover:opacity-60"
-        style={{ color: "var(--color-mist)" }}
+        className="r2-icon-button ml-4 mt-0.5 flex-shrink-0"
       >
         <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true">
           <path d="M1 1L12 12M12 1L1 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
@@ -551,12 +547,7 @@ function TablePanel({
           value={query}
           onChange={(e) => handleQueryChange(e.target.value)}
           placeholder="Search by name or email…"
-          className="mb-3 w-full rounded-md px-3 py-1.5 text-xs outline-none"
-          style={{
-            background: "var(--surface-card)",
-            border: "1px solid var(--color-border-strong)",
-            color: "var(--text-primary)",
-          }}
+          className="r2-field r2-field--sm mb-3 w-full"
         />
         {loading || searching ? (
           <p className="px-2 py-6 text-sm" style={{ color: "var(--color-mist)" }}>
@@ -638,11 +629,8 @@ function TablePanel({
                 <button
                   onClick={handleLoadMore}
                   disabled={loadingMore}
-                  className="rounded-md px-3 py-1.5 text-xs transition-opacity hover:opacity-70 disabled:opacity-50"
-                  style={{
-                    border: "1px solid var(--color-border-strong)",
-                    color: "var(--text-primary)",
-                  }}
+                  type="button"
+                  className="r2-button r2-button--sm"
                 >
                   {loadingMore ? "Loading…" : "Load more"}
                 </button>

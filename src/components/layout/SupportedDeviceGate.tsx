@@ -2,6 +2,7 @@
 
 import { useEffect, useLayoutEffect, useState, type ReactNode } from "react";
 import { PhoneWaitingRoom, type WaitingRoomVariant } from "./PhoneWaitingRoom";
+import { Wordmark } from "@/components/brand/Wordmark";
 
 // useLayoutEffect is a no-op (with a console warning) during SSR, so this
 // falls back to useEffect on the server render pass and only switches to
@@ -17,6 +18,8 @@ interface SupportedDeviceGateProps {
   children: ReactNode;
   variant: WaitingRoomVariant;
   preferences?: Record<string, unknown> | null;
+  /** What paints before the device is known (the server render); the legacy splash if omitted. */
+  placeholder?: ReactNode;
 }
 
 // Gates authenticated app content behind a phone-width check. Renders
@@ -25,7 +28,7 @@ interface SupportedDeviceGateProps {
 // glimpses onboarding, the dashboard, or the editor before the gate
 // resolves, and children are never mounted at all when gated — heavy
 // client experiences like the Tiptap editor simply never initialize.
-export function SupportedDeviceGate({ children, variant, preferences }: SupportedDeviceGateProps) {
+export function SupportedDeviceGate({ children, variant, preferences, placeholder }: SupportedDeviceGateProps) {
   const [isSupported, setIsSupported] = useState<boolean | null>(null);
 
   useIsomorphicLayoutEffect(() => {
@@ -41,17 +44,15 @@ export function SupportedDeviceGate({ children, variant, preferences }: Supporte
   }, []);
 
   if (isSupported === null) {
+    if (placeholder !== undefined) return <>{placeholder}</>;
     return (
       <div
         className="flex min-h-screen items-center justify-center"
         style={{ background: "var(--bg-primary)" }}
         aria-hidden="true"
       >
-        <span
-          className="select-none font-rune-serif text-2xl opacity-60"
-          style={{ color: "var(--color-gold)", letterSpacing: "0.3em", fontStyle: "italic" }}
-        >
-          Rune
+        <span className="select-none opacity-60">
+          <Wordmark label={false} />
         </span>
       </div>
     );

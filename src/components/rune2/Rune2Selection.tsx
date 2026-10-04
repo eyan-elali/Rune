@@ -1,0 +1,418 @@
+"use client";
+
+import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from "react";
+import type { ProjectManuscript } from "@/lib/rune2/projectManuscript";
+import type { ProjectWorkspace } from "@/lib/rune2/projectWorkspace";
+import { indexManuscript, indexWorkspace, isSelectable, type NavEntry } from "@/lib/rune2/navigatorModel";
+import { readingTabKey, type ReadingPosition, type ReadingSource } from "@/lib/rune2/reading";
+import {
+  appendTab,
+  closeTab as closeTabIn,
+  forgetTabs,
+  MANUSCRIPT_TAB,
+  navigateTab,
+  openTab,
+  resolveTabs,
+  type TabState,
+} from "@/lib/rune2/workingSet";
+
+// The Rune 2.0 shell's client state, shared by the navigator, the tabs, the
+// context bar, the content area and the right-hand panel. Session-local: none
+// of it is persisted, and none of it copies manuscript state.
+//
+// The working set: a few open tabs, each naming one canonical object by id (or
+// the Manuscript itself). The selection *is* the active tab — there is no
+// second selection to keep in step — and every tab resolves against the
+// current manuscript, so a renamed object's tab is renamed, a Scene moved to
+// Unplaced keeps its tab, and a tab whose object is gone disappears, handing
+// its place to a neighbour. Normal navigation replaces the active tab's
+// object; only an explicit "open in new tab" adds a tab. An object is open in
+// at most one tab: opening it again goes to that tab. Workspace Pages are
+// objects like any other here: one index holds the Manuscript's objects and
+// the Workspace's, keyed by canonical id — Collections and their Entries
+// included, so an Entry is one tab however it was opened. Workspace Folders
+// are in the index too (the navigator and item paths use them) but are
+// navigation only: never selected, never a tab.
+//
+// Also shared here, because actions outside the navigator change them: which
+// navigator rows are open, a request to focus a Scene's prose once its editor
+// appears (a Scene just created from the writing surface), titles renamed but
+// not yet re-read, which view the right-hand panel shows, whether the
+// navigator is retracted, whether Project Search is open, and whether the
+// content column shows the Project's Trash.
+//
+// Trash is a project-level utility surface, not an object: it never becomes a
+// tab and never changes the working set. While it is open the content column
+// shows it in place of the selection (whose tabs, editors and unsaved writing
+// stay mounted, hidden); closing it shows the same selection again, and any
+// navigation — selecting an object, opening one in a new tab, a tab, a newly
+// created object — leaves Trash for that object.
+//
+// Reading Mode (Milestone 18, reshaped in 21C) is a way of seeing the
+// manuscript, not an object and not a tab: it lies over the writer's current
+// context. "Read" opens a Reading Peek — a centred reading surface over the
+// shell — and from there the writer may enter Full Reading Mode, which takes
+// the whole shell. Underneath, nothing changes: the selection, the tabs, every
+// mounted editor and its scroll stay exactly as they were, so closing the
+// reader returns the writer to where they were. `reading` says what is read
+// (the whole manuscript, or one Scene View — lib/rune2/reading.ts) and
+// `readingMode` how. Where the writer had read to is remembered per source for
+// the session (keyed as lib/rune2/reading.ts names a source), so reopening the
+// reader returns there and reads the Scenes' current text again.
+
+export { MANUSCRIPT_TAB };
+
+export type PanelView = "notes" | "inspector";
+
+export type ReadingMode = "peek" | "full";
+
+export type WorkingTab = {
+  key: string;
+  /** The tab's object, or null for the Manuscript. */
+  entry: NavEntry | null;
+};
+
+type Rune2SelectionValue = {
+  manuscript: ProjectManuscript;
+  workspace: ProjectWorkspace;
+  index: Map<string, NavEntry>;
+  /** The selected object (the active tab's), or null for the Manuscript as a whole. */
+  selected: NavEntry | null;
+  /** Opens an object (null: the Manuscript) in the active tab — or goes to its tab. */
+  select: (id: string | null) => void;
+  /** Opens an object in a tab of its own, after the active one — or goes to its tab. */
+  openInNewTab: (id: string | null) => void;
+  /**
+   * Selects an object as soon as the manuscript contains it — for one just
+   * created, before the manuscript is re-read — so the selection never
+   * falls back in between.
+   */
+  selectWhenPresent: (id: string) => void;
+  tabs: WorkingTab[];
+  activeTab: string;
+  activateTab: (key: string) => void;
+  closeTab: (key: string) => void;
+  /**
+   * Takes objects out of the working set for good (moved to Trash): their
+   * tabs are removed, and a later restore does not bring them back.
+   */
+  dropTabs: (ids: readonly string[]) => void;
+  /** Open navigator rows (Groups, Chapters, sections) — UI state only. */
+  open: Record<string, boolean>;
+  setOpenFor: (ids: string[], value: boolean) => void;
+  /** A Scene whose prose should take focus when its editor appears. */
+  focusSceneId: string | null;
+  requestSceneFocus: (id: string | null) => void;
+  /**
+   * A placement to select and bring into view once its Canvas shows (a
+   * Project Search result, say): the Canvas and the placement; forgotten by
+   * the surface once done.
+   */
+  canvasFocus: { canvasId: string; itemId: string } | null;
+  requestCanvasFocus: (focus: { canvasId: string; itemId: string } | null) => void;
+  /** Shows a title at once, until the manuscript is re-read. */
+  setRenamedTitle: (id: string, title: string) => void;
+  /** Whether the navigator is retracted — presentation state only. */
+  navCollapsed: boolean;
+  toggleNav: () => void;
+  setNavCollapsed: (collapsed: boolean) => void;
+  /**
+   * The navigator's and the panel's widths when the writer has dragged them
+   * (null: the shell's default). Session-local, like everything here.
+   */
+  navWidth: number | null;
+  setNavWidth: (width: number | null) => void;
+  panelWidth: number | null;
+  setPanelWidth: (width: number | null) => void;
+  /** The one right-hand panel's view, or null when it is closed. */
+  panel: PanelView | null;
+  /** Opens the panel on a view, switches it, or — for the view showing — closes it. */
+  togglePanel: (view: PanelView) => void;
+  closePanel: () => void;
+  /** Whether Project Search is open — presentation state only. */
+  searchOpen: boolean;
+  setSearchOpen: (open: boolean | ((open: boolean) => boolean)) => void;
+  /**
+   * Why search is open: "go" (⌘K, the navigator's search) opens a result as
+   * everywhere else; "add" (the tab strip's "+") opens it in a tab of its own
+   * at the end of the strip, the others kept.
+   */
+  searchIntent: "go" | "add";
+  /** Opens Project Search to add an object to the working set. */
+  openSearchToAdd: () => void;
+  /** "Open another": `id` in a tab of its own at the end of the strip, or its existing tab. */
+  appendToWorkingSet: (id: string | null) => void;
+  /** Whether Settings is open in a Center Peek over the Project (the Project beneath untouched). */
+  settingsOpen: boolean;
+  setSettingsOpen: (open: boolean) => void;
+  /** Whether the content column shows the Project's Trash instead of the selection. */
+  trashOpen: boolean;
+  setTrashOpen: (open: boolean) => void;
+  /** What the reader shows, or null when it is closed. */
+  reading: ReadingSource | null;
+  /** How it shows: a Peek over the shell, or Full Reading Mode. */
+  readingMode: ReadingMode;
+  /**
+   * Opens the Reading Peek for `source`, at the Group, Chapter or Scene `at`
+   * when given — else where the writer last was in it. With `noteId`, at that
+   * anchored Revision Note's passage, with the note open.
+   */
+  openReading: (source: ReadingSource, at?: string | null, noteId?: string | null) => void;
+  setReadingMode: (mode: ReadingMode) => void;
+  /** Closes the reader; the context beneath is as it was. */
+  closeReading: () => void;
+  /** A block to go to when the reader shows (then forgotten), set by openReading; `noteId`: an anchored note to open there. */
+  readingJump: { key: string; anchor: string; noteId: string | null } | null;
+  clearReadingJump: () => void;
+  /** Where the writer had read to in a source this session. */
+  readingPositionOf: (key: string) => ReadingPosition | null;
+  rememberReadingPosition: (key: string, position: ReadingPosition) => void;
+};
+
+const Rune2SelectionContext = createContext<Rune2SelectionValue | null>(null);
+
+export function Rune2SelectionProvider({
+  manuscript,
+  workspace,
+  children,
+}: {
+  manuscript: ProjectManuscript;
+  workspace: ProjectWorkspace;
+  children: ReactNode;
+}) {
+  const [tabState, setTabState] = useState<TabState>({ tabs: [MANUSCRIPT_TAB], active: MANUSCRIPT_TAB });
+  const [awaitedId, setAwaitedId] = useState<string | null>(null);
+  const [open, setOpen] = useState<Record<string, boolean>>({});
+  const [focusSceneId, requestSceneFocus] = useState<string | null>(null);
+  const [canvasFocus, requestCanvasFocus] = useState<{ canvasId: string; itemId: string } | null>(null);
+  const [panel, setPanel] = useState<PanelView | null>(null);
+  const [navCollapsed, setNavCollapsed] = useState(false);
+  const [navWidth, setNavWidth] = useState<number | null>(null);
+  const [panelWidth, setPanelWidth] = useState<number | null>(null);
+  const [searchOpen, setSearchOpenState] = useState(false);
+  const [searchIntent, setSearchIntent] = useState<"go" | "add">("go");
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  // Any opening other than the "+" is a plain search.
+  const setSearchOpen = useCallback((open: boolean | ((open: boolean) => boolean)) => {
+    setSearchIntent("go");
+    setSearchOpenState(open);
+  }, []);
+  const openSearchToAdd = useCallback(() => {
+    setSearchIntent("add");
+    setSearchOpenState(true);
+  }, []);
+  const [trashOpen, setTrashOpen] = useState(false);
+  const [reading, setReading] = useState<ReadingSource | null>(null);
+  const [readingMode, setReadingMode] = useState<ReadingMode>("peek");
+  const [readingJump, setReadingJump] = useState<{ key: string; anchor: string; noteId: string | null } | null>(null);
+  // Positions only: never shown, so kept without re-rendering.
+  const readingPositions = useRef(new Map<string, ReadingPosition>());
+
+  // Titles renamed but not yet re-read; a fresh read supersedes them.
+  const [renamed, setRenamed] = useState<Record<string, string>>({});
+  const [read, setRead] = useState({ manuscript, workspace });
+  if (read.manuscript !== manuscript || read.workspace !== workspace) {
+    setRead({ manuscript, workspace });
+    setRenamed({});
+  }
+
+  const index = useMemo(
+    () => new Map([...indexManuscript(manuscript, renamed), ...indexWorkspace(workspace.tree, renamed, workspace.entries)]),
+    [manuscript, workspace, renamed]
+  );
+  const has = useCallback(
+    (key: string) => {
+      if (key === MANUSCRIPT_TAB) return true;
+      const entry = index.get(key);
+      return entry !== undefined && isSelectable(entry);
+    },
+    [index]
+  );
+
+  // Adjusted during render (not in an effect) so the awaited object is
+  // selected in the same render that first contains it.
+  if (awaitedId && has(awaitedId)) {
+    setAwaitedId(null);
+    setTrashOpen(false);
+    setTabState((prev) => navigateTab(resolveTabs(prev, has), awaitedId));
+  }
+
+  const resolved = resolveTabs(tabState, has);
+  const selected = resolved.active === MANUSCRIPT_TAB ? null : (index.get(resolved.active) ?? null);
+
+  const select = useCallback(
+    (id: string | null) => {
+      if (id !== null && !has(id)) return;
+      setAwaitedId(null);
+      requestSceneFocus(null);
+      setTrashOpen(false);
+      setTabState((prev) => navigateTab(resolveTabs(prev, has), id ?? MANUSCRIPT_TAB));
+    },
+    [has]
+  );
+  const openInNewTab = useCallback(
+    (id: string | null) => {
+      if (id !== null && !has(id)) return;
+      setAwaitedId(null);
+      requestSceneFocus(null);
+      setTrashOpen(false);
+      setTabState((prev) => openTab(resolveTabs(prev, has), id ?? MANUSCRIPT_TAB));
+    },
+    [has]
+  );
+  const appendToWorkingSet = useCallback(
+    (id: string | null) => {
+      if (id !== null && !has(id)) return;
+      setAwaitedId(null);
+      requestSceneFocus(null);
+      setTrashOpen(false);
+      setTabState((prev) => appendTab(resolveTabs(prev, has), id ?? MANUSCRIPT_TAB));
+    },
+    [has]
+  );
+  const activateTab = useCallback(
+    (key: string) => {
+      requestSceneFocus(null);
+      setTrashOpen(false);
+      setTabState((prev) => navigateTab(resolveTabs(prev, has), key));
+    },
+    [has]
+  );
+  const closeTab = useCallback(
+    (key: string) => setTabState((prev) => closeTabIn(resolveTabs(prev, has), key)),
+    [has]
+  );
+  const dropTabs = useCallback((ids: readonly string[]) => setTabState((prev) => forgetTabs(prev, ids)), []);
+  const selectWhenPresent = useCallback((id: string) => setAwaitedId(id), []);
+  const setOpenFor = useCallback(
+    (ids: string[], value: boolean) =>
+      setOpen((prev) => ({ ...prev, ...Object.fromEntries(ids.map((id) => [id, value])) })),
+    []
+  );
+  const setRenamedTitle = useCallback(
+    (id: string, title: string) => setRenamed((prev) => ({ ...prev, [id]: title })),
+    []
+  );
+  const toggleNav = useCallback(() => setNavCollapsed((v) => !v), []);
+  const togglePanel = useCallback((view: PanelView) => setPanel((prev) => (prev === view ? null : view)), []);
+  const closePanel = useCallback(() => setPanel(null), []);
+  const openReading = useCallback((source: ReadingSource, at: string | null = null, noteId: string | null = null) => {
+    setReadingJump(at ? { key: readingTabKey(source), anchor: at, noteId } : null);
+    setReadingMode("peek");
+    setReading(source);
+  }, []);
+  const closeReading = useCallback(() => {
+    setReading(null);
+    setReadingJump(null);
+  }, []);
+  const clearReadingJump = useCallback(() => setReadingJump(null), []);
+  const readingPositionOf = useCallback((key: string) => readingPositions.current.get(key) ?? null, []);
+  const rememberReadingPosition = useCallback((key: string, position: ReadingPosition) => {
+    readingPositions.current.set(key, position);
+  }, []);
+
+  const tabs = useMemo(
+    () => resolved.tabs.map((key) => ({ key, entry: key === MANUSCRIPT_TAB ? null : (index.get(key) ?? null) })),
+    [resolved.tabs, index]
+  );
+
+  const value = useMemo(
+    () => ({
+      manuscript,
+      workspace,
+      index,
+      selected,
+      select,
+      openInNewTab,
+      selectWhenPresent,
+      tabs,
+      activeTab: resolved.active,
+      activateTab,
+      closeTab,
+      dropTabs,
+      open,
+      setOpenFor,
+      focusSceneId,
+      requestSceneFocus,
+      canvasFocus,
+      requestCanvasFocus,
+      setRenamedTitle,
+      navCollapsed,
+      toggleNav,
+      setNavCollapsed,
+      navWidth,
+      setNavWidth,
+      panelWidth,
+      setPanelWidth,
+      panel,
+      togglePanel,
+      closePanel,
+      searchOpen,
+      setSearchOpen,
+      searchIntent,
+      openSearchToAdd,
+      appendToWorkingSet,
+      settingsOpen,
+      setSettingsOpen,
+      trashOpen,
+      setTrashOpen,
+      reading,
+      readingMode,
+      openReading,
+      setReadingMode,
+      closeReading,
+      readingJump,
+      clearReadingJump,
+      readingPositionOf,
+      rememberReadingPosition,
+    }),
+    [
+      manuscript,
+      workspace,
+      index,
+      selected,
+      select,
+      openInNewTab,
+      selectWhenPresent,
+      tabs,
+      resolved.active,
+      activateTab,
+      closeTab,
+      dropTabs,
+      open,
+      setOpenFor,
+      focusSceneId,
+      canvasFocus,
+      setRenamedTitle,
+      navCollapsed,
+      toggleNav,
+      navWidth,
+      panelWidth,
+      panel,
+      togglePanel,
+      closePanel,
+      searchOpen,
+      setSearchOpen,
+      searchIntent,
+      openSearchToAdd,
+      appendToWorkingSet,
+      settingsOpen,
+      trashOpen,
+      reading,
+      readingMode,
+      openReading,
+      closeReading,
+      readingJump,
+      clearReadingJump,
+      readingPositionOf,
+      rememberReadingPosition,
+    ]
+  );
+  return <Rune2SelectionContext.Provider value={value}>{children}</Rune2SelectionContext.Provider>;
+}
+
+export function useRune2Selection(): Rune2SelectionValue {
+  const value = useContext(Rune2SelectionContext);
+  if (!value) throw new Error("useRune2Selection must be used inside Rune2SelectionProvider");
+  return value;
+}

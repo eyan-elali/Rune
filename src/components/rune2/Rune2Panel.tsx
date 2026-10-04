@@ -1,0 +1,619 @@
+"use client";
+
+import { useEffect, useRef, useState, useTransition, type CSSProperties, type ReactNode } from "react";
+import { Check, Pin, PinOff, Trash2, X } from "lucide-react";
+import { ICON } from "./icons";
+import { Tooltip } from "./Tooltip";
+import {
+  completeProjectNote,
+  createProjectNote,
+  deleteProjectNote,
+  listProjectNotes,
+  pinProjectNote,
+  unpinProjectNote,
+} from "@/lib/actions/notes";
+import type { NavKind } from "@/lib/rune2/navigatorModel";
+import { referenceSubject } from "@/lib/rune2/references";
+import type { ProjectNote } from "@/lib/types";
+import { SceneSuggestions } from "./CollectionSchema";
+import { InspectorSection } from "./InspectorSection";
+import { MilestonesSection, ObjectMilestonesSection } from "./ManuscriptMilestones";
+import { ObjectLinks } from "./ObjectLinks";
+import { AddProperty, ItemProperties } from "./PropertyFields";
+import { usePropertyStore } from "./PropertyStore";
+import { useReferenceStore } from "./ReferenceStore";
+import { SceneHistorySection } from "./SceneHistory";
+import { RevisionNotesView } from "./RevisionNotes";
+import { useRevisionNotes } from "./RevisionNoteStore";
+import { useRune2Selection, type PanelView } from "./Rune2Selection";
+import { useViewStore } from "./ViewStore";
+
+// The one contextual panel: a single shell for both contextual side surfaces.
+// Revision Notes and Inspector are separate actions in the context bar, but
+// they share this one physical panel: choosing one shows it here, choosing
+// the other switches views (same geometry, same place — only the contents
+// change), choosing the view showing closes the panel. Only one can be open.
+//
+// It lives in the content column's body zone (Rune2Shell): under the tab
+// band and context bar, beside the content, above the document status — so
+// opening it moves neither of those. On wide screens it is an inset side
+// sheet beside the content; at medium and narrow widths it lies over the
+// content's right edge instead (rune2.css decides by width, never by view).
+// It sits outside the editors' subtree, so opening, switching or closing it
+// never remounts an editor.
+//
+// The panel is always in the tree: opening and closing animate its width
+// (rune2.css), so the content beside it widens and narrows in one calm
+// movement rather than jumping. The view's content is mounted while the
+// panel is open and kept through the closing movement, then let go.
+
+const TITLES: Record<PanelView, string> = { notes: "Revision Notes", inspector: "Inspector" };
+const CLOSE_MS = 320;
+
+export function Rune2Panel({ resizer }: { resizer?: ReactNode }) {
+  const { panel, closePanel, panelWidth } = useRune2Selection();
+  const ref = useRef<HTMLElement>(null);
+  // The view shown: the open one, or during the closing movement the last one.
+  const [shown, setShown] = useState<PanelView | null>(panel);
+  if (panel && panel !== shown) setShown(panel);
+  useEffect(() => {
+    if (panel) return;
+    const timer = setTimeout(() => setShown(null), CLOSE_MS);
+    return () => clearTimeout(timer);
+  }, [panel]);
+
+  // Escape from inside the panel closes it and returns to the action that opened it.
+  // (Focus moves first: the action is outside the panel, so it never lands on
+  // the page body while the panel's content unmounts.)
+  const close = () => {
+    if (panel && ref.current?.contains(document.activeElement)) {
+      document.querySelector<HTMLElement>(`[data-panel-action="${panel}"]`)?.focus();
+    }
+    closePanel();
+  };
+
+  const view = panel ?? shown;
+  // A width the writer chose reaches the CSS here; otherwise the shell's default stands.
+  const style = panelWidth !== null ? ({ "--r2-panel-width": `${panelWidth}px` } as CSSProperties) : undefined;
+  return (
+    <aside
+      ref={ref}
+      className="r2-panel"
+      style={style}
+      data-open={panel ? "" : undefined}
+      aria-label={view ? TITLES[view] : "Panel"}
+      aria-hidden={!panel || undefined}
+      inert={!panel || undefined}
+      onKeyDown={(e) => {
+        if (e.key === "Escape" && !e.defaultPrevented) {
+          e.preventDefault();
+          close();
+        }
+      }}
+    >
+      {resizer}
+      {view && (
+        <div className="r2-panel-inner">
+          <header className="r2-panel-head">
+            <h2>{TITLES[view]}</h2>
+            <Tooltip label="Close panel">
+              <button type="button" className="r2-icon-button" aria-label={`Close ${TITLES[view]}`} onClick={close}>
+                <X {...ICON} aria-hidden />
+              </button>
+            </Tooltip>
+          </header>
+          <div className="r2-panel-body">{view === "notes" ? <NotesPanel /> : <InspectorView />}</div>
+        </div>
+      )}
+    </aside>
+  );
+}
+
+// ── Notes ─────────────────────────────────────────────────────────────────
+//
+// Revision Notes: the one home for revision notes (RevisionNotes.tsx) — on the
+// Manuscript, a Group, a Chapter or a Scene, shown for the level the writer
+// is at. Notes are never manuscript prose: separate tables, separate words.
+//
+// Before migration 040 the panel shows what it always did: the project-wide
+// checklist (project_notes, ChecklistView). 040 copies that checklist's open
+// items into Manuscript-wide Revision Notes and leaves project_notes as it
+// is, for the Rune 1.x pages that still read it.
+
+function NotesPanel() {
+  const { available } = useRevisionNotes();
+  return available ? <RevisionNotesView /> : <ChecklistView />;
+}
+
+function ChecklistView() {
+  const { manuscript } = useRune2Selection();
+  const projectId = manuscript.project.id;
+  const [notes, setNotes] = useState<ProjectNote[] | null>(null);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [notice, setNotice] = useState<string | null>(null);
+  const [showDone, setShowDone] = useState(false);
+  const [, startTransition] = useTransition();
+
+  useEffect(() => {
+    let live = true;
+    listProjectNotes(projectId)
+      .then((r) => {
+        if (!live) return;
+        if (r.data) setNotes(r.data);
+        else setLoadFailed(true);
+      })
+      .catch(() => live && setLoadFailed(true));
+    return () => {
+      live = false;
+    };
+  }, [projectId]);
+
+  function add() {
+    const content = draft.trim();
+    if (!content || !notes) return;
+    setDraft("");
+    setNotice(null);
+    const tempId = `pending-${Date.now()}`;
+    const now = new Date().toISOString();
+    setNotes((prev) => [
+      ...(prev ?? []),
+      {
+        id: tempId,
+        user_id: "",
+        project_id: projectId,
+        content,
+        is_completed: false,
+        is_pinned: false,
+        created_at: now,
+        completed_at: null,
+        updated_at: now,
+      },
+    ]);
+    startTransition(async () => {
+      const r = await createProjectNote(projectId, content).catch(() => null);
+      if (r?.data) {
+        const saved = r.data;
+        setNotes((prev) => prev?.map((n) => (n.id === tempId ? saved : n)) ?? prev);
+      } else {
+        setNotes((prev) => prev?.filter((n) => n.id !== tempId) ?? prev);
+        setDraft(content);
+        setNotice("Couldn’t save the note. It’s back in the box — try again.");
+      }
+    });
+  }
+
+  /** Applies a change at once and saves it; a failed save puts the list back. */
+  function change(next: (list: ProjectNote[]) => ProjectNote[], save: () => Promise<{ error: string | null }>) {
+    if (!notes) return;
+    const before = notes;
+    setNotes(next(notes));
+    setNotice(null);
+    startTransition(async () => {
+      const r = await save().catch(() => ({ error: "failed" }));
+      if (r.error) {
+        setNotes(before);
+        setNotice("Couldn’t save that change.");
+      }
+    });
+  }
+
+  const complete = (note: ProjectNote) =>
+    change(
+      (list) => list.map((n) => (n.id === note.id ? { ...n, is_completed: true, is_pinned: false } : n)),
+      () => completeProjectNote(note.id)
+    );
+  const remove = (note: ProjectNote) =>
+    change((list) => list.filter((n) => n.id !== note.id), () => deleteProjectNote(note.id));
+  const togglePin = (note: ProjectNote) =>
+    note.is_pinned
+      ? change(
+          (list) => list.map((n) => (n.id === note.id ? { ...n, is_pinned: false } : n)),
+          () => unpinProjectNote(note.id)
+        )
+      : change(
+          (list) => list.map((n) => ({ ...n, is_pinned: n.id === note.id })),
+          () => pinProjectNote(note.id, projectId)
+        );
+
+  const active = (notes ?? []).filter((n) => !n.is_completed);
+  const ordered = [...active.filter((n) => n.is_pinned), ...active.filter((n) => !n.is_pinned)];
+  const done = (notes ?? []).filter((n) => n.is_completed);
+
+  return (
+    <div className="r2-notes">
+      <p className="r2-panel-caption">For the whole manuscript, not this chapter or scene.</p>
+
+      {/* The composer: a place to write a note, not a form field. Quiet at
+          rest, discoverable on hover, clearly active while writing; it grows
+          with the note (rune2.css). */}
+      <div className="r2-composer" data-filled={draft ? "" : undefined}>
+        <textarea
+          className="r2-composer-input"
+          placeholder="Leave a note for the next pass…"
+          aria-label="New revision note"
+          rows={1}
+          value={draft}
+          disabled={!notes}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+              e.preventDefault();
+              add();
+            } else if (e.key === "Escape" && draft) {
+              // First Escape clears the draft; the next one closes the panel.
+              e.preventDefault();
+              setDraft("");
+            }
+          }}
+          maxLength={2000}
+        />
+        <p className="r2-composer-hint" aria-hidden>
+          Return to add · Shift-Return for a new line
+        </p>
+      </div>
+
+      {notice && (
+        <p role="status" className="r2-panel-notice">
+          {notice}
+        </p>
+      )}
+
+      {notes === null ? (
+        <p className="r2-panel-empty">{loadFailed ? "Couldn’t load revision notes." : "Loading…"}</p>
+      ) : ordered.length === 0 ? (
+        <p className="r2-panel-empty">
+          {done.length > 0 ? "Nothing open." : "Nothing here yet. What you write here stays with the manuscript for your next pass."}
+        </p>
+      ) : (
+        <ul role="list" className="r2-notes-list">
+          {ordered.map((note) => (
+            <li key={note.id} className="r2-note" data-pinned={note.is_pinned || undefined}>
+              <p>{note.content}</p>
+              <span className="r2-note-actions">
+                <button
+                  type="button"
+                  className="r2-icon-button"
+                  aria-label="Mark done"
+                  title="Mark done"
+                  disabled={note.id.startsWith("pending-")}
+                  onClick={() => complete(note)}
+                >
+                  <Check {...ICON} aria-hidden />
+                </button>
+                <button
+                  type="button"
+                  className="r2-icon-button"
+                  aria-label={note.is_pinned ? "Unpin" : "Pin to top"}
+                  title={note.is_pinned ? "Unpin" : "Pin to top"}
+                  disabled={note.id.startsWith("pending-")}
+                  onClick={() => togglePin(note)}
+                >
+                  {note.is_pinned ? (
+                    <PinOff {...ICON} aria-hidden />
+                  ) : (
+                    <Pin {...ICON} aria-hidden />
+                  )}
+                </button>
+                <button
+                  type="button"
+                  className="r2-icon-button"
+                  aria-label="Delete note"
+                  title="Delete"
+                  disabled={note.id.startsWith("pending-")}
+                  onClick={() => remove(note)}
+                >
+                  <Trash2 {...ICON} aria-hidden />
+                </button>
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {done.length > 0 && (
+        <div className="r2-notes-done">
+          <button type="button" className="r2-panel-link" aria-expanded={showDone} onClick={() => setShowDone((v) => !v)}>
+            {showDone ? "Hide" : "Show"} done ({done.length})
+          </button>
+          {showDone && (
+            <ul role="list" className="r2-notes-list">
+              {done.map((note) => (
+                <li key={note.id} className="r2-note" data-done>
+                  <p>{note.content}</p>
+                  <span className="r2-note-actions">
+                    <button
+                      type="button"
+                      className="r2-icon-button"
+                      aria-label="Delete note"
+                      title="Delete"
+                      onClick={() => remove(note)}
+                    >
+                      <Trash2 {...ICON} aria-hidden />
+                    </button>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Inspector ─────────────────────────────────────────────────────────────
+//
+// What the writer needs to know about what they are working on — not which
+// fields exist. It reads top to bottom as: what this is and where it sits
+// (kind, title, its place in the manuscript, its few facts in one line);
+// then its Scene properties (032, edited in place and saved on their own —
+// never with the prose, never inside the editor); then History (036: the
+// versions the database kept on its own — background safety); then the named
+// Milestones that hold it (037, each opening the read-only Milestone at it);
+// then its connections — links and backlinks (028, 035). A Chapter shown as
+// one piece of writing stands for its only Scene; a divided Chapter has no
+// prose of its own, so it shows only its Milestones and where it is
+// mentioned — and its Scenes, each a way there. The Manuscript (nothing selected) shows its shape and its
+// Milestones. Workspace objects keep their few facts and connections.
+//
+// Sections are parted by hairlines and space, never boxed; each is quiet when
+// empty. Revision Notes are not here: they have one home, the Revision Notes
+// panel.
+
+function plural(n: number, one: string, many = `${one}s`) {
+  return `${n.toLocaleString()} ${n === 1 ? one : many}`;
+}
+
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+}
+
+function InspectorView() {
+  const { manuscript, workspace, index, selected, select } = useRune2Selection();
+  // Listing an object's Milestones needs migration 037.
+  const milestoneLookup = workspace.chapterTrashable;
+  const { available: propertied, propertiesOf } = usePropertyStore();
+  const { available: referable } = useReferenceStore();
+  const subject = referable && selected ? referenceSubject(index, selected) : null;
+  // The Scene whose properties and history show: the selected Scene, or a Chapter's only Scene.
+  const scene = selected ? referenceSubject(index, selected) : null;
+
+  /** Where an object sits: the Groups (and for a Scene, the Chapter) above it, each a way there. */
+  const place = (parents: { id: string; title: string; kind: NavKind }[], fallback?: string): ReactNode => {
+    if (parents.length === 0) return fallback ?? null;
+    return parents.map((p, i) => (
+      <span key={p.id} className="r2-insp-place-step">
+        {i > 0 && <span aria-hidden className="r2-insp-place-sep">/</span>}
+        {p.kind === "workspaceFolder" ? (
+          <span>{p.title}</span>
+        ) : (
+          <button type="button" className="r2-insp-place-link" onClick={() => select(p.id)}>
+            {p.title}
+          </button>
+        )}
+      </span>
+    ));
+  };
+
+  let kind: string;
+  let title: string;
+  /** Where it sits, as a trail of its containers. */
+  let where: ReactNode = null;
+  /** Its few facts, read as one quiet line. */
+  let facts: ReactNode[] = [];
+  /** A second line of facts, where one isn't enough. */
+  let more: ReactNode[] = [];
+  let hint: string | null = null;
+
+  if (!selected) {
+    kind = "Manuscript";
+    title = manuscript.project.title;
+    facts = [
+      plural(manuscript.manuscriptWords, "word"),
+      ...(manuscript.groupCount > 0 ? [plural(manuscript.groupCount, "group")] : []),
+      plural(manuscript.chapterCount, "chapter"),
+      plural(manuscript.placedSceneCount, "scene"),
+    ];
+    if (manuscript.unplaced.length > 0) {
+      more = [`Unplaced: ${plural(manuscript.unplaced.length, "scene")} · ${plural(manuscript.unplacedWords, "word")}`];
+    }
+  } else {
+    title = selected.title;
+    switch (selected.kind) {
+      case "group": {
+        const inside = [...index.values()].filter((e) => e.path.some((p) => p.id === selected.id));
+        const chapters = inside.filter((e) => e.kind === "chapter").length;
+        const groups = inside.filter((e) => e.kind === "group").length;
+        kind = "Group";
+        where = place(selected.path, "Manuscript");
+        facts = [
+          plural(selected.words, "word"),
+          ...(groups > 0 ? [plural(groups, "group")] : []),
+          plural(chapters, "chapter"),
+        ];
+        break;
+      }
+      case "chapter": {
+        const scenes = selected.sceneIds?.length ?? 0;
+        kind = "Chapter";
+        where = place(selected.path, "Manuscript");
+        facts = [`Chapter ${selected.ordinal} of ${manuscript.chapterCount}`, plural(selected.words, "word")];
+        if (scenes !== 1) facts.push(plural(scenes, "scene"));
+        break;
+      }
+      case "scene": {
+        const chapter = selected.path[selected.path.length - 1];
+        const siblings = chapter ? (index.get(chapter.id)?.sceneIds?.length ?? 0) : 0;
+        kind = "Scene";
+        where = place(selected.path);
+        facts = [`Scene ${selected.ordinal} of ${siblings}`, plural(selected.words, "word")];
+        more = ["In the manuscript: counts toward the total and export"];
+        hint = selected.named ? null : "Unnamed";
+        break;
+      }
+      case "unplacedScene":
+        kind = "Unplaced Scene";
+        where = <span>Unplaced Scenes</span>;
+        facts = [plural(selected.words, "word")];
+        more = ["Outside the manuscript’s order: not in the total or export"];
+        hint = selected.named ? null : "Unnamed";
+        break;
+      case "workspacePage": {
+        const page = workspace.pages.find((p) => p.id === selected.id);
+        kind = "Page";
+        where = place(selected.path, "Workspace");
+        facts = page ? [`Created ${formatDate(page.created_at)}`, `Edited ${formatDate(page.updated_at)}`] : [];
+        break;
+      }
+      case "workspaceCollection":
+        kind = "Collection";
+        where = place(selected.path, "Workspace");
+        facts = [
+          plural(selected.childCount, "entry", "entries"),
+          ...(propertied ? [plural(propertiesOf(selected.id).length, "property", "properties")] : []),
+        ];
+        break;
+      case "collectionEntry": {
+        const entry = workspace.entries.find((e) => e.id === selected.id);
+        kind = "Entry";
+        where = place(selected.path, "Workspace");
+        facts = entry ? [`Created ${formatDate(entry.created_at)}`, `Edited ${formatDate(entry.updated_at)}`] : [];
+        break;
+      }
+      case "workspaceCanvas":
+        kind = "Canvas";
+        where = place(selected.path, "Workspace");
+        facts = [];
+        more = ["A spatial surface: arranging things here never changes the manuscript or the Workspace"];
+        break;
+      // Never selected (navigation only), but described if it ever were.
+      case "workspaceFolder":
+        kind = "Folder";
+        where = place(selected.path, "Workspace");
+        facts = [plural(selected.childCount, "item")];
+        break;
+    }
+  }
+
+  const sceneId = scene?.type === "scene" ? scene.id : null;
+  return (
+    <div className="r2-inspector">
+      <header className="r2-insp-head">
+        <p className="r2-insp-kind">{kind}</p>
+        <p className="r2-insp-title">
+          {title}
+          {hint && <span className="r2-insp-hint">{hint}</span>}
+        </p>
+        {where && <p className="r2-insp-place">{where}</p>}
+        {facts.length > 0 && (
+          <p className="r2-insp-facts">
+            {facts.map((f, i) => (
+              <span key={i}>{f}</span>
+            ))}
+          </p>
+        )}
+        {more.map((line, i) => (
+          <p key={i} className="r2-insp-more">
+            {line}
+          </p>
+        ))}
+      </header>
+
+      {selected?.kind === "chapter" && (selected.sceneIds?.length ?? 0) > 1 && (
+        <InspectorSection title="Scenes">
+          <ul className="r2-insp-scenes" aria-label="Scenes in this chapter">
+            {selected.sceneIds!.map((id) => {
+              const scene = index.get(id);
+              if (!scene) return null;
+              return (
+                <li key={id}>
+                  <button type="button" className="r2-version" onClick={() => select(id)}>
+                    <span className="r2-version-when">{scene.title}</span>
+                    <span className="r2-version-words">{plural(scene.words, "word")}</span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </InspectorSection>
+      )}
+      {sceneId && <SceneInspectorProperties key={`props-${sceneId}`} sceneId={sceneId} />}
+      {sceneId && <SceneHistorySection key={`history-${sceneId}`} sceneId={sceneId} projectId={manuscript.project.id} />}
+      {milestoneLookup && selected?.kind === "chapter" && (
+        <ObjectMilestonesSection key={`milestones-${selected.id}`} kind="chapter" id={selected.id} />
+      )}
+      {milestoneLookup && (selected?.kind === "scene" || selected?.kind === "unplacedScene") && (
+        <ObjectMilestonesSection key={`milestones-${selected.id}`} kind="scene" id={selected.id} />
+      )}
+      {!selected && <MilestonesSection projectId={manuscript.project.id} />}
+      {/* A fresh section per object, so an open search never carries over. */}
+      {referable && (subject || selected?.kind === "chapter") && (
+        <ObjectLinks
+          key={subject?.id ?? selected?.id}
+          subject={subject}
+          chapterId={selected?.kind === "chapter" ? selected.id : null}
+        />
+      )}
+    </div>
+  );
+}
+
+/**
+ * A Scene's properties in the Inspector: the Manuscript's Scene properties,
+ * each value edited in place. With none defined, a faint way to start —
+ * never a form the writer must fill. "Edit scene properties" opens the
+ * Manuscript's property settings (rename, reorder, options, remove).
+ */
+function SceneInspectorProperties({ sceneId }: { sceneId: string }) {
+  const { sceneAvailable, manuscriptId, propertiesOf } = usePropertyStore();
+  const { select } = useRune2Selection();
+  const { openScenes } = useViewStore();
+  const [notice, setNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!notice) return;
+    const timer = setTimeout(() => setNotice(null), 5000);
+    return () => clearTimeout(timer);
+  }, [notice]);
+
+  if (!sceneAvailable || !manuscriptId) return null;
+  const count = propertiesOf(manuscriptId).length;
+  return (
+    <InspectorSection
+      title="Properties"
+      aside={
+        count > 0 ? (
+          <button
+            type="button"
+            className="r2-insp-aside-link"
+            onClick={() => {
+              select(null);
+              openScenes("properties");
+            }}
+          >
+            Edit
+          </button>
+        ) : undefined
+      }
+    >
+      <div className="r2-scene-props">
+      <ItemProperties
+        itemId={sceneId}
+        ownerId={manuscriptId}
+        empty={
+          <>
+            <SceneSuggestions ownerId={manuscriptId} onNotice={setNotice} />
+            <AddProperty ownerId={manuscriptId} quiet />
+          </>
+        }
+      />
+      {notice && (
+        <p role="status" className="r2-panel-notice">
+          {notice}
+        </p>
+      )}
+      </div>
+    </InspectorSection>
+  );
+}

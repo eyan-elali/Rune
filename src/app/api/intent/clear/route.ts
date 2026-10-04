@@ -1,3 +1,6 @@
+// Closed beta (Beta Completion E): the landing page that linked here is gone;
+// an old link still clears any stale intent and lands on the front door.
+//
 // Entry point for the landing page's free-start CTAs ("Start Writing Free" /
 // "Start Your Manuscript — Free"). A visitor who earlier clicked "Continue
 // with Scribe" (setting the intent cookie — see src/app/api/intent/scribe/route.ts)
@@ -13,7 +16,7 @@ import { PURCHASE_INTENT_COOKIE } from "@/lib/purchaseIntent";
 
 export async function GET(request: NextRequest) {
   const { origin } = new URL(request.url);
-  const response = NextResponse.redirect(`${origin}/signup`);
+  const response = NextResponse.redirect(`${origin}/`);
   response.cookies.delete(PURCHASE_INTENT_COOKIE);
   return response;
 }

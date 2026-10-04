@@ -46,7 +46,7 @@ export default function AppError({
           Try again
         </button>
         <Link
-          href="/dashboard"
+          href="/projects"
           className="text-sm transition-colors hover:text-rune-gold"
           style={{ color: "var(--color-mist)" }}
         >

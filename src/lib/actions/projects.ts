@@ -2,8 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import type { Project, Chapter, Page } from "@/lib/types";
-import { calculateChapterWordCount } from "@/lib/manuscript";
+import type { Project, Chapter, PlacedScene } from "@/lib/types";
+import { calculateChapterWordCount, calculateProjectWordCount } from "@/lib/manuscript";
+import { getChaptersWithScenes } from "@/lib/manuscriptQueries";
+import { createProjectChecked, PROJECT_TITLE_MAX } from "@/lib/projectCreation";
+import { deleteTrashedProject as deleteTrashedProjectWithStorage, sweepProjectStoragePurges } from "@/lib/projectLifecycle";
+import { supabaseAttachmentStorage } from "@/lib/attachments/storage";
 
 type ActionResult<T> = { data: T; error: null } | { data: null; error: string };
 
@@ -15,6 +19,7 @@ async function getUser() {
   return { supabase, user };
 }
 
+/** The writer's active Projects (never those in Trash), most recently worked in first. */
 export async function getProjects(): Promise<ActionResult<Project[]>> {
   const { supabase, user } = await getUser();
   if (!user) return { data: null, error: "Not authenticated" };
@@ -23,35 +28,54 @@ export async function getProjects(): Promise<ActionResult<Project[]>> {
     .from("projects")
     .select("*")
     .eq("user_id", user.id)
-    .order("is_pinned", { ascending: false })
+    .is("trashed_at", null)
     .order("updated_at", { ascending: false });
 
   if (error) return { data: null, error: error.message };
   return { data: data ?? [], error: null };
 }
 
-export async function createProject(
-  title: string,
-  description?: string,
-  coverColor?: string
-): Promise<ActionResult<Project>> {
+/** The writer's Projects in Trash, most recently trashed first. */
+export async function getTrashedProjects(): Promise<ActionResult<Project[]>> {
   const { supabase, user } = await getUser();
   if (!user) return { data: null, error: "Not authenticated" };
 
   const { data, error } = await supabase
     .from("projects")
-    .insert({
-      user_id: user.id,
-      title: title.trim(),
-      description: description?.trim() || null,
-      cover_color: coverColor ?? null,
-    })
-    .select()
-    .single();
+    .select("*")
+    .eq("user_id", user.id)
+    .not("trashed_at", "is", null)
+    .order("trashed_at", { ascending: false });
 
   if (error) return { data: null, error: error.message };
+  return { data: data ?? [], error: null };
+}
+
+/**
+ * Creates a Project with its Manuscript, "Chapter 1" and an empty "Scene 1",
+ * atomically (create_project_checked, migration 021). requestId is the
+ * client's id for this creation attempt: a retry with the same id returns the
+ * Project the first attempt created instead of creating another.
+ */
+export async function createProject(
+  title: string,
+  description?: string,
+  coverColor?: string,
+  requestId?: string
+): Promise<ActionResult<Project>> {
+  const { supabase, user } = await getUser();
+  if (!user) return { data: null, error: "Not authenticated" };
+
+  const result = await createProjectChecked(supabase, {
+    title,
+    description: description?.trim() || null,
+    coverColor: coverColor ?? null,
+    requestId,
+  });
+  if (result.status !== "ok") return { data: null, error: result.error ?? "Couldn’t create the project" };
+
   revalidatePath("/projects");
-  return { data, error: null };
+  return { data: result.project, error: null };
 }
 
 export async function updateProject(
@@ -75,22 +99,71 @@ export async function updateProject(
   return { data, error: null };
 }
 
+/** Renames a Project. The title is trimmed and required. */
+export async function renameProject(id: string, title: string): Promise<ActionResult<Project>> {
+  const trimmed = title.trim();
+  if (!trimmed) return { data: null, error: "A project needs a title." };
+  if (trimmed.length > PROJECT_TITLE_MAX) return { data: null, error: `A title can be up to ${PROJECT_TITLE_MAX} characters.` };
+  return updateProject(id, { title: trimmed });
+}
+
+type ProjectLifecycleResult = { status: "ok"; project: Project } | { status: "error"; error: string };
+
+async function lifecycle(fn: "trash_project" | "restore_project", id: string): Promise<ActionResult<Project>> {
+  const { supabase, user } = await getUser();
+  if (!user) return { data: null, error: "Not authenticated" };
+
+  const { data, error } = await supabase.rpc(fn, { p_project_id: id });
+  if (error) return { data: null, error: error.message };
+  const result = data as ProjectLifecycleResult | null;
+  if (!result) return { data: null, error: "Nothing changed. Try again." };
+  if (result.status !== "ok") return { data: null, error: result.error };
+
+  revalidatePath("/projects");
+  revalidatePath("/projects/trash");
+  return { data: result.project, error: null };
+}
+
+/** Moves a Project to Trash: it leaves the Projects list, keeping everything it holds. */
+export async function trashProject(id: string): Promise<ActionResult<Project>> {
+  return lifecycle("trash_project", id);
+}
+
+/** Brings a Project back from Trash, exactly as it was. */
+export async function restoreProject(id: string): Promise<ActionResult<Project>> {
+  return lifecycle("restore_project", id);
+}
+
+/**
+ * Permanently deletes a Project that is in Trash — every row it owns, and
+ * its attachments' bytes in storage (lib/projectLifecycle.ts). An active
+ * Project is refused.
+ */
+export async function deleteTrashedProject(id: string): Promise<{ error: string | null }> {
+  const { supabase, user } = await getUser();
+  if (!user) return { error: "Not authenticated" };
+
+  const storage = supabaseAttachmentStorage();
+  const result = await deleteTrashedProjectWithStorage(supabase, storage, id);
+  if (result.error !== null) return { error: result.error };
+  // Anything an earlier deletion could not finish removing.
+  await sweepProjectStoragePurges(supabase, storage).catch(() => undefined);
+
+  revalidatePath("/projects");
+  revalidatePath("/projects/trash");
+  return { error: null };
+}
+
 type DuplicateProjectCheckedResult =
   | { status: "ok"; project: Project }
-  | { status: "word_limit_blocked"; limit: number }
   | { status: "error"; error: string };
 
 /**
- * Duplicates a project — chapters, pages, canonical-page relationships —
- * subject to the account-wide free-word limit. Delegates the entire
- * operation to duplicate_project_checked() (migration 011): ownership
- * verification, the canonical-aware word-limit check, and every row copy
- * happen inside that single atomic database call, sharing the same
- * per-account advisory lock as page saves/inserts. This closes the earlier
- * check-then-write race, where a concurrent editor save (or another
- * duplication) could read the same "remaining" figure and jointly exceed
- * the account-wide limit — and guarantees no partial duplicate is ever left
- * behind if something fails partway through.
+ * Duplicates a project — its Manuscript's Groups, active Chapters and every
+ * active Scene, placed and Unplaced (never its Trash) — through
+ * duplicate_project_checked(): ownership verification and every row copy
+ * happen inside that single atomic database call, under the same per-account
+ * lock as Scene saves, so no partial duplicate is ever left behind.
  */
 export async function duplicateProject(
   projectId: string
@@ -106,13 +179,7 @@ export async function duplicateProject(
 
   const result = data as DuplicateProjectCheckedResult;
 
-  if (result.status === "word_limit_blocked") {
-    return {
-      data: null,
-      error: `Duplicating this project would put you over your ${result.limit.toLocaleString()}-word free limit. Upgrade to Scribe to keep writing.`,
-    };
-  }
-  if (result.status === "error") return { data: null, error: result.error };
+  if (result.status !== "ok") return { data: null, error: result.error ?? "Couldn’t duplicate the project" };
 
   revalidatePath("/projects");
   // No XP awarded for duplication — only manual typing earns progression.
@@ -137,110 +204,49 @@ export async function toggleProjectPin(
   return { error: null };
 }
 
-export async function deleteProject(id: string): Promise<{ error: string | null }> {
-  const { supabase, user } = await getUser();
-  if (!user) return { error: "Not authenticated" };
-
-  const { error } = await supabase
-    .from("projects")
-    .delete()
-    .eq("id", id)
-    .eq("user_id", user.id);
-
-  if (error) return { error: error.message };
-  revalidatePath("/projects");
-  return { error: null };
-}
-
 export async function getProjectStats(
   projectId: string
-): Promise<{ chapterCount: number; totalCanonicalWords: number }> {
+): Promise<{ chapterCount: number; totalWords: number }> {
   const { supabase } = await getUser();
 
-  const { data: chapters } = await supabase
-    .from("chapters")
-    .select("id")
-    .eq("project_id", projectId);
-
-  const chapterIds = (chapters ?? []).map((c: { id: string }) => c.id);
-  if (chapterIds.length === 0) return { chapterCount: 0, totalCanonicalWords: 0 };
-
-  const { data: pages } = await supabase
-    .from("pages")
-    .select("chapter_id, word_count, is_canonical")
-    .in("chapter_id", chapterIds);
-
-  let totalWords = 0;
-  for (const chapterId of chapterIds) {
-    const chapterPages = (pages ?? []).filter(
-      (p: { chapter_id: string }) => p.chapter_id === chapterId
-    );
-    const canonical = chapterPages.find((p: { is_canonical: boolean }) => p.is_canonical);
-    if (canonical) {
-      totalWords += (canonical as { word_count: number }).word_count ?? 0;
-    } else {
-      totalWords += chapterPages.reduce(
-        (s: number, p: { word_count: number }) => s + (p.word_count ?? 0),
-        0
-      );
-    }
-  }
-
-  return { chapterCount: chapterIds.length, totalCanonicalWords: totalWords };
+  const { data: chapters } = await getChaptersWithScenes(supabase, projectId);
+  return { chapterCount: chapters.length, totalWords: calculateProjectWordCount(chapters) };
 }
 
+/**
+ * The dashboard's "start your story" form: createProject, returning the first
+ * Chapter and Scene to open in the editor.
+ */
 export async function createProjectWithDraft(
   title: string,
-  coverColor?: string
-): Promise<ActionResult<{ projectId: string; chapterId: string; page: Page; chapter: Chapter; project: Project }>> {
+  coverColor?: string,
+  requestId?: string
+): Promise<ActionResult<{ projectId: string; chapterId: string; scene: PlacedScene; chapter: Chapter; project: Project }>> {
   const { supabase, user } = await getUser();
   if (!user) return { data: null, error: "Not authenticated" };
 
-  const { data: project, error: projectError } = await supabase
-    .from("projects")
-    .insert({
-      user_id: user.id,
-      title: title.trim(),
-      cover_color: coverColor ?? null,
-    })
-    .select()
-    .single();
+  const result = await createProjectChecked(supabase, {
+    title,
+    coverColor: coverColor ?? null,
+    requestId,
+  });
+  if (result.status !== "ok") return { data: null, error: result.error ?? "Couldn’t create the project" };
 
-  if (projectError || !project) {
-    return { data: null, error: projectError?.message ?? "Failed to create project" };
-  }
-
-  const { data: chapter, error: chapterError } = await supabase
-    .from("chapters")
-    .insert({ project_id: project.id, title: "Chapter 1", position: 1 })
-    .select()
-    .single();
-
-  if (chapterError || !chapter) {
-    return { data: null, error: chapterError?.message ?? "Failed to create chapter" };
-  }
-
-  const { data: page, error: pageError } = await supabase
-    .from("pages")
-    .insert({
-      chapter_id: chapter.id,
-      title: "Page 1",
-      content: null,
-      word_count: 0,
-      position: 0,
-      is_canonical: false,
-    })
-    .select()
-    .single();
-
-  if (pageError || !page) {
-    return { data: null, error: pageError?.message ?? "Failed to create page" };
-  }
-
+  const { project, chapter, scene_id: sceneId } = result;
   revalidatePath("/projects");
-  revalidatePath("/dashboard");
+  // Only possible on a retry whose Project has since lost its first Chapter or Scene.
+  if (!chapter || !sceneId) return { data: null, error: "This story already exists — open it from your projects." };
 
-  return { data: { projectId: project.id, chapterId: chapter.id, page, chapter, project }, error: null };
+  const { data: scene, error: sceneError } = await supabase
+    .from("scenes")
+    .select("*")
+    .eq("id", sceneId)
+    .single();
+  if (sceneError || !scene) {
+    return { data: null, error: sceneError?.message ?? "Failed to load the new scene" };
+  }
+
+  return { data: { projectId: project.id, chapterId: chapter.id, scene, chapter, project }, error: null };
 }
 
 export async function getProjectChaptersForDrawer(
@@ -249,21 +255,10 @@ export async function getProjectChaptersForDrawer(
   const { supabase, user } = await getUser();
   if (!user) return [];
 
-  const { data } = await supabase
-    .from("chapters")
-    .select("id, title, pages(word_count, is_canonical)")
-    .eq("project_id", projectId)
-    .order("position", { ascending: true });
+  const { data, error } = await getChaptersWithScenes(supabase, projectId);
+  if (error) return [];
 
-  if (!data) return [];
-
-  type RawChapter = {
-    id: string;
-    title: string;
-    pages: { word_count: number; is_canonical: boolean }[];
-  };
-
-  return (data as unknown as RawChapter[]).map((c) => ({
+  return data.map((c) => ({
     id: c.id,
     title: c.title,
     wordCount: calculateChapterWordCount(c),

@@ -11,7 +11,18 @@ export interface UserPreferences {
   has_completed_editor_tutorial?: boolean;
   has_seen_guides_update_notice?: boolean;
   hideArena?: boolean;
+  /**
+   * Rune 2.0 manuscript type: the prose serif (default) or Rune's sans. It
+   * affects manuscript editing and reading prose only, never the interface.
+   */
+  rune2EditorFont?: Rune2EditorFont;
+  /** Rune 2.0: the browser's spelling check while writing (on unless false). */
+  rune2Spellcheck?: boolean;
+  /** Rune 2.0 appearance id (lib/rune2/preferences.ts APPEARANCES). */
+  rune2Appearance?: string;
 }
+
+export type Rune2EditorFont = "serif" | "sans";
 
 export interface Profile {
   id: string;
@@ -53,27 +64,545 @@ export interface Project {
   updated_at: string;
 }
 
-export interface Chapter {
+/** Exactly one per Project, created with it by the database. Holds no prose. */
+export interface Manuscript {
   id: string;
   project_id: string;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * A structural container in a Manuscript ("Part I", "Book Two", "Act I"): one
+ * type for all of them. Contains Chapters and other Groups, never prose or
+ * Scenes. parent_group_id null = directly under the Manuscript. position
+ * orders it among its parent's children, Groups and Chapters together.
+ */
+export interface ManuscriptGroup {
+  id: string;
+  manuscript_id: string;
+  parent_group_id: string | null;
+  /** null = untitled. */
+  title: string | null;
+  position: number;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * A Workspace Page (Rune 2.0, migration 023): a freeform supporting document
+ * that belongs to one Project. Not a Scene and not manuscript prose — it never
+ * counts toward any word total. Stored in `workspace_documents`, never `pages`.
+ */
+export interface WorkspacePage {
+  id: string;
+  project_id: string;
+  /** null = untitled. */
+  title: string | null;
+  /** TipTap JSON. */
+  content: Record<string, unknown>;
+  /** Bumped by the database on every content change (never by a rename). */
+  version: number;
+  created_at: string;
+  updated_at: string;
+}
+
+/** A Workspace Page without its content — what the navigator lists. */
+export type WorkspacePageSummary = Pick<WorkspacePage, "id" | "title" | "created_at" | "updated_at">;
+
+/** A Workspace Folder (migration 024): organisational only, no content. Belongs to its Project. */
+export interface WorkspaceFolder {
+  id: string;
+  project_id: string;
+  /** null = untitled. */
+  title: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type WorkspaceFolderSummary = Pick<WorkspaceFolder, "id" | "title">;
+
+/**
+ * A Workspace Collection (migration 025): many Entries of one writer-defined
+ * kind ("Characters", "Research"). Belongs to its Project and owns its
+ * Entries; Rune gives no Collection a built-in meaning.
+ */
+export interface WorkspaceCollection {
+  id: string;
+  project_id: string;
+  /** null = untitled. */
+  title: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type WorkspaceCollectionSummary = Pick<WorkspaceCollection, "id" | "title">;
+
+/**
+ * A Workspace Canvas (migration 045, table workspace_canvases): a spatial
+ * thinking surface where the writer arranges placements of the book's real
+ * pieces and Canvas-local notes. Belongs to its Project; one canonical place
+ * in the Workspace tree. Spatial placement never changes the book.
+ */
+export interface WorkspaceCanvas {
+  id: string;
+  project_id: string;
+  /** null = untitled. */
+  title: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type WorkspaceCanvasSummary = Pick<WorkspaceCanvas, "id" | "title">;
+
+/** What a Canvas placement shows: a live Rune object, or a Canvas-local note. */
+export type CanvasItemType = "scene" | "chapter" | "page" | "entry" | "canvas" | "note" | "section" | "image";
+
+/** The placement types that show a canonical Rune object (a Section, a note and an image are Canvas-local). */
+export type CanvasTargetType = Exclude<CanvasItemType, "note" | "section" | "image">;
+
+/**
+ * A Project attachment (migration 047, table workspace_attachments): a file
+ * the Project owns — an image, in V0 — with its metadata and where its bytes
+ * are. The bytes themselves are served by the server (/api/attachments/<id>),
+ * never addressed by the browser directly. `display_key` names a
+ * browser-sized derivative of a large image; the original is always kept.
+ */
+export interface WorkspaceAttachment {
+  id: string;
+  project_id: string;
+  kind: "image";
+  file_name: string;
+  mime_type: string;
+  byte_size: number;
+  width: number | null;
+  height: number | null;
+  storage_bucket: string;
+  storage_key: string;
+  display_key: string | null;
+  display_width: number | null;
+  display_height: number | null;
+  created_at: string;
+}
+
+/**
+ * One placement on one Canvas (table workspace_canvas_items). A live
+ * placement is a reference to its target, never a copy: `label` is only the
+ * title it had when placed, shown if the target is ever unreachable. A note's
+ * `content` is TipTap JSON (paragraphs). `version` is bumped by the database
+ * whenever content, geometry, z or label changes.
+ */
+export interface CanvasItem {
+  id: string;
+  canvas_id: string;
+  project_id: string;
+  item_type: CanvasItemType;
+  scene_id: string | null;
+  chapter_id: string | null;
+  document_id: string | null;
+  entry_id: string | null;
+  target_canvas_id: string | null;
+  /** An image (047): the Project attachment it shows. Absent on a pre-047 read. */
+  attachment_id?: string | null;
+  /** A live placement: the title when placed (fallback only). A Section (046): its title, null = untitled. An image: its file name. */
+  label: string | null;
+  content: Record<string, unknown> | null;
+  x: number;
+  y: number;
+  /** The card's size (046: authoritative — a card never grows with its object's text). */
+  width: number;
+  height: number;
+  z: number;
+  /**
+   * The Section this placement belongs to (migration 046): explicit,
+   * Canvas-local membership. null (or absent on a pre-046 read): none. A
+   * Section's own is always null — never nested.
+   */
+  section_id?: string | null;
+  /** Whether the writer chose this size (046). Until then a note grows as it is first typed into. */
+  manual_size?: boolean;
+  version: number;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * One connection between two placements of one Canvas (migration 046, table
+ * workspace_canvas_connections): a line, or an arrow (`directed`), with an
+ * optional short label. Its ends are placement ids, never canonical object
+ * ids, so the same Scene placed twice may be connected once. Purely visual
+ * and Canvas-local: never a Relationship, a backlink or a dependency.
+ */
+export interface CanvasConnection {
+  id: string;
+  canvas_id: string;
+  project_id: string;
+  source_item_id: string;
+  target_item_id: string;
+  directed: boolean;
+  label: string | null;
+  /** Bumped by the database when directed or label changes. */
+  version: number;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * One Entry of a Collection (migration 025, table workspace_collection_entries):
+ * a title and freeform rich text. Belongs to exactly one Collection for life.
+ * Not manuscript prose — never counted toward any word total.
+ */
+export interface CollectionEntry {
+  id: string;
+  collection_id: string;
+  project_id: string;
+  /** null = untitled. */
+  title: string | null;
+  /** TipTap JSON. */
+  content: Record<string, unknown>;
+  /** Bumped by the database on every content change (never by a rename). */
+  version: number;
+  created_at: string;
+  updated_at: string;
+}
+
+/** An Entry without its content — what its Collection lists. */
+export type CollectionEntrySummary = Pick<CollectionEntry, "id" | "collection_id" | "title" | "created_at" | "updated_at">;
+
+/** A Collection property's type (migration 026; relationship from 028). */
+export type CollectionPropertyType =
+  | "text"
+  | "number"
+  | "select"
+  | "multi_select"
+  | "status"
+  | "date"
+  | "checkbox"
+  | "relationship";
+
+/**
+ * The kinds of object a reference joins (migration 028): a Collection Entry,
+ * a Workspace Page, or a manuscript Scene.
+ */
+export type ReferenceObjectType = "entry" | "page" | "scene";
+
+/** One choice of a select, multi-select or status property. Values refer to it by id. */
+export interface PropertyOption {
+  id: string;
+  name: string;
+}
+
+/**
+ * One property definition of a Collection (migration 026, table
+ * workspace_collection_properties). The Collection defines it once; each Entry
+ * may hold a value for it. Never on Pages; Scenes have their own
+ * (SceneProperty, migration 032).
+ */
+export interface CollectionProperty {
+  id: string;
+  collection_id: string;
+  project_id: string;
+  name: string;
+  type: CollectionPropertyType;
+  /** Choice types only, in display order; [] otherwise. */
+  options: PropertyOption[];
+  /** 1..n within the Collection. */
+  position: number;
+  /**
+   * Whether the Collection's list showed this property's values (026). Kept
+   * for the previous app; from migration 027 each View's config decides.
+   */
+  shown_in_list: boolean;
+  /**
+   * A Relationship's target (migration 028): Entries of one Collection
+   * (relation_collection_id), Pages, or Scenes. null for every other type —
+   * and on a read before 028.
+   */
+  relation_target: ReferenceObjectType | null;
+  relation_collection_id: string | null;
+  /** Whether an Entry may hold several targets (Relationship only). */
+  relation_many: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * One Scene property of a Manuscript (migration 032, table
+ * scene_property_definitions): the same shape and rules as a Collection
+ * property, owned by the Manuscript and available to all of its Scenes. Its
+ * values sit beside the prose (scene_property_values), never in it.
+ *
+ * `native`: set only in the shell, on the read-only fields every Scene has
+ * ("words", "placement") that a Scene View shows, sorts and filters like a
+ * property — never stored as a property, never edited.
+ */
+export interface SceneProperty {
+  id: string;
+  manuscript_id: string;
+  project_id: string;
+  name: string;
+  type: CollectionPropertyType;
+  options: PropertyOption[];
+  /** 1..n within the Manuscript. */
+  position: number;
+  relation_target: ReferenceObjectType | null;
+  relation_collection_id: string | null;
+  relation_many: boolean;
+  created_at: string;
+  updated_at: string;
+  native?: true;
+}
+
+/** A property of either owner: a Collection's (for its Entries) or a Manuscript's (for its Scenes). */
+export type PropertyDefinition = CollectionProperty | SceneProperty;
+
+/**
+ * A stored property value, by type: text → string; number → number;
+ * select/status → an option id; multi_select → option ids; date →
+ * "YYYY-MM-DD"; checkbox → true. No value is no row. A Relationship's value
+ * is its targets' canonical ids, in order — read from object_references,
+ * never stored in workspace_entry_values.
+ */
+export type PropertyValue = string | number | boolean | string[];
+
+/** One Entry's value for one property (table workspace_entry_values). */
+export interface EntryPropertyValue {
+  entry_id: string;
+  property_id: string;
+  value: PropertyValue;
+}
+
+/** One Scene's value for one Scene property (table scene_property_values, migration 032). */
+export interface ScenePropertyValue {
+  scene_id: string;
+  property_id: string;
+  value: PropertyValue;
+}
+
+/** How a saved View presents a Collection's Entries (migration 027) or a Manuscript's Scenes (032); Timeline from 042. */
+export type CollectionViewType = "list" | "table" | "board" | "timeline";
+
+export type ViewFilterOp = "is" | "is_not" | "is_empty" | "is_not_empty" | "contains" | "gt" | "lt";
+
+/**
+ * One filter of a View; all of a View's filters must hold.
+ *   is / is_not    — a choice's option id, or a Relationship's target id (includes)
+ *   contains       — text (032)
+ *   gt / lt        — a number, or a date "YYYY-MM-DD" (032)
+ */
+export type ViewFilter =
+  | { property: string; op: "is" | "is_not"; value: string }
+  | { property: string; op: "contains"; value: string }
+  | { property: string; op: "gt" | "lt"; value: number | string }
+  | { property: string; op: "is_empty" | "is_not_empty" };
+
+/**
+ * A View's configuration — never content. Every id is a property (or option)
+ * of the View's own Collection; the database checks it on every write and
+ * prunes it when properties change.
+ */
+export interface CollectionViewConfig {
+  /** Shown properties, in order: List's line, Table's columns, Board's card lines. */
+  properties: string[];
+  /** null: creation order (Scenes: manuscript order). `by`: "title" or a property id. */
+  sort: { by: string; direction: "asc" | "desc" } | null;
+  filters: ViewFilter[];
+  /** A select, status or Relationship-to-Entries property (Board lanes); null when there is none to group by. */
+  group_by: string | null;
+  /**
+   * Table column widths in px (80–640), by field id, "title" for the name
+   * column (migration 034). Absent, or no entry: the column's default width.
+   */
+  widths?: Record<string, number>;
+  /**
+   * A Timeline's axis (migration 042): a number or date property id, or
+   * "manuscript" — a Scene View's manuscript position. Absent or null: the
+   * Timeline has no axis yet. Lanes are `group_by`, as a Board's columns.
+   */
+  axis?: string | null;
+}
+
+/**
+ * One saved View of a Collection (migration 027, table
+ * workspace_collection_views). Configuration only: the same Entries and
+ * values appear in every View.
+ */
+export interface WorkspaceCollectionView {
+  id: string;
+  collection_id: string;
+  project_id: string;
+  name: string;
+  type: CollectionViewType;
+  /** 1..n within the Collection; the first is the one a Collection opens in. */
+  position: number;
+  config: CollectionViewConfig;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * One saved View of a Manuscript's Scenes (migration 032, table scene_views):
+ * configuration only, like a Collection View. Its config may also name the
+ * read-only Scene fields "words" and "placement"; sort null is manuscript order.
+ * It belongs to one Base (044): the Manuscript's page (`group_id` null) or
+ * one Group's page; `position` is 1..n within that Base.
+ */
+export interface SceneView {
+  id: string;
+  manuscript_id: string;
+  project_id: string;
+  /** The Group whose Base this View is; null: the Manuscript's Base. */
+  group_id: string | null;
+  name: string;
+  type: CollectionViewType;
+  position: number;
+  config: CollectionViewConfig;
+  created_at: string;
+  updated_at: string;
+}
+
+/** A saved View of either owner. */
+export type SavedView = WorkspaceCollectionView | SceneView;
+
+/**
+ * One forward reference between two objects of the same Project (migration
+ * 028, table object_references). Exactly the id column matching each type is
+ * set. property_id null: a generic reference; otherwise one value of that
+ * Relationship property of the source Entry. Backlinks are these rows read by
+ * target — never stored.
+ */
+export interface ObjectReferenceRow {
+  id: string;
+  project_id: string;
+  source_type: ReferenceObjectType;
+  source_entry_id: string | null;
+  source_document_id: string | null;
+  source_scene_id: string | null;
+  /** 'chapter' only for a mention (origin 'inline'; migration 035). */
+  target_type: ReferenceObjectType | "chapter";
+  target_entry_id: string | null;
+  target_document_id: string | null;
+  target_scene_id: string | null;
+  /** A Chapter target (migration 035). Absent before 035. */
+  target_chapter_id?: string | null;
+  property_id: string | null;
+  /** A Scene property the row is a value of (source 'scene'; migration 032). Absent before 032. */
+  scene_property_id?: string | null;
+  /**
+   * 'link': a Relationship value or a generic link, written by its action;
+   * 'inline': a mention in a Page's or Entry's text, derived from that text
+   * on every save (migration 035). Absent before 035 (every row a link).
+   */
+  origin?: "link" | "inline";
+  /** Order among the source's references (per property, among its links, or among its mentions). */
+  position: number;
+  created_at: string;
+}
+
+export type WorkspaceNodeTarget = "page" | "folder" | "collection" | "canvas";
+
+/**
+ * One Workspace object's single place in the Workspace tree (table
+ * workspace_nodes). Navigation only: the object belongs to the Project
+ * wherever its node sits. Exactly one of document_id / folder_id /
+ * collection_id / canvas_id is set, matching target_type.
+ */
+export interface WorkspaceNode {
+  id: string;
+  target_type: WorkspaceNodeTarget;
+  document_id: string | null;
+  folder_id: string | null;
+  /** Set for target_type "collection" (migration 025); absent on a pre-025 read. */
+  collection_id?: string | null;
+  /** Set for target_type "canvas" (migration 045); absent on a pre-045 read. */
+  canvas_id?: string | null;
+  /** null = top level of the Workspace. Always a Folder's node otherwise. */
+  parent_node_id: string | null;
+  /** 1..n among its siblings. */
+  position: number;
+}
+
+/** What can be put in a Project's Trash (migrations 030–031, 037, 045). */
+export type TrashObjectType = "page" | "folder" | "collection" | "entry" | "scene" | "chapter" | "canvas";
+
+/**
+ * One item of a Project's Trash (list_workspace_trash): titles, where it came
+ * from and counts only — never content.
+ */
+export interface TrashItem {
+  type: TrashObjectType;
+  id: string;
+  title: string | null;
+  trashed_at: string;
+  /** Page / Folder / Collection: the Folder it was in (null: the top level). */
+  from_folder_id: string | null;
+  from_folder_title: string | null;
+  /** Whether that Folder is still there, so a restore returns it there. */
+  from_folder_active: boolean | null;
+  /** Entry: its Collection, and whether that Collection is active (not in Trash). */
+  collection_id: string | null;
+  collection_title: string | null;
+  collection_active: boolean | null;
+  /** Collection: how many Entries it holds (in Trash on their own included). */
+  entries: number | null;
+  /** Collection: Relationships of other Collections that point at it. */
+  properties: number | null;
+  /** Scene: the Chapter it was placed in (null: Unplaced), and whether that Chapter is still there, active. */
+  from_chapter_id?: string | null;
+  from_chapter_title?: string | null;
+  from_chapter_active?: boolean | null;
+  /** Chapter (037): the Group it sat in (null: the top level), and whether that Group still exists. */
+  from_group_id?: string | null;
+  from_group_title?: string | null;
+  from_group_active?: boolean | null;
+  /** Chapter: the Scenes in Trash with it. */
+  scenes?: number | null;
+  /** Chapter: its Scenes' words; Scene: its own. */
+  words?: number | null;
+  /** Canvas (045): how many placements and notes it holds. */
+  items?: number | null;
+}
+
+export interface Chapter {
+  id: string;
+  manuscript_id: string;
+  /** The Manuscript Group holding it; null = directly under the Manuscript. */
+  group_id: string | null;
   title: string;
+  /** Among its parent's children (Groups and Chapters together), not a manuscript-wide index. */
   position: number;
   is_completed: boolean;
   created_at: string;
   updated_at: string;
 }
 
-export interface Page {
+/**
+ * The unit of manuscript prose. A Scene always belongs to its Manuscript and
+ * is either placed in a Chapter of that Manuscript or Unplaced
+ * (chapter_id null). Every placed Scene counts toward the ordered manuscript
+ * total and appears in export; there is no canonical Scene.
+ */
+export interface Scene {
   id: string;
-  chapter_id: string;
+  manuscript_id: string;
+  chapter_id: string | null;
   title: string;
   content: Record<string, unknown> | null;
   word_count: number;
   position: number;
-  is_canonical: boolean;
+  version: number;
   created_at: string;
   updated_at: string;
 }
+
+/** A Scene placed in a Chapter: part of the ordered manuscript. */
+export type PlacedScene = Scene & { chapter_id: string };
+
+/**
+ * A Scene with no Chapter. Still manuscript prose, editable and saved like any
+ * Scene, but outside the ordered manuscript total and standard export.
+ */
+export type UnplacedScene = Scene & { chapter_id: null };
 
 export interface ProjectNote {
   id: string;

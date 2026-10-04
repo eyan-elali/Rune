@@ -12,7 +12,7 @@ const aliasPlugin = {
   setup(build) {
     const map = {
       '@/lib/supabase/client': path.join(SCRATCH, 'mocks/supabaseClient.js'),
-      '@/lib/actions/pages': path.join(SCRATCH, 'mocks/actionsPages.js'),
+      '@/lib/actions/scenes': path.join(SCRATCH, 'mocks/actionsScenes.js'),
       '@/lib/actions/games': path.join(SCRATCH, 'mocks/actionsMisc.js'),
       '@/lib/actions/xp': path.join(SCRATCH, 'mocks/actionsMisc.js'),
       '@/lib/actions/writingStats': path.join(SCRATCH, 'mocks/actionsMisc.js'),

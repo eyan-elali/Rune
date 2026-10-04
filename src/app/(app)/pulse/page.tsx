@@ -24,6 +24,13 @@ import { CampaignPerformance } from "@/components/pulse/sections/CampaignPerform
 import { RecentWriters } from "@/components/pulse/sections/RecentWriters";
 import { OpenQuestions } from "@/components/pulse/sections/OpenQuestions";
 import { InternalAccounts } from "@/components/pulse/sections/InternalAccounts";
+import { ClosedBeta } from "@/components/pulse/sections/ClosedBeta";
+import { getBetaOverview } from "@/lib/actions/beta";
+
+// Pulse: the founder's private operational room (admin-only, see the (app)
+// layout). The closed beta — who is waiting, who is in, what they say — is
+// the work of the moment and leads the page; the acquisition, activation and
+// retention analytics follow as one quieter chapter, every figure still here.
 
 function normalizeRange(value: string | undefined): PulseTimeRange {
   if (value === "7d" || value === "30d" || value === "90d" || value === "all") return value;
@@ -52,6 +59,7 @@ export default async function PulsePage({ searchParams }: PulsePageProps) {
     recentWriters,
     notes,
     excludedUsers,
+    beta,
   ] = await Promise.all([
     getDailyBrief(includeInternal),
     getHeartbeat(range, includeInternal),
@@ -63,63 +71,59 @@ export default async function PulsePage({ searchParams }: PulsePageProps) {
     searchRecentWriters("", range, includeInternal),
     listFounderNotes(),
     listExcludedUsers(),
+    getBetaOverview(),
   ]);
 
   return (
     <PulseDrawerProvider range={range} includeInternal={includeInternal}>
-      <div className="mx-auto max-w-7xl px-8 py-10">
-        {/* Header */}
-        <div className="mb-8 flex items-center justify-between">
+      <div className="r2-pulse-page">
+        <header className="r2-pulse-head">
           <div>
-            <h1
-              className="font-rune-serif text-[1.7rem] leading-tight tracking-tight"
-              style={{ color: "var(--text-primary)" }}
-            >
-              Pulse
-            </h1>
-            <p className="mt-1 text-xs" style={{ color: "var(--color-mist)", opacity: 0.65 }}>
-              What happened, where writers are leaving, and what to work on next.
-            </p>
+            <h1>Pulse</h1>
+            <p className="r2-pulse-sub">What happened, where writers are leaving, and what to work on next.</p>
           </div>
-          <div className="flex items-center gap-3">
-            <IncludeInternalToggle includeInternal={includeInternal} />
-            <TimeRangeSelector range={range} />
+        </header>
+
+        {/* Closed beta: who is waiting, approved and in; what they tell us. */}
+        <ClosedBeta initial={beta.data} loadError={beta.error} />
+
+        {/* The analytics: one quieter chapter, with its own controls. */}
+        <div className="r2-pulse-chapter">
+          <div className="r2-pulse-chapter-head">
+            <h2>Acquisition, activation and retention</h2>
+            <div className="r2-pulse-controls">
+              <IncludeInternalToggle includeInternal={includeInternal} />
+              <TimeRangeSelector range={range} />
+            </div>
           </div>
-        </div>
 
-        {/* Daily Brief */}
-        <DailyBrief data={dailyBrief} />
+          <DailyBrief data={dailyBrief} />
 
-        {/* Heartbeat */}
-        <div className="mt-5">
-          <Heartbeat data={heartbeat} />
-        </div>
+          <div className="r2-pulse-section">
+            <Heartbeat data={heartbeat} />
+          </div>
 
-        {/* Activation Funnel — hero */}
-        <div className="mt-5">
-          <ActivationFunnel data={funnel} trackingStartDate={trackingStartDate} />
-        </div>
+          <div className="r2-pulse-section">
+            <ActivationFunnel data={funnel} trackingStartDate={trackingStartDate} />
+          </div>
 
-        {/* Onboarding Insights */}
-        <div className="mt-5">
-          <OnboardingInsights data={onboardingInsights} />
-        </div>
+          <div className="r2-pulse-section">
+            <OnboardingInsights data={onboardingInsights} />
+          </div>
 
-        {/* Writer Progress + Campaign Performance */}
-        <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-2">
-          <WriterProgress data={writerProgress} />
-          <CampaignPerformance data={campaigns} />
-        </div>
+          <div className="r2-pulse-section r2-pulse-pair">
+            <WriterProgress data={writerProgress} />
+            <CampaignPerformance data={campaigns} />
+          </div>
 
-        {/* Recent Writers + Open Questions */}
-        <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-[3fr_2fr]">
-          <RecentWriters initialWriters={recentWriters} />
-          <OpenQuestions initialNotes={notes} />
-        </div>
+          <div className="r2-pulse-section r2-pulse-pair r2-pulse-pair--wide">
+            <RecentWriters initialWriters={recentWriters} />
+            <OpenQuestions initialNotes={notes} />
+          </div>
 
-        {/* Internal Accounts */}
-        <div className="mt-5">
-          <InternalAccounts initialUsers={excludedUsers} />
+          <div className="r2-pulse-section">
+            <InternalAccounts initialUsers={excludedUsers} />
+          </div>
         </div>
       </div>
     </PulseDrawerProvider>

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Wordmark } from "@/components/brand/Wordmark";
 
 export default function LegalLayout({
   children,
@@ -25,14 +26,9 @@ export default function LegalLayout({
           <Link
             href="/"
             className="inline-block transition-opacity duration-150 hover:opacity-80"
-            aria-label="Return to Rune home"
+            aria-label="Return to Sutura home"
           >
-            <span
-              className="font-rune-serif text-lg select-none"
-              style={{ color: "var(--color-gold)", letterSpacing: "0.28em" }}
-            >
-              Rune
-            </span>
+            <Wordmark label={false} tone="on-dark" />
           </Link>
         </div>
       </header>
@@ -52,10 +48,11 @@ export default function LegalLayout({
         <div className="mx-auto w-full max-w-[680px] flex flex-col items-center gap-4 sm:flex-row sm:justify-between">
           <Link
             href="/"
-            className="font-rune-serif text-sm select-none transition-opacity duration-150 hover:opacity-80"
-            style={{ color: "var(--color-gold)", letterSpacing: "0.22em" }}
+            className="select-none transition-opacity duration-150 hover:opacity-80"
+            aria-label="Sutura home"
+            style={{ ["--r2-brand-height" as string]: "18px" }}
           >
-            Rune
+            <Wordmark label={false} tone="on-dark" />
           </Link>
           <div
             className="flex items-center gap-5 text-xs"

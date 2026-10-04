@@ -2,7 +2,6 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import type { PulseTimeRange } from "@/lib/actions/pulse";
-import { cn } from "@/lib/utils";
 
 const OPTIONS: { value: PulseTimeRange; label: string }[] = [
   { value: "7d", label: "7 days" },
@@ -11,6 +10,7 @@ const OPTIONS: { value: PulseTimeRange; label: string }[] = [
   { value: "all", label: "All time" },
 ];
 
+/** The analytics' time range: Rune 2's segmented choice, one pressed. */
 export function TimeRangeSelector({ range }: { range: PulseTimeRange }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -22,24 +22,9 @@ export function TimeRangeSelector({ range }: { range: PulseTimeRange }) {
   }
 
   return (
-    <div
-      className="inline-flex items-center gap-0.5 rounded-full p-1"
-      style={{ background: "color-mix(in srgb, var(--color-gold) 6%, transparent)", border: "1px solid var(--color-border)" }}
-      role="tablist"
-      aria-label="Time range"
-    >
+    <div className="r2-segmented" role="group" aria-label="Time range">
       {OPTIONS.map((opt) => (
-        <button
-          key={opt.value}
-          role="tab"
-          aria-selected={range === opt.value}
-          onClick={() => setRange(opt.value)}
-          className={cn(
-            "rounded-full px-3 py-1.5 text-xs transition-colors duration-150",
-            range === opt.value ? "bg-rune-gold/15 text-rune-gold" : "hover:bg-rune-gold/5"
-          )}
-          style={range === opt.value ? undefined : { color: "var(--color-mist)" }}
-        >
+        <button key={opt.value} type="button" aria-pressed={range === opt.value} onClick={() => setRange(opt.value)}>
           {opt.label}
         </button>
       ))}

@@ -1,0 +1,5873 @@
+{
+ "meta": {
+  "database": "postgres",
+  "captured_at": "2026-09-24T11:35:03.319548+00:00",
+  "current_user": "postgres",
+  "server_version": "17.6",
+  "server_version_num": 170006,
+  "catalog_sql_version": "phase0-b-1",
+  "transaction_read_only": "on"
+ },
+ "schemas": [
+  {
+   "owner": "supabase_admin",
+   "schema": "auth",
+   "anon_usage": true,
+   "authenticated_usage": true
+  },
+  {
+   "owner": "postgres",
+   "schema": "extensions",
+   "anon_usage": true,
+   "authenticated_usage": true
+  },
+  {
+   "owner": "supabase_admin",
+   "schema": "graphql",
+   "anon_usage": true,
+   "authenticated_usage": true
+  },
+  {
+   "owner": "supabase_admin",
+   "schema": "graphql_public",
+   "anon_usage": true,
+   "authenticated_usage": true
+  },
+  {
+   "owner": "pgbouncer",
+   "schema": "pgbouncer",
+   "anon_usage": false,
+   "authenticated_usage": false
+  },
+  {
+   "owner": "pg_database_owner",
+   "schema": "public",
+   "anon_usage": true,
+   "authenticated_usage": true
+  },
+  {
+   "owner": "supabase_admin",
+   "schema": "realtime",
+   "anon_usage": true,
+   "authenticated_usage": true
+  },
+  {
+   "owner": "supabase_admin",
+   "schema": "storage",
+   "anon_usage": true,
+   "authenticated_usage": true
+  },
+  {
+   "owner": "supabase_admin",
+   "schema": "vault",
+   "anon_usage": false,
+   "authenticated_usage": false
+  }
+ ],
+ "extensions": [
+  {
+   "name": "pg_stat_statements",
+   "schema": "extensions",
+   "version": "1.11"
+  },
+  {
+   "name": "pgcrypto",
+   "schema": "extensions",
+   "version": "1.3"
+  },
+  {
+   "name": "plpgsql",
+   "schema": "pg_catalog",
+   "version": "1.0"
+  },
+  {
+   "name": "supabase_vault",
+   "schema": "vault",
+   "version": "0.3.1"
+  },
+  {
+   "name": "uuid-ossp",
+   "schema": "extensions",
+   "version": "1.1"
+  }
+ ],
+ "relations": [
+  {
+   "kind": "table",
+   "owner": "postgres",
+   "table": "acquisition_attribution",
+   "rls_forced": false,
+   "rls_enabled": true,
+   "reltuples_estimate": -1
+  },
+  {
+   "kind": "table",
+   "owner": "postgres",
+   "table": "analytics_events",
+   "rls_forced": false,
+   "rls_enabled": true,
+   "reltuples_estimate": 163
+  },
+  {
+   "kind": "table",
+   "owner": "postgres",
+   "table": "analytics_excluded_users",
+   "rls_forced": false,
+   "rls_enabled": true,
+   "reltuples_estimate": -1
+  },
+  {
+   "kind": "table",
+   "owner": "postgres",
+   "table": "chapters",
+   "rls_forced": false,
+   "rls_enabled": true,
+   "reltuples_estimate": 163
+  },
+  {
+   "kind": "table",
+   "owner": "postgres",
+   "table": "deleted_accounts",
+   "rls_forced": false,
+   "rls_enabled": true,
+   "reltuples_estimate": -1
+  },
+  {
+   "kind": "table",
+   "owner": "postgres",
+   "table": "founder_notes",
+   "rls_forced": false,
+   "rls_enabled": true,
+   "reltuples_estimate": -1
+  },
+  {
+   "kind": "table",
+   "owner": "postgres",
+   "table": "future_letters",
+   "rls_forced": false,
+   "rls_enabled": true,
+   "reltuples_estimate": -1
+  },
+  {
+   "kind": "table",
+   "owner": "postgres",
+   "table": "game_sessions",
+   "rls_forced": false,
+   "rls_enabled": true,
+   "reltuples_estimate": 78
+  },
+  {
+   "kind": "table",
+   "owner": "postgres",
+   "table": "game_tickets",
+   "rls_forced": false,
+   "rls_enabled": true,
+   "reltuples_estimate": -1
+  },
+  {
+   "kind": "table",
+   "owner": "postgres",
+   "table": "pages",
+   "rls_forced": false,
+   "rls_enabled": true,
+   "reltuples_estimate": 280
+  },
+  {
+   "kind": "table",
+   "owner": "postgres",
+   "table": "profiles",
+   "rls_forced": false,
+   "rls_enabled": true,
+   "reltuples_estimate": 96
+  },
+  {
+   "kind": "table",
+   "owner": "postgres",
+   "table": "project_notes",
+   "rls_forced": false,
+   "rls_enabled": true,
+   "reltuples_estimate": 21
+  },
+  {
+   "kind": "table",
+   "owner": "postgres",
+   "table": "projects",
+   "rls_forced": false,
+   "rls_enabled": true,
+   "reltuples_estimate": 69
+  },
+  {
+   "kind": "table",
+   "owner": "postgres",
+   "table": "subscription_events",
+   "rls_forced": false,
+   "rls_enabled": true,
+   "reltuples_estimate": -1
+  },
+  {
+   "kind": "table",
+   "owner": "postgres",
+   "table": "user_pricing_entitlements",
+   "rls_forced": false,
+   "rls_enabled": true,
+   "reltuples_estimate": 79
+  },
+  {
+   "kind": "table",
+   "owner": "postgres",
+   "table": "user_unlockables",
+   "rls_forced": false,
+   "rls_enabled": true,
+   "reltuples_estimate": 84
+  },
+  {
+   "kind": "table",
+   "owner": "postgres",
+   "table": "writing_goals",
+   "rls_forced": false,
+   "rls_enabled": true,
+   "reltuples_estimate": 6
+  },
+  {
+   "kind": "table",
+   "owner": "postgres",
+   "table": "writing_sessions",
+   "rls_forced": false,
+   "rls_enabled": true,
+   "reltuples_estimate": 286
+  },
+  {
+   "kind": "table",
+   "owner": "postgres",
+   "table": "xp_events",
+   "rls_forced": false,
+   "rls_enabled": true,
+   "reltuples_estimate": 7182
+  }
+ ],
+ "columns": [
+  {
+   "ord": 1,
+   "type": "uuid",
+   "table": "acquisition_attribution",
+   "column": "id",
+   "default": "gen_random_uuid()",
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 2,
+   "type": "uuid",
+   "table": "acquisition_attribution",
+   "column": "user_id",
+   "default": null,
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 3,
+   "type": "text",
+   "table": "acquisition_attribution",
+   "column": "source",
+   "default": null,
+   "identity": null,
+   "not_null": false,
+   "generated": null
+  },
+  {
+   "ord": 4,
+   "type": "text",
+   "table": "acquisition_attribution",
+   "column": "medium",
+   "default": null,
+   "identity": null,
+   "not_null": false,
+   "generated": null
+  },
+  {
+   "ord": 5,
+   "type": "text",
+   "table": "acquisition_attribution",
+   "column": "campaign",
+   "default": null,
+   "identity": null,
+   "not_null": false,
+   "generated": null
+  },
+  {
+   "ord": 6,
+   "type": "text",
+   "table": "acquisition_attribution",
+   "column": "content",
+   "default": null,
+   "identity": null,
+   "not_null": false,
+   "generated": null
+  },
+  {
+   "ord": 7,
+   "type": "text",
+   "table": "acquisition_attribution",
+   "column": "term",
+   "default": null,
+   "identity": null,
+   "not_null": false,
+   "generated": null
+  },
+  {
+   "ord": 8,
+   "type": "text",
+   "table": "acquisition_attribution",
+   "column": "fbclid",
+   "default": null,
+   "identity": null,
+   "not_null": false,
+   "generated": null
+  },
+  {
+   "ord": 9,
+   "type": "text",
+   "table": "acquisition_attribution",
+   "column": "landing_path",
+   "default": null,
+   "identity": null,
+   "not_null": false,
+   "generated": null
+  },
+  {
+   "ord": 10,
+   "type": "timestamp with time zone",
+   "table": "acquisition_attribution",
+   "column": "captured_at",
+   "default": null,
+   "identity": null,
+   "not_null": false,
+   "generated": null
+  },
+  {
+   "ord": 11,
+   "type": "timestamp with time zone",
+   "table": "acquisition_attribution",
+   "column": "created_at",
+   "default": "now()",
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 1,
+   "type": "uuid",
+   "table": "analytics_events",
+   "column": "id",
+   "default": "gen_random_uuid()",
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 2,
+   "type": "uuid",
+   "table": "analytics_events",
+   "column": "user_id",
+   "default": null,
+   "identity": null,
+   "not_null": false,
+   "generated": null
+  },
+  {
+   "ord": 3,
+   "type": "text",
+   "table": "analytics_events",
+   "column": "event_name",
+   "default": null,
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 4,
+   "type": "uuid",
+   "table": "analytics_events",
+   "column": "project_id",
+   "default": null,
+   "identity": null,
+   "not_null": false,
+   "generated": null
+  },
+  {
+   "ord": 5,
+   "type": "date",
+   "table": "analytics_events",
+   "column": "local_date",
+   "default": null,
+   "identity": null,
+   "not_null": false,
+   "generated": null
+  },
+  {
+   "ord": 6,
+   "type": "jsonb",
+   "table": "analytics_events",
+   "column": "metadata",
+   "default": null,
+   "identity": null,
+   "not_null": false,
+   "generated": null
+  },
+  {
+   "ord": 7,
+   "type": "text",
+   "table": "analytics_events",
+   "column": "dedupe_key",
+   "default": null,
+   "identity": null,
+   "not_null": false,
+   "generated": null
+  },
+  {
+   "ord": 8,
+   "type": "timestamp with time zone",
+   "table": "analytics_events",
+   "column": "created_at",
+   "default": "now()",
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 1,
+   "type": "uuid",
+   "table": "analytics_excluded_users",
+   "column": "user_id",
+   "default": null,
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 2,
+   "type": "text",
+   "table": "analytics_excluded_users",
+   "column": "reason",
+   "default": null,
+   "identity": null,
+   "not_null": false,
+   "generated": null
+  },
+  {
+   "ord": 3,
+   "type": "uuid",
+   "table": "analytics_excluded_users",
+   "column": "created_by",
+   "default": null,
+   "identity": null,
+   "not_null": false,
+   "generated": null
+  },
+  {
+   "ord": 4,
+   "type": "timestamp with time zone",
+   "table": "analytics_excluded_users",
+   "column": "created_at",
+   "default": "now()",
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 1,
+   "type": "uuid",
+   "table": "chapters",
+   "column": "id",
+   "default": "gen_random_uuid()",
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 2,
+   "type": "uuid",
+   "table": "chapters",
+   "column": "project_id",
+   "default": null,
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 3,
+   "type": "text",
+   "table": "chapters",
+   "column": "title",
+   "default": null,
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 4,
+   "type": "integer",
+   "table": "chapters",
+   "column": "position",
+   "default": null,
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 5,
+   "type": "timestamp with time zone",
+   "table": "chapters",
+   "column": "created_at",
+   "default": "now()",
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 6,
+   "type": "timestamp with time zone",
+   "table": "chapters",
+   "column": "updated_at",
+   "default": "now()",
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 7,
+   "type": "boolean",
+   "table": "chapters",
+   "column": "is_completed",
+   "default": "false",
+   "identity": null,
+   "not_null": false,
+   "generated": null
+  },
+  {
+   "ord": 1,
+   "type": "uuid",
+   "table": "deleted_accounts",
+   "column": "id",
+   "default": "gen_random_uuid()",
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 2,
+   "type": "uuid",
+   "table": "deleted_accounts",
+   "column": "original_user_id",
+   "default": null,
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 3,
+   "type": "text",
+   "table": "deleted_accounts",
+   "column": "email",
+   "default": null,
+   "identity": null,
+   "not_null": false,
+   "generated": null
+  },
+  {
+   "ord": 4,
+   "type": "text",
+   "table": "deleted_accounts",
+   "column": "username",
+   "default": null,
+   "identity": null,
+   "not_null": false,
+   "generated": null
+  },
+  {
+   "ord": 5,
+   "type": "text",
+   "table": "deleted_accounts",
+   "column": "display_name",
+   "default": null,
+   "identity": null,
+   "not_null": false,
+   "generated": null
+  },
+  {
+   "ord": 6,
+   "type": "integer",
+   "table": "deleted_accounts",
+   "column": "xp",
+   "default": null,
+   "identity": null,
+   "not_null": false,
+   "generated": null
+  },
+  {
+   "ord": 7,
+   "type": "integer",
+   "table": "deleted_accounts",
+   "column": "level",
+   "default": null,
+   "identity": null,
+   "not_null": false,
+   "generated": null
+  },
+  {
+   "ord": 8,
+   "type": "text",
+   "table": "deleted_accounts",
+   "column": "subscription_tier",
+   "default": null,
+   "identity": null,
+   "not_null": false,
+   "generated": null
+  },
+  {
+   "ord": 9,
+   "type": "timestamp with time zone",
+   "table": "deleted_accounts",
+   "column": "deleted_at",
+   "default": "now()",
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 10,
+   "type": "boolean",
+   "table": "deleted_accounts",
+   "column": "was_excluded_account",
+   "default": "false",
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 1,
+   "type": "uuid",
+   "table": "founder_notes",
+   "column": "id",
+   "default": "gen_random_uuid()",
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 2,
+   "type": "uuid",
+   "table": "founder_notes",
+   "column": "author_id",
+   "default": null,
+   "identity": null,
+   "not_null": false,
+   "generated": null
+  },
+  {
+   "ord": 3,
+   "type": "text",
+   "table": "founder_notes",
+   "column": "content",
+   "default": null,
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 4,
+   "type": "timestamp with time zone",
+   "table": "founder_notes",
+   "column": "created_at",
+   "default": "now()",
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 5,
+   "type": "timestamp with time zone",
+   "table": "founder_notes",
+   "column": "updated_at",
+   "default": "now()",
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 1,
+   "type": "uuid",
+   "table": "future_letters",
+   "column": "id",
+   "default": "gen_random_uuid()",
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 2,
+   "type": "uuid",
+   "table": "future_letters",
+   "column": "user_id",
+   "default": null,
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 3,
+   "type": "uuid",
+   "table": "future_letters",
+   "column": "project_id",
+   "default": null,
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 4,
+   "type": "text",
+   "table": "future_letters",
+   "column": "content",
+   "default": null,
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 5,
+   "type": "timestamp with time zone",
+   "table": "future_letters",
+   "column": "created_at",
+   "default": "now()",
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 6,
+   "type": "timestamp with time zone",
+   "table": "future_letters",
+   "column": "reveal_at",
+   "default": "(now() + '1 year'::interval)",
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 7,
+   "type": "timestamp with time zone",
+   "table": "future_letters",
+   "column": "revealed_at",
+   "default": null,
+   "identity": null,
+   "not_null": false,
+   "generated": null
+  },
+  {
+   "ord": 1,
+   "type": "uuid",
+   "table": "game_sessions",
+   "column": "id",
+   "default": "gen_random_uuid()",
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 2,
+   "type": "uuid",
+   "table": "game_sessions",
+   "column": "user_id",
+   "default": null,
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 3,
+   "type": "text",
+   "table": "game_sessions",
+   "column": "mode",
+   "default": null,
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 4,
+   "type": "integer",
+   "table": "game_sessions",
+   "column": "words_written",
+   "default": "0",
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 5,
+   "type": "integer",
+   "table": "game_sessions",
+   "column": "duration_seconds",
+   "default": null,
+   "identity": null,
+   "not_null": false,
+   "generated": null
+  },
+  {
+   "ord": 6,
+   "type": "integer",
+   "table": "game_sessions",
+   "column": "xp_earned",
+   "default": "0",
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 7,
+   "type": "boolean",
+   "table": "game_sessions",
+   "column": "completed",
+   "default": "false",
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 8,
+   "type": "timestamp with time zone",
+   "table": "game_sessions",
+   "column": "created_at",
+   "default": "now()",
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 9,
+   "type": "text",
+   "table": "game_sessions",
+   "column": "enemy_type",
+   "default": null,
+   "identity": null,
+   "not_null": false,
+   "generated": null
+  },
+  {
+   "ord": 10,
+   "type": "jsonb",
+   "table": "game_sessions",
+   "column": "meta",
+   "default": "'{}'::jsonb",
+   "identity": null,
+   "not_null": false,
+   "generated": null
+  },
+  {
+   "ord": 1,
+   "type": "uuid",
+   "table": "game_tickets",
+   "column": "id",
+   "default": "gen_random_uuid()",
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 2,
+   "type": "uuid",
+   "table": "game_tickets",
+   "column": "user_id",
+   "default": null,
+   "identity": null,
+   "not_null": false,
+   "generated": null
+  },
+  {
+   "ord": 3,
+   "type": "date",
+   "table": "game_tickets",
+   "column": "week_start",
+   "default": null,
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 4,
+   "type": "integer",
+   "table": "game_tickets",
+   "column": "tickets_used",
+   "default": "0",
+   "identity": null,
+   "not_null": false,
+   "generated": null
+  },
+  {
+   "ord": 1,
+   "type": "uuid",
+   "table": "pages",
+   "column": "id",
+   "default": "gen_random_uuid()",
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 2,
+   "type": "uuid",
+   "table": "pages",
+   "column": "chapter_id",
+   "default": null,
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 3,
+   "type": "text",
+   "table": "pages",
+   "column": "title",
+   "default": null,
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 4,
+   "type": "jsonb",
+   "table": "pages",
+   "column": "content",
+   "default": null,
+   "identity": null,
+   "not_null": false,
+   "generated": null
+  },
+  {
+   "ord": 5,
+   "type": "integer",
+   "table": "pages",
+   "column": "word_count",
+   "default": "0",
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 6,
+   "type": "integer",
+   "table": "pages",
+   "column": "position",
+   "default": null,
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 7,
+   "type": "timestamp with time zone",
+   "table": "pages",
+   "column": "created_at",
+   "default": "now()",
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 8,
+   "type": "timestamp with time zone",
+   "table": "pages",
+   "column": "updated_at",
+   "default": "now()",
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 9,
+   "type": "boolean",
+   "table": "pages",
+   "column": "is_canonical",
+   "default": "false",
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 10,
+   "type": "integer",
+   "table": "pages",
+   "column": "version",
+   "default": "1",
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 1,
+   "type": "uuid",
+   "table": "profiles",
+   "column": "id",
+   "default": null,
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 2,
+   "type": "text",
+   "table": "profiles",
+   "column": "username",
+   "default": null,
+   "identity": null,
+   "not_null": false,
+   "generated": null
+  },
+  {
+   "ord": 3,
+   "type": "text",
+   "table": "profiles",
+   "column": "display_name",
+   "default": null,
+   "identity": null,
+   "not_null": false,
+   "generated": null
+  },
+  {
+   "ord": 4,
+   "type": "text",
+   "table": "profiles",
+   "column": "avatar_url",
+   "default": null,
+   "identity": null,
+   "not_null": false,
+   "generated": null
+  },
+  {
+   "ord": 5,
+   "type": "integer",
+   "table": "profiles",
+   "column": "xp",
+   "default": "0",
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 6,
+   "type": "integer",
+   "table": "profiles",
+   "column": "level",
+   "default": "1",
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 7,
+   "type": "timestamp with time zone",
+   "table": "profiles",
+   "column": "created_at",
+   "default": "now()",
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 8,
+   "type": "jsonb",
+   "table": "profiles",
+   "column": "preferences",
+   "default": null,
+   "identity": null,
+   "not_null": false,
+   "generated": null
+  },
+  {
+   "ord": 9,
+   "type": "text",
+   "table": "profiles",
+   "column": "stripe_customer_id",
+   "default": null,
+   "identity": null,
+   "not_null": false,
+   "generated": null
+  },
+  {
+   "ord": 10,
+   "type": "text",
+   "table": "profiles",
+   "column": "subscription_tier",
+   "default": "'free'::text",
+   "identity": null,
+   "not_null": false,
+   "generated": null
+  },
+  {
+   "ord": 11,
+   "type": "text",
+   "table": "profiles",
+   "column": "subscription_status",
+   "default": "'inactive'::text",
+   "identity": null,
+   "not_null": false,
+   "generated": null
+  },
+  {
+   "ord": 12,
+   "type": "text",
+   "table": "profiles",
+   "column": "subscription_price_id",
+   "default": null,
+   "identity": null,
+   "not_null": false,
+   "generated": null
+  },
+  {
+   "ord": 13,
+   "type": "timestamp with time zone",
+   "table": "profiles",
+   "column": "subscription_period_end",
+   "default": null,
+   "identity": null,
+   "not_null": false,
+   "generated": null
+  },
+  {
+   "ord": 14,
+   "type": "boolean",
+   "table": "profiles",
+   "column": "has_written_first_words",
+   "default": "false",
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 15,
+   "type": "boolean",
+   "table": "profiles",
+   "column": "is_admin",
+   "default": "false",
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 1,
+   "type": "uuid",
+   "table": "project_notes",
+   "column": "id",
+   "default": "gen_random_uuid()",
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 2,
+   "type": "uuid",
+   "table": "project_notes",
+   "column": "user_id",
+   "default": null,
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 3,
+   "type": "uuid",
+   "table": "project_notes",
+   "column": "project_id",
+   "default": null,
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 4,
+   "type": "text",
+   "table": "project_notes",
+   "column": "content",
+   "default": null,
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 5,
+   "type": "boolean",
+   "table": "project_notes",
+   "column": "is_completed",
+   "default": "false",
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 6,
+   "type": "boolean",
+   "table": "project_notes",
+   "column": "is_pinned",
+   "default": "false",
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 7,
+   "type": "timestamp with time zone",
+   "table": "project_notes",
+   "column": "created_at",
+   "default": "now()",
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 8,
+   "type": "timestamp with time zone",
+   "table": "project_notes",
+   "column": "completed_at",
+   "default": null,
+   "identity": null,
+   "not_null": false,
+   "generated": null
+  },
+  {
+   "ord": 9,
+   "type": "timestamp with time zone",
+   "table": "project_notes",
+   "column": "updated_at",
+   "default": "now()",
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 1,
+   "type": "uuid",
+   "table": "projects",
+   "column": "id",
+   "default": "gen_random_uuid()",
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 2,
+   "type": "uuid",
+   "table": "projects",
+   "column": "user_id",
+   "default": null,
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 3,
+   "type": "text",
+   "table": "projects",
+   "column": "title",
+   "default": null,
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 4,
+   "type": "text",
+   "table": "projects",
+   "column": "description",
+   "default": null,
+   "identity": null,
+   "not_null": false,
+   "generated": null
+  },
+  {
+   "ord": 5,
+   "type": "text",
+   "table": "projects",
+   "column": "cover_color",
+   "default": null,
+   "identity": null,
+   "not_null": false,
+   "generated": null
+  },
+  {
+   "ord": 6,
+   "type": "integer",
+   "table": "projects",
+   "column": "word_count",
+   "default": "0",
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 7,
+   "type": "timestamp with time zone",
+   "table": "projects",
+   "column": "created_at",
+   "default": "now()",
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 8,
+   "type": "timestamp with time zone",
+   "table": "projects",
+   "column": "updated_at",
+   "default": "now()",
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 9,
+   "type": "integer",
+   "table": "projects",
+   "column": "chapter_goal",
+   "default": null,
+   "identity": null,
+   "not_null": false,
+   "generated": null
+  },
+  {
+   "ord": 10,
+   "type": "boolean",
+   "table": "projects",
+   "column": "is_pinned",
+   "default": "false",
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 1,
+   "type": "uuid",
+   "table": "subscription_events",
+   "column": "id",
+   "default": "gen_random_uuid()",
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 2,
+   "type": "uuid",
+   "table": "subscription_events",
+   "column": "user_id",
+   "default": null,
+   "identity": null,
+   "not_null": false,
+   "generated": null
+  },
+  {
+   "ord": 3,
+   "type": "text",
+   "table": "subscription_events",
+   "column": "stripe_event_id",
+   "default": null,
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 4,
+   "type": "text",
+   "table": "subscription_events",
+   "column": "event_type",
+   "default": null,
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 5,
+   "type": "text",
+   "table": "subscription_events",
+   "column": "tier",
+   "default": null,
+   "identity": null,
+   "not_null": false,
+   "generated": null
+  },
+  {
+   "ord": 6,
+   "type": "text",
+   "table": "subscription_events",
+   "column": "status",
+   "default": null,
+   "identity": null,
+   "not_null": false,
+   "generated": null
+  },
+  {
+   "ord": 7,
+   "type": "timestamp with time zone",
+   "table": "subscription_events",
+   "column": "created_at",
+   "default": "now()",
+   "identity": null,
+   "not_null": false,
+   "generated": null
+  },
+  {
+   "ord": 1,
+   "type": "uuid",
+   "table": "user_pricing_entitlements",
+   "column": "user_id",
+   "default": null,
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 2,
+   "type": "text",
+   "table": "user_pricing_entitlements",
+   "column": "pricing_cohort",
+   "default": "'starter_2k'::text",
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 3,
+   "type": "timestamp with time zone",
+   "table": "user_pricing_entitlements",
+   "column": "pricing_notice_resolved_at",
+   "default": null,
+   "identity": null,
+   "not_null": false,
+   "generated": null
+  },
+  {
+   "ord": 4,
+   "type": "text",
+   "table": "user_pricing_entitlements",
+   "column": "founder_offer_status",
+   "default": "'not_offered'::text",
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 5,
+   "type": "timestamp with time zone",
+   "table": "user_pricing_entitlements",
+   "column": "founder_offer_claimed_at",
+   "default": null,
+   "identity": null,
+   "not_null": false,
+   "generated": null
+  },
+  {
+   "ord": 6,
+   "type": "timestamp with time zone",
+   "table": "user_pricing_entitlements",
+   "column": "created_at",
+   "default": "now()",
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 7,
+   "type": "timestamp with time zone",
+   "table": "user_pricing_entitlements",
+   "column": "updated_at",
+   "default": "now()",
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 1,
+   "type": "uuid",
+   "table": "user_unlockables",
+   "column": "id",
+   "default": "gen_random_uuid()",
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 2,
+   "type": "uuid",
+   "table": "user_unlockables",
+   "column": "user_id",
+   "default": null,
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 3,
+   "type": "text",
+   "table": "user_unlockables",
+   "column": "unlockable_id",
+   "default": null,
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 4,
+   "type": "timestamp with time zone",
+   "table": "user_unlockables",
+   "column": "unlocked_at",
+   "default": "now()",
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 1,
+   "type": "uuid",
+   "table": "writing_goals",
+   "column": "id",
+   "default": "gen_random_uuid()",
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 2,
+   "type": "uuid",
+   "table": "writing_goals",
+   "column": "user_id",
+   "default": null,
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 3,
+   "type": "uuid",
+   "table": "writing_goals",
+   "column": "project_id",
+   "default": null,
+   "identity": null,
+   "not_null": false,
+   "generated": null
+  },
+  {
+   "ord": 4,
+   "type": "text",
+   "table": "writing_goals",
+   "column": "type",
+   "default": null,
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 5,
+   "type": "integer",
+   "table": "writing_goals",
+   "column": "target_words",
+   "default": null,
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 6,
+   "type": "timestamp with time zone",
+   "table": "writing_goals",
+   "column": "created_at",
+   "default": "now()",
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 1,
+   "type": "uuid",
+   "table": "writing_sessions",
+   "column": "id",
+   "default": "gen_random_uuid()",
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 2,
+   "type": "uuid",
+   "table": "writing_sessions",
+   "column": "user_id",
+   "default": null,
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 3,
+   "type": "uuid",
+   "table": "writing_sessions",
+   "column": "project_id",
+   "default": null,
+   "identity": null,
+   "not_null": false,
+   "generated": null
+  },
+  {
+   "ord": 4,
+   "type": "integer",
+   "table": "writing_sessions",
+   "column": "words_added",
+   "default": "0",
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 5,
+   "type": "date",
+   "table": "writing_sessions",
+   "column": "session_date",
+   "default": "CURRENT_DATE",
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 6,
+   "type": "timestamp with time zone",
+   "table": "writing_sessions",
+   "column": "created_at",
+   "default": "now()",
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 7,
+   "type": "uuid",
+   "table": "writing_sessions",
+   "column": "page_id",
+   "default": null,
+   "identity": null,
+   "not_null": false,
+   "generated": null
+  },
+  {
+   "ord": 1,
+   "type": "uuid",
+   "table": "xp_events",
+   "column": "id",
+   "default": "gen_random_uuid()",
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 2,
+   "type": "uuid",
+   "table": "xp_events",
+   "column": "user_id",
+   "default": null,
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 3,
+   "type": "integer",
+   "table": "xp_events",
+   "column": "amount",
+   "default": null,
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 4,
+   "type": "text",
+   "table": "xp_events",
+   "column": "reason",
+   "default": null,
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 5,
+   "type": "timestamp with time zone",
+   "table": "xp_events",
+   "column": "created_at",
+   "default": "now()",
+   "identity": null,
+   "not_null": true,
+   "generated": null
+  },
+  {
+   "ord": 6,
+   "type": "uuid",
+   "table": "xp_events",
+   "column": "source_session_id",
+   "default": null,
+   "identity": null,
+   "not_null": false,
+   "generated": null
+  }
+ ],
+ "constraints": [
+  {
+   "name": "acquisition_attribution_pkey",
+   "type": "primary_key",
+   "table": "acquisition_attribution",
+   "on_delete": null,
+   "on_update": null,
+   "validated": true,
+   "deferrable": false,
+   "definition": "PRIMARY KEY (id)",
+   "references": null
+  },
+  {
+   "name": "acquisition_attribution_user_id_fkey",
+   "type": "foreign_key",
+   "table": "acquisition_attribution",
+   "on_delete": "cascade",
+   "on_update": "no action",
+   "validated": true,
+   "deferrable": false,
+   "definition": "FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE",
+   "references": "profiles"
+  },
+  {
+   "name": "acquisition_attribution_user_id_key",
+   "type": "unique",
+   "table": "acquisition_attribution",
+   "on_delete": null,
+   "on_update": null,
+   "validated": true,
+   "deferrable": false,
+   "definition": "UNIQUE (user_id)",
+   "references": null
+  },
+  {
+   "name": "analytics_events_pkey",
+   "type": "primary_key",
+   "table": "analytics_events",
+   "on_delete": null,
+   "on_update": null,
+   "validated": true,
+   "deferrable": false,
+   "definition": "PRIMARY KEY (id)",
+   "references": null
+  },
+  {
+   "name": "analytics_events_project_id_fkey",
+   "type": "foreign_key",
+   "table": "analytics_events",
+   "on_delete": "cascade",
+   "on_update": "no action",
+   "validated": true,
+   "deferrable": false,
+   "definition": "FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE",
+   "references": "projects"
+  },
+  {
+   "name": "analytics_events_user_id_fkey",
+   "type": "foreign_key",
+   "table": "analytics_events",
+   "on_delete": "cascade",
+   "on_update": "no action",
+   "validated": true,
+   "deferrable": false,
+   "definition": "FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE",
+   "references": "profiles"
+  },
+  {
+   "name": "analytics_excluded_users_created_by_fkey",
+   "type": "foreign_key",
+   "table": "analytics_excluded_users",
+   "on_delete": "set null",
+   "on_update": "no action",
+   "validated": true,
+   "deferrable": false,
+   "definition": "FOREIGN KEY (created_by) REFERENCES profiles(id) ON DELETE SET NULL",
+   "references": "profiles"
+  },
+  {
+   "name": "analytics_excluded_users_pkey",
+   "type": "primary_key",
+   "table": "analytics_excluded_users",
+   "on_delete": null,
+   "on_update": null,
+   "validated": true,
+   "deferrable": false,
+   "definition": "PRIMARY KEY (user_id)",
+   "references": null
+  },
+  {
+   "name": "analytics_excluded_users_user_id_fkey",
+   "type": "foreign_key",
+   "table": "analytics_excluded_users",
+   "on_delete": "cascade",
+   "on_update": "no action",
+   "validated": true,
+   "deferrable": false,
+   "definition": "FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE",
+   "references": "profiles"
+  },
+  {
+   "name": "chapters_pkey",
+   "type": "primary_key",
+   "table": "chapters",
+   "on_delete": null,
+   "on_update": null,
+   "validated": true,
+   "deferrable": false,
+   "definition": "PRIMARY KEY (id)",
+   "references": null
+  },
+  {
+   "name": "chapters_project_id_fkey",
+   "type": "foreign_key",
+   "table": "chapters",
+   "on_delete": "cascade",
+   "on_update": "no action",
+   "validated": true,
+   "deferrable": false,
+   "definition": "FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE",
+   "references": "projects"
+  },
+  {
+   "name": "deleted_accounts_pkey",
+   "type": "primary_key",
+   "table": "deleted_accounts",
+   "on_delete": null,
+   "on_update": null,
+   "validated": true,
+   "deferrable": false,
+   "definition": "PRIMARY KEY (id)",
+   "references": null
+  },
+  {
+   "name": "founder_notes_author_id_fkey",
+   "type": "foreign_key",
+   "table": "founder_notes",
+   "on_delete": "set null",
+   "on_update": "no action",
+   "validated": true,
+   "deferrable": false,
+   "definition": "FOREIGN KEY (author_id) REFERENCES profiles(id) ON DELETE SET NULL",
+   "references": "profiles"
+  },
+  {
+   "name": "founder_notes_pkey",
+   "type": "primary_key",
+   "table": "founder_notes",
+   "on_delete": null,
+   "on_update": null,
+   "validated": true,
+   "deferrable": false,
+   "definition": "PRIMARY KEY (id)",
+   "references": null
+  },
+  {
+   "name": "future_letters_pkey",
+   "type": "primary_key",
+   "table": "future_letters",
+   "on_delete": null,
+   "on_update": null,
+   "validated": true,
+   "deferrable": false,
+   "definition": "PRIMARY KEY (id)",
+   "references": null
+  },
+  {
+   "name": "future_letters_project_id_fkey",
+   "type": "foreign_key",
+   "table": "future_letters",
+   "on_delete": "cascade",
+   "on_update": "no action",
+   "validated": true,
+   "deferrable": false,
+   "definition": "FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE",
+   "references": "projects"
+  },
+  {
+   "name": "future_letters_user_id_fkey",
+   "type": "foreign_key",
+   "table": "future_letters",
+   "on_delete": "cascade",
+   "on_update": "no action",
+   "validated": true,
+   "deferrable": false,
+   "definition": "FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE",
+   "references": "profiles"
+  },
+  {
+   "name": "game_sessions_pkey",
+   "type": "primary_key",
+   "table": "game_sessions",
+   "on_delete": null,
+   "on_update": null,
+   "validated": true,
+   "deferrable": false,
+   "definition": "PRIMARY KEY (id)",
+   "references": null
+  },
+  {
+   "name": "game_sessions_user_id_fkey",
+   "type": "foreign_key",
+   "table": "game_sessions",
+   "on_delete": "cascade",
+   "on_update": "no action",
+   "validated": true,
+   "deferrable": false,
+   "definition": "FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE",
+   "references": "profiles"
+  },
+  {
+   "name": "game_tickets_pkey",
+   "type": "primary_key",
+   "table": "game_tickets",
+   "on_delete": null,
+   "on_update": null,
+   "validated": true,
+   "deferrable": false,
+   "definition": "PRIMARY KEY (id)",
+   "references": null
+  },
+  {
+   "name": "game_tickets_user_id_fkey",
+   "type": "foreign_key",
+   "table": "game_tickets",
+   "on_delete": "cascade",
+   "on_update": "no action",
+   "validated": true,
+   "deferrable": false,
+   "definition": "FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE",
+   "references": "profiles"
+  },
+  {
+   "name": "game_tickets_user_id_week_start_key",
+   "type": "unique",
+   "table": "game_tickets",
+   "on_delete": null,
+   "on_update": null,
+   "validated": true,
+   "deferrable": false,
+   "definition": "UNIQUE (user_id, week_start)",
+   "references": null
+  },
+  {
+   "name": "pages_chapter_id_fkey",
+   "type": "foreign_key",
+   "table": "pages",
+   "on_delete": "cascade",
+   "on_update": "no action",
+   "validated": true,
+   "deferrable": false,
+   "definition": "FOREIGN KEY (chapter_id) REFERENCES chapters(id) ON DELETE CASCADE",
+   "references": "chapters"
+  },
+  {
+   "name": "pages_pkey",
+   "type": "primary_key",
+   "table": "pages",
+   "on_delete": null,
+   "on_update": null,
+   "validated": true,
+   "deferrable": false,
+   "definition": "PRIMARY KEY (id)",
+   "references": null
+  },
+  {
+   "name": "profiles_id_fkey",
+   "type": "foreign_key",
+   "table": "profiles",
+   "on_delete": "cascade",
+   "on_update": "no action",
+   "validated": true,
+   "deferrable": false,
+   "definition": "FOREIGN KEY (id) REFERENCES auth.users(id) ON DELETE CASCADE",
+   "references": "auth.users"
+  },
+  {
+   "name": "profiles_pkey",
+   "type": "primary_key",
+   "table": "profiles",
+   "on_delete": null,
+   "on_update": null,
+   "validated": true,
+   "deferrable": false,
+   "definition": "PRIMARY KEY (id)",
+   "references": null
+  },
+  {
+   "name": "profiles_subscription_status_check",
+   "type": "check",
+   "table": "profiles",
+   "on_delete": null,
+   "on_update": null,
+   "validated": true,
+   "deferrable": false,
+   "definition": "CHECK (subscription_status = ANY (ARRAY['active'::text, 'inactive'::text, 'past_due'::text, 'canceled'::text]))",
+   "references": null
+  },
+  {
+   "name": "profiles_subscription_tier_check",
+   "type": "check",
+   "table": "profiles",
+   "on_delete": null,
+   "on_update": null,
+   "validated": true,
+   "deferrable": false,
+   "definition": "CHECK (subscription_tier = ANY (ARRAY['free'::text, 'scribe'::text, 'arcane'::text]))",
+   "references": null
+  },
+  {
+   "name": "profiles_username_key",
+   "type": "unique",
+   "table": "profiles",
+   "on_delete": null,
+   "on_update": null,
+   "validated": true,
+   "deferrable": false,
+   "definition": "UNIQUE (username)",
+   "references": null
+  },
+  {
+   "name": "project_notes_pkey",
+   "type": "primary_key",
+   "table": "project_notes",
+   "on_delete": null,
+   "on_update": null,
+   "validated": true,
+   "deferrable": false,
+   "definition": "PRIMARY KEY (id)",
+   "references": null
+  },
+  {
+   "name": "project_notes_project_id_fkey",
+   "type": "foreign_key",
+   "table": "project_notes",
+   "on_delete": "cascade",
+   "on_update": "no action",
+   "validated": true,
+   "deferrable": false,
+   "definition": "FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE",
+   "references": "projects"
+  },
+  {
+   "name": "project_notes_user_id_fkey",
+   "type": "foreign_key",
+   "table": "project_notes",
+   "on_delete": "cascade",
+   "on_update": "no action",
+   "validated": true,
+   "deferrable": false,
+   "definition": "FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE",
+   "references": "profiles"
+  },
+  {
+   "name": "projects_pkey",
+   "type": "primary_key",
+   "table": "projects",
+   "on_delete": null,
+   "on_update": null,
+   "validated": true,
+   "deferrable": false,
+   "definition": "PRIMARY KEY (id)",
+   "references": null
+  },
+  {
+   "name": "projects_user_id_fkey",
+   "type": "foreign_key",
+   "table": "projects",
+   "on_delete": "cascade",
+   "on_update": "no action",
+   "validated": true,
+   "deferrable": false,
+   "definition": "FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE",
+   "references": "profiles"
+  },
+  {
+   "name": "subscription_events_pkey",
+   "type": "primary_key",
+   "table": "subscription_events",
+   "on_delete": null,
+   "on_update": null,
+   "validated": true,
+   "deferrable": false,
+   "definition": "PRIMARY KEY (id)",
+   "references": null
+  },
+  {
+   "name": "subscription_events_user_id_fkey",
+   "type": "foreign_key",
+   "table": "subscription_events",
+   "on_delete": "cascade",
+   "on_update": "no action",
+   "validated": true,
+   "deferrable": false,
+   "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE",
+   "references": "auth.users"
+  },
+  {
+   "name": "user_pricing_entitlements_founder_offer_status_check",
+   "type": "check",
+   "table": "user_pricing_entitlements",
+   "on_delete": null,
+   "on_update": null,
+   "validated": true,
+   "deferrable": false,
+   "definition": "CHECK (founder_offer_status = ANY (ARRAY['not_offered'::text, 'eligible'::text, 'claimed'::text, 'declined'::text]))",
+   "references": null
+  },
+  {
+   "name": "user_pricing_entitlements_pkey",
+   "type": "primary_key",
+   "table": "user_pricing_entitlements",
+   "on_delete": null,
+   "on_update": null,
+   "validated": true,
+   "deferrable": false,
+   "definition": "PRIMARY KEY (user_id)",
+   "references": null
+  },
+  {
+   "name": "user_pricing_entitlements_pricing_cohort_check",
+   "type": "check",
+   "table": "user_pricing_entitlements",
+   "on_delete": null,
+   "on_update": null,
+   "validated": true,
+   "deferrable": false,
+   "definition": "CHECK (pricing_cohort = ANY (ARRAY['legacy_15k'::text, 'starter_2k'::text]))",
+   "references": null
+  },
+  {
+   "name": "user_pricing_entitlements_user_id_fkey",
+   "type": "foreign_key",
+   "table": "user_pricing_entitlements",
+   "on_delete": "cascade",
+   "on_update": "no action",
+   "validated": true,
+   "deferrable": false,
+   "definition": "FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE",
+   "references": "profiles"
+  },
+  {
+   "name": "user_unlockables_pkey",
+   "type": "primary_key",
+   "table": "user_unlockables",
+   "on_delete": null,
+   "on_update": null,
+   "validated": true,
+   "deferrable": false,
+   "definition": "PRIMARY KEY (id)",
+   "references": null
+  },
+  {
+   "name": "user_unlockables_user_id_fkey",
+   "type": "foreign_key",
+   "table": "user_unlockables",
+   "on_delete": "cascade",
+   "on_update": "no action",
+   "validated": true,
+   "deferrable": false,
+   "definition": "FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE",
+   "references": "profiles"
+  },
+  {
+   "name": "user_unlockables_user_id_unlockable_id_key",
+   "type": "unique",
+   "table": "user_unlockables",
+   "on_delete": null,
+   "on_update": null,
+   "validated": true,
+   "deferrable": false,
+   "definition": "UNIQUE (user_id, unlockable_id)",
+   "references": null
+  },
+  {
+   "name": "writing_goals_pkey",
+   "type": "primary_key",
+   "table": "writing_goals",
+   "on_delete": null,
+   "on_update": null,
+   "validated": true,
+   "deferrable": false,
+   "definition": "PRIMARY KEY (id)",
+   "references": null
+  },
+  {
+   "name": "writing_goals_project_id_fkey",
+   "type": "foreign_key",
+   "table": "writing_goals",
+   "on_delete": "cascade",
+   "on_update": "no action",
+   "validated": true,
+   "deferrable": false,
+   "definition": "FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE",
+   "references": "projects"
+  },
+  {
+   "name": "writing_goals_type_check",
+   "type": "check",
+   "table": "writing_goals",
+   "on_delete": null,
+   "on_update": null,
+   "validated": true,
+   "deferrable": false,
+   "definition": "CHECK (type = ANY (ARRAY['daily_global'::text, 'daily_project'::text, 'project_total'::text]))",
+   "references": null
+  },
+  {
+   "name": "writing_goals_user_id_fkey",
+   "type": "foreign_key",
+   "table": "writing_goals",
+   "on_delete": "cascade",
+   "on_update": "no action",
+   "validated": true,
+   "deferrable": false,
+   "definition": "FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE",
+   "references": "profiles"
+  },
+  {
+   "name": "writing_sessions_page_id_fkey",
+   "type": "foreign_key",
+   "table": "writing_sessions",
+   "on_delete": "cascade",
+   "on_update": "no action",
+   "validated": true,
+   "deferrable": false,
+   "definition": "FOREIGN KEY (page_id) REFERENCES pages(id) ON DELETE CASCADE",
+   "references": "pages"
+  },
+  {
+   "name": "writing_sessions_pkey",
+   "type": "primary_key",
+   "table": "writing_sessions",
+   "on_delete": null,
+   "on_update": null,
+   "validated": true,
+   "deferrable": false,
+   "definition": "PRIMARY KEY (id)",
+   "references": null
+  },
+  {
+   "name": "writing_sessions_project_id_fkey",
+   "type": "foreign_key",
+   "table": "writing_sessions",
+   "on_delete": "cascade",
+   "on_update": "no action",
+   "validated": true,
+   "deferrable": false,
+   "definition": "FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE",
+   "references": "projects"
+  },
+  {
+   "name": "writing_sessions_user_id_fkey",
+   "type": "foreign_key",
+   "table": "writing_sessions",
+   "on_delete": "cascade",
+   "on_update": "no action",
+   "validated": true,
+   "deferrable": false,
+   "definition": "FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE",
+   "references": "profiles"
+  },
+  {
+   "name": "xp_events_pkey",
+   "type": "primary_key",
+   "table": "xp_events",
+   "on_delete": null,
+   "on_update": null,
+   "validated": true,
+   "deferrable": false,
+   "definition": "PRIMARY KEY (id)",
+   "references": null
+  },
+  {
+   "name": "xp_events_user_id_fkey",
+   "type": "foreign_key",
+   "table": "xp_events",
+   "on_delete": "cascade",
+   "on_update": "no action",
+   "validated": true,
+   "deferrable": false,
+   "definition": "FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE",
+   "references": "profiles"
+  }
+ ],
+ "indexes": [
+  {
+   "name": "acquisition_attribution_pkey",
+   "table": "acquisition_attribution",
+   "valid": true,
+   "unique": true,
+   "primary": true,
+   "definition": "CREATE UNIQUE INDEX acquisition_attribution_pkey ON public.acquisition_attribution USING btree (id)"
+  },
+  {
+   "name": "acquisition_attribution_user_id_key",
+   "table": "acquisition_attribution",
+   "valid": true,
+   "unique": true,
+   "primary": false,
+   "definition": "CREATE UNIQUE INDEX acquisition_attribution_user_id_key ON public.acquisition_attribution USING btree (user_id)"
+  },
+  {
+   "name": "analytics_events_dedupe_idx",
+   "table": "analytics_events",
+   "valid": true,
+   "unique": true,
+   "primary": false,
+   "definition": "CREATE UNIQUE INDEX analytics_events_dedupe_idx ON public.analytics_events USING btree (user_id, event_name, dedupe_key)"
+  },
+  {
+   "name": "analytics_events_name_created_idx",
+   "table": "analytics_events",
+   "valid": true,
+   "unique": false,
+   "primary": false,
+   "definition": "CREATE INDEX analytics_events_name_created_idx ON public.analytics_events USING btree (event_name, created_at)"
+  },
+  {
+   "name": "analytics_events_pkey",
+   "table": "analytics_events",
+   "valid": true,
+   "unique": true,
+   "primary": true,
+   "definition": "CREATE UNIQUE INDEX analytics_events_pkey ON public.analytics_events USING btree (id)"
+  },
+  {
+   "name": "analytics_events_user_created_idx",
+   "table": "analytics_events",
+   "valid": true,
+   "unique": false,
+   "primary": false,
+   "definition": "CREATE INDEX analytics_events_user_created_idx ON public.analytics_events USING btree (user_id, created_at)"
+  },
+  {
+   "name": "analytics_excluded_users_pkey",
+   "table": "analytics_excluded_users",
+   "valid": true,
+   "unique": true,
+   "primary": true,
+   "definition": "CREATE UNIQUE INDEX analytics_excluded_users_pkey ON public.analytics_excluded_users USING btree (user_id)"
+  },
+  {
+   "name": "chapters_pkey",
+   "table": "chapters",
+   "valid": true,
+   "unique": true,
+   "primary": true,
+   "definition": "CREATE UNIQUE INDEX chapters_pkey ON public.chapters USING btree (id)"
+  },
+  {
+   "name": "deleted_accounts_pkey",
+   "table": "deleted_accounts",
+   "valid": true,
+   "unique": true,
+   "primary": true,
+   "definition": "CREATE UNIQUE INDEX deleted_accounts_pkey ON public.deleted_accounts USING btree (id)"
+  },
+  {
+   "name": "founder_notes_pkey",
+   "table": "founder_notes",
+   "valid": true,
+   "unique": true,
+   "primary": true,
+   "definition": "CREATE UNIQUE INDEX founder_notes_pkey ON public.founder_notes USING btree (id)"
+  },
+  {
+   "name": "future_letters_pkey",
+   "table": "future_letters",
+   "valid": true,
+   "unique": true,
+   "primary": true,
+   "definition": "CREATE UNIQUE INDEX future_letters_pkey ON public.future_letters USING btree (id)"
+  },
+  {
+   "name": "game_sessions_pkey",
+   "table": "game_sessions",
+   "valid": true,
+   "unique": true,
+   "primary": true,
+   "definition": "CREATE UNIQUE INDEX game_sessions_pkey ON public.game_sessions USING btree (id)"
+  },
+  {
+   "name": "game_tickets_pkey",
+   "table": "game_tickets",
+   "valid": true,
+   "unique": true,
+   "primary": true,
+   "definition": "CREATE UNIQUE INDEX game_tickets_pkey ON public.game_tickets USING btree (id)"
+  },
+  {
+   "name": "game_tickets_user_id_week_start_key",
+   "table": "game_tickets",
+   "valid": true,
+   "unique": true,
+   "primary": false,
+   "definition": "CREATE UNIQUE INDEX game_tickets_user_id_week_start_key ON public.game_tickets USING btree (user_id, week_start)"
+  },
+  {
+   "name": "pages_pkey",
+   "table": "pages",
+   "valid": true,
+   "unique": true,
+   "primary": true,
+   "definition": "CREATE UNIQUE INDEX pages_pkey ON public.pages USING btree (id)"
+  },
+  {
+   "name": "profiles_pkey",
+   "table": "profiles",
+   "valid": true,
+   "unique": true,
+   "primary": true,
+   "definition": "CREATE UNIQUE INDEX profiles_pkey ON public.profiles USING btree (id)"
+  },
+  {
+   "name": "profiles_stripe_customer_id_idx",
+   "table": "profiles",
+   "valid": true,
+   "unique": false,
+   "primary": false,
+   "definition": "CREATE INDEX profiles_stripe_customer_id_idx ON public.profiles USING btree (stripe_customer_id)"
+  },
+  {
+   "name": "profiles_username_key",
+   "table": "profiles",
+   "valid": true,
+   "unique": true,
+   "primary": false,
+   "definition": "CREATE UNIQUE INDEX profiles_username_key ON public.profiles USING btree (username)"
+  },
+  {
+   "name": "project_notes_pkey",
+   "table": "project_notes",
+   "valid": true,
+   "unique": true,
+   "primary": true,
+   "definition": "CREATE UNIQUE INDEX project_notes_pkey ON public.project_notes USING btree (id)"
+  },
+  {
+   "name": "projects_pkey",
+   "table": "projects",
+   "valid": true,
+   "unique": true,
+   "primary": true,
+   "definition": "CREATE UNIQUE INDEX projects_pkey ON public.projects USING btree (id)"
+  },
+  {
+   "name": "subscription_events_pkey",
+   "table": "subscription_events",
+   "valid": true,
+   "unique": true,
+   "primary": true,
+   "definition": "CREATE UNIQUE INDEX subscription_events_pkey ON public.subscription_events USING btree (id)"
+  },
+  {
+   "name": "user_pricing_entitlements_cohort_idx",
+   "table": "user_pricing_entitlements",
+   "valid": true,
+   "unique": false,
+   "primary": false,
+   "definition": "CREATE INDEX user_pricing_entitlements_cohort_idx ON public.user_pricing_entitlements USING btree (pricing_cohort)"
+  },
+  {
+   "name": "user_pricing_entitlements_pkey",
+   "table": "user_pricing_entitlements",
+   "valid": true,
+   "unique": true,
+   "primary": true,
+   "definition": "CREATE UNIQUE INDEX user_pricing_entitlements_pkey ON public.user_pricing_entitlements USING btree (user_id)"
+  },
+  {
+   "name": "user_unlockables_pkey",
+   "table": "user_unlockables",
+   "valid": true,
+   "unique": true,
+   "primary": true,
+   "definition": "CREATE UNIQUE INDEX user_unlockables_pkey ON public.user_unlockables USING btree (id)"
+  },
+  {
+   "name": "user_unlockables_user_id_unlockable_id_key",
+   "table": "user_unlockables",
+   "valid": true,
+   "unique": true,
+   "primary": false,
+   "definition": "CREATE UNIQUE INDEX user_unlockables_user_id_unlockable_id_key ON public.user_unlockables USING btree (user_id, unlockable_id)"
+  },
+  {
+   "name": "writing_goals_pkey",
+   "table": "writing_goals",
+   "valid": true,
+   "unique": true,
+   "primary": true,
+   "definition": "CREATE UNIQUE INDEX writing_goals_pkey ON public.writing_goals USING btree (id)"
+  },
+  {
+   "name": "unique_user_page_date_idx",
+   "table": "writing_sessions",
+   "valid": true,
+   "unique": true,
+   "primary": false,
+   "definition": "CREATE UNIQUE INDEX unique_user_page_date_idx ON public.writing_sessions USING btree (user_id, session_date, page_id) WHERE (page_id IS NOT NULL)"
+  },
+  {
+   "name": "unique_user_project_date_null_page_idx",
+   "table": "writing_sessions",
+   "valid": true,
+   "unique": true,
+   "primary": false,
+   "definition": "CREATE UNIQUE INDEX unique_user_project_date_null_page_idx ON public.writing_sessions USING btree (user_id, session_date, project_id) WHERE (page_id IS NULL)"
+  },
+  {
+   "name": "writing_sessions_null_project_unique",
+   "table": "writing_sessions",
+   "valid": true,
+   "unique": true,
+   "primary": false,
+   "definition": "CREATE UNIQUE INDEX writing_sessions_null_project_unique ON public.writing_sessions USING btree (user_id, session_date) WHERE ((project_id IS NULL) AND (page_id IS NULL))"
+  },
+  {
+   "name": "writing_sessions_page_unique",
+   "table": "writing_sessions",
+   "valid": true,
+   "unique": true,
+   "primary": false,
+   "definition": "CREATE UNIQUE INDEX writing_sessions_page_unique ON public.writing_sessions USING btree (user_id, page_id, session_date) WHERE (page_id IS NOT NULL)"
+  },
+  {
+   "name": "writing_sessions_pkey",
+   "table": "writing_sessions",
+   "valid": true,
+   "unique": true,
+   "primary": true,
+   "definition": "CREATE UNIQUE INDEX writing_sessions_pkey ON public.writing_sessions USING btree (id)"
+  },
+  {
+   "name": "writing_sessions_project_unique",
+   "table": "writing_sessions",
+   "valid": true,
+   "unique": true,
+   "primary": false,
+   "definition": "CREATE UNIQUE INDEX writing_sessions_project_unique ON public.writing_sessions USING btree (user_id, project_id, session_date) WHERE ((project_id IS NOT NULL) AND (page_id IS NULL))"
+  },
+  {
+   "name": "xp_events_pkey",
+   "table": "xp_events",
+   "valid": true,
+   "unique": true,
+   "primary": true,
+   "definition": "CREATE UNIQUE INDEX xp_events_pkey ON public.xp_events USING btree (id)"
+  }
+ ],
+ "policies": [
+  {
+   "name": "Users can manage chapters of their projects",
+   "roles": [
+    "public"
+   ],
+   "table": "chapters",
+   "using": "(project_id IN ( SELECT projects.id\n   FROM projects\n  WHERE (projects.user_id = auth.uid())))",
+   "command": "ALL",
+   "permissive": "PERMISSIVE",
+   "with_check": null
+  },
+  {
+   "name": "chapters: delete own",
+   "roles": [
+    "public"
+   ],
+   "table": "chapters",
+   "using": "(EXISTS ( SELECT 1\n   FROM projects\n  WHERE ((projects.id = chapters.project_id) AND (projects.user_id = auth.uid()))))",
+   "command": "DELETE",
+   "permissive": "PERMISSIVE",
+   "with_check": null
+  },
+  {
+   "name": "chapters: insert own",
+   "roles": [
+    "public"
+   ],
+   "table": "chapters",
+   "using": null,
+   "command": "INSERT",
+   "permissive": "PERMISSIVE",
+   "with_check": "(EXISTS ( SELECT 1\n   FROM projects\n  WHERE ((projects.id = chapters.project_id) AND (projects.user_id = auth.uid()))))"
+  },
+  {
+   "name": "chapters: select own",
+   "roles": [
+    "public"
+   ],
+   "table": "chapters",
+   "using": "(EXISTS ( SELECT 1\n   FROM projects\n  WHERE ((projects.id = chapters.project_id) AND (projects.user_id = auth.uid()))))",
+   "command": "SELECT",
+   "permissive": "PERMISSIVE",
+   "with_check": null
+  },
+  {
+   "name": "chapters: update own",
+   "roles": [
+    "public"
+   ],
+   "table": "chapters",
+   "using": "(EXISTS ( SELECT 1\n   FROM projects\n  WHERE ((projects.id = chapters.project_id) AND (projects.user_id = auth.uid()))))",
+   "command": "UPDATE",
+   "permissive": "PERMISSIVE",
+   "with_check": null
+  },
+  {
+   "name": "future_letters: delete own",
+   "roles": [
+    "public"
+   ],
+   "table": "future_letters",
+   "using": "(auth.uid() = user_id)",
+   "command": "DELETE",
+   "permissive": "PERMISSIVE",
+   "with_check": null
+  },
+  {
+   "name": "future_letters: insert own",
+   "roles": [
+    "public"
+   ],
+   "table": "future_letters",
+   "using": null,
+   "command": "INSERT",
+   "permissive": "PERMISSIVE",
+   "with_check": "(auth.uid() = user_id)"
+  },
+  {
+   "name": "future_letters: select own",
+   "roles": [
+    "public"
+   ],
+   "table": "future_letters",
+   "using": "(auth.uid() = user_id)",
+   "command": "SELECT",
+   "permissive": "PERMISSIVE",
+   "with_check": null
+  },
+  {
+   "name": "future_letters: update own",
+   "roles": [
+    "public"
+   ],
+   "table": "future_letters",
+   "using": "(auth.uid() = user_id)",
+   "command": "UPDATE",
+   "permissive": "PERMISSIVE",
+   "with_check": null
+  },
+  {
+   "name": "game_sessions: delete own",
+   "roles": [
+    "public"
+   ],
+   "table": "game_sessions",
+   "using": "(auth.uid() = user_id)",
+   "command": "DELETE",
+   "permissive": "PERMISSIVE",
+   "with_check": null
+  },
+  {
+   "name": "game_sessions: insert own",
+   "roles": [
+    "public"
+   ],
+   "table": "game_sessions",
+   "using": null,
+   "command": "INSERT",
+   "permissive": "PERMISSIVE",
+   "with_check": "(auth.uid() = user_id)"
+  },
+  {
+   "name": "game_sessions: select own",
+   "roles": [
+    "public"
+   ],
+   "table": "game_sessions",
+   "using": "(auth.uid() = user_id)",
+   "command": "SELECT",
+   "permissive": "PERMISSIVE",
+   "with_check": null
+  },
+  {
+   "name": "game_sessions: update own",
+   "roles": [
+    "public"
+   ],
+   "table": "game_sessions",
+   "using": "(auth.uid() = user_id)",
+   "command": "UPDATE",
+   "permissive": "PERMISSIVE",
+   "with_check": null
+  },
+  {
+   "name": "Users manage own tickets",
+   "roles": [
+    "public"
+   ],
+   "table": "game_tickets",
+   "using": "(auth.uid() = user_id)",
+   "command": "ALL",
+   "permissive": "PERMISSIVE",
+   "with_check": null
+  },
+  {
+   "name": "Users can manage pages in their chapters",
+   "roles": [
+    "public"
+   ],
+   "table": "pages",
+   "using": "(chapter_id IN ( SELECT c.id\n   FROM (chapters c\n     JOIN projects p ON ((c.project_id = p.id)))\n  WHERE (p.user_id = auth.uid())))",
+   "command": "ALL",
+   "permissive": "PERMISSIVE",
+   "with_check": null
+  },
+  {
+   "name": "pages: delete own",
+   "roles": [
+    "public"
+   ],
+   "table": "pages",
+   "using": "(EXISTS ( SELECT 1\n   FROM (chapters\n     JOIN projects ON ((projects.id = chapters.project_id)))\n  WHERE ((chapters.id = pages.chapter_id) AND (projects.user_id = auth.uid()))))",
+   "command": "DELETE",
+   "permissive": "PERMISSIVE",
+   "with_check": null
+  },
+  {
+   "name": "pages: insert own",
+   "roles": [
+    "public"
+   ],
+   "table": "pages",
+   "using": null,
+   "command": "INSERT",
+   "permissive": "PERMISSIVE",
+   "with_check": "(EXISTS ( SELECT 1\n   FROM (chapters\n     JOIN projects ON ((projects.id = chapters.project_id)))\n  WHERE ((chapters.id = pages.chapter_id) AND (projects.user_id = auth.uid()))))"
+  },
+  {
+   "name": "pages: select own",
+   "roles": [
+    "public"
+   ],
+   "table": "pages",
+   "using": "(EXISTS ( SELECT 1\n   FROM (chapters\n     JOIN projects ON ((projects.id = chapters.project_id)))\n  WHERE ((chapters.id = pages.chapter_id) AND (projects.user_id = auth.uid()))))",
+   "command": "SELECT",
+   "permissive": "PERMISSIVE",
+   "with_check": null
+  },
+  {
+   "name": "pages: update own",
+   "roles": [
+    "public"
+   ],
+   "table": "pages",
+   "using": "(EXISTS ( SELECT 1\n   FROM (chapters\n     JOIN projects ON ((projects.id = chapters.project_id)))\n  WHERE ((chapters.id = pages.chapter_id) AND (projects.user_id = auth.uid()))))",
+   "command": "UPDATE",
+   "permissive": "PERMISSIVE",
+   "with_check": null
+  },
+  {
+   "name": "profiles: select own",
+   "roles": [
+    "public"
+   ],
+   "table": "profiles",
+   "using": "(auth.uid() = id)",
+   "command": "SELECT",
+   "permissive": "PERMISSIVE",
+   "with_check": null
+  },
+  {
+   "name": "profiles: update own",
+   "roles": [
+    "public"
+   ],
+   "table": "profiles",
+   "using": "(auth.uid() = id)",
+   "command": "UPDATE",
+   "permissive": "PERMISSIVE",
+   "with_check": null
+  },
+  {
+   "name": "project_notes: delete own",
+   "roles": [
+    "public"
+   ],
+   "table": "project_notes",
+   "using": "(auth.uid() = user_id)",
+   "command": "DELETE",
+   "permissive": "PERMISSIVE",
+   "with_check": null
+  },
+  {
+   "name": "project_notes: insert own",
+   "roles": [
+    "public"
+   ],
+   "table": "project_notes",
+   "using": null,
+   "command": "INSERT",
+   "permissive": "PERMISSIVE",
+   "with_check": "(auth.uid() = user_id)"
+  },
+  {
+   "name": "project_notes: select own",
+   "roles": [
+    "public"
+   ],
+   "table": "project_notes",
+   "using": "(auth.uid() = user_id)",
+   "command": "SELECT",
+   "permissive": "PERMISSIVE",
+   "with_check": null
+  },
+  {
+   "name": "project_notes: update own",
+   "roles": [
+    "public"
+   ],
+   "table": "project_notes",
+   "using": "(auth.uid() = user_id)",
+   "command": "UPDATE",
+   "permissive": "PERMISSIVE",
+   "with_check": null
+  },
+  {
+   "name": "Users can manage their own projects",
+   "roles": [
+    "public"
+   ],
+   "table": "projects",
+   "using": "(auth.uid() = user_id)",
+   "command": "ALL",
+   "permissive": "PERMISSIVE",
+   "with_check": null
+  },
+  {
+   "name": "projects: delete own",
+   "roles": [
+    "public"
+   ],
+   "table": "projects",
+   "using": "(auth.uid() = user_id)",
+   "command": "DELETE",
+   "permissive": "PERMISSIVE",
+   "with_check": null
+  },
+  {
+   "name": "projects: insert own",
+   "roles": [
+    "public"
+   ],
+   "table": "projects",
+   "using": null,
+   "command": "INSERT",
+   "permissive": "PERMISSIVE",
+   "with_check": "(auth.uid() = user_id)"
+  },
+  {
+   "name": "projects: select own",
+   "roles": [
+    "public"
+   ],
+   "table": "projects",
+   "using": "(auth.uid() = user_id)",
+   "command": "SELECT",
+   "permissive": "PERMISSIVE",
+   "with_check": null
+  },
+  {
+   "name": "projects: update own",
+   "roles": [
+    "public"
+   ],
+   "table": "projects",
+   "using": "(auth.uid() = user_id)",
+   "command": "UPDATE",
+   "permissive": "PERMISSIVE",
+   "with_check": null
+  },
+  {
+   "name": "Users can view own events",
+   "roles": [
+    "public"
+   ],
+   "table": "subscription_events",
+   "using": "(auth.uid() = user_id)",
+   "command": "SELECT",
+   "permissive": "PERMISSIVE",
+   "with_check": null
+  },
+  {
+   "name": "subscription_events: select own",
+   "roles": [
+    "public"
+   ],
+   "table": "subscription_events",
+   "using": "(auth.uid() = user_id)",
+   "command": "SELECT",
+   "permissive": "PERMISSIVE",
+   "with_check": null
+  },
+  {
+   "name": "user_pricing_entitlements: select own",
+   "roles": [
+    "public"
+   ],
+   "table": "user_pricing_entitlements",
+   "using": "(auth.uid() = user_id)",
+   "command": "SELECT",
+   "permissive": "PERMISSIVE",
+   "with_check": null
+  },
+  {
+   "name": "Users can view their own unlockables",
+   "roles": [
+    "public"
+   ],
+   "table": "user_unlockables",
+   "using": "(auth.uid() = user_id)",
+   "command": "SELECT",
+   "permissive": "PERMISSIVE",
+   "with_check": null
+  },
+  {
+   "name": "user_unlockables: insert own",
+   "roles": [
+    "public"
+   ],
+   "table": "user_unlockables",
+   "using": null,
+   "command": "INSERT",
+   "permissive": "PERMISSIVE",
+   "with_check": "(auth.uid() = user_id)"
+  },
+  {
+   "name": "Users manage own goals",
+   "roles": [
+    "public"
+   ],
+   "table": "writing_goals",
+   "using": "(auth.uid() = user_id)",
+   "command": "ALL",
+   "permissive": "PERMISSIVE",
+   "with_check": "(auth.uid() = user_id)"
+  },
+  {
+   "name": "Users manage own writing sessions",
+   "roles": [
+    "public"
+   ],
+   "table": "writing_sessions",
+   "using": "(auth.uid() = user_id)",
+   "command": "ALL",
+   "permissive": "PERMISSIVE",
+   "with_check": "(auth.uid() = user_id)"
+  },
+  {
+   "name": "xp_events: insert own",
+   "roles": [
+    "public"
+   ],
+   "table": "xp_events",
+   "using": null,
+   "command": "INSERT",
+   "permissive": "PERMISSIVE",
+   "with_check": "(auth.uid() = user_id)"
+  },
+  {
+   "name": "xp_events: select own",
+   "roles": [
+    "public"
+   ],
+   "table": "xp_events",
+   "using": "(auth.uid() = user_id)",
+   "command": "SELECT",
+   "permissive": "PERMISSIVE",
+   "with_check": null
+  }
+ ],
+ "triggers": [
+  {
+   "name": "on_auth_user_created",
+   "nargs": 0,
+   "table": "auth.users",
+   "enabled": "O",
+   "function": "public.handle_new_user",
+   "definition": "CREATE TRIGGER on_auth_user_created AFTER INSERT ON auth.users FOR EACH ROW EXECUTE FUNCTION handle_new_user()",
+   "definition_redacted": false
+  },
+  {
+   "name": "enforce_single_canonical",
+   "nargs": 0,
+   "table": "pages",
+   "enabled": "O",
+   "function": "public.enforce_single_canonical_page",
+   "definition": "CREATE TRIGGER enforce_single_canonical AFTER UPDATE OF is_canonical ON pages FOR EACH ROW WHEN (new.is_canonical = true) EXECUTE FUNCTION enforce_single_canonical_page()",
+   "definition_redacted": false
+  },
+  {
+   "name": "page_version_trigger",
+   "nargs": 0,
+   "table": "pages",
+   "enabled": "O",
+   "function": "public.increment_page_version",
+   "definition": "CREATE TRIGGER page_version_trigger BEFORE UPDATE ON pages FOR EACH ROW EXECUTE FUNCTION increment_page_version()",
+   "definition_redacted": false
+  },
+  {
+   "name": "trg_page_updated",
+   "nargs": 0,
+   "table": "pages",
+   "enabled": "O",
+   "function": "public.bump_project_updated_at",
+   "definition": "CREATE TRIGGER trg_page_updated AFTER UPDATE ON pages FOR EACH ROW EXECUTE FUNCTION bump_project_updated_at()",
+   "definition_redacted": false
+  },
+  {
+   "name": "profiles_protect_billing_columns",
+   "nargs": 0,
+   "table": "profiles",
+   "enabled": "O",
+   "function": "public.protect_billing_columns",
+   "definition": "CREATE TRIGGER profiles_protect_billing_columns BEFORE UPDATE ON profiles FOR EACH ROW EXECUTE FUNCTION protect_billing_columns()",
+   "definition_redacted": false
+  },
+  {
+   "name": "profiles_protect_is_admin",
+   "nargs": 0,
+   "table": "profiles",
+   "enabled": "O",
+   "function": "public.protect_is_admin",
+   "definition": "CREATE TRIGGER profiles_protect_is_admin BEFORE UPDATE ON profiles FOR EACH ROW EXECUTE FUNCTION protect_is_admin()",
+   "definition_redacted": false
+  },
+  {
+   "name": "user_pricing_entitlements_touch_updated_at",
+   "nargs": 0,
+   "table": "user_pricing_entitlements",
+   "enabled": "O",
+   "function": "public.touch_pricing_entitlement_updated_at",
+   "definition": "CREATE TRIGGER user_pricing_entitlements_touch_updated_at BEFORE UPDATE ON user_pricing_entitlements FOR EACH ROW EXECUTE FUNCTION touch_pricing_entitlement_updated_at()",
+   "definition_redacted": false
+  }
+ ],
+ "functions": [
+  {
+   "acl": "{postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}",
+   "kind": "f",
+   "name": "account_word_total",
+   "owner": "postgres",
+   "config": [
+    "search_path=\"\""
+   ],
+   "result": "integer",
+   "body_md5": "898fadc4090898cbee2b04704d12778a",
+   "language": "plpgsql",
+   "definition": "CREATE OR REPLACE FUNCTION public.account_word_total(p_candidate_page_id uuid DEFAULT NULL::uuid, p_candidate_word_count integer DEFAULT NULL::integer)\n RETURNS integer\n LANGUAGE plpgsql\n STABLE\n SET search_path TO ''\nAS $function$\ndeclare\n  v_total int;\nbegin\n  if auth.uid() is null then\n    raise exception 'Not authenticated';\n  end if;\n\n  with existing_pages as (\n    select\n      p.id as page_id,\n      case\n        when p_candidate_page_id is not null and p.id = p_candidate_page_id\n        then p_candidate_word_count\n        else p.word_count\n      end as word_count\n    from public.chapters c\n    join public.projects pr on pr.id = c.project_id\n    join public.pages p on p.chapter_id = c.id\n    where pr.user_id = auth.uid()\n  ),\n  new_page as (\n    -- Synthetic row for a brand-new page not yet inserted anywhere.\n    select p_candidate_word_count as word_count\n    where p_candidate_page_id is null\n      and p_candidate_word_count is not null\n  )\n  select coalesce(sum(word_count), 0)\n  into v_total\n  from (\n    select word_count from existing_pages\n    union all\n    select word_count from new_page\n  ) all_words;\n\n  return v_total;\nend;\n$function$\n",
+   "volatility": "s",
+   "body_length": 923,
+   "identity_args": "p_candidate_page_id uuid, p_candidate_word_count integer",
+   "acl_is_default": false,
+   "security_definer": false,
+   "definition_redacted": false
+  },
+  {
+   "acl": "{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}",
+   "kind": "f",
+   "name": "bump_project_updated_at",
+   "owner": "postgres",
+   "config": [
+    "search_path=\"\""
+   ],
+   "result": "trigger",
+   "body_md5": "9f37cd84dc58d23e38fc31655135b011",
+   "language": "plpgsql",
+   "definition": "CREATE OR REPLACE FUNCTION public.bump_project_updated_at()\n RETURNS trigger\n LANGUAGE plpgsql\n SET search_path TO ''\nAS $function$\nbegin\n  update public.projects\n  set updated_at = now()\n  where id = (\n    select c.project_id\n    from public.chapters c\n    where c.id = new.chapter_id\n  );\n\n  return new;\nend;\n$function$\n",
+   "volatility": "v",
+   "body_length": 180,
+   "identity_args": "",
+   "acl_is_default": false,
+   "security_definer": false,
+   "definition_redacted": false
+  },
+  {
+   "acl": "{postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}",
+   "kind": "f",
+   "name": "duplicate_project_checked",
+   "owner": "postgres",
+   "config": [
+    "search_path=\"\""
+   ],
+   "result": "jsonb",
+   "body_md5": "942d418789dd0b7dd49fb8db9b702adc",
+   "language": "plpgsql",
+   "definition": "CREATE OR REPLACE FUNCTION public.duplicate_project_checked(p_project_id uuid)\n RETURNS jsonb\n LANGUAGE plpgsql\n SET search_path TO ''\nAS $function$\ndeclare\n  v_source public.projects%rowtype;\n  v_source_chapter record;\n  v_source_page record;\n  v_new_project public.projects%rowtype;\n  v_new_chapter_id uuid;\n  v_new_title text;\n  v_used_numbers int[];\n  v_draft_num int;\n  v_source_total int;\n  v_account_total int;\n  v_limit int;\nbegin\n  perform public.lock_account_word_budget();\n\n  select * into v_source\n    from public.projects\n   where id = p_project_id and user_id = auth.uid();\n\n  if not found then\n    return jsonb_build_object('status', 'error', 'error', 'Project not found');\n  end if;\n\n  -- Every page in the source project, canonical or not — the same\n  -- all-pages definition account_word_total() uses, see the migration\n  -- header above for why. Computed directly here since the source project\n  -- already exists and needs no substitution.\n  select coalesce(sum(p.word_count), 0)\n    into v_source_total\n  from public.chapters c\n  join public.pages p on p.chapter_id = c.id\n  where c.project_id = p_project_id;\n\n  if v_source_total > 0 then\n    v_limit := public.free_word_limit_for_caller();\n    if v_limit is not null then\n      v_account_total := public.account_word_total();\n      if v_account_total + v_source_total > v_limit then\n        return jsonb_build_object('status', 'word_limit_blocked', 'limit', v_limit);\n      end if;\n    end if;\n  end if;\n\n  -- Unique \"— Draft N\" title: smallest unused number starting at 2,\n  -- preserving the exact gap-filling behavior of the prior JS\n  -- implementation (not simply max+1). regexp_match() (singular) is a\n  -- plain scalar function returning text[] or null — not a set-returning\n  -- function, so it's called directly rather than via a LATERAL join.\n  select array_agg((regexp_match(p.title, '— Draft (\\d+)$'))[1]::int)\n    into v_used_numbers\n  from public.projects p\n  where p.user_id = auth.uid()\n    and p.title ilike v_source.title || ' — Draft%'\n    and regexp_match(p.title, '— Draft (\\d+)$') is not null;\n\n  v_draft_num := 2;\n  while v_used_numbers is not null and v_draft_num = any(v_used_numbers) loop\n    v_draft_num := v_draft_num + 1;\n  end loop;\n\n  v_new_title := v_source.title || ' — Draft ' || v_draft_num;\n\n  insert into public.projects (user_id, title, description, cover_color, word_count)\n  values (auth.uid(), v_new_title, v_source.description, v_source.cover_color, v_source_total)\n  returning * into v_new_project;\n\n  for v_source_chapter in\n    select * from public.chapters where project_id = p_project_id order by position\n  loop\n    insert into public.chapters (project_id, title, position)\n    values (v_new_project.id, v_source_chapter.title, v_source_chapter.position)\n    returning id into v_new_chapter_id;\n\n    for v_source_page in\n      select * from public.pages where chapter_id = v_source_chapter.id order by position\n    loop\n      insert into public.pages (chapter_id, title, content, word_count, position, is_canonical)\n      values (\n        v_new_chapter_id,\n        v_source_page.title,\n        v_source_page.content,\n        v_source_page.word_count,\n        v_source_page.position,\n        v_source_page.is_canonical\n      );\n    end loop;\n  end loop;\n\n  return jsonb_build_object('status', 'ok', 'project', to_jsonb(v_new_project));\nend;\n$function$\n",
+   "volatility": "v",
+   "body_length": 3213,
+   "identity_args": "p_project_id uuid",
+   "acl_is_default": false,
+   "security_definer": false,
+   "definition_redacted": false
+  },
+  {
+   "acl": "{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}",
+   "kind": "f",
+   "name": "enforce_single_canonical_page",
+   "owner": "postgres",
+   "config": [
+    "search_path=public"
+   ],
+   "result": "trigger",
+   "body_md5": "5f39fc8e9ed8254bc47e4ddc255feddb",
+   "language": "plpgsql",
+   "definition": "CREATE OR REPLACE FUNCTION public.enforce_single_canonical_page()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\nbegin\n  update public.pages\n  set is_canonical = false\n  where chapter_id = new.chapter_id\n    and id <> new.id\n    and is_canonical = true;\n  return null;\nend;\n$function$\n",
+   "volatility": "v",
+   "body_length": 162,
+   "identity_args": "",
+   "acl_is_default": false,
+   "security_definer": true,
+   "definition_redacted": false
+  },
+  {
+   "acl": "{postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}",
+   "kind": "f",
+   "name": "free_word_limit_for_caller",
+   "owner": "postgres",
+   "config": [
+    "search_path=\"\""
+   ],
+   "result": "integer",
+   "body_md5": "c33c241f8c07a7598b71399ede45defa",
+   "language": "plpgsql",
+   "definition": "CREATE OR REPLACE FUNCTION public.free_word_limit_for_caller()\n RETURNS integer\n LANGUAGE plpgsql\n STABLE\n SET search_path TO ''\nAS $function$\ndeclare\n  v_tier text;\n  v_cohort text;\nbegin\n  if auth.uid() is null then\n    raise exception 'Not authenticated';\n  end if;\n\n  select subscription_tier into v_tier from public.profiles where id = auth.uid();\n  if coalesce(v_tier, 'free') <> 'free' then\n    return null;\n  end if;\n\n  select coalesce(pricing_cohort, 'starter_2k') into v_cohort\n    from public.user_pricing_entitlements where user_id = auth.uid();\n\n  return case coalesce(v_cohort, 'starter_2k')\n    when 'legacy_15k' then 15000\n    else 2000\n  end;\nend;\n$function$\n",
+   "volatility": "s",
+   "body_length": 523,
+   "identity_args": "",
+   "acl_is_default": false,
+   "security_definer": false,
+   "definition_redacted": false
+  },
+  {
+   "acl": "{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}",
+   "kind": "f",
+   "name": "handle_new_user",
+   "owner": "postgres",
+   "config": [
+    "search_path=\"\""
+   ],
+   "result": "trigger",
+   "body_md5": "ae455738d66d1e1d2339ac4b5411e3a2",
+   "language": "plpgsql",
+   "definition": "CREATE OR REPLACE FUNCTION public.handle_new_user()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO ''\nAS $function$\nbegin\n  insert into public.profiles (\n    id,\n    display_name,\n    avatar_url,\n    xp,\n    level,\n    has_written_first_words,\n    subscription_tier\n  ) values (\n    new.id,\n    new.raw_user_meta_data ->> 'display_name',\n    new.raw_user_meta_data ->> 'avatar_url',\n    0,\n    1,\n    false,\n    'free'\n  );\n\n  insert into public.user_pricing_entitlements (\n    user_id,\n    pricing_cohort,\n    founder_offer_status\n  ) values (\n    new.id,\n    'starter_2k',\n    'not_offered'\n  );\n\n  return new;\nend;\n$function$\n",
+   "volatility": "v",
+   "body_length": 503,
+   "identity_args": "",
+   "acl_is_default": false,
+   "security_definer": true,
+   "definition_redacted": false
+  },
+  {
+   "acl": "{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}",
+   "kind": "f",
+   "name": "increment_game_ticket",
+   "owner": "postgres",
+   "config": null,
+   "result": "void",
+   "body_md5": "253b687c5571a74b2f068366122efb57",
+   "language": "plpgsql",
+   "definition": "CREATE OR REPLACE FUNCTION public.increment_game_ticket(p_user_id uuid, p_week_start date)\n RETURNS void\n LANGUAGE plpgsql\n SECURITY DEFINER\nAS $function$\nBEGIN\n  INSERT INTO public.game_tickets (user_id, week_start, tickets_used)\n  VALUES (p_user_id, p_week_start, 1)\n  ON CONFLICT (user_id, week_start)\n  DO UPDATE SET tickets_used = game_tickets.tickets_used + 1;\nEND;\n$function$\n",
+   "volatility": "v",
+   "body_length": 218,
+   "identity_args": "p_user_id uuid, p_week_start date",
+   "acl_is_default": false,
+   "security_definer": true,
+   "definition_redacted": false
+  },
+  {
+   "acl": "{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}",
+   "kind": "f",
+   "name": "increment_page_version",
+   "owner": "postgres",
+   "config": null,
+   "result": "trigger",
+   "body_md5": "a07149a585dc44f8639d64d90fada1a7",
+   "language": "plpgsql",
+   "definition": "CREATE OR REPLACE FUNCTION public.increment_page_version()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\nBEGIN\n  NEW.version = OLD.version + 1;\n  NEW.updated_at = now(); -- Genrates a high-precision timestamptz locally on the Postgres server\n  RETURN NEW;\nEND;\n$function$\n",
+   "volatility": "v",
+   "body_length": 157,
+   "identity_args": "",
+   "acl_is_default": false,
+   "security_definer": false,
+   "definition_redacted": false
+  },
+  {
+   "acl": "{postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}",
+   "kind": "f",
+   "name": "insert_page_checked",
+   "owner": "postgres",
+   "config": [
+    "search_path=\"\""
+   ],
+   "result": "jsonb",
+   "body_md5": "00a1d24282b653a4a862bb0fb5db9aaf",
+   "language": "plpgsql",
+   "definition": "CREATE OR REPLACE FUNCTION public.insert_page_checked(p_chapter_id uuid, p_title text, p_content jsonb, p_word_count integer, p_position integer)\n RETURNS jsonb\n LANGUAGE plpgsql\n SET search_path TO ''\nAS $function$\ndeclare\n  v_limit int;\n  v_new_total int;\n  v_new public.pages%rowtype;\nbegin\n  perform public.lock_account_word_budget();\n\n  if p_word_count > 0 then\n    v_limit := public.free_word_limit_for_caller();\n    if v_limit is not null then\n      v_new_total := public.account_word_total(null, p_word_count);\n      if v_new_total > v_limit then\n        return jsonb_build_object('status', 'word_limit_blocked', 'limit', v_limit);\n      end if;\n    end if;\n  end if;\n\n  insert into public.pages (chapter_id, title, content, word_count, position, is_canonical)\n  values (p_chapter_id, p_title, p_content, p_word_count, p_position, false)\n  returning * into v_new;\n\n  return jsonb_build_object('status', 'ok', 'id', v_new.id);\nend;\n$function$\n",
+   "volatility": "v",
+   "body_length": 724,
+   "identity_args": "p_chapter_id uuid, p_title text, p_content jsonb, p_word_count integer, p_position integer",
+   "acl_is_default": false,
+   "security_definer": false,
+   "definition_redacted": false
+  },
+  {
+   "acl": "{postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}",
+   "kind": "f",
+   "name": "lock_account_word_budget",
+   "owner": "postgres",
+   "config": [
+    "search_path=\"\""
+   ],
+   "result": "void",
+   "body_md5": "2db4d5a9a87aeba6f7daf457fcd951b5",
+   "language": "plpgsql",
+   "definition": "CREATE OR REPLACE FUNCTION public.lock_account_word_budget()\n RETURNS void\n LANGUAGE plpgsql\n SET search_path TO ''\nAS $function$\nbegin\n  if auth.uid() is null then\n    raise exception 'Not authenticated';\n  end if;\n\n  perform pg_advisory_xact_lock(('x' || substr(md5(auth.uid()::text), 1, 16))::bit(64)::bigint);\nend;\n$function$\n",
+   "volatility": "v",
+   "body_length": 190,
+   "identity_args": "",
+   "acl_is_default": false,
+   "security_definer": false,
+   "definition_redacted": false
+  },
+  {
+   "acl": "{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}",
+   "kind": "f",
+   "name": "protect_billing_columns",
+   "owner": "postgres",
+   "config": [
+    "search_path=\"\""
+   ],
+   "result": "trigger",
+   "body_md5": "a44488302391c02bc4845c6b4790595d",
+   "language": "plpgsql",
+   "definition": "CREATE OR REPLACE FUNCTION public.protect_billing_columns()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO ''\nAS $function$\nbegin\n  if auth.role() = 'authenticated' then\n    if new.subscription_tier is distinct from old.subscription_tier then\n      new.subscription_tier := old.subscription_tier;\n    end if;\n    if new.subscription_status is distinct from old.subscription_status then\n      new.subscription_status := old.subscription_status;\n    end if;\n    if new.subscription_price_id is distinct from old.subscription_price_id then\n      new.subscription_price_id := old.subscription_price_id;\n    end if;\n    if new.subscription_period_end is distinct from old.subscription_period_end then\n      new.subscription_period_end := old.subscription_period_end;\n    end if;\n    if new.stripe_customer_id is distinct from old.stripe_customer_id then\n      new.stripe_customer_id := old.stripe_customer_id;\n    end if;\n  end if;\n  return new;\nend;\n$function$\n",
+   "volatility": "v",
+   "body_length": 823,
+   "identity_args": "",
+   "acl_is_default": false,
+   "security_definer": true,
+   "definition_redacted": false
+  },
+  {
+   "acl": "{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}",
+   "kind": "f",
+   "name": "protect_is_admin",
+   "owner": "postgres",
+   "config": [
+    "search_path=public"
+   ],
+   "result": "trigger",
+   "body_md5": "cf31a5cb7918a6fbcffd328a2d141b35",
+   "language": "plpgsql",
+   "definition": "CREATE OR REPLACE FUNCTION public.protect_is_admin()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\nbegin\n  if auth.role() = 'authenticated' and new.is_admin is distinct from old.is_admin then\n    new.is_admin := old.is_admin;\n  end if;\n  return new;\nend;\n$function$\n",
+   "volatility": "v",
+   "body_length": 157,
+   "identity_args": "",
+   "acl_is_default": false,
+   "security_definer": true,
+   "definition_redacted": false
+  },
+  {
+   "acl": "{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}",
+   "kind": "f",
+   "name": "rls_auto_enable",
+   "owner": "postgres",
+   "config": [
+    "search_path=pg_catalog"
+   ],
+   "result": "event_trigger",
+   "body_md5": "99be20677b456ea8d3be47bdd44fb369",
+   "language": "plpgsql",
+   "definition": "CREATE OR REPLACE FUNCTION public.rls_auto_enable()\n RETURNS event_trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'pg_catalog'\nAS $function$\nDECLARE\n  cmd record;\nBEGIN\n  FOR cmd IN\n    SELECT *\n    FROM pg_event_trigger_ddl_commands()\n    WHERE command_tag IN ('CREATE TABLE', 'CREATE TABLE AS', 'SELECT INTO')\n      AND object_type IN ('table','partitioned table')\n  LOOP\n     IF cmd.schema_name IS NOT NULL AND cmd.schema_name IN ('public') AND cmd.schema_name NOT IN ('pg_catalog','information_schema') AND cmd.schema_name NOT LIKE 'pg_toast%' AND cmd.schema_name NOT LIKE 'pg_temp%' THEN\n      BEGIN\n        EXECUTE format('alter table if exists %s enable row level security', cmd.object_identity);\n        RAISE LOG 'rls_auto_enable: enabled RLS on %', cmd.object_identity;\n      EXCEPTION\n        WHEN OTHERS THEN\n          RAISE LOG 'rls_auto_enable: failed to enable RLS on %', cmd.object_identity;\n      END;\n     ELSE\n        RAISE LOG 'rls_auto_enable: skip % (either system schema or not in enforced list: %.)', cmd.object_identity, cmd.schema_name;\n     END IF;\n  END LOOP;\nEND;\n$function$\n",
+   "volatility": "v",
+   "body_length": 953,
+   "identity_args": "",
+   "acl_is_default": false,
+   "security_definer": true,
+   "definition_redacted": false
+  },
+  {
+   "acl": "{postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}",
+   "kind": "f",
+   "name": "save_page_checked",
+   "owner": "postgres",
+   "config": [
+    "search_path=\"\""
+   ],
+   "result": "jsonb",
+   "body_md5": "2587cf3f0263f2719fbf8a552f29b4cd",
+   "language": "plpgsql",
+   "definition": "CREATE OR REPLACE FUNCTION public.save_page_checked(p_page_id uuid, p_content jsonb, p_word_count integer, p_expected_version integer DEFAULT NULL::integer)\n RETURNS jsonb\n LANGUAGE plpgsql\n SET search_path TO ''\nAS $function$\ndeclare\n  v_old_word_count int;\n  v_limit int;\n  v_new_total int;\n  v_updated public.pages%rowtype;\nbegin\n  perform public.lock_account_word_budget();\n\n  select p.word_count\n    into v_old_word_count\n    from public.pages p\n    where p.id = p_page_id;\n\n  if not found then\n    return jsonb_build_object('status', 'error', 'error', 'Page not found');\n  end if;\n\n  -- Only enforce when words are being added — never block edits/deletions.\n  -- A page that's already over the allowance (legacy data, a prior\n  -- inconsistency) is never trapped: shrinking or net-neutral edits always\n  -- pass, only further growth is blocked.\n  if p_word_count > v_old_word_count then\n    v_limit := public.free_word_limit_for_caller();\n    if v_limit is not null then\n      v_new_total := public.account_word_total(p_page_id, p_word_count);\n      if v_new_total > v_limit then\n        return jsonb_build_object('status', 'word_limit_blocked', 'limit', v_limit);\n      end if;\n    end if;\n  end if;\n\n  if p_expected_version is not null then\n    update public.pages\n       set content = p_content, word_count = p_word_count\n     where id = p_page_id and version = p_expected_version\n     returning * into v_updated;\n\n    if not found then\n      return jsonb_build_object('status', 'version_mismatch');\n    end if;\n  else\n    update public.pages\n       set content = p_content, word_count = p_word_count\n     where id = p_page_id\n     returning * into v_updated;\n\n    if not found then\n      return jsonb_build_object('status', 'error', 'error', 'Page not found');\n    end if;\n  end if;\n\n  return jsonb_build_object(\n    'status', 'ok',\n    'updated_at', v_updated.updated_at,\n    'version', v_updated.version\n  );\nend;\n$function$\n",
+   "volatility": "v",
+   "body_length": 1700,
+   "identity_args": "p_page_id uuid, p_content jsonb, p_word_count integer, p_expected_version integer",
+   "acl_is_default": false,
+   "security_definer": false,
+   "definition_redacted": false
+  },
+  {
+   "acl": "{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}",
+   "kind": "f",
+   "name": "touch_pricing_entitlement_updated_at",
+   "owner": "postgres",
+   "config": null,
+   "result": "trigger",
+   "body_md5": "9b1889f56258bf9d6554213c05019c76",
+   "language": "plpgsql",
+   "definition": "CREATE OR REPLACE FUNCTION public.touch_pricing_entitlement_updated_at()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\nbegin\n  new.updated_at = now();\n  return new;\nend;\n$function$\n",
+   "volatility": "v",
+   "body_length": 52,
+   "identity_args": "",
+   "acl_is_default": false,
+   "security_definer": false,
+   "definition_redacted": false
+  }
+ ],
+ "overloads": [],
+ "function_grants": [
+  {
+   "grantee": "anon",
+   "function": "account_word_total(p_candidate_page_id uuid, p_candidate_word_count integer)",
+   "privilege": "EXECUTE"
+  },
+  {
+   "grantee": "authenticated",
+   "function": "account_word_total(p_candidate_page_id uuid, p_candidate_word_count integer)",
+   "privilege": "EXECUTE"
+  },
+  {
+   "grantee": "postgres",
+   "function": "account_word_total(p_candidate_page_id uuid, p_candidate_word_count integer)",
+   "privilege": "EXECUTE"
+  },
+  {
+   "grantee": "service_role",
+   "function": "account_word_total(p_candidate_page_id uuid, p_candidate_word_count integer)",
+   "privilege": "EXECUTE"
+  },
+  {
+   "grantee": "PUBLIC",
+   "function": "bump_project_updated_at()",
+   "privilege": "EXECUTE"
+  },
+  {
+   "grantee": "anon",
+   "function": "bump_project_updated_at()",
+   "privilege": "EXECUTE"
+  },
+  {
+   "grantee": "authenticated",
+   "function": "bump_project_updated_at()",
+   "privilege": "EXECUTE"
+  },
+  {
+   "grantee": "postgres",
+   "function": "bump_project_updated_at()",
+   "privilege": "EXECUTE"
+  },
+  {
+   "grantee": "service_role",
+   "function": "bump_project_updated_at()",
+   "privilege": "EXECUTE"
+  },
+  {
+   "grantee": "anon",
+   "function": "duplicate_project_checked(p_project_id uuid)",
+   "privilege": "EXECUTE"
+  },
+  {
+   "grantee": "authenticated",
+   "function": "duplicate_project_checked(p_project_id uuid)",
+   "privilege": "EXECUTE"
+  },
+  {
+   "grantee": "postgres",
+   "function": "duplicate_project_checked(p_project_id uuid)",
+   "privilege": "EXECUTE"
+  },
+  {
+   "grantee": "service_role",
+   "function": "duplicate_project_checked(p_project_id uuid)",
+   "privilege": "EXECUTE"
+  },
+  {
+   "grantee": "PUBLIC",
+   "function": "enforce_single_canonical_page()",
+   "privilege": "EXECUTE"
+  },
+  {
+   "grantee": "anon",
+   "function": "enforce_single_canonical_page()",
+   "privilege": "EXECUTE"
+  },
+  {
+   "grantee": "authenticated",
+   "function": "enforce_single_canonical_page()",
+   "privilege": "EXECUTE"
+  },
+  {
+   "grantee": "postgres",
+   "function": "enforce_single_canonical_page()",
+   "privilege": "EXECUTE"
+  },
+  {
+   "grantee": "service_role",
+   "function": "enforce_single_canonical_page()",
+   "privilege": "EXECUTE"
+  },
+  {
+   "grantee": "anon",
+   "function": "free_word_limit_for_caller()",
+   "privilege": "EXECUTE"
+  },
+  {
+   "grantee": "authenticated",
+   "function": "free_word_limit_for_caller()",
+   "privilege": "EXECUTE"
+  },
+  {
+   "grantee": "postgres",
+   "function": "free_word_limit_for_caller()",
+   "privilege": "EXECUTE"
+  },
+  {
+   "grantee": "service_role",
+   "function": "free_word_limit_for_caller()",
+   "privilege": "EXECUTE"
+  },
+  {
+   "grantee": "PUBLIC",
+   "function": "handle_new_user()",
+   "privilege": "EXECUTE"
+  },
+  {
+   "grantee": "anon",
+   "function": "handle_new_user()",
+   "privilege": "EXECUTE"
+  },
+  {
+   "grantee": "authenticated",
+   "function": "handle_new_user()",
+   "privilege": "EXECUTE"
+  },
+  {
+   "grantee": "postgres",
+   "function": "handle_new_user()",
+   "privilege": "EXECUTE"
+  },
+  {
+   "grantee": "service_role",
+   "function": "handle_new_user()",
+   "privilege": "EXECUTE"
+  },
+  {
+   "grantee": "PUBLIC",
+   "function": "increment_game_ticket(p_user_id uuid, p_week_start date)",
+   "privilege": "EXECUTE"
+  },
+  {
+   "grantee": "anon",
+   "function": "increment_game_ticket(p_user_id uuid, p_week_start date)",
+   "privilege": "EXECUTE"
+  },
+  {
+   "grantee": "authenticated",
+   "function": "increment_game_ticket(p_user_id uuid, p_week_start date)",
+   "privilege": "EXECUTE"
+  },
+  {
+   "grantee": "postgres",
+   "function": "increment_game_ticket(p_user_id uuid, p_week_start date)",
+   "privilege": "EXECUTE"
+  },
+  {
+   "grantee": "service_role",
+   "function": "increment_game_ticket(p_user_id uuid, p_week_start date)",
+   "privilege": "EXECUTE"
+  },
+  {
+   "grantee": "PUBLIC",
+   "function": "increment_page_version()",
+   "privilege": "EXECUTE"
+  },
+  {
+   "grantee": "anon",
+   "function": "increment_page_version()",
+   "privilege": "EXECUTE"
+  },
+  {
+   "grantee": "authenticated",
+   "function": "increment_page_version()",
+   "privilege": "EXECUTE"
+  },
+  {
+   "grantee": "postgres",
+   "function": "increment_page_version()",
+   "privilege": "EXECUTE"
+  },
+  {
+   "grantee": "service_role",
+   "function": "increment_page_version()",
+   "privilege": "EXECUTE"
+  },
+  {
+   "grantee": "anon",
+   "function": "insert_page_checked(p_chapter_id uuid, p_title text, p_content jsonb, p_word_count integer, p_position integer)",
+   "privilege": "EXECUTE"
+  },
+  {
+   "grantee": "authenticated",
+   "function": "insert_page_checked(p_chapter_id uuid, p_title text, p_content jsonb, p_word_count integer, p_position integer)",
+   "privilege": "EXECUTE"
+  },
+  {
+   "grantee": "postgres",
+   "function": "insert_page_checked(p_chapter_id uuid, p_title text, p_content jsonb, p_word_count integer, p_position integer)",
+   "privilege": "EXECUTE"
+  },
+  {
+   "grantee": "service_role",
+   "function": "insert_page_checked(p_chapter_id uuid, p_title text, p_content jsonb, p_word_count integer, p_position integer)",
+   "privilege": "EXECUTE"
+  },
+  {
+   "grantee": "anon",
+   "function": "lock_account_word_budget()",
+   "privilege": "EXECUTE"
+  },
+  {
+   "grantee": "authenticated",
+   "function": "lock_account_word_budget()",
+   "privilege": "EXECUTE"
+  },
+  {
+   "grantee": "postgres",
+   "function": "lock_account_word_budget()",
+   "privilege": "EXECUTE"
+  },
+  {
+   "grantee": "service_role",
+   "function": "lock_account_word_budget()",
+   "privilege": "EXECUTE"
+  },
+  {
+   "grantee": "PUBLIC",
+   "function": "protect_billing_columns()",
+   "privilege": "EXECUTE"
+  },
+  {
+   "grantee": "anon",
+   "function": "protect_billing_columns()",
+   "privilege": "EXECUTE"
+  },
+  {
+   "grantee": "authenticated",
+   "function": "protect_billing_columns()",
+   "privilege": "EXECUTE"
+  },
+  {
+   "grantee": "postgres",
+   "function": "protect_billing_columns()",
+   "privilege": "EXECUTE"
+  },
+  {
+   "grantee": "service_role",
+   "function": "protect_billing_columns()",
+   "privilege": "EXECUTE"
+  },
+  {
+   "grantee": "PUBLIC",
+   "function": "protect_is_admin()",
+   "privilege": "EXECUTE"
+  },
+  {
+   "grantee": "anon",
+   "function": "protect_is_admin()",
+   "privilege": "EXECUTE"
+  },
+  {
+   "grantee": "authenticated",
+   "function": "protect_is_admin()",
+   "privilege": "EXECUTE"
+  },
+  {
+   "grantee": "postgres",
+   "function": "protect_is_admin()",
+   "privilege": "EXECUTE"
+  },
+  {
+   "grantee": "service_role",
+   "function": "protect_is_admin()",
+   "privilege": "EXECUTE"
+  },
+  {
+   "grantee": "PUBLIC",
+   "function": "rls_auto_enable()",
+   "privilege": "EXECUTE"
+  },
+  {
+   "grantee": "anon",
+   "function": "rls_auto_enable()",
+   "privilege": "EXECUTE"
+  },
+  {
+   "grantee": "authenticated",
+   "function": "rls_auto_enable()",
+   "privilege": "EXECUTE"
+  },
+  {
+   "grantee": "postgres",
+   "function": "rls_auto_enable()",
+   "privilege": "EXECUTE"
+  },
+  {
+   "grantee": "service_role",
+   "function": "rls_auto_enable()",
+   "privilege": "EXECUTE"
+  },
+  {
+   "grantee": "anon",
+   "function": "save_page_checked(p_page_id uuid, p_content jsonb, p_word_count integer, p_expected_version integer)",
+   "privilege": "EXECUTE"
+  },
+  {
+   "grantee": "authenticated",
+   "function": "save_page_checked(p_page_id uuid, p_content jsonb, p_word_count integer, p_expected_version integer)",
+   "privilege": "EXECUTE"
+  },
+  {
+   "grantee": "postgres",
+   "function": "save_page_checked(p_page_id uuid, p_content jsonb, p_word_count integer, p_expected_version integer)",
+   "privilege": "EXECUTE"
+  },
+  {
+   "grantee": "service_role",
+   "function": "save_page_checked(p_page_id uuid, p_content jsonb, p_word_count integer, p_expected_version integer)",
+   "privilege": "EXECUTE"
+  },
+  {
+   "grantee": "PUBLIC",
+   "function": "touch_pricing_entitlement_updated_at()",
+   "privilege": "EXECUTE"
+  },
+  {
+   "grantee": "anon",
+   "function": "touch_pricing_entitlement_updated_at()",
+   "privilege": "EXECUTE"
+  },
+  {
+   "grantee": "authenticated",
+   "function": "touch_pricing_entitlement_updated_at()",
+   "privilege": "EXECUTE"
+  },
+  {
+   "grantee": "postgres",
+   "function": "touch_pricing_entitlement_updated_at()",
+   "privilege": "EXECUTE"
+  },
+  {
+   "grantee": "service_role",
+   "function": "touch_pricing_entitlement_updated_at()",
+   "privilege": "EXECUTE"
+  }
+ ],
+ "table_grants": [
+  {
+   "table": "acquisition_attribution",
+   "grantee": "anon",
+   "privilege": "DELETE"
+  },
+  {
+   "table": "acquisition_attribution",
+   "grantee": "anon",
+   "privilege": "INSERT"
+  },
+  {
+   "table": "acquisition_attribution",
+   "grantee": "anon",
+   "privilege": "REFERENCES"
+  },
+  {
+   "table": "acquisition_attribution",
+   "grantee": "anon",
+   "privilege": "SELECT"
+  },
+  {
+   "table": "acquisition_attribution",
+   "grantee": "anon",
+   "privilege": "TRIGGER"
+  },
+  {
+   "table": "acquisition_attribution",
+   "grantee": "anon",
+   "privilege": "TRUNCATE"
+  },
+  {
+   "table": "acquisition_attribution",
+   "grantee": "anon",
+   "privilege": "UPDATE"
+  },
+  {
+   "table": "acquisition_attribution",
+   "grantee": "authenticated",
+   "privilege": "DELETE"
+  },
+  {
+   "table": "acquisition_attribution",
+   "grantee": "authenticated",
+   "privilege": "INSERT"
+  },
+  {
+   "table": "acquisition_attribution",
+   "grantee": "authenticated",
+   "privilege": "REFERENCES"
+  },
+  {
+   "table": "acquisition_attribution",
+   "grantee": "authenticated",
+   "privilege": "SELECT"
+  },
+  {
+   "table": "acquisition_attribution",
+   "grantee": "authenticated",
+   "privilege": "TRIGGER"
+  },
+  {
+   "table": "acquisition_attribution",
+   "grantee": "authenticated",
+   "privilege": "TRUNCATE"
+  },
+  {
+   "table": "acquisition_attribution",
+   "grantee": "authenticated",
+   "privilege": "UPDATE"
+  },
+  {
+   "table": "acquisition_attribution",
+   "grantee": "service_role",
+   "privilege": "DELETE"
+  },
+  {
+   "table": "acquisition_attribution",
+   "grantee": "service_role",
+   "privilege": "INSERT"
+  },
+  {
+   "table": "acquisition_attribution",
+   "grantee": "service_role",
+   "privilege": "REFERENCES"
+  },
+  {
+   "table": "acquisition_attribution",
+   "grantee": "service_role",
+   "privilege": "SELECT"
+  },
+  {
+   "table": "acquisition_attribution",
+   "grantee": "service_role",
+   "privilege": "TRIGGER"
+  },
+  {
+   "table": "acquisition_attribution",
+   "grantee": "service_role",
+   "privilege": "TRUNCATE"
+  },
+  {
+   "table": "acquisition_attribution",
+   "grantee": "service_role",
+   "privilege": "UPDATE"
+  },
+  {
+   "table": "analytics_events",
+   "grantee": "anon",
+   "privilege": "DELETE"
+  },
+  {
+   "table": "analytics_events",
+   "grantee": "anon",
+   "privilege": "INSERT"
+  },
+  {
+   "table": "analytics_events",
+   "grantee": "anon",
+   "privilege": "REFERENCES"
+  },
+  {
+   "table": "analytics_events",
+   "grantee": "anon",
+   "privilege": "SELECT"
+  },
+  {
+   "table": "analytics_events",
+   "grantee": "anon",
+   "privilege": "TRIGGER"
+  },
+  {
+   "table": "analytics_events",
+   "grantee": "anon",
+   "privilege": "TRUNCATE"
+  },
+  {
+   "table": "analytics_events",
+   "grantee": "anon",
+   "privilege": "UPDATE"
+  },
+  {
+   "table": "analytics_events",
+   "grantee": "authenticated",
+   "privilege": "DELETE"
+  },
+  {
+   "table": "analytics_events",
+   "grantee": "authenticated",
+   "privilege": "INSERT"
+  },
+  {
+   "table": "analytics_events",
+   "grantee": "authenticated",
+   "privilege": "REFERENCES"
+  },
+  {
+   "table": "analytics_events",
+   "grantee": "authenticated",
+   "privilege": "SELECT"
+  },
+  {
+   "table": "analytics_events",
+   "grantee": "authenticated",
+   "privilege": "TRIGGER"
+  },
+  {
+   "table": "analytics_events",
+   "grantee": "authenticated",
+   "privilege": "TRUNCATE"
+  },
+  {
+   "table": "analytics_events",
+   "grantee": "authenticated",
+   "privilege": "UPDATE"
+  },
+  {
+   "table": "analytics_events",
+   "grantee": "service_role",
+   "privilege": "DELETE"
+  },
+  {
+   "table": "analytics_events",
+   "grantee": "service_role",
+   "privilege": "INSERT"
+  },
+  {
+   "table": "analytics_events",
+   "grantee": "service_role",
+   "privilege": "REFERENCES"
+  },
+  {
+   "table": "analytics_events",
+   "grantee": "service_role",
+   "privilege": "SELECT"
+  },
+  {
+   "table": "analytics_events",
+   "grantee": "service_role",
+   "privilege": "TRIGGER"
+  },
+  {
+   "table": "analytics_events",
+   "grantee": "service_role",
+   "privilege": "TRUNCATE"
+  },
+  {
+   "table": "analytics_events",
+   "grantee": "service_role",
+   "privilege": "UPDATE"
+  },
+  {
+   "table": "analytics_excluded_users",
+   "grantee": "anon",
+   "privilege": "DELETE"
+  },
+  {
+   "table": "analytics_excluded_users",
+   "grantee": "anon",
+   "privilege": "INSERT"
+  },
+  {
+   "table": "analytics_excluded_users",
+   "grantee": "anon",
+   "privilege": "REFERENCES"
+  },
+  {
+   "table": "analytics_excluded_users",
+   "grantee": "anon",
+   "privilege": "SELECT"
+  },
+  {
+   "table": "analytics_excluded_users",
+   "grantee": "anon",
+   "privilege": "TRIGGER"
+  },
+  {
+   "table": "analytics_excluded_users",
+   "grantee": "anon",
+   "privilege": "TRUNCATE"
+  },
+  {
+   "table": "analytics_excluded_users",
+   "grantee": "anon",
+   "privilege": "UPDATE"
+  },
+  {
+   "table": "analytics_excluded_users",
+   "grantee": "authenticated",
+   "privilege": "DELETE"
+  },
+  {
+   "table": "analytics_excluded_users",
+   "grantee": "authenticated",
+   "privilege": "INSERT"
+  },
+  {
+   "table": "analytics_excluded_users",
+   "grantee": "authenticated",
+   "privilege": "REFERENCES"
+  },
+  {
+   "table": "analytics_excluded_users",
+   "grantee": "authenticated",
+   "privilege": "SELECT"
+  },
+  {
+   "table": "analytics_excluded_users",
+   "grantee": "authenticated",
+   "privilege": "TRIGGER"
+  },
+  {
+   "table": "analytics_excluded_users",
+   "grantee": "authenticated",
+   "privilege": "TRUNCATE"
+  },
+  {
+   "table": "analytics_excluded_users",
+   "grantee": "authenticated",
+   "privilege": "UPDATE"
+  },
+  {
+   "table": "analytics_excluded_users",
+   "grantee": "service_role",
+   "privilege": "DELETE"
+  },
+  {
+   "table": "analytics_excluded_users",
+   "grantee": "service_role",
+   "privilege": "INSERT"
+  },
+  {
+   "table": "analytics_excluded_users",
+   "grantee": "service_role",
+   "privilege": "REFERENCES"
+  },
+  {
+   "table": "analytics_excluded_users",
+   "grantee": "service_role",
+   "privilege": "SELECT"
+  },
+  {
+   "table": "analytics_excluded_users",
+   "grantee": "service_role",
+   "privilege": "TRIGGER"
+  },
+  {
+   "table": "analytics_excluded_users",
+   "grantee": "service_role",
+   "privilege": "TRUNCATE"
+  },
+  {
+   "table": "analytics_excluded_users",
+   "grantee": "service_role",
+   "privilege": "UPDATE"
+  },
+  {
+   "table": "chapters",
+   "grantee": "anon",
+   "privilege": "DELETE"
+  },
+  {
+   "table": "chapters",
+   "grantee": "anon",
+   "privilege": "INSERT"
+  },
+  {
+   "table": "chapters",
+   "grantee": "anon",
+   "privilege": "REFERENCES"
+  },
+  {
+   "table": "chapters",
+   "grantee": "anon",
+   "privilege": "SELECT"
+  },
+  {
+   "table": "chapters",
+   "grantee": "anon",
+   "privilege": "TRIGGER"
+  },
+  {
+   "table": "chapters",
+   "grantee": "anon",
+   "privilege": "TRUNCATE"
+  },
+  {
+   "table": "chapters",
+   "grantee": "anon",
+   "privilege": "UPDATE"
+  },
+  {
+   "table": "chapters",
+   "grantee": "authenticated",
+   "privilege": "DELETE"
+  },
+  {
+   "table": "chapters",
+   "grantee": "authenticated",
+   "privilege": "INSERT"
+  },
+  {
+   "table": "chapters",
+   "grantee": "authenticated",
+   "privilege": "REFERENCES"
+  },
+  {
+   "table": "chapters",
+   "grantee": "authenticated",
+   "privilege": "SELECT"
+  },
+  {
+   "table": "chapters",
+   "grantee": "authenticated",
+   "privilege": "TRIGGER"
+  },
+  {
+   "table": "chapters",
+   "grantee": "authenticated",
+   "privilege": "TRUNCATE"
+  },
+  {
+   "table": "chapters",
+   "grantee": "authenticated",
+   "privilege": "UPDATE"
+  },
+  {
+   "table": "chapters",
+   "grantee": "service_role",
+   "privilege": "DELETE"
+  },
+  {
+   "table": "chapters",
+   "grantee": "service_role",
+   "privilege": "INSERT"
+  },
+  {
+   "table": "chapters",
+   "grantee": "service_role",
+   "privilege": "REFERENCES"
+  },
+  {
+   "table": "chapters",
+   "grantee": "service_role",
+   "privilege": "SELECT"
+  },
+  {
+   "table": "chapters",
+   "grantee": "service_role",
+   "privilege": "TRIGGER"
+  },
+  {
+   "table": "chapters",
+   "grantee": "service_role",
+   "privilege": "TRUNCATE"
+  },
+  {
+   "table": "chapters",
+   "grantee": "service_role",
+   "privilege": "UPDATE"
+  },
+  {
+   "table": "deleted_accounts",
+   "grantee": "anon",
+   "privilege": "DELETE"
+  },
+  {
+   "table": "deleted_accounts",
+   "grantee": "anon",
+   "privilege": "INSERT"
+  },
+  {
+   "table": "deleted_accounts",
+   "grantee": "anon",
+   "privilege": "REFERENCES"
+  },
+  {
+   "table": "deleted_accounts",
+   "grantee": "anon",
+   "privilege": "SELECT"
+  },
+  {
+   "table": "deleted_accounts",
+   "grantee": "anon",
+   "privilege": "TRIGGER"
+  },
+  {
+   "table": "deleted_accounts",
+   "grantee": "anon",
+   "privilege": "TRUNCATE"
+  },
+  {
+   "table": "deleted_accounts",
+   "grantee": "anon",
+   "privilege": "UPDATE"
+  },
+  {
+   "table": "deleted_accounts",
+   "grantee": "authenticated",
+   "privilege": "DELETE"
+  },
+  {
+   "table": "deleted_accounts",
+   "grantee": "authenticated",
+   "privilege": "INSERT"
+  },
+  {
+   "table": "deleted_accounts",
+   "grantee": "authenticated",
+   "privilege": "REFERENCES"
+  },
+  {
+   "table": "deleted_accounts",
+   "grantee": "authenticated",
+   "privilege": "SELECT"
+  },
+  {
+   "table": "deleted_accounts",
+   "grantee": "authenticated",
+   "privilege": "TRIGGER"
+  },
+  {
+   "table": "deleted_accounts",
+   "grantee": "authenticated",
+   "privilege": "TRUNCATE"
+  },
+  {
+   "table": "deleted_accounts",
+   "grantee": "authenticated",
+   "privilege": "UPDATE"
+  },
+  {
+   "table": "deleted_accounts",
+   "grantee": "service_role",
+   "privilege": "DELETE"
+  },
+  {
+   "table": "deleted_accounts",
+   "grantee": "service_role",
+   "privilege": "INSERT"
+  },
+  {
+   "table": "deleted_accounts",
+   "grantee": "service_role",
+   "privilege": "REFERENCES"
+  },
+  {
+   "table": "deleted_accounts",
+   "grantee": "service_role",
+   "privilege": "SELECT"
+  },
+  {
+   "table": "deleted_accounts",
+   "grantee": "service_role",
+   "privilege": "TRIGGER"
+  },
+  {
+   "table": "deleted_accounts",
+   "grantee": "service_role",
+   "privilege": "TRUNCATE"
+  },
+  {
+   "table": "deleted_accounts",
+   "grantee": "service_role",
+   "privilege": "UPDATE"
+  },
+  {
+   "table": "founder_notes",
+   "grantee": "anon",
+   "privilege": "DELETE"
+  },
+  {
+   "table": "founder_notes",
+   "grantee": "anon",
+   "privilege": "INSERT"
+  },
+  {
+   "table": "founder_notes",
+   "grantee": "anon",
+   "privilege": "REFERENCES"
+  },
+  {
+   "table": "founder_notes",
+   "grantee": "anon",
+   "privilege": "SELECT"
+  },
+  {
+   "table": "founder_notes",
+   "grantee": "anon",
+   "privilege": "TRIGGER"
+  },
+  {
+   "table": "founder_notes",
+   "grantee": "anon",
+   "privilege": "TRUNCATE"
+  },
+  {
+   "table": "founder_notes",
+   "grantee": "anon",
+   "privilege": "UPDATE"
+  },
+  {
+   "table": "founder_notes",
+   "grantee": "authenticated",
+   "privilege": "DELETE"
+  },
+  {
+   "table": "founder_notes",
+   "grantee": "authenticated",
+   "privilege": "INSERT"
+  },
+  {
+   "table": "founder_notes",
+   "grantee": "authenticated",
+   "privilege": "REFERENCES"
+  },
+  {
+   "table": "founder_notes",
+   "grantee": "authenticated",
+   "privilege": "SELECT"
+  },
+  {
+   "table": "founder_notes",
+   "grantee": "authenticated",
+   "privilege": "TRIGGER"
+  },
+  {
+   "table": "founder_notes",
+   "grantee": "authenticated",
+   "privilege": "TRUNCATE"
+  },
+  {
+   "table": "founder_notes",
+   "grantee": "authenticated",
+   "privilege": "UPDATE"
+  },
+  {
+   "table": "founder_notes",
+   "grantee": "service_role",
+   "privilege": "DELETE"
+  },
+  {
+   "table": "founder_notes",
+   "grantee": "service_role",
+   "privilege": "INSERT"
+  },
+  {
+   "table": "founder_notes",
+   "grantee": "service_role",
+   "privilege": "REFERENCES"
+  },
+  {
+   "table": "founder_notes",
+   "grantee": "service_role",
+   "privilege": "SELECT"
+  },
+  {
+   "table": "founder_notes",
+   "grantee": "service_role",
+   "privilege": "TRIGGER"
+  },
+  {
+   "table": "founder_notes",
+   "grantee": "service_role",
+   "privilege": "TRUNCATE"
+  },
+  {
+   "table": "founder_notes",
+   "grantee": "service_role",
+   "privilege": "UPDATE"
+  },
+  {
+   "table": "future_letters",
+   "grantee": "anon",
+   "privilege": "DELETE"
+  },
+  {
+   "table": "future_letters",
+   "grantee": "anon",
+   "privilege": "INSERT"
+  },
+  {
+   "table": "future_letters",
+   "grantee": "anon",
+   "privilege": "REFERENCES"
+  },
+  {
+   "table": "future_letters",
+   "grantee": "anon",
+   "privilege": "SELECT"
+  },
+  {
+   "table": "future_letters",
+   "grantee": "anon",
+   "privilege": "TRIGGER"
+  },
+  {
+   "table": "future_letters",
+   "grantee": "anon",
+   "privilege": "TRUNCATE"
+  },
+  {
+   "table": "future_letters",
+   "grantee": "anon",
+   "privilege": "UPDATE"
+  },
+  {
+   "table": "future_letters",
+   "grantee": "authenticated",
+   "privilege": "DELETE"
+  },
+  {
+   "table": "future_letters",
+   "grantee": "authenticated",
+   "privilege": "INSERT"
+  },
+  {
+   "table": "future_letters",
+   "grantee": "authenticated",
+   "privilege": "REFERENCES"
+  },
+  {
+   "table": "future_letters",
+   "grantee": "authenticated",
+   "privilege": "SELECT"
+  },
+  {
+   "table": "future_letters",
+   "grantee": "authenticated",
+   "privilege": "TRIGGER"
+  },
+  {
+   "table": "future_letters",
+   "grantee": "authenticated",
+   "privilege": "TRUNCATE"
+  },
+  {
+   "table": "future_letters",
+   "grantee": "authenticated",
+   "privilege": "UPDATE"
+  },
+  {
+   "table": "future_letters",
+   "grantee": "service_role",
+   "privilege": "DELETE"
+  },
+  {
+   "table": "future_letters",
+   "grantee": "service_role",
+   "privilege": "INSERT"
+  },
+  {
+   "table": "future_letters",
+   "grantee": "service_role",
+   "privilege": "REFERENCES"
+  },
+  {
+   "table": "future_letters",
+   "grantee": "service_role",
+   "privilege": "SELECT"
+  },
+  {
+   "table": "future_letters",
+   "grantee": "service_role",
+   "privilege": "TRIGGER"
+  },
+  {
+   "table": "future_letters",
+   "grantee": "service_role",
+   "privilege": "TRUNCATE"
+  },
+  {
+   "table": "future_letters",
+   "grantee": "service_role",
+   "privilege": "UPDATE"
+  },
+  {
+   "table": "game_sessions",
+   "grantee": "anon",
+   "privilege": "DELETE"
+  },
+  {
+   "table": "game_sessions",
+   "grantee": "anon",
+   "privilege": "INSERT"
+  },
+  {
+   "table": "game_sessions",
+   "grantee": "anon",
+   "privilege": "REFERENCES"
+  },
+  {
+   "table": "game_sessions",
+   "grantee": "anon",
+   "privilege": "SELECT"
+  },
+  {
+   "table": "game_sessions",
+   "grantee": "anon",
+   "privilege": "TRIGGER"
+  },
+  {
+   "table": "game_sessions",
+   "grantee": "anon",
+   "privilege": "TRUNCATE"
+  },
+  {
+   "table": "game_sessions",
+   "grantee": "anon",
+   "privilege": "UPDATE"
+  },
+  {
+   "table": "game_sessions",
+   "grantee": "authenticated",
+   "privilege": "DELETE"
+  },
+  {
+   "table": "game_sessions",
+   "grantee": "authenticated",
+   "privilege": "INSERT"
+  },
+  {
+   "table": "game_sessions",
+   "grantee": "authenticated",
+   "privilege": "REFERENCES"
+  },
+  {
+   "table": "game_sessions",
+   "grantee": "authenticated",
+   "privilege": "SELECT"
+  },
+  {
+   "table": "game_sessions",
+   "grantee": "authenticated",
+   "privilege": "TRIGGER"
+  },
+  {
+   "table": "game_sessions",
+   "grantee": "authenticated",
+   "privilege": "TRUNCATE"
+  },
+  {
+   "table": "game_sessions",
+   "grantee": "authenticated",
+   "privilege": "UPDATE"
+  },
+  {
+   "table": "game_sessions",
+   "grantee": "service_role",
+   "privilege": "DELETE"
+  },
+  {
+   "table": "game_sessions",
+   "grantee": "service_role",
+   "privilege": "INSERT"
+  },
+  {
+   "table": "game_sessions",
+   "grantee": "service_role",
+   "privilege": "REFERENCES"
+  },
+  {
+   "table": "game_sessions",
+   "grantee": "service_role",
+   "privilege": "SELECT"
+  },
+  {
+   "table": "game_sessions",
+   "grantee": "service_role",
+   "privilege": "TRIGGER"
+  },
+  {
+   "table": "game_sessions",
+   "grantee": "service_role",
+   "privilege": "TRUNCATE"
+  },
+  {
+   "table": "game_sessions",
+   "grantee": "service_role",
+   "privilege": "UPDATE"
+  },
+  {
+   "table": "game_tickets",
+   "grantee": "anon",
+   "privilege": "DELETE"
+  },
+  {
+   "table": "game_tickets",
+   "grantee": "anon",
+   "privilege": "INSERT"
+  },
+  {
+   "table": "game_tickets",
+   "grantee": "anon",
+   "privilege": "REFERENCES"
+  },
+  {
+   "table": "game_tickets",
+   "grantee": "anon",
+   "privilege": "SELECT"
+  },
+  {
+   "table": "game_tickets",
+   "grantee": "anon",
+   "privilege": "TRIGGER"
+  },
+  {
+   "table": "game_tickets",
+   "grantee": "anon",
+   "privilege": "TRUNCATE"
+  },
+  {
+   "table": "game_tickets",
+   "grantee": "anon",
+   "privilege": "UPDATE"
+  },
+  {
+   "table": "game_tickets",
+   "grantee": "authenticated",
+   "privilege": "DELETE"
+  },
+  {
+   "table": "game_tickets",
+   "grantee": "authenticated",
+   "privilege": "INSERT"
+  },
+  {
+   "table": "game_tickets",
+   "grantee": "authenticated",
+   "privilege": "REFERENCES"
+  },
+  {
+   "table": "game_tickets",
+   "grantee": "authenticated",
+   "privilege": "SELECT"
+  },
+  {
+   "table": "game_tickets",
+   "grantee": "authenticated",
+   "privilege": "TRIGGER"
+  },
+  {
+   "table": "game_tickets",
+   "grantee": "authenticated",
+   "privilege": "TRUNCATE"
+  },
+  {
+   "table": "game_tickets",
+   "grantee": "authenticated",
+   "privilege": "UPDATE"
+  },
+  {
+   "table": "game_tickets",
+   "grantee": "service_role",
+   "privilege": "DELETE"
+  },
+  {
+   "table": "game_tickets",
+   "grantee": "service_role",
+   "privilege": "INSERT"
+  },
+  {
+   "table": "game_tickets",
+   "grantee": "service_role",
+   "privilege": "REFERENCES"
+  },
+  {
+   "table": "game_tickets",
+   "grantee": "service_role",
+   "privilege": "SELECT"
+  },
+  {
+   "table": "game_tickets",
+   "grantee": "service_role",
+   "privilege": "TRIGGER"
+  },
+  {
+   "table": "game_tickets",
+   "grantee": "service_role",
+   "privilege": "TRUNCATE"
+  },
+  {
+   "table": "game_tickets",
+   "grantee": "service_role",
+   "privilege": "UPDATE"
+  },
+  {
+   "table": "pages",
+   "grantee": "anon",
+   "privilege": "DELETE"
+  },
+  {
+   "table": "pages",
+   "grantee": "anon",
+   "privilege": "INSERT"
+  },
+  {
+   "table": "pages",
+   "grantee": "anon",
+   "privilege": "REFERENCES"
+  },
+  {
+   "table": "pages",
+   "grantee": "anon",
+   "privilege": "SELECT"
+  },
+  {
+   "table": "pages",
+   "grantee": "anon",
+   "privilege": "TRIGGER"
+  },
+  {
+   "table": "pages",
+   "grantee": "anon",
+   "privilege": "TRUNCATE"
+  },
+  {
+   "table": "pages",
+   "grantee": "anon",
+   "privilege": "UPDATE"
+  },
+  {
+   "table": "pages",
+   "grantee": "authenticated",
+   "privilege": "DELETE"
+  },
+  {
+   "table": "pages",
+   "grantee": "authenticated",
+   "privilege": "INSERT"
+  },
+  {
+   "table": "pages",
+   "grantee": "authenticated",
+   "privilege": "REFERENCES"
+  },
+  {
+   "table": "pages",
+   "grantee": "authenticated",
+   "privilege": "SELECT"
+  },
+  {
+   "table": "pages",
+   "grantee": "authenticated",
+   "privilege": "TRIGGER"
+  },
+  {
+   "table": "pages",
+   "grantee": "authenticated",
+   "privilege": "TRUNCATE"
+  },
+  {
+   "table": "pages",
+   "grantee": "authenticated",
+   "privilege": "UPDATE"
+  },
+  {
+   "table": "pages",
+   "grantee": "service_role",
+   "privilege": "DELETE"
+  },
+  {
+   "table": "pages",
+   "grantee": "service_role",
+   "privilege": "INSERT"
+  },
+  {
+   "table": "pages",
+   "grantee": "service_role",
+   "privilege": "REFERENCES"
+  },
+  {
+   "table": "pages",
+   "grantee": "service_role",
+   "privilege": "SELECT"
+  },
+  {
+   "table": "pages",
+   "grantee": "service_role",
+   "privilege": "TRIGGER"
+  },
+  {
+   "table": "pages",
+   "grantee": "service_role",
+   "privilege": "TRUNCATE"
+  },
+  {
+   "table": "pages",
+   "grantee": "service_role",
+   "privilege": "UPDATE"
+  },
+  {
+   "table": "profiles",
+   "grantee": "anon",
+   "privilege": "DELETE"
+  },
+  {
+   "table": "profiles",
+   "grantee": "anon",
+   "privilege": "INSERT"
+  },
+  {
+   "table": "profiles",
+   "grantee": "anon",
+   "privilege": "REFERENCES"
+  },
+  {
+   "table": "profiles",
+   "grantee": "anon",
+   "privilege": "SELECT"
+  },
+  {
+   "table": "profiles",
+   "grantee": "anon",
+   "privilege": "TRIGGER"
+  },
+  {
+   "table": "profiles",
+   "grantee": "anon",
+   "privilege": "TRUNCATE"
+  },
+  {
+   "table": "profiles",
+   "grantee": "anon",
+   "privilege": "UPDATE"
+  },
+  {
+   "table": "profiles",
+   "grantee": "authenticated",
+   "privilege": "DELETE"
+  },
+  {
+   "table": "profiles",
+   "grantee": "authenticated",
+   "privilege": "INSERT"
+  },
+  {
+   "table": "profiles",
+   "grantee": "authenticated",
+   "privilege": "REFERENCES"
+  },
+  {
+   "table": "profiles",
+   "grantee": "authenticated",
+   "privilege": "SELECT"
+  },
+  {
+   "table": "profiles",
+   "grantee": "authenticated",
+   "privilege": "TRIGGER"
+  },
+  {
+   "table": "profiles",
+   "grantee": "authenticated",
+   "privilege": "TRUNCATE"
+  },
+  {
+   "table": "profiles",
+   "grantee": "authenticated",
+   "privilege": "UPDATE"
+  },
+  {
+   "table": "profiles",
+   "grantee": "service_role",
+   "privilege": "DELETE"
+  },
+  {
+   "table": "profiles",
+   "grantee": "service_role",
+   "privilege": "INSERT"
+  },
+  {
+   "table": "profiles",
+   "grantee": "service_role",
+   "privilege": "REFERENCES"
+  },
+  {
+   "table": "profiles",
+   "grantee": "service_role",
+   "privilege": "SELECT"
+  },
+  {
+   "table": "profiles",
+   "grantee": "service_role",
+   "privilege": "TRIGGER"
+  },
+  {
+   "table": "profiles",
+   "grantee": "service_role",
+   "privilege": "TRUNCATE"
+  },
+  {
+   "table": "profiles",
+   "grantee": "service_role",
+   "privilege": "UPDATE"
+  },
+  {
+   "table": "project_notes",
+   "grantee": "anon",
+   "privilege": "DELETE"
+  },
+  {
+   "table": "project_notes",
+   "grantee": "anon",
+   "privilege": "INSERT"
+  },
+  {
+   "table": "project_notes",
+   "grantee": "anon",
+   "privilege": "REFERENCES"
+  },
+  {
+   "table": "project_notes",
+   "grantee": "anon",
+   "privilege": "SELECT"
+  },
+  {
+   "table": "project_notes",
+   "grantee": "anon",
+   "privilege": "TRIGGER"
+  },
+  {
+   "table": "project_notes",
+   "grantee": "anon",
+   "privilege": "TRUNCATE"
+  },
+  {
+   "table": "project_notes",
+   "grantee": "anon",
+   "privilege": "UPDATE"
+  },
+  {
+   "table": "project_notes",
+   "grantee": "authenticated",
+   "privilege": "DELETE"
+  },
+  {
+   "table": "project_notes",
+   "grantee": "authenticated",
+   "privilege": "INSERT"
+  },
+  {
+   "table": "project_notes",
+   "grantee": "authenticated",
+   "privilege": "REFERENCES"
+  },
+  {
+   "table": "project_notes",
+   "grantee": "authenticated",
+   "privilege": "SELECT"
+  },
+  {
+   "table": "project_notes",
+   "grantee": "authenticated",
+   "privilege": "TRIGGER"
+  },
+  {
+   "table": "project_notes",
+   "grantee": "authenticated",
+   "privilege": "TRUNCATE"
+  },
+  {
+   "table": "project_notes",
+   "grantee": "authenticated",
+   "privilege": "UPDATE"
+  },
+  {
+   "table": "project_notes",
+   "grantee": "service_role",
+   "privilege": "DELETE"
+  },
+  {
+   "table": "project_notes",
+   "grantee": "service_role",
+   "privilege": "INSERT"
+  },
+  {
+   "table": "project_notes",
+   "grantee": "service_role",
+   "privilege": "REFERENCES"
+  },
+  {
+   "table": "project_notes",
+   "grantee": "service_role",
+   "privilege": "SELECT"
+  },
+  {
+   "table": "project_notes",
+   "grantee": "service_role",
+   "privilege": "TRIGGER"
+  },
+  {
+   "table": "project_notes",
+   "grantee": "service_role",
+   "privilege": "TRUNCATE"
+  },
+  {
+   "table": "project_notes",
+   "grantee": "service_role",
+   "privilege": "UPDATE"
+  },
+  {
+   "table": "projects",
+   "grantee": "anon",
+   "privilege": "DELETE"
+  },
+  {
+   "table": "projects",
+   "grantee": "anon",
+   "privilege": "INSERT"
+  },
+  {
+   "table": "projects",
+   "grantee": "anon",
+   "privilege": "REFERENCES"
+  },
+  {
+   "table": "projects",
+   "grantee": "anon",
+   "privilege": "SELECT"
+  },
+  {
+   "table": "projects",
+   "grantee": "anon",
+   "privilege": "TRIGGER"
+  },
+  {
+   "table": "projects",
+   "grantee": "anon",
+   "privilege": "TRUNCATE"
+  },
+  {
+   "table": "projects",
+   "grantee": "anon",
+   "privilege": "UPDATE"
+  },
+  {
+   "table": "projects",
+   "grantee": "authenticated",
+   "privilege": "DELETE"
+  },
+  {
+   "table": "projects",
+   "grantee": "authenticated",
+   "privilege": "INSERT"
+  },
+  {
+   "table": "projects",
+   "grantee": "authenticated",
+   "privilege": "REFERENCES"
+  },
+  {
+   "table": "projects",
+   "grantee": "authenticated",
+   "privilege": "SELECT"
+  },
+  {
+   "table": "projects",
+   "grantee": "authenticated",
+   "privilege": "TRIGGER"
+  },
+  {
+   "table": "projects",
+   "grantee": "authenticated",
+   "privilege": "TRUNCATE"
+  },
+  {
+   "table": "projects",
+   "grantee": "authenticated",
+   "privilege": "UPDATE"
+  },
+  {
+   "table": "projects",
+   "grantee": "service_role",
+   "privilege": "DELETE"
+  },
+  {
+   "table": "projects",
+   "grantee": "service_role",
+   "privilege": "INSERT"
+  },
+  {
+   "table": "projects",
+   "grantee": "service_role",
+   "privilege": "REFERENCES"
+  },
+  {
+   "table": "projects",
+   "grantee": "service_role",
+   "privilege": "SELECT"
+  },
+  {
+   "table": "projects",
+   "grantee": "service_role",
+   "privilege": "TRIGGER"
+  },
+  {
+   "table": "projects",
+   "grantee": "service_role",
+   "privilege": "TRUNCATE"
+  },
+  {
+   "table": "projects",
+   "grantee": "service_role",
+   "privilege": "UPDATE"
+  },
+  {
+   "table": "subscription_events",
+   "grantee": "anon",
+   "privilege": "DELETE"
+  },
+  {
+   "table": "subscription_events",
+   "grantee": "anon",
+   "privilege": "INSERT"
+  },
+  {
+   "table": "subscription_events",
+   "grantee": "anon",
+   "privilege": "REFERENCES"
+  },
+  {
+   "table": "subscription_events",
+   "grantee": "anon",
+   "privilege": "SELECT"
+  },
+  {
+   "table": "subscription_events",
+   "grantee": "anon",
+   "privilege": "TRIGGER"
+  },
+  {
+   "table": "subscription_events",
+   "grantee": "anon",
+   "privilege": "TRUNCATE"
+  },
+  {
+   "table": "subscription_events",
+   "grantee": "anon",
+   "privilege": "UPDATE"
+  },
+  {
+   "table": "subscription_events",
+   "grantee": "authenticated",
+   "privilege": "DELETE"
+  },
+  {
+   "table": "subscription_events",
+   "grantee": "authenticated",
+   "privilege": "INSERT"
+  },
+  {
+   "table": "subscription_events",
+   "grantee": "authenticated",
+   "privilege": "REFERENCES"
+  },
+  {
+   "table": "subscription_events",
+   "grantee": "authenticated",
+   "privilege": "SELECT"
+  },
+  {
+   "table": "subscription_events",
+   "grantee": "authenticated",
+   "privilege": "TRIGGER"
+  },
+  {
+   "table": "subscription_events",
+   "grantee": "authenticated",
+   "privilege": "TRUNCATE"
+  },
+  {
+   "table": "subscription_events",
+   "grantee": "authenticated",
+   "privilege": "UPDATE"
+  },
+  {
+   "table": "subscription_events",
+   "grantee": "service_role",
+   "privilege": "DELETE"
+  },
+  {
+   "table": "subscription_events",
+   "grantee": "service_role",
+   "privilege": "INSERT"
+  },
+  {
+   "table": "subscription_events",
+   "grantee": "service_role",
+   "privilege": "REFERENCES"
+  },
+  {
+   "table": "subscription_events",
+   "grantee": "service_role",
+   "privilege": "SELECT"
+  },
+  {
+   "table": "subscription_events",
+   "grantee": "service_role",
+   "privilege": "TRIGGER"
+  },
+  {
+   "table": "subscription_events",
+   "grantee": "service_role",
+   "privilege": "TRUNCATE"
+  },
+  {
+   "table": "subscription_events",
+   "grantee": "service_role",
+   "privilege": "UPDATE"
+  },
+  {
+   "table": "user_pricing_entitlements",
+   "grantee": "anon",
+   "privilege": "DELETE"
+  },
+  {
+   "table": "user_pricing_entitlements",
+   "grantee": "anon",
+   "privilege": "INSERT"
+  },
+  {
+   "table": "user_pricing_entitlements",
+   "grantee": "anon",
+   "privilege": "REFERENCES"
+  },
+  {
+   "table": "user_pricing_entitlements",
+   "grantee": "anon",
+   "privilege": "SELECT"
+  },
+  {
+   "table": "user_pricing_entitlements",
+   "grantee": "anon",
+   "privilege": "TRIGGER"
+  },
+  {
+   "table": "user_pricing_entitlements",
+   "grantee": "anon",
+   "privilege": "TRUNCATE"
+  },
+  {
+   "table": "user_pricing_entitlements",
+   "grantee": "anon",
+   "privilege": "UPDATE"
+  },
+  {
+   "table": "user_pricing_entitlements",
+   "grantee": "authenticated",
+   "privilege": "DELETE"
+  },
+  {
+   "table": "user_pricing_entitlements",
+   "grantee": "authenticated",
+   "privilege": "INSERT"
+  },
+  {
+   "table": "user_pricing_entitlements",
+   "grantee": "authenticated",
+   "privilege": "REFERENCES"
+  },
+  {
+   "table": "user_pricing_entitlements",
+   "grantee": "authenticated",
+   "privilege": "SELECT"
+  },
+  {
+   "table": "user_pricing_entitlements",
+   "grantee": "authenticated",
+   "privilege": "TRIGGER"
+  },
+  {
+   "table": "user_pricing_entitlements",
+   "grantee": "authenticated",
+   "privilege": "TRUNCATE"
+  },
+  {
+   "table": "user_pricing_entitlements",
+   "grantee": "authenticated",
+   "privilege": "UPDATE"
+  },
+  {
+   "table": "user_pricing_entitlements",
+   "grantee": "service_role",
+   "privilege": "DELETE"
+  },
+  {
+   "table": "user_pricing_entitlements",
+   "grantee": "service_role",
+   "privilege": "INSERT"
+  },
+  {
+   "table": "user_pricing_entitlements",
+   "grantee": "service_role",
+   "privilege": "REFERENCES"
+  },
+  {
+   "table": "user_pricing_entitlements",
+   "grantee": "service_role",
+   "privilege": "SELECT"
+  },
+  {
+   "table": "user_pricing_entitlements",
+   "grantee": "service_role",
+   "privilege": "TRIGGER"
+  },
+  {
+   "table": "user_pricing_entitlements",
+   "grantee": "service_role",
+   "privilege": "TRUNCATE"
+  },
+  {
+   "table": "user_pricing_entitlements",
+   "grantee": "service_role",
+   "privilege": "UPDATE"
+  },
+  {
+   "table": "user_unlockables",
+   "grantee": "anon",
+   "privilege": "DELETE"
+  },
+  {
+   "table": "user_unlockables",
+   "grantee": "anon",
+   "privilege": "INSERT"
+  },
+  {
+   "table": "user_unlockables",
+   "grantee": "anon",
+   "privilege": "REFERENCES"
+  },
+  {
+   "table": "user_unlockables",
+   "grantee": "anon",
+   "privilege": "SELECT"
+  },
+  {
+   "table": "user_unlockables",
+   "grantee": "anon",
+   "privilege": "TRIGGER"
+  },
+  {
+   "table": "user_unlockables",
+   "grantee": "anon",
+   "privilege": "TRUNCATE"
+  },
+  {
+   "table": "user_unlockables",
+   "grantee": "anon",
+   "privilege": "UPDATE"
+  },
+  {
+   "table": "user_unlockables",
+   "grantee": "authenticated",
+   "privilege": "DELETE"
+  },
+  {
+   "table": "user_unlockables",
+   "grantee": "authenticated",
+   "privilege": "INSERT"
+  },
+  {
+   "table": "user_unlockables",
+   "grantee": "authenticated",
+   "privilege": "REFERENCES"
+  },
+  {
+   "table": "user_unlockables",
+   "grantee": "authenticated",
+   "privilege": "SELECT"
+  },
+  {
+   "table": "user_unlockables",
+   "grantee": "authenticated",
+   "privilege": "TRIGGER"
+  },
+  {
+   "table": "user_unlockables",
+   "grantee": "authenticated",
+   "privilege": "TRUNCATE"
+  },
+  {
+   "table": "user_unlockables",
+   "grantee": "authenticated",
+   "privilege": "UPDATE"
+  },
+  {
+   "table": "user_unlockables",
+   "grantee": "service_role",
+   "privilege": "DELETE"
+  },
+  {
+   "table": "user_unlockables",
+   "grantee": "service_role",
+   "privilege": "INSERT"
+  },
+  {
+   "table": "user_unlockables",
+   "grantee": "service_role",
+   "privilege": "REFERENCES"
+  },
+  {
+   "table": "user_unlockables",
+   "grantee": "service_role",
+   "privilege": "SELECT"
+  },
+  {
+   "table": "user_unlockables",
+   "grantee": "service_role",
+   "privilege": "TRIGGER"
+  },
+  {
+   "table": "user_unlockables",
+   "grantee": "service_role",
+   "privilege": "TRUNCATE"
+  },
+  {
+   "table": "user_unlockables",
+   "grantee": "service_role",
+   "privilege": "UPDATE"
+  },
+  {
+   "table": "writing_goals",
+   "grantee": "anon",
+   "privilege": "DELETE"
+  },
+  {
+   "table": "writing_goals",
+   "grantee": "anon",
+   "privilege": "INSERT"
+  },
+  {
+   "table": "writing_goals",
+   "grantee": "anon",
+   "privilege": "REFERENCES"
+  },
+  {
+   "table": "writing_goals",
+   "grantee": "anon",
+   "privilege": "SELECT"
+  },
+  {
+   "table": "writing_goals",
+   "grantee": "anon",
+   "privilege": "TRIGGER"
+  },
+  {
+   "table": "writing_goals",
+   "grantee": "anon",
+   "privilege": "TRUNCATE"
+  },
+  {
+   "table": "writing_goals",
+   "grantee": "anon",
+   "privilege": "UPDATE"
+  },
+  {
+   "table": "writing_goals",
+   "grantee": "authenticated",
+   "privilege": "DELETE"
+  },
+  {
+   "table": "writing_goals",
+   "grantee": "authenticated",
+   "privilege": "INSERT"
+  },
+  {
+   "table": "writing_goals",
+   "grantee": "authenticated",
+   "privilege": "REFERENCES"
+  },
+  {
+   "table": "writing_goals",
+   "grantee": "authenticated",
+   "privilege": "SELECT"
+  },
+  {
+   "table": "writing_goals",
+   "grantee": "authenticated",
+   "privilege": "TRIGGER"
+  },
+  {
+   "table": "writing_goals",
+   "grantee": "authenticated",
+   "privilege": "TRUNCATE"
+  },
+  {
+   "table": "writing_goals",
+   "grantee": "authenticated",
+   "privilege": "UPDATE"
+  },
+  {
+   "table": "writing_goals",
+   "grantee": "service_role",
+   "privilege": "DELETE"
+  },
+  {
+   "table": "writing_goals",
+   "grantee": "service_role",
+   "privilege": "INSERT"
+  },
+  {
+   "table": "writing_goals",
+   "grantee": "service_role",
+   "privilege": "REFERENCES"
+  },
+  {
+   "table": "writing_goals",
+   "grantee": "service_role",
+   "privilege": "SELECT"
+  },
+  {
+   "table": "writing_goals",
+   "grantee": "service_role",
+   "privilege": "TRIGGER"
+  },
+  {
+   "table": "writing_goals",
+   "grantee": "service_role",
+   "privilege": "TRUNCATE"
+  },
+  {
+   "table": "writing_goals",
+   "grantee": "service_role",
+   "privilege": "UPDATE"
+  },
+  {
+   "table": "writing_sessions",
+   "grantee": "anon",
+   "privilege": "DELETE"
+  },
+  {
+   "table": "writing_sessions",
+   "grantee": "anon",
+   "privilege": "INSERT"
+  },
+  {
+   "table": "writing_sessions",
+   "grantee": "anon",
+   "privilege": "REFERENCES"
+  },
+  {
+   "table": "writing_sessions",
+   "grantee": "anon",
+   "privilege": "SELECT"
+  },
+  {
+   "table": "writing_sessions",
+   "grantee": "anon",
+   "privilege": "TRIGGER"
+  },
+  {
+   "table": "writing_sessions",
+   "grantee": "anon",
+   "privilege": "TRUNCATE"
+  },
+  {
+   "table": "writing_sessions",
+   "grantee": "anon",
+   "privilege": "UPDATE"
+  },
+  {
+   "table": "writing_sessions",
+   "grantee": "authenticated",
+   "privilege": "DELETE"
+  },
+  {
+   "table": "writing_sessions",
+   "grantee": "authenticated",
+   "privilege": "INSERT"
+  },
+  {
+   "table": "writing_sessions",
+   "grantee": "authenticated",
+   "privilege": "REFERENCES"
+  },
+  {
+   "table": "writing_sessions",
+   "grantee": "authenticated",
+   "privilege": "SELECT"
+  },
+  {
+   "table": "writing_sessions",
+   "grantee": "authenticated",
+   "privilege": "TRIGGER"
+  },
+  {
+   "table": "writing_sessions",
+   "grantee": "authenticated",
+   "privilege": "TRUNCATE"
+  },
+  {
+   "table": "writing_sessions",
+   "grantee": "authenticated",
+   "privilege": "UPDATE"
+  },
+  {
+   "table": "writing_sessions",
+   "grantee": "service_role",
+   "privilege": "DELETE"
+  },
+  {
+   "table": "writing_sessions",
+   "grantee": "service_role",
+   "privilege": "INSERT"
+  },
+  {
+   "table": "writing_sessions",
+   "grantee": "service_role",
+   "privilege": "REFERENCES"
+  },
+  {
+   "table": "writing_sessions",
+   "grantee": "service_role",
+   "privilege": "SELECT"
+  },
+  {
+   "table": "writing_sessions",
+   "grantee": "service_role",
+   "privilege": "TRIGGER"
+  },
+  {
+   "table": "writing_sessions",
+   "grantee": "service_role",
+   "privilege": "TRUNCATE"
+  },
+  {
+   "table": "writing_sessions",
+   "grantee": "service_role",
+   "privilege": "UPDATE"
+  },
+  {
+   "table": "xp_events",
+   "grantee": "anon",
+   "privilege": "DELETE"
+  },
+  {
+   "table": "xp_events",
+   "grantee": "anon",
+   "privilege": "INSERT"
+  },
+  {
+   "table": "xp_events",
+   "grantee": "anon",
+   "privilege": "REFERENCES"
+  },
+  {
+   "table": "xp_events",
+   "grantee": "anon",
+   "privilege": "SELECT"
+  },
+  {
+   "table": "xp_events",
+   "grantee": "anon",
+   "privilege": "TRIGGER"
+  },
+  {
+   "table": "xp_events",
+   "grantee": "anon",
+   "privilege": "TRUNCATE"
+  },
+  {
+   "table": "xp_events",
+   "grantee": "anon",
+   "privilege": "UPDATE"
+  },
+  {
+   "table": "xp_events",
+   "grantee": "authenticated",
+   "privilege": "DELETE"
+  },
+  {
+   "table": "xp_events",
+   "grantee": "authenticated",
+   "privilege": "INSERT"
+  },
+  {
+   "table": "xp_events",
+   "grantee": "authenticated",
+   "privilege": "REFERENCES"
+  },
+  {
+   "table": "xp_events",
+   "grantee": "authenticated",
+   "privilege": "SELECT"
+  },
+  {
+   "table": "xp_events",
+   "grantee": "authenticated",
+   "privilege": "TRIGGER"
+  },
+  {
+   "table": "xp_events",
+   "grantee": "authenticated",
+   "privilege": "TRUNCATE"
+  },
+  {
+   "table": "xp_events",
+   "grantee": "authenticated",
+   "privilege": "UPDATE"
+  },
+  {
+   "table": "xp_events",
+   "grantee": "service_role",
+   "privilege": "DELETE"
+  },
+  {
+   "table": "xp_events",
+   "grantee": "service_role",
+   "privilege": "INSERT"
+  },
+  {
+   "table": "xp_events",
+   "grantee": "service_role",
+   "privilege": "REFERENCES"
+  },
+  {
+   "table": "xp_events",
+   "grantee": "service_role",
+   "privilege": "SELECT"
+  },
+  {
+   "table": "xp_events",
+   "grantee": "service_role",
+   "privilege": "TRIGGER"
+  },
+  {
+   "table": "xp_events",
+   "grantee": "service_role",
+   "privilege": "TRUNCATE"
+  },
+  {
+   "table": "xp_events",
+   "grantee": "service_role",
+   "privilege": "UPDATE"
+  }
+ ],
+ "views": [],
+ "sequences": [],
+ "publications": [],
+ "roles": [
+  {
+   "role": "anon",
+   "can_login": false,
+   "superuser": false,
+   "bypass_rls": false
+  },
+  {
+   "role": "authenticated",
+   "can_login": false,
+   "superuser": false,
+   "bypass_rls": false
+  },
+  {
+   "role": "authenticator",
+   "can_login": true,
+   "superuser": false,
+   "bypass_rls": false
+  },
+  {
+   "role": "dashboard_user",
+   "can_login": false,
+   "superuser": false,
+   "bypass_rls": false
+  },
+  {
+   "role": "pgbouncer",
+   "can_login": true,
+   "superuser": false,
+   "bypass_rls": false
+  },
+  {
+   "role": "postgres",
+   "can_login": true,
+   "superuser": false,
+   "bypass_rls": true
+  },
+  {
+   "role": "service_role",
+   "can_login": false,
+   "superuser": false,
+   "bypass_rls": true
+  },
+  {
+   "role": "supabase_admin",
+   "can_login": true,
+   "superuser": true,
+   "bypass_rls": true
+  },
+  {
+   "role": "supabase_auth_admin",
+   "can_login": true,
+   "superuser": false,
+   "bypass_rls": false
+  },
+  {
+   "role": "supabase_etl_admin",
+   "can_login": true,
+   "superuser": false,
+   "bypass_rls": true
+  },
+  {
+   "role": "supabase_privileged_role",
+   "can_login": false,
+   "superuser": false,
+   "bypass_rls": false
+  },
+  {
+   "role": "supabase_read_only_user",
+   "can_login": true,
+   "superuser": false,
+   "bypass_rls": true
+  },
+  {
+   "role": "supabase_realtime_admin",
+   "can_login": false,
+   "superuser": false,
+   "bypass_rls": false
+  },
+  {
+   "role": "supabase_replication_admin",
+   "can_login": true,
+   "superuser": false,
+   "bypass_rls": false
+  },
+  {
+   "role": "supabase_storage_admin",
+   "can_login": true,
+   "superuser": false,
+   "bypass_rls": false
+  }
+ ],
+ "role_settings": [
+  {
+   "role": "supabase_admin",
+   "setting": "search_path=\"$user\", public, auth, extensions"
+  },
+  {
+   "role": "postgres",
+   "setting": "search_path=\"\\$user\", public, extensions"
+  },
+  {
+   "role": "supabase_read_only_user",
+   "setting": "default_transaction_read_only=on"
+  },
+  {
+   "role": "anon",
+   "setting": "statement_timeout=3s"
+  },
+  {
+   "role": "authenticated",
+   "setting": "statement_timeout=8s"
+  },
+  {
+   "role": "authenticator",
+   "setting": "statement_timeout=8s"
+  },
+  {
+   "role": "supabase_auth_admin",
+   "setting": "search_path=auth"
+  },
+  {
+   "role": "supabase_storage_admin",
+   "setting": "search_path=storage"
+  }
+ ],
+ "integrity": {
+  "pages_zero_words": 53,
+  "pages_null_content": 46,
+  "max_pages_per_chapter": 10,
+  "max_pages_per_project": 119,
+  "chapters_without_pages": 1,
+  "max_chapters_per_project": 32,
+  "page_position_tie_groups": 0,
+  "projects_without_chapters": 2,
+  "chapter_position_tie_groups": 0,
+  "chapters_with_canonical_page": 32,
+  "writing_sessions_page_id_usage": {
+   "rows_with_page_id": 268,
+   "rows_without_page_id": 22,
+   "rows_whose_page_no_longer_exists": 0
+  },
+  "projects_stored_word_count_mismatch": {
+   "projects": 69,
+   "mismatched_projects": 21
+  },
+  "profiles_without_pricing_entitlement": 0,
+  "chapters_with_multiple_canonical_pages": 0,
+  "noncanonical_pages_in_canonical_chapters": {
+   "pages": 86,
+   "words": 41998
+  },
+  "writing_sessions_multi_rows_per_user_project_day": 52,
+  "users_with_same_title_projects_created_within_10_min": 0,
+  "canonical_pages_with_zero_words_whose_siblings_have_words": 0
+ },
+ "row_counts": {
+  "pages": 280,
+  "chapters": 163,
+  "profiles": 100,
+  "projects": 69,
+  "xp_events": 7410,
+  "game_tickets": 7,
+  "founder_notes": 0,
+  "game_sessions": 73,
+  "project_notes": 24,
+  "writing_goals": 5,
+  "future_letters": 5,
+  "analytics_events": 195,
+  "deleted_accounts": 4,
+  "user_unlockables": 97,
+  "writing_sessions": 290,
+  "subscription_events": 0,
+  "acquisition_attribution": 8,
+  "analytics_excluded_users": 3,
+  "user_pricing_entitlements": 100
+ }
+}

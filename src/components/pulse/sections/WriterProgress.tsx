@@ -13,9 +13,9 @@ export function WriterProgress({ data }: { data: WriterProgressItem[] }) {
   const maxCount = Math.max(1, ...data.map((d) => d.count));
 
   return (
-    <PulseCard className="p-6">
+    <PulseCard>
       <PulseCardLabel>Writer Progress</PulseCardLabel>
-      <p className="mb-4 -mt-1 text-xs leading-relaxed" style={{ color: "var(--color-mist)", opacity: 0.65 }}>
+      <p className="r2-pulse-help r2-pulse-help--lead">
         Writers who reached each word milestone in the selected range.
       </p>
       <div className="space-y-3">

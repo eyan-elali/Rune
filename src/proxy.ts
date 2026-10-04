@@ -70,6 +70,19 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // An auth email link Supabase sent to the Site URL root instead of the
+  // callback (the callback address missing from the project's Redirect URLs
+  // falls back there): finish it at /auth/callback, which exchanges it and
+  // routes the account (pen name first) — the front door cannot.
+  if (
+    request.nextUrl.pathname === "/" &&
+    (request.nextUrl.searchParams.has("code") || request.nextUrl.searchParams.has("token_hash"))
+  ) {
+    const callbackUrl = request.nextUrl.clone();
+    callbackUrl.pathname = "/auth/callback";
+    return NextResponse.redirect(callbackUrl);
+  }
+
   let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(
@@ -131,8 +144,9 @@ export async function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     /*
-     * Match all paths except: static files, _next internals, favicon.
+     * Match all paths except: static files, _next internals, favicon, and
+     * the public metadata files (web manifest, social card) — never signed-in.
      */
-    "/((?!api/webhooks/stripe|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!api/webhooks/stripe|_next/static|_next/image|favicon.ico|manifest.webmanifest|opengraph-image|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

@@ -1,0 +1,445 @@
+"use client";
+
+import { EditorContent, useEditorState } from "@tiptap/react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useTransition,
+  type ReactNode,
+  type RefObject,
+} from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useSceneEditor, type DisplaySyncStatus } from "@/components/editor/useSceneEditor";
+import { DocStatus } from "./DocStatus";
+import { SyncConflictModal } from "@/components/editor/SyncConflictModal";
+import { useNetworkStore } from "@/store/networkStore";
+import type { Scene } from "@/lib/types";
+import type { Editor } from "@tiptap/react";
+import { chapterSelectionPlugin, useChapterSelection } from "./ChapterSelection";
+
+// The Rune 2.0 writing surface: Rune's trusted editor engine (useSceneEditor —
+// the same saving, offline queue, sync, conflict and word-count behaviour as
+// the legacy editor) under a new, quiet presentation.
+//
+// The surface shows one or more Scenes in order — a focused Scene, or a whole
+// Chapter read as one continuous piece of prose. Every Scene has its own
+// editor instance (architecture §7: one Scene per editor instance), created
+// for that Scene and bound to it for its whole life: an instance never
+// switches Scenes, so nothing typed in one Scene can be saved under another.
+// Blocks are keyed by Scene id, so a Scene that stays on screen between views
+// (Chapter → one of its Scenes, or a Chapter gaining a second Scene) keeps
+// its live editor; a Scene that leaves is flushed by the engine's unmount
+// path and hands its last content back to the host.
+//
+// Deliberately not continuous across Scene boundaries for editing: Backspace
+// at a Scene's start does not merge it into the one before, arrow keys stop
+// at a Scene's edge, and undo is per Scene. Selecting and copying ARE
+// continuous: ⌘A selects the whole Chapter and a drag runs from one Scene
+// into the next (ChapterSelection), read-only, serialised in manuscript
+// order. No toolbar: formatting is by keyboard (⌘B, ⌘I) and Markdown shortcuts.
+
+export type SurfaceScene = {
+  id: string;
+  /** Null while the Scene is loading (or failed to load). */
+  scene: Scene | null;
+  failed: boolean;
+  /**
+   * The Scene's name (see WritingScene.mark) — for assistive technology only.
+   * A Chapter read as one piece shows no Scene labels: the writer is reading a
+   * Chapter, not managing records. Scene identity lives on underneath.
+   */
+  mark: string | null;
+};
+
+export type Rune2EditorProps = {
+  projectId: string;
+  /** Changes when the writer opens something else: the surface returns to its top. */
+  viewKey: string | null;
+  scenes: SurfaceScene[];
+  /** Several Scenes read as one Chapter: each break is whitespace alone. */
+  marks: boolean;
+  onSceneUpdated: (sceneId: string, updates: Partial<Scene>) => void;
+  onRetry: (sceneId: string) => void;
+  /** A Scene whose prose should take focus once its editor is ready. */
+  focusSceneId: string | null;
+  onFocusHandled: () => void;
+  /** Heading and context rendered above the prose; null renders nothing at all. */
+  header: ReactNode | null;
+  /** The document's title as plain text: copied with a Chapter-wide selection. */
+  titleText: string;
+  /** Rendered in place of the prose when there are no Scenes. */
+  placeholder?: ReactNode;
+};
+
+type BlockState = { words: number; syncStatus: DisplaySyncStatus };
+
+// The manuscript's scroll runs under "words · Saved" at the foot of the
+// window (rune2.css, "The three vertical zones"), so following the caret
+// keeps it this far above the foot — the same rest the end of a Scene has
+// (.r2-doc--manuscript's padding-bottom). The top keeps ProseMirror's
+// defaults (no threshold, 5px margin).
+const MANUSCRIPT_BOTTOM_CLEARANCE = 56;
+const CARET_SCROLL_PROPS = {
+  scrollThreshold: { top: 0, right: 0, bottom: MANUSCRIPT_BOTTOM_CLEARANCE, left: 0 },
+  scrollMargin: { top: 5, right: 5, bottom: MANUSCRIPT_BOTTOM_CLEARANCE, left: 5 },
+};
+type BlockHandle = { focusEnd: () => void; openConflict: () => void; editor: Editor | null };
+
+// One vocabulary with the Workspace surfaces: "Saved" only once the server
+// confirmed it; "Saved on this device" whenever the writing is durable here
+// but not yet there (offline, or a failed attempt being retried).
+const STATUS_LABEL: Record<Exclude<DisplaySyncStatus, "conflict" | "unsupported" | "retired">, string> = {
+  synced: "Saved",
+  online_dirty: "Saving…",
+  syncing: "Saving…",
+  offline_dirty: "Saved on this device",
+  failed: "Saved on this device",
+};
+
+// The surface shows one save state for all its Scenes: the one most in need
+// of the writer's attention.
+const STATUS_RANK: Record<DisplaySyncStatus, number> = {
+  synced: 0,
+  online_dirty: 1,
+  syncing: 2,
+  offline_dirty: 3,
+  failed: 4,
+  conflict: 5,
+  unsupported: 6,
+  retired: 7,
+};
+
+export default function Rune2Editor({
+  projectId,
+  viewKey,
+  scenes,
+  marks,
+  onSceneUpdated,
+  onRetry,
+  focusSceneId,
+  onFocusHandled,
+  header,
+  titleText,
+  placeholder,
+}: Rune2EditorProps) {
+  const isOnline = useNetworkStore((s) => s.isOnline);
+  const handles = useRef(new Map<string, BlockHandle>());
+  const [blocks, setBlocks] = useState<Record<string, BlockState>>({});
+
+  const report = useCallback((sceneId: string, state: BlockState | null) => {
+    setBlocks((prev) => {
+      const current = prev[sceneId];
+      if (state === null) {
+        if (!current) return prev;
+        const next = { ...prev };
+        delete next[sceneId];
+        return next;
+      }
+      if (
+        current &&
+        current.words === state.words &&
+        current.syncStatus === state.syncStatus
+      ) {
+        return prev;
+      }
+      return { ...prev, [sceneId]: state };
+    });
+  }, []);
+
+  const shown = scenes.map((s) => blocks[s.id]).filter((b): b is BlockState => b !== undefined);
+  const syncStatus = shown.reduce<DisplaySyncStatus>(
+    (worst, b) => (STATUS_RANK[b.syncStatus] > STATUS_RANK[worst] ? b.syncStatus : worst),
+    "synced"
+  );
+  // Every Scene shown counts: live words for an open Scene, its last known
+  // count while it loads.
+  const words = scenes.reduce((n, s) => n + (blocks[s.id]?.words ?? s.scene?.word_count ?? 0), 0);
+
+  useRefreshAfterSave(syncStatus);
+
+  // Opening something else starts at its top, not at the last view's scroll.
+  const rootRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (viewKey) rootRef.current?.closest("main")?.scrollTo({ top: 0 });
+  }, [viewKey]);
+
+  // The Chapter as one document to select and copy (ChapterSelection).
+  const articleRef = useRef<HTMLElement>(null);
+  const sceneIds = scenes.map((s) => s.id);
+  const editorOf = useCallback((id: string) => handles.current.get(id)?.editor, []);
+  const scroller = useCallback(() => rootRef.current?.closest("main") ?? null, []);
+  const selection = useChapterSelection({
+    rootRef: articleRef,
+    sceneIds,
+    editorOf,
+    title: titleText,
+    scroller,
+    viewKey,
+  });
+
+  if (header === null) return null;
+
+  const statusLabel =
+    syncStatus === "conflict" || syncStatus === "unsupported" || syncStatus === "retired"
+      ? null
+      : !isOnline && syncStatus === "synced"
+        ? "Offline"
+        : STATUS_LABEL[syncStatus];
+  const lastSceneId = scenes.length > 0 ? scenes[scenes.length - 1].id : null;
+
+  return (
+    <div className="r2-writing" ref={rootRef}>
+      <article
+        ref={articleRef}
+        className="r2-doc r2-doc--manuscript"
+        data-marks={marks || undefined}
+        data-chapter-selection={selection.mode ?? undefined}
+        data-title-selected={selection.titleSelected || undefined}
+        // Clicking the empty page below the prose continues writing at the end.
+        onMouseDown={(e) => {
+          const handle = lastSceneId ? handles.current.get(lastSceneId) : undefined;
+          if (e.target === e.currentTarget && handle) {
+            e.preventDefault();
+            handle.focusEnd();
+          }
+        }}
+      >
+        {header}
+        <p className="r2-visually-hidden" role="status" aria-live="polite">
+          {selection.announcement}
+        </p>
+        {scenes.length > 0 ? (
+          <div className="r2-scenes">
+            {scenes.map((item) =>
+              item.scene ? (
+                <SceneBlock
+                  key={item.id}
+                  projectId={projectId}
+                  scene={item.scene}
+                  label={marks ? item.mark : null}
+                  onSceneUpdated={onSceneUpdated}
+                  onReport={report}
+                  handles={handles}
+                  focusRequested={focusSceneId === item.id}
+                  onFocusHandled={onFocusHandled}
+                />
+              ) : (
+                <section
+                  key={`pending:${item.id}`}
+                  className="r2-scene"
+                  data-state="pending"
+                  aria-label={(marks && item.mark) || undefined}
+                >
+                  {item.failed && (
+                    <div className="r2-doc-empty" role="alert">
+                      <p>This scene couldn’t be opened.</p>
+                      <button type="button" className="r2-button" onClick={() => onRetry(item.id)}>
+                        Try again
+                      </button>
+                    </div>
+                  )}
+                </section>
+              )
+            )}
+          </div>
+        ) : (
+          placeholder ?? null
+        )}
+      </article>
+
+      {shown.length > 0 && (
+        <DocStatus announce={syncStatus === "offline_dirty" || syncStatus === "failed" || !isOnline ? statusLabel : null}>
+          <span className="tabular-nums">
+            {words.toLocaleString()} {words === 1 ? "word" : "words"}
+          </span>
+          <span aria-hidden>·</span>
+          {syncStatus === "conflict" ? (
+            <button
+              type="button"
+              className="r2-doc-status-alert"
+              onClick={() => {
+                const conflicted = scenes.find((s) => blocks[s.id]?.syncStatus === "conflict");
+                if (conflicted) handles.current.get(conflicted.id)?.openConflict();
+              }}
+            >
+              Changed elsewhere — review
+            </button>
+          ) : syncStatus === "unsupported" ? (
+            // This server can't take this client's saves: the writing is kept
+            // on this device and sent again by a reloaded client.
+            <span className="r2-page-conflict" role="alert">
+              <span>Couldn’t save — kept on this device.</span>
+              <button type="button" onClick={() => window.location.reload()}>
+                Reload Sutura
+              </button>
+            </span>
+          ) : syncStatus === "retired" ? (
+            // The Scene is gone for good (deleted from Trash elsewhere): the
+            // text typed here is held in Settings to copy, never dropped.
+            <span className="r2-page-conflict" role="alert">
+              <span>This scene was deleted. Your unsaved text is kept in</span>
+              <Link href="/settings">Settings</Link>
+            </span>
+          ) : (
+            <span data-tone={syncStatus === "offline_dirty" || syncStatus === "failed" || !isOnline ? "offline" : undefined}>
+              {statusLabel}
+            </span>
+          )}
+        </DocStatus>
+      )}
+    </div>
+  );
+}
+
+/**
+ * One Scene's editor: its own engine instance, created for this Scene and
+ * never switched to another. Reports its live words and save state to the
+ * surface, which shows one status line for all.
+ */
+function SceneBlock({
+  projectId,
+  scene,
+  label,
+  onSceneUpdated,
+  onReport,
+  handles,
+  focusRequested,
+  onFocusHandled,
+}: {
+  projectId: string;
+  scene: Scene;
+  /** The Scene's name for assistive technology, in a Chapter of several; never shown. */
+  label: string | null;
+  onSceneUpdated: (sceneId: string, updates: Partial<Scene>) => void;
+  onReport: (sceneId: string, state: BlockState | null) => void;
+  handles: RefObject<Map<string, BlockHandle>>;
+  focusRequested: boolean;
+  onFocusHandled: () => void;
+}) {
+  const sceneId = scene.id;
+  const {
+    editor,
+    syncStatus,
+    conflictModalOpen,
+    setConflictModalOpen,
+    resolveConflictKeptLocal,
+    resolveConflictKeptServer,
+  } = useSceneEditor({
+    projectId,
+    currentScene: scene,
+    onSceneUpdated,
+    placeholder: "Start writing",
+    // Several editors share the surface; none takes focus on its own.
+    autofocus: false,
+  });
+  const words = useEditorState({
+    editor,
+    selector: ({ editor: e }) =>
+      (e?.storage.characterCount?.words?.() as number | undefined) ?? 0,
+  });
+
+  useEffect(() => {
+    onReport(sceneId, { words, syncStatus });
+  }, [onReport, sceneId, words, syncStatus]);
+
+  useEffect(() => {
+    if (!editor || editor.isDestroyed) return;
+    editor.setOptions({ editorProps: { ...editor.options.editorProps, ...CARET_SCROLL_PROPS } });
+  }, [editor]);
+
+  // Its part of a Chapter-wide selection (presentation only; never a document change).
+  useEffect(() => {
+    if (!editor) return;
+    const plugin = chapterSelectionPlugin();
+    editor.registerPlugin(plugin);
+    return () => {
+      if (!editor.isDestroyed) editor.unregisterPlugin(plugin.spec.key as never);
+    };
+  }, [editor]);
+  useEffect(() => () => onReport(sceneId, null), [onReport, sceneId]);
+
+  useEffect(() => {
+    const map = handles.current;
+    map.set(sceneId, {
+      focusEnd: () => editor?.commands.focus("end"),
+      openConflict: () => setConflictModalOpen(true),
+      editor: editor ?? null,
+    });
+    return () => {
+      map.delete(sceneId);
+    };
+  }, [handles, sceneId, editor, setConflictModalOpen]);
+
+  // Leaving the surface: the engine's unmount path has already queued and
+  // synced any unsaved tail by this Scene's id; hand the host the content
+  // this editor last held, so reopening the Scene starts from it. (The
+  // engine's own saves already report through onSceneUpdated; its unmount
+  // flush does not.) TipTap destroys the editor a tick after unmount, so it
+  // is still readable here — and an already-destroyed one is never read,
+  // since its emptied storage would report zero words.
+  const onSceneUpdatedRef = useRef(onSceneUpdated);
+  useEffect(() => {
+    onSceneUpdatedRef.current = onSceneUpdated;
+  }, [onSceneUpdated]);
+  useEffect(() => {
+    if (!editor) return;
+    return () => {
+      if (editor.isDestroyed) return;
+      const count = editor.storage.characterCount?.words?.() as number | undefined;
+      if (typeof count !== "number") return;
+      onSceneUpdatedRef.current(sceneId, { content: editor.getJSON(), word_count: count });
+    };
+  }, [editor, sceneId]);
+
+  // A Scene just added to this Chapter: bring it into view and start writing.
+  const rootRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (!focusRequested || !editor) return;
+    editor.chain().focus("start", { scrollIntoView: false }).run();
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    rootRef.current?.scrollIntoView({ block: "center", behavior: reduce ? "auto" : "smooth" });
+    onFocusHandled();
+  }, [focusRequested, editor, onFocusHandled]);
+
+  return (
+    <section ref={rootRef} className="r2-scene" data-scene-id={sceneId} aria-label={label ?? undefined}>
+      {editor && <EditorContent editor={editor} className="r2-prose" />}
+
+      {conflictModalOpen && (
+        <SyncConflictModal
+          sceneId={sceneId}
+          onKeepLocal={resolveConflictKeptLocal}
+          onKeepServer={resolveConflictKeptServer}
+          onClose={() => setConflictModalOpen(false)}
+        />
+      )}
+    </section>
+  );
+}
+
+/**
+ * Re-reads the manuscript (navigator word counts) once saving has settled —
+ * after a save confirms and the writer has paused, never per keystroke. The
+ * editors themselves are unaffected: they are keyed to Scene ids, not data.
+ */
+function useRefreshAfterSave(syncStatus: DisplaySyncStatus) {
+  const router = useRouter();
+  const [, startTransition] = useTransition();
+  const dirtyRef = useRef(false);
+
+  useEffect(() => {
+    if (syncStatus !== "synced") {
+      if (syncStatus !== "conflict") dirtyRef.current = true;
+      return;
+    }
+    if (!dirtyRef.current) return;
+    const timer = setTimeout(() => {
+      dirtyRef.current = false;
+      startTransition(() => router.refresh());
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, [syncStatus, router]);
+}

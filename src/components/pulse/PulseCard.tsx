@@ -1,10 +1,10 @@
 type PulseCardTier = "default" | "elevated" | "primary";
 
-// Rune has only one raw card surface (--color-sepia / --color-border) — no
-// elevated theme token exists across the 12 theme blocks in globals.css.
-// Hierarchy for "elevated" and "primary" tiers is built from what's already
-// theme-aware (border strength, a var(--color-gold) accent stripe) instead
-// of introducing a new surface variable.
+// A Pulse section's surface: Rune 2's quiet grouped surface (the one Settings
+// and Projects sit on), a shade off the page — hierarchy from tone and space,
+// not from rules. The tiers are kept for the sections that pass them; they
+// read the same, since what matters most now leads the page instead of
+// being outlined.
 export function PulseCard({
   children,
   className = "",
@@ -17,20 +17,13 @@ export function PulseCard({
   tier?: PulseCardTier;
 }) {
   return (
-    <div
-      className={`rounded-lg ${className}`}
-      style={{
-        background: "var(--color-sepia)",
-        border: `1px solid ${tier === "default" ? "var(--color-border)" : "var(--color-border-strong)"}`,
-        ...(tier === "primary" ? { borderTop: "2px solid var(--color-gold)" } : null),
-        ...style,
-      }}
-    >
+    <section className={`r2-pulse-group ${className}`} data-tier={tier} style={style}>
       {children}
-    </div>
+    </section>
   );
 }
 
+/** A section's heading, in the eyebrow voice, with room for one action beside it. */
 export function PulseCardLabel({
   children,
   action,
@@ -41,17 +34,8 @@ export function PulseCardLabel({
   emphasis?: boolean;
 }) {
   return (
-    <div className="mb-4 flex items-baseline justify-between">
-      <p
-        className={
-          emphasis
-            ? "text-sm font-semibold uppercase tracking-widest"
-            : "text-xs font-semibold uppercase tracking-widest"
-        }
-        style={{ color: emphasis ? "var(--color-gold-dim)" : "var(--color-mist)" }}
-      >
-        {children}
-      </p>
+    <div className="r2-pulse-label-row">
+      <h2 className={emphasis ? "r2-pulse-label r2-pulse-label--emphasis" : "r2-pulse-label"}>{children}</h2>
       {action}
     </div>
   );

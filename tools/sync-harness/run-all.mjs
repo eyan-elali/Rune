@@ -2,12 +2,9 @@
 // the IndexedDB handle module-globally, so scenarios need process isolation).
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
+import { SCENARIOS } from './scenarios.mjs';
 
 const HERE = path.dirname(new URL(import.meta.url).pathname);
-const SCENARIOS = [
-  'r1', 'r2', 'r3', 'r6', 'r7', 'g1', 'g2', 'g3', 'w', 'f', 'i', 'm',
-  'kl', 'klrace', 'klext', 'klrepeat', 'klmeta', 'klserver',
-];
 
 let failed = 0;
 for (const s of SCENARIOS) {

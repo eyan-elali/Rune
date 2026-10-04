@@ -1101,18 +1101,18 @@ export async function getDrilldownUsers(
 }
 
 // ── Stored-word totals ───────────────────────────────────────────────────
-// "Total Words" in Pulse means every live page a writer has stored —
-// canonical AND non-canonical — the same definition the free-tier
-// allowance is measured against (see account_word_total() in migration
-// 011). This is deliberately not projects.word_count: that cached column is
-// canonical-aware (only each chapter's canonical page counts), which is the
-// right definition for the manuscript's *official* display total elsewhere
-// in the app, but would under-report a writer who has non-canonical drafts
-// stored — Pulse's Total Words is about storage/allowance usage, not the
-// official manuscript. Queried directly (projects → chapters → pages)
-// rather than any cached total, so it can never be stale for this purpose.
-// Deleted rows are excluded automatically (they aren't in the tables), and
-// each page is read exactly once, so nothing is double-counted.
+// "Total Words" in Pulse means every live Scene a writer has stored —
+// placed AND Unplaced — the same definition the free-tier allowance is
+// measured against (see account_word_total()). This is deliberately not
+// projects.word_count: that cached column is the ordered manuscript total
+// (placed Scenes only), which is the right definition for the manuscript's
+// display total elsewhere in the app, but would under-report a writer who
+// keeps Unplaced Scenes — Pulse's Total Words is about storage/allowance
+// usage, not the ordered manuscript. Queried directly (projects →
+// manuscripts → scenes) rather than any cached total, so it can never be
+// stale for this purpose. Deleted rows are excluded automatically (they
+// aren't in the tables), and each Scene is read exactly once, so nothing is
+// double-counted.
 async function getStoredWordTotalsByUser(
   client: ServiceClient,
   userIds: string[]
@@ -1128,21 +1128,21 @@ async function getStoredWordTotalsByUser(
   const projectIds = Array.from(userIdByProject.keys());
   if (projectIds.length === 0) return totals;
 
-  const { data: chapters } = await client
-    .from("chapters")
+  const { data: manuscripts } = await client
+    .from("manuscripts")
     .select("id, project_id")
     .in("project_id", projectIds);
-  const projectIdByChapter = new Map((chapters ?? []).map((c) => [c.id as string, c.project_id as string]));
-  const chapterIds = Array.from(projectIdByChapter.keys());
-  if (chapterIds.length === 0) return totals;
+  const projectIdByManuscript = new Map((manuscripts ?? []).map((m) => [m.id as string, m.project_id as string]));
+  const manuscriptIds = Array.from(projectIdByManuscript.keys());
+  if (manuscriptIds.length === 0) return totals;
 
-  const { data: pages } = await client
-    .from("pages")
-    .select("word_count, chapter_id")
-    .in("chapter_id", chapterIds);
+  const { data: scenes } = await client
+    .from("scenes")
+    .select("word_count, manuscript_id")
+    .in("manuscript_id", manuscriptIds);
 
-  for (const p of pages ?? []) {
-    const projectId = projectIdByChapter.get(p.chapter_id as string);
+  for (const p of scenes ?? []) {
+    const projectId = projectIdByManuscript.get(p.manuscript_id as string);
     const userId = projectId ? userIdByProject.get(projectId) : undefined;
     if (!userId) continue;
     totals.set(userId, (totals.get(userId) ?? 0) + ((p.word_count as number) ?? 0));
@@ -1272,7 +1272,7 @@ export async function getUserDrawerData(userId: string): Promise<UserDrawerData 
     0
   );
 
-  // Every stored page this writer owns, canonical or not — see
+  // Every stored Scene this writer owns, placed or Unplaced — see
   // getStoredWordTotalsByUser above. Includes pasted/imported words, unlike
   // totalWordsWritten above.
   const totalWords = totalWordsByUser.get(userId) ?? 0;

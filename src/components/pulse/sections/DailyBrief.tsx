@@ -21,17 +21,15 @@ function briefSentence(data: DailyBriefData): string {
 
 export function DailyBrief({ data }: { data: DailyBriefData }) {
   return (
-    <PulseCard tier="elevated" className="p-6">
-      <div className="mb-3 flex items-baseline justify-between">
-        <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--color-mist)" }}>
-          Daily Brief
-        </p>
+    <PulseCard tier="elevated">
+      <div className="r2-pulse-label-row">
+        <h2 className="r2-pulse-label">Daily Brief</h2>
         <p className="text-xs" style={{ color: "var(--color-mist)", opacity: 0.65 }}>
           {data.label}
         </p>
       </div>
 
-      <p className="font-rune-serif text-xl leading-relaxed" style={{ color: "var(--text-primary)" }}>
+      <p className="r2-pulse-brief" style={{ color: "var(--text-primary)" }}>
         {briefSentence(data)}
       </p>
 

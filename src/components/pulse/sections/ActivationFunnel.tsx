@@ -19,14 +19,14 @@ export function ActivationFunnel({
   const maxCount = Math.max(1, ...data.steps.map((s) => s.count));
 
   return (
-    <PulseCard tier="primary" className="p-7">
+    <PulseCard tier="primary">
       <PulseCardLabel emphasis>Activation Funnel</PulseCardLabel>
-      <div className="mb-5 -mt-1 space-y-0.5">
-        <p className="text-xs leading-relaxed" style={{ color: "var(--color-mist)", opacity: 0.7 }}>
+      <div className="r2-pulse-help r2-pulse-help--lead">
+        <p>
           Tracked signup cohort. Historical users may not have complete activation data.
         </p>
         {trackingStartDate && (
-          <p className="text-[11px]" style={{ color: "var(--color-mist)", opacity: 0.45 }}>
+          <p className="r2-pulse-faint">
             Tracking began {fmtDate(trackingStartDate)}.
           </p>
         )}

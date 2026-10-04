@@ -45,7 +45,6 @@ export async function createProjectNote(
 
   if (error) return { data: null, error: error.message };
   revalidatePath(`/projects/${projectId}`);
-  revalidatePath("/dashboard");
   return { data: data as ProjectNote, error: null };
 }
 
@@ -68,7 +67,6 @@ export async function completeProjectNote(
     .single();
 
   if (error) return { data: null, error: error.message };
-  revalidatePath("/dashboard");
   return { data: data as ProjectNote, error: null };
 }
 
@@ -88,7 +86,6 @@ export async function deleteProjectNote(
     .eq("user_id", user.id);
 
   if (error) return { error: error.message };
-  revalidatePath("/dashboard");
   return { error: null };
 }
 
@@ -119,7 +116,6 @@ export async function pinProjectNote(
     .eq("user_id", user.id);
 
   if (error) return { error: error.message };
-  revalidatePath("/dashboard");
   return { error: null };
 }
 
@@ -139,6 +135,5 @@ export async function unpinProjectNote(
     .eq("user_id", user.id);
 
   if (error) return { error: error.message };
-  revalidatePath("/dashboard");
   return { error: null };
 }

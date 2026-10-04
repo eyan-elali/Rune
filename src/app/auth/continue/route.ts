@@ -14,7 +14,7 @@
 //   2. Otherwise, consume any pending purchase-intent cookie: create the
 //      Checkout session for it and redirect straight to Stripe, unless the
 //      user is already an active Scribe subscriber.
-//   3. No intent, no checkout return — just send the user to /dashboard,
+//   3. No intent, no checkout return — just send the user to /projects,
 //      which already redirects to /onboarding on its own when they have no
 //      projects yet.
 //
@@ -28,6 +28,7 @@ import { createClient } from "@/lib/supabase/server";
 import { stripe } from "@/lib/stripe/client";
 import { startScribeCheckoutForCurrentUser } from "@/lib/actions/billing";
 import { PURCHASE_INTENT_COOKIE, parsePurchaseIntent } from "@/lib/purchaseIntent";
+import { BILLING_OPEN } from "@/lib/beta";
 
 const ACTIVATION_POLL_ATTEMPTS = 3;
 const ACTIVATION_POLL_DELAY_MS = 350;
@@ -59,13 +60,13 @@ export async function GET(request: NextRequest) {
   const checkoutParam = searchParams.get("checkout");
   const sessionId = searchParams.get("session_id");
   // Forwarded from auth/callback for a brand-new signup so the
-  // CompleteRegistration pixel (RegistrationTracker, rendered on /dashboard)
+  // CompleteRegistration pixel (RegistrationTracker, rendered on /projects)
   // still fires even when a pending Scribe intent detours through here
   // instead of landing directly on /onboarding.
   const wasJustRegistered = searchParams.get("registered") === "1";
 
-  function dashboardUrl(extraParams?: Record<string, string>): string {
-    const url = new URL("/dashboard", origin);
+  function homeUrl(extraParams?: Record<string, string>): string {
+    const url = new URL("/projects", origin);
     if (wasJustRegistered) url.searchParams.set("registered", "1");
     for (const [key, value] of Object.entries(extraParams ?? {})) {
       url.searchParams.set(key, value);
@@ -96,18 +97,24 @@ export async function GET(request: NextRequest) {
         console.error("[auth/continue] checkout session verification failed:", err);
       }
     }
-    const response = NextResponse.redirect(dashboardUrl());
+    const response = NextResponse.redirect(homeUrl());
     response.cookies.delete(PURCHASE_INTENT_COOKIE);
     return response;
   }
 
   if (checkoutParam === "cancelled") {
-    const response = NextResponse.redirect(dashboardUrl({ checkoutCancelled: "1" }));
+    const response = NextResponse.redirect(homeUrl({ checkoutCancelled: "1" }));
     response.cookies.delete(PURCHASE_INTENT_COOKIE);
     return response;
   }
 
-  const intent = parsePurchaseIntent(request.cookies.get(PURCHASE_INTENT_COOKIE)?.value);
+  // Closed beta (Beta Completion E): a leftover intent is cleared, never acted on.
+  const intent = BILLING_OPEN ? parsePurchaseIntent(request.cookies.get(PURCHASE_INTENT_COOKIE)?.value) : null;
+  if (!intent && request.cookies.get(PURCHASE_INTENT_COOKIE)) {
+    const response = NextResponse.redirect(homeUrl());
+    response.cookies.delete(PURCHASE_INTENT_COOKIE);
+    return response;
+  }
   if (intent) {
     const result = await startScribeCheckoutForCurrentUser(intent.interval, "landing_purchase_intent");
 
@@ -117,16 +124,16 @@ export async function GET(request: NextRequest) {
       return response;
     }
     if (result.status === "already_subscribed") {
-      const response = NextResponse.redirect(dashboardUrl());
+      const response = NextResponse.redirect(homeUrl());
       response.cookies.delete(PURCHASE_INTENT_COOKIE);
       return response;
     }
     // Checkout creation failed (Stripe unreachable, etc). The account is
     // still valid and usable free — never strand the user here.
-    const response = NextResponse.redirect(dashboardUrl({ checkoutError: "1" }));
+    const response = NextResponse.redirect(homeUrl({ checkoutError: "1" }));
     response.cookies.delete(PURCHASE_INTENT_COOKIE);
     return response;
   }
 
-  return NextResponse.redirect(dashboardUrl());
+  return NextResponse.redirect(homeUrl());
 }

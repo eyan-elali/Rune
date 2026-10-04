@@ -1,3 +1,12 @@
+-- HISTORICAL — DO NOT RE-RUN. Already applied to production and contained in the
+-- production baseline (src/lib/supabase/schema.sql, generated 2026-09-24). Kept for
+-- history only; recorded as applied in public.schema_migrations by migration 013.
+-- Re-running historical migrations can regress production. See README.md here.
+-- Production differs: the table-level unique(user_id, project_id, session_date)
+-- declared below no longer exists; writing_sessions uniqueness is enforced by
+-- partial unique indexes, and writing_sessions has a page_id column (FK → pages,
+-- ON DELETE CASCADE). See schema.sql.
+
 -- writing_goals: per-user goals (daily global or project total)
 create table if not exists writing_goals (
   id          uuid primary key default gen_random_uuid(),

@@ -1,5 +1,7 @@
 # Rune 2.0 — Product & Domain Architecture
 
+> **Naming.** Rune 2.0 was the development name for the product now branded **Sutura** (https://writesutura.com). This document keeps its filename and its historical "Rune" wording so references stay resolvable; wherever it describes the current product, read Rune 2.0 as Sutura. The authorship promise is now worded: *Sutura will never use AI to write, rewrite, or complete a writer's story.*
+
 > **Status.** This document is the authoritative source for Rune 2.0 product and domain architecture. `CLAUDE.md` defers to it for Rune 2.0 decisions.
 >
 > It describes the **target** product. It does not describe what is currently deployed. Much of the current codebase still implements the pre-2.0 model: word-limit pricing, XP and Levels, Arena, and Pages as manuscript prose. Those systems are retired through staged, compatibility-safe migration (§45). They are never ripped out because this document deprecates them.
@@ -233,9 +235,22 @@ or:
 inside any Manuscript Group
 ```
 
-A Chapter contains no canonical prose directly.
+A Chapter contains no prose directly.
 
-All prose ultimately belongs to Scenes.
+All prose belongs to Scenes.
+
+A Chapter is simply an ordered collection of placed Scenes:
+
+```text
+CHAPTER
+├── SCENE
+├── SCENE
+└── SCENE
+```
+
+> **Every placed Scene in a Chapter is part of that Chapter.**
+
+No placed Scene is an alternate or a candidate kept beside the one that "really" counts. Rune 2.0 has no canonical Scene (§6).
 
 Chapters may exist before meaningful prose has been written.
 
@@ -247,7 +262,7 @@ Creating a Chapter automatically creates an initial unnamed Scene, but Rune does
 
 A `Scene` is the smallest first-class unit of manuscript prose.
 
-All canonical manuscript writing belongs to Scenes.
+All manuscript prose belongs to Scenes.
 
 A Scene may exist in exactly one of two states:
 
@@ -269,7 +284,32 @@ Unplaced → Chapter
 
 without changing identity.
 
+- Moving a Scene to Unplaced Scenes removes it from narrative order. It does not delete it.
+- Moving an Unplaced Scene into a Chapter makes it part of the ordered manuscript.
+
 Unplaced Scenes allow writers to draft or plan scenes before deciding exactly where they belong.
+
+### No canonical Scene
+
+Rune 2.0 has **no canonical Scene concept**. There is no:
+
+- canonical Scene,
+- primary Scene,
+- active Scene that suppresses its siblings,
+- special Scene that alone counts toward manuscript totals,
+- special Scene that alone appears in export.
+
+Every placed Scene is part of the manuscript. Therefore:
+
+- every placed Scene counts toward the ordered manuscript word total,
+- every placed Scene appears in manuscript export,
+- Scene order defines prose order within its Chapter.
+
+A writer who no longer wants some prose in narrative order moves that Scene to Unplaced Scenes. Keeping an alternate draft is not a Chapter state.
+
+Canonical Pages are a legacy Rune 1.x concept only. §42 defines how existing canonical Pages are translated, and §45 how the legacy flag is retired.
+
+Elsewhere in this document, "canonical" keeps its ordinary meaning, as in one canonical identity (§21) or one canonical sidebar location (§14). Those uses are unrelated to legacy canonical Pages.
 
 ### Unplaced Scene semantics
 
@@ -278,6 +318,14 @@ An Unplaced Scene:
 - is genuine manuscript prose,
 - belongs to the Manuscript,
 - has no current Chapter placement.
+
+It is not deleted material. It is manuscript material that currently has no position in the narrative. An Unplaced Scene:
+
+- keeps its Scene identity,
+- stays fully editable in the manuscript editor,
+- keeps the same saving, offline, and sync protection as a placed Scene,
+- will be searchable when search exists (§29),
+- can be moved into a Chapter at any time.
 
 An Unplaced Scene:
 
@@ -318,9 +366,37 @@ Unplaced Scenes have no Chapter position, so they have no derived Chapter-based 
 
 Nothing may persist a Scene number as a reference key. References, relationships, and backlinks always target the Scene ID.
 
-### Scene identity during the beta migration
+### Scenes in export
 
-During the Rune 2.0 beta migration, manuscript Scenes are physically stored in the existing `pages` table, and **each Page ID becomes its Scene ID**. See §42.
+> A Chapter's exported prose is the ordered concatenation of all its placed Scenes, with a manuscript-appropriate scene break between adjacent Scenes.
+
+Conceptually:
+
+```text
+CHAPTER 12
+
+[Scene 1 prose]
+
+* * *
+
+[Scene 2 prose]
+
+* * *
+
+[Scene 3 prose]
+```
+
+The exact visual separator is decided during export implementation. The semantic rule is fixed.
+
+Scene titles are organizational metadata. Standard manuscript export does **not** print them. Printing Scene titles would need a separate, explicit product decision introducing titled-scene export.
+
+Unplaced Scenes are not part of standard export (see above).
+
+### Scene identity and storage
+
+Rune 2.0 stores Scenes in a `scenes` table. A Scene belongs to its Manuscript (`manuscript_id`, which never changes) and is placed in a Chapter of that Manuscript or Unplaced (`chapter_id` null). Chapters belong to the Manuscript (`chapters.manuscript_id`), and the Manuscript to the Project, one to one. This schema was built on the new, empty Rune 2.0 database (migration 015).
+
+Scene identity is stable. When Rune 1.x manuscripts move to Rune 2.0, **each Page ID becomes its Scene ID**. See §42.
 
 ---
 
@@ -481,7 +557,7 @@ Writers see this object as a **Page**.
 
 Workspace Pages must **not** be stored in the existing physical `pages` table. Do not reuse the name `pages` for them.
 
-During the Rune 2.0 beta migration, `pages` stays compatibility-critical and physically stores manuscript **Scenes** (§42).
+Manuscript **Scenes** are stored in `scenes`. On production, the Rune 1.x `pages` table stays compatibility-critical until the Rune 1.x data migration (§42).
 
 Workspace Pages need a physical and internal name that cannot be confused with it, such as `workspace_documents`. The final schema name is chosen during schema design.
 
@@ -489,7 +565,18 @@ The rule:
 
 > Manuscript Scenes and Workspace Pages must never share an ambiguous physical persistence name.
 
-The same applies in code. Types, actions, and stores should keep "Scene (stored in `pages`)" and "Workspace Page" clearly apart.
+The same applies in code. Types, actions, and stores should keep "Scene" and "Workspace Page" clearly apart.
+
+### Scenes and Workspace Pages are different objects
+
+A **Scene** is manuscript prose. A **Workspace Page** is a freeform supporting document. They are not the same object type, and the terms are not interchangeable.
+
+A writer who has prose they no longer want in narrative order may:
+
+- move the Scene to Unplaced Scenes, or
+- deliberately copy or move relevant material into a Workspace Page, once it has become notes or supporting information.
+
+Rune does not convert between the two automatically.
 
 ---
 
@@ -789,7 +876,7 @@ visible properties
 
 Scenes may also have alternate representations.
 
-The canonical representation remains:
+The primary representation remains:
 
 ```text
 Manuscript hierarchy
@@ -1022,16 +1109,44 @@ Manuscript Group
 
 moves it to project-scoped Trash rather than immediately destroying it.
 
-Deleting a parent hierarchy sends its subtree to Trash together.
+A trashed object keeps its identity: the same ID, content, version, property values and relationships. Restoring brings back the same object, not a copy.
+
+Permanent deletion happens only from Trash, deliberately, after a confirmation that says what will be lost.
+
+The beta supports Trash for:
+
+```text
+Scene (placed or Unplaced)
+Chapter (with its Scenes)
+Page
+Folder
+Collection
+Collection Entry
+```
+
+Manuscript Group Trash is not built. Only an empty Group can be deleted; a Group whose Chapters are all in Trash counts as empty.
+
+Trash is never Unplaced Scenes. Unplaced Scenes are active manuscript material with no narrative placement; moving a Scene there is a move, not a deletion, and "Move to Trash" never sends anything there.
+
+### Ownership hierarchies go to Trash together
+
+Deleting a parent that owns its children sends its subtree to Trash together.
 
 Examples:
 
 ```text
-Page
-└── child Pages
+Collection
+└── Entries, properties, values, Views
 ```
 
-or:
+or
+
+```text
+Chapter
+└── its active Scenes
+```
+
+or, if ever built:
 
 ```text
 Manuscript Group
@@ -1039,6 +1154,60 @@ Manuscript Group
 ```
 
 are restored together with their original hierarchy.
+
+An Entry trashed on its own before its Collection stays in Trash when the Collection is restored. An Entry cannot be restored while its Collection is in Trash.
+
+### Folders are navigation, not ownership
+
+A Folder only arranges the Workspace (§11, §14). Trashing a Folder does **not** trash what is inside it.
+
+```text
+Research (Folder)          →  Research goes to Trash
+├── Magic Notes                Magic Notes, Maps and Factions
+├── Maps (Folder)              move up into Research's place,
+└── Factions                   in their order, and stay active
+```
+
+A restored Folder comes back empty, in its old place. Its former items stay where they moved.
+
+### Scenes
+
+A trashed Scene leaves its Chapter (or Unplaced Scenes) and the ordered manuscript total. It keeps its ID, prose, word count and version.
+
+Restoring a Scene returns it:
+
+- to its Chapter, in its old place if that place is free, otherwise at the end of the Chapter;
+- to the end of Unplaced Scenes, if its Chapter no longer exists;
+- to Unplaced Scenes, if it was Unplaced.
+
+Trash never changes a Scene's version, so writing saved on a device while the Scene was in Trash saves normally after a restore.
+
+Permanently deleting a Scene removes its prose. Its writing history (sessions, writing days, Today's Words) is kept with the Project.
+
+### Chapters
+
+A Chapter goes to Trash with its active Scenes, as one piece of the manuscript: one Trash item, listed with its Scene count and words. The Chapter and each Scene keep their IDs, prose, words, version, Scene History, properties, references (dormant while in Trash) and writing history. Nothing is renumbered away.
+
+Restoring the Chapter returns it:
+
+- to its Group, at its old place among that Group's Groups and Chapters (or the nearest place that still exists), with its Scenes inside it in their order;
+- to the end of the manuscript's top level, if its Group no longer exists.
+
+A Scene that went to Trash with its Chapter is restored or permanently deleted only with it. A Scene trashed on its own before its Chapter stays its own Trash item; restoring it while its Chapter is in Trash puts it in Unplaced Scenes.
+
+Permanently deleting a Chapter from Trash deletes it and the Scenes trashed with it; their writing history is kept.
+
+"Remove chapter, keep its scenes" is a separate, explicit action, not deletion: the Chapter's Scenes move, in order, to Unplaced Scenes, and the empty Chapter is removed.
+
+Writers cannot delete a Scene or Chapter directly. Permanent deletion happens only from Trash.
+
+Trash never appears inside the manuscript prose or the editor.
+
+### Where restored objects return
+
+A Page, Folder or Collection returns to the Folder and position it left, if that Folder still exists. Otherwise it returns to the end of the Workspace's top level.
+
+Restoring from Trash does not reopen the object's old tab. Moving an object to Trash removes its tab from the working set. An immediate Undo restores the object and opens it again.
 
 ---
 
@@ -1122,7 +1291,7 @@ Writing History
 Project Goals
 Progress
 Focus Mode
-Version History (full browsing deferred — see below)
+Version History (Scene History and Manuscript Milestones — see below)
 Search
 Import
 Export
@@ -1155,13 +1324,38 @@ Manuscript safety must still be very strong without it. The beta relies on:
 
 Nothing in the architecture should make Version History hard to add later. In particular, Scene identity stays stable and Scene content remains a separately addressable unit.
 
+### Scene History and Manuscript Milestones (Milestone 17)
+
+Version History arrived as two small safety systems, not version control. There are no branches, merges or diffs to manage.
+
+- **Scene History.** The database keeps earlier texts of each Scene on the save path itself. It keeps the text being replaced when the writer returns after a pause of 30 minutes or more, and about once an hour during long sittings. It never keeps a copy per save. The writer opens it from the Scene's Inspector, reads a version read-only, and restores it. A restore is a new save of that text through the normal Scene save path, and the replaced text is kept first. It uses the same Scene ID, creates no writing-session credit, and never rewinds history. Retention keeps every version from the last 30 days, then one per day, and at most 200 per Scene.
+- **Manuscript Milestones.** The writer names the whole manuscript at a moment ("Draft 1"). A Milestone captures Groups, Chapters, placed and Unplaced Scenes, their order and prose, in one transaction, and changes nothing live. Chapters and Scenes in Trash are not captured. It is read-only and never a branch. Whole-manuscript restore is deferred. A single Scene's text from a Milestone is restored through that Scene's History. Workspace content is not captured.
+- **Reading a Milestone.** A Milestone opens with its own read-only navigator: its Groups, Chapters, Scenes and Unplaced Scenes as they were, each a way straight to that part of the snapshot. A live Scene's or Chapter's Inspector lists the named Milestones that hold it, apart from the Scene's automatic History, and each opens the Milestone at that Scene or Chapter.
+- History is not a live object. It is never searched, never linked, never counted and never exported. A trashed Scene keeps its history. Permanently deleting a Scene deletes its history, except the versions a Milestone uses.
+
 ### Revision Notes
 
-The existing Revision Notes system **stays as it is** for the Rune 2.0 beta.
+**Revision Notes are writer-authored revision thoughts attached to the Manuscript, a Group, a Chapter or a Scene, surfaced contextually through the manuscript hierarchy.** There is one Revision Notes feature and one note model (`revision_notes`, migrations 039–040). It is not a Workspace Page, a Collection or a hidden Page, and it prescribes no revision workflow.
 
-It works like a lightweight project checklist, not freeform Pages. It is not migrated into Workspace Pages or Collections in the initial Rune 2.0 migration.
+- **One note, one target.** A note belongs to exactly one of the Manuscript, a Group, a Chapter or a Scene, anchored by that target's stable ID. A target may carry any number of notes. Each note is created, edited and deleted on its own.
+- **One home.** Revision Notes live in the Revision Notes panel. The Inspector shows no notes: it is about metadata, properties, history and references.
+- **Hierarchical visibility.** The panel shows the level the writer is at: the selected Scene, Chapter or Group, the Scene being read, or the whole Manuscript when nothing is selected. A quiet trail moves between the levels above it. What each level shows is derived from the live manuscript structure, never copied, and each note appears exactly once:
+  - a **Scene** shows only its own notes (the narrowest view: no Chapter, sibling, Group or Manuscript notes);
+  - a **Chapter** shows its own notes, then those of each active Scene in it, in Scene order;
+  - a **Group** shows its own notes, then everything inside it (nested Groups, Chapters and Scenes) in manuscript order;
+  - the **Manuscript** shows its own notes, then every Group's, Chapter's and Scene's in manuscript order, then the Unplaced Scenes'. This is the bird's-eye revision view.
+  - Every note is labelled with where it belongs ("This chapter", "Chapter 12", "The Bell Tower · Unplaced").
+- **Adding.** A new note goes to the level being shown, so the writer never picks a scope. Return saves and clears the field for the next note; Shift+Return adds a new line. Unsent text in the field is kept on the device.
+- **Reading Mode quick-add.** While reading, "Note" opens a small quick-add for the Scene being read. It creates ordinary Scene notes, several in a row, without opening any panel. They appear at once in that Scene's, its Chapter's, its Groups' and the Manuscript's Revision Notes. There is no separate reading note.
+- **Movement.** Notes follow their targets. A Scene moved to another Chapter leaves the old Chapter's (and Groups') view and appears in the new one. An Unplaced Scene keeps its notes, which then appear only in its own view and the Manuscript's. A Chapter or Group moved between Groups brings everything inside it. No move rewrites a note.
+- **Trash.** A Scene or Chapter in Trash has its notes hidden from every view (a Chapter takes its Scenes' with it). Restore brings back the same notes on the same IDs. Permanently deleting a Scene or Chapter deletes the notes on it. Groups have no Trash: only an empty Group can be deleted, and its own notes go with it after a confirmation that says so. Removing a Chapter while keeping its Scenes deletes the Chapter's own notes (said first); its Scenes keep theirs.
+- **Outside the manuscript.** Notes are never part of a Scene's prose, version, word count, History or writing credit (sessions, Today). They are never counted in totals, captured by Milestones, searched as manuscript text, or exported.
+- **Durable.** A note appears at once and is kept on the device until the server has it. A failed save, a lost connection, moving to another Scene or a reload never loses it. A retried save never duplicates it. An edit never silently overwrites a newer version made elsewhere: the writer chooses.
+- **Not a task list.** There is no status, priority, due date, checkbox, assignee or resolved state.
 
-Rune may later reconsider folding it into a Revision Issues Collection or a broader revision workflow. That is deferred.
+**The Rune 1.x checklist.** Before Rune 2.0, the project had a checklist (`project_notes`) shown as "Revision Notes". In the Rune 2.0 shell it is folded into Revision Notes: migration 040 copied every open checklist item into a Manuscript-wide note (same ID, text and times), and the panel shows Revision Notes instead. Completed items were not copied. `project_notes` itself is left untouched, and only the remaining Rune 1.x pages (the legacy dashboard and project page) still read it. It retires with them. The single note per Scene of Milestone 18 (migration 038) likewise became Scene notes (039).
+
+Folding Revision Notes into a Revision Issues Collection or a broader revision workflow is deferred.
 
 ---
 
@@ -1381,7 +1575,7 @@ Import/export appropriate to beta (titled Groups exported as headings)
 Manuscript safety infrastructure (autosave, sync, Trash, export)
 Trash
 Offline resilience
-Existing Revision Notes (unchanged)
+Revision Notes (Manuscript, Group, Chapter, Scene)
 ```
 
 ### Editor
@@ -1421,7 +1615,7 @@ AI writing
 AI rewriting
 AI story generation
 AI character generation
-Full user-facing Version History (snapshot browsing/restore)
+Whole-manuscript restore from a Milestone
 Continuous multi-Scene Chapter editor
 Migrating Revision Notes into Workspace Pages or Collections
 Replacement unlock model for themes and fonts
@@ -1697,55 +1891,111 @@ The following should be treated as Rune 2.0 invariants:
 
 33. Legacy systems are retired in stages, with compatibility protected. They are never removed only because this document deprecates them.
 
+34. There is no canonical Scene. Every placed Scene in a Chapter is part of that Chapter: it counts toward the ordered manuscript total and appears in export.
+
+35. A Chapter's exported prose is the ordered concatenation of all its placed Scenes, with a scene break between adjacent Scenes. Scene titles are not printed in standard export.
+
+36. Manuscript Scenes and Workspace Pages are distinct object types. Rune never converts one into the other automatically.
+
+37. Migrating existing manuscript prose never copies, merges, deletes, or re-identifies it. Every existing Page row survives in place as a Scene with the same ID, content, and word count.
+
 ---
 
 # 42. Mapping the current manuscript into Rune 2.0
 
-Currently, manuscript prose lives in **Pages** inside **Chapters**, and a Chapter may mark one Page as **canonical**.
+Currently, manuscript prose lives in **Pages** inside **Chapters**, and a Chapter may mark one Page as **canonical**. When it does, only that Page counts toward manuscript totals and appears in export.
 
 The audit identified canonical Pages as the highest-risk semantic issue in the migration.
 
-This section fixes the **intended semantic mapping**. It does not authorize running the migration.
+This section fixes the **approved semantic mapping**. It does not authorize running the migration.
 
-### Chapter with a canonical Page
+### Existing Pages are Scenes
 
-- The canonical Page becomes the Chapter's **placed Scene**.
-- Every non-canonical Page in that Chapter becomes an **Unplaced Scene**.
+The audit established that existing `pages` rows are already the storage unit Rune 2.0 calls Scenes. Therefore:
 
-Current:
+> **Existing Page ID = Scene ID.**
+
+- Every existing Page becomes a Scene, including empty ones.
+- No existing prose gets a new Scene ID.
+- No existing prose is re-created: every row keeps its id, content, word count, version and timestamps.
+- No existing Page is deleted or merged.
+
+The Rune 2.0 schema stores Scenes in `scenes` (§6). Whether production's `pages` rows become `scenes` rows in place (a rename) or are copied with all of the above unchanged is decided by the Rune 1.x data-migration task, within the constraints below.
+
+### Case A: Chapter with a canonical Page
+
+- The canonical Page stays placed, as the Chapter's **placed Scene**.
+- Every non-canonical sibling becomes an **Unplaced Scene**.
+- Nothing is deleted.
+
+Before:
 
 ```text
-Chapter 12
-├── Page A
-├── Page B [canonical]
+Chapter
+├── Page A [canonical]
+├── Page B
 └── Page C
 ```
 
-Rune 2.0:
+After:
 
 ```text
-Chapter 12
-└── Scene B
+Chapter
+└── Scene A
 
 Unplaced Scenes
-├── Scene A
+├── Scene B
 └── Scene C
 ```
 
-This preserves the current manuscript totals, export behavior, and writer intent, because only the canonical Page counted and exported for that Chapter. It also keeps every alternate draft as real, recoverable prose.
+This preserves the current manuscript totals, export selection, and writer intent, because only the canonical Page counted and exported for that Chapter. Every alternate draft stays real, recoverable, editable prose.
 
-### Chapter without a canonical Page
+### Case B: Chapter without a canonical Page
 
-Its Pages already behave like sequential Scenes. They become **placed Scenes in their existing order**.
+Its Pages already behave like sequential Scenes. Every Page stays placed, in its existing order.
+
+Before:
+
+```text
+Chapter
+├── Page A
+├── Page B
+└── Page C
+```
+
+After:
+
+```text
+Chapter
+├── Scene A
+├── Scene B
+└── Scene C
+```
+
+### Result of the mapping
+
+For every Project, the ordered sequence of placed Scenes after the migration equals the ordered sequence of Pages the current canonical-aware rule includes in the manuscript and in export. The ordered manuscript word total therefore does not change.
+
+### Canonical state after the migration
+
+- Every `is_canonical` value is eventually cleared.
+- After cutover, Rune 2.0 product and domain code must not depend on canonical semantics.
+- The physical column may remain temporarily as a migration and compatibility artifact, until removing it is safe (§45).
 
 ### Implementation constraints (from the audit's recommendation, which stands)
 
-- Keep the physical `pages` table during the beta migration.
+- Production keeps the physical `pages` table, and its compatibility contracts, until the Rune 1.x data migration moves it to the Rune 2.0 schema (`scenes`).
 - Keep each Page ID as its Scene ID.
+- An Unplaced Scene has no Chapter (`chapter_id` is null) and belongs to the Manuscript. A Scene's ownership must stop depending on its Chapter **before** any Scene is unplaced. Otherwise access rules, queued offline saves, and account totals lose track of it.
 - At first, keep the compatibility-sensitive RPCs and database contracts (§45).
-- Offline saves queued against a Page ID must still land on the same Scene afterward.
+- Offline saves queued against a Page ID must still land on the same Scene afterward, with no ID remapping.
+- Writing history attached to a Page ID stays attached to the same ID. It is never rewritten or duplicated.
 
-The migration itself follows the normal rules: committed migration, update the canonical schema, RLS, staged rollout, and no manuscript loss.
+The migration itself follows the normal rules: committed migration, update `schema.sql`, RLS, staged rollout, and no manuscript loss.
+
+### Verification
+
+The migration safety harness in `tools/sync-harness` encodes these rules as executable invariants: prose survival, ordered-manuscript and export equivalence, account totals, writing history, and offline replay. No Phase 1 migration step is acceptable unless those invariants keep passing.
 
 ---
 
@@ -1796,6 +2046,8 @@ These are business and migration decisions. They must be settled before billing 
 ### Current enforcement is retired in stages
 
 Word-limit enforcement is deeply built into the current system (§45). Dropping the product requirement does **not** mean removing that enforcement immediately.
+
+**Status on the Rune 2.0 database (migration 037):** the free-word limit no longer gates anything. Writing, Scene and Chapter creation, Project creation, import, duplication, Scene History restore and Trash restore are never blocked by a word count. The checked RPCs keep their names, signatures and result shapes for stale clients and queued offline saves; their one limit resolver answers "no limit". `account_word_total` remains as an account metric. The editor's input guards and the free-word notices are gone from the Rune 2.0 app. Billing surfaces (the pricing table, Settings, the returning-writer pricing notice) still describe the old model and are replaced with the trial and billing work in Beta Completion. Production (Rune 1.x) is unchanged.
 
 ---
 
@@ -1870,6 +2122,8 @@ Retirement is staged:
 - The Rune 2.0 migration initially **keeps the load-bearing RPC signatures and database contracts**, so stale clients and queued offline manuscript saves keep working.
 - Later stages are designed in their own explicit tasks, once the billing decisions in §43 are made. Changing enforcement behavior and removing contracts are separate steps.
 - A contract can be removed only once no deployed client and no queued offline save can still depend on it.
+- While enforcement remains, the manuscript migration must not change what it counts. The current account total counts every stored Page, whatever its canonical state. Moving prose to Unplaced Scenes must neither lower a writer's total nor create a way around the current limit.
+- Stage reached on the Rune 2.0 database (migration 037): enforcement is off (the limit resolver answers "no limit"); the contracts stay. Removing the contracts themselves is a later step.
 
 ### XP and Levels
 
@@ -1877,7 +2131,12 @@ XP, Levels, and XP/Level-based unlock requirements still exist in code. They sta
 
 ### Canonical Pages
 
-`is_canonical` behavior keeps governing manuscript totals and export until the §42 mapping is implemented as an explicit migration.
+Canonical Pages are **not** a Rune 2.0 concept. They survive only as legacy Rune 1.x data.
+
+- Until the §42 mapping is implemented as an explicit migration, `is_canonical` keeps governing manuscript totals and export in the running application.
+- The cutover moves each canonical Chapter's non-canonical Pages to Unplaced Scenes and clears every `is_canonical` flag.
+- After cutover, no Rune 2.0 code reads `is_canonical`. The column, and the trigger that maintains it, may stay as inert compatibility artifacts until an explicit task removes them safely.
+- The Rune 2.0 schema (migration 015) has neither: no `is_canonical`, no canonical trigger, no canonical-aware database logic.
 
 ---
 
@@ -1909,9 +2168,9 @@ These are genuinely unresolved. They are not decided in this document:
 6. Whether streaks stay visible anywhere in the product, or only as underlying history.
 7. Arena's long-term future (§46).
 8. The final physical schema name for Workspace Pages (§10).
-9. Exact export formatting for Group headings (§4).
+9. Exact export formatting for Group headings (§4) and the visual scene break between Scenes (§6).
 10. Whether and when Revision Notes move into a Revision Issues Collection or revision workflow (§30).
-11. When full Version History ships, and what form it takes (§30).
+11. Whether whole-manuscript restore from a Milestone ships, and what form it takes (§30).
 
 ---
 
