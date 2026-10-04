@@ -27,6 +27,7 @@ import {
   type UnsentWorkspaceWork,
 } from "@/lib/rune2/workspaceDrafts";
 import { useProfileStore } from "@/store/profileStore";
+import { FeedbackDialog } from "./Feedback";
 import { ACCENTS, APPEARANCES, WRITING_SURFACES, type RunePreferences } from "@/lib/rune2/preferences";
 import { resolveTheme, surfaceColours } from "@/lib/rune2/themes";
 import { AppBar, useLogOut } from "./AccountMenu";
@@ -287,7 +288,51 @@ export function SettingsSections({
         <DeviceSection />
 
         <AccountSection account={account} profileError={profileError} />
+
+        <AboutSection />
     </>
+  );
+}
+
+/**
+ * About (Beta Completion E): that Rune is in closed beta, what that means,
+ * and the ways to reach us — feedback, support, and the legal pages.
+ */
+function AboutSection() {
+  const [feedback, setFeedback] = useState(false);
+  return (
+    <section className="r2-settings-section" aria-labelledby="settings-about">
+      <h2 id="settings-about">
+        About Rune <span className="r2-beta-tag">Beta</span>
+      </h2>
+      <p className="r2-settings-scope">
+        Rune is in closed beta: free, with everything in it open to you. Some things will change as we learn from the
+        writers using it — your feedback is how we decide what.
+      </p>
+      <div className="r2-settings-rows">
+        <Row label="Feedback" help="Something confusing, something broken, or an idea.">
+          <button type="button" className="r2-button r2-button--sm" onClick={() => setFeedback(true)}>
+            Send feedback
+          </button>
+        </Row>
+        <Row label="Support" help="For anything about your account or your writing.">
+          <a href="mailto:support@rune.app" className="r2-settings-row-value">
+            support@rune.app
+          </a>
+        </Row>
+        <Row label="Privacy and terms">
+          <span className="r2-settings-links">
+            <Link href="/privacy" className="r2-button r2-button--quiet r2-button--sm">
+              Privacy Policy
+            </Link>
+            <Link href="/terms" className="r2-button r2-button--quiet r2-button--sm">
+              Terms
+            </Link>
+          </span>
+        </Row>
+      </div>
+      {feedback && <FeedbackDialog where={{ surface: "settings", projectId: null }} onClose={() => setFeedback(false)} />}
+    </section>
   );
 }
 

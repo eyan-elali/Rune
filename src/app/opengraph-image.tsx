@@ -62,7 +62,7 @@ export default async function Image() {
               fontStyle: "italic",
             }}
           >
-            Write more. Fear less.
+            A home for writing novels.
           </span>
 
           {/* Gold accent line */}

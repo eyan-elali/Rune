@@ -1470,7 +1470,10 @@ export default function CanvasSurface({ entry, session }: { entry: NavEntry; ses
       {cardMenu && session.has(cardMenu.id) && <NavigatorMenu label="Card actions" at={cardMenu.at} items={cardMenu.items} onClose={() => setCardMenu(null)} />}
 
       {items.length === 0 && !insert && uploads === 0 && (
-        <p className="r2-canvas-ui r2-canvas-empty">Double-click anywhere for a note, add a scene, chapter, page or entry, or drop an image.</p>
+        <div className="r2-canvas-ui r2-canvas-empty">
+          <p>Think in space. Add a scene, chapter, page or entry — the real thing, not a copy — or drop an image.</p>
+          <p>Double-click empty space for a note. Arranging things here never changes your manuscript’s order.</p>
+        </div>
       )}
 
       {message && !notice && (

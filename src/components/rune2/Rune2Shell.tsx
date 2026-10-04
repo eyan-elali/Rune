@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { ProjectManuscript } from "@/lib/rune2/projectManuscript";
 import type { ProjectWorkspace } from "@/lib/rune2/projectWorkspace";
 import { StatusSlotProvider } from "./DocStatus";
@@ -21,6 +22,7 @@ import { TrashProvider, TrashView } from "./WorkspaceTrash";
 import { useEditorFont } from "./useEditorFont";
 import { useRunePreferences, useRuneRootProps } from "./RunePreferences";
 import { writingTargetFor } from "@/lib/rune2/writingTarget";
+import { recordProjectOpened } from "@/lib/actions/onboarding";
 import { useWritingChrome } from "./useWritingChrome";
 
 // The Rune 2.0 application shell:
@@ -97,6 +99,9 @@ export function Rune2Shell({
               <TrashProvider>
                 <ProjectExportProvider>
                   <Frame>{children}</Frame>
+                  <Suspense fallback={null}>
+                    <OpenFromAddress />
+                  </Suspense>
                 </ProjectExportProvider>
               </TrashProvider>
             </RevisionNoteStoreProvider>
@@ -105,6 +110,46 @@ export function Rune2Shell({
       </ReferenceStoreProvider>
     </Rune2SelectionProvider>
   );
+}
+
+/**
+ * `?open=<id>` (onboarding's arrival: Chapter 1's first Scene) selects that
+ * object as the Project opens, its place in the navigator unfolded and its
+ * prose ready for the caret; the address then drops the parameter, so a
+ * refresh is an ordinary open. An id the Project does not have is ignored.
+ */
+// first_project_opened is once per account; asking once per page load is enough.
+let openedReported = false;
+
+function OpenFromAddress() {
+  const { manuscript } = useRune2Selection();
+  useEffect(() => {
+    if (openedReported) return;
+    openedReported = true;
+    void recordProjectOpened(manuscript.project.id).catch(() => {});
+  }, [manuscript.project.id]);
+  return <OpenFromParams />;
+}
+
+function OpenFromParams() {
+  const params = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const { index, select, requestSceneFocus, setOpenFor } = useRune2Selection();
+  const done = useRef(false);
+  useEffect(() => {
+    const id = params.get("open");
+    if (done.current || !id) return;
+    done.current = true;
+    const entry = index.get(id);
+    if (entry) {
+      setOpenFor(entry.path.map((p) => p.id), true);
+      select(id);
+      requestSceneFocus(id);
+    }
+    router.replace(pathname, { scroll: false });
+  }, [params, index, select, requestSceneFocus, setOpenFor, router, pathname]);
+  return null;
 }
 
 function Frame({ children }: { children: ReactNode }) {

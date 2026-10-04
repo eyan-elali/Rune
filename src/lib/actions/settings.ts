@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getProjectIdsByManuscript } from "@/lib/manuscriptQueries";
 import type { UserPreferences } from "@/lib/types";
 import { readRunePreferences, validatePreferenceChange, type RunePreferences } from "@/lib/rune2/preferences";
+import { HINTS_KEY, isHintId, readSeenHints } from "@/lib/rune2/hints";
 
 type ActionResult = { error: string | null };
 
@@ -101,6 +102,32 @@ export async function updateRunePreferences(
   if (error || !saved) return { data: null, error: "Your preference couldn’t be saved. Try again." };
 
   return { data: readRunePreferences(saved.preferences), error: null };
+}
+
+/**
+ * A one-time hint has been seen (lib/rune2/hints.ts): recorded on the account,
+ * merged into the writer's other preferences, so it never returns on any
+ * device. Idempotent; only known hint ids are accepted.
+ */
+export async function markHintSeen(id: string): Promise<{ error: string | null }> {
+  if (!isHintId(id)) return { error: "Unknown hint." };
+  const { supabase, user } = await getAuthUser();
+  if (!user) return { error: "Not authenticated" };
+
+  const { data: profile, error: readError } = await supabase
+    .from("profiles")
+    .select("preferences")
+    .eq("id", user.id)
+    .single();
+  if (readError || !profile) return { error: "Couldn’t be saved." };
+  const prefs = (profile.preferences as Record<string, unknown> | null) ?? {};
+  const seen = readSeenHints(prefs);
+  if (seen.includes(id)) return { error: null };
+  const { error } = await supabase
+    .from("profiles")
+    .update({ preferences: { ...prefs, [HINTS_KEY]: [...seen, id] } })
+    .eq("id", user.id);
+  return { error: error ? "Couldn’t be saved." : null };
 }
 
 export async function exportUserData(): Promise<{

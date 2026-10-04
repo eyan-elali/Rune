@@ -84,7 +84,7 @@ before(async () => {
   chapters = await bundleForTest('src/lib/actions/chapters.ts', { name: 'life_chapters' });
   scenes = await bundleForTest('src/lib/actions/scenes.ts', { name: 'life_scenes' });
   trash = await bundleForTest('src/lib/actions/workspaceTrash.ts', { name: 'life_trash' });
-  onboarding = await bundleForTest('src/app/api/onboarding/route.ts', { name: 'life_onboarding' });
+  onboarding = await bundleForTest('src/lib/actions/onboarding.ts', { name: 'life_onboarding' });
   engine = await bundleForTest('src/lib/offline/syncEngine.ts', { name: 'life_syncEngine', aliases: { '@/lib/supabase/client': BROWSER } });
   offline = await bundleForTest('src/lib/offline/db.ts', { name: 'life_offline_db' });
 });
@@ -123,12 +123,9 @@ async function purgeScene(id) {
   return { error: d.error };
 }
 
-const postOnboarding = async (body) => {
-  const res = await onboarding.POST(new Request('http://localhost/api/onboarding', {
-    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body),
-  }));
-  return { status: res.status, json: await res.json() };
-};
+// Rune 2.0 onboarding (BC-E): its Project comes from createOnboardingProject,
+// deduplicated by the journey's own request id (account_onboarding, 052).
+const onboardProject = (title) => onboarding.createOnboardingProject(title);
 
 /** The Project's full structure: Chapters in order, each with its Scenes in order. */
 async function structureOf(db, pid) {
@@ -172,15 +169,15 @@ test('createProject, createProjectWithDraft and onboarding: ONE database call cr
   assert.equal(d.data.scene.chapter_id, d.data.chapterId);
   assert.equal(d.data.project.id, d.data.projectId);
 
-  const o = await postOnboarding({ title: 'The first book', firstSentence: 'It began with a lantern.', requestId: REQ(3) });
-  assert.equal(o.status, 200, JSON.stringify(o.json));
-  const [first] = await structureOf(db, o.json.data.projectId);
-  assert.deepEqual([first.title, first.position, first.scenes.length, first.scenes[0].title, first.scenes[0].word_count],
-    ['Chapter 1', 1, 1, 'Scene 1', 4], 'the first sentence\'s words, by the onboarding count (words of 2+ characters: not "a")');
-  assert.equal(first.scenes[0].content.content[0].content[0].text, 'It began with a lantern.', 'the exact sentence, as TipTap JSON');
-  assert.equal(o.json.data.chapterId, (await one(db, `select id from public.chapters where manuscript_id = $1`, [await manuscriptOf(db, o.json.data.projectId)])).id);
-  assert.equal(await storedTotal(db, o.json.data.projectId), 4, 'counted at creation');
-  assert.equal(await accountTotal(db, CORA), 4);
+  sb.calls.length = 0;
+  const o = await onboardProject('The first book');
+  assert.equal(o.error, null, o.error);
+  assert.equal(sb.calls.filter((c) => c.kind === 'rpc' && c.name === 'create_project_checked').length, 1, 'one creation call');
+  assert.deepEqual([...new Set(sb.calls.filter((c) => c.kind === 'from').map((c) => c.name))], ['account_onboarding'],
+    'no direct Project, Chapter or Scene write');
+  assert.deepEqual(await structureOf(db, o.data.projectId), expected, 'onboarding: Project → Manuscript → Chapter 1 → an empty Scene, nothing more');
+  assert.equal(await storedTotal(db, o.data.projectId), 0);
+  assert.equal(await accountTotal(db, CORA), 0);
   await assertIntegrity(db);
 });
 
@@ -201,8 +198,8 @@ test('a failure at ANY creation step leaves nothing: no Project, Manuscript, Cha
     assert.match(p.error, new RegExp(`simulated ${label} failure`), `createProject at the ${label} step`);
     const d = await projects.createProjectWithDraft('Failing', undefined, REQ(11));
     assert.match(d.error, new RegExp(`simulated ${label} failure`));
-    const o = await postOnboarding({ title: 'Failing', firstSentence: 'One two three.', letter: 'Dear me', requestId: REQ(12) });
-    assert.equal(o.status, 500);
+    const o = await onboardProject('Failing');
+    assert.equal(o.data, null);
     assert.deepEqual(await snapshot(db), before, `nothing left behind after a ${label} failure`);
 
     // The same request ids work once the failure is gone: nothing was recorded for them.
@@ -214,21 +211,18 @@ test('a failure at ANY creation step leaves nothing: no Project, Manuscript, Cha
   }
 });
 
-test('no free limit (037): onboarding\'s first sentence and a first Scene with words are never blocked, even far past the old allowance', async () => {
+test('no free limit (037): onboarding and a first Scene with words are never blocked, even far past the old allowance', async () => {
   const db = await seededDb();
   signIn(db, ALICE); // 3035 words — over the old 2,000 allowance
-  const o = await postOnboarding({ title: 'Over', firstSentence: 'Too many words already.', requestId: REQ(20) });
-  assert.equal(o.status, 200, JSON.stringify(o.json));
-  const created = await one(db, `select s.word_count from public.projects p join public.manuscripts m on m.project_id = p.id
-    join public.scenes s on s.manuscript_id = m.id where p.id = $1`, [o.json.data.projectId]);
-  assert.equal(created?.word_count, 4, 'the first sentence is saved as written');
+  const o = await onboardProject('Over');
+  assert.equal(o.error, null, o.error);
   const rpc = await as(db, ALICE).rpc('create_project_checked', { p_title: 'Over again', p_description: null, p_cover_color: null,
     p_first_scene_content: syntheticDoc('x', 3), p_first_scene_word_count: 3, p_request_id: null });
   assert.equal(rpc.data.status, 'ok');
 
   const p = await projects.createProject('Empty is fine', undefined, undefined, REQ(21));
   assert.equal(p.error, null, 'no words, never blocked');
-  assert.equal(await accountTotal(db, ALICE), 3035 + 4 + 3, 'account_word_total is only a metric now');
+  assert.equal(await accountTotal(db, ALICE), 3035 + 3, 'account_word_total is only a metric now');
   await assertIntegrity(db);
 });
 
@@ -279,20 +273,19 @@ test('retry: the same request id returns the Project already created — never a
   await assertIntegrity(db);
 });
 
-test('onboarding retry after a lost response: one Project, one letter, one set of analytics events', async () => {
+test('onboarding retry after a lost response (or a second click): one Project, renamed if the title changed', async () => {
   const db = await seededDb();
   signIn(db, CORA);
-  const body = { title: 'The first book', firstSentence: 'It began here.', letter: 'Dear future me', theme: 'candlelight', requestId: REQ(40) };
-  const a = await postOnboarding(body);
-  const b = await postOnboarding(body);
-  assert.equal(a.status, 200);
-  assert.equal(b.status, 200);
-  assert.deepEqual(b.json.data, a.json.data, 'the retry opens the same Project and Chapter');
+  const [a, b] = await Promise.all([onboardProject('The first book'), onboardProject('The first book')]);
+  assert.equal(a.error, null, a.error);
+  assert.equal(b.error, null, b.error);
+  assert.equal(b.data.projectId, a.data.projectId, 'simultaneous requests share the journey\'s request id');
+  const c = await onboardProject('The First Book');
+  assert.equal(c.data.projectId, a.data.projectId, 'a later retry returns the same Project');
   assert.equal(await projectCount(db, CORA), 2, 'coraEmpty + one');
-  assert.equal((await one(db, `select count(*)::int as n from public.future_letters where user_id = $1`, [CORA])).n, 1, 'the letter is stored once');
+  assert.equal((await one(db, `select title from public.projects where id = $1`, [a.data.projectId])).title, 'The First Book');
   const events = await all(db, `select event_name, count(*)::int as n from public.analytics_events where user_id = $1 group by 1 order by 1`, [CORA]);
-  assert.deepEqual(events.filter((e) => e.n !== 1), [], 'every onboarding event recorded exactly once');
-  assert.equal((await one(db, `select preferences->>'activeTheme' as t from public.profiles where id = $1`, [CORA])).t, 'candlelight');
+  assert.deepEqual(events.filter((e) => e.n !== 1), [], 'no event recorded twice');
 });
 
 // ── 3. permissions ────────────────────────────────────────────────────────────

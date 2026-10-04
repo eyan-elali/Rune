@@ -16,6 +16,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { startScribeCheckoutForCurrentUser } from "@/lib/actions/billing";
+import { BILLING_OPEN } from "@/lib/beta";
 import {
   PURCHASE_INTENT_COOKIE,
   PURCHASE_INTENT_COOKIE_OPTIONS,
@@ -25,6 +26,13 @@ import {
 
 export async function GET(request: NextRequest) {
   const { origin, searchParams } = new URL(request.url);
+  // Closed beta (Beta Completion E): free; an old link to this lands on the
+  // front door, records no intent and starts no checkout (lib/beta.ts).
+  if (!BILLING_OPEN) {
+    const response = NextResponse.redirect(`${origin}/`);
+    response.cookies.delete(PURCHASE_INTENT_COOKIE);
+    return response;
+  }
   const interval = validateBillingInterval(searchParams.get("billing"));
 
   const supabase = await createClient();

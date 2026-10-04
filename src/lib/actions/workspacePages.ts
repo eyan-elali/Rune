@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { recordWorkspaceActivation } from "@/lib/workspaceActivation";
 import type { WorkspacePage } from "@/lib/types";
 import { normalizeTitle, renameVersioned, saveVersionedContent, type SaveContentResult } from "@/lib/rune2/versionedContent";
 
@@ -52,6 +53,7 @@ export async function createWorkspacePage(
   const result = data as { status: "ok"; page: WorkspacePage } | { status: "error"; error: string };
   // Another writer's (or a missing) Project, or a Folder not in this Project.
   if (result.status !== "ok") return { data: null, error: result.error };
+  await recordWorkspaceActivation(user.id, projectId, "page");
   return { data: result.page, error: null };
 }
 

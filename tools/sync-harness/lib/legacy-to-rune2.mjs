@@ -30,6 +30,7 @@
 //   'reset-sync'       version and updated_at are left to their defaults
 //   'keep-alternates'  canonical siblings stay placed (no Case A)
 //   'drop-history'     writing history on Unplaced Scenes is not copied
+import { grantBetaAccess } from './pg.mjs';
 export async function prototypeLegacyToRune2(legacyDb, rune2Db, { faults = [] } = {}) {
   const fault = (name) => faults.includes(name);
   const rows = async (sql) => (await legacyDb.query(sql)).rows;
@@ -42,6 +43,8 @@ export async function prototypeLegacyToRune2(legacyDb, rune2Db, { faults = [] } 
       left join public.user_pricing_entitlements e on e.user_id = u.id
       order by u.id`)) {
     await rune2Db.query(`insert into auth.users (id, raw_user_meta_data) values ($1, $2)`, [u.id, u.raw_user_meta_data ?? {}]);
+    // Existing writers keep access (as 052 accepts every account it finds).
+    await grantBetaAccess(rune2Db, u.id);
     await rune2Db.query(`update public.profiles set subscription_tier = $2, subscription_status = $3 where id = $1`,
       [u.id, u.subscription_tier, u.subscription_status]);
     if (u.pricing_cohort) {

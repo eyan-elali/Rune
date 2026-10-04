@@ -43,8 +43,20 @@ function plural(n: number, one: string, many = `${one}s`) {
 
 type Read = { fileName: string; bytes: Uint8Array; parsed: ParsedFile & { hardWrapped?: boolean }; lines: Line[] };
 
-/** The import dialog. A successful import opens the new Project. */
-export function ManuscriptImportDialog({ onClose }: { onClose: () => void }) {
+/**
+ * The import dialog. A successful import opens the new Project — or, given
+ * `onImported` (onboarding), hands it back instead; `onboarding` also lets
+ * the server record the Project as the onboarding journey's.
+ */
+export function ManuscriptImportDialog({
+  onClose,
+  onImported,
+  onboarding = false,
+}: {
+  onClose: () => void;
+  onImported?: (project: { projectId: string; title: string }) => void;
+  onboarding?: boolean;
+}) {
   const router = useRouter();
   const input = useRef<HTMLInputElement>(null);
   const [read, setRead] = useState<Read | null>(null);
@@ -119,12 +131,16 @@ export function ManuscriptImportDialog({ onClose }: { onClose: () => void }) {
       const res = await fetch("/api/manuscript-import", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ payload: planPayload(plan, title), requestId: requestId.current }),
+        body: JSON.stringify({ payload: planPayload(plan, title), requestId: requestId.current, ...(onboarding ? { onboarding: true } : {}) }),
       });
       const body = (await res.json().catch(() => null)) as { projectId?: string; error?: string } | null;
       if (!res.ok || !body?.projectId) {
         setError(body?.error ?? "The import couldn’t be saved. Nothing was created.");
         setImporting(false);
+        return;
+      }
+      if (onImported) {
+        onImported({ projectId: body.projectId, title: title.trim() || plan.title });
         return;
       }
       // Saved: open the new Project. The dialog stays (busy) until the page changes.

@@ -4,6 +4,7 @@ import { stripe } from '@/lib/stripe/client'
 import { PRICE_IDS } from '@/lib/stripe/config'
 import type { BillingPeriod, PaidTier } from '@/lib/stripe/config'
 import { getOrCreateStripeCustomerId } from '@/lib/actions/billing'
+import { BILLING_OPEN } from '@/lib/beta'
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL!
 
@@ -11,6 +12,9 @@ const VALID_TIERS = new Set<string>(['scribe'])
 const VALID_PERIODS = new Set<string>(['monthly', 'annual'])
 
 export async function GET(request: NextRequest) {
+  // Closed beta (Beta Completion E): Rune is free; this never reaches Stripe (lib/beta.ts).
+  if (!BILLING_OPEN) return NextResponse.redirect(new URL('/projects', request.url))
+
   const { searchParams } = new URL(request.url)
   const plan = searchParams.get('plan') ?? ''
   const billing = searchParams.get('billing') ?? 'monthly'

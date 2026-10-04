@@ -3,16 +3,18 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { ProjectsHome, type ProjectSummary } from "@/components/rune2/ProjectsHome";
 import { accountOf } from "@/lib/rune2/account";
+import { needsOnboarding, readOnboardingRow } from "@/lib/onboarding";
 
 export const metadata: Metadata = { title: "Projects" };
 
 // Projects: the application's home (Beta Completion A). Active Projects only,
 // most recently worked in first; Trash is counted for its link.
 //
-// A brand-new account — no Project ever, active or in Trash, and no words
-// written — is sent to onboarding, as the Rune 1.x Dashboard did, so the
-// signup journey is unchanged. Any other account with no active Project sees
-// the empty state.
+// An account whose onboarding is unfinished — or a brand-new account that
+// has not begun it (no Project ever, active or in Trash, and no words
+// written) — is sent to onboarding (lib/onboarding.ts). Onboarding happens
+// once per account: any other account with no active Project sees the empty
+// state, and a new Project never replays it.
 
 export default async function ProjectsPage({
   searchParams,
@@ -25,7 +27,7 @@ export default async function ProjectsPage({
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [{ data: rows, error }, { count: trashedCount }, { data: profile }] = await Promise.all([
+  const [{ data: rows, error }, { count: trashedCount }, { data: profile }, { data: onboarding, error: onboardingError }] = await Promise.all([
     supabase
       .from("projects")
       .select("id, title, word_count, updated_at")
@@ -38,10 +40,21 @@ export default async function ProjectsPage({
       .eq("user_id", user.id)
       .not("trashed_at", "is", null),
     supabase.from("profiles").select("display_name, has_written_first_words").eq("id", user.id).maybeSingle(),
+    supabase.from("account_onboarding").select("path, project_id, completed_at").eq("user_id", user.id).maybeSingle(),
   ]);
 
   const { registered, trashed } = await searchParams;
-  if (!error && rows?.length === 0 && trashedCount === 0 && profile && !profile.has_written_first_words) {
+  // Only on definite answers: a failed read never sends a writer into onboarding.
+  if (
+    !error &&
+    !onboardingError &&
+    profile &&
+    trashedCount !== null &&
+    needsOnboarding(readOnboardingRow(onboarding), {
+      projectsEver: (rows?.length ?? 0) + trashedCount,
+      hasWritten: Boolean(profile.has_written_first_words),
+    })
+  ) {
     redirect(registered === "1" ? "/onboarding?registered=1" : "/onboarding");
   }
 

@@ -1,5 +1,6 @@
 'use server'
 
+import { BILLING_OPEN } from '@/lib/beta'
 import { randomUUID } from 'crypto'
 import { createClient } from '@/lib/supabase/server'
 import { stripe } from '@/lib/stripe/client'
@@ -99,6 +100,8 @@ async function verifyStripeCustomerOwnership(
  * Shared by every checkout-session creator so there's one place that talks
  * to stripe.customers.create.
  */
+const BILLING_CLOSED_MESSAGE = 'Rune is free during the closed beta. There is nothing to buy.'
+
 export async function getOrCreateStripeCustomerId(
   supabase: Awaited<ReturnType<typeof createClient>>,
   user: User
@@ -155,6 +158,8 @@ export async function createCheckoutSession(
   referralId?: string,
   source: 'settings' | 'landing_purchase_intent' = 'settings'
 ): Promise<{ url: string | null; error: string | null }> {
+  // Closed beta (Beta Completion E): free; nothing starts a checkout (lib/beta.ts).
+  if (!BILLING_OPEN) return { url: null, error: BILLING_CLOSED_MESSAGE }
   const supabase = await createClient()
   const {
     data: { user },
@@ -259,6 +264,8 @@ export async function startScribeCheckoutForCurrentUser(
   | { status: 'unauthenticated' }
   | { status: 'error'; error: string }
 > {
+  // Closed beta (Beta Completion E): free; nothing starts a checkout (lib/beta.ts).
+  if (!BILLING_OPEN) return { status: 'error', error: BILLING_CLOSED_MESSAGE }
   const supabase = await createClient()
   const {
     data: { user },
@@ -330,6 +337,8 @@ export async function createPortalSession(): Promise<{
 export async function changeScribeBillingInterval(
   targetInterval: BillingPeriod
 ): Promise<{ error: string | null }> {
+  // Closed beta (Beta Completion E): free; nothing starts a checkout (lib/beta.ts).
+  if (!BILLING_OPEN) return { error: BILLING_CLOSED_MESSAGE }
   const supabase = await createClient()
   const {
     data: { user },

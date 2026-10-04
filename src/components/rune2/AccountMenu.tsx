@@ -3,21 +3,26 @@
 import { useRef, useState, type ReactNode, type RefObject } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { BookOpen, ChevronDown, ChevronsUpDown, LogOut, Settings } from "lucide-react";
+import { BookOpen, ChevronDown, ChevronsUpDown, LogOut, MessageSquare, Settings } from "lucide-react";
+import { usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { getOfflineStorageSummary } from "@/lib/offline/db";
 import { flushPendingQueue } from "@/lib/offline/syncEngine";
 import type { Account } from "@/lib/rune2/account";
 import { countUnsentWorkspaceWork } from "@/lib/rune2/workspaceDrafts";
+import type { NavKind } from "@/lib/rune2/navigatorModel";
 import { useProfileStore } from "@/store/profileStore";
+import { FeedbackDialog, type FeedbackWhere } from "./Feedback";
 import { ICON_SM_BOLD } from "./icons";
 import { NavigatorMenu, type NavigatorMenuItem } from "./NavigatorMenu";
 import { useRuneAccount } from "./RunePreferences";
+import { useRune2Selection } from "./Rune2Selection";
 import { useModalFocus } from "./useModalFocus";
 
-// The account menu (Beta Completion A): who is signed in, and the three
-// places an account goes — Projects, Settings, and out. Nothing else: no
-// plan, no upgrade, no profile.
+// The account menu (Beta Completion A): who is signed in, and the places an
+// account goes — Projects, Settings, and out — and, for the closed beta
+// (Beta Completion E), Send feedback under a quiet "Rune beta" label. Nothing
+// else: no plan, no upgrade, no profile.
 //
 // Two places show it (Beta Completion C): the slim bar over the pages outside
 // a Project, and — so Settings never means leaving the book — the foot of a
@@ -131,22 +136,38 @@ export function useLogOut(
 }
 
 /**
- * The account's menu items: Projects, Settings, Log out. Inside a Project
- * (`openSettings` given) Settings opens over it; elsewhere it is the page.
+ * The account's menu items: Projects, Settings, Send feedback, Log out.
+ * Inside a Project (`openSettings` given) Settings opens over it; elsewhere
+ * it is the page.
  */
 function accountItems(
   name: string,
   push: (href: string) => void,
   logOut: () => void,
-  openSettings: (() => void) | null
+  openSettings: (() => void) | null,
+  openFeedback: () => void
 ): NavigatorMenuItem[] {
   return [
     // Who is signed in, as a quiet label over the list.
     { label: openSettings ? "All projects" : "Projects", icon: BookOpen, section: name, onSelect: () => push("/projects") },
     { label: "Settings", icon: Settings, onSelect: openSettings ?? (() => push("/settings")) },
+    { label: "Send feedback", icon: MessageSquare, section: "Rune beta", onSelect: openFeedback },
     { label: "Log out", icon: LogOut, separator: true, onSelect: logOut },
   ];
 }
+
+/** Feedback's surface for an object open in a Project (lib/beta.ts's vocabulary). */
+const SURFACE_OF: Record<NavKind, string> = {
+  group: "group",
+  chapter: "chapter",
+  scene: "scene",
+  unplacedScene: "scene",
+  workspacePage: "page",
+  workspaceFolder: "folder",
+  workspaceCollection: "collection",
+  collectionEntry: "entry",
+  workspaceCanvas: "canvas",
+};
 
 /** The writer's initial, for the account control. */
 function initialOf(name: string): string {
@@ -158,7 +179,13 @@ export function AccountMenu({ account }: { account: Account }) {
   const button = useRef<HTMLButtonElement>(null);
   const [at, setAt] = useState<{ x: number; y: number } | null>(null);
   const { logOut, busy, error, dialog } = useLogOut(button);
+  const [feedback, setFeedback] = useState(false);
+  const pathname = usePathname();
   const name = account.penName || account.email;
+  const where: FeedbackWhere = {
+    surface: pathname.startsWith("/settings") ? "settings" : pathname.startsWith("/projects") ? "projects" : "other",
+    projectId: null,
+  };
 
   function open() {
     const r = button.current?.getBoundingClientRect();
@@ -180,7 +207,12 @@ export function AccountMenu({ account }: { account: Account }) {
         <ChevronDown {...ICON_SM_BOLD} aria-hidden />
       </button>
       {at && (
-        <NavigatorMenu label="Account" at={at} items={accountItems(name, (href) => router.push(href), logOut, null)} onClose={() => setAt(null)} />
+        <NavigatorMenu
+          label="Account"
+          at={at}
+          items={accountItems(name, (href) => router.push(href), logOut, null, () => setFeedback(true))}
+          onClose={() => setAt(null)}
+        />
       )}
       {error && (
         <p role="alert" className="r2-notice r2-account-notice" data-tone="danger">
@@ -188,6 +220,7 @@ export function AccountMenu({ account }: { account: Account }) {
         </p>
       )}
       {dialog}
+      {feedback && <FeedbackDialog where={where} onClose={() => setFeedback(false)} />}
     </>
   );
 }
@@ -203,7 +236,13 @@ export function AccountControl({ onOpenSettings }: { onOpenSettings: () => void 
   const button = useRef<HTMLButtonElement>(null);
   const [at, setAt] = useState<{ x: number; y: number } | null>(null);
   const { logOut, busy, error, dialog } = useLogOut(button);
+  const [feedback, setFeedback] = useState(false);
+  const { selected, manuscript, reading } = useRune2Selection();
   const name = account ? account.penName || account.email : "Account";
+  const where: FeedbackWhere = {
+    surface: reading ? "reading" : selected ? SURFACE_OF[selected.kind] : "manuscript",
+    projectId: manuscript.project.id,
+  };
 
   function open() {
     const r = button.current?.getBoundingClientRect();
@@ -233,7 +272,7 @@ export function AccountControl({ onOpenSettings }: { onOpenSettings: () => void 
           label="Account"
           at={at}
           above
-          items={accountItems(account?.email ?? name, (href) => router.push(href), logOut, onOpenSettings)}
+          items={accountItems(account?.email ?? name, (href) => router.push(href), logOut, onOpenSettings, () => setFeedback(true))}
           onClose={() => setAt(null)}
         />
       )}
@@ -243,6 +282,7 @@ export function AccountControl({ onOpenSettings }: { onOpenSettings: () => void 
         </p>
       )}
       {dialog}
+      {feedback && <FeedbackDialog where={where} onClose={() => setFeedback(false)} />}
     </>
   );
 }

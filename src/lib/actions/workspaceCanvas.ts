@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { recordWorkspaceActivation } from "@/lib/workspaceActivation";
 import type { CanvasConnection, CanvasItem, WorkspaceAttachment, WorkspaceCanvas } from "@/lib/types";
 import { attachmentIdOf, previewText } from "@/lib/rune2/canvas";
 import type { CanvasChange, CanvasWriteOutcome, CanvasWriteResult } from "@/lib/rune2/canvasSession";
@@ -56,6 +57,7 @@ export async function createWorkspaceCanvas(
   if (error) return { data: null, error: error.message };
   const result = data as RpcResult<{ canvas: WorkspaceCanvas; node_id: string }>;
   if (result.status !== "ok") return { data: null, error: result.error };
+  await recordWorkspaceActivation(user.id, projectId, "canvas");
   return { data: { canvas: result.canvas, nodeId: result.node_id }, error: null };
 }
 

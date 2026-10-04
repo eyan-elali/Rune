@@ -28,6 +28,7 @@ import { createClient } from "@/lib/supabase/server";
 import { stripe } from "@/lib/stripe/client";
 import { startScribeCheckoutForCurrentUser } from "@/lib/actions/billing";
 import { PURCHASE_INTENT_COOKIE, parsePurchaseIntent } from "@/lib/purchaseIntent";
+import { BILLING_OPEN } from "@/lib/beta";
 
 const ACTIVATION_POLL_ATTEMPTS = 3;
 const ACTIVATION_POLL_DELAY_MS = 350;
@@ -107,7 +108,13 @@ export async function GET(request: NextRequest) {
     return response;
   }
 
-  const intent = parsePurchaseIntent(request.cookies.get(PURCHASE_INTENT_COOKIE)?.value);
+  // Closed beta (Beta Completion E): a leftover intent is cleared, never acted on.
+  const intent = BILLING_OPEN ? parsePurchaseIntent(request.cookies.get(PURCHASE_INTENT_COOKIE)?.value) : null;
+  if (!intent && request.cookies.get(PURCHASE_INTENT_COOKIE)) {
+    const response = NextResponse.redirect(homeUrl());
+    response.cookies.delete(PURCHASE_INTENT_COOKIE);
+    return response;
+  }
   if (intent) {
     const result = await startScribeCheckoutForCurrentUser(intent.interval, "landing_purchase_intent");
 

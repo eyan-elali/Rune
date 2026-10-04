@@ -15,6 +15,7 @@ import { useRune2Selection } from "./Rune2Selection";
 import { useNewEntry } from "./useNewEntry";
 import { AddViewMenu, ViewSwitcher, ViewToolbar, type ToolRequest } from "./ViewControls";
 import { useViewStore } from "./ViewStore";
+import { OneTimeHint } from "./Hint";
 import { WorkspaceTitle } from "./WorkspaceTitle";
 
 // A Collection in the content area: its title, edited in place, and its one
@@ -86,6 +87,9 @@ export function CollectionView({ entry }: { entry: NavEntry }) {
             ))}
           </p>
         </WorkspaceTitle>
+
+        {/* First use (Beta Completion E): what a Collection is for, once per account. */}
+        <OneTimeHint id={view.type === "timeline" ? ["collection", "timeline"] : "collection"} className="r2-collection-hint" />
 
         {propertied && (
           <div className="r2-collection-bar" data-tabs={viewable || undefined}>

@@ -37,6 +37,24 @@ export function migrationsAfterBaseline() {
 }
 
 export const RUNE2_NOTES = {
+  beta_access: [
+    'Closed beta (052): one row per approved email (normalized). A row is the approval.',
+    'claim_beta_access accepts it for the account signed in with that email (user_id,',
+    'accepted_at); an accepted row cannot be deleted, re-pointed or un-accepted',
+    '(beta_access_keep_accepted) until the account itself is deleted. No client access.',
+  ],
+  beta_waitlist: [
+    'Closed beta (052): interest only — grants nothing. Written by join_beta_waitlist; no client reads.',
+  ],
+  account_onboarding: [
+    'Rune 2.0 onboarding (052): the account\'s one journey — path, the Project it made',
+    '(request_id dedupes a retried creation), started/completed. Owner reads; written only',
+    'by onboarding_begin / _choose_path / _attach_project / _complete.',
+  ],
+  beta_feedback: [
+    'Closed-beta feedback (052): the writer\'s own text, optional category, safe context',
+    '(build, path, surface, device class, browser family, Project id). Insert own; no client reads.',
+  ],
   manuscripts: [
     'Exactly one per Project (unique project_id), created by trg_project_manuscript',
     'and deleted with the Project. Writers can read their own; nothing else.',

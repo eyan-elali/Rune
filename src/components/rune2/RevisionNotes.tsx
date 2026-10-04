@@ -246,7 +246,7 @@ function NoteBranch({
 }
 
 const EMPTY: Record<NoteTargetType, string> = {
-  scene: "No notes for this scene yet.",
+  scene: "No notes for this scene yet. Leave yourself one for the next pass — something to fix, check or rethink.",
   chapter: "No notes for this chapter or its scenes yet.",
   group: "No notes in this group yet.",
   manuscript: "No revision notes yet. What you write here stays with the manuscript for your next pass.",

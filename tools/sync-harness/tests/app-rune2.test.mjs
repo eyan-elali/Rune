@@ -37,7 +37,7 @@ before(async () => {
   scenes = await bundleForTest('src/lib/actions/scenes.ts', { name: 'app_scenes' });
   trash = await bundleForTest('src/lib/actions/workspaceTrash.ts', { name: 'app_trash' });
   games = await bundleForTest('src/lib/actions/games.ts', { name: 'app_games' });
-  onboarding = await bundleForTest('src/app/api/onboarding/route.ts', { name: 'app_onboarding' });
+  onboarding = await bundleForTest('src/lib/actions/onboarding.ts', { name: 'app_onboarding' });
 });
 
 async function seededDb() {
@@ -131,48 +131,32 @@ test('permanent Scene deletion (through Trash) recalculates the ordered total: a
 
 // ── onboarding ────────────────────────────────────────────────────────────────
 
-const postOnboarding = (body) => onboarding.POST(new Request('http://localhost/api/onboarding', {
-  method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body),
-}));
+// Rune 2.0 onboarding (BC-E): a title only — no first sentence, no letter.
 
-test('onboarding: one request creates the Project, its Manuscript, Chapter 1 and the first Scene holding the exact first sentence', async () => {
+test('onboarding: one call creates the Project, its Manuscript, Chapter 1 and one empty first Scene — nothing more', async () => {
   const db = await seededDb();
   signIn(db, CORA);
-  const sentence = 'The river kept its promises.';
-  const res = await postOnboarding({ title: 'Tide Book', firstSentence: sentence, theme: 'candlelight' });
-  assert.equal(res.status, 200);
-  const { data } = await res.json();
-  const m = await manuscriptOf(db, data.projectId);
-  assert.equal((await one(db, `select manuscript_id from public.chapters where id = $1`, [data.chapterId])).manuscript_id, m);
-  const scene = await one(db, `select chapter_id, title, position, word_count, content from public.scenes where manuscript_id = $1`, [m]);
-  assert.deepEqual(scene, {
-    chapter_id: data.chapterId, title: 'Scene 1', position: 0, word_count: 5,
-    content: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: sentence }] }] },
-  });
-  assert.equal(await storedTotal(db, data.projectId), 5);
+  const res = await onboarding.createOnboardingProject('Tide Book');
+  assert.equal(res.error, null, res.error);
+  const m = await manuscriptOf(db, res.data.projectId);
+  const rows = await all(db, `select c.title as chapter, c.position, s.title, s.position as scene_position, s.word_count, s.content
+    from public.chapters c join public.scenes s on s.chapter_id = c.id where c.manuscript_id = $1`, [m]);
+  assert.deepEqual(rows, [{ chapter: 'Chapter 1', position: 1, title: 'Scene 1', scene_position: 0, word_count: 0, content: null }]);
+  assert.equal((await one(db, `select count(*)::int as n from public.scenes where manuscript_id = $1`, [m])).n, 1, 'no Unplaced Scene');
+  assert.equal((await one(db, `select count(*)::int as n from public.manuscript_groups where manuscript_id = $1`, [m])).n, 0, 'no Group');
+  assert.equal(await storedTotal(db, res.data.projectId), 0);
   assert.equal((await one(db, `select count(*)::int as n from public.projects where user_id = $1`, [CORA])).n, 2, 'exactly one new project');
 });
 
-test('onboarding: skipping the first sentence creates a valid empty Scene', async () => {
-  const db = await seededDb();
-  signIn(db, CORA);
-  const res = await postOnboarding({ title: 'Quiet Book', firstSentence: '' });
-  assert.equal(res.status, 200);
-  const { data } = await res.json();
-  assert.deepEqual(await one(db, `select word_count, content from public.scenes where chapter_id = $1`, [data.chapterId]), { word_count: 0, content: null });
-});
-
-test('onboarding: a first sentence is never blocked by a word limit (037) — one Project, Manuscript, Chapter and Scene', async () => {
+test('onboarding: never blocked by a word limit (037) — one Project, Manuscript, Chapter and Scene', async () => {
   const db = await seededDb();
   signIn(db, ALICE); // already far over the old 2,000-word allowance
   const count = () => one(db, `select (select count(*) from public.projects)::int as p, (select count(*) from public.manuscripts)::int as m,
     (select count(*) from public.chapters)::int as c, (select count(*) from public.scenes)::int as s`);
   const beforeCounts = await count();
-  const res = await postOnboarding({ title: 'Not blocked', firstSentence: 'Too many words already.' });
-  assert.equal(res.status, 200);
-  const { data } = await res.json();
+  const res = await onboarding.createOnboardingProject('Not blocked');
+  assert.equal(res.error, null, res.error);
   assert.deepEqual(await count(), { p: beforeCounts.p + 1, m: beforeCounts.m + 1, c: beforeCounts.c + 1, s: beforeCounts.s + 1 });
-  assert.equal(await storedTotal(db, data.projectId), 4);
 });
 
 // ── Arena ─────────────────────────────────────────────────────────────────────

@@ -3,10 +3,14 @@
 import { useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
 import { recordSignupCompletedEvent } from "@/lib/actions/analytics";
-import { getPenNameValidationError, normalizePenName } from "@/lib/penName";
+import { PEN_NAME_MAX_LENGTH, getPenNameValidationError, normalizePenName } from "@/lib/penName";
+
+// Create account (Beta Completion E): for the closed beta, with the email an
+// invitation was sent to. When the optional Auth hook is enabled (migration
+// 052, beta_before_user_created) an email that is not approved is refused
+// here, and the writer is pointed at the waitlist; without it, the account
+// is made but can't enter Rune until approved (the front door says so).
 
 interface FieldErrors {
   displayName?: string;
@@ -14,36 +18,27 @@ interface FieldErrors {
   confirmPassword?: string;
 }
 
-interface SignupClientProps {
-  /** True when a pending "Continue with Scribe" intent cookie is present. */
-  hasScribeIntent?: boolean;
-}
-
-export default function SignupClient({ hasScribeIntent = false }: SignupClientProps) {
+export default function SignupClient() {
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [error, setError] = useState<string | null>(null);
+  const [notInvited, setNotInvited] = useState(false);
   const [loading, setLoading] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
+    setNotInvited(false);
 
     const errors: FieldErrors = {};
     const penNameError = getPenNameValidationError(displayName);
-    if (penNameError) {
-      errors.displayName = penNameError;
-    }
-    if (password.length < 8) {
-      errors.password = "Password must be at least 8 characters.";
-    }
-    if (password !== confirmPassword) {
-      errors.confirmPassword = "Passwords do not match.";
-    }
+    if (penNameError) errors.displayName = penNameError;
+    if (password.length < 8) errors.password = "Use at least 8 characters.";
+    if (password !== confirmPassword) errors.confirmPassword = "The passwords don’t match.";
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors);
       return;
@@ -51,24 +46,24 @@ export default function SignupClient({ hasScribeIntent = false }: SignupClientPr
     setFieldErrors({});
     setLoading(true);
 
-    const normalizedDisplayName = normalizePenName(displayName);
     const supabase = createClient();
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        data: { display_name: normalizedDisplayName },
+        data: { display_name: normalizePenName(displayName) },
         emailRedirectTo: (() => {
-          const u = new URL('/auth/callback', window.location.origin)
-          u.searchParams.set('next', '/projects')
-          u.searchParams.set('intent', 'signup')
-          return u.toString()
+          const u = new URL("/auth/callback", window.location.origin);
+          u.searchParams.set("next", "/projects");
+          u.searchParams.set("intent", "signup");
+          return u.toString();
         })(),
       },
     });
 
     if (error) {
-      setError(error.message);
+      if (/closed beta/i.test(error.message)) setNotInvited(true);
+      else setError(error.message);
     } else {
       // Best-effort, fire-and-forget — analytics must never block or fail signup.
       // No server-side hook exists for this event: signUp() talks directly to
@@ -84,136 +79,111 @@ export default function SignupClient({ hasScribeIntent = false }: SignupClientPr
 
   if (confirmed) {
     return (
-      <div className="w-full max-w-sm">
-        <div
-          className="rounded-lg border px-8 py-10 text-center shadow-2xl"
-          style={{
-            background: "rgba(44, 36, 32, 0.55)",
-            borderColor: "var(--color-border)",
-          }}
-        >
-          <p className="font-rune-serif text-lg text-rune-parchment">
-            Check your email
-          </p>
-          <p className="mt-2 text-sm text-stone-100">
-            We sent a confirmation link to{" "}
-            <span className="text-rune-gold">{email}</span>. Click it to
-            activate your account.
-          </p>
-          {hasScribeIntent && (
-            <p className="mt-3 text-xs text-rune-gold">
-              Confirm your email to continue with Scribe.
-            </p>
-          )}
-        </div>
-        <p className="mt-5 text-center text-xs text-stone-100">
-          <Link
-            href="/login"
-            className="text-rune-gold transition-colors hover:text-rune-gold-dim"
-          >
-            Back to sign in
-          </Link>
+      <section className="r2-auth-card" aria-labelledby="auth-title">
+        <h1 id="auth-title">Check your email.</h1>
+        <p className="r2-auth-lede">
+          We sent a confirmation link to <strong>{email}</strong>. Open it to finish creating your account.
         </p>
-      </div>
+        <p className="r2-auth-foot">
+          <Link href="/login">Back to sign in</Link>
+        </p>
+      </section>
     );
   }
 
-  return (
-    <div className="w-full max-w-sm">
-      <div
-        className="rounded-lg border px-8 py-8 shadow-2xl"
-        style={{
-          background: "rgba(44, 36, 32, 0.55)",
-          borderColor: "var(--color-border)",
-        }}
-      >
-        <h1
-          className={`font-rune-serif text-xl text-stone-100 ${hasScribeIntent ? "!mb-2" : "!mb-6"}`}
-        >
-          Create your account
-        </h1>
-        {hasScribeIntent && (
-          <p className="!mb-4 text-xs text-stone-100/80">
-            Create your Rune account to continue with Scribe.
-          </p>
-        )}
+  const field = (id: keyof FieldErrors) =>
+    fieldErrors[id]
+      ? { "aria-invalid": true as const, "aria-describedby": `signup-${id}-error` }
+      : {};
+  const fieldError = (id: keyof FieldErrors) =>
+    fieldErrors[id] ? (
+      <span id={`signup-${id}-error`} className="r2-auth-field-error">
+        {fieldErrors[id]}
+      </span>
+    ) : null;
 
-        <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
-          <Input
-            label="Pen Name"
+  return (
+    <section className="r2-auth-card" aria-labelledby="auth-title">
+      <h1 id="auth-title">Create your account</h1>
+      <p className="r2-auth-lede">Rune is in closed beta. Use the email address your invitation was sent to.</p>
+
+      <form onSubmit={handleSubmit} noValidate className="r2-auth-form">
+        <label className="r2-auth-field">
+          <span>Pen name</span>
+          <input
+            className="r2-field"
             type="text"
-            id="signup-display-name"
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
             autoComplete="name"
             required
-            maxLength={40}
-            placeholder="Your pen name"
-            error={fieldErrors.displayName}
-            authContrast
+            maxLength={PEN_NAME_MAX_LENGTH}
+            {...field("displayName")}
           />
-          <Input
-            label="Email"
+          {fieldError("displayName")}
+        </label>
+        <label className="r2-auth-field">
+          <span>Email</span>
+          <input
+            className="r2-field"
             type="email"
-            id="signup-email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             autoComplete="email"
             required
-            placeholder="you@example.com"
-            authContrast
           />
-          <Input
-            label="Password"
+        </label>
+        <label className="r2-auth-field">
+          <span>Password</span>
+          <input
+            className="r2-field"
             type="password"
-            id="signup-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             autoComplete="new-password"
             required
             placeholder="At least 8 characters"
-            error={fieldErrors.password}
-            authContrast
+            {...field("password")}
           />
-          <Input
-            label="Confirm Password"
+          {fieldError("password")}
+        </label>
+        <label className="r2-auth-field">
+          <span>Confirm password</span>
+          <input
+            className="r2-field"
             type="password"
-            id="signup-confirm-password"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
             autoComplete="new-password"
             required
-            placeholder="••••••••"
-            error={fieldErrors.confirmPassword}
-            authContrast
+            {...field("confirmPassword")}
           />
+          {fieldError("confirmPassword")}
+        </label>
 
-          {error && (
-            <p role="alert" aria-live="polite" className="text-xs text-rune-crimson">
-              {error}
-            </p>
-          )}
+        {notInvited && (
+          <p role="alert" className="r2-notice">
+            This email hasn’t been invited yet. Rune is in closed beta — <Link href="/">join the waitlist</Link> and
+            we’ll write when there’s a place for you.
+          </p>
+        )}
+        {error && (
+          <p role="alert" className="r2-notice" data-tone="danger">
+            {error}
+          </p>
+        )}
 
-          <Button
-            type="submit"
-            variant="primary"
-            loading={loading}
-            className="mt-1 w-full"
-          >
-            Create Account
-          </Button>
-        </form>
-      </div>
+        <button type="submit" className="r2-button r2-button--primary r2-auth-submit" disabled={loading}>
+          {loading ? "Creating your account…" : "Create account"}
+        </button>
+      </form>
 
-      <p className="mt-5 text-center text-xs text-stone-100">
-        Already have an account?{" "}
-        <Link
-          href="/login"
-          className="text-rune-gold transition-colors hover:text-rune-gold-dim"
-        >
-          Sign in
-        </Link>
+      <p className="r2-auth-foot">
+        Already have an account? <Link href="/login">Sign in</Link>
       </p>
-    </div>
+      <p className="r2-auth-foot">
+        Not invited yet? <Link href="/">Join the beta</Link>
+      </p>
+    </section>
   );
 }

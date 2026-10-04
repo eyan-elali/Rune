@@ -120,7 +120,7 @@ export default function WorkspacePageEditor({ entry, session }: { entry: NavEntr
   const editor = useEditor({
     // One quiet line, as an empty Chapter shows: the "/" and "@" menus are
     // found by use, not announced.
-    extensions: workspaceEditorExtensions(handlers, "Start writing…"),
+    extensions: workspaceEditorExtensions(handlers, "Start writing, or type / for headings, lists and references…"),
     content: saver.content,
     immediatelyRender: false,
     autofocus: false,

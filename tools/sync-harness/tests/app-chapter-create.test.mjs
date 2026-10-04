@@ -66,7 +66,7 @@ before(async () => {
   projects = await bundleForTest('src/lib/actions/projects.ts', { name: 'hard_projects' });
   scenes = await bundleForTest('src/lib/actions/scenes.ts', { name: 'hard_scenes' });
   games = await bundleForTest('src/lib/actions/games.ts', { name: 'hard_games' });
-  onboarding = await bundleForTest('src/app/api/onboarding/route.ts', { name: 'hard_onboarding' });
+  onboarding = await bundleForTest('src/lib/actions/onboarding.ts', { name: 'hard_onboarding' });
 });
 
 async function seededDb() {
@@ -82,9 +82,8 @@ function signIn(db, userId) {
   return sb;
 }
 
-const postOnboarding = (body) => onboarding.POST(new Request('http://localhost/api/onboarding', {
-  method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body),
-}));
+// Rune 2.0 onboarding (BC-E) creates its Project with createOnboardingProject.
+const onboardProject = (title) => onboarding.createOnboardingProject(title);
 
 /** Makes every Scene insert fail AFTER the Chapter insert has happened in the same transaction. */
 const failSceneInserts = (db) => db.exec(`
@@ -137,9 +136,11 @@ test('a failure while creating the first Scene leaves no Chapter behind — crea
   // Onboarding rolls back its Project too (as before), so a retry starts clean.
   signIn(db, CORA);
   const beforeCora = await snapshot(db);
-  const res = await postOnboarding({ title: 'Failing book', firstSentence: 'One two three.' });
-  assert.equal(res.status, 500);
+  const res = await onboardProject('Failing book');
+  assert.equal(res.data, null);
   assert.deepEqual(await snapshot(db), beforeCora, 'onboarding: no Project, Manuscript, Chapter or Scene');
+  assert.equal((await one(db, `select project_id from public.account_onboarding where user_id = $1`, [CORA])).project_id, null,
+    'the journey has no Project, so a retry creates one');
 
   // createProjectWithDraft (migration 021): nothing at all, not even the Project.
   const beforeDraft = await snapshot(db);
@@ -283,12 +284,12 @@ test('every approved creation path still works: placed, Unplaced, Chapter + Scen
   assert.equal(dup.data.user_id, BRAM);
 
   signIn(db, CORA);
-  const res = await postOnboarding({ title: 'New book', firstSentence: 'It began at the shore.' });
-  assert.equal(res.status, 200);
-  const { data } = await res.json();
+  const res = await onboardProject('New book');
+  assert.equal(res.error, null, res.error);
   assert.deepEqual(await one(db, `select c.title, c.position, s.title as scene, s.position as scene_position, s.word_count
-    from public.chapters c join public.scenes s on s.chapter_id = c.id where c.id = $1`, [data.chapterId]),
-    { title: 'Chapter 1', position: 1, scene: 'Scene 1', scene_position: 0, word_count: 5 });
+    from public.manuscripts m join public.chapters c on c.manuscript_id = m.id join public.scenes s on s.chapter_id = c.id
+    where m.project_id = $1`, [res.data.projectId]),
+    { title: 'Chapter 1', position: 1, scene: 'Scene 1', scene_position: 0, word_count: 0 });
   await assertPlacedPositionsValid(db);
 });
 

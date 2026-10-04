@@ -94,12 +94,13 @@ test('routes: Projects, a Project, Project Trash and Settings exist in the Rune 
 
 test('after sign-in, every path lands on Projects (or onboarding for a new account); nothing sends a writer to a retired address', () => {
   const read = (f) => fs.readFileSync(path.join(REPO_DIR, f), 'utf8');
-  assert.match(read('src/app/page.tsx'), /redirect\('\/projects'\)/);
+  assert.match(read('src/app/(front)/page.tsx'), /href="\/projects"[^>]*>\s*Open Rune/, 'the front door opens Rune for a writer with access');
   assert.match(read('src/app/(auth)/login/LoginClient.tsx'), /router\.push\("\/projects"\)/);
   assert.match(read('src/app/auth/callback/route.ts'), /searchParams\.get\('next'\) \?\? '\/projects'/);
   assert.match(read('src/app/auth/continue/route.ts'), /new URL\("\/projects", origin\)/);
-  assert.match(read('src/lib/actions/profile.ts'), /\? "\/projects" : "\/onboarding"/);
-  assert.match(read('src/app/onboarding/OnboardingClient.tsx'), /router\.replace\(`\/projects\/\$\{projectId\}`\)/);
+  assert.match(read('src/lib/actions/profile.ts'), /redirectTo: "\/projects"/);
+  assert.match(read('src/lib/actions/onboarding.ts'), /const href = `\/projects\/\$\{projectId\}`/);
+  assert.match(read('src/components/rune2/Onboarding.tsx'), /router\.replace\(r\.data\.href\)/);
   assert.match(read('src/app/(rune2)/projects/(home)/page.tsx'), /redirect\(registered === "1" \? "\/onboarding\?registered=1" : "\/onboarding"\)/,
     'a brand-new account still goes to onboarding');
 

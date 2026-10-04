@@ -1384,11 +1384,25 @@ export function ProjectNavigator() {
               (workspace.tree.length > 0 ? (
                 <ul role="list">{renderWorkspace(workspace.tree, 1, ROOT_WORKSPACE)}</ul>
               ) : (
-                <div className="r2-nav-empty">
-                  <span>No pages yet.</span>
-                  <button type="button" onClick={() => addPage()} disabled={busy}>
-                    New page
-                  </button>
+                // The Workspace's first-use teaching (Beta Completion E): what it is
+                // for, and the three things it most often begins with.
+                <div className="r2-nav-empty r2-nav-empty--workspace">
+                  <span>Build only what the book asks for — notes, characters, research, a map of ideas.</span>
+                  <span className="r2-nav-empty-actions">
+                    <button type="button" onClick={() => addPage()} disabled={busy}>
+                      Page
+                    </button>
+                    {workspace.organizable && workspace.collectable && (
+                      <button type="button" onClick={() => addCollection()} disabled={busy}>
+                        Collection
+                      </button>
+                    )}
+                    {workspace.organizable && workspace.canvasable && (
+                      <button type="button" onClick={() => addCanvas()} disabled={busy}>
+                        Canvas
+                      </button>
+                    )}
+                  </span>
                 </div>
               ))}
           </li>

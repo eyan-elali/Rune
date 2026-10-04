@@ -8,6 +8,15 @@ export type AnalyticsEventName =
   | "email_verified"
   | "onboarding_started"
   | "onboarding_completed"
+  // Closed beta and Rune 2.0 onboarding (Beta Completion E). Never content:
+  // no titles, prose, feedback text or email addresses in metadata.
+  | "beta_waitlist_joined"
+  | "beta_access_accepted"
+  | "onboarding_path_new"
+  | "onboarding_path_import"
+  | "first_project_opened"
+  | "first_workspace_object_created"
+  | "feedback_submitted"
   // Writing activation
   | "project_created"
   | "first_sentence_written"

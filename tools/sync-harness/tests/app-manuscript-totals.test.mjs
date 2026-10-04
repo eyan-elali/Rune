@@ -56,7 +56,7 @@ before(async () => {
   scenes = await bundleForTest('src/lib/actions/scenes.ts', { name: 'tot_scenes' });
   trash = await bundleForTest('src/lib/actions/workspaceTrash.ts', { name: 'tot_trash' });
   games = await bundleForTest('src/lib/actions/games.ts', { name: 'tot_games' });
-  onboarding = await bundleForTest('src/app/api/onboarding/route.ts', { name: 'tot_onboarding' });
+  onboarding = await bundleForTest('src/lib/actions/onboarding.ts', { name: 'tot_onboarding' });
   exporter = await bundleForTest('src/lib/export/projectExport.ts', {
     name: 'tot_projectExport', aliases: { jspdf: path.join(HARNESS_DIR, 'mocks/jspdf.js') },
   });
@@ -195,16 +195,12 @@ test('stored total: correct after every save, creation, move, reorder, deletion 
   await assertTotalsAgree(db, tide, BRAM, expected, 'the source, after its copy is deleted');
 });
 
-test('stored total: onboarding\'s first sentence and createProjectWithDraft are counted at creation', async () => {
+test('stored total: onboarding\'s Project (BC-E: an empty first Scene) and createProjectWithDraft are counted at creation', async () => {
   const db = await seededDb();
   signIn(db, CORA);
-  const res = await onboarding.POST(new Request('http://localhost/api/onboarding', {
-    method: 'POST', headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ title: 'Shore', firstSentence: 'It began at the shore.' }),
-  }));
-  assert.equal(res.status, 200);
-  const { data } = await res.json();
-  await assertTotalsAgree(db, data.projectId, CORA, 5, 'onboarding');
+  const res = await onboarding.createOnboardingProject('Shore');
+  assert.equal(res.error, null, res.error);
+  await assertTotalsAgree(db, res.data.projectId, CORA, 0, 'onboarding');
   const draft = await projects.createProjectWithDraft('Draft');
   assert.equal(draft.error, null, draft.error);
   await assertTotalsAgree(db, draft.data.projectId, CORA, 0, 'createProjectWithDraft');
@@ -382,10 +378,8 @@ test('Chapters: checked creation still works — createChapter, createProjectWit
 
   signIn(db, CORA);
   assert.equal((await projects.createProjectWithDraft('Draft')).data.chapter.position, 1);
-  const res = await onboarding.POST(new Request('http://localhost/api/onboarding', {
-    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ title: 'Shore', firstSentence: null }),
-  }));
-  assert.equal(res.status, 200);
+  const res = await onboarding.createOnboardingProject('Shore');
+  assert.equal(res.error, null, res.error);
 });
 
 test('Chapters: simultaneous creations (and a duplication) never produce tied or invalid positions; a tie cannot be written', async () => {

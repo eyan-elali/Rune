@@ -24,6 +24,8 @@ import { CampaignPerformance } from "@/components/pulse/sections/CampaignPerform
 import { RecentWriters } from "@/components/pulse/sections/RecentWriters";
 import { OpenQuestions } from "@/components/pulse/sections/OpenQuestions";
 import { InternalAccounts } from "@/components/pulse/sections/InternalAccounts";
+import { ClosedBeta } from "@/components/pulse/sections/ClosedBeta";
+import { getBetaOverview } from "@/lib/actions/beta";
 
 function normalizeRange(value: string | undefined): PulseTimeRange {
   if (value === "7d" || value === "30d" || value === "90d" || value === "all") return value;
@@ -52,6 +54,7 @@ export default async function PulsePage({ searchParams }: PulsePageProps) {
     recentWriters,
     notes,
     excludedUsers,
+    beta,
   ] = await Promise.all([
     getDailyBrief(includeInternal),
     getHeartbeat(range, includeInternal),
@@ -63,6 +66,7 @@ export default async function PulsePage({ searchParams }: PulsePageProps) {
     searchRecentWriters("", range, includeInternal),
     listFounderNotes(),
     listExcludedUsers(),
+    getBetaOverview(),
   ]);
 
   return (
@@ -85,6 +89,11 @@ export default async function PulsePage({ searchParams }: PulsePageProps) {
             <IncludeInternalToggle includeInternal={includeInternal} />
             <TimeRangeSelector range={range} />
           </div>
+        </div>
+
+        {/* Closed beta: who is waiting, approved and in; feedback */}
+        <div className="mb-5">
+          <ClosedBeta initial={beta.data} loadError={beta.error} />
         </div>
 
         {/* Daily Brief */}

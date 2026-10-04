@@ -70,6 +70,19 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // An auth email link Supabase sent to the Site URL root instead of the
+  // callback (the callback address missing from the project's Redirect URLs
+  // falls back there): finish it at /auth/callback, which exchanges it and
+  // routes the account (pen name first) — the front door cannot.
+  if (
+    request.nextUrl.pathname === "/" &&
+    (request.nextUrl.searchParams.has("code") || request.nextUrl.searchParams.has("token_hash"))
+  ) {
+    const callbackUrl = request.nextUrl.clone();
+    callbackUrl.pathname = "/auth/callback";
+    return NextResponse.redirect(callbackUrl);
+  }
+
   let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(

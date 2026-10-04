@@ -22,7 +22,7 @@ export async function POST(req: Request) {
   if (declared > MAX_BODY_BYTES) {
     return NextResponse.json({ error: "This manuscript is too large to import in one go. Nothing was created." }, { status: 413 });
   }
-  let body: { payload?: ImportPayload; requestId?: string };
+  let body: { payload?: ImportPayload; requestId?: string; onboarding?: boolean };
   try {
     const text = await req.text();
     if (text.length > MAX_BODY_BYTES) {
@@ -36,6 +36,13 @@ export async function POST(req: Request) {
   const result = await importManuscript(supabase, body.payload as ImportPayload, body.requestId ?? "");
   if (result.error !== null) {
     return NextResponse.json({ error: result.error }, { status: 422 });
+  }
+  // Onboarding's import: the journey's Project, recorded in the same request so a
+  // refresh resumes after it instead of offering a second import. Owner-checked
+  // and only for an unfinished journey without a Project (onboarding_attach_project).
+  if (body.onboarding === true) {
+    const attached = await supabase.rpc("onboarding_attach_project", { p_project: result.data.projectId });
+    if (attached.error) console.error("[manuscript-import] onboarding attach failed:", attached.error.message);
   }
   revalidatePath("/projects");
   return NextResponse.json(result.data);

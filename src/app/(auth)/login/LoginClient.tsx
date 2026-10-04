@@ -4,17 +4,24 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
 
 type Mode = "password" | "magic-link";
 
-interface LoginClientProps {
-  /** True when a pending "Continue with Scribe" intent cookie is present. */
-  hasScribeIntent?: boolean;
+// Sign in (Beta Completion E: Rune 2.0's frame, no purchase handoff). A
+// sign-in link never creates an account (shouldCreateUser: false): accounts
+// are made on Create account, for an invited email.
+
+/** Supabase's own wording, in Rune's. */
+function friendlyError(message: string): string {
+  if (/signups not allowed/i.test(message)) {
+    return "There’s no Rune account for that email yet. If you’ve been invited, create your account first.";
+  }
+  if (/invalid login credentials/i.test(message)) return "That email and password don’t match.";
+  if (/email not confirmed/i.test(message)) return "Confirm your email first — the link is in the message we sent you.";
+  return message;
 }
 
-export default function LoginClient({ hasScribeIntent = false }: LoginClientProps) {
+export default function LoginClient() {
   const router = useRouter();
   const [mode, setMode] = useState<Mode>("password");
   const [email, setEmail] = useState("");
@@ -31,38 +38,21 @@ export default function LoginClient({ hasScribeIntent = false }: LoginClientProp
     const supabase = createClient();
 
     if (mode === "magic-link") {
-      // Only override the redirect when a Scribe intent is pending — every
-      // other magic-link sign-in keeps using the project's default
-      // redirect, unchanged.
+      // Back through /auth/callback, like a confirmation link: it is where a
+      // signed-in account is routed (pen name first) — never the Site URL root.
       const { error } = await supabase.auth.signInWithOtp({
         email,
-        ...(hasScribeIntent && {
-          options: {
-            emailRedirectTo: (() => {
-              const u = new URL("/auth/callback", window.location.origin);
-              u.searchParams.set("next", "/auth/continue");
-              return u.toString();
-            })(),
-          },
-        }),
+        options: {
+          shouldCreateUser: false,
+          emailRedirectTo: new URL("/auth/callback?next=/projects", window.location.origin).toString(),
+        },
       });
-      if (error) {
-        setError(error.message);
-      } else {
-        setMagicSent(true);
-      }
+      if (error) setError(friendlyError(error.message));
+      else setMagicSent(true);
     } else {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) {
-        setError(error.message);
-      } else if (hasScribeIntent) {
-        // A full navigation, not router.push: /auth/continue is a route
-        // handler (no page.tsx), and it needs the session cookie
-        // signInWithPassword just set to already be on the request.
-        window.location.href = "/auth/continue";
+        setError(friendlyError(error.message));
       } else {
         router.push("/projects");
         router.refresh();
@@ -79,144 +69,71 @@ export default function LoginClient({ hasScribeIntent = false }: LoginClientProp
 
   if (magicSent) {
     return (
-      <div className="w-full max-w-sm">
-        <div
-          className="rounded-lg border px-8 py-10 text-center shadow-2xl"
-          style={{
-            background: "rgba(44, 36, 32, 0.55)",
-            borderColor: "var(--color-border)",
-          }}
-        >
-          <p className="font-rune-serif text-lg text-rune-parchment">
-            Check your inbox
-          </p>
-          <p className="mt-2 text-sm text-stone-100">
-            We sent a link to{" "}
-            <span className="text-rune-gold">{email}</span>.
-          </p>
-          <button
-            type="button"
-            onClick={() => setMagicSent(false)}
-            className="mt-5 text-xs text-stone-100 underline-offset-2 transition-colors hover:text-rune-gold hover:underline"
-          >
-            Use a different email
-          </button>
-        </div>
-      </div>
+      <section className="r2-auth-card" aria-labelledby="auth-title">
+        <h1 id="auth-title">Check your inbox.</h1>
+        <p className="r2-auth-lede">
+          We sent a sign-in link to <strong>{email}</strong>.
+        </p>
+        <button type="button" className="r2-button r2-button--quiet r2-button--sm" onClick={() => setMagicSent(false)}>
+          Use a different email
+        </button>
+      </section>
     );
   }
 
   return (
-    <div className="w-full max-w-sm">
-      <div
-        className="rounded-lg border px-8 py-8 shadow-2xl"
-        style={{
-          background: "rgba(44, 36, 32, 0.55)",
-          borderColor: "var(--color-border)",
-        }}
-      >
-        <h1
-          className={`font-rune-serif text-xl text-stone-100 ${hasScribeIntent ? "!mb-1" : "!mb-4"}`}
-        >
-          {mode === "password" ? "Sign in" : "Sign in with link"}
-        </h1>
-        {hasScribeIntent && (
-          <p className="!mb-4 text-xs text-stone-100/80">
-            Sign in to continue with Scribe.
-          </p>
-        )}
+    <section className="r2-auth-card" aria-labelledby="auth-title">
+      <h1 id="auth-title">{mode === "password" ? "Sign in" : "Sign in with a link"}</h1>
 
-        <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
-          <Input
-            label="Email"
+      <form onSubmit={handleSubmit} noValidate className="r2-auth-form">
+        <label className="r2-auth-field">
+          <span>Email</span>
+          <input
+            className="r2-field"
             type="email"
-            id="login-email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             autoComplete="email"
             required
-            placeholder="you@example.com"
-            authContrast
+            autoFocus
           />
+        </label>
 
-          {mode === "password" && (
-            <Input
-              label="Password"
+        {mode === "password" && (
+          <label className="r2-auth-field">
+            <span>Password</span>
+            <input
+              className="r2-field"
               type="password"
-              id="login-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               autoComplete="current-password"
               required
-              placeholder="••••••••"
-              authContrast
             />
-          )}
+          </label>
+        )}
 
-          {error && (
-            <p role="alert" aria-live="polite" className="text-xs text-rune-crimson">
-              {error}
-            </p>
-          )}
+        {error && (
+          <p role="alert" className="r2-notice" data-tone="danger">
+            {error}
+          </p>
+        )}
 
-          <Button
-            type="submit"
-            variant="primary"
-            loading={loading}
-            className="mt-1 w-full"
-          >
-            {mode === "magic-link" ? "Send Link" : "Sign In"}
-          </Button>
-        </form>
+        <button type="submit" className="r2-button r2-button--primary r2-auth-submit" disabled={loading}>
+          {loading ? (mode === "password" ? "Signing in…" : "Sending…") : mode === "password" ? "Sign in" : "Send link"}
+        </button>
+      </form>
 
-        <div
-          className="mt-5 border-t pt-5"
-          style={{ borderColor: "var(--color-border)" }}
-        >
-          <button
-            type="button"
-            onClick={toggleMode}
-            className="w-full text-center text-xs text-stone-100 transition-colors hover:text-rune-gold"
-          >
-            {mode === "password"
-              ? "Sign in with a link instead"
-              : "Sign in with a password instead"}
-          </button>
-        </div>
-      </div>
+      <button type="button" className="r2-button r2-button--quiet r2-button--sm r2-auth-switch" onClick={toggleMode}>
+        {mode === "password" ? "Sign in with a link instead" : "Sign in with a password instead"}
+      </button>
 
-      <p className="mt-5 text-center text-xs text-stone-100">
-        No account?{" "}
-        <Link
-          href="/signup"
-          className="text-rune-gold transition-colors hover:text-rune-gold-dim"
-        >
-          Create one
-        </Link>
+      <p className="r2-auth-foot">
+        Invited, but no account yet? <Link href="/signup">Create your account</Link>
       </p>
-
-      <p
-        className="mt-4 text-center leading-relaxed"
-        style={{ fontSize: "0.7rem", color: "var(--color-mist)", opacity: 0.5 }}
-      >
-        By signing in you agree to our{" "}
-        <Link
-          href="/terms"
-          className="transition-opacity duration-150 hover:opacity-100"
-          style={{ color: "var(--color-gold)" }}
-        >
-          Terms of Service
-        </Link>{" "}
-        and{" "}
-        <Link
-          href="/privacy"
-          className="transition-opacity duration-150 hover:opacity-100"
-          style={{ color: "var(--color-gold)" }}
-        >
-          Privacy Policy
-        </Link>
-        .
+      <p className="r2-auth-foot r2-auth-legal">
+        By signing in you agree to the <Link href="/terms">Terms</Link> and <Link href="/privacy">Privacy Policy</Link>.
       </p>
-    </div>
+    </section>
   );
 }

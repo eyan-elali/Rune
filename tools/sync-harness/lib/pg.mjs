@@ -67,8 +67,26 @@ export function asUser(db, userId, fn) {
   return withRole(db, { role: 'authenticated', userId }, fn);
 }
 
-/** Inserts an auth.users row (as the loading superuser), firing any auth trigger. */
-export async function createAuthUser(db, id, meta = {}) {
-  await db.query(`insert into auth.users (id, raw_user_meta_data) values ($1, $2)`, [id, meta]);
+/**
+ * Inserts an auth.users row (as the loading superuser), firing any auth
+ * trigger. On a database with the closed beta (052) the account is an
+ * accepted beta member, as every writer in these tests is meant to be;
+ * `{ beta: false }` leaves it without access (or pass an `email` to approve
+ * or waitlist yourself).
+ */
+export async function createAuthUser(db, id, meta = {}, { beta = true, email = null } = {}) {
+  await db.query(`insert into auth.users (id, raw_user_meta_data, email) values ($1, $2, $3)`, [id, meta, email]);
+  if (beta) await grantBetaAccess(db, id);
   return id;
+}
+
+/** Makes an existing account an accepted beta member (no-op before migration 052). */
+export async function grantBetaAccess(db, id) {
+  await db.query(
+    `do $$ begin
+       if to_regclass('public.beta_access') is not null then
+         insert into public.beta_access (email, user_id, accepted_at)
+         values ('${id}@harness.test', '${id}', now()) on conflict do nothing;
+       end if;
+     end $$`);
 }

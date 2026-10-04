@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { recordWorkspaceActivation } from "@/lib/workspaceActivation";
 import type { CollectionEntry, WorkspaceCollection } from "@/lib/types";
 import { normalizeTitle, renameVersioned, saveVersionedContent, type SaveContentResult } from "@/lib/rune2/versionedContent";
 
@@ -58,6 +59,7 @@ export async function createWorkspaceCollection(
   if (error) return { data: null, error: error.message };
   const result = data as RpcResult<{ collection: WorkspaceCollection; node_id: string }>;
   if (result.status !== "ok") return { data: null, error: result.error };
+  await recordWorkspaceActivation(user.id, projectId, "collection");
   return { data: { collection: result.collection, nodeId: result.node_id }, error: null };
 }
 
