@@ -742,16 +742,19 @@ button.r2-chip:focus-visible {
    it, the contextual panel (Inspector or Revision Notes — one shell,
    .r2-panel), which occupies this middle zone only: it begins under the
    context bar's actions and stops above the status, so opening it moves
-   neither. The status zone is reserved whether or not a surface fills it, so
-   the panel's foot and the status never collide and nothing shifts between
-   one kind of content and the next. This is geometry, not decoration: no
-   zone is drawn. */
+   neither. The status is an overlay at the foot of the body (.r2-status):
+   it takes no height in the flow. What must not meet it keeps clear of it
+   itself — the panel, and the scrolling content of every surface but the
+   manuscript, stop above the status zone, so their foot and the status
+   never collide. The manuscript's scroll runs to the foot of the window,
+   like a document: its prose passes under the status while scrolling, and
+   its own end and caret keep clear of it (.r2-doc--manuscript,
+   Rune2Editor). This is geometry, not decoration: no zone is drawn. */
 .r2-body {
   position: relative;
   display: flex;
   flex: 1;
   min-height: 0;
-  padding-bottom: var(--r2-status-zone);
   /* The body's width decides how the panel sits (see "Width: the content keeps priority"). */
   container-type: inline-size;
   container-name: r2-body;
@@ -770,6 +773,10 @@ button.r2-chip:focus-visible {
   min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
+  margin-bottom: var(--r2-status-zone);
+}
+.r2-content-layer[data-manuscript] .r2-body > .r2-main {
+  margin-bottom: 0;
 }
 
 /* ── Column edges: resize ──────────────────────────────────────────────
@@ -1640,6 +1647,7 @@ button.r2-disclosure:hover {
   flex-shrink: 0;
   width: 0;
   min-height: 0;
+  margin-bottom: var(--r2-status-zone);
   overflow: hidden;
   /* Flush with the viewport's right edge; only the exposed corners soften. */
   border-radius: var(--r2-radius-lg) 0 0 var(--r2-radius-lg);
@@ -2052,7 +2060,7 @@ button.r2-disclosure:hover {
     position: absolute;
     top: 0;
     right: 0;
-    bottom: var(--r2-status-zone);
+    bottom: 0;
     z-index: 20;
   }
   .r2-panel[data-open] {
@@ -2184,6 +2192,20 @@ button.r2-disclosure:hover {
 }
 .r2-doc--manuscript .r2-doc-head {
   margin-bottom: 36px;
+}
+/* The manuscript ends like a document, not a screen early. Its scroll runs
+   to the foot of the window (see "The three vertical zones"), so this is the
+   whole of the space below the last line: the end of the Scene comes to rest
+   about 56px above the foot of the window, clear of "words · Saved" laid
+   over the bottom 40px. The caret keeps the same distance while typing
+   (MANUSCRIPT_BOTTOM_CLEARANCE, Rune2Editor). The top start is untouched.
+   Clicking the empty page below the prose still continues writing at the end
+   (Rune2Editor), so the editor reserves no height of its own. */
+.r2-doc--manuscript {
+  padding-bottom: 56px;
+}
+.r2-doc--manuscript .r2-prose .ProseMirror {
+  min-height: 0;
 }
 @container (max-width: 640px) {
   .r2-main .r2-doc {
@@ -2399,8 +2421,9 @@ button.r2-disclosure:hover {
    surface says what it reads (DocStatus), and the shell places it in the
    status zone at the foot of the content column, ending at the column's
    right edge — the same place whether the contextual panel is closed or
-   showing either view, since the panel stops above this zone. The zone is
-   outside the scrolling area, so nothing passes under the status. */
+   showing either view, since the panel stops above this zone. It is an
+   overlay and takes no height: the manuscript's prose may pass under it
+   while scrolling, but its end and its caret rest clear of it. */
 .r2-status {
   position: absolute;
   right: 0;

@@ -75,6 +75,17 @@ export type Rune2EditorProps = {
 };
 
 type BlockState = { words: number; syncStatus: DisplaySyncStatus };
+
+// The manuscript's scroll runs under "words · Saved" at the foot of the
+// window (rune2.css, "The three vertical zones"), so following the caret
+// keeps it this far above the foot — the same rest the end of a Scene has
+// (.r2-doc--manuscript's padding-bottom). The top keeps ProseMirror's
+// defaults (no threshold, 5px margin).
+const MANUSCRIPT_BOTTOM_CLEARANCE = 56;
+const CARET_SCROLL_PROPS = {
+  scrollThreshold: { top: 0, right: 0, bottom: MANUSCRIPT_BOTTOM_CLEARANCE, left: 0 },
+  scrollMargin: { top: 5, right: 5, bottom: MANUSCRIPT_BOTTOM_CLEARANCE, left: 5 },
+};
 type BlockHandle = { focusEnd: () => void; openConflict: () => void; editor: Editor | null };
 
 // One vocabulary with the Workspace surfaces: "Saved" only once the server
@@ -333,6 +344,11 @@ function SceneBlock({
   useEffect(() => {
     onReport(sceneId, { words, syncStatus });
   }, [onReport, sceneId, words, syncStatus]);
+
+  useEffect(() => {
+    if (!editor || editor.isDestroyed) return;
+    editor.setOptions({ editorProps: { ...editor.options.editorProps, ...CARET_SCROLL_PROPS } });
+  }, [editor]);
 
   // Its part of a Chapter-wide selection (presentation only; never a document change).
   useEffect(() => {
