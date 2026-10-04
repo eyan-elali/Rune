@@ -8,8 +8,8 @@ export const metadata: Metadata = {
 // Closed-beta Privacy Policy (pre-beta audit, section V). Every statement
 // here is checked against the code: Supabase (auth, Postgres, private
 // storage bucket), Vercel hosting, the first-party analytics_events and
-// acquisition_attribution tables, the Meta Pixel and PromoteKit scripts in
-// app/layout.tsx, the beta waitlist and feedback (migration 052), account
+// acquisition_attribution tables, the Meta Pixel and PromoteKit scripts
+// (components/MarketingTrackers.tsx, signed-out front page only), the beta waitlist and feedback (migration 052), account
 // deletion (lib/actions/settings.ts), and the two exports. Where a fact
 // cannot be read from the repository (hosting regions, backup retention,
 // the Meta "advanced matching" dashboard setting) the text says so in
@@ -161,13 +161,15 @@ export default function PrivacyPage() {
             logs described above.
           </p>
           <p>
-            <Em>Meta (Meta Pixel)</Em> — a measurement script from Meta is currently included on Rune’s pages. It
-            reports page views to Meta, and a one-time “registration completed” signal after sign-up, so that we
-            can measure whether people who see Rune mentioned on Meta platforms go on to join. It sets Meta’s own
-            cookies in your browser. It never receives manuscript content, titles, notes or feedback.
+            <Em>Meta (Meta Pixel)</Em> — a measurement script from Meta is included on Rune’s public front page
+            for visitors who are not signed in. It reports page views there to Meta, so that we can measure whether
+            people who see Rune mentioned on Meta platforms go on to visit. It sets Meta’s own cookies in your
+            browser. It is not loaded inside the signed-in Rune application, and it never receives manuscript
+            content, titles, notes or feedback.
           </p>
           <p>
-            <Em>PromoteKit</Em> — a referral-tracking script is currently included on Rune’s pages. It records
+            <Em>PromoteKit</Em> — a referral-tracking script is included on Rune’s public front page for visitors
+            who are not signed in, and is not loaded inside the signed-in Rune application. It records
             whether you arrived through a referral link. Rune does not currently offer paid plans or a referral
             programme, so this script has no effect on your account during the beta.
           </p>
@@ -215,7 +217,8 @@ export default function PrivacyPage() {
           </p>
           <p>
             <Em>Measurement.</Em> The Meta Pixel and PromoteKit scripts described in Section 4 set their own
-            cookies. Blocking them does not affect your ability to use Rune.
+            cookies when you visit the public front page while signed out. Blocking them does not affect your
+            ability to use Rune.
           </p>
         </Section>
 

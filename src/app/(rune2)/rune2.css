@@ -8475,6 +8475,11 @@ a.r2-home-row-main:focus-visible {
   height: 36px;
   font-size: var(--r2-fs-body);
 }
+.r2-front-purpose {
+  margin: 0;
+  font-size: var(--r2-fs-ui-sm);
+  color: var(--r2-ink-3);
+}
 .r2-front-form .r2-front-actions {
   margin-top: var(--r2-space-3);
 }

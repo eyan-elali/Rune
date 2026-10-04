@@ -36,6 +36,18 @@ Legacy systems Rune 2.0 plans to retire, all still present in code:
 
 Rune 2.0 decisions do not authorize implementation. Start Rune 2.0 migration work only when a task explicitly asks for it.
 
+### Current state of the `rune-2` branch (closed-beta release candidate)
+
+On `rune-2`, Rune 2.0 **is** the product. Treat this as the active truth when a later section still describes Rune 1.x:
+
+- The app runs on the Rune 2.0 database (Manuscript, Groups, Chapters, Scenes, Unplaced Scenes, Workspace, Collections, Canvas). There are no `pages` and no canonical logic here.
+- `/projects` is the home. The Rune 1.x Dashboard, Profile, Arena (`/games`) and legacy editor UI are deleted; their old URLs redirect (`src/lib/legacyRedirects.ts`). `/settings` is Rune 2.0 Settings. Pulse (`/pulse`) is the only surface left in the `(app)` group.
+- Access is a **closed beta** (migration 052): invite-only, with a public front door (`/`) that explains the beta and runs the waitlist.
+- The beta is **free and full-featured**. Billing code stays in the repository but is switched off (`BILLING_OPEN = false` in `src/lib/beta.ts`); free-word enforcement is off (migration 037).
+- Onboarding is the Rune 2.0 journey in `src/app/(rune2)/onboarding` and `src/lib/onboarding.ts` (§7).
+- Third-party marketing scripts (Meta Pixel, PromoteKit) load only on the public front door for signed-out visitors, never in the authenticated app (§9).
+- Rune 1.x library code (`src/lib/xp.ts`, `src/lib/unlockables.ts`, word-limit RPCs, `src/lib/actions/*`) is still present for stale clients, tests and the staged retirement. Production (`main`) is still Rune 1.x until the release-candidate deploy.
+
 ---
 
 ## 1. What Rune Is
@@ -110,9 +122,8 @@ General document tools treat a novel as a file.
 Rune treats a novel as a manuscript made of:
 
 - projects,
-- chapters,
-- pages,
-- canonical pages,
+- manuscript groups and chapters,
+- scenes (placed and unplaced),
 - revision notes,
 - goals,
 - progress,
@@ -211,7 +222,7 @@ Use these pillars to organize product decisions and marketing.
 #### Write
 
 - literary editor,
-- Focus Mode,
+- Reading Mode,
 - manuscript fonts,
 - themes,
 - autosave,
@@ -221,16 +232,14 @@ Use these pillars to organize product decisions and marketing.
 #### Organize
 
 - projects,
-- chapters,
-- pages,
-- canonical pages,
+- manuscript groups, chapters and scenes,
 - revision notes,
-- manuscript structure,
-- export.
+- the Workspace (pages, folders, collections, canvas),
+- export and backup.
 
 #### Return
 
-- Today’s Focus,
+- the Projects home,
 - writing history (streaks as supporting history, not pressure),
 - goals,
 - progress,
@@ -361,20 +370,21 @@ The codebase, theme registry, and CSS variables are the source of truth for exac
 
 Do not copy stale color values from this file into implementation.
 
-Current product decisions include:
+Current product decisions (Rune 2.0, `src/lib/rune2/themes.ts`, the one colour registry):
 
-- **Parchment** is the default writing space.
-- **Candlelight** is available to all writers.
-- Current implementation: additional themes unlock through writing, XP, and Levels. Rune 2.0 keeps themes but separates their unlock model from XP and Levels. The replacement model is **undecided** (§13).
-- Theme selection should persist.
-- Unlocking a theme must not automatically switch the active theme.
-- Editor/manuscript font unlocks apply to manuscript writing, not the entire application UI.
+- Themes are **Light** (the default), **Candlelight**, **Dark**, and **System** (Light or Dark from the OS). All are available to every writer; nothing is unlocked.
+- The **writing surface** (the manuscript page) is a separate choice from the theme, as is the **accent** colour.
+- Theme, surface, accent, manuscript font and spellcheck are account-wide preferences (`src/lib/rune2/preferences.ts`) and must persist.
+- Feature CSS reads only semantic `--r2-*` tokens, never a palette or a theme name.
+- Manuscript fonts apply to manuscript writing, not the entire application UI.
+
+Rune 1.x Parchment/Candlelight themes with XP/Level unlocks are legacy (§13).
 
 When changing theme-aware UI:
 
 - use existing semantic variables,
 - test every supported theme touched by the change,
-- verify contrast in both Parchment and Candlelight,
+- verify contrast in Light, Candlelight and Dark,
 - do not hardcode light text that breaks light themes or gray text that disappears on dark themes.
 
 ---
@@ -383,54 +393,40 @@ When changing theme-aware UI:
 
 Rune’s main experiences are:
 
-### Dashboard
+### Projects home
 
-A calm return point centered on the writer’s current manuscript.
+`/projects` is the return point: the writer’s Projects, Project Trash, and the way into Settings. (The Rune 1.x Dashboard is retired; `/dashboard` redirects here.)
 
-Current concepts include:
+It should answer:
 
-- Your Story hero,
-- Continue Writing action,
-- Today’s Focus,
-- Today’s Words,
-- total manuscript words,
-- streak (supporting history, not a pressure mechanism),
-- manuscript goal,
-- project progress,
-- a compact path into supporting tools.
-
-The Dashboard should answer:
-
-> What am I writing, where did I leave off, and what should I do next?
+> What am I writing, and where do I pick it up?
 
 Do not turn it into an analytics wall or a grid of equally weighted cards.
 
-### Editor
+### Project shell and editor
 
-The editor is the core of Rune.
+The Project shell is the core of Rune: the Manuscript navigator, tabs, the Scene editor, the Inspector and panels, Reading Mode, and the Workspace around the manuscript.
 
-It includes:
+The editor includes:
 
-- TipTap manuscript editing,
-- chapters and pages,
-- canonical pages,
-- reliable saving,
-- offline support,
-- export,
-- Focus Mode,
-- theme and manuscript-font preferences.
+- TipTap editing, one Scene per editor instance,
+- Groups, Chapters, placed and Unplaced Scenes,
+- reliable saving and offline support,
+- Scene History and Milestones,
+- export (DOCX/PDF/Markdown/TXT) and project backup,
+- theme, writing-surface and manuscript-font preferences.
 
 The editor should remain calm and manuscript-first.
 
 ### Chapters and manuscript organization
 
-Writers organize work through projects, chapters, pages, and canonical-page behavior.
+Writers organize work through Manuscript Groups, Chapters and Scenes. Older Rune 1.x language (pages, canonical pages) describes `main` only.
 
-Do not change counting, deletion, export, canonical-page, or chapter-order behavior casually. These systems affect manuscript integrity and totals.
+Do not change counting, deletion, export, Scene placement, or chapter-order behavior casually. These systems affect manuscript integrity and totals.
 
 **Current implementation reality:** in production (Rune 1.x, the `main` branch), a Chapter may mark one Page as canonical. When it does, only that Page counts toward manuscript totals and appears in export. On the `rune-2` branch the application runs on the Rune 2.0 schema instead: every placed Scene counts and exports, and there is no canonical logic (`src/lib/manuscript.ts`, `src/lib/manuscriptQueries.ts`, `src/lib/projectWordCount.ts`, `src/lib/export/projectExport.ts`).
 
-**Rune 2.0 direction** (intended mapping only; not yet authorized to run):
+**Rune 1.x data migration** (intended mapping only; not yet authorized to run):
 
 - A Chapter with a canonical Page: the canonical Page becomes the Chapter’s placed Scene, and its non-canonical Pages become Unplaced Scenes.
 - A Chapter without a canonical Page: its Pages become placed Scenes in their existing order.
@@ -451,42 +447,19 @@ Do not change counting, deletion, export, canonical-page, or chapter-order behav
 
 Progress should communicate movement toward a finished manuscript, not create pressure for constant output.
 
-### Profile
+### Profile (retired)
 
-Profile represents writer growth and long-term progress.
+The Rune 1.x Profile page (level, unlockables, heatmap, streaks) is deleted on `rune-2`; `/profile` redirects to Settings. Do not add Level prominence or level-based features anywhere.
 
-Current concepts include:
+### Arena (retired UI)
 
-- level,
-- unlockables,
-- heatmap,
-- total words,
-- current and best streak,
-- projects,
-- sessions,
-- manuscript records,
-- estimated pages.
+The Rune 1.x Arena UI (Race Yourself, Battle Mode) is deleted on `rune-2`; `/games` redirects to Projects. Its server code and tables (for example `game_tickets`, guarded by migration 054) remain for compatibility. Do not rebuild Arena or let it shape core architecture without an explicit task.
 
-Keep the hierarchy compact and do not let statistics overwhelm the page. Level is currently displayed, but Rune 2.0 retires XP and Levels. Do not add new Level prominence or new level-based features.
-
-### Arena
-
-Arena contains optional writing experiences such as:
-
-- Race Yourself,
-- Battle Mode.
-
-Arena is separate from the normal editor experience.
-
-**Rune 2.0 direction:** Arena is optional legacy writing-session functionality. It may stay if it is cheap to preserve, but it is not part of the central Rune 2.0 proposition and must not shape core architecture. Do not remove or redesign it without an explicit task. Do not make Rune 2.0 migrations much more complex just to preserve it perfectly.
-
-There is no global “Game Mode” that should take over the application shell.
-
-Do not reintroduce a global normal/focus/game mode system.
+There is no global “Game Mode” that should take over the application shell. Do not reintroduce a global normal/focus/game mode system.
 
 ### Settings
 
-Settings manages account, appearance, manuscript preferences, subscription, and account deletion.
+Settings manages account, appearance (theme, writing surface, accent), manuscript preferences, unsent drafts, the About/beta note, and account deletion. There is no subscription UI during the closed beta.
 
 Do not place experimental or founder-only pricing in ordinary Settings unless a task explicitly requires it.
 
@@ -511,119 +484,40 @@ Do not weaken its admin protection or expose private writer content.
 
 ## 7. Onboarding
 
-Rune onboarding is an emotional journey, not a generic setup wizard.
+Rune onboarding is a short transition into Rune, not a generic setup wizard.
 
-### Approved onboarding journey
+### Current journey (Rune 2.0, closed beta)
 
-The approved stages are:
+Implemented in `src/app/(rune2)/onboarding/page.tsx`, `src/components/rune2/Onboarding.tsx` and `src/lib/onboarding.ts`, backed by `account_onboarding` (migration 052):
 
-1. Story title
-2. Recognition interlude
-3. Optional first sentence
-4. Momentum interlude
-5. Writing-space choice
-6. Explicit authorship and AI interlude
-7. Invitation to write a letter to the writer’s future self
-8. Optional private letter
-9. Final arrival
-10. Authoritative project, chapter, and page creation
-11. Editor tutorial on a supported device
+1. Welcome
+2. Path: start a new Project, or import an existing manuscript
+3. Title (new) or Import
+4. The mental model: the Manuscript, and the Workspace around it
+5. Appearance (optional)
+6. Arrival
 
-### Emotional purpose
+It runs once per account. The (rune2) layout has already required sign-in, beta access and a pen name before it.
 
-The onboarding should make the writer feel:
+### Principles that still apply
 
-- starting a novel is significant,
-- they have already taken a real step,
-- perfection is not required,
-- Rune respects their authorship,
-- they have a place to return to.
+- Rune respects the writer’s authorship: **“Your words remain your own.”** Rune will never use AI to write, rewrite, or complete the story.
+- Perfection is not required; the writer should feel they have a place to return to.
+- Where the account is in the journey is **server state** (`account_onboarding`). A refresh resumes; a completed journey (or an account from before onboarding existed) goes to Projects.
+- The Project is created by **one authoritative server operation**. Once it exists, the journey resumes after it — never a second Project. Avoid duplicate projects and route/save race conditions.
+- Choosing an appearance re-themes onboarding immediately and persists into the app. Do not duplicate theme definitions inside onboarding.
+- Never put project titles, imported text or any writing into analytics.
 
-Approved ideas and language include:
+### Rune 1.x onboarding (legacy, `main` only)
 
-- “It has a name now.”
-- “The first sentence is often the hardest.”
-- “It does not need to be perfect. It only needs to exist.”
-- “Stories are not finished in a day. They are finished one page at a time.”
-- “Your words remain your own.”
-- “Your desk is ready.”
+The Rune 1.x journey (title, optional first sentence, Parchment/Candlelight choice, a private letter to the writer’s future self, AppShell transitions) is deleted on `rune-2`. Any stored future letters remain private: never place their contents in analytics, Pulse, logs, Meta, AI systems or public UI. Do not resurrect the old cinematic AppShell transition architecture.
 
-### First sentence
+### Phones and device handoff
 
-The first sentence is optional.
-
-If skipped:
-
-- create a valid empty first page,
-- do not record `first_sentence_written`,
-- do not shame the writer,
-- do not create fake content.
-
-If written:
-
-- preserve the writer’s exact text,
-- use canonical word-count behavior,
-- never include the text in analytics.
-
-### Writing-space choice
-
-Onboarding offers:
-
-- Parchment,
-- Candlelight.
-
-Selecting a writing space should immediately retheme the entire onboarding experience and persist into the editor.
-
-Do not duplicate theme definitions inside onboarding.
-
-### Future letter
-
-The future letter is optional and private.
-
-It may be stored with a future reveal date, but the reveal experience is a separate feature unless explicitly requested.
-
-Never place the letter’s contents in:
-
-- analytics,
-- Pulse,
-- logs,
-- Meta,
-- AI systems,
-- public UI.
-
-### Creation architecture
-
-Do not create the manuscript incrementally across onboarding screens.
-
-Use one authoritative final server operation to create the initial:
-
-- project,
-- chapter,
-- page,
-- optional first sentence,
-- selected theme,
-- optional future letter.
-
-Avoid duplicate projects and route/save race conditions.
-
-Do not resurrect older cinematic AppShell transition architecture.
-
-### Mobile onboarding and device handoff
-
-Approved product behavior:
-
-- authentication and required profile completion remain accessible on phones,
-- new users may complete onboarding on a phone,
-- mobile onboarding should use a purpose-built mobile presentation rather than a compressed desktop layout,
-- desktop onboarding should remain visually unchanged when mobile presentation work is done,
-- after successful phone onboarding, show the phone waiting room,
-- the full editor and application remain desktop/supported-tablet experiences,
-- a mobile-onboarded writer’s first supported-device visit should go directly to the initial editor exactly once,
-- the editor tutorial remains pending until that supported-device entry.
-
-This cross-device state must be durable and server-backed.
-
-Do not rely on browser storage as the source of truth.
+- Authentication and required profile completion remain accessible on phones.
+- The application, onboarding included, sits behind the supported-device gate (`src/components/layout/SupportedDeviceGate.tsx`); a phone sees the waiting room.
+- The full app remains a desktop/supported-tablet experience.
+- Cross-device state must be durable and server-backed. Do not rely on browser storage as the source of truth.
 
 ---
 
@@ -655,11 +549,17 @@ These must be settled before billing changes ship.
 
 The Rune 2.0 migration initially keeps the load-bearing RPC signatures and database contracts, so stale clients and queued offline saves keep working. Enforcement is retired in later stages, each through its own explicit task.
 
-**Stage reached on the `rune-2` branch (Rune 2.0 database, migration 037):** enforcement is off. `free_word_limit_for_caller()` answers "no limit", so no save, creation, import, duplication or restore is gated; the checked RPCs keep their signatures and result shapes; `account_word_total` stays as a metric; the editor input guards and free-word notices are removed. Billing surfaces (pricing table, Settings, the returning-writer notice) still describe the old model until Beta Completion billing work. Production (`main`, Rune 1.x) still enforces the model below.
+**Stage reached on the `rune-2` branch (Rune 2.0 database, migration 037):** enforcement is off. `free_word_limit_for_caller()` answers "no limit", so no save, creation, import, duplication or restore is gated; the checked RPCs keep their signatures and result shapes; `account_word_total` stays as a metric; the editor input guards and free-word notices are removed.
 
-### Current implementation reality
+### Closed beta (current, `rune-2`)
 
-Everything below describes the word-allowance pricing that is currently approved and implemented in production (`main`). It remains in force there, and stays compatibility-sensitive, until Rune 2.0 billing work explicitly replaces it.
+- The closed beta is **free and full-featured**: no trial, no subscription, no feature lock, no upgrade prompt.
+- `BILLING_OPEN = false` (`src/lib/beta.ts`) gates every checkout path. Stripe code stays in the repository, switched off. The Rune 1.x pricing table, paywalls and returning-writer pricing notice are deleted from the UI.
+- Do not reopen billing, or show prices, without an explicit billing task that settles the open decisions above.
+
+### Rune 1.x pricing (legacy, production `main` only)
+
+Everything below describes the word-allowance pricing still deployed on `main`. It is **not** the model on `rune-2` and must not guide new work. It is kept because existing writers were promised it and stale clients depend on its contracts. (Earlier tiers such as Arcane no longer exist anywhere.)
 
 #### New writers
 
@@ -789,6 +689,10 @@ inside analytics metadata.
 Preserve first-touch attribution behavior and existing UTM/fbclid capture.
 
 Do not change attribution semantics while working on unrelated features.
+
+### Third-party marketing scripts
+
+Meta Pixel and PromoteKit render only through `src/components/MarketingTrackers.tsx`, which only the public front door (`src/app/(front)/page.tsx`) mounts, and only for signed-out visitors. `MARKETING_PATHS` in `src/lib/meta-pixel.ts` stops pixel events from firing anywhere else, including after a client-side navigation into the app. Never mount them in the root layout or any authenticated surface (Projects, the Project shell, Settings, onboarding, Pulse). First-party analytics are separate and unaffected. If their scope changes, update the Privacy Policy in the same change.
 
 ### Pulse privacy
 
@@ -968,68 +872,25 @@ When fixing a count discrepancy, trace every source rather than patching one dis
 
 ### Focus Mode
 
-Focus Mode belongs to the editor.
-
-It should remove distractions and preserve a clean writing environment.
+The Rune 1.x editor’s Focus Mode is gone with that editor. The Rune 2.0 Project shell has no Focus Mode today; Reading Mode is the distraction-free reading surface. If Focus Mode returns, it belongs to the editor.
 
 Do not reintroduce a global application mode toggle that treats normal, focus, and game as equivalent shell states.
 
-Inspect the current editor implementation before changing:
-
-- sidebar behavior,
-- page/chapter navigation,
-- toolbar behavior,
-- keyboard shortcuts,
-- focus escape behavior.
+Inspect the current Project shell before changing navigator, tab, panel, toolbar, keyboard-shortcut or escape behavior.
 
 ### Arena
 
-Arena is a separate optional area for writing games.
-
-Current games include:
-
-- Race Yourself,
-- Battle Mode.
-
-Preserve current game logic unless the task explicitly concerns Arena.
-
-In Rune 2.0, Arena is optional legacy functionality, not core (§6). Focus Mode remains core.
-
-Do not let Arena styling or mechanics leak into the normal editor or onboarding.
+The Arena UI is retired on `rune-2` (§6). Its server code and tables remain for compatibility; preserve them unless a task explicitly concerns Arena. Do not let Arena styling or mechanics leak into the editor or onboarding.
 
 ---
 
 ## 13. Unlockables and Progression
 
-Rune includes unlockable:
+**On `rune-2`:** every theme, writing surface, accent and manuscript font is available to every writer (§5). There is no unlock UI, no Profile, no XP bar and no level-up framing.
 
-- themes,
-- avatars,
-- manuscript fonts.
+**Still in code (legacy):** the Rune 1.x unlockable registry and grant logic (`src/lib/unlockables.ts`, `src/lib/actions/unlockables.ts`) and XP (`src/lib/xp.ts`, `src/lib/actions/xp.ts`). The Scene editor (`src/components/editor/useSceneEditor.ts`) still awards project XP in the background. Do not remove this, or the recorded unlocks, until an explicit retirement task does; existing users must not lose earned unlocks.
 
-The static unlockable registry and grant logic in the current code are authoritative.
-
-Do not rely on the original four-theme/five-avatar MVP list.
-
-**Rune 2.0 direction:** themes and manuscript fonts stay, along with their infrastructure. Their unlock model will be **separated from XP and Levels**. The replacement is **not decided**; options include everything included with the subscription, meaningful writing milestones, or achievement-based unlocks tied to creative work. Do not design a replacement XP economy, and do not remove the current grant logic until an explicit task replaces it.
-
-Current implementation decisions include:
-
-- Parchment and Candlelight are available early,
-- Manuscript is a neutral early font unlock,
-- premium and progression-based unlockables are currently part of Scribe/engagement design (XP/Level requirements are legacy under Rune 2.0),
-- fonts affect manuscript writing, not the entire UI,
-- unlock persistence and grant logic must remain reliable,
-- unlocking an item should not silently change the active selection.
-
-When modifying unlockables:
-
-- audit every registry item,
-- audit grant conditions,
-- audit persistence,
-- audit toasts,
-- audit profile/settings display,
-- verify existing users do not lose valid unlocks.
+Do not design a replacement XP economy. If unlocks return, their model is **not decided** (subscription-included, writing milestones, or achievements tied to creative work).
 
 ---
 
@@ -1052,7 +913,7 @@ When modifying unlockables:
 - Use semantic theme tokens.
 - Support keyboard navigation and screen readers.
 - Respect reduced-motion preferences.
-- Test Parchment and Candlelight when touching shared UI.
+- Test Light, Candlelight and Dark when touching shared UI.
 - Do not rely on hover for required mobile interactions.
 
 ### Client and server
@@ -1135,8 +996,7 @@ For visual changes, verify:
 - desktop,
 - supported tablet where relevant,
 - phone where relevant,
-- Parchment,
-- Candlelight,
+- Light, Candlelight and Dark,
 - keyboard access,
 - reduced motion,
 - contrast.

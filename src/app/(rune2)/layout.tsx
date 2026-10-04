@@ -79,7 +79,8 @@ export default async function RuneLayout({ children }: { children: ReactNode }) 
     >
       <style id="r2-themes" dangerouslySetInnerHTML={{ __html: THEME_CSS }} />
       <NetworkProvider />
-      {/* A new signup's CompleteRegistration pixel (?registered=1), outside the device gate. */}
+      {/* Clears a new signup's ?registered=1. The pixel event itself is sent only on the
+          public front door (lib/meta-pixel MARKETING_PATHS), so here it is a no-op. */}
       <RegistrationTracker />
       <Rune2Session
         profile={profile as Profile | null}

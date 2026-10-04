@@ -3,7 +3,11 @@
 import Script from 'next/script';
 import { usePathname } from 'next/navigation';
 import { useEffect, useRef } from 'react';
-import { FB_PIXEL_ID } from '@/lib/meta-pixel';
+import { FB_PIXEL_ID, isMarketingPath } from '@/lib/meta-pixel';
+
+// Rendered only by MarketingTrackers, on the public front door. Meta's own
+// pushState PageViews are switched off, so a pixel loaded there stays silent
+// after a client-side navigation into the authenticated app.
 
 export function MetaPixel() {
   const pathname = usePathname();
@@ -14,6 +18,7 @@ export function MetaPixel() {
       isInitialMount.current = false;
       return;
     }
+    if (!isMarketingPath(pathname)) return;
     if (typeof window !== 'undefined' && typeof window.fbq === 'function') {
       window.fbq('track', 'PageView');
     }
@@ -33,6 +38,7 @@ export function MetaPixel() {
             t.src=v;s=b.getElementsByTagName(e)[0];
             s.parentNode.insertBefore(t,s)}(window,document,'script',
             'https://connect.facebook.net/en_US/fbevents.js');
+            fbq.disablePushState=true;
             fbq('init','${FB_PIXEL_ID}');
             fbq('track','PageView');
           `,

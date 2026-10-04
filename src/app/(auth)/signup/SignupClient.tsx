@@ -178,6 +178,10 @@ export default function SignupClient() {
         </button>
       </form>
 
+      <p className="r2-auth-foot r2-auth-legal">
+        By creating an account, you agree to Rune’s <Link href="/terms">Terms</Link> and acknowledge the{" "}
+        <Link href="/privacy">Privacy Policy</Link>.
+      </p>
       <p className="r2-auth-foot">
         Already have an account? <Link href="/login">Sign in</Link>
       </p>

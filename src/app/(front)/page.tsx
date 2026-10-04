@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { PublicFrame } from "@/components/front/PublicFrame";
+import { MarketingTrackers } from "@/components/MarketingTrackers";
 import { SignOutButton, WaitlistForm } from "@/components/front/FrontDoor";
 import { hasBetaAccess } from "@/lib/beta";
 import { claimBetaAccess } from "@/lib/betaAccess";
@@ -101,6 +102,8 @@ export default async function FrontDoor() {
           </>
         )}
       </section>
+      {/* Marketing attribution for signed-out visitors only — never for a signed-in account. */}
+      {user === null && <MarketingTrackers />}
     </PublicFrame>
   );
 }
