@@ -109,6 +109,14 @@ export const PALETTE_TOKENS = [
   "tooltip-bg",
   "tooltip-ink",
   "knob", //          a switch's thumb: always the lightest thing in its row
+  // Material (the public pages and onboarding): a surface raised off the page
+  "material-bg", //            its fill: between paper and a floating panel
+  "material-border", //        its 1px edge at rest
+  "material-border-strong", // its edge reached for
+  "material-highlight", //     the faint light along its top edge
+  "material-field-bg", //      a field set into it
+  "shadow-material", //        its fall of shadow: soft, diffuse, layered
+  "shadow-material-lift", //   a little more, when reached for or chosen
   // The manuscript writing surface (the theme's own — "Default")
   "ms-bg",
   "ms-ink",
@@ -200,6 +208,16 @@ const LIGHT: Palette = {
   "tooltip-ink": "var(--r2-ink-inverse)",
   knob: "#ffffff",
 
+  "material-bg": "#fefefd",
+  "material-border": "rgba(var(--r2-palette-ink) / 0.075)",
+  "material-border-strong": "rgba(var(--r2-palette-ink) / 0.14)",
+  "material-highlight": "rgba(255 255 255 / 0.9)",
+  "material-field-bg": "#fafaf9",
+  "shadow-material":
+    "0 1px 1px rgba(var(--r2-palette-shadow) / 0.03), 0 2px 6px -2px rgba(var(--r2-palette-shadow) / 0.05), 0 18px 44px -20px rgba(var(--r2-palette-shadow) / 0.16)",
+  "shadow-material-lift":
+    "0 1px 1px rgba(var(--r2-palette-shadow) / 0.03), 0 4px 12px -4px rgba(var(--r2-palette-shadow) / 0.08), 0 24px 52px -22px rgba(var(--r2-palette-shadow) / 0.22)",
+
   "ms-bg": "var(--r2-bg)",
   "ms-ink": "var(--r2-ink-1)",
   "ms-faint": "var(--r2-ink-3)",
@@ -254,6 +272,11 @@ const CANDLELIGHT: Palette = {
   "warning-soft": "rgba(131 92 20 / 0.1)",
   success: "#3f6a3f",
   "success-soft": "rgba(63 106 63 / 0.1)",
+
+  "material-bg": "#fdfcf8",
+  "material-border": "rgba(var(--r2-palette-ink) / 0.09)",
+  "material-border-strong": "rgba(var(--r2-palette-ink) / 0.16)",
+  "material-field-bg": "#faf7f1",
 
   "ms-ink": "#2b2620",
 };
@@ -332,6 +355,14 @@ const DARK: Palette = {
   "tooltip-bg": "#383b42",
   "tooltip-ink": "#eef0f3",
   knob: "#e9ebef",
+
+  "material-bg": "#212328",
+  "material-border": "rgba(var(--r2-palette-ink) / 0.075)",
+  "material-border-strong": "rgba(var(--r2-palette-ink) / 0.14)",
+  "material-highlight": "rgba(255 255 255 / 0.045)",
+  "material-field-bg": "#1b1d21",
+  "shadow-material": "0 1px 2px rgba(0 0 0 / 0.32), 0 20px 48px -20px rgba(0 0 0 / 0.62)",
+  "shadow-material-lift": "0 1px 2px rgba(0 0 0 / 0.36), 0 26px 56px -22px rgba(0 0 0 / 0.75)",
 
   "ms-bg": "var(--r2-bg)",
   "ms-ink": "#d8dbe0",

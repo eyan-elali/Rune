@@ -47,6 +47,8 @@
                   info(-soft)
        Elevation  shadow-sm · shadow-pop · shadow-lg · ring · shadow-sheet ·
                   tooltip-bg · tooltip-ink
+       Material   material-bg · material-border(-strong) · material-highlight ·
+                  material-field-bg · shadow-material(-lift)
        Manuscript ms-bg · ms-ink · ms-faint · ms-caret · ms-selection ·
                   ms-rule — the writer's writing surface */
 
@@ -56,6 +58,7 @@
   --r2-radius: 5px; /* controls, fields, rows, chips */
   --r2-radius-md: 7px; /* menus, popovers, lanes, framed embeds */
   --r2-radius-lg: 9px; /* dialogs, search, the composer */
+  --r2-radius-material: 10px; /* a material surface (.r2-material) */
   --r2-radius-pill: 999px; /* only when the interaction is a pill */
 
   /* ── Spacing: one scale. Inline 2/4/6, controls 8/12, sections 16+ ── */
@@ -75,6 +78,7 @@
   --r2-control-sm: 26px; /* icon buttons, chips, small buttons */
   --r2-control-md: 28px; /* contextual actions, menu items, tools */
   --r2-control-lg: 30px; /* buttons and fields in dialogs and forms */
+  --r2-control-xl: 40px; /* a page that is one form: sign in, the waitlist */
 
   /* ── Typography: the UI sans ──────────────────────────────────────── */
   --r2-font-ui: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
@@ -364,6 +368,75 @@ textarea.r2-field {
   padding: var(--r2-space-3) var(--r2-space-4);
   line-height: var(--r2-lh-body);
   resize: none;
+}
+
+/* ── Material ───────────────────────────────────────────────────────────
+   A surface raised off the page — the public pages and onboarding: the sign
+   in card, the beta panel, a choice, a desk preview. Between paper and a
+   floating panel: its own fill, a 1px edge drawn as a ring (no layout
+   shift), a faint light along the top, and a soft layered fall of shadow
+   (themes.ts material tokens). .r2-material--interactive is one the writer
+   picks: reached for, the edge firms and it lifts a little; chosen
+   (aria-checked / aria-pressed / data-selected), the edge takes the accent. */
+.r2-material {
+  border-radius: var(--r2-radius-material);
+  background: var(--r2-material-bg);
+  box-shadow: inset 0 1px 0 var(--r2-material-highlight), 0 0 0 1px var(--r2-material-border), var(--r2-shadow-material);
+}
+.r2-material--interactive {
+  transition: box-shadow var(--r2-medium) var(--r2-ease), background-color var(--r2-medium) var(--r2-ease);
+}
+.r2-material--interactive:hover:not(:disabled) {
+  box-shadow: inset 0 1px 0 var(--r2-material-highlight), 0 0 0 1px var(--r2-material-border-strong),
+    var(--r2-shadow-material-lift);
+}
+.r2-material--interactive:is([aria-checked="true"], [aria-pressed="true"], [data-selected]) {
+  box-shadow: inset 0 1px 0 var(--r2-material-highlight), 0 0 0 1px var(--r2-accent), 0 0 0 4px var(--r2-accent-soft),
+    var(--r2-shadow-material-lift);
+}
+.r2-material--interactive:focus-visible {
+  outline-offset: 3px;
+  border-radius: var(--r2-radius-material);
+}
+
+/* The large field and button: for a form that is the whole of a page (sign
+   in, the waitlist) — a touch taller, the field set into its surface, its
+   focus a firm edge and a soft halo rather than a heavier box. */
+.r2-field--lg {
+  height: var(--r2-control-xl);
+  padding: 0 var(--r2-space-5);
+  border-color: var(--r2-material-border-strong);
+  border-radius: var(--r2-radius-md);
+  font-size: var(--r2-fs-body);
+  background: var(--r2-material-field-bg);
+}
+.r2-field--lg:focus,
+.r2-field--lg:focus-visible {
+  border-color: var(--r2-focus);
+  box-shadow: 0 0 0 3px var(--r2-accent-soft);
+  background: var(--r2-material-bg);
+}
+.r2-field--lg[aria-invalid="true"] {
+  border-color: var(--r2-danger);
+}
+/* A browser's autofill keeps the field's own tone rather than its tint. */
+.r2-field--lg:-webkit-autofill {
+  -webkit-text-fill-color: var(--r2-ink-1);
+  box-shadow: inset 0 0 0 40px var(--r2-material-field-bg);
+}
+.r2-field--lg:-webkit-autofill:focus {
+  box-shadow: inset 0 0 0 40px var(--r2-material-bg), 0 0 0 3px var(--r2-accent-soft);
+}
+.r2-button--lg {
+  height: var(--r2-control-xl);
+  padding: 0 var(--r2-space-8);
+  border-radius: var(--r2-radius-md);
+  font-size: var(--r2-fs-body);
+  font-weight: var(--r2-weight-medium);
+  letter-spacing: 0.005em;
+}
+.r2-button--lg.r2-button--primary {
+  box-shadow: 0 1px 2px rgba(var(--r2-palette-shadow) / 0.14), 0 4px 10px -6px rgba(var(--r2-palette-shadow) / 0.3);
 }
 
 /* ── Checkbox (drawn) ───────────────────────────────────────────────────
@@ -8350,180 +8423,326 @@ a.r2-home-row-main:focus-visible {
 /* ══ Closed beta and onboarding (Beta Completion E) ═════════════════════
    The public frame (front door, sign in, sign up, pen name), onboarding,
    one-time hints, feedback and the quiet Beta mark. The same tokens as the
-   product: serif only for the few emotional lines, the UI sans for the rest,
-   no cards where a column of text will do. */
+   product. One material language (.r2-material: a surface raised off a warm,
+   quiet page) for the few things that are objects here — the sign-in card,
+   the beta panel, a choice, the manuscript, a desk preview — and nothing
+   else boxed. Serif for identity and the writing; the UI sans for controls
+   and secondary lines. Compositions are centred when the task is singular. */
 
 /* ── The public frame ───────────────────────────────────────────────── */
+/* The page tone (--r2-page-bg), as Projects and Settings. Two
+   compositions:
+     front  the wordmark and the nav at the edges of a wide head, the page
+            centred under it, the trust links centred at the foot.
+     auth   no head: the wordmark leads the card it belongs to, the pair
+            set at the true vertical centre (the foot balanced by an equal
+            row above), the trust links at the foot. */
 .r2-public {
+  --r2-public-gutter: 48px;
   display: flex;
   flex: 1;
   flex-direction: column;
   min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--r2-page-bg);
 }
 .r2-public-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--r2-space-6);
-  height: 56px;
-  padding: 0 var(--r2-space-8);
+  width: min(100%, 1240px);
+  height: 76px;
+  margin: 0 auto;
+  padding: 0 var(--r2-public-gutter);
+  flex-shrink: 0;
 }
 .r2-public-nav {
   display: flex;
   align-items: center;
   gap: var(--r2-space-4);
+  /* A quiet button's text sits on the head's right edge. */
+  margin-right: calc(-1 * var(--r2-space-4));
 }
 .r2-public-main {
   display: flex;
   flex: 1;
   flex-direction: column;
-  justify-content: center;
-  width: min(100%, 640px);
-  margin: 0 auto;
-  padding: 48px var(--r2-space-8) 72px;
+  align-items: center;
+  width: 100%;
+  padding: 0 var(--r2-public-gutter);
 }
 .r2-public-foot {
   display: flex;
   justify-content: center;
-  gap: var(--r2-space-7);
-  padding: var(--r2-space-6) var(--r2-space-8) var(--r2-space-8);
+  gap: var(--r2-space-9);
+  padding: var(--r2-space-6) var(--r2-public-gutter) var(--r2-space-9);
   font-size: var(--r2-fs-meta);
+  flex-shrink: 0;
 }
 .r2-public-foot a {
   color: var(--r2-ink-3);
+  transition: color var(--r2-fast) var(--r2-ease);
 }
 .r2-public-foot a:hover {
   color: var(--r2-ink-1);
 }
+.r2-public[data-variant="auth"] {
+  display: grid;
+  grid-template-rows: minmax(var(--r2-space-10), 1fr) auto minmax(auto, 1fr);
+}
+.r2-public[data-variant="auth"] .r2-public-main {
+  grid-row: 2;
+  padding-top: var(--r2-space-8);
+  padding-bottom: var(--r2-space-8);
+}
+.r2-public[data-variant="auth"] .r2-public-foot {
+  grid-row: 3;
+  align-self: end;
+}
+/* A form's frame: the wordmark leads the card it belongs to. */
+.r2-public-mark {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 28px;
+  --r2-brand-height: 28px;
+}
 
 /* ── The front door ─────────────────────────────────────────────────── */
+/* One viewport, centred: the kind, the headline at full confidence, what
+   Sutura is, the authorship promise, and the beta panel — one material
+   surface that is part of the same composition, not a section below it.
+   The waitlist opens over the page in a sheet, so the page never grows or
+   moves. The stack sits at the optical centre, a touch above the middle. */
+.r2-public[data-variant="front"] .r2-public-main {
+  justify-content: center;
+}
+.r2-front {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: min(100%, 880px);
+  padding-top: var(--r2-space-6);
+  padding-bottom: clamp(24px, 7vh, 72px);
+  text-align: center;
+}
 .r2-front h1 {
-  max-width: 18ch;
+  max-width: 100%;
   font-family: var(--r2-prose-font);
-  font-size: clamp(34px, 6vw, 46px);
+  font-size: clamp(42px, min(6.2vw, 8.6vh), 72px);
   font-weight: var(--r2-weight-regular);
-  line-height: 1.1;
-  letter-spacing: -0.01em;
+  line-height: 1.04;
+  letter-spacing: -0.022em;
+  text-wrap: balance;
   color: var(--r2-ink-1);
 }
 .r2-front-kind {
-  margin-bottom: var(--r2-space-5);
-  font-size: var(--r2-fs-meta);
-  letter-spacing: var(--r2-tracking-label);
+  margin-bottom: var(--r2-space-7);
+  font-size: var(--r2-fs-label);
+  font-weight: var(--r2-weight-semibold);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
   color: var(--r2-ink-3);
 }
 .r2-front-lede {
-  max-width: 34rem;
-  margin-top: var(--r2-space-7);
-  font-size: 16px;
-  line-height: 1.6;
+  max-width: 35rem;
+  margin-top: clamp(20px, 3.4vh, 30px);
+  font-size: 17px;
+  line-height: 1.62;
+  text-wrap: pretty;
   color: var(--r2-ink-2);
 }
-.r2-front-promise,
-.r2-front-beta {
-  max-width: 34rem;
-  margin-top: var(--r2-space-6);
+.r2-front-promise {
+  max-width: 44rem;
+  margin-top: clamp(14px, 2.4vh, 20px);
   font-size: var(--r2-fs-body);
   line-height: var(--r2-lh-body);
+  text-wrap: balance;
   color: var(--r2-ink-3);
 }
-.r2-front-promise strong,
-.r2-front-beta strong,
-.r2-front-note strong {
+.r2-front-promise strong {
+  font-family: var(--r2-prose-font);
+  font-size: 16.5px;
   font-weight: var(--r2-weight-medium);
   color: var(--r2-ink-1);
-}
-.r2-front-beta {
-  margin-top: var(--r2-space-9);
-  padding-top: var(--r2-space-6);
-  border-top: 1px solid var(--r2-border);
-}
-.r2-front-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--r2-space-5);
-  margin-top: var(--r2-space-7);
-}
-.r2-front-primary {
-  height: 36px;
-  padding: 0 var(--r2-space-7);
-  font-size: var(--r2-fs-body);
 }
 .r2-front-small {
   margin-top: var(--r2-space-6);
   font-size: var(--r2-fs-ui-sm);
   color: var(--r2-ink-3);
 }
+.r2-front-signed {
+  margin-top: var(--r2-space-5);
+  font-size: var(--r2-fs-ui-sm);
+  color: var(--r2-ink-3);
+}
 .r2-front-small a,
 .r2-auth-foot a,
+.r2-auth-legal a,
+.r2-auth-card-foot a,
 .r2-notice a {
   color: var(--r2-accent);
 }
 .r2-front-small a:hover,
 .r2-auth-foot a:hover,
+.r2-auth-legal a:hover,
+.r2-auth-card-foot a:hover,
 .r2-notice a:hover {
   text-decoration: underline;
+  text-underline-offset: 2px;
 }
+.r2-front-actions {
+  display: flex;
+  justify-content: center;
+  margin-top: clamp(28px, 5vh, 44px);
+}
+
+/* The beta panel: the closed-beta note and Join the beta on one line. For
+   an account without access, the note and the form itself. */
+.r2-front-panel {
+  width: min(100%, 680px);
+  margin-top: clamp(28px, 5vh, 44px);
+  padding: 22px 22px 22px 28px;
+  text-align: left;
+}
+.r2-front-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--r2-space-9);
+}
+.r2-front-panel-head .r2-button {
+  flex-shrink: 0;
+}
+.r2-front-beta,
 .r2-front-note {
-  max-width: 34rem;
-  margin-top: var(--r2-space-7);
-  padding: var(--r2-space-5) var(--r2-space-6);
-  border-radius: var(--r2-radius-md);
-  background: var(--r2-shell-bg);
   font-size: var(--r2-fs-body);
   line-height: var(--r2-lh-body);
   color: var(--r2-ink-2);
 }
+.r2-front-beta strong,
+.r2-front-note strong {
+  font-weight: var(--r2-weight-medium);
+  color: var(--r2-ink-1);
+}
+.r2-front-beta strong {
+  display: block;
+  margin-bottom: 1px;
+}
+.r2-front-note:focus {
+  outline: none;
+}
+.r2-front-panel > .r2-front-purpose {
+  margin-top: var(--r2-space-5);
+}
+
+/* The waitlist's sheet: a small material surface over a light scrim — the
+   same object language as the panel it opened from. */
+.r2-front-sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--r2-space-6);
+  background: var(--r2-scrim-light);
+  animation: r2-fade-in var(--r2-medium) var(--r2-ease);
+}
+.r2-front-sheet {
+  width: min(100%, 440px);
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  padding: 32px 32px 28px;
+  box-shadow: inset 0 1px 0 var(--r2-material-highlight), 0 0 0 1px var(--r2-material-border), var(--r2-shadow-lg);
+  text-align: left;
+  animation: r2-onb-in 260ms var(--r2-ease) both;
+}
+.r2-front-sheet h2 {
+  font-family: var(--r2-prose-font);
+  font-size: 26px;
+  font-weight: var(--r2-weight-regular);
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  color: var(--r2-ink-1);
+}
+.r2-front-sheet .r2-front-purpose {
+  margin-top: var(--r2-space-3);
+}
+.r2-front-purpose {
+  font-size: var(--r2-fs-ui-sm);
+  line-height: var(--r2-lh-ui);
+  color: var(--r2-ink-3);
+}
 .r2-front-form {
   display: grid;
-  gap: var(--r2-space-5);
-  max-width: 26rem;
-  margin-top: var(--r2-space-7);
+  gap: var(--r2-space-6);
+  margin-top: var(--r2-space-8);
 }
 .r2-front-field,
 .r2-auth-field {
   display: grid;
-  gap: var(--r2-space-3);
+  gap: 7px;
   font-size: var(--r2-fs-ui-sm);
+  font-weight: var(--r2-weight-medium);
   color: var(--r2-ink-2);
 }
 .r2-front-field em {
+  margin-left: var(--r2-space-2);
   font-style: normal;
+  font-weight: var(--r2-weight-regular);
   color: var(--r2-ink-3);
 }
 .r2-front-field .r2-field,
 .r2-auth-field .r2-field {
   width: 100%;
-  height: 36px;
-  font-size: var(--r2-fs-body);
+  font-weight: var(--r2-weight-regular);
 }
-.r2-front-purpose {
-  margin: 0;
-  font-size: var(--r2-fs-ui-sm);
-  color: var(--r2-ink-3);
-}
-.r2-front-form .r2-front-actions {
+.r2-front-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--r2-space-4);
   margin-top: var(--r2-space-3);
 }
 
 /* ── Sign in, sign up, pen name ─────────────────────────────────────── */
+/* One material card under the wordmark: the title centred, the fields
+   quiet, one blue action, and the ways elsewhere in a foot that is part of
+   the card — not text floating beneath it. */
 .r2-auth {
-  width: min(100%, 380px);
-  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+.r2-auth-card {
+  width: min(100%, 452px);
+  padding: 44px 44px 0;
+  border-radius: var(--r2-radius-material);
+  background: var(--r2-material-bg);
+  box-shadow: inset 0 1px 0 var(--r2-material-highlight), 0 0 0 1px var(--r2-material-border), var(--r2-shadow-material);
+}
+/* A card without a foot (a confirmation, the pen name) closes on its own padding. */
+.r2-auth-card > :last-child:not(.r2-auth-card-foot) {
+  margin-bottom: 40px;
 }
 .r2-auth-card h1 {
   font-family: var(--r2-prose-font);
   font-size: 30px;
   font-weight: var(--r2-weight-regular);
   line-height: 1.15;
+  letter-spacing: -0.012em;
+  text-align: center;
   color: var(--r2-ink-1);
 }
 .r2-auth-lede {
-  margin-top: var(--r2-space-4);
+  max-width: 21rem;
+  margin: var(--r2-space-4) auto 0;
   font-size: var(--r2-fs-body);
   line-height: var(--r2-lh-body);
-  color: var(--r2-ink-2);
+  text-align: center;
+  text-wrap: balance;
+  color: var(--r2-ink-3);
 }
 .r2-auth-lede strong {
   font-weight: var(--r2-weight-medium);
@@ -8531,132 +8750,149 @@ a.r2-home-row-main:focus-visible {
 }
 .r2-auth-form {
   display: grid;
-  gap: var(--r2-space-6);
-  margin-top: var(--r2-space-8);
+  gap: 18px;
+  margin-top: var(--r2-space-9);
 }
 .r2-auth-field-error {
   font-size: var(--r2-fs-meta);
+  font-weight: var(--r2-weight-regular);
   color: var(--r2-danger);
 }
 .r2-auth-submit {
   width: 100%;
-  height: 36px;
-  margin-top: var(--r2-space-2);
-  font-size: var(--r2-fs-body);
-}
-.r2-auth-switch {
-  margin-top: var(--r2-space-5);
-  margin-left: calc(-1 * var(--r2-space-4));
-}
-.r2-auth-card > .r2-button--quiet:only-of-type:not(.r2-auth-switch) {
-  margin-top: var(--r2-space-6);
-  margin-left: calc(-1 * var(--r2-space-4));
-}
-.r2-auth-foot {
-  margin-top: var(--r2-space-6);
-  font-size: var(--r2-fs-ui-sm);
-  color: var(--r2-ink-3);
-}
-.r2-auth-foot + .r2-auth-foot {
   margin-top: var(--r2-space-3);
 }
+/* Sign in another way: a quiet line under the action, centred with it. */
+.r2-auth-switch {
+  display: flex;
+  margin: var(--r2-space-5) auto 0;
+  color: var(--r2-ink-3);
+}
+.r2-auth-card > .r2-button--quiet:not(.r2-auth-switch) {
+  display: flex;
+  margin: var(--r2-space-7) auto 0;
+}
+.r2-auth-foot {
+  margin-top: var(--r2-space-7);
+  font-size: var(--r2-fs-ui-sm);
+  text-align: center;
+  color: var(--r2-ink-3);
+}
 .r2-auth-legal {
+  max-width: 22rem;
+  margin: var(--r2-space-6) auto 0;
   font-size: var(--r2-fs-meta);
+  line-height: var(--r2-lh-ui);
+  text-align: center;
+  text-wrap: balance;
+  color: var(--r2-ink-3);
+}
+/* The card's foot: the ways elsewhere, under a hairline, on the field tone. */
+.r2-auth-card-foot {
+  display: grid;
+  gap: var(--r2-space-2);
+  margin: 32px -44px 0;
+  padding: 18px 44px 20px;
+  border-top: 1px solid var(--r2-material-border);
+  border-radius: 0 0 var(--r2-radius-material) var(--r2-radius-material);
+  background: var(--r2-material-field-bg);
+  font-size: var(--r2-fs-ui-sm);
+  line-height: var(--r2-lh-ui);
+  text-align: center;
+  color: var(--r2-ink-3);
 }
 
 /* ── Onboarding ─────────────────────────────────────────────────────── */
-/* One centred stage, the width of a generous page. Two kinds of screen: a
-   MOMENT (Welcome, arrival) is set centred and sparse; a TASK keeps its text
-   left-aligned inside the same stage. Hierarchy comes from type and space —
-   a heading in the prose serif with real presence, a measured lede, one
-   primary action — and almost never from a rule or a box. The theme is the
-   writer's own from the first paint; a change of theme crossfades the
-   surface (not under reduced motion). */
+/* A short sequence, centred by default — each screen is one task — with a
+   rhythm between them rather than one template: the two MOMENTS (Welcome,
+   arrival) are type alone, larger and set a little above the middle; the
+   choices are two material objects; the title is one editorial line; the
+   mental model is the one wide, structural screen; the appearance is three
+   small desks. The theme is the writer's own from the first paint; a change
+   of theme crossfades the page (not under reduced motion). */
 .r2-onb {
+  --r2-onb-gutter: 48px;
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--r2-page-bg);
   transition: background-color var(--r2-frame) var(--r2-ease), color var(--r2-frame) var(--r2-ease);
 }
 .r2-onb-head {
   display: flex;
   align-items: center;
-  height: 56px;
-  padding: 0 var(--r2-space-8);
+  justify-content: center;
+  height: 76px;
+  flex-shrink: 0;
+  --r2-brand-height: 24px;
 }
 .r2-onb-main {
+  position: relative;
   display: flex;
   flex: 1;
   flex-direction: column;
+  align-items: center;
   justify-content: center;
-  width: min(100%, 640px);
+  width: min(100%, 1040px);
   margin: 0 auto;
-  padding: 24px var(--r2-space-8) 120px;
+  padding: 24px var(--r2-onb-gutter) 104px;
 }
 .r2-onb-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  text-align: center;
   animation: r2-onb-in 420ms var(--r2-ease) both;
 }
 @keyframes r2-onb-in {
-  from { opacity: 0; transform: translateY(8px); }
+  from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: none; }
 }
 .r2-onb-screen h1 {
-  max-width: 20ch;
+  max-width: 22ch;
   font-family: var(--r2-prose-font);
-  font-size: clamp(32px, 4.8vw, 42px);
+  font-size: clamp(32px, 4.4vw, 44px);
   font-weight: var(--r2-weight-regular);
-  line-height: 1.14;
-  letter-spacing: -0.012em;
+  line-height: 1.12;
+  letter-spacing: -0.014em;
   text-wrap: balance;
   color: var(--r2-ink-1);
 }
 .r2-onb-screen h1:focus {
   outline: none;
 }
+/* Back: at the stage's top left, out of the centred composition. */
 .r2-onb-back {
-  margin: 0 0 var(--r2-space-8) calc(-1 * var(--r2-space-4));
+  position: absolute;
+  top: 0;
+  left: calc(var(--r2-onb-gutter) - var(--r2-space-4));
   color: var(--r2-ink-3);
 }
 .r2-onb-lede {
-  max-width: 32rem;
+  max-width: 31rem;
   margin-top: var(--r2-space-7);
   font-size: 16.5px;
   line-height: 1.6;
+  text-wrap: balance;
   color: var(--r2-ink-2);
 }
 .r2-onb-lede--close {
-  margin-top: var(--r2-space-9);
+  margin-top: 36px;
+  font-size: var(--r2-fs-row);
   color: var(--r2-ink-3);
-}
-/* The authorship promise: a quieter paragraph a breath below, parted by
-   space alone. */
-.r2-onb-promise {
-  max-width: 30rem;
-  margin-top: var(--r2-space-10);
-  font-size: var(--r2-fs-body);
-  line-height: var(--r2-lh-body);
-  color: var(--r2-ink-3);
-}
-.r2-onb-promise strong {
-  display: block;
-  margin-bottom: var(--r2-space-2);
-  font-family: var(--r2-prose-font);
-  font-size: 18px;
-  font-weight: var(--r2-weight-medium);
-  color: var(--r2-ink-1);
 }
 .r2-onb-actions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: center;
   gap: var(--r2-space-4);
-  margin-top: var(--r2-space-10);
+  margin-top: 40px;
 }
 .r2-onb-primary {
-  height: 38px;
-  min-width: 128px;
-  padding: 0 var(--r2-space-8);
-  font-size: var(--r2-fs-body);
+  min-width: 148px;
 }
 .r2-onb-open {
   max-width: 100%;
@@ -8664,124 +8900,169 @@ a.r2-home-row-main:focus-visible {
   text-overflow: ellipsis;
 }
 .r2-onb-hint {
-  margin-top: var(--r2-space-4);
+  margin-top: var(--r2-space-5);
   font-size: var(--r2-fs-ui-sm);
   color: var(--r2-ink-3);
 }
 .r2-onb-error {
   max-width: 32rem;
   margin-top: var(--r2-space-7);
-}
-
-/* A moment: everything set on the centre line, the heading a little larger. */
-.r2-onb-screen--moment {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding-bottom: 6vh;
   text-align: center;
 }
-.r2-onb-screen--moment h1 {
-  max-width: 18ch;
-  font-size: clamp(36px, 5.4vw, 48px);
+
+/* A moment: type alone, larger, set a little above the middle. */
+.r2-onb-screen--moment {
+  padding-bottom: 6vh;
 }
-.r2-onb-screen--moment .r2-onb-lede,
-.r2-onb-screen--moment .r2-onb-promise {
-  margin-left: auto;
-  margin-right: auto;
+.r2-onb-screen--moment h1 {
+  max-width: 16ch;
+  font-size: clamp(44px, min(6vw, 8.4vh), 68px);
+  line-height: 1.04;
+  letter-spacing: -0.022em;
+}
+.r2-onb-screen--moment .r2-onb-lede {
+  max-width: 30rem;
+  margin-top: 28px;
+  font-size: 17.5px;
+  color: var(--r2-ink-2);
 }
 .r2-onb-screen--moment .r2-onb-actions {
-  justify-content: center;
+  margin-top: 48px;
+}
+/* The authorship promise: anchored under the lede by a short centred rule,
+   its first line in the serif. */
+.r2-onb-promise {
+  max-width: 28rem;
+  margin-top: 36px;
+  font-size: var(--r2-fs-body);
+  line-height: var(--r2-lh-body);
+  color: var(--r2-ink-3);
+}
+.r2-onb-promise::before {
+  content: "";
+  display: block;
+  width: 36px;
+  height: 1px;
+  margin: 0 auto 28px;
+  background: var(--r2-border-strong);
+}
+.r2-onb-promise strong {
+  display: block;
+  margin-bottom: var(--r2-space-2);
+  font-family: var(--r2-prose-font);
+  font-size: 19px;
+  font-weight: var(--r2-weight-medium);
+  color: var(--r2-ink-1);
 }
 
-/* How are you starting: two equal paths, parted by space. No border at rest;
-   a soft surface that deepens when reached for, the ring only for the
-   keyboard. */
+/* How are you starting: two equal material objects, the screen's focus.
+   The glyph sits in its own small well at the top; the name and its line
+   at the foot. Reached for, the card lifts and the well takes the accent. */
 .r2-onb-choices {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--r2-space-5);
-  margin-top: var(--r2-space-10);
+  grid-template-columns: repeat(2, minmax(0, 272px));
+  justify-content: center;
+  gap: 18px;
+  width: 100%;
+  margin-top: 44px;
 }
 .r2-onb-choice {
-  display: grid;
-  justify-items: start;
-  align-content: start;
-  gap: var(--r2-space-3);
-  min-height: 188px;
-  padding: var(--r2-space-8) var(--r2-space-8) var(--r2-space-9);
-  border-radius: var(--r2-radius-lg);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-height: 204px;
+  padding: 24px 26px 26px;
   text-align: left;
-  color: var(--r2-ink-3);
-  background: var(--r2-group-bg);
-  transition: background-color var(--r2-fast) var(--r2-ease), color var(--r2-fast) var(--r2-ease);
-}
-.r2-onb-choice:hover:not(:disabled) {
   color: var(--r2-ink-2);
-  background: var(--r2-hover);
-}
-.r2-onb-choice:active:not(:disabled) {
-  background: var(--r2-press);
-}
-.r2-onb-choice:focus-visible {
-  outline-offset: 2px;
-  border-radius: var(--r2-radius-lg);
 }
 .r2-onb-choice:disabled {
   opacity: var(--r2-disabled-opacity);
 }
+.r2-onb-choice-well {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  margin-bottom: auto;
+  border-radius: var(--r2-radius-md);
+  color: var(--r2-ink-2);
+  background: var(--r2-material-field-bg);
+  box-shadow: 0 0 0 1px var(--r2-material-border);
+  transition: color var(--r2-medium) var(--r2-ease), background-color var(--r2-medium) var(--r2-ease),
+    box-shadow var(--r2-medium) var(--r2-ease);
+}
+.r2-onb-choice:hover:not(:disabled) .r2-onb-choice-well {
+  color: var(--r2-accent);
+  background: var(--r2-accent-soft);
+  box-shadow: 0 0 0 1px var(--r2-accent-line);
+}
 .r2-onb-choice-title {
-  margin-top: var(--r2-space-7);
+  margin-top: 40px;
   font-family: var(--r2-prose-font);
-  font-size: 23px;
+  font-size: 22px;
   line-height: 1.2;
   color: var(--r2-ink-1);
 }
 .r2-onb-choice-detail {
+  margin-top: var(--r2-space-3);
   font-size: var(--r2-fs-body);
   line-height: var(--r2-lh-ui);
-  color: var(--r2-ink-2);
+  color: var(--r2-ink-3);
 }
 
-/* What are you working on: one line, set like a title page. */
+/* What are you working on: one line, set like a title page — the serif,
+   centred, on a hairline that takes the accent when the writer is in it. */
 .r2-onb-form {
-  margin-top: var(--r2-space-10);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: min(100%, 600px);
+  margin-top: 44px;
 }
 .r2-onb-title-input {
   width: 100%;
-  padding: var(--r2-space-3) 0 var(--r2-space-4);
+  padding: var(--r2-space-3) 0 14px;
   border: 0;
-  border-bottom: 1px solid var(--r2-border-strong);
+  border-bottom: 1px solid color-mix(in srgb, var(--r2-ink-3) 42%, transparent);
   border-radius: 0;
   font-family: var(--r2-prose-font);
-  font-size: 28px;
+  font-size: clamp(28px, 3.4vw, 38px);
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  text-align: center;
   color: var(--r2-ink-1);
   background: transparent;
-  transition: border-color var(--r2-fast) var(--r2-ease);
+  transition: border-color var(--r2-medium) var(--r2-ease), box-shadow var(--r2-medium) var(--r2-ease);
 }
 .r2-onb-title-input::placeholder {
   color: var(--r2-ink-3);
+  opacity: 0.6;
 }
 .r2-onb-title-input:focus,
 .r2-onb-title-input:focus-visible {
   outline: none;
-  border-bottom-color: var(--r2-focus);
+  border-bottom-color: var(--r2-accent);
+  box-shadow: 0 1px 0 0 var(--r2-accent);
 }
 
-/* The mental model, drawn: the book as a page — the one surface on the
-   screen, so it reads as the foundation — and the workspace beside it with
-   no box of its own, a loose column of names. Space, not rules, parts them. */
+/* The mental model: the one wide screen. Two columns of equal weight — the
+   Manuscript, a material page with the structure of a book and no prose;
+   the Workspace, an open dashed field holding a few things a writer might
+   have made there (each a different kind, loosely placed, marked "for
+   example"), and an empty slot for whatever else the book asks for. */
 .r2-onb-model {
   display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
-  column-gap: var(--r2-space-10);
-  align-items: start;
-  margin-top: var(--r2-space-10);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 32px;
+  width: min(100%, 860px);
+  margin-top: 44px;
+  text-align: left;
 }
 .r2-onb-model-kind {
   font-size: var(--r2-fs-label);
   font-weight: var(--r2-weight-semibold);
-  letter-spacing: var(--r2-tracking-caps);
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--r2-ink-3);
 }
@@ -8792,14 +9073,20 @@ a.r2-home-row-main:focus-visible {
   line-height: 1.25;
   color: var(--r2-ink-1);
 }
+.r2-onb-model-page,
+.r2-onb-model-field {
+  height: 244px;
+  margin-top: var(--r2-space-6);
+}
 .r2-onb-model-page {
-  display: grid;
-  gap: 7px;
-  margin-top: var(--r2-space-7);
-  padding: var(--r2-space-7) var(--r2-space-7) var(--r2-space-8);
-  border-radius: var(--r2-radius-md);
-  background: var(--r2-prose-bg);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--r2-border) 80%, transparent), var(--r2-shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 30px 36px;
+  overflow: hidden;
+}
+.r2-onb-model-page > * {
+  flex-shrink: 0;
 }
 .r2-onb-model-chapter {
   font-family: var(--r2-prose-font);
@@ -8813,7 +9100,7 @@ a.r2-home-row-main:focus-visible {
   height: 4px;
   border-radius: 2px;
   background: var(--r2-ink-3);
-  opacity: 0.32;
+  opacity: 0.28;
 }
 .r2-onb-model-scene--short {
   width: 58%;
@@ -8821,71 +9108,155 @@ a.r2-home-row-main:focus-visible {
 .r2-onb-model-scene--mid {
   width: 78%;
 }
-/* The workspace's names: one loose column, set in the serif at the size of
-   the book's chapters, with the open-ended last line quieter. */
-.r2-onb-model-things {
-  display: grid;
-  gap: var(--r2-space-4);
-  margin-top: var(--r2-space-9);
-  padding: var(--r2-space-5) 0 var(--r2-space-5) var(--r2-space-6);
-  border-left: 1px solid var(--r2-border);
-  list-style: none;
+.r2-onb-model-field {
+  position: relative;
+  border: 1px dashed var(--r2-border-strong);
+  border-radius: var(--r2-radius-material);
 }
-.r2-onb-model-things li {
+.r2-onb-model-eg {
+  position: absolute;
+  top: 12px;
+  left: 16px;
   font-family: var(--r2-prose-font);
-  font-size: 16px;
-  line-height: 1.3;
-  color: var(--r2-ink-2);
-}
-.r2-onb-model-things .r2-onb-model-more {
+  font-size: 13.5px;
   font-style: italic;
   color: var(--r2-ink-3);
 }
+/* An example: a small object the writer made, its kind drawn under its name. */
+.r2-onb-model-item {
+  position: absolute;
+  display: grid;
+  gap: 9px;
+  width: 112px;
+  padding: 9px 11px 11px;
+  border-radius: var(--r2-radius-md);
+  font-size: var(--r2-fs-meta);
+  color: var(--r2-ink-2);
+}
+.r2-onb-model-item-name {
+  display: flex;
+  align-items: center;
+  gap: var(--r2-space-3);
+}
+.r2-onb-model-item-name svg {
+  flex-shrink: 0;
+  color: var(--r2-ink-3);
+}
+.r2-onb-model-glyph {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.r2-onb-model-glyph i {
+  display: block;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--r2-ink-3);
+  opacity: 0.26;
+}
+.r2-onb-model-glyph i:last-child {
+  width: 64%;
+}
+/* A collection: rows, each with a small mark. */
+.r2-onb-model-glyph[data-kind="collection"] i {
+  width: 100%;
+}
+.r2-onb-model-glyph[data-kind="collection"] i:last-child {
+  width: 100%;
+}
+/* A timeline: a line with its moments. */
+.r2-onb-model-glyph[data-kind="timeline"] {
+  position: relative;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  height: 7px;
+  padding: 0 4px;
+}
+.r2-onb-model-glyph[data-kind="timeline"]::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 3px;
+  height: 1px;
+  background: var(--r2-ink-3);
+  opacity: 0.3;
+}
+.r2-onb-model-glyph[data-kind="timeline"] i,
+.r2-onb-model-glyph[data-kind="timeline"] i:last-child {
+  position: relative;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  opacity: 0.45;
+}
+/* A canvas: notes, loosely placed. */
+.r2-onb-model-glyph[data-kind="canvas"] {
+  position: relative;
+  height: 20px;
+}
+.r2-onb-model-glyph[data-kind="canvas"] i {
+  position: absolute;
+  width: 22px;
+  height: 13px;
+  border-radius: 2px;
+  opacity: 0.2;
+}
+.r2-onb-model-glyph[data-kind="canvas"] i:nth-child(1) { left: 0; top: 0; }
+.r2-onb-model-glyph[data-kind="canvas"] i:nth-child(2) { left: 30px; top: 6px; width: 26px; }
+.r2-onb-model-glyph[data-kind="canvas"] i:nth-child(3) { left: 64px; top: 1px; width: 18px; }
+/* Loosely placed in the field — not a list, not a navigation. */
+.r2-onb-model-item[data-at="1"] { left: 6%; top: 19%; }
+.r2-onb-model-item[data-at="2"] { right: 6%; top: 10%; }
+.r2-onb-model-item[data-at="3"] { left: 11%; top: 56%; }
+.r2-onb-model-item[data-at="4"] { right: 9%; top: 48%; }
+/* Anything else: the slot the writer fills with whatever the book asks. */
+.r2-onb-model-slot {
+  position: absolute;
+  left: 50%;
+  bottom: 7%;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--r2-space-2);
+  height: 26px;
+  padding: 0 var(--r2-space-4);
+  border: 1px dashed var(--r2-border-strong);
+  border-radius: var(--r2-radius-md);
+  font-size: var(--r2-fs-meta);
+  color: var(--r2-ink-3);
+}
 .r2-onb-model-note {
-  margin-top: var(--r2-space-6);
+  margin-top: var(--r2-space-5);
   max-width: 24rem;
   font-size: var(--r2-fs-ui-sm);
   line-height: var(--r2-lh-ui);
   color: var(--r2-ink-3);
 }
 
-/* Make the desk yours: three small desks, each in its own theme. The chosen
-   one sits on a faint accent-tinted ground with its name marked — no heavy
-   box; the keyboard ring is the only outline. */
+/* Make the desk yours: three small desks, each a material object in its
+   own theme. Chosen, its edge takes the accent and its name is marked. */
 .r2-onb-themes {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--r2-space-4);
-  margin-top: var(--r2-space-9);
+  gap: 18px;
+  width: min(100%, 660px);
+  margin-top: 40px;
 }
 .r2-onb-theme {
   display: grid;
-  gap: var(--r2-space-4);
-  padding: var(--r2-space-4) var(--r2-space-4) var(--r2-space-5);
-  border-radius: var(--r2-radius-lg);
+  gap: var(--r2-space-5);
+  padding: 9px 9px 13px;
   text-align: left;
-  transition: background-color var(--r2-fast) var(--r2-ease);
-}
-.r2-onb-theme:hover {
-  background: var(--r2-hover);
-}
-.r2-onb-theme[aria-checked="true"] {
-  background: var(--r2-accent-soft);
-}
-.r2-onb-theme:focus-visible {
-  outline-offset: 2px;
-  border-radius: var(--r2-radius-lg);
 }
 .r2-onb-theme-preview {
   display: flex;
-  height: 124px;
+  height: 120px;
   overflow: hidden;
   border-radius: var(--r2-radius-md);
   background: var(--r2-bg);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--r2-border-strong) 70%, transparent);
-}
-.r2-onb-theme[aria-checked="true"] .r2-onb-theme-preview {
-  box-shadow: 0 0 0 1px var(--r2-accent-line);
+  box-shadow: 0 0 0 1px var(--r2-border);
 }
 .r2-onb-theme-nav {
   width: 26%;
@@ -8920,7 +9291,7 @@ a.r2-home-row-main:focus-visible {
   align-items: center;
   justify-content: space-between;
   gap: var(--r2-space-3);
-  padding: 0 var(--r2-space-1);
+  padding: 0 var(--r2-space-2);
   font-size: var(--r2-fs-ui);
   color: var(--r2-ink-2);
 }
@@ -8938,7 +9309,7 @@ a.r2-home-row-main:focus-visible {
   opacity: 1;
 }
 .r2-onb-system {
-  margin: var(--r2-space-6) 0 0 0;
+  margin-top: var(--r2-space-7);
   color: var(--r2-ink-3);
 }
 .r2-onb-system[aria-pressed="true"] {
@@ -8946,32 +9317,178 @@ a.r2-home-row-main:focus-visible {
   background: var(--r2-accent-soft);
 }
 
+/* Short laptop screens (and 125–150% zoom): the same compositions, closer.
+   Nothing changes on a full-height desktop. */
+@media (max-height: 880px) {
+  .r2-public[data-variant="auth"] {
+    grid-template-rows: minmax(var(--r2-space-5), 1fr) auto minmax(auto, 1fr);
+  }
+  .r2-public[data-variant="auth"] .r2-public-main {
+    padding-top: var(--r2-space-5);
+    padding-bottom: var(--r2-space-5);
+  }
+  .r2-public[data-variant="auth"] .r2-public-foot {
+    padding-top: var(--r2-space-4);
+    padding-bottom: var(--r2-space-6);
+  }
+  .r2-public-mark {
+    margin-bottom: var(--r2-space-7);
+  }
+  .r2-auth-card {
+    padding-top: 34px;
+  }
+  .r2-auth-form {
+    gap: 14px;
+    margin-top: var(--r2-space-8);
+  }
+  .r2-auth-legal {
+    margin-top: var(--r2-space-5);
+  }
+  .r2-auth-card-foot {
+    margin-top: var(--r2-space-8);
+    padding-top: 14px;
+    padding-bottom: 16px;
+  }
+  .r2-onb-main {
+    padding-bottom: 56px;
+  }
+  .r2-onb-model {
+    margin-top: 32px;
+  }
+  .r2-onb-model-page,
+  .r2-onb-model-field {
+    height: 224px;
+  }
+  .r2-onb-lede--close {
+    margin-top: 26px;
+  }
+  .r2-onb-model ~ .r2-onb-actions {
+    margin-top: 28px;
+  }
+}
+@media (max-height: 760px) {
+  .r2-public-head,
+  .r2-onb-head {
+    height: 60px;
+  }
+  .r2-public-mark {
+    margin-bottom: var(--r2-space-6);
+    --r2-brand-height: 24px;
+  }
+  .r2-auth-card {
+    padding-top: 28px;
+  }
+  .r2-auth-card h1 {
+    font-size: 27px;
+  }
+  .r2-auth-form {
+    margin-top: var(--r2-space-7);
+  }
+  .r2-auth-card-foot {
+    margin-top: var(--r2-space-7);
+  }
+  .r2-public-foot {
+    padding-bottom: var(--r2-space-7);
+  }
+  .r2-onb-main {
+    padding-top: var(--r2-space-4);
+    padding-bottom: 40px;
+  }
+  .r2-onb-screen h1 {
+    font-size: clamp(28px, min(4.4vw, 5.6vh), 44px);
+  }
+  .r2-onb-choices,
+  .r2-onb-form,
+  .r2-onb-themes {
+    margin-top: 32px;
+  }
+  .r2-onb-model {
+    margin-top: 24px;
+  }
+  .r2-onb-model-what {
+    font-size: 18px;
+  }
+  .r2-onb-model-page,
+  .r2-onb-model-field {
+    height: 208px;
+    margin-top: var(--r2-space-5);
+  }
+  .r2-onb-model-page {
+    padding-top: 22px;
+    padding-bottom: 22px;
+  }
+  .r2-onb-model-note {
+    margin-top: var(--r2-space-4);
+  }
+  .r2-onb-actions {
+    margin-top: 32px;
+  }
+  .r2-onb-model ~ .r2-onb-actions {
+    margin-top: 22px;
+  }
+  .r2-onb-lede--close {
+    margin-top: 20px;
+  }
+}
+
+/* Narrow widths: the two-column pieces stack. */
+@media (max-width: 760px) {
+  .r2-onb-model {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: var(--r2-space-9);
+  }
+  .r2-front-panel-head {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--r2-space-6);
+  }
+}
+
 @media (max-width: 640px) {
-  .r2-onb-model,
   .r2-onb-themes,
   .r2-onb-choices {
-    grid-template-columns: 1fr;
-  }
-  .r2-onb-model-space {
-    margin-top: var(--r2-space-9);
+    grid-template-columns: minmax(0, 1fr);
   }
   .r2-onb-choice {
     min-height: 0;
   }
-  .r2-public-head,
-  .r2-public-main,
-  .r2-onb-head,
-  .r2-onb-main {
-    padding-left: var(--r2-space-6);
-    padding-right: var(--r2-space-6);
+  .r2-onb-choice-title {
+    margin-top: var(--r2-space-7);
+  }
+  .r2-public,
+  .r2-onb {
+    --r2-public-gutter: var(--r2-space-6);
+    --r2-onb-gutter: var(--r2-space-6);
+  }
+  .r2-onb-back {
+    position: static;
+    align-self: flex-start;
+    margin-bottom: var(--r2-space-7);
+  }
+  .r2-auth-card {
+    padding: 32px 24px 0;
+  }
+  .r2-auth-card-foot {
+    margin-left: -24px;
+    margin-right: -24px;
+    padding-left: 24px;
+    padding-right: 24px;
+  }
+  .r2-front-panel {
+    padding: 20px;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .r2-onb {
+  .r2-onb,
+  .r2-material--interactive,
+  .r2-onb-choice-well,
+  .r2-onb-title-input {
     transition: none;
   }
-  .r2-onb-screen {
+  .r2-onb-screen,
+  .r2-front-sheet,
+  .r2-front-sheet-backdrop {
     animation: none;
   }
 }

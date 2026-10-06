@@ -11,18 +11,22 @@ import { PEN_NAME_MAX_LENGTH, getPenNameValidationError, normalizePenName } from
 // 052, beta_before_user_created) an email that is not approved is refused
 // here, and the writer is pointed at the waitlist; without it, the account
 // is made but can't enter Rune until approved (the front door says so).
+//
+// One password field, no confirmation: the same 8-character rule, and a
+// mistyped password is never a lockout — the account is confirmed (and
+// signed in) by the emailed link, and Sign in offers a sign-in link for any
+// later visit. The field is labelled "Name"; it is still the pen name
+// (profiles.display_name), with the same rules.
 
 interface FieldErrors {
   displayName?: string;
   password?: string;
-  confirmPassword?: string;
 }
 
 export default function SignupClient() {
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [error, setError] = useState<string | null>(null);
   const [notInvited, setNotInvited] = useState(false);
@@ -35,10 +39,9 @@ export default function SignupClient() {
     setNotInvited(false);
 
     const errors: FieldErrors = {};
-    const penNameError = getPenNameValidationError(displayName);
+    const penNameError = getPenNameValidationError(displayName, "name");
     if (penNameError) errors.displayName = penNameError;
     if (password.length < 8) errors.password = "Use at least 8 characters.";
-    if (password !== confirmPassword) errors.confirmPassword = "The passwords don’t match.";
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors);
       return;
@@ -109,9 +112,9 @@ export default function SignupClient() {
 
       <form onSubmit={handleSubmit} noValidate className="r2-auth-form">
         <label className="r2-auth-field">
-          <span>Pen name</span>
+          <span>Name</span>
           <input
-            className="r2-field"
+            className="r2-field r2-field--lg"
             type="text"
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
@@ -125,7 +128,7 @@ export default function SignupClient() {
         <label className="r2-auth-field">
           <span>Email</span>
           <input
-            className="r2-field"
+            className="r2-field r2-field--lg"
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -136,7 +139,7 @@ export default function SignupClient() {
         <label className="r2-auth-field">
           <span>Password</span>
           <input
-            className="r2-field"
+            className="r2-field r2-field--lg"
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -147,20 +150,6 @@ export default function SignupClient() {
           />
           {fieldError("password")}
         </label>
-        <label className="r2-auth-field">
-          <span>Confirm password</span>
-          <input
-            className="r2-field"
-            type="password"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            autoComplete="new-password"
-            required
-            {...field("confirmPassword")}
-          />
-          {fieldError("confirmPassword")}
-        </label>
-
         {notInvited && (
           <p role="alert" className="r2-notice">
             This email hasn’t been invited yet. Sutura is in closed beta — <Link href="/">join the waitlist</Link> and
@@ -173,21 +162,24 @@ export default function SignupClient() {
           </p>
         )}
 
-        <button type="submit" className="r2-button r2-button--primary r2-auth-submit" disabled={loading}>
+        <button type="submit" className="r2-button r2-button--primary r2-button--lg r2-auth-submit" disabled={loading}>
           {loading ? "Creating your account…" : "Create account"}
         </button>
       </form>
 
-      <p className="r2-auth-foot r2-auth-legal">
+      <p className="r2-auth-legal">
         By creating an account, you agree to Sutura’s <Link href="/terms">Terms</Link> and acknowledge the{" "}
         <Link href="/privacy">Privacy Policy</Link>.
       </p>
-      <p className="r2-auth-foot">
-        Already have an account? <Link href="/login">Sign in</Link>
-      </p>
-      <p className="r2-auth-foot">
-        Not invited yet? <Link href="/">Join the beta</Link>
-      </p>
+
+      <div className="r2-auth-card-foot">
+        <p>
+          Already have an account? <Link href="/login">Sign in</Link>
+        </p>
+        <p>
+          Not invited yet? <Link href="/">Join the beta</Link>
+        </p>
+      </div>
     </section>
   );
 }

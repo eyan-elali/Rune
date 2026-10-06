@@ -2,12 +2,12 @@
 
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Check, FileUp, PenLine } from "lucide-react";
+import { ArrowLeft, Check, File, FileUp, Frame, GitCommitHorizontal, Library, PenLine, Plus, type LucideIcon } from "lucide-react";
 import { beginOnboarding, chooseOnboardingPath, completeOnboarding, createOnboardingProject } from "@/lib/actions/onboarding";
 import type { OnboardingStep } from "@/lib/onboarding";
 import { PROJECT_TITLE_MAX } from "@/lib/projectCreation";
 import { APPEARANCES, type AppearanceId } from "@/lib/rune2/preferences";
-import { ICON, ICON_SM_BOLD } from "./icons";
+import { ICON, ICON_SM, ICON_SM_BOLD } from "./icons";
 import { ManuscriptImportDialog } from "./ManuscriptImport";
 import { useRunePreferences, useRuneRootProps } from "./RunePreferences";
 import { Wordmark } from "@/components/brand/Wordmark";
@@ -28,11 +28,14 @@ import { Wordmark } from "@/components/brand/Wordmark";
 // the keyboard and screen readers; motion is a short fade, none when the
 // writer asks for reduced motion (rune2.css).
 //
-// Composition: one centred stage. Two kinds of screen — a MOMENT (Welcome,
-// arrival) is set centred and sparse; a TASK (the choices, the title, the
-// model, the appearance) keeps its text naturally left-aligned inside the
-// same stage. The theme is the writer's own throughout: until they choose
-// one, the layout paints System, the front door's theme (RunePreferences).
+// Composition: centred under a centred wordmark, because each screen is one
+// task — with a rhythm between screens rather than one template. A MOMENT
+// (Welcome, arrival) is type alone, larger, set a little above the middle;
+// the choices are two material objects; the title is one editorial line;
+// the mental model is the one wide, structural screen; the appearance is
+// three small desks. The theme is the writer's own throughout: until they
+// choose one, the layout paints System, the front door's theme
+// (RunePreferences).
 
 type Step = OnboardingStep | "appearance" | "arrival";
 
@@ -97,7 +100,7 @@ export function Onboarding({
             <Actions>
               <button
                 type="button"
-                className="r2-button r2-button--primary r2-onb-primary"
+                className="r2-button r2-button--primary r2-button--lg r2-onb-primary"
                 disabled={busy}
                 onClick={() =>
                   run(async () => {
@@ -117,13 +120,27 @@ export function Onboarding({
         {step === "path" && (
           <Screen key="path" title="How are you starting?">
             <div className="r2-onb-choices" role="group" aria-label="How are you starting?">
-              <button type="button" className="r2-onb-choice" disabled={busy} onClick={() => choosePath("new")}>
-                <PenLine {...ICON} aria-hidden />
+              <button
+                type="button"
+                className="r2-material r2-material--interactive r2-onb-choice"
+                disabled={busy}
+                onClick={() => choosePath("new")}
+              >
+                <span className="r2-onb-choice-well" aria-hidden>
+                  <PenLine {...ICON} />
+                </span>
                 <span className="r2-onb-choice-title">Start something new</span>
                 <span className="r2-onb-choice-detail">Begin with a clean manuscript.</span>
               </button>
-              <button type="button" className="r2-onb-choice" disabled={busy} onClick={() => choosePath("import")}>
-                <FileUp {...ICON} aria-hidden />
+              <button
+                type="button"
+                className="r2-material r2-material--interactive r2-onb-choice"
+                disabled={busy}
+                onClick={() => choosePath("import")}
+              >
+                <span className="r2-onb-choice-well" aria-hidden>
+                  <FileUp {...ICON} />
+                </span>
                 <span className="r2-onb-choice-title">Bring in a manuscript</span>
                 <span className="r2-onb-choice-detail">Import your existing writing.</span>
               </button>
@@ -164,7 +181,7 @@ export function Onboarding({
             <MentalModel />
             <p className="r2-onb-lede r2-onb-lede--close">You never need to build a system just to start writing.</p>
             <Actions>
-              <button type="button" className="r2-button r2-button--primary r2-onb-primary" onClick={() => go("appearance")}>
+              <button type="button" className="r2-button r2-button--primary r2-button--lg r2-onb-primary" onClick={() => go("appearance")}>
                 Continue
               </button>
             </Actions>
@@ -178,7 +195,7 @@ export function Onboarding({
             <Actions>
               <button
                 type="button"
-                className="r2-button r2-button--primary r2-onb-primary r2-onb-open"
+                className="r2-button r2-button--primary r2-button--lg r2-onb-primary r2-onb-open"
                 disabled={busy}
                 onClick={() =>
                   run(async () => {
@@ -207,8 +224,9 @@ export function Onboarding({
 }
 
 /**
- * One screen: its heading (focused as it appears) and what follows. A
- * "moment" is set centred; a task keeps its natural left alignment.
+ * One screen: its heading (focused as it appears) and what follows, centred.
+ * A "moment" is sparse and set larger. Back, when there is one, sits at the
+ * stage's top left, outside the centred composition.
  */
 function Screen({
   title,
@@ -226,18 +244,23 @@ function Screen({
     heading.current?.focus({ preventScroll: true });
   }, []);
   return (
-    <section className={mode === "moment" ? "r2-onb-screen r2-onb-screen--moment" : "r2-onb-screen"} aria-labelledby="r2-onb-title">
+    <>
       {back && (
         <button type="button" className="r2-button r2-button--quiet r2-button--sm r2-onb-back" onClick={back}>
           <ArrowLeft {...ICON} aria-hidden />
           Back
         </button>
       )}
-      <h1 id="r2-onb-title" ref={heading} tabIndex={-1}>
-        {title}
-      </h1>
-      {children}
-    </section>
+      <section
+        className={mode === "moment" ? "r2-onb-screen r2-onb-screen--moment" : "r2-onb-screen"}
+        aria-labelledby="r2-onb-title"
+      >
+        <h1 id="r2-onb-title" ref={heading} tabIndex={-1}>
+          {title}
+        </h1>
+        {children}
+      </section>
+    </>
   );
 }
 
@@ -283,7 +306,7 @@ function TitleStep({
           You can change this anytime.
         </p>
         <Actions>
-          <button type="submit" className="r2-button r2-button--primary r2-onb-primary" disabled={busy || !title.trim()}>
+          <button type="submit" className="r2-button r2-button--primary r2-button--lg r2-onb-primary" disabled={busy || !title.trim()}>
             {busy ? "Making your manuscript…" : "Continue"}
           </button>
         </Actions>
@@ -308,7 +331,7 @@ function ImportStep({
       </p>
       <p className="r2-onb-hint">Sutura reads Word (.docx), Markdown and plain text files.</p>
       <Actions>
-        <button type="button" className="r2-button r2-button--primary r2-onb-primary" onClick={() => setOpen(true)}>
+        <button type="button" className="r2-button r2-button--primary r2-button--lg r2-onb-primary" onClick={() => setOpen(true)}>
           <FileUp {...ICON} aria-hidden />
           Choose a file
         </button>
@@ -320,21 +343,32 @@ function ImportStep({
 
 /**
  * The one idea, drawn rather than listed: the Manuscript is the book — a
- * page of chapters and the rhythm of prose, set as the foundation; the
- * Workspace is whatever the writer gathers around it, named loosely, with
- * no box of its own. Whitespace does the structuring.
+ * material page with a book's structure and no prose, the foundation. The
+ * Workspace is an open field the writer fills, or doesn't: a dashed edge
+ * for space not yet claimed, a few things a writer might have made there —
+ * each a different kind (a collection, a page, a timeline, a canvas), its
+ * kind drawn under its name, loosely placed, marked "for example" — and an
+ * empty slot for whatever else the book asks for. Nothing in it is built in.
  */
+const WORKSPACE_EXAMPLES: { name: string; icon: LucideIcon; kind: "collection" | "page" | "timeline" | "canvas" }[] = [
+  { name: "Characters", icon: Library, kind: "collection" },
+  { name: "Research", icon: File, kind: "page" },
+  { name: "Timeline", icon: GitCommitHorizontal, kind: "timeline" },
+  { name: "Ideas", icon: Frame, kind: "canvas" },
+];
+const GLYPH_MARKS = { collection: 3, page: 2, timeline: 4, canvas: 3 } as const;
+
 function MentalModel() {
   return (
     <div
       className="r2-onb-model"
       role="img"
-      aria-label="Your Manuscript is the book itself — chapters, scenes, your prose in order. The Workspace around it holds characters, research, notes and anything else you choose to build."
+      aria-label="Your Manuscript is the book itself — chapters, scenes, your prose in order. The Workspace around it starts empty: you make pages, collections or canvases there only if the book needs them — characters, research, a timeline, anything."
     >
       <div className="r2-onb-model-book" aria-hidden>
         <p className="r2-onb-model-kind">Manuscript</p>
         <p className="r2-onb-model-what">Your book</p>
-        <div className="r2-onb-model-page">
+        <div className="r2-material r2-onb-model-page">
           <span className="r2-onb-model-chapter">Chapter 1</span>
           <span className="r2-onb-model-scene" />
           <span className="r2-onb-model-scene" />
@@ -342,20 +376,35 @@ function MentalModel() {
           <span className="r2-onb-model-chapter">Chapter 2</span>
           <span className="r2-onb-model-scene" />
           <span className="r2-onb-model-scene r2-onb-model-scene--mid" />
+          <span className="r2-onb-model-chapter">Chapter 3</span>
+          <span className="r2-onb-model-scene r2-onb-model-scene--short" />
         </div>
         <p className="r2-onb-model-note">Chapters, scenes and your prose, in order.</p>
       </div>
       <div className="r2-onb-model-space" aria-hidden>
         <p className="r2-onb-model-kind">Workspace</p>
-        <p className="r2-onb-model-what">Everything around it</p>
-        <ul className="r2-onb-model-things">
-          <li>Characters</li>
-          <li>Research</li>
-          <li>Notes</li>
-          <li>Ideas</li>
-          <li className="r2-onb-model-more">whatever you choose</li>
-        </ul>
-        <p className="r2-onb-model-note">Grows only when the book asks for it.</p>
+        <p className="r2-onb-model-what">Whatever you build around it</p>
+        <div className="r2-onb-model-field">
+          <span className="r2-onb-model-eg">for example</span>
+          {WORKSPACE_EXAMPLES.map(({ name, icon: Icon, kind }, i) => (
+            <span key={name} className="r2-material r2-onb-model-item" data-at={i + 1}>
+              <span className="r2-onb-model-item-name">
+                <Icon {...ICON_SM} />
+                {name}
+              </span>
+              <span className="r2-onb-model-glyph" data-kind={kind}>
+                {Array.from({ length: GLYPH_MARKS[kind] }, (_, j) => (
+                  <i key={j} />
+                ))}
+              </span>
+            </span>
+          ))}
+          <span className="r2-onb-model-slot">
+            <Plus {...ICON_SM} />
+            anything else
+          </span>
+        </div>
+        <p className="r2-onb-model-note">It starts empty. Make pages, collections or a canvas only when the book asks.</p>
       </div>
     </div>
   );
@@ -387,7 +436,7 @@ function AppearanceStep({ onDone }: { onDone: () => void }) {
             type="button"
             role="radio"
             aria-checked={appearance === id}
-            className="r2-onb-theme"
+            className="r2-material r2-material--interactive r2-onb-theme"
             onClick={() => void choose(id)}
           >
             <span className="r2 r2-onb-theme-preview" data-theme={id} data-accent={accent} aria-hidden>
@@ -421,10 +470,10 @@ function AppearanceStep({ onDone }: { onDone: () => void }) {
         </p>
       )}
       <Actions>
-        <button type="button" className="r2-button r2-button--primary r2-onb-primary" onClick={done}>
+        <button type="button" className="r2-button r2-button--primary r2-button--lg r2-onb-primary" onClick={done}>
           Continue
         </button>
-        <button type="button" className="r2-button r2-button--quiet" onClick={done}>
+        <button type="button" className="r2-button r2-button--quiet r2-button--lg" onClick={done}>
           Skip
         </button>
       </Actions>

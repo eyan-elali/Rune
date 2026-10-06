@@ -45,7 +45,7 @@ export default function CompleteProfileClient({ initialPenName = "" }: { initial
         <label className="r2-auth-field">
           <span>Pen name</span>
           <input
-            className="r2-field"
+            className="r2-field r2-field--lg"
             type="text"
             value={penName}
             onChange={(e) => setPenName(e.target.value)}
@@ -69,7 +69,7 @@ export default function CompleteProfileClient({ initialPenName = "" }: { initial
           </p>
         )}
 
-        <button type="submit" className="r2-button r2-button--primary r2-auth-submit" disabled={loading}>
+        <button type="submit" className="r2-button r2-button--primary r2-button--lg r2-auth-submit" disabled={loading}>
           {loading ? "Saving…" : "Continue"}
         </button>
       </form>

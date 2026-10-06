@@ -22,21 +22,26 @@ export function normalizePenName(value: string): string {
   return value.trim();
 }
 
-/** Returns a calm, user-facing error string, or null if the pen name is valid. */
-export function getPenNameValidationError(raw: string): string | null {
+/**
+ * Returns a calm, user-facing error string, or null if the pen name is valid.
+ * `noun` is only the word the message uses (Create account labels the field
+ * "Name"); the rules are the same everywhere.
+ */
+export function getPenNameValidationError(raw: string, noun: "pen name" | "name" = "pen name"): string | null {
   const trimmed = normalizePenName(raw);
+  const Noun = noun.charAt(0).toUpperCase() + noun.slice(1);
 
   if (trimmed.length === 0) {
-    return "Enter a pen name.";
+    return `Enter a ${noun}.`;
   }
   if (trimmed.length < PEN_NAME_MIN_LENGTH) {
-    return "Pen name must be at least 2 characters.";
+    return `${Noun} must be at least 2 characters.`;
   }
   if (trimmed.length > PEN_NAME_MAX_LENGTH) {
-    return "Pen name must be 40 characters or fewer.";
+    return `${Noun} must be 40 characters or fewer.`;
   }
   if (!PEN_NAME_PATTERN.test(trimmed) || !HAS_VISIBLE_CHARACTER.test(trimmed)) {
-    return "Pen name can only include letters, spaces, apostrophes, hyphens, and periods.";
+    return `${Noun} can only include letters, spaces, apostrophes, hyphens, and periods.`;
   }
   return null;
 }

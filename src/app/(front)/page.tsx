@@ -46,15 +46,17 @@ export default async function FrontDoor() {
         <section className="r2-front" aria-labelledby="front-title">
           <h1 id="front-title">Sutura is currently in closed beta.</h1>
           <p className="r2-front-lede">We’re inviting writers in gradually while we finish the first release.</p>
+          <p className="r2-front-signed">Signed in as {user.email}.</p>
           {access === "waitlisted" ? (
-            <p className="r2-front-note" role="status">
-              You’re on the list. We’ll write to <strong>{user.email}</strong> when there’s a place for you — there’s nothing
-              else you need to do.
-            </p>
+            <div className="r2-material r2-front-panel">
+              <p className="r2-front-note" role="status">
+                You’re on the list. We’ll write to <strong>{user.email}</strong> when there’s a place for you — there’s
+                nothing else you need to do.
+              </p>
+            </div>
           ) : (
             <WaitlistForm defaultEmail={user.email ?? ""} />
           )}
-          <p className="r2-front-small">Signed in as {user.email}.</p>
         </section>
       </PublicFrame>
     );
@@ -87,17 +89,21 @@ export default async function FrontDoor() {
 
         {member ? (
           <div className="r2-front-actions">
-            <Link href="/projects" className="r2-button r2-button--primary r2-front-primary">
+            <Link href="/projects" className="r2-button r2-button--primary r2-button--lg">
               Open Sutura
             </Link>
           </div>
         ) : (
           <>
-            <p className="r2-front-beta">
-              <strong>Sutura is currently in closed beta.</strong> We’re inviting writers in gradually while we finish the
-              first release.
-            </p>
-            <WaitlistForm collapsed />
+            <WaitlistForm
+              collapsed
+              note={
+                <p className="r2-front-beta">
+                  <strong>Sutura is currently in closed beta.</strong> We’re inviting writers in gradually while we finish
+                  the first release.
+                </p>
+              }
+            />
             <p className="r2-front-small">
               Already invited? <Link href="/login">Sign in</Link>
             </p>

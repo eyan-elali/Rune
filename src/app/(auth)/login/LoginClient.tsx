@@ -89,7 +89,7 @@ export default function LoginClient() {
         <label className="r2-auth-field">
           <span>Email</span>
           <input
-            className="r2-field"
+            className="r2-field r2-field--lg"
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -103,7 +103,7 @@ export default function LoginClient() {
           <label className="r2-auth-field">
             <span>Password</span>
             <input
-              className="r2-field"
+              className="r2-field r2-field--lg"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -119,7 +119,7 @@ export default function LoginClient() {
           </p>
         )}
 
-        <button type="submit" className="r2-button r2-button--primary r2-auth-submit" disabled={loading}>
+        <button type="submit" className="r2-button r2-button--primary r2-button--lg r2-auth-submit" disabled={loading}>
           {loading ? (mode === "password" ? "Signing in…" : "Sending…") : mode === "password" ? "Sign in" : "Send link"}
         </button>
       </form>
@@ -128,12 +128,15 @@ export default function LoginClient() {
         {mode === "password" ? "Sign in with a link instead" : "Sign in with a password instead"}
       </button>
 
-      <p className="r2-auth-foot">
-        Invited, but no account yet? <Link href="/signup">Create your account</Link>
-      </p>
-      <p className="r2-auth-foot r2-auth-legal">
+      <p className="r2-auth-legal">
         By signing in you agree to the <Link href="/terms">Terms</Link> and <Link href="/privacy">Privacy Policy</Link>.
       </p>
+
+      <div className="r2-auth-card-foot">
+        <p>
+          Invited, but no account yet? <Link href="/signup">Create your account</Link>
+        </p>
+      </div>
     </section>
   );
 }
