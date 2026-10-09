@@ -6,11 +6,12 @@ export const metadata: Metadata = {
   description: "How Sutura, a writing companion for novelists, collects, uses, stores and deletes your information.",
 };
 
-// Closed-beta Privacy Policy (pre-beta audit, section V). Every statement
+// Early Access Privacy Policy (pre-beta audit, section V; closed-beta wording
+// corrected for open Early Access, migration 056). Every statement
 // here is checked against the code: Supabase (auth, Postgres, private
 // storage bucket), Vercel hosting, the first-party analytics_events and
 // acquisition_attribution tables, the Meta Pixel and PromoteKit scripts
-// (components/MarketingTrackers.tsx, signed-out front page only), the beta waitlist and feedback (migration 052), account
+// (components/MarketingTrackers.tsx, signed-out front page only), the closed beta's waitlist (now closed) and feedback (migration 052), account
 // deletion (lib/actions/settings.ts), and the two exports. Where a fact
 // cannot be read from the repository (hosting regions, backup retention,
 // the Meta "advanced matching" dashboard setting) the text says so in
@@ -19,7 +20,7 @@ export const metadata: Metadata = {
 // This is not legal advice. It needs review by a professional familiar with
 // Québec's Law 25 and PIPEDA before the beta opens widely.
 
-const LAST_UPDATED = "October 4, 2026";
+const LAST_UPDATED = "October 9, 2026";
 
 export default function PrivacyPage() {
   return (
@@ -60,8 +61,8 @@ export default function PrivacyPage() {
         <p>
           Sutura is a writing companion for novelists, operated from Québec, Canada. This policy explains what
           information Sutura collects while you use it, why, where it is kept, who processes it on our behalf, and how
-          to see, export or delete it. Sutura is currently in a free, invite-only closed beta; this policy describes
-          the beta as it works today and will be updated before anything changes.
+          to see, export or delete it. Sutura is currently in free Early Access (its beta), open to anyone; this
+          policy describes the beta as it works today and will be updated before anything changes.
         </p>
 
         <Section title="1. The short version">
@@ -117,9 +118,10 @@ export default function PrivacyPage() {
             from your manuscript or workspace is read or attached.
           </p>
           <p>
-            <Em>Beta waitlist.</Em> If you join the waitlist: your email address, and if you choose to give them,
-            your name and a line about what you write, with the time you joined. Used only to invite you to the
-            beta and to write to you about it.
+            <Em>Closed-beta waitlist.</Em> If you joined the waitlist while Sutura was invite-only: your email
+            address, and if you chose to give them, your name and a line about what you write, with the time you
+            joined. Used only to invite you to the beta and to write to you about it. The waitlist no longer
+            accepts new entries.
           </p>
           <p>
             <Em>Technical information.</Em> Like any website, our hosting provider and authentication provider

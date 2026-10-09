@@ -296,7 +296,7 @@ export function SettingsSections({
 }
 
 /**
- * About (Beta Completion E): that Rune is in closed beta, what that means,
+ * About (Beta Completion E): that Sutura is in Early Access, what that means,
  * and the ways to reach us — feedback, support, and the legal pages.
  */
 function AboutSection() {
@@ -304,10 +304,10 @@ function AboutSection() {
   return (
     <section className="r2-settings-section" aria-labelledby="settings-about">
       <h2 id="settings-about">
-        About Sutura <span className="r2-beta-tag">Beta</span>
+        About Sutura <span className="r2-beta-tag">Early Access</span>
       </h2>
       <p className="r2-settings-scope">
-        Sutura is in closed beta: free, with everything in it open to you. Some things will change as we learn from the
+        Sutura is in Early Access: free for now, with everything in it open to you. Some things will change as we learn from the
         writers using it — your feedback is how we decide what.
       </p>
       <div className="r2-settings-rows">

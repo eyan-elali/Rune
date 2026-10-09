@@ -3,10 +3,11 @@ import { PRIVACY_EMAIL, SUPPORT_EMAIL } from "@/lib/brand";
 
 export const metadata: Metadata = {
   title: "Terms of Service — Sutura",
-  description: "The terms on which Sutura, a writing companion for novelists, is offered during its closed beta.",
+  description: "The terms on which Sutura, a writing companion for novelists, is offered during Early Access.",
 };
 
-// Closed-beta Terms (pre-beta audit, sections W–Y). The Rune 1.x commercial
+// Early Access Terms (pre-beta audit, sections W–Y; closed-beta wording
+// corrected for open Early Access, migration 056, and nothing else changed). The Rune 1.x commercial
 // language (Scribe/Arcane plans, word limits, refunds, 30-day retention after
 // termination) is gone: billing is switched off in code (lib/beta.ts
 // BILLING_OPEN) and account deletion is immediate (lib/actions/settings.ts).
@@ -15,7 +16,7 @@ export const metadata: Metadata = {
 // are listed in the audit report for the founder and professional review.
 // This is not legal advice.
 
-const LAST_UPDATED = "October 4, 2026";
+const LAST_UPDATED = "October 9, 2026";
 
 export default function TermsPage() {
   return (
@@ -62,11 +63,11 @@ export default function TermsPage() {
           . If you do not agree, please do not use Sutura.
         </p>
 
-        <Section title="1. Sutura is in closed beta">
+        <Section title="1. Sutura is in Early Access">
           <p>
-            Sutura is currently offered as a free, invite-only closed beta. Access is given by hand to the email
-            addresses we invite; joining the waitlist does not create an account or guarantee an invitation.
-            There is no paid plan, no trial and no charge of any kind during the beta.
+            Sutura is currently offered free, in Early Access: anyone may create an account. Early Access is
+            Sutura’s beta, and in these terms “the beta” means it. There is no paid plan, no trial and no charge
+            of any kind during the beta.
           </p>
           <p>
             A beta is unfinished by definition. Features will change, be added, be removed or behave
@@ -133,8 +134,7 @@ export default function TermsPage() {
             Do not use Sutura to store or share content that is unlawful, that infringes others’ rights, or that
             you have no right to use. Do not try to get into other accounts or parts of the Service you are not
             meant to reach, probe or overload the Service, upload malicious code, or use automated tools to use
-            the Service at a rate no writer could. Do not resell access to Sutura or let others use your
-            invitation. Do not try to circumvent the beta’s invitation.
+            the Service at a rate no writer could. Do not resell access to Sutura.
           </p>
         </Section>
 

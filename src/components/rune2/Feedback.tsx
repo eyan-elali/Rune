@@ -72,7 +72,7 @@ export function FeedbackDialog({ where, onClose }: { where: FeedbackWhere; onClo
         {state === "sent" ? (
           <>
             <h2 id="r2-feedback-title">Thank you.</h2>
-            <p>Your feedback reached us. Every message is read — it’s how the beta gets better.</p>
+            <p>Your feedback reached us. Every message is read — it’s how Sutura gets better.</p>
             <div className="r2-dialog-actions">
               <button type="button" className="r2-button r2-button--primary" onClick={onClose} autoFocus>
                 Done

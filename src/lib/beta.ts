@@ -1,44 +1,15 @@
-// Rune's closed beta (Beta Completion E): what the beta is, in one place.
-// Pure — no database, no React — so the server, the client and the tests
-// agree. The records themselves (approved emails, the waitlist, feedback)
-// live in the database (migration 052).
+// Sutura's Early Access (formerly the closed beta, Beta Completion E): what
+// it is, in one place. Pure — no database, no React — so the server, the
+// client and the tests agree. Anyone may create an account (migration 056);
+// the closed beta's records (approved emails, the waitlist) stay in the
+// database as history, and feedback is still stored there (migration 052).
 //
-// The beta is free and full-featured: no trial, no subscription, no feature
-// lock, no upgrade prompt. Billing code stays in the repository, switched
-// off here; nothing user-facing can start a checkout while it is.
+// Early Access is free and full-featured: no trial, no subscription, no
+// feature lock, no upgrade prompt. Billing code stays in the repository,
+// switched off here; nothing user-facing can start a checkout while it is.
 
-/** Whether anything may start a Stripe checkout or a plan change. Off for the closed beta. */
+/** Whether anything may start a Stripe checkout or a plan change. Off during Early Access. */
 export const BILLING_OPEN: boolean = false;
-
-/**
- * What the database says about an account (beta_access_state, 052):
- * member / admin / accepted (just now) may use Rune; approved is only ever
- * reported without accepting; waitlisted and none may not.
- */
-export type BetaAccessState = "member" | "admin" | "accepted" | "approved" | "waitlisted" | "none";
-
-export function hasBetaAccess(state: BetaAccessState | null | undefined): boolean {
-  return state === "member" || state === "admin" || state === "accepted";
-}
-
-export function readBetaAccessState(v: unknown): BetaAccessState | null {
-  return v === "member" || v === "admin" || v === "accepted" || v === "approved" || v === "waitlisted" || v === "none"
-    ? v
-    : null;
-}
-
-/** How an email is stored and compared: trimmed and lower-case. */
-export function normalizeBetaEmail(email: string): string {
-  return email.trim().toLowerCase();
-}
-
-export function isPlausibleEmail(email: string): boolean {
-  const e = normalizeBetaEmail(email);
-  return e.length <= 320 && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e);
-}
-
-export const WAITLIST_NAME_MAX = 120;
-export const WAITLIST_WRITES_MAX = 500;
 
 // ── Feedback ────────────────────────────────────────────────────────────────
 

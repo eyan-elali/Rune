@@ -11,7 +11,7 @@ declare global {
   }
 }
 
-// The marketing boundary (closed beta): third-party marketing scripts — the
+// The marketing boundary: third-party marketing scripts — the
 // Meta Pixel and PromoteKit — load only on the public front door. The
 // authenticated writing product (Projects, the Project shell, Settings,
 // onboarding, Pulse) never loads them, and an event is never sent from it,

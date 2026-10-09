@@ -9,12 +9,12 @@ type Mode = "password" | "magic-link";
 
 // Sign in (Beta Completion E: Rune 2.0's frame, no purchase handoff). A
 // sign-in link never creates an account (shouldCreateUser: false): accounts
-// are made on Create account, for an invited email.
+// are made on Create account, open to anyone during Early Access.
 
 /** Supabase's own wording, in Rune's. */
 function friendlyError(message: string): string {
   if (/signups not allowed/i.test(message)) {
-    return "There’s no Sutura account for that email yet. If you’ve been invited, create your account first.";
+    return "There’s no Sutura account for that email yet. Create your account first.";
   }
   if (/invalid login credentials/i.test(message)) return "That email and password don’t match.";
   if (/email not confirmed/i.test(message)) return "Confirm your email first — the link is in the message we sent you.";
@@ -134,7 +134,7 @@ export default function LoginClient() {
 
       <div className="r2-auth-card-foot">
         <p>
-          Invited, but no account yet? <Link href="/signup">Create your account</Link>
+          New to Sutura? <Link href="/signup">Create your account</Link>
         </p>
       </div>
     </section>

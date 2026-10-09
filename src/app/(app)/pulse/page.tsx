@@ -28,8 +28,8 @@ import { ClosedBeta } from "@/components/pulse/sections/ClosedBeta";
 import { getBetaOverview } from "@/lib/actions/beta";
 
 // Pulse: the founder's private operational room (admin-only, see the (app)
-// layout). The closed beta — who is waiting, who is in, what they say — is
-// the work of the moment and leads the page; the acquisition, activation and
+// layout). Feedback from writers, with the closed beta's history (who
+// waited, who was let in) since Early Access opened sign-up, leads the page; the acquisition, activation and
 // retention analytics follow as one quieter chapter, every figure still here.
 
 function normalizeRange(value: string | undefined): PulseTimeRange {
@@ -84,7 +84,7 @@ export default async function PulsePage({ searchParams }: PulsePageProps) {
           </div>
         </header>
 
-        {/* Closed beta: who is waiting, approved and in; what they tell us. */}
+        {/* Feedback, and the closed beta's history: who waited, who was approved and let in. */}
         <ClosedBeta initial={beta.data} loadError={beta.error} />
 
         {/* The analytics: one quieter chapter, with its own controls. */}

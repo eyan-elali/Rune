@@ -46,8 +46,8 @@ On `rune-2`, Rune 2.0 **is** the product, branded **Sutura**. Treat this as the 
 
 - The app runs on the Rune 2.0 database (Manuscript, Groups, Chapters, Scenes, Unplaced Scenes, Workspace, Collections, Canvas). There are no `pages` and no canonical logic here.
 - `/projects` is the home. The Rune 1.x Dashboard, Profile, Arena (`/games`) and legacy editor UI are deleted; their old URLs redirect (`src/lib/legacyRedirects.ts`). `/settings` is Rune 2.0 Settings. Pulse (`/pulse`) is the only surface left in the `(app)` group.
-- Access is a **closed beta** (migration 052): invite-only, with a public front door (`/`) that explains the beta and runs the waitlist.
-- The beta is **free and full-featured**. Billing code stays in the repository but is switched off (`BILLING_OPEN = false` in `src/lib/beta.ts`); free-word enforcement is off (migration 037).
+- Access is open **Early Access** (migration 056): anyone may create an account from the public front door (`/`, "Start writing free"). The closed beta (052) is over; `beta_access` and `beta_waitlist` are kept as history and decide nothing. Feedback still lands in `beta_feedback`.
+- Early Access is **free and full-featured**. Billing code stays in the repository but is switched off (`BILLING_OPEN = false` in `src/lib/beta.ts`); free-word enforcement is off (migration 037).
 - Onboarding is the Rune 2.0 journey in `src/app/(rune2)/onboarding` and `src/lib/onboarding.ts` (§7).
 - Third-party marketing scripts (Meta Pixel, PromoteKit) load only on the public front door for signed-out visitors, never in the authenticated app (§9).
 - Rune 1.x library code (`src/lib/xp.ts`, `src/lib/unlockables.ts`, word-limit RPCs, `src/lib/actions/*`) is still present for stale clients, tests and the staged retirement. Production (`main`) is still Rune 1.x until the release-candidate deploy.
@@ -463,7 +463,7 @@ There is no global “Game Mode” that should take over the application shell. 
 
 ### Settings
 
-Settings manages account, appearance (theme, writing surface, accent), manuscript preferences, unsent drafts, the About/beta note, and account deletion. There is no subscription UI during the closed beta.
+Settings manages account, appearance (theme, writing surface, accent), manuscript preferences, unsent drafts, the About/Early Access note, and account deletion. There is no subscription UI during Early Access.
 
 Do not place experimental or founder-only pricing in ordinary Settings unless a task explicitly requires it.
 
@@ -490,7 +490,7 @@ Do not weaken its admin protection or expose private writer content.
 
 Rune onboarding is a short transition into Rune, not a generic setup wizard.
 
-### Current journey (Rune 2.0, closed beta)
+### Current journey (Rune 2.0, Early Access)
 
 Implemented in `src/app/(rune2)/onboarding/page.tsx`, `src/components/rune2/Onboarding.tsx` and `src/lib/onboarding.ts`, backed by `account_onboarding` (migration 052):
 
@@ -501,7 +501,7 @@ Implemented in `src/app/(rune2)/onboarding/page.tsx`, `src/components/rune2/Onbo
 5. Appearance (optional)
 6. Arrival
 
-It runs once per account. The (rune2) layout has already required sign-in, beta access and a pen name before it.
+It runs once per account. The (rune2) layout has already required sign-in and a pen name before it.
 
 ### Principles that still apply
 
@@ -555,9 +555,9 @@ The Rune 2.0 migration initially keeps the load-bearing RPC signatures and datab
 
 **Stage reached on the `rune-2` branch (Rune 2.0 database, migration 037):** enforcement is off. `free_word_limit_for_caller()` answers "no limit", so no save, creation, import, duplication or restore is gated; the checked RPCs keep their signatures and result shapes; `account_word_total` stays as a metric; the editor input guards and free-word notices are removed.
 
-### Closed beta (current, `rune-2`)
+### Early Access (current, `rune-2`)
 
-- The closed beta is **free and full-featured**: no trial, no subscription, no feature lock, no upgrade prompt.
+- Early Access is **free and full-featured**: no trial, no subscription, no feature lock, no upgrade prompt.
 - `BILLING_OPEN = false` (`src/lib/beta.ts`) gates every checkout path. Stripe code stays in the repository, switched off. The Rune 1.x pricing table, paywalls and returning-writer pricing notice are deleted from the UI.
 - Do not reopen billing, or show prices, without an explicit billing task that settles the open decisions above.
 

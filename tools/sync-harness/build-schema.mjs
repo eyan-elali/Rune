@@ -42,9 +42,11 @@ export const RUNE2_NOTES = {
     'claim_beta_access accepts it for the account signed in with that email (user_id,',
     'accepted_at); an accepted row cannot be deleted, re-pointed or un-accepted',
     '(beta_access_keep_accepted) until the account itself is deleted. No client access.',
+    'History only since Early Access (056): it no longer decides who may use Sutura.',
   ],
   beta_waitlist: [
     'Closed beta (052): interest only — grants nothing. Written by join_beta_waitlist; no client reads.',
+    'History only since Early Access (056): the app no longer offers the waitlist.',
   ],
   account_onboarding: [
     'Rune 2.0 onboarding (052): the account\'s one journey — path, the Project it made',

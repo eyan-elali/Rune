@@ -13,7 +13,8 @@
 //   * the confirmed callback (code and token_hash links) sends an account
 //     without a profile to /complete-profile, never /projects or /onboarding
 //   * the gate every page uses (lib/accountGate.ts) and the pages that use it
-//   * the whole journey: profile → beta → onboarding Project, with refreshes
+//   * the whole journey: profile → onboarding Project (no beta access step
+//     since Early Access, 056), with refreshes
 //     and retries leaving one profile and one Project
 import { test, before } from 'node:test';
 import assert from 'node:assert/strict';
@@ -38,14 +39,13 @@ const MOCKS = {
   '@supabase/ssr': path.join(HARNESS_DIR, 'mocks/supabaseSsr.js'),
 };
 
-let gate, callback, profileActions, onboarding, betaAccess;
+let gate, callback, profileActions, onboarding;
 before(async () => {
   const b = (entry, name) => bundleForTest(entry, { name, aliases: MOCKS });
   gate = await b('src/lib/accountGate.ts', 'pi_gate');
   callback = await b('src/app/auth/callback/route.ts', 'pi_callback');
   profileActions = await b('src/lib/actions/profile.ts', 'pi_profile');
   onboarding = await b('src/lib/actions/onboarding.ts', 'pi_onboarding');
-  betaAccess = await b('src/lib/betaAccess.ts', 'pi_betaAccess');
 });
 
 const EMAIL = 'fresh@example.com';
@@ -54,7 +54,7 @@ const EMAIL = 'fresh@example.com';
 function signIn(db, userId) {
   const sb = createSupabaseAdapter(db, { userId });
   sb.auth.updateUser = async () => ({ data: {}, error: null }); // the auth metadata sync
-  for (const mod of [callback, profileActions, onboarding, betaAccess]) mod.setServerClient(sb);
+  for (const mod of [callback, profileActions, onboarding]) mod.setServerClient(sb);
   globalThis.__ssrClient = sb;
   return sb;
 }
@@ -220,16 +220,16 @@ test('the account gate: missing and blank are profile completion; a failed looku
   assert.equal(gate.needsProfileCompletion({ status: 'unknown' }), false);
 });
 
-test('the (rune2) layout (Projects, a Project, Settings, onboarding, import) asks the gate first and claims beta access only after it', () => {
+test('the (rune2) layout (Projects, a Project, Settings, onboarding, import) asks the gate first, and nothing else decides entry', () => {
   const layout = code('src/app/(rune2)/layout.tsx');
-  const gateAt = layout.indexOf('if (needsProfileCompletion(profileState)) redirect(COMPLETE_PROFILE_PATH)');
-  const claimAt = layout.indexOf('claimBetaAccess(supabase, user.id)');
-  assert.ok(gateAt > 0 && claimAt > gateAt, 'profile → beta, never the other way round');
+  assert.ok(layout.indexOf('if (needsProfileCompletion(profileState)) redirect(COMPLETE_PROFILE_PATH)') > 0, 'the profile gate');
+  assert.doesNotMatch(layout, /claimBetaAccess|claim_beta_access/, 'no beta access step since Early Access (056)');
   assert.match(layout, /readProfileState<Profile>\(supabase, user\.id\)/);
   assert.doesNotMatch(layout, /\.single\(\)/, 'a missing row is an answer, not an error to wave through');
 
   const front = code('src/app/(front)/page.tsx');
-  assert.ok(front.indexOf('redirect(COMPLETE_PROFILE_PATH)') > 0 && front.indexOf('redirect(COMPLETE_PROFILE_PATH)') < front.indexOf('claimBetaAccess('));
+  assert.ok(front.indexOf('redirect(COMPLETE_PROFILE_PATH)') > 0 && front.indexOf('redirect(COMPLETE_PROFILE_PATH)') < front.indexOf('Open Sutura'),
+    'a signed-in account without a profile is sent to complete it before the way in is offered');
 
   const page = code('src/app/(auth)/complete-profile/page.tsx');
   assert.match(page, /if \(state\.status === "complete"\) redirect\("\/projects"\)/, 'only a complete profile leaves the page');
@@ -241,7 +241,7 @@ test('the (rune2) layout (Projects, a Project, Settings, onboarding, import) ask
 
 // ── 5. The whole journey ─────────────────────────────────────────────────────
 
-test('JOURNEY: no profile → forced through profile completion → profile created → beta accepted → onboarding Project, with no FK error; refreshes and retries duplicate nothing', async () => {
+test('JOURNEY: no profile → forced through profile completion → profile created → onboarding Project, with no FK error; refreshes and retries duplicate nothing', async () => {
   const db = await fixedDbWithoutTrigger();
   const id = await freshAccountWithoutProfile(db);
   const sb = signIn(db, id);
@@ -263,9 +263,7 @@ test('JOURNEY: no profile → forced through profile completion → profile crea
   assert.deepEqual(await counts(db, id), { profiles: 1, entitlements: 1, projects: 0 });
   assert.equal(gate.needsProfileCompletion(await gate.readProfileState(sb, id)), false, '/projects now lets the account in');
 
-  // Then beta access (the layout), then onboarding.
-  assert.equal(await betaAccess.claimBetaAccess(sb, id), 'accepted');
-  assert.equal(await betaAccess.claimBetaAccess(sb, id), 'member');
+  // Then onboarding: no beta access step since Early Access (056).
   assert.equal((await onboarding.beginOnboarding()).error, null);
   assert.equal((await onboarding.chooseOnboardingPath('new')).error, null);
   const made = await onboarding.createOnboardingProject('A book');

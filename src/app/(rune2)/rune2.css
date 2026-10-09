@@ -78,7 +78,7 @@
   --r2-control-sm: 26px; /* icon buttons, chips, small buttons */
   --r2-control-md: 28px; /* contextual actions, menu items, tools */
   --r2-control-lg: 30px; /* buttons and fields in dialogs and forms */
-  --r2-control-xl: 40px; /* a page that is one form: sign in, the waitlist */
+  --r2-control-xl: 40px; /* a page that is one form: sign in, sign up */
 
   /* ── Typography: the UI sans ──────────────────────────────────────── */
   --r2-font-ui: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
@@ -372,7 +372,7 @@ textarea.r2-field {
 
 /* ── Material ───────────────────────────────────────────────────────────
    A surface raised off the page — the public pages and onboarding: the sign
-   in card, the beta panel, a choice, a desk preview. Between paper and a
+   in card, the Early Access panel, a choice, a desk preview. Between paper and a
    floating panel: its own fill, a 1px edge drawn as a ring (no layout
    shift), a faint light along the top, and a soft layered fall of shadow
    (themes.ts material tokens). .r2-material--interactive is one the writer
@@ -400,7 +400,7 @@ textarea.r2-field {
 }
 
 /* The large field and button: for a form that is the whole of a page (sign
-   in, the waitlist) — a touch taller, the field set into its surface, its
+   in, sign up) — a touch taller, the field set into its surface, its
    focus a firm edge and a soft halo rather than a heavier box. */
 .r2-field--lg {
   height: var(--r2-control-xl);
@@ -8420,12 +8420,12 @@ a.r2-home-row-main:focus-visible {
   }
 }
 
-/* ══ Closed beta and onboarding (Beta Completion E) ═════════════════════
+/* ══ Public frame and onboarding (Beta Completion E) ═════════════════════
    The public frame (front door, sign in, sign up, pen name), onboarding,
    one-time hints, feedback and the quiet Beta mark. The same tokens as the
    product. One material language (.r2-material: a surface raised off a warm,
    quiet page) for the few things that are objects here — the sign-in card,
-   the beta panel, a choice, the manuscript, a desk preview — and nothing
+   the Early Access panel, a choice, the manuscript, a desk preview — and nothing
    else boxed. Serif for identity and the writing; the UI sans for controls
    and secondary lines. Compositions are centred when the task is singular. */
 
@@ -8510,10 +8510,9 @@ a.r2-home-row-main:focus-visible {
 
 /* ── The front door ─────────────────────────────────────────────────── */
 /* One viewport, centred: the kind, the headline at full confidence, what
-   Sutura is, the authorship promise, and the beta panel — one material
-   surface that is part of the same composition, not a section below it.
-   The waitlist opens over the page in a sheet, so the page never grows or
-   moves. The stack sits at the optical centre, a touch above the middle. */
+   Sutura is, the authorship promise, and the Early Access panel — one
+   material surface that is part of the same composition, not a section
+   below it. The stack sits at the optical centre, a touch above the middle. */
 .r2-public[data-variant="front"] .r2-public-main {
   justify-content: center;
 }
@@ -8571,11 +8570,6 @@ a.r2-home-row-main:focus-visible {
   font-size: var(--r2-fs-ui-sm);
   color: var(--r2-ink-3);
 }
-.r2-front-signed {
-  margin-top: var(--r2-space-5);
-  font-size: var(--r2-fs-ui-sm);
-  color: var(--r2-ink-3);
-}
 .r2-front-small a,
 .r2-auth-foot a,
 .r2-auth-legal a,
@@ -8597,8 +8591,7 @@ a.r2-home-row-main:focus-visible {
   margin-top: clamp(28px, 5vh, 44px);
 }
 
-/* The beta panel: the closed-beta note and Join the beta on one line. For
-   an account without access, the note and the form itself. */
+/* The Early Access panel: the note and Start writing free on one line. */
 .r2-front-panel {
   width: min(100%, 680px);
   margin-top: clamp(28px, 5vh, 44px);
@@ -8614,72 +8607,19 @@ a.r2-home-row-main:focus-visible {
 .r2-front-panel-head .r2-button {
   flex-shrink: 0;
 }
-.r2-front-beta,
-.r2-front-note {
+.r2-front-access {
   font-size: var(--r2-fs-body);
   line-height: var(--r2-lh-body);
   color: var(--r2-ink-2);
 }
-.r2-front-beta strong,
-.r2-front-note strong {
+.r2-front-access strong {
   font-weight: var(--r2-weight-medium);
   color: var(--r2-ink-1);
 }
-.r2-front-beta strong {
+.r2-front-access strong {
   display: block;
   margin-bottom: 1px;
 }
-.r2-front-note:focus {
-  outline: none;
-}
-.r2-front-panel > .r2-front-purpose {
-  margin-top: var(--r2-space-5);
-}
-
-/* The waitlist's sheet: a small material surface over a light scrim — the
-   same object language as the panel it opened from. */
-.r2-front-sheet-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 60;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--r2-space-6);
-  background: var(--r2-scrim-light);
-  animation: r2-fade-in var(--r2-medium) var(--r2-ease);
-}
-.r2-front-sheet {
-  width: min(100%, 440px);
-  max-height: calc(100dvh - 32px);
-  overflow-y: auto;
-  padding: 32px 32px 28px;
-  box-shadow: inset 0 1px 0 var(--r2-material-highlight), 0 0 0 1px var(--r2-material-border), var(--r2-shadow-lg);
-  text-align: left;
-  animation: r2-onb-in 260ms var(--r2-ease) both;
-}
-.r2-front-sheet h2 {
-  font-family: var(--r2-prose-font);
-  font-size: 26px;
-  font-weight: var(--r2-weight-regular);
-  line-height: 1.2;
-  letter-spacing: -0.01em;
-  color: var(--r2-ink-1);
-}
-.r2-front-sheet .r2-front-purpose {
-  margin-top: var(--r2-space-3);
-}
-.r2-front-purpose {
-  font-size: var(--r2-fs-ui-sm);
-  line-height: var(--r2-lh-ui);
-  color: var(--r2-ink-3);
-}
-.r2-front-form {
-  display: grid;
-  gap: var(--r2-space-6);
-  margin-top: var(--r2-space-8);
-}
-.r2-front-field,
 .r2-auth-field {
   display: grid;
   gap: 7px;
@@ -8687,24 +8627,10 @@ a.r2-home-row-main:focus-visible {
   font-weight: var(--r2-weight-medium);
   color: var(--r2-ink-2);
 }
-.r2-front-field em {
-  margin-left: var(--r2-space-2);
-  font-style: normal;
-  font-weight: var(--r2-weight-regular);
-  color: var(--r2-ink-3);
-}
-.r2-front-field .r2-field,
 .r2-auth-field .r2-field {
   width: 100%;
   font-weight: var(--r2-weight-regular);
 }
-.r2-front-form-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--r2-space-4);
-  margin-top: var(--r2-space-3);
-}
-
 /* ── Sign in, sign up, pen name ─────────────────────────────────────── */
 /* One material card under the wordmark: the title centred, the fields
    quiet, one blue action, and the ways elsewhere in a foot that is part of
@@ -9486,9 +9412,7 @@ a.r2-home-row-main:focus-visible {
   .r2-onb-title-input {
     transition: none;
   }
-  .r2-onb-screen,
-  .r2-front-sheet,
-  .r2-front-sheet-backdrop {
+  .r2-onb-screen {
     animation: none;
   }
 }
@@ -9837,18 +9761,6 @@ a.r2-home-row-main:focus-visible {
   color: var(--r2-ink-1);
 }
 
-/* The one field and action that run the beta. */
-.r2-pulse-approve {
-  display: grid;
-  grid-template-columns: minmax(0, 360px) max-content;
-  align-items: center;
-  justify-content: start;
-  gap: var(--r2-space-3) var(--r2-space-4);
-  margin-top: var(--r2-space-8);
-}
-.r2-pulse-approve .r2-pulse-help {
-  grid-column: 1 / -1;
-}
 .r2-pulse-beta .r2-notice {
   margin-top: var(--r2-space-5);
   max-width: 48ch;
@@ -9999,9 +9911,6 @@ li:hover .r2-pulse-remove,
   .r2-pulse-page {
     padding-left: var(--r2-space-6);
     padding-right: var(--r2-space-6);
-  }
-  .r2-pulse-approve {
-    grid-template-columns: 1fr;
   }
   .r2-pulse-group {
     padding: var(--r2-space-6);

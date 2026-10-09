@@ -1,24 +1,20 @@
 "use server";
 
-// The closed beta's actions (Beta Completion E, migration 052):
-//   * joining the waitlist (anyone, signed in or not) — interest only;
+// Feedback and the closed beta's history (Beta Completion E, migration 052):
 //   * sending feedback (a signed-in writer) — their words and safe context;
-//   * the operator's list and approval (an admin, in Pulse).
+//   * the operator's view of the closed beta's waitlist and approvals, kept
+//     as history since Early Access (migration 056), and of feedback (an
+//     admin, in Pulse).
 // Nothing here reads or sends manuscript content.
 
-import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
-import { clientIpFromHeaders, consumeRateLimit } from "@/lib/rateLimit";
+import { consumeRateLimit } from "@/lib/rateLimit";
 import { createServiceClient } from "@/lib/supabase/service";
 import { getCurrentAdmin } from "@/lib/actions/admin";
 import { recordAnalyticsEvent } from "@/lib/actions/analytics";
 import {
   FEEDBACK_MAX,
-  WAITLIST_NAME_MAX,
-  WAITLIST_WRITES_MAX,
   isFeedbackCategory,
-  isPlausibleEmail,
-  normalizeBetaEmail,
   sanitizeFeedbackContext,
 } from "@/lib/beta";
 
@@ -30,44 +26,6 @@ async function safeRecord(input: Parameters<typeof recordAnalyticsEvent>[0]) {
   } catch {
     // Analytics never blocks the writer.
   }
-}
-
-/**
- * Adds an email to the waitlist. The same answer whether it was new, already
- * waiting, or already approved: the waitlist never says who else is on it,
- * and joining grants nothing.
- */
-export async function joinBetaWaitlist(input: { email: string; name?: string; writes?: string }): Promise<Result> {
-  const email = typeof input?.email === "string" ? normalizeBetaEmail(input.email) : "";
-  if (!isPlausibleEmail(email)) return { error: "Enter an email address we can reach you at." };
-  const name = typeof input.name === "string" ? input.name.trim().slice(0, WAITLIST_NAME_MAX) : "";
-  const writes = typeof input.writes === "string" ? input.writes.trim().slice(0, WAITLIST_WRITES_MAX) : "";
-
-  // Abuse guard (security audit): the RPC is anon-callable and every distinct
-  // address is a row, so one client gets a handful of joins per window.
-  // Per-instance, best-effort — see src/lib/rateLimit.ts for the caveats.
-  if (!consumeRateLimit(`waitlist:${clientIpFromHeaders(await headers())}`, 5, 10 * 60 * 1000).allowed) {
-    return { error: "Too many attempts. Please try again in a few minutes." };
-  }
-
-  const supabase = await createClient();
-  const { error } = await supabase.rpc("join_beta_waitlist", {
-    p_email: email,
-    p_name: name || null,
-    p_writes: writes || null,
-  });
-  if (error) {
-    if (/invalid_email/.test(error.message)) return { error: "Enter an email address we can reach you at." };
-    console.error("[beta] join_beta_waitlist failed:", error.code ?? "", error.message);
-    return { error: "That didn’t go through. Please try again in a moment." };
-  }
-  // Signed in (an account without access yet): recorded against it. A
-  // visitor without an account is counted by the waitlist itself.
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (user) await safeRecord({ userId: user.id, eventName: "beta_waitlist_joined" });
-  return { error: null };
 }
 
 /**
@@ -204,16 +162,4 @@ export async function getBetaOverview(): Promise<
     },
     error: null,
   };
-}
-
-/** Approves an email for the beta. Idempotent; an email already accepted stays exactly as it is. */
-export async function approveBetaEmail(rawEmail: string): Promise<Result> {
-  const email = typeof rawEmail === "string" ? normalizeBetaEmail(rawEmail) : "";
-  if (!isPlausibleEmail(email)) return { error: "That isn’t an email address." };
-  const { client, error } = await adminService();
-  if (!client) return { error };
-  const { error: insertError } = await client.from("beta_access").insert({ email });
-  // Already approved (or accepted): nothing to change.
-  if (insertError && insertError.code !== "23505") return { error: insertError.message };
-  return { error: null };
 }

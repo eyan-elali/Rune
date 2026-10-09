@@ -4,63 +4,35 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { PublicFrame } from "@/components/front/PublicFrame";
 import { MarketingTrackers } from "@/components/MarketingTrackers";
-import { SignOutButton, WaitlistForm } from "@/components/front/FrontDoor";
-import { hasBetaAccess } from "@/lib/beta";
-import { claimBetaAccess } from "@/lib/betaAccess";
 import { COMPLETE_PROFILE_PATH, needsProfileCompletion, readProfileState } from "@/lib/accountGate";
 
 export const metadata: Metadata = {
   title: { absolute: "Sutura — A home for writing novels" },
   description:
-    "Sutura keeps your manuscript at the center, with a workspace that grows around it only when you need it. Currently in closed beta.",
+    "Sutura keeps your manuscript at the center, with a workspace that grows around it only when you need it. Now in Early Access, and free for now.",
   // Resolved against metadataBase: https://writesutura.com/
   alternates: { canonical: "/" },
 };
 
-// The front door (Beta Completion E): not a launch site — what Sutura is, that
-// it is in closed beta, and the way in. Three states:
-//   * a visitor: Join the beta (the waitlist) and "Already invited? Sign in"
-//   * a signed-in writer with access: Open Sutura
-//   * a signed-in account without access (the (rune2) layout sends it here):
-//     the closed-beta note, and the waitlist — or, already on it, a quiet
-//     word that it is
-// Nothing here sells: no pricing, no plans, no checkout.
+// The front door: not a launch site — what Sutura is, that it is in Early
+// Access and free for now, and the way in. Two states:
+//   * a visitor: Start writing free (Create account) and Sign in
+//   * a signed-in writer: Open Sutura
+// Anyone may create an account (Early Access, migration 056): there is no
+// invitation, approval or waitlist. Nothing here sells: no pricing, no plans,
+// no checkout.
 
 export default async function FrontDoor() {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  // A signed-in account finishes its profile before anything else — beta
-  // access included (lib/accountGate.ts). A failed lookup is not a refusal.
+  // A signed-in account finishes its profile before anything else
+  // (lib/accountGate.ts). A failed lookup is not a refusal.
   if (user && needsProfileCompletion(await readProfileState(supabase, user.id, "display_name"))) {
     redirect(COMPLETE_PROFILE_PATH);
   }
-  const access = user ? await claimBetaAccess(supabase, user.id) : null;
-  // A failed check (null) for a signed-in writer is not a refusal: they may try to open Sutura.
-  const member = user !== null && (access === null || hasBetaAccess(access));
-
-  if (user && !member) {
-    return (
-      <PublicFrame nav={<SignOutButton />}>
-        <section className="r2-front" aria-labelledby="front-title">
-          <h1 id="front-title">Sutura is currently in closed beta.</h1>
-          <p className="r2-front-lede">We’re inviting writers in gradually while we finish the first release.</p>
-          <p className="r2-front-signed">Signed in as {user.email}.</p>
-          {access === "waitlisted" ? (
-            <div className="r2-material r2-front-panel">
-              <p className="r2-front-note" role="status">
-                You’re on the list. We’ll write to <strong>{user.email}</strong> when there’s a place for you — there’s
-                nothing else you need to do.
-              </p>
-            </div>
-          ) : (
-            <WaitlistForm defaultEmail={user.email ?? ""} />
-          )}
-        </section>
-      </PublicFrame>
-    );
-  }
+  const member = user !== null;
 
   return (
     <PublicFrame
@@ -95,17 +67,18 @@ export default async function FrontDoor() {
           </div>
         ) : (
           <>
-            <WaitlistForm
-              collapsed
-              note={
-                <p className="r2-front-beta">
-                  <strong>Sutura is currently in closed beta.</strong> We’re inviting writers in gradually while we finish
-                  the first release.
+            <div className="r2-material r2-front-panel">
+              <div className="r2-front-panel-head">
+                <p className="r2-front-access">
+                  <strong>Sutura is now available in Early Access.</strong> It’s free while we finish the first release.
                 </p>
-              }
-            />
+                <Link href="/signup" className="r2-button r2-button--primary r2-button--lg">
+                  Start writing free
+                </Link>
+              </div>
+            </div>
             <p className="r2-front-small">
-              Already invited? <Link href="/login">Sign in</Link>
+              Already have an account? <Link href="/login">Sign in</Link>
             </p>
           </>
         )}

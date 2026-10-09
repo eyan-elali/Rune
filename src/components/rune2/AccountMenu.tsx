@@ -21,8 +21,8 @@ import { useModalFocus } from "./useModalFocus";
 import { Wordmark } from "@/components/brand/Wordmark";
 
 // The account menu (Beta Completion A): who is signed in, and the places an
-// account goes — Projects, Settings, and out — and, for the closed beta
-// (Beta Completion E), Send feedback under a quiet "Sutura beta" label. Nothing
+// account goes — Projects, Settings, and out — and, during Early Access
+// (Beta Completion E), Send feedback under a quiet "Early Access" label. Nothing
 // else: no plan, no upgrade, no profile.
 //
 // Two places show it (Beta Completion C): the slim bar over the pages outside
@@ -152,7 +152,7 @@ function accountItems(
     // Who is signed in, as a quiet label over the list.
     { label: openSettings ? "All projects" : "Projects", icon: BookOpen, section: name, onSelect: () => push("/projects") },
     { label: "Settings", icon: Settings, onSelect: openSettings ?? (() => push("/settings")) },
-    { label: "Send feedback", icon: MessageSquare, section: "Sutura beta", onSelect: openFeedback },
+    { label: "Send feedback", icon: MessageSquare, section: "Early Access", onSelect: openFeedback },
     { label: "Log out", icon: LogOut, separator: true, onSelect: logOut },
   ];
 }

@@ -6,11 +6,9 @@ import { createClient } from "@/lib/supabase/client";
 import { recordSignupCompletedEvent } from "@/lib/actions/signupAnalytics";
 import { PEN_NAME_MAX_LENGTH, getPenNameValidationError, normalizePenName } from "@/lib/penName";
 
-// Create account (Beta Completion E): for the closed beta, with the email an
-// invitation was sent to. When the optional Auth hook is enabled (migration
-// 052, beta_before_user_created) an email that is not approved is refused
-// here, and the writer is pointed at the waitlist; without it, the account
-// is made but can't enter Rune until approved (the front door says so).
+// Create account: open to anyone during Early Access — no invitation, no
+// approval (migration 056). Supabase Auth validates the email, applies its
+// own sign-up rate limits and sends the confirmation link.
 //
 // One password field, no confirmation: the same 8-character rule, and a
 // mistyped password is never a lockout — the account is confirmed (and
@@ -29,14 +27,12 @@ export default function SignupClient() {
   const [password, setPassword] = useState("");
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [error, setError] = useState<string | null>(null);
-  const [notInvited, setNotInvited] = useState(false);
   const [loading, setLoading] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
-    setNotInvited(false);
 
     const errors: FieldErrors = {};
     const penNameError = getPenNameValidationError(displayName, "name");
@@ -65,8 +61,7 @@ export default function SignupClient() {
     });
 
     if (error) {
-      if (/closed beta/i.test(error.message)) setNotInvited(true);
-      else setError(error.message);
+      setError(error.message);
     } else {
       // Best-effort, fire-and-forget — analytics must never block or fail signup.
       // No server-side hook exists for this event: signUp() talks directly to
@@ -108,7 +103,7 @@ export default function SignupClient() {
   return (
     <section className="r2-auth-card" aria-labelledby="auth-title">
       <h1 id="auth-title">Create your account</h1>
-      <p className="r2-auth-lede">Sutura is in closed beta. Use the email address your invitation was sent to.</p>
+      <p className="r2-auth-lede">Sutura is in Early Access, and free for now.</p>
 
       <form onSubmit={handleSubmit} noValidate className="r2-auth-form">
         <label className="r2-auth-field">
@@ -150,12 +145,6 @@ export default function SignupClient() {
           />
           {fieldError("password")}
         </label>
-        {notInvited && (
-          <p role="alert" className="r2-notice">
-            This email hasn’t been invited yet. Sutura is in closed beta — <Link href="/">join the waitlist</Link> and
-            we’ll write when there’s a place for you.
-          </p>
-        )}
         {error && (
           <p role="alert" className="r2-notice" data-tone="danger">
             {error}
@@ -175,9 +164,6 @@ export default function SignupClient() {
       <div className="r2-auth-card-foot">
         <p>
           Already have an account? <Link href="/login">Sign in</Link>
-        </p>
-        <p>
-          Not invited yet? <Link href="/">Join the beta</Link>
         </p>
       </div>
     </section>

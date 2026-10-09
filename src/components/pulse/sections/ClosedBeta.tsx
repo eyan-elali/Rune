@@ -1,15 +1,14 @@
 "use client";
 
-import { useState, useTransition } from "react";
 import { PulseCard, PulseCardLabel } from "@/components/pulse/PulseCard";
-import { approveBetaEmail, getBetaOverview } from "@/lib/actions/beta";
 import type { BetaFeedbackRow, BetaOverviewRow } from "@/lib/actions/beta";
 
-// The closed beta's operator view (Beta Completion E): every waitlisted and
-// approved email with where it stands, one field to approve an address, and
-// the latest feedback. Approving only adds an address; nothing here removes
-// one, and an accepted writer can't be un-accepted (migration 052). No
-// manuscript content is read or shown.
+// Feedback, and the closed beta's history (Beta Completion E): every email
+// that joined the waitlist or was approved, with where it stood, and the
+// latest feedback. Since Early Access (migration 056) anyone may create an
+// account, so nothing here grants access any longer; the list is kept as
+// read-only history and nothing here changes it. No manuscript content is
+// read or shown.
 
 function fmtDate(iso: string | null): string {
   if (!iso) return "—";
@@ -37,39 +36,22 @@ export function ClosedBeta({
   initial: { people: BetaOverviewRow[]; feedback: BetaFeedbackRow[] } | null;
   loadError: string | null;
 }) {
-  const [data, setData] = useState(initial);
-  const [email, setEmail] = useState("");
-  const [error, setError] = useState<string | null>(loadError);
-  const [isPending, startTransition] = useTransition();
-
-  function approve(address: string) {
-    const value = address.trim();
-    if (!value) return;
-    setError(null);
-    startTransition(async () => {
-      const result = await approveBetaEmail(value);
-      if (result.error) {
-        setError(result.error);
-        return;
-      }
-      if (value === email.trim()) setEmail("");
-      const fresh = await getBetaOverview();
-      if (fresh.error === null) setData(fresh.data);
-    });
-  }
-
-  const people = data?.people ?? [];
+  const people = initial?.people ?? [];
   const waiting = people.filter((p) => !p.approvedAt).length;
   const approved = people.filter((p) => p.approvedAt && !p.acceptedAt).length;
   const active = people.filter((p) => p.acceptedAt).length;
-  const feedback = data?.feedback ?? [];
+  const feedback = initial?.feedback ?? [];
 
   return (
     <PulseCard className="r2-pulse-beta">
-      <PulseCardLabel emphasis>Closed Beta</PulseCardLabel>
+      <PulseCardLabel emphasis>Feedback and closed-beta history</PulseCardLabel>
+      <p className="r2-pulse-help r2-pulse-help--lead">
+        Sutura is in open Early Access: anyone can create an account. The closed beta’s waitlist and approvals are kept
+        here as history.
+      </p>
 
-      {/* Where the beta stands: three figures in a line, not three cards. */}
-      <dl className="r2-pulse-figures" aria-label="Closed beta standing">
+      {/* Where the closed beta ended: three figures in a line, not three cards. */}
+      <dl className="r2-pulse-figures" aria-label="Closed beta history">
         <div>
           <dd>{waiting}</dd>
           <dt>waiting</dt>
@@ -84,40 +66,14 @@ export function ClosedBeta({
         </div>
       </dl>
 
-      <form
-        className="r2-pulse-approve"
-        onSubmit={(e) => {
-          e.preventDefault();
-          approve(email);
-        }}
-      >
-        <label htmlFor="pulse-approve-email" className="sr-only">
-          Email to approve
-        </label>
-        <input
-          id="pulse-approve-email"
-          type="email"
-          className="r2-field"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="writer@example.com"
-          autoComplete="off"
-        />
-        <button type="submit" className="r2-button r2-button--primary" disabled={!email.trim() || isPending}>
-          Approve
-        </button>
-        <p className="r2-pulse-help">
-          An approved email is let into Sutura the next time it signs in. Write to the writer yourself to tell them.
-        </p>
-      </form>
-      {error && (
+      {loadError && (
         <p role="alert" className="r2-notice" data-tone="danger">
-          {error}
+          {loadError}
         </p>
       )}
 
       {people.length === 0 ? (
-        <p className="r2-pulse-empty">No one on the waitlist or approved yet.</p>
+        <p className="r2-pulse-empty">No one joined the waitlist or was approved.</p>
       ) : (
         <div className="r2-pulse-scroll">
           <table className="r2-pulse-table">
@@ -128,9 +84,6 @@ export function ClosedBeta({
                 <th scope="col">Waitlisted</th>
                 <th scope="col">Approved</th>
                 <th scope="col">Signed in</th>
-                <th scope="col">
-                  <span className="sr-only">Actions</span>
-                </th>
               </tr>
             </thead>
             <tbody>
@@ -152,18 +105,6 @@ export function ClosedBeta({
                     <td className="r2-pulse-meta">{fmtDate(p.waitlistedAt)}</td>
                     <td className="r2-pulse-meta">{fmtDate(p.approvedAt)}</td>
                     <td className="r2-pulse-meta">{p.acceptedAt ? fmtDate(p.acceptedAt) : "Not yet"}</td>
-                    <td className="r2-pulse-actions">
-                      {!p.approvedAt && (
-                        <button
-                          type="button"
-                          className="r2-button r2-button--sm"
-                          onClick={() => approve(p.email)}
-                          disabled={isPending}
-                        >
-                          Approve
-                        </button>
-                      )}
-                    </td>
                   </tr>
                 );
               })}

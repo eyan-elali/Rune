@@ -44,8 +44,8 @@ const MOCKS = {
   '@supabase/ssr': path.join(HARNESS_DIR, 'mocks/supabaseSsr.js'),
 };
 
-let scenes, projects, pages, notes, stats, xp, games, settings, unlockables, pulse, beta, betaAccess, callback, authRedirect;
-const mods = () => [scenes, projects, pages, notes, stats, xp, games, settings, unlockables, pulse, beta, betaAccess, callback];
+let scenes, projects, pages, notes, stats, xp, games, settings, unlockables, pulse, beta, callback, authRedirect;
+const mods = () => [scenes, projects, pages, notes, stats, xp, games, settings, unlockables, pulse, beta, callback];
 before(async () => {
   const b = (entry, name) => bundleForTest(entry, { name, aliases: MOCKS });
   scenes = await b('src/lib/actions/scenes.ts', 'sec_scenes');
@@ -59,7 +59,6 @@ before(async () => {
   unlockables = await b('src/lib/actions/unlockables.ts', 'sec_unlockables');
   pulse = await b('src/lib/actions/pulse.ts', 'sec_pulse');
   beta = await b('src/lib/actions/beta.ts', 'sec_beta');
-  betaAccess = await b('src/lib/betaAccess.ts', 'sec_betaAccess');
   callback = await b('src/app/auth/callback/route.ts', 'sec_callback');
   authRedirect = await b('src/lib/authRedirect.ts', 'sec_authRedirect');
 });
@@ -244,7 +243,6 @@ test('every Pulse action refuses a non-admin on every call, with or without the 
     await rejects(pulse.removeExcludedUser(A));
     assert.equal((await pulse.createFounderNote('a note')).error, 'Not authorized');
     assert.equal((await pulse.addExcludedUser(A, 'internal')).error, 'Not authorized');
-    assert.equal((await beta.approveBetaEmail('friend@example.com')).error, 'Not authorized');
     assert.equal((await beta.getBetaOverview()).error, 'Not authorized');
     assert.equal((await one(db, `select count(*)::int as n from public.beta_access where email = 'friend@example.com'`)).n, 0);
     assert.equal((await one(db, `select count(*)::int as n from public.founder_notes`)).n, 0);
@@ -253,7 +251,7 @@ test('every Pulse action refuses a non-admin on every call, with or without the 
     // Signed out: the same.
     signIn(db, null);
     await rejects(pulse.getUserDrawerData(A));
-    assert.equal((await beta.approveBetaEmail('friend@example.com')).error, 'Not authorized');
+    assert.equal((await beta.getBetaOverview()).error, 'Not authorized');
   } finally {
     globalThis.__runeServiceClient = null;
     if (hadKey === undefined) delete process.env.SUPABASE_SERVICE_ROLE_KEY; else process.env.SUPABASE_SERVICE_ROLE_KEY = hadKey;
@@ -268,7 +266,7 @@ test('admin and beta state cannot be granted by a forged request: is_admin stays
   const flip = await sb.from('profiles').update({ is_admin: true }).eq('id', B);
   assert.equal(flip.error, null, flip.error?.message);
   assert.equal((await one(db, `select is_admin from public.profiles where id = $1`, [B])).is_admin, false);
-  assert.equal(await betaAccess.claimBetaAccess(sb, B), 'member', 'and the claim reports a member, not an admin');
+  assert.equal((await sb.rpc('claim_beta_access')).data, 'member', 'and the claim reports a member, not an admin');
 
   // beta_access: no client policy at all. An account whose email is not approved claims nothing.
   const C = W(3);
@@ -277,20 +275,19 @@ test('admin and beta state cannot be granted by a forged request: is_admin stays
   const grant = await sc.from('beta_access').insert({ email: 'carl@example.com' });
   assert.notEqual(grant.error, null, 'insert refused');
   assert.deepEqual(await sc.from('beta_access').select('email').then((r) => r.data ?? []), [], 'nothing of the list is readable');
-  assert.equal(await betaAccess.claimBetaAccess(sc, C), 'none');
+  assert.equal((await sc.rpc('claim_beta_access')).data, 'none');
   assert.equal((await one(db, `select count(*)::int as n from public.beta_access where email = 'carl@example.com'`)).n, 0);
 
   // Another email's approval is not theirs to claim: claim_beta_access uses
   // the account's own auth.users email, never a parameter.
   await db.query(`insert into public.beta_access (email) values ('friend@example.com')`);
-  assert.equal(await betaAccess.claimBetaAccess(sc, C), 'none');
+  assert.equal((await sc.rpc('claim_beta_access')).data, 'none');
   assert.equal((await one(db, `select user_id from public.beta_access where email = 'friend@example.com'`)).user_id, null);
-  assert.equal(code('src/lib/betaAccess.ts').includes('supabase.rpc("claim_beta_access")'), true, 'no argument to forge');
   assert.doesNotMatch(code('src/lib/supabase/schema.sql'), /FUNCTION public\.claim_beta_access\([^)]/, 'claim_beta_access takes no parameters');
 
   // The waitlist grants nothing either.
   await db.query(`insert into public.beta_waitlist (email) values ('carl@example.com')`);
-  assert.equal(await betaAccess.claimBetaAccess(sc, C), 'waitlisted');
+  assert.equal((await sc.rpc('claim_beta_access')).data, 'waitlisted');
   assert.equal((await one(db, `select count(*)::int as n from public.projects where user_id = $1`, [C])).n, 0);
 });
 

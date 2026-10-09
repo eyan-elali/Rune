@@ -1,5 +1,5 @@
-// A small fixed-window limiter for the closed beta's cheap-to-spam entry
-// points (waitlist joins, feedback). Server-only.
+// A small fixed-window limiter for cheap-to-spam entry points (feedback;
+// formerly the closed beta's waitlist joins). Server-only.
 //
 // HONEST CAVEATS — this is an in-memory map:
 //   * On Vercel each serverless/edge instance has its own map, so the real

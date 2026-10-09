@@ -1,15 +1,14 @@
-// The closed beta and Rune 2.0 onboarding (Beta Completion E, migration 052):
+// Early Access (migration 056; formerly the closed beta, 052) and Rune 2.0 onboarding (Beta Completion E):
 // the REAL actions, route handlers and pure modules against the Rune 2.0
 // schema in real Postgres + RLS, analytics recorded by a mock (never sent),
 // Stripe replaced by a trap that fails any use.
 //
-//   * access: an approved email is accepted on first arrival and stays a
-//     member; an unapproved or merely waitlisted account is refused — and,
-//     server-side, cannot own a Project by any creation path; an accepted
-//     writer cannot be un-accepted by editing the list; an admin is never
-//     locked out; 052 accepts every account that already exists; the
-//     optional Auth hook refuses an unapproved email
-//   * waitlist: idempotent, says nothing about other addresses, grants nothing
+//   * access: any account with a profile owns Projects by every creation
+//     path, with no approval written for it; the profile still comes first;
+//     a closed-beta writer is unaffected and their acceptance cannot be
+//     undone by editing the list; 052 accepted every account that existed;
+//     056 changes no row and opens the optional Auth hook; the app has no
+//     access check, no waitlist and no invitation language left
 //   * onboarding: new path and import path, resume after refresh, one Project
 //     however often it is asked, completion once per account, arrival in
 //     Chapter 1's first Scene; the old journey (first sentence, letter,
@@ -42,11 +41,10 @@ const MOCKS = {
   '@/lib/stripe/client': path.join(HARNESS_DIR, 'mocks/stripeTrap.js'),
 };
 
-let beta, betaAccess, onboarding, onboardingLib, betaLib, hints, settings, importRoute, projects, billing, pricing, checkoutRoute;
+let beta, onboarding, onboardingLib, betaLib, hints, settings, importRoute, projects, billing, pricing, checkoutRoute;
 before(async () => {
   const b = (entry, name) => bundleForTest(entry, { name, aliases: MOCKS });
   beta = await b('src/lib/actions/beta.ts', 'cb_beta');
-  betaAccess = await b('src/lib/betaAccess.ts', 'cb_betaAccess');
   onboarding = await b('src/lib/actions/onboarding.ts', 'cb_onboarding');
   onboardingLib = await b('src/lib/onboarding.ts', 'cb_onboardingLib');
   betaLib = await b('src/lib/beta.ts', 'cb_betaLib');
@@ -73,7 +71,7 @@ const account = (db, n, email) => createAuthUser(db, W(n), {}, { beta: false, em
 
 function signIn(userId, db) {
   const sb = as(db, userId);
-  for (const mod of [beta, betaAccess, onboarding, settings, importRoute, projects, billing, pricing, checkoutRoute]) mod.setServerClient(sb);
+  for (const mod of [beta, onboarding, settings, importRoute, projects, billing, pricing, checkoutRoute]) mod.setServerClient(sb);
   return sb;
 }
 
@@ -91,78 +89,76 @@ const postImport = (body) => importRoute.POST(new Request('http://localhost/api/
   method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body),
 }));
 
-// ── 1. Access ─────────────────────────────────────────────────────────────────
+// ── 1. Access (Early Access, migration 056) ──────────────────────────────────
 
-test('an approved email is accepted the first time its account arrives, and is a member from then on', async () => {
-  const db = await freshDb();
-  await db.query(`insert into public.beta_access (email) values ('writer@example.com')`);
-  await account(db, 1, '  Writer@Example.com ');
-  signIn(W(1), db);
-  clearEvents();
-  assert.equal(await betaAccess.claimBetaAccess(await as(db, W(1)), W(1)), 'accepted');
-  assert.deepEqual(events().map((e) => e.eventName), ['beta_access_accepted'], 'recorded once, with no email or content');
-  assert.equal(events()[0].metadata, undefined);
-  assert.equal(await betaAccess.claimBetaAccess(as(db, W(1)), W(1)), 'member');
-  assert.equal(events().length, 1, 'accepting is recorded once');
-  const row = await one(db, `select user_id, accepted_at is not null as accepted from public.beta_access where email = 'writer@example.com'`);
-  assert.deepEqual(row, { user_id: W(1), accepted: true });
-  assert.ok(betaLib.hasBetaAccess('accepted') && betaLib.hasBetaAccess('member') && betaLib.hasBetaAccess('admin'));
-  assert.equal(ok(await createProject(db, W(1))).status, 'ok', 'a member creates Projects');
-});
-
-test('an unapproved account is refused, and cannot own a Project by any creation path (the server-side boundary)', async () => {
+test('Early Access: a brand-new, unapproved account owns Projects by every creation path, and nothing is approved on its behalf', async () => {
   const db = await freshDb();
   await account(db, 2, 'stranger@example.com');
   const sb = signIn(W(2), db);
-  assert.equal(await betaAccess.claimBetaAccess(sb, W(2)), 'none');
-  assert.equal(betaLib.hasBetaAccess('none'), false);
 
-  const rpc = await createProject(db, W(2));
-  assert.match(rpc.error?.message ?? '', /closed beta/, 'create_project_checked refused');
-  const created = await projects.createProject('A book');
-  assert.equal(created.data, null);
-  assert.match(created.error, /closed beta/);
-  const viaOnboarding = await onboarding.createOnboardingProject('A book');
-  assert.match(viaOnboarding.error, /closed beta/, 'onboarding says so plainly');
+  assert.equal(ok(await createProject(db, W(2))).status, 'ok', 'create_project_checked');
+  assert.equal((await projects.createProject('A second book')).error, null, 'the Projects home');
   const imported = await postImport({ payload: IMPORT_PAYLOAD, requestId: W(900) });
-  assert.equal(imported.status, 422, 'import refused');
-  assert.equal(await projectCount(db, W(2)), 0, 'nothing was created');
+  assert.equal(imported.status, 200, 'Manuscript Import');
+  assert.equal(await projectCount(db, W(2)), 3);
 
-  // The service role (an operator) is not a writer request and is not checked.
-  await db.query(`insert into public.projects (user_id, title) values ($1, 'Operator-made')`, [W(2)]);
-  assert.equal(await projectCount(db, W(2)), 1);
+  // The onboarding path, for another new account.
+  await account(db, 3, 'eager@example.com');
+  signIn(W(3), db);
+  ok(await onboarding.beginOnboarding());
+  ok(await onboarding.chooseOnboardingPath('new'));
+  const viaOnboarding = ok(await onboarding.createOnboardingProject('A book'));
+  assert.ok(viaOnboarding.projectId, 'onboarding makes the Project');
+  assert.equal(await projectCount(db, W(3)), 1);
+
+  assert.equal((await one(db, `select count(*)::int as n from public.beta_access`)).n, 0, 'no approval is needed or written');
+  assert.equal((await sb.rpc('claim_beta_access')).data, 'none', 'the closed-beta record still reads honestly, and decides nothing');
 });
 
-test('the (rune2) layout turns an account without access away on the server; the front door shows the closed beta', () => {
+test('Early Access keeps the profile first: an account without a profile is still refused a Project, with the plain message', async () => {
+  const db = await freshDb();
+  await account(db, 12, 'noprofile@example.com');
+  await db.query(`delete from public.user_pricing_entitlements where user_id = $1`, [W(12)]);
+  await db.query(`delete from public.profiles where id = $1`, [W(12)]);
+  assert.match((await createProject(db, W(12))).error?.message ?? '', /Choose your pen name before creating a project\./);
+  assert.equal(await projectCount(db, W(12)), 0);
+});
+
+test('a closed-beta writer is unaffected: their acceptance stays recorded and they keep creating Projects', async () => {
+  const db = await freshDb();
+  await db.query(`insert into public.beta_access (email) values ('writer@example.com')`);
+  await account(db, 1, '  Writer@Example.com ');
+  assert.equal((await as(db, W(1)).rpc('claim_beta_access')).data, 'accepted', 'the record can still be completed');
+  assert.equal((await as(db, W(1)).rpc('claim_beta_access')).data, 'member');
+  const row = await one(db, `select user_id, accepted_at is not null as accepted from public.beta_access where email = 'writer@example.com'`);
+  assert.deepEqual(row, { user_id: W(1), accepted: true });
+  assert.equal(ok(await createProject(db, W(1))).status, 'ok');
+});
+
+test('the app no longer gates on beta access: the (rune2) layout has no access check; the front door offers Start writing free and Sign in', () => {
   const layout = code('src/app/(rune2)/layout.tsx');
-  assert.match(layout, /claimBetaAccess\(supabase, user\.id\)/);
-  assert.match(layout, /if \(access !== null && !hasBetaAccess\(access\)\) redirect\("\/"\)/);
-  for (const page of ['projects/(home)/page.tsx', 'projects/[projectId]/layout.tsx', 'settings/page.tsx', 'onboarding/page.tsx']) {
-    assert.ok(fs.existsSync(path.join(REPO_DIR, 'src/app/(rune2)', page)), `${page} sits under the gated layout`);
-  }
+  assert.doesNotMatch(layout, /claimBetaAccess|hasBetaAccess|claim_beta_access|redirect\("\/"\)/);
+  assert.match(layout, /if \(!user\) redirect\("\/login"\)/, 'signed out is still sent to sign in');
+  assert.match(layout, /if \(needsProfileCompletion\(profileState\)\) redirect\(COMPLETE_PROFILE_PATH\)/, 'the profile still comes first');
+  assert.equal(fs.existsSync(path.join(REPO_DIR, 'src/lib/betaAccess.ts')), false);
+  assert.equal(fs.existsSync(path.join(REPO_DIR, 'src/components/front/FrontDoor.tsx')), false, 'the waitlist form is gone');
+  assert.doesNotMatch(read('src/lib/actions/beta.ts'), /join_beta_waitlist|beta_access"\)\.insert/, 'no public waitlist action, no approval action');
+
   const front = read('src/app/(front)/page.tsx');
-  assert.match(front, /Sutura is currently in closed beta\./);
-  assert.match(front, /We’re inviting writers in gradually while we finish the first release\./);
-  assert.match(front, /You’re on the list\./);
+  assert.match(front, /<Link href="\/signup" className="r2-button r2-button--primary r2-button--lg">\s*Start writing free\s*<\/Link>/);
+  assert.match(front, /<Link href="\/login"[^>]*>\s*Sign in\s*<\/Link>/);
+  assert.match(front, /Sutura is now available in Early Access\./);
   assert.doesNotMatch(code('src/app/(front)/page.tsx'), /beta_access|invite id|permission|denied|unauthori[sz]ed|403|pricing|\$\d/i,
     'no internal or error-like language, no pricing');
-});
 
-test('the waitlist grants nothing: a waitlisted account is told so, and still cannot create a Project', async () => {
-  const db = await freshDb();
-  await account(db, 3, 'eager@example.com');
-  signIn(null, db); // a visitor
-  ok(await beta.joinBetaWaitlist({ email: ' Eager@Example.com', name: 'Eager', writes: 'A long saga' }));
-  ok(await beta.joinBetaWaitlist({ email: 'eager@example.com' }));
-  assert.deepEqual(await all(db, `select email, name, writes from public.beta_waitlist`), [{ email: 'eager@example.com', name: 'Eager', writes: 'A long saga' }],
-    'one row; a second submission changes nothing');
-  assert.equal((await beta.joinBetaWaitlist({ email: 'not an email' })).error, 'Enter an email address we can reach you at.');
-
-  const sb = signIn(W(3), db);
-  assert.equal(await betaAccess.claimBetaAccess(sb, W(3)), 'waitlisted');
-  assert.equal(betaLib.hasBetaAccess('waitlisted'), false);
-  assert.match((await createProject(db, W(3))).error?.message ?? '', /closed beta/);
-  assert.equal(await one(db, `select count(*)::int as n from public.beta_access`).then((r) => r.n), 0, 'no approval appears');
+  // No active surface tells a writer they need an invitation, approval or the waitlist.
+  for (const f of [
+    'src/app/(front)/page.tsx', 'src/app/(auth)/signup/SignupClient.tsx', 'src/app/(auth)/signup/page.tsx',
+    'src/app/(auth)/login/LoginClient.tsx', 'src/components/rune2/RuneSettings.tsx', 'src/components/rune2/AccountMenu.tsx',
+    'src/components/rune2/Feedback.tsx', 'src/lib/actions/onboarding.ts', 'src/app/(legal)/terms/page.tsx',
+  ]) {
+    assert.doesNotMatch(code(f), /closed beta|invite-only|invited|invitation|join the beta|waitlist/i, f);
+  }
 });
 
 test('nobody reads or writes the beta tables directly: not anon, not a writer', async () => {
@@ -186,8 +182,7 @@ test('an accepted writer stays accepted: the list cannot un-accept, re-point or 
   await db.query(`insert into public.beta_access (email) values ('kept@example.com'), ('open@example.com')`);
   await account(db, 5, 'kept@example.com');
   await account(db, 6, 'other@example.com');
-  signIn(W(5), db);
-  assert.equal(await betaAccess.claimBetaAccess(as(db, W(5)), W(5)), 'accepted');
+  assert.equal((await as(db, W(5)).rpc('claim_beta_access')).data, 'accepted');
   await createProject(db, W(5));
 
   for (const [sql, what] of [
@@ -198,7 +193,7 @@ test('an accepted writer stays accepted: the list cannot un-accept, re-point or 
   ]) {
     await assert.rejects(db.query(sql), /already accepted the beta/, what);
   }
-  assert.equal(await betaAccess.claimBetaAccess(as(db, W(5)), W(5)), 'member');
+  assert.equal((await as(db, W(5)).rpc('claim_beta_access')).data, 'member');
   // Unaccepted rows are the operator's to change.
   await db.query(`delete from public.beta_access where email = 'open@example.com'`);
 
@@ -208,11 +203,11 @@ test('an accepted writer stays accepted: the list cannot un-accept, re-point or 
   assert.deepEqual(await one(db, `select user_id, accepted_at from public.beta_access where email = 'kept@example.com'`), { user_id: null, accepted_at: null });
 });
 
-test('an admin is never locked out, needs no approval, and is not recorded as a beta member', async () => {
+test('an admin creates Projects and is not recorded as a beta member', async () => {
   const db = await freshDb();
   await account(db, 7, 'founder@example.com');
   await db.query(`update public.profiles set is_admin = true where id = $1`, [W(7)]);
-  assert.equal(await betaAccess.claimBetaAccess(as(db, W(7)), W(7)), 'admin');
+  assert.equal((await as(db, W(7)).rpc('claim_beta_access')).data, 'admin');
   assert.equal(ok(await createProject(db, W(7))).status, 'ok');
   assert.equal((await one(db, `select count(*)::int as n from public.beta_access`)).n, 0);
 });
@@ -230,15 +225,23 @@ test('migration 052 accepts every account that already exists, so no one loses a
   await assert.rejects(db.exec(readMigration('052_closed_beta.sql')), /already been applied/);
 });
 
-test('the optional Auth hook refuses sign-up for an email that is not approved, and allows an approved one', async () => {
-  const db = await freshDb();
+test('migration 056 opens Project creation without touching a row of the closed beta, and applies once', async () => {
+  const db = await createTestDb();
+  await db.exec(readRepoFile(LEGACY_BASELINE));
+  for (const f of migrationsAfterBaseline().filter((f) => f < '056')) await db.exec(readMigration(f));
   await db.query(`insert into public.beta_access (email) values ('invited@example.com')`);
-  const hook = async (email) => (await one(db, `select public.beta_before_user_created($1::jsonb) as r`, [JSON.stringify({ user: { email } })])).r;
-  assert.deepEqual(await hook('Invited@example.com '), {});
-  const refused = await hook('stranger@example.com');
-  assert.equal(refused.error.http_code, 403);
-  assert.match(refused.error.message, /closed beta/, 'the sign-up page recognises this');
-  assert.match(read('src/app/(auth)/signup/SignupClient.tsx'), /closed beta\/i\.test\(error\.message\)/);
+  await db.query(`insert into public.beta_waitlist (email, name) values ('hopeful@example.com', 'Hope')`);
+  await createAuthUser(db, W(10), {}, { beta: false, email: 'late@example.com' });
+  assert.match((await createProject(db, W(10))).error?.message ?? '', /closed beta/, 'before 056: refused');
+  const snapshot = async () => all(db, `select (select json_agg(b order by email) from public.beta_access b) as a, (select json_agg(w order by email) from public.beta_waitlist w) as w`);
+  const before = await snapshot();
+
+  await db.exec(readMigration('056_open_early_access.sql'));
+  assert.equal(ok(await createProject(db, W(10))).status, 'ok', 'after 056: any account with a profile');
+  assert.deepEqual(await snapshot(), before, 'approvals and the waitlist kept exactly');
+  assert.deepEqual((await one(db, `select public.beta_before_user_created($1::jsonb) as r`, [JSON.stringify({ user: { email: 'anyone@example.com' } })])).r, {},
+    'the optional Auth hook, if enabled by hand, refuses no one');
+  await assert.rejects(db.exec(readMigration('056_open_early_access.sql')), /already been applied/);
 });
 
 // ── 2. Onboarding ─────────────────────────────────────────────────────────────
@@ -475,7 +478,7 @@ test('feedback: the writer\'s text, an optional category and safe context — no
   const ui = code('src/components/rune2/Feedback.tsx');
   assert.doesNotMatch(ui, /editor|getHTML|getText|useRune2Selection|scene\.content|innerText|textContent|localStorage/,
     'the dialog reads nothing from the product\'s content');
-  assert.match(code('src/components/rune2/AccountMenu.tsx'), /label: "Send feedback"[^}]*section: "Sutura beta"/, 'in the account menu, under a quiet Beta label');
+  assert.match(code('src/components/rune2/AccountMenu.tsx'), /label: "Send feedback"[^}]*section: "Early Access"/, 'in the account menu, under a quiet Early Access label');
 });
 
 test('feedback: a writer cannot insert as someone else, and cannot read anyone\'s', async () => {
@@ -488,43 +491,33 @@ test('feedback: a writer cannot insert as someone else, and cannot read anyone\'
   assert.ok((await sb.from('beta_feedback').select('body')).error, 'not readable, even one\'s own');
 });
 
-test('the operator: an admin sees waitlist, approval and activation (no content) and approves an email; nobody else can', async () => {
+test('the operator: an admin sees the closed beta\'s history (no content), read-only; nobody else can', async () => {
   const db = await freshDb();
   await createAuthUser(db, W(40), { display_name: 'Founder' });
   await db.query(`update public.profiles set is_admin = true where id = $1`, [W(40)]);
   await account(db, 41, 'reader@example.com');
   globalThis.__runeServiceClient = createSupabaseAdapter(db, { role: 'service_role' });
-
-  signIn(null, db);
-  ok(await beta.joinBetaWaitlist({ email: 'reader@example.com', writes: 'Gothic' }));
-  ok(await beta.joinBetaWaitlist({ email: 'later@example.com' }));
+  // History from the closed beta: a waitlisted address that was approved and accepted, and one still waiting.
+  await db.query(`insert into public.beta_waitlist (email, writes) values ('reader@example.com', 'Gothic'), ('later@example.com', null)`);
+  await db.query(`insert into public.beta_access (email) values ('reader@example.com')`);
+  assert.equal((await as(db, W(41)).rpc('claim_beta_access')).data, 'accepted');
 
   signIn(W(41), db);
-  assert.equal((await beta.approveBetaEmail('reader@example.com')).error, 'Not authorized');
   assert.equal((await beta.getBetaOverview()).error, 'Not authorized');
 
   signIn(W(40), db);
-  ok({ data: true, ...(await beta.approveBetaEmail(' Reader@Example.com ')) });
-  ok({ data: true, ...(await beta.approveBetaEmail('reader@example.com')) });
-  assert.equal((await beta.approveBetaEmail('nope')).error, 'That isn’t an email address.');
-  let people = ok(await beta.getBetaOverview()).people;
+  const people = ok(await beta.getBetaOverview()).people;
   const reader = people.find((p) => p.email === 'reader@example.com');
-  assert.ok(reader.waitlistedAt && reader.approvedAt && reader.acceptedAt === null);
+  assert.ok(reader.waitlistedAt && reader.approvedAt && reader.acceptedAt);
   assert.equal(reader.writes, 'Gothic');
   assert.equal(people.find((p) => p.email === 'later@example.com').approvedAt, null);
-
-  // The approved writer arrives: accepted, and the operator sees it.
-  signIn(W(41), db);
-  assert.equal(await betaAccess.claimBetaAccess(as(db, W(41)), W(41)), 'accepted');
-  signIn(W(40), db);
-  people = ok(await beta.getBetaOverview()).people;
-  assert.ok(people.find((p) => p.email === 'reader@example.com').acceptedAt);
   assert.deepEqual(Object.keys(people[0]).sort(), ['acceptedAt', 'approvedAt', 'email', 'name', 'waitlistedAt', 'writes'], 'nothing about their writing');
+  assert.equal('approveBetaEmail' in beta, false, 'approval is no longer a thing to do');
   assert.match(code('src/app/(app)/pulse/page.tsx'), /<ClosedBeta initial=/, 'in Pulse, which is admin-gated');
   globalThis.__runeServiceClient = null;
 });
 
-// ── 5. No monetization in the closed beta ─────────────────────────────────────
+// ── 5. No monetization in Early Access ─────────────────────────────────────
 
 test('nothing user-facing can start a checkout or a plan change; Stripe is never reached', async () => {
   const db = await freshDb();
@@ -532,10 +525,10 @@ test('nothing user-facing can start a checkout or a plan change; Stripe is never
   signIn(W(50), db);
   globalThis.__stripeUses.length = 0;
   assert.equal(betaLib.BILLING_OPEN, false);
-  assert.match((await billing.createCheckoutSession('scribe', 'monthly')).error, /free during the closed beta/);
+  assert.match((await billing.createCheckoutSession('scribe', 'monthly')).error, /free during Early Access/);
   assert.equal((await billing.startScribeCheckoutForCurrentUser('monthly', 'landing_purchase_intent')).status, 'error');
-  assert.match((await billing.changeScribeBillingInterval('annual')).error, /free during the closed beta/);
-  assert.match((await pricing.createFoundingCheckoutSession()).error, /free during the closed beta/);
+  assert.match((await billing.changeScribeBillingInterval('annual')).error, /free during Early Access/);
+  assert.match((await pricing.createFoundingCheckoutSession()).error, /free during Early Access/);
   const res = await checkoutRoute.GET(new Request('http://localhost/api/billing/checkout?plan=scribe&billing=monthly'));
   assert.equal(res.status, 307);
   assert.equal(new URL(res.headers.get('location')).pathname, '/projects');

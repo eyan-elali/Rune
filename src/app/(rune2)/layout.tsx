@@ -9,8 +9,6 @@ import { HintsProvider } from "@/components/rune2/Hint";
 import { RunePreferencesProvider, RuneRoot } from "@/components/rune2/RunePreferences";
 import { Rune2Session } from "@/components/rune2/Rune2Session";
 import { COMPLETE_PROFILE_PATH, needsProfileCompletion, readProfileState } from "@/lib/accountGate";
-import { hasBetaAccess } from "@/lib/beta";
-import { claimBetaAccess } from "@/lib/betaAccess";
 import { needsOnboarding, readOnboardingRow } from "@/lib/onboarding";
 import { accountOf } from "@/lib/rune2/account";
 import { hasChosenAppearance } from "@/lib/rune2/preferences";
@@ -24,9 +22,9 @@ import "./rune2.css";
 // route group, so nothing of the Rune 1.x frame renders here. Entry rules:
 // signed in (the proxy also enforces this), a profile with a pen name (an
 // account without one — even with no profile row at all — goes to
-// /complete-profile), then beta access (Beta Completion E: an account without
-// it goes to the front door's closed-beta state — the database refuses it a
-// Project either way), and a supported (non-phone) device. It
+// /complete-profile), and a supported (non-phone) device. There is no access
+// list: since Early Access (migration 056) every account with a profile may
+// use Sutura. It
 // runs the editor infrastructure every page may need: the profile/cohort
 // stores the save engine reads, NetworkProvider (online state + background
 // sync of the offline queue), and the writer's account-wide preferences
@@ -65,9 +63,6 @@ export default async function RuneLayout({ children }: { children: ReactNode }) 
   // The profile comes first (lib/accountGate.ts): no profile, or no pen name, is never let in.
   if (needsProfileCompletion(profileState)) redirect(COMPLETE_PROFILE_PATH);
   const profile = profileState.status === "complete" ? profileState.profile : null;
-  // Then beta access. Only a definite answer turns the writer away; a failed check lets them in (lib/betaAccess.ts).
-  const access = await claimBetaAccess(supabase, user.id);
-  if (access !== null && !hasBetaAccess(access)) redirect("/");
 
   const unchosenAppearance = (await inOnboardingWithoutAppearance(supabase, user.id, profile)) ? "system" : undefined;
 
