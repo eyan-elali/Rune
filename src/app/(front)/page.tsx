@@ -5,6 +5,7 @@ import { PublicFrame } from "@/components/front/PublicFrame";
 import { FrontHeader } from "@/components/front/FrontHeader";
 import { FrontHero } from "@/components/front/FrontHero";
 import { FrontManuscript } from "@/components/front/FrontManuscript";
+import { FrontWorkspace } from "@/components/front/FrontWorkspace";
 import { MarketingTrackers } from "@/components/MarketingTrackers";
 import { COMPLETE_PROFILE_PATH, needsProfileCompletion, readProfileState } from "@/lib/accountGate";
 import "./front.css";
@@ -19,7 +20,8 @@ export const metadata: Metadata = {
 
 // The front door: the landing page's header and hero (components/front): one
 // statement, one action — then the manuscript section (FrontManuscript): the
-// Project shell with a manuscript open, as proof of the statement.
+// Project shell with a manuscript open, as proof of the statement — then the
+// workspace section (FrontWorkspace): the four ways it grows around the book.
 // One wording for the one action, "Start writing free":
 //   * a visitor is sent to Create account, and may Sign in
 //   * a signed-in writer is sent to their Projects
@@ -46,6 +48,7 @@ export default async function FrontDoor() {
         <main>
           <FrontHero member={member} />
           <FrontManuscript />
+          <FrontWorkspace />
         </main>
       </div>
       {/* Marketing attribution for signed-out visitors only — never for a signed-in account. */}

@@ -17,6 +17,13 @@ const PUBLIC_ROUTES = [
   "/auth/callback",
   "/terms",
   "/privacy",
+  // The landing page's workspace cards (components/front/FrontWorkspace)
+  // lead here: placeholder pages for the closer looks, public like the
+  // front door they are part of.
+  "/workspace/pages",
+  "/workspace/collections",
+  "/workspace/canvas",
+  "/workspace/scene-properties",
   // Entry point for the landing page's "Continue with Scribe" CTA — must be
   // reachable signed-out (it records purchase intent and sends the visitor
   // to signup), and it fully handles the authenticated case itself.

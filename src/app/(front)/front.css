@@ -15,6 +15,7 @@
   --lp-head: 68px;
   --lp-gutter: 48px;
   --lp-max: 1200px; /* the page's one container: header, hero, the sections below */
+  --lp-ms-bg: color-mix(in srgb, var(--r2-page-bg) 96%, var(--r2-ink-1)); /* the deeper tone the sections past the hero rest on */
   display: flex;
   flex: 1;
   flex-direction: column;
@@ -267,7 +268,6 @@
    near-white shell lifts off it and the hero runs into it without an edge.
    Statement and proof sit close: one composed unit, not two. */
 .r2-lp-ms {
-  --lp-ms-bg: color-mix(in srgb, var(--r2-page-bg) 96%, var(--r2-ink-1));
   --lp-ms-max: 1300px;
   padding: clamp(36px, 5.5vh, 64px) 0 clamp(80px, 10vh, 128px);
   background: linear-gradient(to bottom, var(--r2-page-bg), var(--lp-ms-bg) 280px);
@@ -638,4 +638,426 @@
   .r2-lp-shot-prose {
     font-size: 16.5px;
   }
+}
+
+/* ══ Section 3: The workspace ═════════════════════════════════════════════
+   What follows the manuscript: the book stays clean and central, and the
+   workspace can grow around it when the writing asks. One statement on the
+   page's container, then four surfaces in a 2×2 grid, each the one link to
+   a closer look: Pages, Collections, Canvas, Scene properties.
+
+   The section rests on the same deeper tone the manuscript section settled
+   into, so the two run together and the cards lift off it. A card is a
+   material surface (.r2-material, the auth card's language) with its text
+   at the head, a preview of the product's own surface set into a quiet
+   well beneath it, and a small cue at the foot. Reached for, it firms and
+   lifts a touch (rune2.css: .r2-material--interactive), and the cue's
+   arrow moves — enough to say it opens, and no more. */
+.r2-lp-ws {
+  padding: clamp(72px, 10vh, 128px) 0 clamp(96px, 12vh, 144px);
+  background: var(--lp-ms-bg);
+}
+.r2-lp-ws-in {
+  width: min(100%, var(--lp-max));
+  margin: 0 auto;
+  padding: 0 var(--lp-gutter);
+}
+.r2-lp-ws-head {
+  max-width: 50rem;
+  margin: 0 auto;
+  text-align: center;
+}
+
+/* ── The grid ───────────────────────────────────────────────────────────
+   Two by two, a clear gap, the cards all one height. */
+.r2-lp-ws-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(20px, 2.2vw, 28px);
+  margin: clamp(40px, 5.5vh, 64px) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* ── The card ───────────────────────────────────────────────────────────
+   A column: the text, the preview filling what is left, the cue. The
+   preview is cropped by the card's own edge, so a surface can stand a
+   little past the frame — a page behind a page, a canvas running off. */
+.r2-lp-ws-card {
+  --lp-ws-pad: clamp(24px, 2.4vw, 32px);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 480px;
+  padding: var(--lp-ws-pad) var(--lp-ws-pad) 0;
+  overflow: hidden;
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  transition: box-shadow var(--r2-medium) var(--r2-ease), background-color var(--r2-medium) var(--r2-ease),
+    transform var(--r2-medium) var(--r2-ease);
+}
+.r2-lp-ws-card:hover {
+  transform: translateY(-2px);
+}
+.r2-lp-ws-card:active {
+  transform: none;
+}
+.r2-lp-ws-card:focus-visible {
+  outline: 2px solid var(--r2-focus);
+  outline-offset: 3px;
+}
+.r2-lp-ws-card-text {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 26rem;
+}
+.r2-lp-ws-card-title {
+  margin: 0;
+  font-family: var(--r2-prose-font);
+  font-size: clamp(24px, 2vw, 28px);
+  font-weight: var(--r2-weight-regular);
+  line-height: 1.15;
+  letter-spacing: -0.014em;
+  color: var(--r2-ink-1);
+}
+.r2-lp-ws-card-line {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.5;
+  text-wrap: pretty;
+  color: var(--r2-ink-2);
+}
+
+/* The cue: small, at the foot, in the quiet tone; on hover the card's ink
+   and the arrow goes a step to the right. It is the one place the card
+   speaks as a link, and the card is the link. */
+.r2-lp-ws-card-cue {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  order: 1;
+  margin-top: var(--r2-space-6);
+  margin-bottom: calc(var(--lp-ws-pad) - 4px);
+  font-size: var(--r2-fs-ui);
+  font-weight: var(--r2-weight-medium);
+  color: var(--r2-ink-3);
+  transition: color var(--r2-medium) var(--r2-ease);
+}
+.r2-lp-ws-card-cue svg {
+  transition: transform var(--r2-medium) var(--r2-ease);
+}
+.r2-lp-ws-card:hover .r2-lp-ws-card-cue {
+  color: var(--r2-ink-1);
+}
+.r2-lp-ws-card:hover .r2-lp-ws-card-cue svg {
+  transform: translateX(3px);
+}
+
+/* ── The preview well ───────────────────────────────────────────────────
+   The product's surface, set a shade into the card: the shell's tone, a
+   hairline, the card's smaller radius. It takes the room between the text
+   and the cue, and crops what stands past it. */
+.r2-lp-ws-card-preview {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  margin-top: var(--r2-space-8);
+  border-radius: var(--r2-radius-md);
+  background: var(--r2-shell-bg);
+  box-shadow: inset 0 0 0 1px var(--r2-border);
+  overflow: hidden;
+  pointer-events: none;
+  user-select: none;
+  font-size: var(--r2-fs-ui);
+  line-height: var(--r2-lh-ui);
+  color: var(--r2-ink-2);
+}
+
+/* A small tag — a status, a choice — where a value is one of a set. The
+   product's own chip, not a pill. */
+.r2-lp-ws-tag {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 7px;
+  border: 1px solid var(--r2-border);
+  border-radius: var(--r2-radius);
+  font-size: var(--r2-fs-meta);
+  line-height: 1;
+  white-space: nowrap;
+  color: var(--r2-ink-2);
+  background: var(--r2-bg);
+}
+
+/* Pages: one page open, a second behind it, both standing past the well's
+   foot — a document, not a card. */
+.r2-lp-ws-pages {
+  position: absolute;
+  inset: 28px 36px 0;
+}
+.r2-lp-ws-page {
+  position: absolute;
+  inset: 0 0 auto;
+  min-height: 100%;
+  padding: 30px 32px;
+  border-radius: var(--r2-radius-md) var(--r2-radius-md) 0 0;
+  background: var(--r2-bg);
+  box-shadow: 0 0 0 1px var(--r2-border), 0 10px 28px -14px rgba(var(--r2-palette-shadow) / 0.16);
+}
+.r2-lp-ws-page--behind {
+  top: -12px;
+  right: 18px;
+  left: 18px;
+  background: color-mix(in srgb, var(--r2-bg) 70%, var(--r2-shell-bg));
+  box-shadow: 0 0 0 1px var(--r2-border);
+}
+.r2-lp-ws-page-eyebrow {
+  margin: 0 0 6px;
+  font-size: var(--r2-fs-label);
+  font-weight: var(--r2-weight-medium);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--r2-ink-3);
+}
+.r2-lp-ws-page-title {
+  margin: 0 0 14px;
+  font-family: var(--r2-prose-font);
+  font-size: 22px;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  color: var(--r2-ink-1);
+}
+.r2-lp-ws-page-text {
+  margin: 0;
+  font-family: var(--r2-prose-font);
+  font-size: 15.5px;
+  line-height: 1.55;
+  color: color-mix(in srgb, var(--r2-ink-1) 72%, var(--r2-bg));
+}
+
+/* Collections: a table that is mostly names. The head names the set; a
+   column row in the quiet tone; then the rows, a hairline between. */
+.r2-lp-ws-table {
+  position: absolute;
+  inset: 22px 0 0 0;
+  padding: 0 28px;
+}
+.r2-lp-ws-table-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 14px;
+  font-family: var(--r2-prose-font);
+  font-size: 19px;
+  color: var(--r2-ink-1);
+}
+.r2-lp-ws-table-count {
+  font-family: var(--r2-font-ui);
+  font-size: var(--r2-fs-meta);
+  color: var(--r2-ink-3);
+}
+.r2-lp-ws-table-cols,
+.r2-lp-ws-table-row {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr 0.9fr;
+  gap: 12px;
+  align-items: center;
+  padding: 0 10px;
+}
+.r2-lp-ws-table-cols {
+  height: 26px;
+  font-size: var(--r2-fs-label);
+  font-weight: var(--r2-weight-medium);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--r2-ink-3);
+  border-bottom: 1px solid var(--r2-border);
+}
+.r2-lp-ws-table-row {
+  height: 40px;
+  font-size: var(--r2-fs-body);
+  color: var(--r2-ink-2);
+  border-bottom: 1px solid var(--r2-border);
+}
+.r2-lp-ws-table-row:first-of-type {
+  background: var(--r2-bg);
+}
+.r2-lp-ws-table-name {
+  color: var(--r2-ink-1);
+}
+
+/* Canvas: a dotted field, three fine lines, four notes on a surface of
+   their own. */
+.r2-lp-ws-canvas {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(rgba(var(--r2-palette-ink) / 0.09) 1px, transparent 1.2px);
+  background-size: 18px 18px;
+  background-position: 9px 9px;
+}
+.r2-lp-ws-canvas-lines {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.r2-lp-ws-canvas-lines line {
+  stroke: rgba(var(--r2-palette-ink) / 0.22);
+  stroke-width: 1.25;
+}
+.r2-lp-ws-canvas-note {
+  position: absolute;
+  display: inline-flex;
+  align-items: center;
+  height: 36px;
+  padding: 0 16px;
+  border-radius: var(--r2-radius-md);
+  background: var(--r2-bg);
+  box-shadow: 0 0 0 1px var(--r2-border), 0 6px 16px -8px rgba(var(--r2-palette-shadow) / 0.18);
+  font-size: var(--r2-fs-body);
+  white-space: nowrap;
+  color: var(--r2-ink-1);
+  transform: translate(-50%, -50%);
+}
+.r2-lp-ws-canvas-note[data-wide] {
+  padding: 0 20px;
+}
+
+/* Scene properties: the inspector's list — a label in the quiet tone, the
+   value in the ink, row under row. */
+.r2-lp-ws-props {
+  position: absolute;
+  inset: 22px 0 0 0;
+  padding: 0 28px;
+}
+.r2-lp-ws-props-head {
+  margin-bottom: 14px;
+}
+.r2-lp-ws-props-eyebrow {
+  margin: 0 0 3px;
+  font-size: var(--r2-fs-meta);
+  color: var(--r2-ink-3);
+}
+.r2-lp-ws-props-title {
+  margin: 0;
+  font-family: var(--r2-prose-font);
+  font-size: 20px;
+  line-height: 1.2;
+  color: var(--r2-ink-1);
+}
+.r2-lp-ws-props-list {
+  margin: 0;
+}
+.r2-lp-ws-props-row {
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  min-height: 33px;
+  border-top: 1px solid var(--r2-border);
+}
+.r2-lp-ws-props-row dt {
+  font-size: var(--r2-fs-ui-sm);
+  color: var(--r2-ink-3);
+}
+.r2-lp-ws-props-row dd {
+  margin: 0;
+  font-size: var(--r2-fs-body);
+  color: var(--r2-ink-1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .r2-lp-ws-card,
+  .r2-lp-ws-card-cue,
+  .r2-lp-ws-card-cue svg {
+    transition: none;
+  }
+  .r2-lp-ws-card:hover {
+    transform: none;
+  }
+  .r2-lp-ws-card:hover .r2-lp-ws-card-cue svg {
+    transform: none;
+  }
+}
+
+/* ── Narrower rooms ─────────────────────────────────────────────────── */
+@media (max-width: 1100px) {
+  .r2-lp-ws-card {
+    min-height: 440px;
+  }
+}
+@media (max-width: 760px) {
+  .r2-lp-ws {
+    padding: 64px 0 88px;
+  }
+  .r2-lp-ws-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+    margin-top: 36px;
+  }
+  .r2-lp-ws-card {
+    --lp-ws-pad: 22px;
+    min-height: 0;
+  }
+  .r2-lp-ws-card-preview {
+    flex: none;
+    height: 260px;
+    margin-top: 20px;
+  }
+  .r2-lp-ws-pages {
+    inset: 22px 24px 0;
+  }
+  .r2-lp-ws-page {
+    padding: 22px 24px;
+  }
+  .r2-lp-ws-table,
+  .r2-lp-ws-props {
+    padding: 0 20px;
+  }
+  .r2-lp-ws-props-row {
+    grid-template-columns: 100px minmax(0, 1fr);
+  }
+}
+
+/* ── The placeholder page ───────────────────────────────────────────────
+   /workspace/<feature>: the card's title and line, centred in the public
+   frame, until the closer look exists. */
+.r2-lp-ws-stub {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: min(100%, 720px);
+  padding: var(--r2-space-6) 0 clamp(24px, 7vh, 72px);
+  text-align: center;
+}
+.r2-lp-ws-stub-note {
+  margin: 28px 0 0;
+  font-family: var(--r2-prose-font);
+  font-size: 19px;
+  font-style: italic;
+  color: var(--r2-ink-3);
+}
+.r2-lp-ws-stub-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  margin-top: 32px;
+}
+.r2-lp-ws-stub .r2-button--lg {
+  height: 46px;
+  padding: 0 var(--r2-space-9);
+  font-size: 15px;
+}
+.r2-lp-ws-stub-back {
+  font-size: var(--r2-fs-body);
+  color: var(--r2-ink-3);
+  transition: color var(--r2-fast) var(--r2-ease);
+}
+.r2-lp-ws-stub-back:hover {
+  color: var(--r2-ink-1);
 }

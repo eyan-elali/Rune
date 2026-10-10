@@ -28,10 +28,13 @@ export function PublicFrame({
   children,
   nav,
   variant = "front",
+  theme = variant === "landing" ? "light" : "system",
 }: {
   children: ReactNode;
   nav?: ReactNode;
   variant?: "front" | "auth" | "landing";
+  /** The landing is always Sutura Light; a page that belongs to it (a workspace placeholder) may ask for the same. */
+  theme?: "light" | "system";
 }) {
   const home = (
     <Link href="/" className="r2-wordmark" aria-label="Sutura — home">
@@ -39,7 +42,7 @@ export function PublicFrame({
     </Link>
   );
   return (
-    <div className="r2 r2-public" data-variant={variant} data-theme={variant === "landing" ? "light" : "system"} data-accent="blue">
+    <div className="r2 r2-public" data-variant={variant} data-theme={theme} data-accent="blue">
       <style id="r2-themes" dangerouslySetInnerHTML={{ __html: THEME_CSS }} />
       {variant === "front" && (
         <header className="r2-public-head">
