@@ -1,7 +1,6 @@
 import type { CSSProperties, ReactNode } from "react";
 import { ChevronDown, ChevronRight, FileText, Layers, PanelLeft } from "lucide-react";
 import { ICON, ICON_SM_BOLD } from "@/components/rune2/icons";
-import { FocusStage } from "./FocusStage";
 import { Reveal } from "./Reveal";
 
 // Section 2 of the landing page (front.css: "The manuscript"): the hero's
@@ -26,9 +25,8 @@ import { Reveal } from "./Reveal";
 // that follows Unplaced Scenes in the real navigator is cropped away: this
 // section is about the book.
 //
-// Then one movement (FocusStage): as the reader scrolls on, the structure
-// recedes and the writing surface is left with the room — the product's own
-// behaviour while a writer writes.
+// The section is static: the shell sits in the page as it is, and nothing
+// here moves with the scroll.
 
 const BASE_PAD = 6;
 const INDENT = 16;
@@ -192,7 +190,7 @@ function Editor({ prose = PROSE }: { prose?: readonly string[] }) {
 }
 
 const SHOT_LABEL =
-  "Sutura with a manuscript open. The navigator lists the manuscript in reading order: Part One holds the chapters The Harbour, The Letters and A Quiet House; The Letters is open to its scenes, with The Thursday Boat selected; Part Two follows. Beneath the manuscript, Unplaced Scenes keeps two scenes aside. The editor shows The Thursday Boat, a scene of The Letters, with its prose. As the page scrolls on, the navigator and the shell's chrome fade and the writing surface is left on its own.";
+  "Sutura with a manuscript open. The navigator lists the manuscript in reading order: Part One holds the chapters The Harbour, The Letters and A Quiet House; The Letters is open to its scenes, with The Thursday Boat selected; Part Two follows. Beneath the manuscript, Unplaced Scenes keeps two scenes aside. The editor shows The Thursday Boat, a scene of The Letters, with its prose.";
 
 export function FrontManuscript() {
   return (
@@ -208,20 +206,15 @@ export function FrontManuscript() {
           </p>
         </Reveal>
         <Reveal className="r2-lp-ms-proof" delay>
-          <FocusStage className="r2-lp-ms-stage">
-            <div className="r2-lp-shot" role="img" aria-label={SHOT_LABEL}>
-              <div className="r2-lp-shot-in" aria-hidden>
-                <Navigator />
-                <Editor />
-                <div className="r2-lp-shot-status">
-                  {STATUS} <span>·</span> Saved
-                </div>
+          <div className="r2-lp-shot" role="img" aria-label={SHOT_LABEL}>
+            <div className="r2-lp-shot-in" aria-hidden>
+              <Navigator />
+              <Editor />
+              <div className="r2-lp-shot-status">
+                {STATUS} <span>·</span> Saved
               </div>
             </div>
-            <p className="r2-lp-ms-after" aria-hidden>
-              Everything else gets out of the way.
-            </p>
-          </FocusStage>
+          </div>
         </Reveal>
       </div>
     </section>

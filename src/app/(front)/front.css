@@ -25,41 +25,106 @@
 }
 
 /* ── Header ────────────────────────────────────────────────────────────
-   Wordmark at the left, a sparse nav at the right, on the page's container.
-   Pinned, so the way in stays within reach. While the hero is in view it
-   is only type on the page's tone — the very same flat tone as the hero,
-   so there is no bar; it takes a hairline and a hint of the tone only once
-   the hero has scrolled fully past (FrontHeader sets data-scrolled). */
+   Three zones: the wordmark at the left, the links centred, the action at
+   the right — a grid of 1fr auto 1fr, so the links sit on the row's true
+   centre whatever the wordmark and the action measure, and the side
+   tracks never shrink below their content, so nothing can collide.
+
+   One sticky element that keeps its in-flow box (--lp-head) whatever it
+   shows, so the hero and the page under it never move; the visible object
+   is the row inside it (FrontHeader, following the Opius landing header's
+   model).
+
+   Two forms on the one node:
+     flat      at the top of the page, over the hero: the full-width row on
+               the page's container, only type on the page's tone — the
+               very same flat tone as the hero, so there is no bar.
+     floating  below the hero (data-floating): the same row closed into a
+               pill spanning what the flat row's content spans (wordmark
+               to action), the zones kept — a hairline rim, a light
+               translucent surface, a soft lift, a little blur — one placed
+               object over the page.
+   Scrolling down hides the header (data-hidden): slid up and faded, a pure
+   transform, so nothing reflows. Coming back up the pill arrives; at the
+   top it opens back into the flat row in place — the geometry and the
+   material transition between the two forms, nothing is swapped. */
 .r2-lp-head {
+  --lp-pill-height: 52px;
+  --lp-pill-top: 8px;
+  /* The flat row's content span: the container less its gutters. */
+  --lp-pill-max: min(calc(var(--lp-max) - 2 * var(--lp-gutter)), calc(100% - 2 * var(--lp-gutter)));
   position: sticky;
   top: 0;
   z-index: 10;
   flex-shrink: 0;
   height: var(--lp-head);
-  background: transparent;
-  border-bottom: 1px solid transparent;
-  transition: background-color var(--r2-medium) var(--r2-ease), border-color var(--r2-medium) var(--r2-ease);
+  /* The row is the object; the element itself never catches a pointer. */
+  pointer-events: none;
+  transition: transform 280ms cubic-bezier(0.45, 0, 0.25, 1), opacity 280ms cubic-bezier(0.45, 0, 0.25, 1);
 }
-.r2-lp-head[data-scrolled] {
-  background: color-mix(in srgb, var(--r2-page-bg) 86%, transparent);
-  border-bottom-color: var(--r2-border);
-  -webkit-backdrop-filter: saturate(1.3) blur(12px);
-  backdrop-filter: saturate(1.3) blur(12px);
+.r2-lp-head[data-hidden] {
+  transform: translateY(-100%);
+  opacity: 0;
 }
 .r2-lp-head-in {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--r2-space-6);
-  width: min(100%, var(--lp-max));
-  height: 100%;
+  column-gap: var(--r2-space-6);
+  box-sizing: border-box;
+  width: 100%;
+  max-width: var(--lp-max);
+  height: var(--lp-head);
   margin: 0 auto;
   padding: 0 var(--lp-gutter);
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--r2-page-bg) 0%, transparent);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, white 0%, transparent),
+    0 1px 2px color-mix(in srgb, var(--r2-ink-1) 0%, transparent),
+    0 12px 32px -18px color-mix(in srgb, var(--r2-ink-1) 0%, transparent);
+  -webkit-backdrop-filter: blur(0px) saturate(100%);
+  backdrop-filter: blur(0px) saturate(100%);
+  pointer-events: auto;
+  transition:
+    max-width 320ms var(--r2-ease-frame),
+    height 320ms var(--r2-ease-frame),
+    margin 320ms var(--r2-ease-frame),
+    padding 320ms var(--r2-ease-frame),
+    background-color 420ms var(--r2-ease-frame),
+    border-color 420ms var(--r2-ease-frame),
+    box-shadow 420ms var(--r2-ease-frame),
+    -webkit-backdrop-filter 420ms var(--r2-ease-frame),
+    backdrop-filter 420ms var(--r2-ease-frame);
+}
+.r2-lp-head[data-floating] .r2-lp-head-in {
+  max-width: var(--lp-pill-max);
+  height: var(--lp-pill-height);
+  margin-top: var(--lp-pill-top);
+  /* Symmetric, so the grid's centre is the pill's centre; the wordmark's
+     larger optical inset is its own margin (below), not padding. */
+  padding: 0 10px;
+  border-color: var(--r2-border);
+  background: color-mix(in srgb, var(--r2-page-bg) 88%, transparent);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, white 70%, transparent),
+    0 1px 2px color-mix(in srgb, var(--r2-ink-1) 4%, transparent),
+    0 12px 32px -18px color-mix(in srgb, var(--r2-ink-1) 18%, transparent);
+  -webkit-backdrop-filter: blur(10px) saturate(140%);
+  backdrop-filter: blur(10px) saturate(140%);
 }
 .r2-lp-head .r2-wordmark {
   --r2-brand-height: 21px;
+  grid-column: 1;
+  justify-self: start;
+  transition: margin-left 320ms var(--r2-ease-frame);
+}
+.r2-lp-head[data-floating] .r2-wordmark {
+  margin-left: 14px;
 }
 .r2-lp-nav {
+  grid-column: 2;
   display: flex;
   align-items: center;
   gap: var(--r2-space-2);
@@ -78,13 +143,20 @@
   color: var(--r2-ink-1);
   background: var(--r2-hover);
 }
-.r2-lp-nav .r2-lp-cta {
+.r2-lp-head .r2-lp-cta {
+  grid-column: 3;
+  justify-self: end;
   height: 32px;
-  margin-left: var(--r2-space-4);
   padding: 0 var(--r2-space-6);
   border-radius: var(--r2-radius);
   font-size: var(--r2-fs-ui);
   font-weight: var(--r2-weight-medium);
+}
+
+/* A section reached by a header link, or a hash on load, lands under the
+   header's box, where the pill may be showing, rather than beneath it. */
+.r2-lp main section[id] {
+  scroll-margin-top: var(--lp-head);
 }
 
 /* ── Hero ───────────────────────────────────────────────────────────────
@@ -191,6 +263,8 @@
     animation: none;
   }
   .r2-lp-head,
+  .r2-lp-head-in,
+  .r2-lp-head .r2-wordmark,
   .r2-lp-actions .r2-button--lg {
     transition: none;
   }
@@ -221,11 +295,18 @@
   .r2-lp {
     --lp-gutter: var(--r2-space-6);
   }
-  .r2-lp-nav-link {
+  .r2-lp-nav {
     display: none;
   }
-  .r2-lp-nav .r2-lp-cta {
-    margin-left: 0;
+  .r2-lp-head {
+    --lp-pill-max: calc(100% - 2 * var(--r2-space-4));
+    --lp-pill-height: 48px;
+  }
+  .r2-lp-head[data-floating] .r2-lp-head-in {
+    padding: 0 6px;
+  }
+  .r2-lp-head[data-floating] .r2-wordmark {
+    margin-left: 12px;
   }
   .r2-lp-hero {
     padding-bottom: 8vh;
@@ -258,10 +339,8 @@
 
    The shell (FrontManuscript) borrows the real navigator rows, tabs and
    title from rune2.css; what follows lays those out — the two columns, the
-   writing column and its prose — and nothing in it is a control.
-
-   Then the one movement (FocusStage, "The focus" below): the structure
-   recedes and the writing surface is left with the room. */
+   writing column and its prose — and nothing in it is a control. The
+   section is static: nothing in it moves with the scroll. */
 
 /* ── The section ────────────────────────────────────────────────────────
    On the page's tone, deepening by a shade over its first stretch, so the
@@ -316,8 +395,9 @@
    and further than a card's — the object has weight on the page, not gloss.
    The crop is clean: the shell is cut at the object's foot, without a fade.
    Its height is the room the viewport has for it, within bounds, so the
-   object fits on screen while it holds its place (the focus). */
+   object fits on screen. */
 .r2-lp-ms-proof {
+  --lp-shot-height: clamp(520px, calc(100svh - var(--lp-head) - 96px), 700px);
   margin-top: clamp(30px, 4.5vh, 48px);
 }
 .r2-lp-shot {
@@ -462,83 +542,6 @@
   margin: 0 0.3em;
 }
 
-/* ── The focus ──────────────────────────────────────────────────────────
-   The product's own behaviour while a writer writes (rune2.css: "Chrome
-   that recedes while writing"), run by the reader's scroll. FocusStage
-   writes the shell's progress through its stage to --lp-focus, 0 to 1;
-   the rules below read it, and nothing else moves.
-
-     the navigator  fades first, and slips a little to the left
-     the tab band   loses its tone; the tab, the toggle and the breadcrumb
-                    go to nothing — in place, as in the product
-     the column     shifts by half the navigator's width, so the writing
-                    surface comes to the centre of the shell; the prose
-                    rises a little into the room the band gave up, and
-                    takes its full ink
-     the status     stays, quieter — still Sutura, not a sheet of prose
-
-   Then one line, under the shell, once the surface has the room. The
-   stage is taller than the shell by a stretch of the viewport (the length
-   of the movement); the shell holds its place on screen for that stretch,
-   and then goes on with the page. Only once FocusStage has started
-   (data-scrub): otherwise the stage is the shell's own height and nothing
-   is sticky — the page as it is, for reduced motion, phones and no script. */
-.r2-lp-ms-stage {
-  --lp-shot-height: clamp(520px, calc(100svh - var(--lp-head) - 96px), 700px);
-  --lp-focus: 0;
-  --lp-nav-out: min(1, calc(var(--lp-focus) * 1.5));
-  --lp-chrome-out: min(1, calc(var(--lp-focus) * 1.25));
-  --lp-after-in: clamp(0, calc((var(--lp-focus) - 0.6) / 0.4), 1);
-}
-.r2-lp-ms-stage[data-scrub] {
-  height: calc(var(--lp-shot-height) + 76px + 78vh);
-}
-.r2-lp-ms-stage[data-scrub] .r2-lp-ms-sticky {
-  position: sticky;
-  top: max(calc(var(--lp-head) + 16px), calc((100svh - var(--lp-shot-height) - 76px) / 2 + 8px));
-}
-.r2-lp-shot-nav {
-  opacity: calc(1 - var(--lp-nav-out));
-  transform: translateX(calc(var(--lp-nav-out) * -14px));
-}
-.r2-lp-shot-content {
-  transform: translateX(calc(var(--r2-nav-full) * -0.5 * var(--lp-focus)));
-}
-.r2-lp-shot .r2-tabs::before,
-.r2-lp-shot .r2-tabs ul,
-.r2-lp-shot .r2-tabs-nav-toggle,
-.r2-lp-shot-crumbs {
-  opacity: calc(1 - var(--lp-chrome-out));
-}
-.r2-lp-shot-doc {
-  transform: translateY(calc(var(--lp-focus) * -26px));
-}
-.r2-lp-shot-prose {
-  opacity: calc(1 + var(--lp-focus) * 0.28);
-}
-.r2-lp-shot-status {
-  opacity: calc(1 - var(--lp-focus) * 0.4);
-}
-.r2-lp-ms-after {
-  position: absolute;
-  top: calc(var(--lp-shot-height) + 40px);
-  right: 0;
-  left: 0;
-  margin: 0;
-  font-family: var(--r2-prose-font);
-  font-size: clamp(19px, 1.7vw, 23px);
-  font-style: italic;
-  line-height: 1.3;
-  letter-spacing: -0.008em;
-  text-align: center;
-  color: var(--r2-ink-2);
-  opacity: var(--lp-after-in);
-  transform: translateY(calc((1 - var(--lp-after-in)) * 8px));
-}
-.r2-lp-ms-stage:not([data-scrub]) .r2-lp-ms-after {
-  display: none;
-}
-
 /* ── The reveal ─────────────────────────────────────────────────────────
    A block held back by Reveal (data-reveal="pending") rises and fades in
    once it enters; the proof follows the statement by a beat. Nothing is
@@ -572,7 +575,7 @@
   .r2-lp-shot {
     --lp-doc-gutter: 36px;
   }
-  .r2-lp-ms-stage {
+  .r2-lp-ms-proof {
     --lp-shot-height: clamp(500px, calc(100svh - var(--lp-head) - 96px), 640px);
   }
 }
@@ -580,7 +583,7 @@
   .r2-lp-shot {
     --lp-doc-gutter: 28px;
   }
-  .r2-lp-ms-stage {
+  .r2-lp-ms-proof {
     --lp-shot-height: clamp(460px, calc(100svh - var(--lp-head) - 80px), 600px);
   }
 }
@@ -588,8 +591,7 @@
 /* ── Phones ─────────────────────────────────────────────────────────────
    Not the desktop shell shrunk: the two things that matter, stacked and
    readable — the navigator's manuscript structure, then the editor — with
-   the tab band and breadcrumbs left out, and no movement (FocusStage does
-   not start). */
+   the tab band and breadcrumbs left out. */
 @media (max-width: 640px) {
   .r2-lp-ms {
     padding-bottom: 80px;
@@ -602,9 +604,6 @@
   }
   .r2-lp-ms-proof {
     margin-top: 32px;
-  }
-  .r2-lp-ms-stage {
-    --lp-shot-height: auto;
   }
   .r2-lp-shot {
     --lp-doc-gutter: 20px;

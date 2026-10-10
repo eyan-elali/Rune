@@ -3,13 +3,28 @@
 import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { Wordmark } from "@/components/brand/Wordmark";
+import { advanceHeaderScrollState, initialHeaderScrollState, type HeaderScrollState } from "./headerScrollIntent";
 
-// The landing page's header (front.css: "Header"): the wordmark, one link,
-// Sign in and the one action, on the same container as the hero. It is
-// part of the hero: while the hero is in view it is only type on the
-// page's tone — no bar, no hairline, no shadow. Once the reader has
-// scrolled past the hero it takes a hairline and a hint of the page's
-// tone, so it reads as pinned over what follows (data-scrolled).
+// The landing page's header (front.css: "Header"): three zones — the
+// wordmark at the left, the links (Features, Sign in) centred, the one
+// action at the right. One sticky element that keeps the same
+// in-flow box whatever it shows (the hero's height is measured against
+// it), so nothing below ever reflows; the visible object is the row inside
+// it, which has two forms on one DOM node, following the Opius landing
+// header's model (headerScrollIntent.ts):
+//
+//   · FLAT     at the top of the page: the full-width row on the hero's
+//              container, only type on the page's tone — no bar, no edge.
+//   · FLOATING anywhere below: the same row closed into a pill over the
+//              row's own span (wordmark to action) — a hairline rim, a
+//              light translucent surface, a soft lift — one placed object
+//              over the page (data-floating).
+//
+// Scrolling down hides the header (data-hidden: a pure transform, slid up
+// and faded); scrolling back up brings it in as the pill; and arriving at
+// the top again, the pill opens back into the flat row in place. Both are
+// transitions of the mounted element, never a swap of components. Without
+// JavaScript the header is simply the flat row at the top of the page.
 //
 // One action, one wording — "Start writing free" — on the public page. A
 // signed-in writer is sent to their Projects by the same action.
@@ -22,25 +37,21 @@ export function FrontHeader({ member }: { member: boolean }) {
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    let raf = 0;
-    const update = () => {
-      raf = 0;
-      // Past the hero: its bottom edge has gone up behind the header.
-      const hero = document.querySelector<HTMLElement>(".r2-lp-hero");
-      const past = hero ? hero.getBoundingClientRect().bottom <= el.offsetHeight + 1 : window.scrollY > 8;
-      el.toggleAttribute("data-scrolled", past);
+    // A reload can restore a scroll position, so the form is settled up front.
+    let state: HeaderScrollState = initialHeaderScrollState(window.scrollY);
+    const draw = () => {
+      el.toggleAttribute("data-hidden", state.hidden);
+      el.toggleAttribute("data-floating", state.floating);
     };
+    draw();
     const onScroll = () => {
-      if (!raf) raf = requestAnimationFrame(update);
+      const next = advanceHeaderScrollState(state, window.scrollY);
+      const changed = next.hidden !== state.hidden || next.floating !== state.floating;
+      state = next;
+      if (changed) draw();
     };
-    update();
     window.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("resize", onScroll);
-    return () => {
-      window.removeEventListener("scroll", onScroll);
-      window.removeEventListener("resize", onScroll);
-      if (raf) cancelAnimationFrame(raf);
-    };
+    return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
   return (
@@ -60,10 +71,10 @@ export function FrontHeader({ member }: { member: boolean }) {
               Sign in
             </Link>
           )}
-          <Link href={member ? "/projects" : "/signup"} className="r2-button r2-button--primary r2-lp-cta">
-            Start writing free
-          </Link>
         </nav>
+        <Link href={member ? "/projects" : "/signup"} className="r2-button r2-button--primary r2-lp-cta">
+          Start writing free
+        </Link>
       </div>
     </header>
   );
