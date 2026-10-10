@@ -245,3 +245,268 @@
     margin-top: 36px;
   }
 }
+
+/* ══ Section 2: The manuscript ════════════════════════════════════════════
+   The hero's promise made concrete: one statement, then the product as
+   proof. The copy is centred on the page's container; under it the Project
+   shell, with a manuscript open, sits on the page as one raised object —
+   the same material language as the auth surfaces (.r2-material), not a
+   device mockup.
+
+   The shell (FrontManuscript) borrows the real navigator rows, tabs and
+   title from rune2.css; what follows lays those out — the two columns, the
+   writing column and its prose — and nothing in it is a control. */
+
+/* ── The section ────────────────────────────────────────────────────────
+   On the page's tone, deepening by a hair over its first stretch, so the
+   near-white shell lifts off it and the hero runs into it without an edge. */
+.r2-lp-ms {
+  --lp-ms-bg: color-mix(in srgb, var(--r2-page-bg) 97.5%, var(--r2-ink-1));
+  padding: clamp(56px, 9vh, 104px) 0 clamp(96px, 12vh, 160px);
+  background: linear-gradient(to bottom, var(--r2-page-bg), var(--lp-ms-bg) 240px);
+}
+.r2-lp-ms-in {
+  width: min(100%, var(--lp-max));
+  margin: 0 auto;
+  padding: 0 var(--lp-gutter);
+}
+
+/* The statement: an eyebrow, the serif heading, one line beneath it. */
+.r2-lp-ms-head {
+  max-width: 50rem;
+  margin: 0 auto;
+  text-align: center;
+}
+.r2-lp-eyebrow {
+  margin: 0 0 18px;
+  font-size: var(--r2-fs-label);
+  font-weight: var(--r2-weight-medium);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--r2-ink-3);
+}
+.r2-lp-h2 {
+  font-family: var(--r2-prose-font);
+  font-size: clamp(38px, 4.4vw, 60px);
+  font-weight: var(--r2-weight-regular);
+  line-height: 1.04;
+  letter-spacing: -0.024em;
+  text-wrap: balance;
+  color: var(--r2-ink-1);
+}
+.r2-lp-lede {
+  max-width: 34rem;
+  margin: 20px auto 0;
+  font-size: 17px;
+  line-height: 1.55;
+  text-wrap: balance;
+  color: var(--r2-ink-2);
+}
+
+/* ── The proof: the shell as an object ──────────────────────────────────
+   The whole width of the container, under the statement. A fine edge, the
+   faint light along its top, and the material's fall of shadow; the crop is
+   clean — the shell is cut at the object's foot, without a fade. */
+.r2-lp-ms-proof {
+  margin-top: clamp(44px, 6vh, 72px);
+}
+.r2-lp-shot {
+  /* The real shell's measures (rune2.css: .r2-shell). */
+  --r2-bar: 44px;
+  --r2-context-bar: 38px;
+  --r2-nav-full: 252px;
+  --r2-tab-width: 164px;
+  --lp-shot-height: 640px;
+  --lp-doc-gutter: 52px;
+  --lp-doc-top: 64px;
+  overflow: hidden;
+  height: var(--lp-shot-height);
+  border-radius: var(--r2-radius-material);
+  background: var(--r2-bg);
+  box-shadow: inset 0 1px 0 var(--r2-material-highlight), 0 0 0 1px var(--r2-material-border), var(--r2-shadow-material);
+  pointer-events: none;
+  user-select: none;
+}
+.r2-lp-shot-in {
+  display: grid;
+  grid-template-columns: var(--r2-nav-full) minmax(0, 1fr);
+  height: 100%;
+}
+
+/* The navigator column: the shell's tone, a hairline at its edge. */
+.r2-lp-shot-nav {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: var(--r2-nav-bg);
+  border-right: 1px solid var(--r2-border);
+  font-size: var(--r2-fs-ui);
+}
+.r2-lp-shot-tree {
+  padding: var(--r2-space-1) 0 var(--r2-space-6);
+}
+.r2-lp-shot-section + .r2-lp-shot-section {
+  display: block;
+  margin-top: var(--r2-space-6);
+}
+.r2-lp-shot .r2-nav-project {
+  cursor: default;
+}
+
+/* The content column: the tab band, the breadcrumb row, the writing column. */
+.r2-lp-shot-content {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: var(--r2-bg);
+}
+.r2-lp-shot .r2-tabs {
+  background: var(--r2-shell-bg);
+}
+.r2-lp-shot .r2-tab-main {
+  cursor: default;
+}
+/* The one tab has room for the whole of "Chapter · Scene n". */
+.r2-lp-shot .r2-tab-context {
+  max-width: none;
+}
+.r2-lp-shot-crumbs {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  height: var(--r2-context-bar);
+  padding: 0 var(--r2-space-5) 0 var(--r2-space-7);
+  font-size: var(--r2-fs-ui-sm);
+  color: var(--r2-ink-2);
+  white-space: nowrap;
+  overflow: hidden;
+}
+.r2-lp-shot-crumbs .r2-crumb-project {
+  margin-right: var(--r2-space-6);
+}
+
+/* The writing column: Sutura's measure, centred in the room it has, the
+   title standing where it stands in the product (rune2.css: .r2-doc). */
+.r2-lp-shot-doc {
+  flex: 1;
+  width: min(100%, calc(var(--r2-prose-measure) + 2 * var(--lp-doc-gutter)));
+  margin: 0 auto;
+  padding: var(--lp-doc-top) var(--lp-doc-gutter) 0;
+}
+.r2-lp-shot .r2-doc-head {
+  margin-bottom: 36px;
+}
+.r2-lp-shot .r2-doc-title {
+  font-size: 24px;
+}
+.r2-lp-shot-prose {
+  font-family: var(--r2-prose-font);
+  font-size: var(--r2-prose-size);
+  line-height: var(--r2-prose-leading);
+  letter-spacing: 0.002em;
+  color: var(--r2-prose-ink);
+  font-kerning: normal;
+  font-variant-ligatures: common-ligatures;
+  text-rendering: optimizeLegibility;
+}
+.r2-lp-shot-prose p {
+  margin: 0;
+  text-indent: var(--r2-prose-indent);
+}
+.r2-lp-shot-prose p:first-child {
+  text-indent: 0;
+}
+
+/* ── The reveal ─────────────────────────────────────────────────────────
+   A block held back by Reveal (data-reveal="pending") rises and fades in
+   once it enters; the proof follows the statement by a beat. Nothing is
+   hidden by default, and nothing moves under reduced motion. */
+[data-reveal] {
+  transition: opacity 720ms var(--r2-ease), transform 720ms var(--r2-ease);
+}
+[data-reveal="pending"] {
+  opacity: 0;
+  transform: translateY(14px);
+}
+[data-reveal="in"] {
+  opacity: 1;
+  transform: none;
+}
+[data-reveal][data-reveal-delay] {
+  transition-delay: 120ms;
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-reveal] {
+    transition: none;
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ── Narrower rooms ─────────────────────────────────────────────────────
+   A smaller laptop, a tablet, or a desktop zoomed: the navigator keeps
+   its width and the writing column gives up its gutters first. */
+@media (max-width: 1100px) {
+  .r2-lp-shot {
+    --lp-doc-gutter: 36px;
+    --lp-shot-height: 600px;
+  }
+}
+@media (max-width: 900px) {
+  .r2-lp-shot {
+    --r2-nav-full: 228px;
+    --lp-doc-gutter: 28px;
+    --lp-shot-height: 560px;
+  }
+}
+
+/* ── Phones ─────────────────────────────────────────────────────────────
+   Not the desktop shell shrunk: the two things that matter, stacked and
+   readable — the navigator's manuscript structure, then the editor — with
+   the tab band and breadcrumbs left out. */
+@media (max-width: 640px) {
+  .r2-lp-ms {
+    padding-bottom: 80px;
+  }
+  .r2-lp-h2 {
+    font-size: clamp(34px, 10vw, 44px);
+  }
+  .r2-lp-lede {
+    font-size: 16px;
+  }
+  .r2-lp-ms-proof {
+    margin-top: 36px;
+  }
+  .r2-lp-shot {
+    --lp-shot-height: auto;
+    --lp-doc-gutter: 20px;
+    --lp-doc-top: 36px;
+    height: auto;
+  }
+  .r2-lp-shot-in {
+    grid-template-columns: minmax(0, 1fr);
+    height: auto;
+  }
+  .r2-lp-shot-nav {
+    border-right: 0;
+    border-bottom: 1px solid var(--r2-border);
+  }
+  .r2-lp-shot-tree {
+    padding-bottom: var(--r2-space-4);
+  }
+  .r2-lp-shot .r2-tabs,
+  .r2-lp-shot-crumbs {
+    display: none;
+  }
+  .r2-lp-shot-doc {
+    width: 100%;
+    max-height: 300px;
+    overflow: hidden;
+  }
+  .r2-lp-shot .r2-doc-head {
+    margin-bottom: 24px;
+  }
+  .r2-lp-shot-prose {
+    font-size: 16.5px;
+  }
+}
