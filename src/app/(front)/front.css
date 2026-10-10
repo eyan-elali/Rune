@@ -1539,8 +1539,295 @@
   }
 }
 
+/* ══ Section 5: Trust and authorship ══════════════════════════════════════
+   The promises underneath the product. After four sections that show what
+   Sutura does, four that say what stays the writer's — and the one thing
+   it will not do. A split, the other way round from the Inspector
+   section's: at the left, four long surfaces in a stack, one promise each;
+   at the right, the editorial statement, set against the upper part of
+   the stack rather than its centre, so the heading reads as the room's
+   caption and the stack as its weight.
+
+   A card is the material surface the page has used throughout
+   (.r2-material), laid long: a label with the smallest mark of a tone,
+   the statement in Sutura's serif, one line of support, generous at the
+   sides and comfortable in height. The four are one system; only the
+   first, the No AI promise, is set apart — the faintest wash of Sutura
+   blue, a firmer edge, and a small cue at its right — and only it opens.
+   Reached for, it rises a touch and its edge firms; the others are still.
+   Nothing here moves with the scroll. */
+.r2-lp-tr {
+  --lp-tone-blue: var(--r2-accent);
+  --lp-tone-sage: var(--r2-success);
+  --lp-tone-sand: var(--r2-warning);
+  --lp-tone-terracotta: var(--r2-danger);
+  padding: clamp(56px, 8vh, 104px) 0 clamp(88px, 11vh, 136px);
+  background: var(--lp-ms-bg);
+}
+.r2-lp-tr-in {
+  display: grid;
+  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+  grid-template-areas: "stack copy";
+  column-gap: clamp(48px, 6vw, 96px);
+  align-items: center;
+  width: min(100%, var(--lp-max));
+  margin: 0 auto;
+  padding: 0 var(--lp-gutter);
+}
+
+/* ── The statement ──────────────────────────────────────────────────────
+   At the right, in a measured column, centred on the whole of the stack:
+   the eyebrow, the heading and the lede as one group, their middle on the
+   cards' middle. The group is nudged a touch above the geometric centre
+   (the heading carries the group's weight, and the eye reads a centred
+   block as sitting low), so the two columns balance optically. Nothing
+   beneath the lede. */
+.r2-lp-tr-copy {
+  grid-area: copy;
+  max-width: 26rem;
+  padding-bottom: 14px;
+}
+.r2-lp-tr-copy .r2-lp-eyebrow {
+  margin-bottom: 16px;
+}
+.r2-lp-tr-copy .r2-lp-h2 {
+  font-size: clamp(34px, 3.1vw, 46px);
+  text-wrap: pretty;
+}
+.r2-lp-tr-copy .r2-lp-lede {
+  max-width: 23rem;
+  margin: 18px 0 0;
+}
+
+/* ── The stack ──────────────────────────────────────────────────────────
+   Four long surfaces, one gap throughout. */
+.r2-lp-tr-stack-wrap {
+  grid-area: stack;
+  min-width: 0;
+}
+.r2-lp-tr-stack {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(12px, 1.1vw, 14px);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* ── The card ───────────────────────────────────────────────────────────
+   Long, with room at the sides; the text in a column that keeps a
+   reader's measure. The material's own edge and fall, with a little more
+   fall beneath it, as the workspace cards have on the same tone. */
+.r2-lp-tr-card {
+  --lp-tr-pad-x: clamp(24px, 2.4vw, 36px);
+  --lp-tr-pad-y: clamp(17px, 1.6vw, 22px);
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  min-height: 106px;
+  padding: var(--lp-tr-pad-y) var(--lp-tr-pad-x);
+  color: inherit;
+  box-shadow: inset 0 1px 0 var(--r2-material-highlight), 0 0 0 1px var(--r2-material-border), var(--r2-shadow-material),
+    0 16px 32px -28px rgba(var(--r2-palette-shadow) / 0.16);
+}
+.r2-lp-tr-text {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  max-width: 34rem;
+}
+.r2-lp-tr-label {
+  display: flex;
+  align-items: center;
+  margin: 0 0 1px;
+  font-size: var(--r2-fs-label);
+  font-weight: var(--r2-weight-medium);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--r2-ink-3);
+}
+/* The dots, a shade quieter than Section 3's: the tone let down toward
+   the page, so four marks read as four small signs, not a colour code. */
+.r2-lp-tr-label .r2-lp-ws-dot {
+  margin-right: 9px;
+  background: color-mix(in srgb, var(--lp-tone-blue) 68%, var(--lp-ms-bg));
+}
+.r2-lp-tr-label .r2-lp-ws-dot[data-tone="sage"] {
+  background: color-mix(in srgb, var(--lp-tone-sage) 68%, var(--lp-ms-bg));
+}
+.r2-lp-tr-label .r2-lp-ws-dot[data-tone="sand"] {
+  background: color-mix(in srgb, var(--lp-tone-sand) 68%, var(--lp-ms-bg));
+}
+.r2-lp-tr-label .r2-lp-ws-dot[data-tone="terracotta"] {
+  background: color-mix(in srgb, var(--lp-tone-terracotta) 68%, var(--lp-ms-bg));
+}
+.r2-lp-tr-title {
+  margin: 0;
+  font-family: var(--r2-prose-font);
+  font-size: clamp(22px, 1.75vw, 27px);
+  font-weight: var(--r2-weight-regular);
+  line-height: 1.15;
+  letter-spacing: -0.014em;
+  text-wrap: pretty;
+  color: var(--r2-ink-1);
+}
+.r2-lp-tr-line {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.5;
+  text-wrap: pretty;
+  color: color-mix(in srgb, var(--r2-ink-2) 72%, var(--r2-ink-3));
+}
+
+/* ── The No AI card ─────────────────────────────────────────────────────
+   Set apart as quietly as it can be and still be seen: the faintest wash
+   of the accent through the surface, a firmer edge in the accent's tone,
+   and the cue — "Read our approach", with its arrow — at the foot of the
+   card, at the right, on the supporting line's row. It is
+   a promise first and a link second: reached for, it rises the touch the
+   workspace cards do, the edge firms, the arrow goes a step right. A
+   keyboard reaches it as one link, with the page's focus ring. */
+.r2-lp-tr-card--link {
+  text-decoration: none;
+  cursor: pointer;
+  background: color-mix(in srgb, var(--r2-accent) 4.5%, var(--r2-material-bg));
+  box-shadow: inset 0 1px 0 var(--r2-material-highlight), 0 0 0 1px color-mix(in srgb, var(--r2-accent) 28%, var(--r2-material-border)),
+    var(--r2-shadow-material), 0 16px 32px -28px rgba(var(--r2-palette-shadow) / 0.16);
+  transition: box-shadow var(--r2-medium) var(--r2-ease), background-color var(--r2-medium) var(--r2-ease),
+    transform var(--r2-medium) var(--r2-ease);
+}
+.r2-lp-tr-card--link:hover {
+  transform: translateY(-2px);
+  background: color-mix(in srgb, var(--r2-accent) 7%, var(--r2-material-bg));
+  box-shadow: inset 0 1px 0 var(--r2-material-highlight), 0 0 0 1px color-mix(in srgb, var(--r2-accent) 48%, var(--r2-material-border)),
+    var(--r2-shadow-material-lift), 0 22px 40px -26px rgba(var(--r2-palette-shadow) / 0.24);
+}
+.r2-lp-tr-card--link:active {
+  transform: none;
+}
+.r2-lp-tr-card--link:focus-visible {
+  outline: 2px solid var(--r2-focus);
+  outline-offset: 3px;
+}
+/* The linked card's text may run to the cue: the room is the card's. */
+.r2-lp-tr-card--link .r2-lp-tr-text {
+  max-width: none;
+}
+.r2-lp-tr-cue {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 2px; /* on the supporting line's baseline */
+  font-size: var(--r2-fs-meta);
+  white-space: nowrap;
+  color: var(--r2-ink-3);
+  transition: color var(--r2-medium) var(--r2-ease);
+}
+.r2-lp-tr-cue svg {
+  transition: transform var(--r2-medium) var(--r2-ease);
+}
+.r2-lp-tr-card--link:hover .r2-lp-tr-cue {
+  color: color-mix(in srgb, var(--r2-accent) 84%, var(--r2-ink-1));
+}
+.r2-lp-tr-card--link:hover .r2-lp-tr-cue svg {
+  transform: translateX(3px);
+}
+@media (prefers-reduced-motion: reduce) {
+  .r2-lp-tr-card--link,
+  .r2-lp-tr-cue,
+  .r2-lp-tr-cue svg {
+    transition: none;
+  }
+  .r2-lp-tr-card--link:hover {
+    transform: none;
+  }
+  .r2-lp-tr-card--link:hover .r2-lp-tr-cue svg {
+    transform: none;
+  }
+}
+
+/* ── A laptop ───────────────────────────────────────────────────────────
+   The split holds, the copy's column a little narrower. */
+@media (max-width: 1180px) {
+  .r2-lp-tr-in {
+    grid-template-columns: minmax(0, 11fr) minmax(0, 8fr);
+    column-gap: clamp(36px, 4.5vw, 64px);
+  }
+  /* The cards are narrower here: the No AI cue goes under its text rather
+     than beside it, so the statement keeps its measure. */
+  .r2-lp-tr-card--link {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .r2-lp-tr-card--link .r2-lp-tr-cue {
+    align-self: flex-end;
+    margin-bottom: 0;
+  }
+}
+
+/* ── A tablet, or a desktop zoomed ──────────────────────────────────────
+   One column, the statement first, then the stack at the page's width:
+   the heading leads, as it does at the right on a desktop. */
+@media (max-width: 940px) {
+  .r2-lp-tr {
+    padding: clamp(56px, 8vh, 88px) 0 clamp(72px, 9vh, 104px);
+  }
+  .r2-lp-tr-in {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "copy"
+      "stack";
+    row-gap: 36px;
+  }
+  .r2-lp-tr-copy {
+    max-width: 32rem;
+    padding-bottom: 0;
+  }
+}
+
+/* ── Phones ─────────────────────────────────────────────────────────────
+   The cards keep their shape; the No AI cue drops under the text, where
+   a thumb and an eye both find it. */
+@media (max-width: 640px) {
+  .r2-lp-tr {
+    padding: 56px 0 72px;
+  }
+  .r2-lp-tr-in {
+    row-gap: 28px;
+  }
+  .r2-lp-tr-copy .r2-lp-h2 {
+    font-size: clamp(32px, 9vw, 40px);
+  }
+  .r2-lp-tr-copy .r2-lp-lede {
+    margin-top: 14px;
+  }
+  .r2-lp-tr-stack {
+    gap: 12px;
+  }
+  .r2-lp-tr-card {
+    --lp-tr-pad-x: 20px;
+    --lp-tr-pad-y: 20px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    min-height: 0;
+  }
+  .r2-lp-tr-card--link .r2-lp-tr-cue {
+    align-self: flex-end;
+    margin-bottom: 0;
+  }
+  .r2-lp-tr-title {
+    font-size: clamp(21px, 6vw, 24px);
+  }
+}
+
 /* ── The placeholder page ───────────────────────────────────────────────
-   /workspace/<feature>, /features/inspector: the title and line, centred
+   /workspace/<feature>, /features/inspector, /principles/no-ai: the title
+   and line, centred
    in the public frame, until the closer look exists. */
 .r2-lp-ws-stub {
   display: flex;

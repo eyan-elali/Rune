@@ -27,6 +27,9 @@ const PUBLIC_ROUTES = [
   // The landing page's Inspector section (components/front/FrontDetails)
   // leads here: the same kind of placeholder, public for the same reason.
   "/features/inspector",
+  // The landing page's No AI writing card (components/front/FrontTrust)
+  // leads here: the editorial page's placeholder, public for the same reason.
+  "/principles/no-ai",
   // Entry point for the landing page's "Continue with Scribe" CTA — must be
   // reachable signed-out (it records purchase intent and sends the visitor
   // to signup), and it fully handles the authenticated case itself.
