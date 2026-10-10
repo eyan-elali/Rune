@@ -110,7 +110,10 @@ function RootRow({ label, count, children }: { label: string; count: string; chi
   );
 }
 
-function Navigator() {
+// The navigator and the editor are shared with the details section
+// (FrontDetails), which shows the same manuscript with the Inspector open:
+// one shell, drawn once.
+export function Navigator() {
   return (
     <div className="r2-lp-shot-nav">
       <div className="r2-nav-header">
@@ -149,7 +152,7 @@ function Navigator() {
   );
 }
 
-function Editor() {
+export function Editor({ prose = PROSE }: { prose?: readonly string[] }) {
   return (
     <div className="r2-lp-shot-content">
       <div className="r2-tabs">
@@ -179,7 +182,7 @@ function Editor() {
           <p className="r2-doc-title">{SCENE}</p>
         </div>
         <div className="r2-lp-shot-prose">
-          {PROSE.map((p) => (
+          {prose.map((p) => (
             <p key={p.slice(0, 24)}>{p}</p>
           ))}
         </div>

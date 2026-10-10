@@ -1253,6 +1253,534 @@
   }
 }
 
+/* ══ Section 4: The details ═══════════════════════════════════════════════
+   The book stays open; what a scene needs stays close. One composition on
+   the manuscript section's wider container: the Project shell at the left,
+   the same navigator and editor as Section 2 with the Inspector open as an
+   inset sheet beside the writing (rune2.css: .r2-panel, .r2-inspector —
+   the real classes, so it cannot drift); at the right, the objects the
+   Inspector's fields point to, each drawn as its own surface is; and, in
+   the room between, one measured line from each field to its object
+   (FrontDetails). The shell is the subject and has most of the width; the
+   objects are a column of compact material surfaces that spread to the
+   shell's height, so each line can leave level and arrive near level.
+
+   The section rests on the deeper tone the workspace section rests on, so
+   the three sections past the hero run as one ground. */
+.r2-lp-dt {
+  --lp-tone-blue: var(--r2-accent);
+  --lp-tone-sage: var(--r2-success);
+  --lp-tone-sand: var(--r2-warning);
+  --lp-tone-terracotta: var(--r2-danger);
+  --lp-dt-max: 1300px;
+  padding: clamp(44px, 6vh, 72px) 0 clamp(72px, 9vh, 112px);
+  background: var(--lp-ms-bg);
+}
+.r2-lp-dt-in {
+  width: min(100%, var(--lp-dt-max));
+  margin: 0 auto;
+  padding: 0 var(--lp-gutter);
+}
+.r2-lp-dt-head {
+  max-width: 50rem;
+  margin: 0 auto;
+  text-align: center;
+}
+.r2-lp-dt-head .r2-lp-eyebrow {
+  margin-bottom: 10px;
+}
+.r2-lp-dt-head .r2-lp-h2 {
+  font-size: clamp(36px, 3.8vw, 52px);
+}
+.r2-lp-dt-head .r2-lp-lede {
+  max-width: 36rem;
+  margin-top: 10px;
+}
+
+/* ── The stage ──────────────────────────────────────────────────────────
+   Two columns and the room between them, where the lines run. The shell
+   takes what the objects leave; the objects' column is fixed, so the shell
+   never gives up its writing column to them. */
+.r2-lp-dt-stage {
+  --lp-dt-height: clamp(588px, 64vh, 640px);
+  --lp-dt-objects: 300px;
+  --lp-dt-gap: clamp(44px, 5vw, 72px);
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--lp-dt-objects);
+  column-gap: var(--lp-dt-gap);
+  align-items: stretch;
+  margin-top: clamp(30px, 4.5vh, 48px);
+}
+
+/* ── The shell ──────────────────────────────────────────────────────────
+   Section 2's object (.r2-lp-shot) with a third column: the Inspector. The
+   navigator and the panel stand at widths a writer might drag them to —
+   both are resizable in the product — so the writing column keeps a
+   measure beside them. The focus variables are pinned at rest: no part of
+   Section 2's movement runs here. */
+.r2-lp-dt-shot {
+  --lp-focus: 0;
+  --lp-nav-out: 0;
+  --lp-chrome-out: 0;
+  position: relative;
+  min-width: 0;
+  min-height: var(--lp-dt-height);
+}
+/* The shell fills its column: the stage's height, or the objects' column's
+   where their text asks for more in a narrower room, so the two stand
+   level and the shell still crops its prose at its foot. */
+.r2-lp-dt-shot .r2-lp-shot {
+  position: absolute;
+  inset: 0;
+  height: auto;
+}
+.r2-lp-dt-shot .r2-lp-shot {
+  --r2-nav-full: 200px;
+  --r2-panel-width: 262px;
+  --lp-doc-gutter: 30px;
+  --lp-doc-top: 56px;
+}
+.r2-lp-dt-shot .r2-lp-shot-in {
+  grid-template-columns: var(--r2-nav-full) minmax(0, 1fr) auto;
+}
+.r2-lp-dt-shot .r2-lp-shot-nav,
+.r2-lp-dt-shot .r2-lp-shot-content,
+.r2-lp-dt-shot .r2-lp-shot-doc {
+  transform: none;
+}
+.r2-lp-dt-shot .r2-lp-shot-doc {
+  min-width: 0;
+}
+.r2-lp-dt-shot .r2-lp-shot .r2-doc-head {
+  margin-bottom: 28px;
+}
+.r2-lp-dt-shot .r2-lp-shot .r2-doc-title {
+  font-size: 22px;
+}
+.r2-lp-dt-shot .r2-lp-shot-prose {
+  font-size: 16.5px;
+}
+/* The status at the shell's foot, where the product keeps it: the status
+   zone runs under the sheet (the panel's margin-bottom, as in rune2.css). */
+.r2-lp-dt-shot .r2-lp-shot-status {
+  right: var(--r2-space-6);
+  bottom: 7px;
+  background: none;
+}
+/* The sheet: the product's own inset panel, open, in the body zone. Its
+   transitions are for a panel that opens and closes; this one is open. */
+.r2-lp-dt-shot .r2-panel {
+  margin: var(--r2-bar) 0 30px;
+  border-radius: var(--r2-radius-lg) 0 0 var(--r2-radius-lg);
+  transition: none;
+}
+.r2-lp-dt-shot .r2-panel-inner {
+  transition: none;
+}
+.r2-lp-dt-shot .r2-panel-body {
+  overflow: hidden;
+  padding-right: var(--r2-space-5);
+}
+.r2-lp-dt-shot .r2-icon-button,
+.r2-lp-dt-shot .r2-prop-link,
+.r2-lp-dt-shot .r2-prop-button,
+.r2-lp-dt-shot .r2-link,
+.r2-lp-dt-shot .r2-insp-place-link,
+.r2-lp-dt-shot .r2-insp-aside-link {
+  cursor: default;
+}
+.r2-lp-dt-shot .r2-insp-aside-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--r2-space-2);
+}
+.r2-lp-dt-shot .r2-prop-button {
+  width: auto;
+  display: inline-block;
+}
+/* The value a line leaves: at rest the row as it is; chosen, the product's
+   own hover tone on the value. */
+.r2-lp-dt-stage[data-active="ada"] [data-link="ada"] .r2-prop-link,
+.r2-lp-dt-stage[data-active="house"] [data-link="house"] .r2-prop-link,
+.r2-lp-dt-stage[data-active="when"] [data-link="when"] .r2-prop-button,
+.r2-lp-dt-stage[data-active="research"] [data-link="research"] .r2-link {
+  background: var(--r2-hover);
+}
+.r2-lp-dt-stage[data-active="ada"] [data-link="ada"] .r2-prop-link,
+.r2-lp-dt-stage[data-active="house"] [data-link="house"] .r2-prop-link {
+  text-decoration-color: currentColor;
+}
+
+/* ── The objects ────────────────────────────────────────────────────────
+   A column of material surfaces (the workspace cards' language), spread
+   over the shell's height. Each is compact: its folder or Collection as
+   an eyebrow in the section's tone, its title in the interface sans as a
+   Page's is, then what that surface shows — an Entry's properties, a
+   Page's text, a Timeline's lanes. */
+.r2-lp-dt-objects {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: var(--lp-dt-height);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.r2-lp-dt-card {
+  position: relative;
+  padding: 14px 18px 13px;
+  border-radius: var(--r2-radius-material);
+  background: var(--r2-bg);
+  box-shadow: inset 0 1px 0 var(--r2-material-highlight), 0 0 0 1px var(--r2-material-border), var(--r2-shadow-material),
+    0 18px 36px -28px rgba(var(--r2-palette-shadow) / 0.18);
+  font-size: var(--r2-fs-ui);
+  line-height: var(--r2-lh-ui);
+  color: var(--r2-ink-2);
+  transition: box-shadow var(--r2-medium) var(--r2-ease);
+}
+.r2-lp-dt-card .r2-lp-ws-page-eyebrow {
+  margin-bottom: 4px;
+}
+.r2-lp-dt-title {
+  margin: 0 0 5px;
+  font-size: 16px;
+  font-weight: var(--r2-weight-semibold);
+  line-height: var(--r2-lh-tight);
+  letter-spacing: var(--r2-tracking-heading);
+  color: var(--r2-ink-1);
+}
+.r2-lp-dt-text {
+  margin: 0;
+  font-size: var(--r2-fs-ui);
+  line-height: 1.5;
+  text-wrap: pretty;
+  color: color-mix(in srgb, var(--r2-ink-1) 76%, var(--r2-bg));
+}
+.r2-lp-dt-meta {
+  margin: 10px 0 0;
+  padding-top: 8px;
+  border-top: 1px solid var(--r2-border);
+  font-size: var(--r2-fs-caption);
+  color: var(--r2-ink-3);
+}
+/* An Entry's properties: the product's rows, parted from the body by a
+   hairline as on the Entry (rune2.css: .r2-page .r2-props). */
+.r2-lp-dt-props {
+  margin: 0 0 8px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid var(--r2-border);
+}
+.r2-lp-dt-props .r2-prop {
+  grid-template-columns: 56px minmax(0, 1fr);
+  min-height: 24px;
+}
+.r2-lp-dt-props .r2-prop-label {
+  padding: 2px 0;
+}
+.r2-lp-dt-props .r2-prop-value {
+  padding: 2px 0;
+}
+
+/* The Timeline: the View's axis — the rail's corner naming it, the
+   Chapters as ticks over the strong hairline — then lanes, each with its
+   name and count in the rail and a Scene as a mark on the track, the open
+   Scene's mark in the accent and its row in the hover tone. */
+.r2-lp-dt-tl {
+  --lp-dt-rail: 138px;
+  margin: 8px -18px -13px;
+  font-size: var(--r2-fs-ui-sm);
+}
+.r2-lp-dt-tl-axis,
+.r2-lp-dt-tl-lane {
+  display: grid;
+  grid-template-columns: var(--lp-dt-rail) minmax(0, 1fr);
+}
+.r2-lp-dt-tl-axis {
+  height: 24px;
+  border-bottom: 1px solid var(--r2-border-strong);
+  font-size: var(--r2-fs-caption);
+  color: var(--r2-ink-3);
+  white-space: nowrap;
+}
+.r2-lp-dt-tl-corner {
+  align-self: end;
+  padding: 0 0 5px 18px;
+  border-right: 1px solid var(--r2-border);
+  font-size: 10.5px;
+  font-weight: var(--r2-weight-medium);
+  letter-spacing: var(--r2-tracking-label);
+  color: var(--r2-ink-2);
+}
+.r2-lp-dt-tl-track {
+  position: relative;
+  display: block;
+  min-width: 0;
+  height: 100%;
+}
+.r2-lp-dt-tl-chapter {
+  position: absolute;
+  bottom: 0;
+  max-width: 100%;
+  padding: 0 6px 5px;
+  border-left: 1px solid var(--r2-border-strong);
+  font-weight: var(--r2-weight-medium);
+  line-height: 14px;
+  color: var(--r2-ink-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.r2-lp-dt-tl-chapter:first-child {
+  border-left: 0;
+}
+.r2-lp-dt-tl-lane {
+  position: relative;
+  height: 32px;
+  border-bottom: 1px solid var(--r2-border);
+}
+.r2-lp-dt-tl-lane:last-child {
+  border-bottom: 0;
+}
+.r2-lp-dt-tl-rail {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 100%;
+  padding: 0 8px 0 18px;
+  border-right: 1px solid var(--r2-border);
+}
+.r2-lp-dt-tl-lane-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: var(--r2-weight-medium);
+  color: var(--r2-ink-1);
+}
+.r2-lp-dt-tl-lane-count {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  color: var(--r2-ink-3);
+}
+.r2-lp-dt-tl-item {
+  position: absolute;
+  top: 4px;
+  display: block;
+  max-width: calc(100% - 8px);
+  margin-left: 4px;
+  height: 24px;
+  padding: 0 7px 0 20px;
+  border-radius: var(--r2-radius);
+  font-size: var(--r2-fs-ui-sm);
+  line-height: 24px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--r2-ink-1);
+}
+.r2-lp-dt-tl-item[data-selected] {
+  background: var(--r2-hover);
+}
+.r2-lp-dt-tl-mark {
+  position: absolute;
+  left: 7px;
+  top: 50%;
+  width: 7px;
+  height: 7px;
+  margin-top: -3.5px;
+  border-radius: 50%;
+  background: var(--r2-ink-3);
+  box-shadow: 0 0 0 2px var(--r2-bg);
+}
+.r2-lp-dt-tl-item[data-selected] .r2-lp-dt-tl-mark {
+  background: var(--r2-accent);
+}
+
+/* ── The lines ──────────────────────────────────────────────────────────
+   One SVG over the stage, drawn after layout: a hairline of ink from each
+   field to its object, a point of the pair's tone at either end. The
+   lines recede; the pair that is reached for takes its tone. */
+.r2-lp-dt-lines {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+.r2-lp-dt-lines g {
+  --lp-tone: var(--lp-tone-blue);
+  transition: opacity var(--r2-medium) var(--r2-ease);
+}
+.r2-lp-dt-lines g[data-tone="sage"] {
+  --lp-tone: var(--lp-tone-sage);
+}
+.r2-lp-dt-lines g[data-tone="sand"] {
+  --lp-tone: var(--lp-tone-sand);
+}
+.r2-lp-dt-lines g[data-tone="terracotta"] {
+  --lp-tone: var(--lp-tone-terracotta);
+}
+.r2-lp-dt-lines path {
+  fill: none;
+  stroke: color-mix(in srgb, rgb(var(--r2-palette-ink)) 22%, transparent);
+  stroke-width: 1;
+  transition: stroke var(--r2-medium) var(--r2-ease);
+}
+.r2-lp-dt-lines circle {
+  fill: color-mix(in srgb, var(--lp-tone) 78%, var(--r2-bg));
+  stroke: var(--r2-bg);
+  stroke-width: 1.5;
+}
+/* Reached for: the line takes the pair's tone, the object firms and the
+   rest of the lines step back. */
+.r2-lp-dt-stage[data-active] .r2-lp-dt-lines g {
+  opacity: 0.45;
+}
+.r2-lp-dt-stage[data-active="ada"] .r2-lp-dt-lines g[data-link="ada"],
+.r2-lp-dt-stage[data-active="house"] .r2-lp-dt-lines g[data-link="house"],
+.r2-lp-dt-stage[data-active="when"] .r2-lp-dt-lines g[data-link="when"],
+.r2-lp-dt-stage[data-active="research"] .r2-lp-dt-lines g[data-link="research"] {
+  opacity: 1;
+}
+.r2-lp-dt-stage[data-active="ada"] .r2-lp-dt-lines g[data-link="ada"] path,
+.r2-lp-dt-stage[data-active="house"] .r2-lp-dt-lines g[data-link="house"] path,
+.r2-lp-dt-stage[data-active="when"] .r2-lp-dt-lines g[data-link="when"] path,
+.r2-lp-dt-stage[data-active="research"] .r2-lp-dt-lines g[data-link="research"] path {
+  stroke: color-mix(in srgb, var(--lp-tone) 70%, transparent);
+}
+.r2-lp-dt-stage[data-active="ada"] .r2-lp-dt-card[data-link="ada"],
+.r2-lp-dt-stage[data-active="house"] .r2-lp-dt-card[data-link="house"],
+.r2-lp-dt-stage[data-active="when"] .r2-lp-dt-card[data-link="when"],
+.r2-lp-dt-stage[data-active="research"] .r2-lp-dt-card[data-link="research"] {
+  box-shadow: inset 0 1px 0 var(--r2-material-highlight), 0 0 0 1px var(--r2-material-border-strong),
+    var(--r2-shadow-material-lift), 0 22px 40px -26px rgba(var(--r2-palette-shadow) / 0.24);
+}
+@media (prefers-reduced-motion: reduce) {
+  .r2-lp-dt-card,
+  .r2-lp-dt-lines g,
+  .r2-lp-dt-lines path {
+    transition: none;
+  }
+}
+
+/* ── Short screens ──────────────────────────────────────────────────────
+   A laptop at ~800px, or a desktop zoomed: the section closes up and the
+   stage comes down, so the composition still reads in one screen. */
+@media (max-height: 860px) and (min-width: 1041px) {
+  .r2-lp-dt {
+    padding-top: 32px;
+    padding-bottom: 56px;
+  }
+  .r2-lp-dt-head .r2-lp-h2 {
+    font-size: clamp(34px, 3.4vw, 44px);
+  }
+  .r2-lp-dt-stage {
+    --lp-dt-height: clamp(584px, 70vh, 620px);
+    margin-top: 22px;
+  }
+}
+
+/* ── Narrower rooms ─────────────────────────────────────────────────────
+   A smaller laptop, or a desktop zoomed: the objects' column narrows and
+   the writing column gives up a little of its gutters before anything
+   stacks. */
+@media (max-width: 1240px) {
+  .r2-lp-dt-stage {
+    --lp-dt-objects: 276px;
+    --lp-dt-gap: clamp(36px, 4vw, 56px);
+  }
+  .r2-lp-dt-shot .r2-lp-shot {
+    --r2-nav-full: 194px;
+    --r2-panel-width: 248px;
+    --lp-doc-gutter: 24px;
+  }
+  .r2-lp-dt-shot .r2-lp-shot-prose {
+    font-size: 16px;
+  }
+}
+
+/* ── A tablet, or a desktop zoomed far ──────────────────────────────────
+   The concept, not the diagram: the shell takes the whole width, with the
+   Inspector still open beside the writing; the objects stand beneath it,
+   two across; the lines are left out — the Inspector's values name them. */
+@media (max-width: 1040px) {
+  .r2-lp-dt-stage {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 18px;
+  }
+  .r2-lp-dt-shot .r2-lp-shot {
+    --r2-nav-full: 200px;
+    --r2-panel-width: 256px;
+    --lp-doc-gutter: 28px;
+  }
+  .r2-lp-dt-objects {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+    min-height: 0;
+  }
+  .r2-lp-dt-lines {
+    display: none;
+  }
+}
+@media (max-width: 860px) {
+  .r2-lp-dt-shot .r2-lp-shot-in {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .r2-lp-dt-shot .r2-lp-shot-nav {
+    display: none;
+  }
+}
+
+/* ── Phones ─────────────────────────────────────────────────────────────
+   Readable, stacked: the writing with the Inspector beneath it, then the
+   objects one under another. */
+@media (max-width: 640px) {
+  .r2-lp-dt {
+    padding: 56px 0 80px;
+  }
+  .r2-lp-dt-head .r2-lp-h2 {
+    font-size: clamp(32px, 9vw, 40px);
+  }
+  .r2-lp-dt-stage {
+    --lp-dt-height: 0px;
+    margin-top: 28px;
+  }
+  .r2-lp-dt-shot .r2-lp-shot {
+    position: relative;
+    inset: auto;
+  }
+  .r2-lp-dt-shot .r2-lp-shot {
+    --lp-doc-gutter: 20px;
+    --lp-doc-top: 32px;
+  }
+  .r2-lp-dt-shot .r2-lp-shot-in {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .r2-lp-dt-shot .r2-lp-shot-doc {
+    max-height: 260px;
+  }
+  .r2-lp-dt-shot .r2-panel {
+    width: 100%;
+    margin: 0;
+    border-radius: 0;
+    border-top: 1px solid var(--r2-border);
+    box-shadow: none;
+  }
+  .r2-lp-dt-shot .r2-panel-inner {
+    width: 100%;
+  }
+  .r2-lp-dt-shot .r2-panel-body {
+    padding-bottom: var(--r2-space-6);
+  }
+  .r2-lp-dt-objects {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+  }
+}
+
 /* ── The placeholder page ───────────────────────────────────────────────
    /workspace/<feature>: the card's title and line, centred in the public
    frame, until the closer look exists. */
