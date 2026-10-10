@@ -249,24 +249,31 @@
 /* ══ Section 2: The manuscript ════════════════════════════════════════════
    The hero's promise made concrete: one statement, then the product as
    proof. The copy is centred on the page's container; under it the Project
-   shell, with a manuscript open, sits on the page as one raised object —
-   the same material language as the auth surfaces (.r2-material), not a
-   device mockup.
+   shell, with a manuscript open, rests on the page as one object — the same
+   material language as the auth surfaces (.r2-material), not a device
+   mockup — and is given more of the page than the copy: its own, wider
+   container (--lp-ms-max), so the navigator and the writing column stand in
+   their real relation at a laptop's width.
 
    The shell (FrontManuscript) borrows the real navigator rows, tabs and
    title from rune2.css; what follows lays those out — the two columns, the
-   writing column and its prose — and nothing in it is a control. */
+   writing column and its prose — and nothing in it is a control.
+
+   Then the one movement (FocusStage, "The focus" below): the structure
+   recedes and the writing surface is left with the room. */
 
 /* ── The section ────────────────────────────────────────────────────────
-   On the page's tone, deepening by a hair over its first stretch, so the
-   near-white shell lifts off it and the hero runs into it without an edge. */
+   On the page's tone, deepening by a shade over its first stretch, so the
+   near-white shell lifts off it and the hero runs into it without an edge.
+   Statement and proof sit close: one composed unit, not two. */
 .r2-lp-ms {
-  --lp-ms-bg: color-mix(in srgb, var(--r2-page-bg) 97.5%, var(--r2-ink-1));
-  padding: clamp(56px, 9vh, 104px) 0 clamp(96px, 12vh, 160px);
-  background: linear-gradient(to bottom, var(--r2-page-bg), var(--lp-ms-bg) 240px);
+  --lp-ms-bg: color-mix(in srgb, var(--r2-page-bg) 96%, var(--r2-ink-1));
+  --lp-ms-max: 1300px;
+  padding: clamp(36px, 5.5vh, 64px) 0 clamp(80px, 10vh, 128px);
+  background: linear-gradient(to bottom, var(--r2-page-bg), var(--lp-ms-bg) 280px);
 }
 .r2-lp-ms-in {
-  width: min(100%, var(--lp-max));
+  width: min(100%, var(--lp-ms-max));
   margin: 0 auto;
   padding: 0 var(--lp-gutter);
 }
@@ -278,7 +285,7 @@
   text-align: center;
 }
 .r2-lp-eyebrow {
-  margin: 0 0 18px;
+  margin: 0 0 14px;
   font-size: var(--r2-fs-label);
   font-weight: var(--r2-weight-medium);
   letter-spacing: 0.1em;
@@ -296,7 +303,7 @@
 }
 .r2-lp-lede {
   max-width: 34rem;
-  margin: 20px auto 0;
+  margin: 16px auto 0;
   font-size: 17px;
   line-height: 1.55;
   text-wrap: balance;
@@ -304,26 +311,30 @@
 }
 
 /* ── The proof: the shell as an object ──────────────────────────────────
-   The whole width of the container, under the statement. A fine edge, the
-   faint light along its top, and the material's fall of shadow; the crop is
-   clean — the shell is cut at the object's foot, without a fade. */
+   The whole width of its container, a short way under the statement. A fine
+   edge, the faint light along its top, and a fall of shadow a little deeper
+   and further than a card's — the object has weight on the page, not gloss.
+   The crop is clean: the shell is cut at the object's foot, without a fade.
+   Its height is the room the viewport has for it, within bounds, so the
+   object fits on screen while it holds its place (the focus). */
 .r2-lp-ms-proof {
-  margin-top: clamp(44px, 6vh, 72px);
+  margin-top: clamp(30px, 4.5vh, 48px);
 }
 .r2-lp-shot {
   /* The real shell's measures (rune2.css: .r2-shell). */
   --r2-bar: 44px;
   --r2-context-bar: 38px;
   --r2-nav-full: 252px;
-  --r2-tab-width: 164px;
-  --lp-shot-height: 640px;
+  --r2-tab-width: 232px;
   --lp-doc-gutter: 52px;
   --lp-doc-top: 64px;
+  position: relative;
   overflow: hidden;
   height: var(--lp-shot-height);
   border-radius: var(--r2-radius-material);
   background: var(--r2-bg);
-  box-shadow: inset 0 1px 0 var(--r2-material-highlight), 0 0 0 1px var(--r2-material-border), var(--r2-shadow-material);
+  box-shadow: inset 0 1px 0 var(--r2-material-highlight), 0 0 0 1px var(--r2-material-border), var(--r2-shadow-material),
+    0 36px 80px -40px rgba(var(--r2-palette-shadow) / 0.2);
   pointer-events: none;
   user-select: none;
 }
@@ -353,20 +364,34 @@
   cursor: default;
 }
 
-/* The content column: the tab band, the breadcrumb row, the writing column. */
+/* The content column: the tab band, the breadcrumb row, the writing column,
+   and the document status at its foot. */
 .r2-lp-shot-content {
+  position: relative;
   display: flex;
   flex-direction: column;
   min-width: 0;
   background: var(--r2-bg);
 }
+/* The tab band's tone is a layer of its own, so it can go without the band
+   moving (the focus). */
 .r2-lp-shot .r2-tabs {
+  position: relative;
+  background: transparent;
+  border-bottom-color: transparent;
+}
+.r2-lp-shot .r2-tabs::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
   background: var(--r2-shell-bg);
+  border-bottom: 1px solid var(--r2-border);
 }
 .r2-lp-shot .r2-tab-main {
   cursor: default;
 }
-/* The one tab has room for the whole of "Chapter · Scene n". */
+/* The one tab has room for the whole of "Chapter · Scene". */
 .r2-lp-shot .r2-tab-context {
   max-width: none;
 }
@@ -386,7 +411,9 @@
 }
 
 /* The writing column: Sutura's measure, centred in the room it has, the
-   title standing where it stands in the product (rune2.css: .r2-doc). */
+   title standing where it stands in the product (rune2.css: .r2-doc). The
+   prose is set a shade lighter than the writer sees it: a visitor is meant
+   to read the structure, not the sample. */
 .r2-lp-shot-doc {
   flex: 1;
   width: min(100%, calc(var(--r2-prose-measure) + 2 * var(--lp-doc-gutter)));
@@ -404,7 +431,7 @@
   font-size: var(--r2-prose-size);
   line-height: var(--r2-prose-leading);
   letter-spacing: 0.002em;
-  color: var(--r2-prose-ink);
+  color: color-mix(in srgb, var(--r2-prose-ink) 70%, var(--r2-bg));
   font-kerning: normal;
   font-variant-ligatures: common-ligatures;
   text-rendering: optimizeLegibility;
@@ -415,6 +442,101 @@
 }
 .r2-lp-shot-prose p:first-child {
   text-indent: 0;
+}
+/* "1,412 words · Saved", where the shell keeps it (rune2.css: .r2-status):
+   the foot of the content column, ending at the shell's right edge — the
+   same place whether or not the navigator is there. */
+.r2-lp-shot-status {
+  position: absolute;
+  right: var(--r2-space-7);
+  bottom: var(--r2-space-5);
+  padding: 6px 0 6px 28px;
+  font-size: var(--r2-fs-caption);
+  line-height: var(--r2-lh-tight);
+  color: var(--r2-ink-3);
+  /* The page's tone behind it, fading in from the left, so a narrow column's
+     prose passes under it the way it does in the product, without colliding. */
+  background: linear-gradient(to right, transparent, var(--r2-bg) 28px);
+}
+.r2-lp-shot-status span {
+  margin: 0 0.3em;
+}
+
+/* ── The focus ──────────────────────────────────────────────────────────
+   The product's own behaviour while a writer writes (rune2.css: "Chrome
+   that recedes while writing"), run by the reader's scroll. FocusStage
+   writes the shell's progress through its stage to --lp-focus, 0 to 1;
+   the rules below read it, and nothing else moves.
+
+     the navigator  fades first, and slips a little to the left
+     the tab band   loses its tone; the tab, the toggle and the breadcrumb
+                    go to nothing — in place, as in the product
+     the column     shifts by half the navigator's width, so the writing
+                    surface comes to the centre of the shell; the prose
+                    rises a little into the room the band gave up, and
+                    takes its full ink
+     the status     stays, quieter — still Sutura, not a sheet of prose
+
+   Then one line, under the shell, once the surface has the room. The
+   stage is taller than the shell by a stretch of the viewport (the length
+   of the movement); the shell holds its place on screen for that stretch,
+   and then goes on with the page. Only once FocusStage has started
+   (data-scrub): otherwise the stage is the shell's own height and nothing
+   is sticky — the page as it is, for reduced motion, phones and no script. */
+.r2-lp-ms-stage {
+  --lp-shot-height: clamp(520px, calc(100svh - var(--lp-head) - 96px), 700px);
+  --lp-focus: 0;
+  --lp-nav-out: min(1, calc(var(--lp-focus) * 1.5));
+  --lp-chrome-out: min(1, calc(var(--lp-focus) * 1.25));
+  --lp-after-in: clamp(0, calc((var(--lp-focus) - 0.6) / 0.4), 1);
+}
+.r2-lp-ms-stage[data-scrub] {
+  height: calc(var(--lp-shot-height) + 76px + 78vh);
+}
+.r2-lp-ms-stage[data-scrub] .r2-lp-ms-sticky {
+  position: sticky;
+  top: max(calc(var(--lp-head) + 16px), calc((100svh - var(--lp-shot-height) - 76px) / 2 + 8px));
+}
+.r2-lp-shot-nav {
+  opacity: calc(1 - var(--lp-nav-out));
+  transform: translateX(calc(var(--lp-nav-out) * -14px));
+}
+.r2-lp-shot-content {
+  transform: translateX(calc(var(--r2-nav-full) * -0.5 * var(--lp-focus)));
+}
+.r2-lp-shot .r2-tabs::before,
+.r2-lp-shot .r2-tabs ul,
+.r2-lp-shot .r2-tabs-nav-toggle,
+.r2-lp-shot-crumbs {
+  opacity: calc(1 - var(--lp-chrome-out));
+}
+.r2-lp-shot-doc {
+  transform: translateY(calc(var(--lp-focus) * -26px));
+}
+.r2-lp-shot-prose {
+  opacity: calc(1 + var(--lp-focus) * 0.28);
+}
+.r2-lp-shot-status {
+  opacity: calc(1 - var(--lp-focus) * 0.4);
+}
+.r2-lp-ms-after {
+  position: absolute;
+  top: calc(var(--lp-shot-height) + 40px);
+  right: 0;
+  left: 0;
+  margin: 0;
+  font-family: var(--r2-prose-font);
+  font-size: clamp(19px, 1.7vw, 23px);
+  font-style: italic;
+  line-height: 1.3;
+  letter-spacing: -0.008em;
+  text-align: center;
+  color: var(--r2-ink-2);
+  opacity: var(--lp-after-in);
+  transform: translateY(calc((1 - var(--lp-after-in)) * 8px));
+}
+.r2-lp-ms-stage:not([data-scrub]) .r2-lp-ms-after {
+  display: none;
 }
 
 /* ── The reveal ─────────────────────────────────────────────────────────
@@ -449,21 +571,25 @@
 @media (max-width: 1100px) {
   .r2-lp-shot {
     --lp-doc-gutter: 36px;
-    --lp-shot-height: 600px;
+  }
+  .r2-lp-ms-stage {
+    --lp-shot-height: clamp(500px, calc(100svh - var(--lp-head) - 96px), 640px);
   }
 }
 @media (max-width: 900px) {
   .r2-lp-shot {
-    --r2-nav-full: 228px;
     --lp-doc-gutter: 28px;
-    --lp-shot-height: 560px;
+  }
+  .r2-lp-ms-stage {
+    --lp-shot-height: clamp(460px, calc(100svh - var(--lp-head) - 80px), 600px);
   }
 }
 
 /* ── Phones ─────────────────────────────────────────────────────────────
    Not the desktop shell shrunk: the two things that matter, stacked and
    readable — the navigator's manuscript structure, then the editor — with
-   the tab band and breadcrumbs left out. */
+   the tab band and breadcrumbs left out, and no movement (FocusStage does
+   not start). */
 @media (max-width: 640px) {
   .r2-lp-ms {
     padding-bottom: 80px;
@@ -475,10 +601,12 @@
     font-size: 16px;
   }
   .r2-lp-ms-proof {
-    margin-top: 36px;
+    margin-top: 32px;
+  }
+  .r2-lp-ms-stage {
+    --lp-shot-height: auto;
   }
   .r2-lp-shot {
-    --lp-shot-height: auto;
     --lp-doc-gutter: 20px;
     --lp-doc-top: 36px;
     height: auto;
@@ -495,7 +623,8 @@
     padding-bottom: var(--r2-space-4);
   }
   .r2-lp-shot .r2-tabs,
-  .r2-lp-shot-crumbs {
+  .r2-lp-shot-crumbs,
+  .r2-lp-shot-status {
     display: none;
   }
   .r2-lp-shot-doc {

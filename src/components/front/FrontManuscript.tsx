@@ -1,6 +1,7 @@
 import type { CSSProperties, ReactNode } from "react";
-import { ChevronDown, ChevronRight, FileText, Layers, PanelLeft, Plus, Search } from "lucide-react";
+import { ChevronDown, ChevronRight, FileText, Layers, PanelLeft } from "lucide-react";
 import { ICON, ICON_SM_BOLD } from "@/components/rune2/icons";
+import { FocusStage } from "./FocusStage";
 import { Reveal } from "./Reveal";
 
 // Section 2 of the landing page (front.css: "The manuscript"): the hero's
@@ -17,8 +18,17 @@ import { Reveal } from "./Reveal";
 // and tokens the writer sees — so it cannot drift from the product in a way the
 // product itself has not. It is inert: nothing here is a control.
 //
-// Only the manuscript is shown. The Workspace row that follows Unplaced Scenes
-// in the real navigator is cropped away: this section is about the book.
+// Only what proves the manuscript, or makes this the real product, is drawn:
+// the navigator's project and its tree; the tab band with the open Scene and
+// the navigator toggle; the breadcrumb; the Scene's title and prose; the
+// document status at the foot. The shell's search, "+" tab and the rest of
+// its utilities are left out — they explain nothing here. The Workspace row
+// that follows Unplaced Scenes in the real navigator is cropped away: this
+// section is about the book.
+//
+// Then one movement (FocusStage): as the reader scrolls on, the structure
+// recedes and the writing surface is left with the room — the product's own
+// behaviour while a writer writes.
 
 const BASE_PAD = 6;
 const INDENT = 16;
@@ -26,7 +36,8 @@ const ICONLESS_INSET = 19;
 
 const PROJECT = "The Lantern Road";
 const CHAPTER = "The Letters";
-const SCENE = "Scene 2";
+const SCENE = "The Thursday Boat";
+const STATUS = "1,412 words";
 
 const PROSE = [
   "The letters came on the Thursday boat, three of them, tied with the grey string her mother had always used. Ada did not open them at the harbour. She carried them up the hill the way one carries something that might still be warm.",
@@ -107,9 +118,6 @@ function Navigator() {
           <span className="r2-nav-project-title">{PROJECT}</span>
           <ChevronDown {...ICON_SM_BOLD} />
         </span>
-        <span className="r2-icon-button">
-          <Search {...ICON} />
-        </span>
       </div>
       <div className="r2-lp-shot-tree">
         <ul>
@@ -156,9 +164,6 @@ function Editor() {
             </span>
           </li>
         </ul>
-        <span className="r2-icon-button r2-icon-button--xs r2-tabs-add">
-          <Plus {...ICON} />
-        </span>
       </div>
       <div className="r2-lp-shot-crumbs">
         <span className="r2-crumb-project">{PROJECT}</span>
@@ -184,7 +189,7 @@ function Editor() {
 }
 
 const SHOT_LABEL =
-  "Sutura with a manuscript open. The navigator lists the manuscript in reading order: Part One holds the chapters The Harbour, The Letters and A Quiet House; The Letters is open to its scenes, with Scene 2 selected; Part Two follows. Beneath the manuscript, Unplaced Scenes keeps two scenes aside. The editor shows Scene 2 of The Letters, with its prose.";
+  "Sutura with a manuscript open. The navigator lists the manuscript in reading order: Part One holds the chapters The Harbour, The Letters and A Quiet House; The Letters is open to its scenes, with The Thursday Boat selected; Part Two follows. Beneath the manuscript, Unplaced Scenes keeps two scenes aside. The editor shows The Thursday Boat, a scene of The Letters, with its prose. As the page scrolls on, the navigator and the shell's chrome fade and the writing surface is left on its own.";
 
 export function FrontManuscript() {
   return (
@@ -200,12 +205,20 @@ export function FrontManuscript() {
           </p>
         </Reveal>
         <Reveal className="r2-lp-ms-proof" delay>
-          <div className="r2-lp-shot" role="img" aria-label={SHOT_LABEL}>
-            <div className="r2-lp-shot-in" aria-hidden>
-              <Navigator />
-              <Editor />
+          <FocusStage className="r2-lp-ms-stage">
+            <div className="r2-lp-shot" role="img" aria-label={SHOT_LABEL}>
+              <div className="r2-lp-shot-in" aria-hidden>
+                <Navigator />
+                <Editor />
+                <div className="r2-lp-shot-status">
+                  {STATUS} <span>·</span> Saved
+                </div>
+              </div>
             </div>
-          </div>
+            <p className="r2-lp-ms-after" aria-hidden>
+              Everything else gets out of the way.
+            </p>
+          </FocusStage>
         </Reveal>
       </div>
     </section>
