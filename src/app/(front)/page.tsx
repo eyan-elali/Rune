@@ -8,6 +8,7 @@ import { FrontManuscript } from "@/components/front/FrontManuscript";
 import { FrontWorkspace } from "@/components/front/FrontWorkspace";
 import { FrontDetails } from "@/components/front/FrontDetails";
 import { FrontTrust } from "@/components/front/FrontTrust";
+import { FrontClose } from "@/components/front/FrontClose";
 import { MarketingTrackers } from "@/components/MarketingTrackers";
 import { COMPLETE_PROFILE_PATH, needsProfileCompletion, readProfileState } from "@/lib/accountGate";
 import "./front.css";
@@ -27,7 +28,9 @@ export const metadata: Metadata = {
 // — then the Inspector section (FrontDetails): one idea, the supporting
 // details of a scene stay close to the writing, with a link to the closer
 // look (/features/inspector) — then the trust section (FrontTrust): the four
-// promises underneath the product, the No AI card leading to /principles/no-ai.
+// promises underneath the product, the No AI card leading to /principles/no-ai
+// — then the close (FrontClose): the public beta said plainly, free during
+// beta, and the one action once more, before the frame's footer.
 // One wording for the one action, "Start writing free":
 //   * a visitor is sent to Create account, and may Sign in
 //   * a signed-in writer is sent to their Projects
@@ -57,6 +60,7 @@ export default async function FrontDoor() {
           <FrontWorkspace />
           <FrontDetails />
           <FrontTrust />
+          <FrontClose member={member} />
         </main>
       </div>
       {/* Marketing attribution for signed-out visitors only — never for a signed-in account. */}

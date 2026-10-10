@@ -1825,6 +1825,108 @@
   }
 }
 
+/* ══ The close ════════════════════════════════════════════════════════════
+   Where the page resolves. One centred composition on the page's
+   container: the eyebrow, the serif statement, one line, the action, and
+   the small note beneath it — the hero's action and the hero's note, said
+   once more, and nothing else. No features, no picture, no cards, no
+   prices.
+
+   The field is the faintest wash of Sutura blue over the sections' tone:
+   enough to set the close apart from the stack of promises above, not
+   enough to read as a block. No gradient, no edge. The frame's footer
+   (PublicFrame, .r2-public-foot) stands on the same wash, so the close
+   runs into the trust links at the foot without a seam; its room is
+   shared between the close's foot and the footer's head. Nothing here
+   moves with the scroll; the shared reveal brings the block in once. */
+.r2-public[data-variant="landing"] {
+  --lp-cl-bg: color-mix(in srgb, var(--r2-accent) 7%, var(--r2-page-bg));
+}
+.r2-lp-cl {
+  padding: clamp(64px, 9vh, 104px) 0 clamp(40px, 6vh, 72px);
+  background: var(--lp-cl-bg);
+}
+.r2-lp-cl-in {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: min(100%, var(--lp-max));
+  margin: 0 auto;
+  padding: 0 var(--lp-gutter);
+  text-align: center;
+}
+.r2-lp-cl .r2-lp-eyebrow {
+  margin-bottom: 18px;
+}
+.r2-lp-cl .r2-lp-h2 {
+  font-size: clamp(40px, 4.8vw, 64px);
+}
+.r2-lp-cl .r2-lp-lede {
+  max-width: 30rem;
+  margin-top: 18px;
+}
+
+/* The action, and the note beneath it: the hero's, to the pixel. */
+.r2-lp-cl-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: clamp(32px, 4.5vh, 44px);
+}
+.r2-lp-cl .r2-button--lg {
+  height: 46px;
+  padding: 0 var(--r2-space-9);
+  font-size: 15px;
+  transition: background-color var(--r2-fast) var(--r2-ease), border-color var(--r2-fast) var(--r2-ease),
+    color var(--r2-fast) var(--r2-ease), transform var(--r2-fast) var(--r2-ease), box-shadow var(--r2-fast) var(--r2-ease);
+}
+.r2-lp-cl .r2-button--lg:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 1px 2px rgba(var(--r2-palette-shadow) / 0.14), 0 6px 14px -6px rgba(var(--r2-palette-shadow) / 0.34);
+}
+.r2-lp-cl .r2-button--lg:active:not(:disabled) {
+  transform: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .r2-lp-cl .r2-button--lg {
+    transition: none;
+  }
+  .r2-lp-cl .r2-button--lg:hover:not(:disabled) {
+    transform: none;
+  }
+}
+
+/* The footer, on the landing: the close's wash, and a little more room
+   above the links, so the note and the links are two quiet lines apart
+   rather than one cramped group. */
+.r2-public[data-variant="landing"] .r2-public-foot {
+  padding-top: var(--r2-space-8);
+  background: var(--lp-cl-bg);
+}
+
+/* ── A tablet, or a desktop zoomed ────────────────────────────────────── */
+@media (max-width: 940px) {
+  .r2-lp-cl {
+    padding: clamp(64px, 9vh, 104px) 0 clamp(36px, 5vh, 56px);
+  }
+}
+
+/* ── Phones ───────────────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .r2-lp-cl {
+    padding: 64px 0 36px;
+  }
+  .r2-lp-cl .r2-lp-h2 {
+    font-size: clamp(34px, 10vw, 44px);
+  }
+  .r2-lp-cl .r2-lp-lede {
+    margin-top: 14px;
+  }
+  .r2-lp-cl-actions {
+    margin-top: 30px;
+  }
+}
+
 /* ── The placeholder page ───────────────────────────────────────────────
    /workspace/<feature>, /features/inspector, /principles/no-ai: the title
    and line, centred
