@@ -658,6 +658,13 @@
    .r2-material--interactive) and the cue's arrow moves — enough to say it
    opens, and no more. */
 .r2-lp-ws {
+  /* The section's few tones, for the smallest things only — a status, a
+     dot, a chosen card — read from the theme's own meaning colours. The
+     landing is always Sutura Light, so these are one appearance. */
+  --lp-tone-blue: var(--r2-accent);
+  --lp-tone-sage: var(--r2-success);
+  --lp-tone-sand: var(--r2-warning);
+  --lp-tone-terracotta: var(--r2-danger);
   padding: clamp(44px, 6vh, 72px) 0 clamp(64px, 8vh, 104px);
   background: var(--lp-ms-bg);
 }
@@ -713,11 +720,18 @@
   color: inherit;
   text-decoration: none;
   cursor: pointer;
+  /* The material's own edge and fall, and a little more fall beneath: the
+     card has weight on the deeper tone. Reached for, it rises a touch and
+     the fall deepens — tactile, not floating. */
+  box-shadow: inset 0 1px 0 var(--r2-material-highlight), 0 0 0 1px var(--r2-material-border), var(--r2-shadow-material),
+    0 18px 36px -28px rgba(var(--r2-palette-shadow) / 0.18);
   transition: box-shadow var(--r2-medium) var(--r2-ease), background-color var(--r2-medium) var(--r2-ease),
     transform var(--r2-medium) var(--r2-ease);
 }
 .r2-lp-ws-card:hover {
   transform: translateY(-2px);
+  box-shadow: inset 0 1px 0 var(--r2-material-highlight), 0 0 0 1px var(--r2-material-border-strong),
+    var(--r2-shadow-material-lift), 0 24px 44px -26px rgba(var(--r2-palette-shadow) / 0.26);
 }
 .r2-lp-ws-card:active {
   transform: none;
@@ -757,8 +771,8 @@
   gap: 5px;
   order: 1;
   margin-top: 14px;
-  font-size: var(--r2-fs-ui-sm);
-  font-weight: var(--r2-weight-medium);
+  font-size: var(--r2-fs-meta);
+  font-weight: var(--r2-weight-regular);
   color: var(--r2-ink-3);
   transition: color var(--r2-medium) var(--r2-ease);
 }
@@ -766,7 +780,7 @@
   transition: transform var(--r2-medium) var(--r2-ease);
 }
 .r2-lp-ws-card:hover .r2-lp-ws-card-cue {
-  color: var(--r2-ink-1);
+  color: var(--r2-ink-2);
 }
 .r2-lp-ws-card:hover .r2-lp-ws-card-cue svg {
   transform: translateX(3px);
@@ -808,31 +822,56 @@
   color: var(--r2-ink-2);
   background: var(--r2-bg);
 }
-
-/* Pages: one page open, a second behind it, both standing past the well's
-   foot — a document, not a card. */
-.r2-lp-ws-pages {
-  position: absolute;
-  inset: 20px 24px 0;
+/* A toned tag: its tone's ink on the faintest wash of it, no border. */
+.r2-lp-ws-tag[data-tone] {
+  --lp-tone: var(--lp-tone-blue);
+  border-color: transparent;
+  color: color-mix(in srgb, var(--lp-tone) 84%, var(--r2-ink-1));
+  background: color-mix(in srgb, var(--lp-tone) 10%, var(--r2-bg));
 }
+.r2-lp-ws-tag[data-tone="sage"] {
+  --lp-tone: var(--lp-tone-sage);
+}
+.r2-lp-ws-tag[data-tone="sand"] {
+  --lp-tone: var(--lp-tone-sand);
+}
+/* A dot: the smallest mark of a tone, before a value. */
+.r2-lp-ws-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 7px;
+  border-radius: 50%;
+  background: var(--lp-tone-blue);
+  vertical-align: 1px;
+}
+.r2-lp-ws-dot[data-tone="sage"] {
+  background: var(--lp-tone-sage);
+}
+.r2-lp-ws-dot[data-tone="sand"] {
+  background: var(--lp-tone-sand);
+}
+.r2-lp-ws-dot[data-tone="terracotta"] {
+  background: var(--lp-tone-terracotta);
+}
+
+/* Pages: one page, open, standing past the well's foot — a document in
+   its own tone, its title in the manuscript's serif. */
 .r2-lp-ws-page {
   position: absolute;
-  inset: 0 0 auto;
-  min-height: 100%;
-  padding: 20px 22px;
+  top: 16px;
+  right: 18px;
+  bottom: -2px;
+  left: 18px;
+  padding: 18px 22px;
   border-radius: var(--r2-radius-md) var(--r2-radius-md) 0 0;
   background: var(--r2-bg);
-  box-shadow: 0 0 0 1px var(--r2-border), 0 10px 28px -14px rgba(var(--r2-palette-shadow) / 0.16);
-}
-.r2-lp-ws-page--behind {
-  top: -9px;
-  right: 14px;
-  left: 14px;
-  background: color-mix(in srgb, var(--r2-bg) 70%, var(--r2-shell-bg));
-  box-shadow: 0 0 0 1px var(--r2-border);
+  box-shadow: 0 0 0 1px var(--r2-border), 0 10px 28px -14px rgba(var(--r2-palette-shadow) / 0.14);
 }
 .r2-lp-ws-page-eyebrow {
-  margin: 0 0 4px;
+  display: flex;
+  align-items: center;
+  margin: 0 0 5px;
   font-size: var(--r2-fs-label);
   font-weight: var(--r2-weight-medium);
   letter-spacing: 0.08em;
@@ -840,7 +879,7 @@
   color: var(--r2-ink-3);
 }
 .r2-lp-ws-page-title {
-  margin: 0 0 10px;
+  margin: 0 0 8px;
   font-family: var(--r2-prose-font);
   font-size: 20px;
   line-height: 1.2;
@@ -854,6 +893,13 @@
   line-height: 1.5;
   color: color-mix(in srgb, var(--r2-ink-1) 72%, var(--r2-bg));
 }
+.r2-lp-ws-page-meta {
+  margin: 12px 0 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--r2-border);
+  font-size: var(--r2-fs-caption);
+  color: var(--r2-ink-3);
+}
 
 /* Collections: a table that is mostly names. The head names the set; a
    column row in the quiet tone; then the rows, a hairline between. */
@@ -866,7 +912,7 @@
   display: flex;
   align-items: baseline;
   gap: 7px;
-  margin: 0 0 8px 8px;
+  margin: 0 0 10px 8px;
   font-family: var(--r2-prose-font);
   font-size: 17px;
   color: var(--r2-ink-1);
@@ -891,16 +937,13 @@
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--r2-ink-3);
-  border-bottom: 1px solid var(--r2-border);
+  border-bottom: 1px solid var(--r2-border-strong);
 }
 .r2-lp-ws-table-row {
   height: 38px;
   font-size: var(--r2-fs-ui);
   color: var(--r2-ink-2);
   border-bottom: 1px solid var(--r2-border);
-}
-.r2-lp-ws-table-row:first-of-type {
-  background: var(--r2-bg);
 }
 .r2-lp-ws-table-name {
   color: var(--r2-ink-1);
@@ -914,7 +957,9 @@
   padding: 0 20px;
 }
 .r2-lp-ws-props-head {
-  margin-bottom: 6px;
+  margin-bottom: 5px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--r2-border-strong);
 }
 .r2-lp-ws-props-eyebrow {
   margin: 0 0 2px;
@@ -936,8 +981,14 @@
   grid-template-columns: 94px minmax(0, 1fr);
   gap: 10px;
   align-items: center;
-  min-height: 28px;
+  min-height: 27px;
   border-top: 1px solid var(--r2-border);
+}
+.r2-lp-ws-props-row:first-child {
+  border-top: 0;
+}
+.r2-lp-ws-props-row dd[data-numeric] {
+  font-variant-numeric: tabular-nums;
 }
 .r2-lp-ws-props-row dt {
   font-size: var(--r2-fs-meta);
@@ -1024,9 +1075,13 @@
   overflow: visible;
 }
 .r2-lp-ws-canvas-lines line {
-  stroke: color-mix(in srgb, rgb(var(--r2-palette-ink)) 32%, transparent);
+  stroke: color-mix(in srgb, rgb(var(--r2-palette-ink)) 28%, transparent);
   stroke-width: 1.25;
   stroke-linecap: round;
+}
+/* A line from the chosen card takes a hint of the accent, as the product's does when chosen. */
+.r2-lp-ws-canvas-lines line[data-selected] {
+  stroke: color-mix(in srgb, var(--lp-tone-blue) 55%, transparent);
 }
 /* A connection's label, on the page's tone so the line passes under it. */
 .r2-lp-ws-canvas-label {
@@ -1053,6 +1108,10 @@
   box-shadow: 0 0 0 1px var(--r2-border), var(--r2-shadow-sm);
   color: var(--r2-ink-1);
   transform: translate(-50%, -50%);
+}
+/* The chosen card: the product's own selection ring. */
+.r2-lp-ws-canvas-card[data-selected] {
+  box-shadow: 0 0 0 1.5px var(--lp-tone-blue), var(--r2-shadow-pop);
 }
 .r2-lp-ws-canvas-eyebrow {
   font-size: var(--r2-fs-label);

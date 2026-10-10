@@ -31,10 +31,10 @@ export const WORKSPACE_FEATURES: ReadonlyArray<{
   title: string;
   line: string;
 }> = [
-  { slug: "pages", title: "Pages", line: "Characters, places, research. A page for what the book needs you to keep." },
-  { slug: "collections", title: "Collections", line: "The same kind of thing, many times over, kept in order." },
-  { slug: "scene-properties", title: "Scene properties", line: "Point of view, status, place and time, on the scene itself." },
-  { slug: "canvas", title: "Canvas", line: "Room to think across the book. Lay its pieces out and draw the lines between them." },
+  { slug: "pages", title: "Pages", line: "Characters, places, research. A page for what the book needs." },
+  { slug: "collections", title: "Collections", line: "The same kind of thing, many times over, in order." },
+  { slug: "scene-properties", title: "Scene properties", line: "Point of view, status, place and time, on the scene." },
+  { slug: "canvas", title: "Canvas", line: "Lay the book's pieces out and draw the lines between them." },
 ];
 
 export function workspaceFeaturePath(slug: WorkspaceFeatureSlug) {
@@ -43,19 +43,21 @@ export function workspaceFeaturePath(slug: WorkspaceFeatureSlug) {
 
 // ── The previews ───────────────────────────────────────────────────────
 
-// Pages: one page open — its eyebrow, its title, a line or two — with a
-// second page standing behind it. Supporting pages, each its own document.
+// Pages: one page, open — a Workspace Page as the writer sees it: its
+// folder as an eyebrow, its title, a line or two of its text, and the
+// quiet fact that the book refers to it. One surface, no stack.
 function PagesPreview() {
   return (
-    <div className="r2-lp-ws-pages">
-      <div className="r2-lp-ws-page r2-lp-ws-page--behind" />
-      <div className="r2-lp-ws-page">
-        <p className="r2-lp-ws-page-eyebrow">Characters</p>
-        <p className="r2-lp-ws-page-title">Ada Marsh</p>
-        <p className="r2-lp-ws-page-text">
-          Born on the island. Left at nineteen, telling no one, and came back twelve years later for the house.
-        </p>
-      </div>
+    <div className="r2-lp-ws-page">
+      <p className="r2-lp-ws-page-eyebrow">
+        <span className="r2-lp-ws-dot" data-tone="sage" />
+        Characters
+      </p>
+      <p className="r2-lp-ws-page-title">Ada Marsh</p>
+      <p className="r2-lp-ws-page-text">
+        Born on the island. Left at nineteen, telling no one, and came back for the house.
+      </p>
+      <p className="r2-lp-ws-page-meta">Mentioned in 3 scenes</p>
     </div>
   );
 }
@@ -63,10 +65,10 @@ function PagesPreview() {
 // Collections: a few rows of one kind of thing, with light metadata beside
 // each name. Not a database — a list that has learned a column or two.
 const COLLECTION_ROWS = [
-  { name: "Ada Marsh", role: "Protagonist", status: "Drafted" },
-  { name: "Tomas Reyes", role: "Ferryman", status: "Drafted" },
-  { name: "Mrs. Hale", role: "Neighbour", status: "Sketched" },
-];
+  { name: "Ada Marsh", role: "Protagonist", status: "Drafted", tone: "sage" },
+  { name: "Tomas Reyes", role: "Ferryman", status: "Drafted", tone: "sage" },
+  { name: "Mrs. Hale", role: "Neighbour", status: "Sketched", tone: "sand" },
+] as const;
 
 function CollectionsPreview() {
   return (
@@ -85,7 +87,9 @@ function CollectionsPreview() {
           <span className="r2-lp-ws-table-name">{row.name}</span>
           <span>{row.role}</span>
           <span>
-            <span className="r2-lp-ws-tag">{row.status}</span>
+            <span className="r2-lp-ws-tag" data-tone={row.tone}>
+              {row.status}
+            </span>
           </span>
         </div>
       ))}
@@ -103,6 +107,7 @@ const CANVAS_ITEMS = [
   {
     id: "scene",
     kind: "card",
+    selected: true,
     eyebrow: "Scene · The Letters",
     title: "The Thursday Boat",
     text: "The letters came on the Thursday boat, three of them, tied with the grey string.",
@@ -132,7 +137,18 @@ function CanvasPreview() {
         {CANVAS_LINES.map((l) => {
           const a = at(l.from);
           const b = at(l.to);
-          return <line key={`${l.from}-${l.to}`} x1={a.x} y1={a.y} x2={b.x} y2={b.y} vectorEffect="non-scaling-stroke" />;
+          const selected = ("selected" in a && a.selected) || ("selected" in b && b.selected);
+          return (
+            <line
+              key={`${l.from}-${l.to}`}
+              x1={a.x}
+              y1={a.y}
+              x2={b.x}
+              y2={b.y}
+              data-selected={selected || undefined}
+              vectorEffect="non-scaling-stroke"
+            />
+          );
         })}
       </svg>
       {CANVAS_LINES.filter((l) => l.label).map((l) => {
@@ -150,7 +166,12 @@ function CanvasPreview() {
             {n.text}
           </span>
         ) : (
-          <span key={n.id} className="r2-lp-ws-canvas-card" style={{ left: `${n.x}%`, top: `${n.y}%`, width: n.w }}>
+          <span
+            key={n.id}
+            className="r2-lp-ws-canvas-card"
+            data-selected={"selected" in n && n.selected ? "" : undefined}
+            style={{ left: `${n.x}%`, top: `${n.y}%`, width: n.w }}
+          >
             <span className="r2-lp-ws-canvas-eyebrow">{n.eyebrow}</span>
             <span className="r2-lp-ws-canvas-title">{n.title}</span>
             {"text" in n && <span className="r2-lp-ws-canvas-text">{n.text}</span>}
@@ -163,10 +184,10 @@ function CanvasPreview() {
 
 // Scene properties: the inspector's property list for one scene — a label
 // and its value, row by row, with the few that are a choice set as tags.
-const SCENE_PROPERTIES: ReadonlyArray<{ label: string; value: string; tag?: boolean }> = [
-  { label: "Point of view", value: "Ada" },
+const SCENE_PROPERTIES: ReadonlyArray<{ label: string; value: string; tag?: boolean; dot?: string }> = [
+  { label: "Point of view", value: "Ada", dot: "sage" },
   { label: "Status", value: "Draft", tag: true },
-  { label: "Location", value: "The house" },
+  { label: "Location", value: "The house", dot: "terracotta" },
   { label: "Timeline", value: "March, year two" },
   { label: "Words", value: "1,412" },
 ];
@@ -175,14 +196,25 @@ function ScenePropertiesPreview() {
   return (
     <div className="r2-lp-ws-props">
       <div className="r2-lp-ws-props-head">
-        <p className="r2-lp-ws-props-eyebrow">The Letters</p>
+        <p className="r2-lp-ws-props-eyebrow">Scene · The Letters</p>
         <p className="r2-lp-ws-props-title">The Thursday Boat</p>
       </div>
       <dl className="r2-lp-ws-props-list">
         {SCENE_PROPERTIES.map((p) => (
           <div key={p.label} className="r2-lp-ws-props-row">
             <dt>{p.label}</dt>
-            <dd>{p.tag ? <span className="r2-lp-ws-tag">{p.value}</span> : p.value}</dd>
+            <dd data-numeric={p.label === "Words" || undefined}>
+              {p.tag ? (
+                <span className="r2-lp-ws-tag" data-tone="blue">
+                  {p.value}
+                </span>
+              ) : (
+                <>
+                  {p.dot && <span className="r2-lp-ws-dot" data-tone={p.dot} />}
+                  {p.value}
+                </>
+              )}
+            </dd>
           </div>
         ))}
       </dl>
