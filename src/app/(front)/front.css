@@ -1,0 +1,532 @@
+/* ══ The landing page: header and hero ════════════════════════════════════
+   The public front door's top. Everything reads Rune 2.0's semantic tokens
+   (rune2.css, themes.ts) so the page follows Light and Dark with the OS;
+   nothing here names a palette.
+
+   The hero is one idea in two states. At the top of the page the headline
+   stands alone: "Your manuscript at the center." As the visitor scrolls
+   through the hero (the stage is pinned while the section travels), the
+   second line arrives beneath it — "Everything around it." — hairlines
+   draw outward from the headline, and the workspace emerges at their ends:
+   a chapter, a character, a property, a timeline, a note, a reference, tags,
+   a collection. The headline never moves; it is the centre everything
+   orbits.
+
+   One number drives the whole transition: --lp-p, 0 at the top of the hero
+   and 1 at its end, set by FrontHero from the scroll position. Each piece
+   derives its own moment from it (--d when it begins, --s how long it
+   takes), so the composition is choreographed in CSS and the script only
+   reports where the reader is. Reduced motion, no script, and phones all
+   land on the finished state. */
+
+@property --lp-p {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0;
+}
+
+.r2-lp {
+  --lp-head: 68px;
+  --lp-gutter: 48px;
+  --lp-travel: 78svh; /* how far the page scrolls while the hero unfolds */
+  --lp-p: 0;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--r2-page-bg);
+}
+
+/* ── Header ────────────────────────────────────────────────────────────
+   Wordmark at the left, a sparse nav at the right: two links, Sign in, one
+   action. Pinned, so the way in stays within reach while the hero unfolds;
+   it takes a hairline and a hint of the page's tone only once the reader
+   has scrolled. */
+.r2-lp-head {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  flex-shrink: 0;
+  height: var(--lp-head);
+  background: color-mix(in srgb, var(--r2-page-bg) 0%, transparent);
+  border-bottom: 1px solid transparent;
+  transition: background-color var(--r2-medium) var(--r2-ease), border-color var(--r2-medium) var(--r2-ease);
+}
+.r2-lp-head[data-scrolled] {
+  background: color-mix(in srgb, var(--r2-page-bg) 84%, transparent);
+  border-bottom-color: var(--r2-border);
+  -webkit-backdrop-filter: saturate(1.4) blur(14px);
+  backdrop-filter: saturate(1.4) blur(14px);
+}
+.r2-lp-head-in {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--r2-space-6);
+  width: min(100%, 1240px);
+  height: 100%;
+  margin: 0 auto;
+  padding: 0 var(--lp-gutter);
+}
+.r2-lp-head .r2-wordmark {
+  --r2-brand-height: 21px;
+}
+.r2-lp-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--r2-space-3);
+}
+.r2-lp-nav-link {
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 var(--r2-space-4);
+  border-radius: var(--r2-radius);
+  font-size: var(--r2-fs-body);
+  color: var(--r2-ink-2);
+  transition: color var(--r2-fast) var(--r2-ease), background-color var(--r2-fast) var(--r2-ease);
+}
+.r2-lp-nav-link:hover {
+  color: var(--r2-ink-1);
+  background: var(--r2-hover);
+}
+.r2-lp-nav-sep {
+  width: 1px;
+  height: 16px;
+  margin: 0 var(--r2-space-3);
+  background: var(--r2-border-strong);
+}
+.r2-lp-nav .r2-lp-cta {
+  height: 32px;
+  margin-left: var(--r2-space-2);
+  padding: 0 var(--r2-space-6);
+  border-radius: var(--r2-radius);
+  font-size: var(--r2-fs-ui);
+  font-weight: var(--r2-weight-medium);
+}
+
+/* ── Hero: the scroll track and the pinned stage ────────────────────── */
+.r2-lp-hero {
+  position: relative;
+  height: calc(100svh - var(--lp-head) + var(--lp-travel));
+  transition: --lp-p 140ms linear; /* smooths the scroll's steps where @property is known */
+}
+.r2-lp-stage {
+  position: sticky;
+  top: var(--lp-head);
+  display: grid;
+  place-items: center;
+  height: calc(100svh - var(--lp-head));
+  overflow: hidden;
+}
+
+/* The headline block: the one anchor. The second line keeps its place
+   from the first paint, invisible, so nothing below it moves when it
+   arrives. The stack sits at the optical centre, a touch above the middle. */
+.r2-lp-centre {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: min(100%, 980px);
+  padding: 0 var(--lp-gutter);
+  margin-top: -4vh;
+  text-align: center;
+}
+.r2-lp-title {
+  font-family: var(--r2-prose-font);
+  font-size: clamp(44px, min(6.4vw, 9.2vh), 84px);
+  font-weight: var(--r2-weight-regular);
+  line-height: 1.02;
+  letter-spacing: -0.024em;
+  text-wrap: balance;
+  color: var(--r2-ink-1);
+}
+.r2-lp-title span {
+  display: block;
+}
+.r2-lp-title-2 {
+  --d: 0.02;
+  --s: 0.22;
+  --t: clamp(0, calc((var(--lp-p) - var(--d)) / var(--s)), 1);
+  font-style: italic;
+  color: var(--r2-ink-2);
+  opacity: var(--t);
+  transform: translateY(calc((1 - var(--t)) * 10px));
+}
+.r2-lp-lede {
+  max-width: 30rem;
+  margin-top: clamp(20px, 3.2vh, 30px);
+  font-size: 16.5px;
+  line-height: 1.6;
+  text-wrap: balance;
+  color: var(--r2-ink-2);
+}
+.r2-lp-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--r2-space-4);
+  margin-top: clamp(26px, 4.4vh, 40px);
+}
+.r2-lp-actions .r2-button--lg {
+  height: 44px;
+  padding: 0 var(--r2-space-9);
+  font-size: 14.5px;
+}
+.r2-lp-note {
+  font-size: var(--r2-fs-meta);
+  color: var(--r2-ink-3);
+}
+
+/* The two quiet marks at the stage's foot: what this is, and that there
+   is more. The cue goes once the reader has moved. */
+.r2-lp-foot {
+  position: absolute;
+  z-index: 2;
+  right: var(--lp-gutter);
+  bottom: 26px;
+  left: var(--lp-gutter);
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  font-size: var(--r2-fs-label);
+  font-weight: var(--r2-weight-semibold);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--r2-ink-3);
+}
+.r2-lp-cue {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--r2-space-4);
+  opacity: calc(1 - clamp(0, calc(var(--lp-p) / 0.12), 1));
+}
+.r2-lp-cue::after {
+  content: "";
+  width: 36px;
+  height: 1px;
+  background: var(--r2-border-strong);
+}
+
+/* ── The orbit: hairlines and the workspace at their ends ───────────── */
+.r2-lp-orbit {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+.r2-lp-lines {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.r2-lp-line {
+  --t: clamp(0, calc((var(--lp-p) - var(--d)) / var(--s)), 1);
+  fill: none;
+  stroke: var(--r2-ink-3);
+  stroke-width: 1;
+  stroke-linecap: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: calc(1 - var(--t));
+  opacity: 0.42;
+}
+
+/* Each piece is anchored on a point of the stage and arrives after its
+   line reaches it: a short rise, a settle. Small, hairlined, lightly
+   coloured; the material language of the rest of the public pages. */
+.r2-lp-item {
+  --t: clamp(0, calc((var(--lp-p) - var(--d)) / var(--s)), 1);
+  position: absolute;
+  left: var(--x);
+  top: var(--y);
+  transform: translate(-50%, -50%) translateY(calc((1 - var(--t)) * 12px));
+  opacity: var(--t);
+  font-family: var(--r2-font-ui);
+  font-size: var(--r2-fs-ui-sm);
+  line-height: 1;
+  color: var(--r2-ink-2);
+  white-space: nowrap;
+}
+.r2-lp-item--material {
+  padding: 10px 12px;
+  border-radius: var(--r2-radius-md);
+  background: var(--r2-material-bg);
+  box-shadow: inset 0 1px 0 var(--r2-material-highlight), 0 0 0 1px var(--r2-material-border), var(--r2-shadow-material);
+}
+.r2-lp-item--chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--r2-space-3);
+  height: 28px;
+  padding: 0 10px 0 9px;
+  border-radius: var(--r2-radius);
+  background: var(--r2-material-bg);
+  box-shadow: inset 0 1px 0 var(--r2-material-highlight), 0 0 0 1px var(--r2-material-border), var(--r2-shadow-sm);
+}
+.r2-lp-item--text {
+  font-family: var(--r2-prose-font);
+  font-size: 15px;
+  font-style: italic;
+  color: var(--r2-ink-2);
+}
+.r2-lp-item-kind {
+  display: block;
+  margin-bottom: 7px;
+  font-size: 10.5px;
+  font-weight: var(--r2-weight-semibold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--r2-ink-3);
+}
+.r2-lp-item-name {
+  font-size: var(--r2-fs-ui);
+  color: var(--r2-ink-1);
+}
+.r2-lp-item-name--serif {
+  font-family: var(--r2-prose-font);
+  font-size: 15.5px;
+}
+.r2-lp-rule {
+  display: block;
+  height: 3px;
+  margin-top: 7px;
+  border-radius: 2px;
+  background: var(--r2-ink-3);
+  opacity: 0.26;
+}
+.r2-lp-rule--short {
+  width: 56%;
+}
+.r2-lp-rule--mid {
+  width: 80%;
+}
+.r2-lp-dot-ink {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--hue, var(--r2-accent));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--hue, var(--r2-accent)) 16%, transparent);
+}
+.r2-lp-dots {
+  display: inline-flex;
+  margin-left: var(--r2-space-2);
+}
+.r2-lp-dots i {
+  width: 10px;
+  height: 10px;
+  margin-left: -3px;
+  border-radius: 50%;
+  border: 1.5px solid var(--r2-material-bg);
+  background: var(--hue);
+}
+.r2-lp-kv {
+  display: flex;
+  align-items: center;
+  gap: var(--r2-space-5);
+}
+.r2-lp-kv-key {
+  color: var(--r2-ink-3);
+}
+.r2-lp-kv-val {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--r2-space-2);
+  padding: 3px 8px 3px 6px;
+  border-radius: var(--r2-radius-xs);
+  color: var(--r2-ink-1);
+  background: color-mix(in srgb, var(--hue, var(--r2-accent)) 11%, transparent);
+}
+.r2-lp-kv-val i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--hue, var(--r2-accent));
+}
+.r2-lp-tags {
+  display: inline-flex;
+  gap: 5px;
+}
+.r2-lp-tag {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 8px;
+  border-radius: var(--r2-radius-xs);
+  font-size: var(--r2-fs-meta);
+  color: var(--r2-ink-1);
+  background: color-mix(in srgb, var(--hue, var(--r2-accent)) 11%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--hue, var(--r2-accent)) 22%, transparent);
+}
+.r2-lp-timeline {
+  display: grid;
+  gap: 8px;
+}
+.r2-lp-timeline-rail {
+  position: relative;
+  width: 148px;
+  margin: 6px 0 16px;
+  height: 1px;
+  background: var(--r2-border-strong);
+}
+.r2-lp-timeline-rail i {
+  position: absolute;
+  top: -3px;
+  left: var(--at);
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  border: 1.5px solid var(--r2-material-bg);
+  background: var(--hue, var(--r2-ink-3));
+}
+.r2-lp-timeline-rail i::after {
+  content: attr(data-label);
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 10px;
+  font-style: normal;
+  color: var(--r2-ink-3);
+}
+.r2-lp-media {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.r2-lp-media-tile {
+  width: 46px;
+  height: 34px;
+  border-radius: var(--r2-radius-xs);
+  background: linear-gradient(135deg, var(--r2-warning-soft), color-mix(in srgb, var(--r2-accent) 24%, transparent) 60%, var(--r2-success-soft));
+  box-shadow: inset 0 0 0 1px var(--r2-material-border);
+}
+.r2-lp-media-tile--2 {
+  margin-left: -26px;
+  background: linear-gradient(160deg, color-mix(in srgb, var(--r2-danger) 18%, transparent), var(--r2-warning-soft) 70%);
+  transform: rotate(5deg);
+  transform-origin: bottom left;
+}
+.r2-lp-act {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--r2-space-4);
+}
+.r2-lp-act-count {
+  font-variant-numeric: tabular-nums;
+  color: var(--r2-ink-3);
+}
+
+/* ── The finished state ─────────────────────────────────────────────────
+   Without motion, without script, the page lands on the complete idea. */
+@media (prefers-reduced-motion: reduce) {
+  .r2-lp {
+    --lp-p: 1;
+  }
+  .r2-lp-hero {
+    height: calc(100svh - var(--lp-head));
+    transition: none;
+  }
+  .r2-lp-head {
+    transition: none;
+  }
+}
+@media (scripting: none) {
+  .r2-lp {
+    --lp-p: 1;
+  }
+  .r2-lp-hero {
+    height: calc(100svh - var(--lp-head));
+  }
+}
+
+/* ── Short laptop screens ───────────────────────────────────────────── */
+@media (max-height: 760px) {
+  .r2-lp {
+    --lp-head: 60px;
+  }
+  .r2-lp-centre {
+    margin-top: -2vh;
+  }
+  .r2-lp-lede {
+    margin-top: 18px;
+  }
+  .r2-lp-actions {
+    margin-top: 24px;
+  }
+  .r2-lp-foot {
+    bottom: 18px;
+  }
+}
+
+/* ── Narrow widths ──────────────────────────────────────────────────────
+   The same idea, settled: no pinned stage, no travel, no hairlines. The
+   headline with both lines, the action, and a handful of the pieces laid
+   in a row beneath it. */
+@media (max-width: 760px) {
+  .r2-lp {
+    --lp-gutter: var(--r2-space-6);
+    --lp-p: 1;
+  }
+  .r2-lp-nav-link,
+  .r2-lp-nav-sep {
+    display: none;
+  }
+  .r2-lp-hero {
+    height: auto;
+    min-height: calc(100svh - var(--lp-head));
+    transition: none;
+  }
+  .r2-lp-stage {
+    position: static;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: center;
+    height: auto;
+    min-height: calc(100svh - var(--lp-head));
+    padding: var(--r2-space-9) 0 72px;
+    overflow: visible;
+  }
+  .r2-lp-centre {
+    margin-top: 0;
+  }
+  .r2-lp-title {
+    font-size: clamp(38px, 11vw, 52px);
+  }
+  .r2-lp-lede {
+    font-size: 15.5px;
+  }
+  .r2-lp-foot {
+    bottom: 22px;
+  }
+  .r2-lp-cue {
+    display: none;
+  }
+  .r2-lp-lines {
+    display: none;
+  }
+  .r2-lp-orbit {
+    position: relative;
+    inset: auto;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px 8px;
+    width: min(100%, 420px);
+    margin: 40px auto 0;
+    padding: 0 var(--lp-gutter);
+  }
+  .r2-lp-item {
+    position: static;
+    transform: none;
+  }
+  .r2-lp-item[data-phone="no"] {
+    display: none;
+  }
+}

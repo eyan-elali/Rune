@@ -15,6 +15,9 @@ import { SUPPORT_EMAIL } from "@/lib/brand";
 //          centred under it, the trust links centred at the foot.
 //   auth   no head: the wordmark leads the card it belongs to, the pair at
 //          the viewport's true centre, the trust links at the foot.
+//   landing  the front door itself: no head here — the page brings its own
+//          pinned header (FrontHeader) and its hero fills the width — only
+//          the tone, the themes and the trust links at the foot.
 
 const THEME_CSS = buildThemeCss();
 
@@ -25,7 +28,7 @@ export function PublicFrame({
 }: {
   children: ReactNode;
   nav?: ReactNode;
-  variant?: "front" | "auth";
+  variant?: "front" | "auth" | "landing";
 }) {
   const home = (
     <Link href="/" className="r2-wordmark" aria-label="Sutura — home">
@@ -41,10 +44,14 @@ export function PublicFrame({
           {nav && <nav className="r2-public-nav">{nav}</nav>}
         </header>
       )}
-      <main className="r2-public-main">
-        {variant === "auth" && <div className="r2-public-mark">{home}</div>}
-        {children}
-      </main>
+      {variant === "landing" ? (
+        children
+      ) : (
+        <main className="r2-public-main">
+          {variant === "auth" && <div className="r2-public-mark">{home}</div>}
+          {children}
+        </main>
+      )}
       <footer className="r2-public-foot">
         <Link href="/privacy">Privacy</Link>
         <Link href="/terms">Terms</Link>
