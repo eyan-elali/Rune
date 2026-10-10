@@ -228,7 +228,8 @@ test('the (rune2) layout (Projects, a Project, Settings, onboarding, import) ask
   assert.doesNotMatch(layout, /\.single\(\)/, 'a missing row is an answer, not an error to wave through');
 
   const front = code('src/app/(front)/page.tsx');
-  assert.ok(front.indexOf('redirect(COMPLETE_PROFILE_PATH)') > 0 && front.indexOf('redirect(COMPLETE_PROFILE_PATH)') < front.indexOf('Open Sutura'),
+  // The way in is the header's and hero's one action (components/front), offered through `member`.
+  assert.ok(front.indexOf('redirect(COMPLETE_PROFILE_PATH)') > 0 && front.indexOf('redirect(COMPLETE_PROFILE_PATH)') < front.indexOf('<FrontHeader member={member} />'),
     'a signed-in account without a profile is sent to complete it before the way in is offered');
 
   const page = code('src/app/(auth)/complete-profile/page.tsx');

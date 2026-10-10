@@ -17,7 +17,10 @@ import { SUPPORT_EMAIL } from "@/lib/brand";
 //          the viewport's true centre, the trust links at the foot.
 //   landing  the front door itself: no head here — the page brings its own
 //          pinned header (FrontHeader) and its hero fills the width — only
-//          the tone, the themes and the trust links at the foot.
+//          the tone, the themes and the trust links at the foot. The
+//          landing is always Sutura Light: it is a public page with one
+//          art-directed appearance, not a reader's workspace, so it does
+//          not follow the operating system or an account preference.
 
 const THEME_CSS = buildThemeCss();
 
@@ -36,7 +39,7 @@ export function PublicFrame({
     </Link>
   );
   return (
-    <div className="r2 r2-public" data-variant={variant} data-theme="system" data-accent="blue">
+    <div className="r2 r2-public" data-variant={variant} data-theme={variant === "landing" ? "light" : "system"} data-accent="blue">
       <style id="r2-themes" dangerouslySetInnerHTML={{ __html: THEME_CSS }} />
       {variant === "front" && (
         <header className="r2-public-head">

@@ -16,10 +16,11 @@ export const metadata: Metadata = {
   alternates: { canonical: "/" },
 };
 
-// The front door: the landing page's header and hero (components/front).
-// Two states:
-//   * a visitor: Start writing free (Create account) and Sign in
-//   * a signed-in writer: Open Sutura
+// The front door: the landing page's header and hero (components/front): one
+// statement, one action.
+// One wording for the one action, "Start writing free":
+//   * a visitor is sent to Create account, and may Sign in
+//   * a signed-in writer is sent to their Projects
 // Anyone may create an account (Early Access, migration 056): there is no
 // invitation, approval or waitlist. Nothing here sells: no pricing, no plans,
 // no checkout.

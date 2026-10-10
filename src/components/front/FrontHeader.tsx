@@ -4,15 +4,17 @@ import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { Wordmark } from "@/components/brand/Wordmark";
 
-// The landing page's header (front.css: "Header"): the wordmark, two links,
-// Sign in and the one action. Pinned to the top; it takes a hairline once
-// the reader has scrolled, so at the top of the page it is only type on
-// the page's tone. A signed-in writer sees the way back in instead.
+// The landing page's header (front.css: "Header"): the wordmark, one link,
+// Sign in and the one action, on the same container as the hero. It is
+// part of the hero: while the hero is in view it is only type on the
+// page's tone — no bar, no hairline, no shadow. Once the reader has
+// scrolled past the hero it takes a hairline and a hint of the page's
+// tone, so it reads as pinned over what follows (data-scrolled).
+//
+// One action, one wording — "Start writing free" — on the public page. A
+// signed-in writer is sent to their Projects by the same action.
 
-const LINKS = [
-  { href: "#features", label: "Features" },
-  { href: "#pricing", label: "Pricing" },
-] as const;
+const LINKS = [{ href: "#features", label: "Features" }] as const;
 
 export function FrontHeader({ member }: { member: boolean }) {
   const ref = useRef<HTMLElement>(null);
@@ -23,16 +25,20 @@ export function FrontHeader({ member }: { member: boolean }) {
     let raf = 0;
     const update = () => {
       raf = 0;
-      if (window.scrollY > 8) el.setAttribute("data-scrolled", "");
-      else el.removeAttribute("data-scrolled");
+      // Past the hero: its bottom edge has gone up behind the header.
+      const hero = document.querySelector<HTMLElement>(".r2-lp-hero");
+      const past = hero ? hero.getBoundingClientRect().bottom <= el.offsetHeight + 1 : window.scrollY > 8;
+      el.toggleAttribute("data-scrolled", past);
     };
     const onScroll = () => {
       if (!raf) raf = requestAnimationFrame(update);
     };
     update();
     window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
     return () => {
       window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
       if (raf) cancelAnimationFrame(raf);
     };
   }, []);
@@ -49,21 +55,14 @@ export function FrontHeader({ member }: { member: boolean }) {
               {link.label}
             </a>
           ))}
-          {member ? (
-            <Link href="/projects" className="r2-button r2-button--primary r2-lp-cta">
-              Open Sutura
+          {!member && (
+            <Link href="/login" className="r2-lp-nav-link">
+              Sign in
             </Link>
-          ) : (
-            <>
-              <span className="r2-lp-nav-sep" aria-hidden="true" />
-              <Link href="/login" className="r2-lp-nav-link">
-                Sign in
-              </Link>
-              <Link href="/signup" className="r2-button r2-button--primary r2-lp-cta">
-                Start writing free
-              </Link>
-            </>
           )}
+          <Link href={member ? "/projects" : "/signup"} className="r2-button r2-button--primary r2-lp-cta">
+            Start writing free
+          </Link>
         </nav>
       </div>
     </header>

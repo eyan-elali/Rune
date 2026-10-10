@@ -144,16 +144,21 @@ test('the app no longer gates on beta access: the (rune2) layout has no access c
   assert.equal(fs.existsSync(path.join(REPO_DIR, 'src/components/front/FrontDoor.tsx')), false, 'the waitlist form is gone');
   assert.doesNotMatch(read('src/lib/actions/beta.ts'), /join_beta_waitlist|beta_access"\)\.insert/, 'no public waitlist action, no approval action');
 
-  const front = read('src/app/(front)/page.tsx');
-  assert.match(front, /<Link href="\/signup" className="r2-button r2-button--primary r2-button--lg">\s*Start writing free\s*<\/Link>/);
-  assert.match(front, /<Link href="\/login"[^>]*>\s*Sign in\s*<\/Link>/);
-  assert.match(front, /Sutura is now available in Early Access\./);
-  assert.doesNotMatch(code('src/app/(front)/page.tsx'), /beta_access|invite id|permission|denied|unauthori[sz]ed|403|pricing|\$\d/i,
-    'no internal or error-like language, no pricing');
+  // The front door (page.tsx composes components/front): one action, "Start writing free",
+  // that sends a visitor to Create account; Sign in beside it in the header.
+  const hero = read('src/components/front/FrontHero.tsx');
+  assert.match(hero, /<Link href=\{member \? "\/projects" : "\/signup"\} className="r2-button r2-button--primary r2-button--lg">\s*Start writing free\s*<\/Link>/);
+  const header = read('src/components/front/FrontHeader.tsx');
+  assert.match(header, /<Link href="\/login"[^>]*>\s*Sign in\s*<\/Link>/);
+  assert.match(header, /Start writing free/);
+  for (const f of ['src/app/(front)/page.tsx', 'src/components/front/FrontHero.tsx', 'src/components/front/FrontHeader.tsx']) {
+    assert.doesNotMatch(code(f), /beta_access|invite id|permission|denied|unauthori[sz]ed|403|pricing|\$\d/i,
+      `${f}: no internal or error-like language, no pricing`);
+  }
 
   // No active surface tells a writer they need an invitation, approval or the waitlist.
   for (const f of [
-    'src/app/(front)/page.tsx', 'src/app/(auth)/signup/SignupClient.tsx', 'src/app/(auth)/signup/page.tsx',
+    'src/app/(front)/page.tsx', 'src/components/front/FrontHero.tsx', 'src/components/front/FrontHeader.tsx', 'src/app/(auth)/signup/SignupClient.tsx', 'src/app/(auth)/signup/page.tsx',
     'src/app/(auth)/login/LoginClient.tsx', 'src/components/rune2/RuneSettings.tsx', 'src/components/rune2/AccountMenu.tsx',
     'src/components/rune2/Feedback.tsx', 'src/lib/actions/onboarding.ts', 'src/app/(legal)/terms/page.tsx',
   ]) {

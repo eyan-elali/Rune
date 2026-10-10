@@ -94,7 +94,9 @@ test('routes: Projects, a Project, Project Trash and Settings exist in the Rune 
 
 test('after sign-in, every path lands on Projects (or onboarding for a new account); nothing sends a writer to a retired address', () => {
   const read = (f) => fs.readFileSync(path.join(REPO_DIR, f), 'utf8');
-  assert.match(read('src/app/(front)/page.tsx'), /href="\/projects"[^>]*>\s*Open Sutura/, 'the front door opens Sutura for a writer with access');
+  // The front door's one action (components/front) sends a signed-in writer to Projects, a visitor to Create account.
+  assert.match(read('src/components/front/FrontHero.tsx'), /href=\{member \? "\/projects" : "\/signup"\}/, 'the hero action opens Projects for a signed-in writer');
+  assert.match(read('src/components/front/FrontHeader.tsx'), /href=\{member \? "\/projects" : "\/signup"\}/, 'the header action opens Projects for a signed-in writer');
   assert.match(read('src/app/(auth)/login/LoginClient.tsx'), /router\.push\("\/projects"\)/);
   assert.match(read('src/app/auth/callback/route.ts'), /searchParams\.get\('next'\) \?\? '\/projects'/);
   assert.match(read('src/app/auth/continue/route.ts'), /new URL\("\/projects", origin\)/);
