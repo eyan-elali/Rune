@@ -181,6 +181,9 @@ function Shell() {
         <div className="r2-lp-shot-content" />
         <Inspector />
       </div>
+      <div className="r2-lp-shot-status">
+        1,412 words <span>·</span> Saved
+      </div>
     </div>
   );
 }
