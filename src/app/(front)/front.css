@@ -643,18 +643,22 @@
 /* ══ Section 3: The workspace ═════════════════════════════════════════════
    What follows the manuscript: the book stays clean and central, and the
    workspace can grow around it when the writing asks. One statement on the
-   page's container, then four surfaces in a 2×2 grid, each the one link to
-   a closer look: Pages, Collections, Canvas, Scene properties.
+   page's container, then the four ways, composed as one overview that fits
+   a desktop viewport: three compact surfaces across — Pages, Collections,
+   Scene properties — and the Canvas wide beneath them, the anchor, with
+   the room a spatial surface wants. Each is the one link to a closer look.
 
    The section rests on the same deeper tone the manuscript section settled
    into, so the two run together and the cards lift off it. A card is a
-   material surface (.r2-material, the auth card's language) with its text
-   at the head, a preview of the product's own surface set into a quiet
-   well beneath it, and a small cue at the foot. Reached for, it firms and
-   lifts a touch (rune2.css: .r2-material--interactive), and the cue's
-   arrow moves — enough to say it opens, and no more. */
+   material surface (.r2-material, the auth card's language): its text at
+   the head, a preview of the product's own surface set into a quiet well
+   beneath it, a small cue at the foot. The wide Canvas card turns that on
+   its side: the text in a column at the left, the surface filling the
+   rest. Reached for, a card firms and lifts a touch (rune2.css:
+   .r2-material--interactive) and the cue's arrow moves — enough to say it
+   opens, and no more. */
 .r2-lp-ws {
-  padding: clamp(72px, 10vh, 128px) 0 clamp(96px, 12vh, 144px);
+  padding: clamp(44px, 6vh, 72px) 0 clamp(64px, 8vh, 104px);
   background: var(--lp-ms-bg);
 }
 .r2-lp-ws-in {
@@ -662,36 +666,50 @@
   margin: 0 auto;
   padding: 0 var(--lp-gutter);
 }
+/* The statement, closer set than the manuscript section's: the heading is
+   the section, the one line under it is support. */
 .r2-lp-ws-head {
   max-width: 50rem;
   margin: 0 auto;
   text-align: center;
 }
+.r2-lp-ws-head .r2-lp-eyebrow {
+  margin-bottom: 10px;
+}
+.r2-lp-ws-head .r2-lp-h2 {
+  font-size: clamp(36px, 3.8vw, 52px);
+}
+.r2-lp-ws-head .r2-lp-lede {
+  margin-top: 10px;
+}
 
 /* ── The grid ───────────────────────────────────────────────────────────
-   Two by two, a clear gap, the cards all one height. */
+   Three across, the Canvas the whole width beneath; one gap throughout,
+   so the four read as one composed unit. */
 .r2-lp-ws-grid {
+  --lp-ws-gap: clamp(14px, 1.4vw, 20px);
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: clamp(20px, 2.2vw, 28px);
-  margin: clamp(40px, 5.5vh, 64px) 0 0;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--lp-ws-gap);
+  margin: clamp(26px, 3.6vh, 40px) 0 0;
   padding: 0;
   list-style: none;
 }
+.r2-lp-ws-cell[data-feature="canvas"] {
+  grid-column: 1 / -1;
+}
 
 /* ── The card ───────────────────────────────────────────────────────────
-   A column: the text, the preview filling what is left, the cue. The
-   preview is cropped by the card's own edge, so a surface can stand a
-   little past the frame — a page behind a page, a canvas running off. */
+   A column: the text, the preview well, the cue. Equal heights come from
+   the grid row; the well takes what the text leaves. */
 .r2-lp-ws-card {
-  --lp-ws-pad: clamp(24px, 2.4vw, 32px);
+  --lp-ws-pad: clamp(18px, 1.7vw, 24px);
+  --lp-ws-well: 206px;
   position: relative;
   display: flex;
   flex-direction: column;
   height: 100%;
-  min-height: 480px;
-  padding: var(--lp-ws-pad) var(--lp-ws-pad) 0;
-  overflow: hidden;
+  padding: var(--lp-ws-pad);
   color: inherit;
   text-decoration: none;
   cursor: pointer;
@@ -711,22 +729,21 @@
 .r2-lp-ws-card-text {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  max-width: 26rem;
+  gap: 5px;
 }
 .r2-lp-ws-card-title {
   margin: 0;
   font-family: var(--r2-prose-font);
-  font-size: clamp(24px, 2vw, 28px);
+  font-size: clamp(21px, 1.6vw, 24px);
   font-weight: var(--r2-weight-regular);
   line-height: 1.15;
-  letter-spacing: -0.014em;
+  letter-spacing: -0.012em;
   color: var(--r2-ink-1);
 }
 .r2-lp-ws-card-line {
   margin: 0;
-  font-size: 15px;
-  line-height: 1.5;
+  font-size: 14px;
+  line-height: 1.45;
   text-wrap: pretty;
   color: var(--r2-ink-2);
 }
@@ -739,9 +756,8 @@
   align-items: center;
   gap: 5px;
   order: 1;
-  margin-top: var(--r2-space-6);
-  margin-bottom: calc(var(--lp-ws-pad) - 4px);
-  font-size: var(--r2-fs-ui);
+  margin-top: 14px;
+  font-size: var(--r2-fs-ui-sm);
   font-weight: var(--r2-weight-medium);
   color: var(--r2-ink-3);
   transition: color var(--r2-medium) var(--r2-ease);
@@ -758,13 +774,14 @@
 
 /* ── The preview well ───────────────────────────────────────────────────
    The product's surface, set a shade into the card: the shell's tone, a
-   hairline, the card's smaller radius. It takes the room between the text
-   and the cue, and crops what stands past it. */
+   hairline, the card's smaller radius. One height across the top row, so
+   the three stand level whatever their text; it crops what stands past
+   it. */
 .r2-lp-ws-card-preview {
   position: relative;
-  flex: 1;
-  min-height: 0;
-  margin-top: var(--r2-space-8);
+  flex: none;
+  height: var(--lp-ws-well);
+  margin-top: 16px;
   border-radius: var(--r2-radius-md);
   background: var(--r2-shell-bg);
   box-shadow: inset 0 0 0 1px var(--r2-border);
@@ -781,11 +798,11 @@
 .r2-lp-ws-tag {
   display: inline-flex;
   align-items: center;
-  height: 20px;
-  padding: 0 7px;
+  height: 19px;
+  padding: 0 6px;
   border: 1px solid var(--r2-border);
   border-radius: var(--r2-radius);
-  font-size: var(--r2-fs-meta);
+  font-size: var(--r2-fs-caption);
   line-height: 1;
   white-space: nowrap;
   color: var(--r2-ink-2);
@@ -796,26 +813,26 @@
    foot — a document, not a card. */
 .r2-lp-ws-pages {
   position: absolute;
-  inset: 28px 36px 0;
+  inset: 20px 24px 0;
 }
 .r2-lp-ws-page {
   position: absolute;
   inset: 0 0 auto;
   min-height: 100%;
-  padding: 30px 32px;
+  padding: 20px 22px;
   border-radius: var(--r2-radius-md) var(--r2-radius-md) 0 0;
   background: var(--r2-bg);
   box-shadow: 0 0 0 1px var(--r2-border), 0 10px 28px -14px rgba(var(--r2-palette-shadow) / 0.16);
 }
 .r2-lp-ws-page--behind {
-  top: -12px;
-  right: 18px;
-  left: 18px;
+  top: -9px;
+  right: 14px;
+  left: 14px;
   background: color-mix(in srgb, var(--r2-bg) 70%, var(--r2-shell-bg));
   box-shadow: 0 0 0 1px var(--r2-border);
 }
 .r2-lp-ws-page-eyebrow {
-  margin: 0 0 6px;
+  margin: 0 0 4px;
   font-size: var(--r2-fs-label);
   font-weight: var(--r2-weight-medium);
   letter-spacing: 0.08em;
@@ -823,9 +840,9 @@
   color: var(--r2-ink-3);
 }
 .r2-lp-ws-page-title {
-  margin: 0 0 14px;
+  margin: 0 0 10px;
   font-family: var(--r2-prose-font);
-  font-size: 22px;
+  font-size: 20px;
   line-height: 1.2;
   letter-spacing: -0.01em;
   color: var(--r2-ink-1);
@@ -833,8 +850,8 @@
 .r2-lp-ws-page-text {
   margin: 0;
   font-family: var(--r2-prose-font);
-  font-size: 15.5px;
-  line-height: 1.55;
+  font-size: 14.5px;
+  line-height: 1.5;
   color: color-mix(in srgb, var(--r2-ink-1) 72%, var(--r2-bg));
 }
 
@@ -842,33 +859,33 @@
    column row in the quiet tone; then the rows, a hairline between. */
 .r2-lp-ws-table {
   position: absolute;
-  inset: 22px 0 0 0;
-  padding: 0 28px;
+  inset: 16px 0 0 0;
+  padding: 0 18px;
 }
 .r2-lp-ws-table-head {
   display: flex;
   align-items: baseline;
-  gap: 8px;
-  margin-bottom: 14px;
+  gap: 7px;
+  margin: 0 0 8px 8px;
   font-family: var(--r2-prose-font);
-  font-size: 19px;
+  font-size: 17px;
   color: var(--r2-ink-1);
 }
 .r2-lp-ws-table-count {
   font-family: var(--r2-font-ui);
-  font-size: var(--r2-fs-meta);
+  font-size: var(--r2-fs-caption);
   color: var(--r2-ink-3);
 }
 .r2-lp-ws-table-cols,
 .r2-lp-ws-table-row {
   display: grid;
-  grid-template-columns: 1.5fr 1fr 0.9fr;
-  gap: 12px;
+  grid-template-columns: 1.35fr 1fr 0.9fr;
+  gap: 10px;
   align-items: center;
-  padding: 0 10px;
+  padding: 0 8px;
 }
 .r2-lp-ws-table-cols {
-  height: 26px;
+  height: 24px;
   font-size: var(--r2-fs-label);
   font-weight: var(--r2-weight-medium);
   letter-spacing: 0.06em;
@@ -877,8 +894,8 @@
   border-bottom: 1px solid var(--r2-border);
 }
 .r2-lp-ws-table-row {
-  height: 40px;
-  font-size: var(--r2-fs-body);
+  height: 38px;
+  font-size: var(--r2-fs-ui);
   color: var(--r2-ink-2);
   border-bottom: 1px solid var(--r2-border);
 }
@@ -889,14 +906,115 @@
   color: var(--r2-ink-1);
 }
 
-/* Canvas: a dotted field, three fine lines, four notes on a surface of
-   their own. */
+/* Scene properties: the inspector's list — a label in the quiet tone, the
+   value in the ink, row under row. */
+.r2-lp-ws-props {
+  position: absolute;
+  inset: 14px 0 0 0;
+  padding: 0 20px;
+}
+.r2-lp-ws-props-head {
+  margin-bottom: 6px;
+}
+.r2-lp-ws-props-eyebrow {
+  margin: 0 0 2px;
+  font-size: var(--r2-fs-caption);
+  color: var(--r2-ink-3);
+}
+.r2-lp-ws-props-title {
+  margin: 0;
+  font-family: var(--r2-prose-font);
+  font-size: 18px;
+  line-height: 1.2;
+  color: var(--r2-ink-1);
+}
+.r2-lp-ws-props-list {
+  margin: 0;
+}
+.r2-lp-ws-props-row {
+  display: grid;
+  grid-template-columns: 94px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  min-height: 28px;
+  border-top: 1px solid var(--r2-border);
+}
+.r2-lp-ws-props-row dt {
+  font-size: var(--r2-fs-meta);
+  color: var(--r2-ink-3);
+}
+.r2-lp-ws-props-row dd {
+  margin: 0;
+  font-size: var(--r2-fs-ui);
+  color: var(--r2-ink-1);
+}
+
+/* ── The Canvas: the wide card ──────────────────────────────────────────
+   On its side: the text in a column at the left — title, line, the cue at
+   its foot — and the surface filling the rest, the whole of the card's
+   height. The well is the product's plane (rune2.css: .r2-canvas): the
+   content tone, the faint dot grid, a Section's tinted region, cards for
+   the book's pieces raised a hair off it, a note on the plane's paper,
+   and fine lines between them. */
+.r2-lp-ws-cell[data-feature="canvas"] .r2-lp-ws-card {
+  --lp-ws-canvas: 248px;
+  display: grid;
+  grid-template-columns: minmax(200px, 0.9fr) minmax(0, 3.1fr);
+  column-gap: clamp(20px, 2.4vw, 36px);
+  align-items: stretch;
+}
+.r2-lp-ws-cell[data-feature="canvas"] .r2-lp-ws-card-text {
+  grid-column: 1;
+  grid-row: 1;
+  max-width: 22rem;
+}
+.r2-lp-ws-cell[data-feature="canvas"] .r2-lp-ws-card-cue {
+  grid-column: 1;
+  grid-row: 2;
+  align-self: end;
+  margin-top: 18px;
+}
+.r2-lp-ws-cell[data-feature="canvas"] .r2-lp-ws-card-preview {
+  grid-column: 2;
+  grid-row: 1 / 3;
+  height: var(--lp-ws-canvas);
+  margin-top: 0;
+  background: var(--r2-bg);
+}
 .r2-lp-ws-canvas {
   position: absolute;
   inset: 0;
-  background-image: radial-gradient(rgba(var(--r2-palette-ink) / 0.09) 1px, transparent 1.2px);
-  background-size: 18px 18px;
-  background-position: 9px 9px;
+  background-image: radial-gradient(circle, rgba(var(--r2-palette-ink) / 0.09) 1px, transparent 1.2px);
+  background-size: 22px 22px;
+  background-position: 11px 11px;
+}
+/* The Section: the real one's tint, hairline and serif title. */
+.r2-lp-ws-canvas-section {
+  position: absolute;
+  top: 7%;
+  bottom: 7%;
+  left: 4%;
+  width: 36%;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: auto;
+  padding: 0 12px;
+  border-radius: var(--r2-radius-lg);
+  background: color-mix(in srgb, rgb(var(--r2-palette-ink)) 3.5%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, rgb(var(--r2-palette-ink)) 10%, transparent);
+  align-items: flex-start;
+  padding-top: 9px;
+}
+.r2-lp-ws-canvas-section-title {
+  font-family: var(--r2-prose-font);
+  font-size: 15px;
+  color: var(--r2-ink-2);
+}
+.r2-lp-ws-canvas-section-count {
+  font-size: var(--r2-fs-caption);
+  font-variant-numeric: tabular-nums;
+  color: var(--r2-ink-3);
 }
 .r2-lp-ws-canvas-lines {
   position: absolute;
@@ -906,68 +1024,62 @@
   overflow: visible;
 }
 .r2-lp-ws-canvas-lines line {
-  stroke: rgba(var(--r2-palette-ink) / 0.22);
+  stroke: color-mix(in srgb, rgb(var(--r2-palette-ink)) 32%, transparent);
   stroke-width: 1.25;
+  stroke-linecap: round;
 }
+/* A connection's label, on the page's tone so the line passes under it. */
+.r2-lp-ws-canvas-label {
+  position: absolute;
+  padding: 1px 5px;
+  font-size: 11px;
+  line-height: 1.3;
+  white-space: nowrap;
+  color: var(--r2-ink-2);
+  background: var(--r2-bg);
+  transform: translate(-50%, -50%);
+}
+/* A card: the real card's padding, radius, raised surface and type. */
+.r2-lp-ws-canvas-card,
 .r2-lp-ws-canvas-note {
   position: absolute;
-  display: inline-flex;
-  align-items: center;
-  height: 36px;
-  padding: 0 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  box-sizing: border-box;
+  padding: 10px 12px 11px;
   border-radius: var(--r2-radius-md);
-  background: var(--r2-bg);
-  box-shadow: 0 0 0 1px var(--r2-border), 0 6px 16px -8px rgba(var(--r2-palette-shadow) / 0.18);
-  font-size: var(--r2-fs-body);
-  white-space: nowrap;
+  background: var(--r2-surface-raised);
+  box-shadow: 0 0 0 1px var(--r2-border), var(--r2-shadow-sm);
   color: var(--r2-ink-1);
   transform: translate(-50%, -50%);
 }
-.r2-lp-ws-canvas-note[data-wide] {
-  padding: 0 20px;
-}
-
-/* Scene properties: the inspector's list — a label in the quiet tone, the
-   value in the ink, row under row. */
-.r2-lp-ws-props {
-  position: absolute;
-  inset: 22px 0 0 0;
-  padding: 0 28px;
-}
-.r2-lp-ws-props-head {
-  margin-bottom: 14px;
-}
-.r2-lp-ws-props-eyebrow {
-  margin: 0 0 3px;
-  font-size: var(--r2-fs-meta);
+.r2-lp-ws-canvas-eyebrow {
+  font-size: var(--r2-fs-label);
+  letter-spacing: var(--r2-tracking-label);
+  text-transform: uppercase;
+  white-space: nowrap;
   color: var(--r2-ink-3);
 }
-.r2-lp-ws-props-title {
-  margin: 0;
+.r2-lp-ws-canvas-title {
+  font-size: var(--r2-fs-row);
+  font-weight: var(--r2-weight-medium);
+  line-height: var(--r2-lh-tight);
+  letter-spacing: var(--r2-tracking-heading);
+}
+.r2-lp-ws-canvas-text {
+  margin-top: 3px;
   font-family: var(--r2-prose-font);
-  font-size: 20px;
-  line-height: 1.2;
-  color: var(--r2-ink-1);
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--r2-ink-2);
 }
-.r2-lp-ws-props-list {
-  margin: 0;
-}
-.r2-lp-ws-props-row {
-  display: grid;
-  grid-template-columns: 112px minmax(0, 1fr);
-  gap: 12px;
-  align-items: center;
-  min-height: 33px;
-  border-top: 1px solid var(--r2-border);
-}
-.r2-lp-ws-props-row dt {
-  font-size: var(--r2-fs-ui-sm);
-  color: var(--r2-ink-3);
-}
-.r2-lp-ws-props-row dd {
-  margin: 0;
+/* A note: the plane's own paper, its text the whole card. */
+.r2-lp-ws-canvas-note {
+  padding: 8px 10px;
+  background: var(--r2-field-bg);
   font-size: var(--r2-fs-body);
-  color: var(--r2-ink-1);
+  line-height: var(--r2-lh-body);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -984,42 +1096,101 @@
   }
 }
 
-/* ── Narrower rooms ─────────────────────────────────────────────────── */
-@media (max-width: 1100px) {
+/* ── Short screens ──────────────────────────────────────────────────────
+   A laptop at ~800px, or a desktop zoomed: the section closes up and the
+   wells come down a little, so the overview still reads in one screen. */
+@media (max-height: 860px) and (min-width: 981px) {
+  .r2-lp-ws {
+    padding-top: 32px;
+    padding-bottom: 48px;
+  }
+  .r2-lp-ws-head .r2-lp-h2 {
+    font-size: clamp(34px, 3.4vw, 44px);
+  }
+  .r2-lp-ws-grid {
+    margin-top: 20px;
+  }
   .r2-lp-ws-card {
-    min-height: 440px;
+    --lp-ws-well: 196px;
+  }
+  .r2-lp-ws-card-preview {
+    margin-top: 12px;
+  }
+  .r2-lp-ws-cell[data-feature="canvas"] .r2-lp-ws-card {
+    --lp-ws-canvas: 220px;
   }
 }
-@media (max-width: 760px) {
+
+/* ── A tablet, or a desktop zoomed ──────────────────────────────────────
+   Two across: Pages and Collections side by side; Scene properties and
+   the Canvas each the whole width, on their side like the Canvas. */
+@media (max-width: 980px) {
+  .r2-lp-ws-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .r2-lp-ws-cell[data-feature="scene-properties"] {
+    grid-column: 1 / -1;
+  }
+  .r2-lp-ws-cell[data-feature="scene-properties"] .r2-lp-ws-card {
+    display: grid;
+    grid-template-columns: minmax(180px, 1fr) minmax(0, 1.6fr);
+    column-gap: 28px;
+  }
+  .r2-lp-ws-cell[data-feature="scene-properties"] .r2-lp-ws-card-text {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .r2-lp-ws-cell[data-feature="scene-properties"] .r2-lp-ws-card-cue {
+    grid-column: 1;
+    grid-row: 2;
+    align-self: end;
+  }
+  .r2-lp-ws-cell[data-feature="scene-properties"] .r2-lp-ws-card-preview {
+    grid-column: 2;
+    grid-row: 1 / 3;
+    margin-top: 0;
+  }
+  .r2-lp-ws-cell[data-feature="canvas"] .r2-lp-ws-card {
+    grid-template-columns: minmax(180px, 1fr) minmax(0, 2fr);
+  }
+}
+
+/* ── Phones ─────────────────────────────────────────────────────────────
+   One column, every card the same shape — text, surface, cue — and no
+   one-screen ambition: clarity over compactness. */
+@media (max-width: 640px) {
   .r2-lp-ws {
-    padding: 64px 0 88px;
+    padding: 56px 0 80px;
+  }
+  .r2-lp-ws-head .r2-lp-h2 {
+    font-size: clamp(32px, 9vw, 40px);
   }
   .r2-lp-ws-grid {
     grid-template-columns: minmax(0, 1fr);
-    gap: 16px;
-    margin-top: 36px;
+    gap: 14px;
+    margin-top: 28px;
+  }
+  .r2-lp-ws-cell[data-feature="scene-properties"] .r2-lp-ws-card,
+  .r2-lp-ws-cell[data-feature="canvas"] .r2-lp-ws-card {
+    display: flex;
+  }
+  .r2-lp-ws-cell[data-feature="scene-properties"] .r2-lp-ws-card-preview,
+  .r2-lp-ws-cell[data-feature="canvas"] .r2-lp-ws-card-preview {
+    margin-top: 16px;
+  }
+  .r2-lp-ws-cell[data-feature="canvas"] .r2-lp-ws-card-cue {
+    margin-top: 14px;
   }
   .r2-lp-ws-card {
-    --lp-ws-pad: 22px;
-    min-height: 0;
+    --lp-ws-pad: 20px;
+    --lp-ws-well: 220px;
   }
-  .r2-lp-ws-card-preview {
-    flex: none;
-    height: 260px;
-    margin-top: 20px;
+  .r2-lp-ws-cell[data-feature="canvas"] .r2-lp-ws-card-preview {
+    height: 300px;
   }
-  .r2-lp-ws-pages {
-    inset: 22px 24px 0;
-  }
-  .r2-lp-ws-page {
-    padding: 22px 24px;
-  }
-  .r2-lp-ws-table,
-  .r2-lp-ws-props {
-    padding: 0 20px;
-  }
-  .r2-lp-ws-props-row {
-    grid-template-columns: 100px minmax(0, 1fr);
+  /* The plane's pieces, placed for a narrow surface. */
+  .r2-lp-ws-canvas-section {
+    width: 44%;
   }
 }
 
