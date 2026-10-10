@@ -110,10 +110,10 @@ function RootRow({ label, count, children }: { label: string; count: string; chi
   );
 }
 
-// The navigator and the editor are shared with the details section
-// (FrontDetails), which shows the same manuscript with the Inspector open:
-// one shell, drawn once.
-export function Navigator() {
+// The navigator and the editor are the shell's two columns, each drawn
+// once here. (The Inspector section, FrontDetails, draws its own crop of
+// the shell with the same classes.)
+function Navigator() {
   return (
     <div className="r2-lp-shot-nav">
       <div className="r2-nav-header">
@@ -152,7 +152,7 @@ export function Navigator() {
   );
 }
 
-export function Editor({ prose = PROSE }: { prose?: readonly string[] }) {
+function Editor({ prose = PROSE }: { prose?: readonly string[] }) {
   return (
     <div className="r2-lp-shot-content">
       <div className="r2-tabs">

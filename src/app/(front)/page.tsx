@@ -23,8 +23,9 @@ export const metadata: Metadata = {
 // statement, one action — then the manuscript section (FrontManuscript): the
 // Project shell with a manuscript open, as proof of the statement — then the
 // workspace section (FrontWorkspace): the four ways it grows around the book
-// — then the details section (FrontDetails): the Inspector keeping what a
-// scene needs close, with the book still open.
+// — then the Inspector section (FrontDetails): one idea, the supporting
+// details of a scene stay close to the writing, with a link to the closer
+// look (/features/inspector).
 // One wording for the one action, "Start writing free":
 //   * a visitor is sent to Create account, and may Sign in
 //   * a signed-in writer is sent to their Projects

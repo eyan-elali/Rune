@@ -24,6 +24,9 @@ const PUBLIC_ROUTES = [
   "/workspace/collections",
   "/workspace/canvas",
   "/workspace/scene-properties",
+  // The landing page's Inspector section (components/front/FrontDetails)
+  // leads here: the same kind of placeholder, public for the same reason.
+  "/features/inspector",
   // Entry point for the landing page's "Continue with Scribe" CTA — must be
   // reachable signed-out (it records purchase intent and sends the visitor
   // to signup), and it fully handles the authenticated case itself.
