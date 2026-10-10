@@ -6,16 +6,17 @@ import { Reveal } from "./Reveal";
 // Section 4 of the landing page (front.css: "The Inspector"): one idea —
 // the supporting details of a scene stay close to the writing. A split: the
 // statement at the left, with one quiet link to the closer look; at the
-// right, one focused product visual — the Inspector, cropped, on a flat
-// plane of Sutura blue.
+// right, one focused product visual — the Inspector, large, on a trace of
+// the shell, on a flat plane of Sutura blue.
 //
 // The visual is the product's own: the Inspector is the real panel
 // (rune2.css: .r2-panel, .r2-inspector, Rune2Panel.tsx), open as the
 // inset side sheet beside the writing, with the real classes — the Scene's
 // kind, title, place and facts; its Properties (two Relationships, a
 // Select, a Status: PropertyFields.tsx); its Connections (ObjectLinks.tsx).
-// The editor's column is only implied: the tab band and the start of the
-// prose, with the sheet inset over the rest. Nothing is explained; the
+// The writing is only implied: the tab band and the context bar name the
+// open scene, and the column beside the sheet is left quiet. Nothing is
+// explained; the
 // linked values (a Relationship's ink-blue underline, a Connection's row)
 // are the product's own way of saying a value leads somewhere.
 //
@@ -27,14 +28,6 @@ export const INSPECTOR_PATH = "/features/inspector";
 const PROJECT = "The Lantern Road";
 const CHAPTER = "The Letters";
 const SCENE = "The Thursday Boat";
-
-// The start of the scene, behind the sheet: enough to say the writing is
-// there, not enough to read.
-const PROSE = [
-  "The letters came on the Thursday boat, three of them, tied with the grey string her mother had always used. Ada did not open them at the harbour. She carried them up the hill the way one carries something that might still be warm.",
-  "By the time she reached the house the wind had turned. She set the letters on the table beside the lamp and left them there while she made tea, as if the ordinary tasks could be made to go first.",
-  "The first was dated in March, which meant it had waited somewhere for the better part of a season. She read it standing, and then again sitting down, and the second reading was the one that counted.",
-];
 
 function PropRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -157,10 +150,12 @@ function Inspector() {
   );
 }
 
-// The shell, cropped: the content column's tab band and context bar across
-// the top (the same classes as the manuscript section's shell), then the
-// body zone — the start of the scene at the left, and the sheet inset
-// beside it, as the product lays them out (rune2.css: .r2-body).
+// The shell, cropped to a trace: the content column's tab band and context
+// bar across the top (the same classes as the manuscript section's shell),
+// then the body zone — quiet at the left, where the writing would be, and
+// the sheet inset beside it, as the product lays them out (rune2.css:
+// .r2-body). No prose: the manuscript section has shown the writing, and
+// here the sheet is the subject.
 function Shell() {
   return (
     <div className="r2-lp-shot-in">
@@ -183,19 +178,7 @@ function Shell() {
         <span className="r2-crumb-current">{SCENE}</span>
       </div>
       <div className="r2-lp-dt-body">
-        <div className="r2-lp-shot-content">
-          <div className="r2-lp-shot-doc">
-            <div className="r2-doc-head">
-              <p className="r2-doc-eyebrow">{CHAPTER}</p>
-              <p className="r2-doc-title">{SCENE}</p>
-            </div>
-            <div className="r2-lp-shot-prose">
-              {PROSE.map((p) => (
-                <p key={p.slice(0, 24)}>{p}</p>
-              ))}
-            </div>
-          </div>
-        </div>
+        <div className="r2-lp-shot-content" />
         <Inspector />
       </div>
     </div>

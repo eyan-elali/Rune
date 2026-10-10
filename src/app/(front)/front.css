@@ -1348,21 +1348,22 @@
   overflow: hidden;
 }
 
-/* ── The shell, cropped ─────────────────────────────────────────────────
-   Section 2's object (.r2-lp-shot) as a crop: the tab band and the context
-   bar across the top, then the body zone — the writing's column at the
-   left, the sheet beside it (rune2.css: .r2-body). Only its top-left corner
-   is an edge; the rest is cut by the plane. The focus variables are pinned
-   at rest: nothing of Section 2's movement runs here. */
+/* ── The shell, as a trace ──────────────────────────────────────────────
+   Section 2's object (.r2-lp-shot) cut down to what says "the writing
+   environment": the tab band and the context bar across the top, then the
+   body zone — the writing's column left quiet, and the sheet beside it
+   (rune2.css: .r2-body). The sheet is set wider than the product's default
+   (a writer may drag it to this) so it is the one thing to read; the quiet
+   column keeps the room the writing would have. Only the shell's top-left
+   corner is an edge; the rest is cut by the plane. The focus variables
+   are pinned at rest: nothing of Section 2's movement runs here. */
 .r2-lp-dt-shot {
   --lp-focus: 0;
   --lp-nav-out: 0;
   --lp-chrome-out: 0;
-  --r2-panel-width: 320px;
-  --r2-gutter: var(--r2-space-7); /* the panel's inner edge (rune2.css: .r2-shell) */
+  --r2-panel-width: 392px;
+  --r2-gutter: var(--r2-space-8); /* the panel's inner edge, a step past the shell's (rune2.css: .r2-shell) */
   --r2-status-zone: 40px;
-  --lp-doc-gutter: 36px;
-  --lp-doc-top: 44px;
   position: relative;
   height: auto;
   margin-bottom: calc(-1 * var(--r2-radius-material));
@@ -1387,36 +1388,29 @@
 }
 .r2-lp-dt-shot .r2-lp-shot-content {
   transform: none;
-  overflow: hidden;
-  /* The writing recedes under the sheet's edge over a short span, so a cut
-     word never meets the sheet's labels. */
-  mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent);
-}
-/* The writing keeps its measure: the column is cut by the sheet, so the
-   lines run under it as they do in the product, rather than rewrapping to
-   the room that is left. */
-.r2-lp-dt-shot .r2-lp-shot-doc {
-  width: calc(var(--r2-prose-measure) + 2 * var(--lp-doc-gutter));
-  max-width: none;
-  margin: 0;
-  transform: none;
-}
-.r2-lp-dt-shot .r2-doc-head {
-  margin-bottom: 28px;
-}
-.r2-lp-dt-shot .r2-doc-title {
-  font-size: 22px;
-}
-.r2-lp-dt-shot .r2-lp-shot-prose {
-  font-size: 16.5px;
 }
 /* The sheet: the product's own inset panel, open, in the body zone. Its
    transitions are for a panel that opens and closes; this one is open. It
-   runs to the shell's foot, and the plane crops both. */
+   runs to the shell's foot, and the plane crops both. Its rows are given a
+   little more air than the product's, so the fields read one by one. */
 .r2-lp-dt-shot .r2-panel {
   margin: 0;
   border-radius: var(--r2-radius-lg) 0 0 0;
   transition: none;
+}
+.r2-lp-dt-shot .r2-inspector {
+  padding-top: var(--r2-space-5);
+}
+.r2-lp-dt-shot .r2-insp-section {
+  margin-top: 26px;
+  padding-top: 16px;
+}
+.r2-lp-dt-shot .r2-insp-section-head {
+  margin-bottom: 8px;
+}
+.r2-lp-dt-shot .r2-scene-props .r2-prop {
+  grid-template-columns: minmax(96px, 120px) minmax(0, 1fr);
+  min-height: 32px;
 }
 .r2-lp-dt-shot .r2-panel-inner {
   height: auto;
@@ -1455,8 +1449,10 @@
     grid-template-columns: minmax(0, 4fr) minmax(0, 6fr);
   }
   .r2-lp-dt-shot {
-    --r2-panel-width: 300px;
-    --lp-doc-gutter: 28px;
+    --r2-panel-width: 352px;
+  }
+  .r2-lp-dt-plane {
+    --lp-dt-inset-x: clamp(24px, 3vw, 40px);
   }
 }
 
@@ -1475,15 +1471,14 @@
     max-width: 32rem;
   }
   .r2-lp-dt-shot {
-    --r2-panel-width: 320px;
-    --lp-doc-gutter: 36px;
+    --r2-panel-width: min(392px, 72%);
   }
 }
 
 /* ── Phones ─────────────────────────────────────────────────────────────
-   The Inspector, readable: the writing's column goes (there is no room for
-   it beside the sheet), the sheet takes the shell's width, and the plane's
-   inset narrows to a margin. The link stays under the copy. */
+   The Inspector, readable: the quiet column goes, the sheet takes the
+   shell's width, and the plane's inset narrows to a margin. The link stays
+   under the copy. */
 @media (max-width: 640px) {
   .r2-lp-dt {
     padding: 56px 0 72px;
