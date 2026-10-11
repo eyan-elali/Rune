@@ -1,16 +1,18 @@
 import type { Metadata } from "next";
-import { Aside, FeatureHero, FeaturePage, FeatureSection, Principle, Prose, Visual } from "@/components/front/feature/FeaturePage";
+import { Aside, FeatureHead, FeaturePage, FeatureSection, Principle, Prose, Visual } from "@/components/front/feature/FeaturePage";
 import { ScenePropertySheet, SceneTable } from "@/components/front/feature/visuals/ScenePropertyVisuals";
 import "../../front.css";
 import "../../feature.css";
 
 // Scene properties: the closer look the landing page's third workspace card
-// leads to, and the most philosophical of the feature pages. The idea —
-// structure around the scene, never inside the prose — in four movements:
-// the prose kept clean, properties the writer defines, the same facts read
-// as Views, and complexity as a choice. Two drawings: a scene's properties
-// alone, as the writer defined them, and the Manuscript's Scenes as a
-// Table. (The scene beside its Inspector is the Inspector page's picture.)
+// leads to, read as a Page inside Sutura, and the most philosophical of
+// the feature pages. The idea — structure around the scene, never inside
+// the prose — in four passages: the prose kept clean, properties the
+// writer defines, the same facts read as Views, and complexity as a
+// choice. Two figures: a scene's properties alone, as the writer defined
+// them, beside the first passage; and the Manuscript's Scenes as a Table,
+// at the Page's width and a little more. (The scene beside its Inspector
+// is the Inspector page's picture.)
 
 export const metadata: Metadata = {
   title: "Scene properties",
@@ -21,15 +23,15 @@ export const metadata: Metadata = {
 
 export default function ScenePropertiesFeature() {
   return (
-    <FeaturePage kind="feature">
-      <FeatureHero
+    <FeaturePage current="scene-properties">
+      <FeatureHead
         eyebrow="Scene properties"
         title="Structure around the scene. Never inside the prose."
         lede="Point of view, place, time, status, the threads a scene carries. Track what matters to this book beside the writing, and keep the manuscript looking like a manuscript."
       />
 
       <FeatureSection layout="visual-right" labelledBy="fp-sp-clean">
-        <Prose lead>
+        <Prose>
           <h2 id="fp-sp-clean">Keep prose clean</h2>
           <p>
             Writers have always tracked things about scenes: whose eyes we see through, where we are, what day it is, whether
@@ -50,7 +52,7 @@ export default function ScenePropertiesFeature() {
         </Visual>
       </FeatureSection>
 
-      <FeatureSection layout="editorial" labelledBy="fp-sp-matters">
+      <FeatureSection labelledBy="fp-sp-matters">
         <Prose>
           <h2 id="fp-sp-matters">Track what matters to this book</h2>
           <p>
@@ -66,13 +68,7 @@ export default function ScenePropertiesFeature() {
         </Prose>
       </FeatureSection>
 
-      <FeatureSection layout="visual-left" labelledBy="fp-sp-views">
-        <Visual
-          size="scene-table"
-          label="The Manuscript's Scenes in Sutura as a Table, By chapter. Under The Harbour: 1.1 Arrival and 1.2 The ferryman. Under The Letters: 2.1 The Ferry, 2.2 The Thursday Boat and 2.3 High Water. Each row shows the scene's Point of view and Location as links, its Status, and its word count."
-        >
-          <SceneTable />
-        </Visual>
+      <FeatureSection labelledBy="fp-sp-views">
         <Prose>
           <h2 id="fp-sp-views">Use the same scene information in useful views</h2>
           <p>
@@ -81,6 +77,14 @@ export default function ScenePropertiesFeature() {
             draft laid out by status in lanes. The manuscript&rsquo;s own order stays the order; a View only arranges what is
             already there.
           </p>
+        </Prose>
+        <Visual
+          size="scene-table"
+          label="The Manuscript's Scenes in Sutura as a Table, By chapter. Under The Harbour: 1.1 Arrival and 1.2 The ferryman. Under The Letters: 2.1 The Ferry, 2.2 The Thursday Boat and 2.3 High Water. Each row shows the scene's Point of view and Location as links, its Status, and its word count."
+        >
+          <SceneTable />
+        </Visual>
+        <Prose>
           <p>
             Moving a scene between the lanes of a status Board changes its status. It never changes where the scene sits in the
             book. Only the navigator does that.
@@ -88,7 +92,7 @@ export default function ScenePropertiesFeature() {
         </Prose>
       </FeatureSection>
 
-      <FeatureSection layout="column" labelledBy="fp-sp-optin">
+      <FeatureSection labelledBy="fp-sp-optin">
         <Prose>
           <h2 id="fp-sp-optin">Complexity remains opt-in</h2>
           <p>

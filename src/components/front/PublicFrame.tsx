@@ -21,6 +21,10 @@ import { SUPPORT_EMAIL } from "@/lib/brand";
 //          landing is always Sutura Light: it is a public page with one
 //          art-directed appearance, not a reader's workspace, so it does
 //          not follow the operating system or an account preference.
+//   feature  the feature pages (components/front/feature): a simplified
+//          Sutura workspace — a navigator beside a Page — that is its own
+//          navigation. No head, no footer: the shell brings the trust
+//          links at the foot of its Page. Sutura Light, as the landing.
 
 const THEME_CSS = buildThemeCss();
 
@@ -28,12 +32,12 @@ export function PublicFrame({
   children,
   nav,
   variant = "front",
-  theme = variant === "landing" ? "light" : "system",
+  theme = variant === "landing" || variant === "feature" ? "light" : "system",
 }: {
   children: ReactNode;
   nav?: ReactNode;
-  variant?: "front" | "auth" | "landing";
-  /** The landing is always Sutura Light; a page that belongs to it (a workspace placeholder) may ask for the same. */
+  variant?: "front" | "auth" | "landing" | "feature";
+  /** The landing is always Sutura Light; a page that belongs to it (a feature page) may ask for the same. */
   theme?: "light" | "system";
 }) {
   const home = (
@@ -50,7 +54,7 @@ export function PublicFrame({
           {nav && <nav className="r2-public-nav">{nav}</nav>}
         </header>
       )}
-      {variant === "landing" ? (
+      {variant === "landing" || variant === "feature" ? (
         children
       ) : (
         <main className="r2-public-main">
@@ -58,11 +62,22 @@ export function PublicFrame({
           {children}
         </main>
       )}
-      <footer className="r2-public-foot">
-        <Link href="/privacy">Privacy</Link>
-        <Link href="/terms">Terms</Link>
-        <a href={`mailto:${SUPPORT_EMAIL}`}>Support</a>
-      </footer>
+      {variant !== "feature" && (
+        <footer className="r2-public-foot">
+          <PublicFootLinks />
+        </footer>
+      )}
     </div>
+  );
+}
+
+/** The quiet trust links at the foot of every public page. */
+export function PublicFootLinks() {
+  return (
+    <>
+      <Link href="/privacy">Privacy</Link>
+      <Link href="/terms">Terms</Link>
+      <a href={`mailto:${SUPPORT_EMAIL}`}>Support</a>
+    </>
   );
 }

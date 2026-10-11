@@ -1,16 +1,17 @@
 import type { Metadata } from "next";
-import { Aside, FeatureHero, FeaturePage, FeatureSection, Principle, Prose, Visual } from "@/components/front/feature/FeaturePage";
+import { Aside, FeatureHead, FeaturePage, FeatureSection, Principle, Prose, Visual } from "@/components/front/feature/FeaturePage";
 import { CanvasPlane } from "@/components/front/feature/visuals/CanvasVisual";
 import "../../front.css";
 import "../../feature.css";
 
 // Canvas: the closer look the landing page's wide workspace card leads to,
-// and the most visual of the feature pages. The idea — spatial thinking,
-// for when lists and pages are not enough — in four movements: when linear
-// notes stop being enough, arranging things in space, the Canvas as part
-// of the same project, and a surface used only when the book asks. One
-// drawing, the largest on any feature page: the plane past the container's
-// edges, with the room a canvas wants, and the prose beneath it.
+// read as a Page inside Sutura, and the most visual of the feature pages.
+// The idea — spatial thinking, for when lists and pages are not enough —
+// in four passages: when linear notes stop being enough, arranging things
+// in space, the Canvas as part of the same project, and a surface used
+// only when the book asks. One figure, the largest on any feature page,
+// first: the plane as wide as the content column allows, with the room a
+// canvas wants, and the writing under it.
 
 export const metadata: Metadata = {
   title: "Canvas",
@@ -21,22 +22,23 @@ export const metadata: Metadata = {
 
 export default function CanvasFeature() {
   return (
-    <FeaturePage kind="feature">
-      <FeatureHero
+    <FeaturePage current="canvas">
+      <FeatureHead
         eyebrow="Canvas"
         title="Sometimes the shape of the idea matters."
         lede="For the parts of a book that will not sit in a list: who is tied to whom, which scene answers which, where a cluster of research belongs. A quiet surface for arranging things in space."
       />
 
-      <FeatureSection layout="bleed" labelledBy="fp-cv-when">
+      <FeatureSection labelledBy="fp-cv-when">
         <Visual
           frame="material"
           size="canvas"
+          width="bleed"
           label="A Canvas in Sutura titled The crossing. On a faint dot grid, a tinted Section named The Letters holds three scene cards: The Ferry; The Thursday Boat, selected, with its opening line and word count; and High Water. Across the plane: Entry cards for Ada Marsh and Tomas Reyes from the Characters Collection; Page cards for The house and Why the letters wait; a note asking why she waits a whole day to open the letters; and at the lower right a Section named Research holding the Pages The island ferries and Letters, 1950s. Fine lines connect The Thursday Boat to Ada Marsh, labelled point of view, and to The house; High Water to The house; The Ferry to Tomas Reyes, labelled point of view; Ada Marsh to Why the letters wait; and that page to the note and to Letters, 1950s. Most of the plane is empty."
         >
           <CanvasPlane />
         </Visual>
-        <Prose lead>
+        <Prose>
           <h2 id="fp-cv-when">When linear notes stop being enough</h2>
           <p>
             Most thinking about a novel is linear enough for a Page. Some of it is not. The relationships among a cast, the way
@@ -51,7 +53,7 @@ export default function CanvasFeature() {
         </Prose>
       </FeatureSection>
 
-      <FeatureSection layout="editorial" labelledBy="fp-cv-arrange">
+      <FeatureSection labelledBy="fp-cv-arrange">
         <Prose>
           <h2 id="fp-cv-arrange">Arrange ideas spatially</h2>
           <p>
@@ -65,7 +67,7 @@ export default function CanvasFeature() {
 
       <Principle>Some ideas are easier to see than to list.</Principle>
 
-      <FeatureSection layout="editorial" labelledBy="fp-cv-project">
+      <FeatureSection labelledBy="fp-cv-project">
         <Prose>
           <h2 id="fp-cv-project">Keep the Canvas part of the same project</h2>
           <p>
@@ -80,7 +82,7 @@ export default function CanvasFeature() {
         </Prose>
       </FeatureSection>
 
-      <FeatureSection layout="column" labelledBy="fp-cv-only">
+      <FeatureSection labelledBy="fp-cv-only">
         <Prose>
           <h2 id="fp-cv-only">Use it only when the book asks for it</h2>
           <p>

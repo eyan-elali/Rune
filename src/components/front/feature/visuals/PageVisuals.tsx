@@ -59,7 +59,7 @@ export function PageDocument() {
 export function WorkspaceNavigator() {
   return (
     <div className="r2-fp-shell r2-fp-shell--nav">
-      <div className="r2-lp-shot-nav r2-fp-nav">
+      <div className="r2-lp-shot-nav r2-fp-nav-shot">
         <NavHeader />
         <div className="r2-lp-shot-tree">
           <ul>

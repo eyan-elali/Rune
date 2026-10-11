@@ -1,260 +1,242 @@
 /* ══ The feature pages ════════════════════════════════════════════════════
    The closer looks the landing page leads to (app/(front)/features,
-   /principles/no-ai; components/front/feature). One system over front.css:
-   the same tokens, the same header, the same close, the same reveal, and
-   the same material language for the product's surfaces. What is new is
-   the editorial page: a left-set hero, bands of prose on a twelve-column
-   grid with the product's surfaces set into the writing — beside it, under
-   it, across it — a principle that breaks the rhythm, and nothing else.
+   /principles/no-ai; components/front/feature). The landing sells Sutura
+   from the outside; these pages are read from inside it. One system over
+   the product's own (rune2.css) and the landing's drawings (front.css):
+   a simplified Sutura workspace — the navigator at the left, by the
+   navigator's own classes, and where the writing would be, a Page, set as
+   a Workspace Page is set — with the product's surfaces placed into the
+   writing as art-directed figures. No marketing header, no tab band, no
+   context bar, no panel, no status: the shell is the navigation.
 
-   Each page composes the bands in its own order (FeatureSection's layout):
-   the system keeps six pages one site; the composition keeps them six
-   pages. The one rule under every composition: the prose takes the width
-   the band gives it. Nothing beside it, and it reads at the full measure,
-   or its heading stands at the left with the paragraphs across from it;
-   a surface beside it, and it narrows to a column by the surface. On a
-   phone every band reads heading, picture, text, in one column.
+   The one rule of the Page: the prose takes the full reading measure
+   unless a figure stands beside it, and a figure takes the width its idea
+   wants — the measure, a little past it, or as far as the content column
+   allows — breaking the column where width helps. On a phone the
+   navigator gives way to a switcher at the top, and everything reads in
+   one column.
 
    The drawings are the product's own classes (rune2.css) laid out by the
    rules under "The drawings" below; nothing in them is a control. */
 
 .r2-fp {
-  --fp-measure: 37rem; /* a reader's column beside a surface */
-  --fp-measure-wide: 42rem; /* the reader's column when nothing stands beside it */
-  --fp-p: 17px; /* a band's paragraph size; a wide band sets it a step larger */
-  /* How far a surface may run past the page's container, when the page is
-     wider than it: the room between the container and the viewport, less a
-     margin for the scrollbar — nothing where there is none. */
-  --fp-bleed: clamp(0px, calc((100vw - var(--lp-max)) / 2 + var(--lp-gutter) - 28px), 112px);
-  --fp-h1: clamp(40px, 4.8vw, 66px);
-  --fp-h2: clamp(26px, 2.3vw, 33px);
-  --fp-body: 17px;
-  --fp-gap-x: clamp(28px, 3.4vw, 56px);
-  --fp-band: clamp(36px, 5.5vh, 72px); /* the room between bands */
-}
-.r2-fp-in {
-  width: min(100%, var(--lp-max));
-  margin: 0 auto;
-  padding: 0 var(--lp-gutter);
+  /* The shell's measures (rune2.css: .r2-shell), for the navigator. */
+  --r2-bar: 44px;
+  --r2-nav-full: 252px;
+  /* The Page's column: a reading measure a little wider than a book's, and
+     the document's own gutters (rune2.css: --r2-doc-gutter). */
+  --fp-measure: 50rem;
+  --fp-gutter: 52px;
+  --fp-doc-width: calc(var(--fp-measure) + 2 * var(--fp-gutter));
+  --fp-inset: 36px; /* a broad surface's distance from the content's edges (rune2.css: --r2-broad-inset) */
+  --fp-p: 17px; /* the Page's paragraph size */
+  --fp-h1: clamp(34px, 3.3vw, 44px);
+  --fp-h2: 21px;
+  display: grid;
+  grid-template-columns: var(--r2-nav-full) minmax(0, 1fr);
+  flex: 1;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--r2-bg);
 }
 
-/* ── Hero ───────────────────────────────────────────────────────────────
-   Set left on the page's container, under the header: the eyebrow, the
-   statement in the serif — large, but a page's heading, not the front
-   door's poster — and one line of support. It settles once on first
-   paint, as the landing's hero does. */
-.r2-fp-hero {
-  padding: clamp(36px, 7vh, 84px) 0 clamp(16px, 3vh, 36px);
+/* ── The navigator ──────────────────────────────────────────────────────
+   The product's navigator (rune2.css: .r2-nav, .r2-row…), pinned to the
+   window's height beside the scrolling Page. Its rows are links here, and
+   its section roots and title are labels: the hover a control has is
+   taken off them. */
+.r2-fp-nav {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  height: 100dvh;
 }
-.r2-fp-hero-in {
+.r2-fp-nav-title,
+.r2-fp-nav-title:hover {
+  background: transparent;
+  cursor: default;
+}
+.r2-fp-nav .r2-row--root,
+.r2-fp-nav .r2-row--root:hover {
+  color: var(--r2-muted);
+  background: transparent;
+}
+.r2-fp-nav a.r2-row-main {
+  color: inherit;
+  text-decoration: none;
+}
+/* The way back: one row at the foot, where the product keeps the account. */
+.r2-fp-nav-home {
+  flex: 1;
+  min-width: 0;
+  margin: 0 calc(-1 * var(--r2-space-1));
+  padding-left: var(--r2-space-4);
+  text-decoration: none;
+}
+.r2-fp-nav-home:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 1.5px var(--r2-accent);
+}
+
+/* ── The switcher (a phone) ─────────────────────────────────────────────
+   One row in the shell's tone at the top of the content: the wordmark,
+   and the current page's name as the control that opens the menu. Shown
+   only where the navigator is not (see "A phone"). */
+.r2-fp-switch {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--r2-space-4);
+  height: var(--r2-bar);
+  padding: 0 var(--r2-space-4) 0 var(--r2-space-6);
+  background: var(--r2-shell-bg);
+  border-bottom: 1px solid var(--r2-border);
+  --r2-brand-height: 20px;
+}
+.r2-fp-switch .r2-wordmark {
+  padding: var(--r2-space-2) var(--r2-space-2);
+  margin-left: calc(-1 * var(--r2-space-2));
+}
+.r2-fp-switch .r2-wordmark:focus-visible {
+  outline: 2px solid var(--r2-focus);
+  outline-offset: 2px;
+}
+.r2-fp-switch-current {
+  flex: none;
+  max-width: 60%;
+  margin: 0;
+  cursor: default;
+}
+.r2-fp-switch-current[aria-expanded="true"] {
+  background: var(--r2-hover);
+}
+.r2-fp-switch-current:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 1.5px var(--r2-accent);
+}
+
+/* ── The Page ───────────────────────────────────────────────────────────
+   The content column, and the Page's column centred in it: the document's
+   top start (rune2.css: .r2-doc), the document's gutters, the measure. The
+   column is a container, so a figure that breaks the column can measure
+   the room beside it. */
+.r2-fp-content {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  min-width: 0;
+  container-type: inline-size;
+  container-name: fp-content;
 }
-.r2-fp-eyebrow {
-  margin: 0 0 var(--lp-eyebrow-gap);
-  font-size: var(--r2-fs-label);
-  font-weight: var(--r2-weight-medium);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--r2-ink-3);
+.r2-fp-main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+.r2-fp-doc {
+  /* How far a figure may run past the Page's measure: to a broad surface's
+     inset from the content's edges, and no further than the figure asks. */
+  --fp-room: calc((100cqw - var(--fp-measure)) / 2 - var(--fp-inset));
+  --fp-bleed: clamp(0px, var(--fp-room), 120px);
+  --fp-bleed-far: clamp(0px, var(--fp-room), 320px);
+  flex: 1;
+  width: min(100%, var(--fp-doc-width));
+  margin: 0 auto;
+  padding: 64px var(--fp-gutter) 48px;
+}
+
+/* The head: the eyebrow as the product sets it (.r2-doc-eyebrow), the
+   title in the serif — a Page's heading, not the front door's poster —
+   and one line of support. */
+.r2-fp-head {
+  margin-bottom: clamp(32px, 4vh, 44px);
 }
 .r2-fp-title {
-  max-width: 17ch;
+  max-width: 20ch;
   font-family: var(--r2-prose-font);
   font-size: var(--fp-h1);
   font-weight: var(--r2-weight-regular);
-  line-height: 1.04;
-  letter-spacing: -0.026em;
+  line-height: 1.1;
+  letter-spacing: -0.022em;
   text-wrap: balance;
   color: var(--r2-ink-1);
 }
 .r2-fp-lede {
-  max-width: 38rem;
-  margin: clamp(18px, 2.4vh, 26px) 0 0;
-  font-size: 19px;
-  line-height: 1.5;
+  max-width: 40rem;
+  margin: 14px 0 0;
+  font-size: 18px;
+  line-height: 1.55;
   text-wrap: pretty;
   color: var(--r2-ink-2);
 }
-.r2-fp-hero-in > * {
-  animation: r2-lp-settle 640ms var(--r2-ease) both;
-}
-.r2-fp-lede {
-  animation-delay: 120ms;
-}
 
-/* ── Bands ──────────────────────────────────────────────────────────────
-   A band is a section of the page on the twelve-column grid. The last
-   band before the close is given the room the close wants above it. */
-.r2-fp-section {
-  padding: var(--fp-band) 0 0;
+/* The body: a Workspace Page's type (rune2.css: "Workspace Page"), a step
+   larger for a visitor reading — paragraphs with a Page's spacing, the
+   headings semibold in the same sans, lists with a mark, a rule as a
+   hairline. Passages follow one another with a Page's rhythm. */
+.r2-fp-section + .r2-fp-section,
+.r2-fp-section + .r2-fp-principle,
+.r2-fp-principle + .r2-fp-section {
+  margin-top: clamp(28px, 4vh, 40px);
 }
-.r2-fp main > .r2-fp-section:nth-last-child(2),
-.r2-fp main > .r2-fp-principle:nth-last-child(2) {
-  padding-bottom: clamp(56px, 8vh, 104px);
-}
-.r2-fp-grid {
-  display: grid;
-  grid-template-columns: repeat(12, minmax(0, 1fr));
-  column-gap: var(--fp-gap-x);
-  row-gap: clamp(28px, 4vh, 44px);
-  align-items: start;
-}
-
-/* ── Compositions ───────────────────────────────────────────────────────
-   Where the prose and the visual stand (FeaturePage: SectionLayout). The
-   children come in reading order; the grid places them.
-     column        the prose alone, at the full reading measure
-     editorial     the prose alone, the article's way: the heading in the
-                   left third, the paragraphs across from it
-     visual-right  prose in five columns, the surface in seven
-     visual-left   the surface in seven, prose in five; the prose comes
-                   first in the markup, so a phone keeps reading order
-     wide          the surface across the container, the prose beneath it
-                   at the full measure
-     bleed         the surface past the container's edges, as far as the
-                   page allows; the prose beneath it, on the container
-     wide-aside    the surface across the container, the prose beneath its
-                   right half — under the sheet it describes
-   A band with nothing beside its prose reads a step larger. */
-.r2-fp-section[data-layout="column"] .r2-fp-prose,
-.r2-fp-section[data-layout="editorial"] .r2-fp-prose,
-.r2-fp-section[data-layout="wide"] .r2-fp-prose,
-.r2-fp-section[data-layout="bleed"] .r2-fp-prose,
-.r2-fp-section[data-layout="wide-aside"] .r2-fp-prose {
-  --fp-measure: var(--fp-measure-wide);
-  --fp-p: 18px;
-}
-.r2-fp-section[data-layout="column"] .r2-fp-prose {
-  grid-column: 1 / span 9;
-}
-/* The editorial band: the prose's box opens onto the band's own columns
-   (subgrid), its heading in the first four, everything after it in the
-   remaining eight, each paragraph a row of its own with no gap between —
-   the paragraphs' margins keep their rhythm. */
-.r2-fp-section[data-layout="editorial"] .r2-fp-prose {
-  display: grid;
-  grid-column: 1 / -1;
-  grid-template-columns: subgrid;
-  row-gap: 0;
-  max-width: none;
-}
-.r2-fp-section[data-layout="editorial"] .r2-fp-prose > h2 {
-  grid-column: 1 / span 4;
-  grid-row: 1 / span 40;
-  align-self: start;
-  margin-bottom: 0;
-  padding-right: var(--fp-gap-x);
-}
-.r2-fp-section[data-layout="editorial"] .r2-fp-prose > :not(h2) {
-  grid-column: 5 / -1;
-  max-width: var(--fp-measure);
-}
-@supports not (grid-template-columns: subgrid) {
-  .r2-fp-section[data-layout="editorial"] .r2-fp-prose {
-    display: block;
-    grid-column: 1 / span 9;
-    max-width: var(--fp-measure);
-  }
-}
-.r2-fp-section[data-layout="visual-right"] .r2-fp-prose {
-  grid-column: 1 / span 5;
-}
-.r2-fp-section[data-layout="visual-right"] .r2-fp-visual {
-  grid-column: 6 / -1;
-}
-.r2-fp-section[data-layout="visual-left"] .r2-fp-visual {
-  grid-column: 1 / span 7;
-  grid-row: 1;
-}
-.r2-fp-section[data-layout="visual-left"] .r2-fp-prose {
-  grid-column: 8 / -1;
-  grid-row: 1;
-}
-.r2-fp-section[data-layout="wide"] .r2-fp-visual,
-.r2-fp-section[data-layout="bleed"] .r2-fp-visual,
-.r2-fp-section[data-layout="wide-aside"] .r2-fp-visual {
-  grid-column: 1 / -1;
-}
-.r2-fp-section[data-layout="bleed"] .r2-fp-visual {
-  margin: 0 calc(-1 * var(--fp-bleed));
-}
-.r2-fp-section[data-layout="wide"] .r2-fp-prose,
-.r2-fp-section[data-layout="bleed"] .r2-fp-prose {
-  grid-column: 1 / span 9;
-}
-.r2-fp-section[data-layout="wide-aside"] .r2-fp-prose {
-  grid-column: 6 / -1;
-}
-/* A split's prose stands a little down from the surface's top edge, so the
-   heading's cap height meets the surface's first line of chrome rather
-   than its rim. */
-.r2-fp-section[data-layout="visual-right"] .r2-fp-prose,
-.r2-fp-section[data-layout="visual-left"] .r2-fp-prose {
-  padding-top: 6px;
-}
-
-/* ── Prose ──────────────────────────────────────────────────────────────
-   A reader's column: the heading in the serif, the paragraphs in the UI
-   sans at a reading size, in the second ink; a band's lead paragraph in
-   the first. Lists are prose with a mark, not a feature grid. */
 .r2-fp-prose {
-  max-width: var(--fp-measure);
   min-width: 0;
 }
 .r2-fp-prose h2 {
-  margin: 0 0 18px;
-  font-family: var(--r2-prose-font);
+  margin: 0 0 0.5em;
   font-size: var(--fp-h2);
-  font-weight: var(--r2-weight-regular);
-  line-height: 1.15;
-  letter-spacing: -0.018em;
+  font-weight: var(--r2-weight-semibold);
+  line-height: 1.35;
+  letter-spacing: var(--r2-tracking-heading);
   text-wrap: balance;
   color: var(--r2-ink-1);
 }
 .r2-fp-prose p,
 .r2-fp-prose li {
-  font-size: var(--fp-p, var(--fp-body));
-  line-height: 1.6;
+  font-size: var(--fp-p);
+  line-height: 1.62;
   text-wrap: pretty;
-  color: var(--r2-ink-2);
+  color: var(--r2-ink-1);
 }
 .r2-fp-prose p {
-  margin: 0 0 1em;
+  margin: 0 0 0.75em;
 }
-.r2-fp-prose p:last-child {
+.r2-fp-prose > :last-child {
   margin-bottom: 0;
-}
-.r2-fp-prose[data-lead] > p:first-of-type {
-  color: var(--r2-ink-1);
 }
 .r2-fp-prose em {
   font-style: italic;
 }
 .r2-fp-prose ul {
-  margin: 0 0 1em;
-  padding-left: 1.25em;
+  margin: 0 0 0.75em;
+  padding-left: 1.4em;
   list-style: disc;
 }
 .r2-fp-prose li {
-  margin: 0 0 0.45em;
-  padding-left: 0.2em;
+  margin: 0.15em 0;
 }
 .r2-fp-prose li::marker {
   color: var(--r2-ink-3);
 }
+.r2-fp-prose hr {
+  margin: 1.4em 0;
+  border: 0;
+  border-top: 1px solid var(--r2-border);
+}
 
-/* The cross-link: one sentence at the foot of a band, over a hairline, and
-   the way to the page it names — the landing's quiet link voice, with the
-   arrow that moves on hover. Not a button, not a card. */
+/* The cross-link: one sentence at the foot of a passage, over a hairline,
+   and the way to the page it names — in the landing's quiet link voice,
+   with the arrow that moves on hover. Not a button, not a card. */
 .r2-fp-aside {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
   gap: 4px 14px;
-  margin: 26px 0 0;
-  padding-top: 16px;
+  margin: 22px 0 0;
+  padding-top: 14px;
   border-top: 1px solid var(--r2-border);
   font-size: 15px;
   line-height: 1.5;
@@ -286,44 +268,155 @@
 }
 
 /* ── The principle ──────────────────────────────────────────────────────
-   One line in the serif, italic, centred, with a short rule above it: the
-   page's rhythm broken once by a statement, as the landing's hero is one
-   statement. Nothing beside it. */
+   One line in the serif, italic, standing on its own with a short rule
+   above it: the writer's own pull quote, set in the Page. */
 .r2-fp-principle {
-  padding: clamp(44px, 8vh, 96px) 0 clamp(8px, 2vh, 24px);
+  max-width: 34ch;
+  margin: clamp(36px, 5vh, 52px) 0;
 }
-.r2-fp-quote {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  max-width: 30ch;
-  margin: 0 auto;
-  text-align: center;
-}
-.r2-fp-quote::before {
+.r2-fp-principle::before {
   content: "";
+  display: block;
   width: 36px;
   height: 1px;
-  margin-bottom: clamp(22px, 3vh, 32px);
+  margin-bottom: 20px;
   background: var(--r2-ink-3);
 }
-.r2-fp-quote p {
+.r2-fp-principle p {
   margin: 0;
   font-family: var(--r2-prose-font);
-  font-size: clamp(28px, 3.1vw, 42px);
+  font-size: clamp(25px, 2.3vw, 31px);
   font-style: italic;
   font-weight: var(--r2-weight-regular);
-  line-height: 1.18;
-  letter-spacing: -0.016em;
+  line-height: 1.22;
+  letter-spacing: -0.014em;
   text-wrap: balance;
   color: var(--r2-ink-1);
 }
-.r2-fp-quote footer {
-  margin-top: 14px;
+
+/* ── Figures ────────────────────────────────────────────────────────────
+   A figure in the writing: at the Page's measure by default; `wide`, a
+   little past it on each side; `bleed`, as far as the content column
+   allows — where a broad surface would run in the product. */
+.r2-fp-section .r2-fp-visual {
+  margin: 24px 0 28px;
+}
+.r2-fp-section > .r2-fp-visual:first-child {
+  margin-top: 0;
+}
+.r2-fp-section > .r2-fp-visual:last-child {
+  margin-bottom: 0;
+}
+.r2-fp-visual[data-width="wide"] {
+  margin-left: calc(-1 * var(--fp-bleed));
+  margin-right: calc(-1 * var(--fp-bleed));
+}
+.r2-fp-visual[data-width="bleed"] {
+  margin-left: calc(-1 * var(--fp-bleed-far));
+  margin-right: calc(-1 * var(--fp-bleed-far));
+}
+/* The head's figure: the first picture, a short way under the lede. */
+.r2-fp-head + .r2-fp-section > .r2-fp-visual:first-child {
+  margin-bottom: 32px;
+}
+
+/* ── Beside ─────────────────────────────────────────────────────────────
+   A passage whose figure stands beside its prose (FeatureSection:
+   layout). The prose narrows only as much as the figure needs; the figure
+   may run a little past the measure on its outer side. The prose stands
+   a little down from the figure's top, so the heading's cap height meets
+   the figure's first line rather than its rim. */
+.r2-fp-section[data-layout] {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  column-gap: clamp(28px, 3.2vw, 44px);
+  align-items: start;
+}
+.r2-fp-section[data-layout] .r2-fp-visual {
+  margin: 0;
+}
+.r2-fp-section[data-layout] .r2-fp-prose {
+  padding-top: 6px;
+}
+.r2-fp-section[data-layout="visual-right"] .r2-fp-visual {
+  grid-column: 2;
+  margin-right: calc(-1 * var(--fp-bleed));
+}
+.r2-fp-section[data-layout="visual-right"] .r2-fp-prose {
+  grid-column: 1;
+}
+.r2-fp-section[data-layout="visual-left"] .r2-fp-visual {
+  grid-column: 1;
+  grid-row: 1;
+  margin-left: calc(-1 * var(--fp-bleed));
+}
+.r2-fp-section[data-layout="visual-left"] .r2-fp-prose {
+  grid-column: 2;
+  grid-row: 1;
+}
+/* Beside its prose, the sheet alone fills its column. */
+.r2-fp-section[data-layout] .r2-fp-visual[data-size="connections"] {
+  width: auto;
+}
+
+/* ── The close ──────────────────────────────────────────────────────────
+   The end of the Page: a rule, one line in the serif, the action and the
+   note under it — the front door's action said once more, as plainly as
+   a Page ends. Then the frame's trust links, quiet, at the foot. */
+.r2-fp-close {
+  margin-top: clamp(48px, 7vh, 72px);
+  padding-top: clamp(28px, 4vh, 40px);
+  border-top: 1px solid var(--r2-border);
+}
+.r2-fp-close-title {
+  margin: 0;
+  font-family: var(--r2-prose-font);
+  font-size: clamp(28px, 2.6vw, 36px);
+  font-weight: var(--r2-weight-regular);
+  line-height: 1.15;
+  letter-spacing: -0.018em;
+  color: var(--r2-ink-1);
+}
+.r2-fp-close-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  margin-top: 22px;
+}
+.r2-fp-close .r2-button--lg {
+  height: 44px;
+  padding: 0 var(--r2-space-9);
+  font-size: 15px;
+}
+.r2-fp-note {
+  margin: 12px 0 0;
   font-size: var(--r2-fs-meta);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  letter-spacing: 0.01em;
   color: var(--r2-ink-3);
+}
+.r2-fp-note span {
+  margin: 0 0.35em;
+}
+.r2-fp-foot {
+  display: flex;
+  gap: var(--r2-space-8);
+  width: min(100%, var(--fp-doc-width));
+  margin: 0 auto;
+  padding: 0 var(--fp-gutter) 40px;
+  font-size: var(--r2-fs-meta);
+}
+.r2-fp-foot a {
+  padding: 6px 0;
+  color: var(--r2-ink-3);
+  transition: color var(--r2-fast) var(--r2-ease);
+}
+.r2-fp-foot a:hover {
+  color: var(--r2-ink-1);
+}
+.r2-fp-foot a:focus-visible {
+  outline: 2px solid var(--r2-focus);
+  outline-offset: 2px;
+  border-radius: var(--r2-radius-sm);
 }
 
 /* ── The visual: the product's surface as one object ────────────────────
@@ -591,7 +684,7 @@
   display: flex;
   flex-direction: column;
 }
-.r2-fp-nav .r2-row {
+.r2-fp-nav-shot .r2-row {
   cursor: default;
 }
 
@@ -807,11 +900,9 @@
   margin: 0;
 }
 
+
 /* ── Motion off ─────────────────────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
-  .r2-fp-hero-in > * {
-    animation: none;
-  }
   .r2-fp-aside-link,
   .r2-fp-aside-link svg {
     transition: none;
@@ -822,79 +913,64 @@
 }
 
 /* ── A laptop, or a desktop zoomed ──────────────────────────────────────
-   The splits hold; the sheet gives up its extra width, and the Scenes
-   table beside its prose gives up its Location column, so its Status
-   stays inside the frame. */
+   The navigator holds down to a tablet in landscape; the Inspector's sheet
+   gives up its extra width. */
 @media (max-width: 1180px) {
   .r2-fp-shell--inspector {
     --r2-panel-width: 352px;
   }
-  .r2-fp-section[data-layout="visual-left"] .r2-fp-scenes :is(th, td)[data-type="relationship"]:nth-child(3) {
+}
+
+/* ── A tablet in portrait, or a desktop zoomed further ──────────────────
+   The navigator leaves and the switcher takes the top of the content;
+   the Page keeps its column at the window's width. */
+@media (max-width: 1023px) {
+  .r2-fp {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .r2-fp-nav {
     display: none;
   }
-  .r2-fp-section[data-layout="visual-left"] .r2-fp-broad {
-    padding-left: 28px;
-    padding-right: 28px;
-  }
-  .r2-fp-section[data-layout="visual-right"] .r2-fp-prose {
-    grid-column: 1 / span 5;
+  .r2-fp-switch {
+    display: flex;
   }
 }
 
-/* ── A tablet ───────────────────────────────────────────────────────────
-   One column. Every band reads the same way — the heading, the surface,
-   the text — whatever its desktop composition: the prose's box opens
-   (display: contents) so its heading can stand before the picture and its
-   paragraphs after, and the surface takes the page's width. */
+/* ── One column ─────────────────────────────────────────────────────────
+   Below a tablet's width every passage reads in one column, in the order
+   it is written: a figure beside its prose stands over or under it. */
 @media (max-width: 940px) {
   .r2-fp {
-    --fp-band: clamp(32px, 5vh, 56px);
+    --fp-gutter: 40px;
   }
-  .r2-fp-grid {
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    row-gap: 0;
+  .r2-fp-section[data-layout] {
+    display: block;
   }
-  .r2-fp-section .r2-fp-prose,
-  .r2-fp-section[data-layout="editorial"] .r2-fp-prose {
-    display: contents;
+  .r2-fp-section[data-layout] .r2-fp-visual {
+    margin: 24px 0 28px;
   }
-  .r2-fp-section .r2-fp-prose > h2,
-  .r2-fp-section[data-layout="editorial"] .r2-fp-prose > h2 {
-    order: 0;
-    max-width: 24ch;
-    margin-bottom: 20px;
-    padding-right: 0;
+  .r2-fp-section[data-layout] > .r2-fp-visual:first-child {
+    margin-top: 0;
   }
-  .r2-fp-section[data-layout="bleed"] .r2-fp-visual {
+  .r2-fp-section[data-layout] > .r2-fp-visual:last-child {
+    margin-bottom: 0;
+  }
+  .r2-fp-section[data-layout] .r2-fp-prose {
+    padding-top: 0;
+  }
+  .r2-fp-section[data-layout="visual-right"] .r2-fp-visual,
+  .r2-fp-section[data-layout="visual-left"] .r2-fp-visual {
     margin-left: 0;
     margin-right: 0;
   }
-  .r2-fp-section .r2-fp-visual {
-    order: 1;
-    width: auto;
-    margin-bottom: 26px;
-  }
-  .r2-fp-section .r2-fp-prose > :not(h2),
-  .r2-fp-section[data-layout="editorial"] .r2-fp-prose > :not(h2) {
-    order: 2;
-    max-width: var(--fp-measure);
-  }
-  .r2-fp-section[data-layout] .r2-fp-prose {
-    --fp-p: 17px;
+  .r2-fp-visual[data-size="connections"] {
+    width: min(100%, 480px);
   }
   .r2-fp-shell--timeline {
     height: 560px;
   }
   .r2-fp-propsheet {
     padding: 32px 36px 36px;
-  }
-  .r2-fp-section .r2-fp-prose > .r2-fp-aside {
-    order: 3;
-  }
-  .r2-fp-visual[data-size="connections"] {
-    width: min(100%, 480px);
   }
   .r2-fp-shell--split,
   .r2-fp-shell--inspector {
@@ -914,50 +990,76 @@
   }
 }
 
-/* ── Phones ─────────────────────────────────────────────────────────────
-   The same one column, closer set, and each surface cut down to the one
-   idea it carries, as the landing's cards are: the sheet alone where the
-   writing would be too small beside it; a table of names and two
-   columns; three cards on the plane and the lines between them; the
-   navigator alone. Type a step smaller; the links a thumb's height. */
+/* ── A phone ────────────────────────────────────────────────────────────
+   The Page closer set, and each surface cut down to the one idea it
+   carries, as the landing's cards are: the sheet alone where the writing
+   would be too small beside it; a table of names and two columns; three
+   cards on the plane and the lines between them; the navigator alone. A
+   figure runs to a hand's width from the window's edge. Type a step
+   smaller; the links a thumb's height. */
 @media (max-width: 640px) {
   .r2-fp {
-    --fp-h1: clamp(34px, 9.6vw, 44px);
-    --fp-h2: clamp(24px, 6.8vw, 28px);
-    --fp-body: 16px;
-    --fp-band: 40px;
+    --fp-gutter: 24px;
+    --fp-h1: clamp(32px, 8.6vw, 40px);
+    --fp-h2: 19px;
+    --fp-p: 16px;
   }
-  .r2-fp-hero {
-    padding: 28px 0 8px;
+  .r2-fp-doc {
+    padding-top: 40px;
+    padding-bottom: 40px;
+  }
+  .r2-fp-head {
+    margin-bottom: 28px;
   }
   .r2-fp-title {
     max-width: none;
   }
   .r2-fp-lede {
-    margin-top: 16px;
+    margin-top: 12px;
     font-size: 17px;
   }
-  .r2-fp-prose h2 {
-    margin-bottom: 16px;
+  .r2-fp-section + .r2-fp-section,
+  .r2-fp-section + .r2-fp-principle,
+  .r2-fp-principle + .r2-fp-section {
+    margin-top: 28px;
   }
-  .r2-fp-section .r2-fp-visual {
-    margin-bottom: 22px;
+  .r2-fp-section .r2-fp-visual,
+  .r2-fp-section[data-layout] .r2-fp-visual,
+  .r2-fp-visual[data-width] {
+    margin: 20px calc(-1 * (var(--fp-gutter) - 16px)) 24px;
+  }
+  .r2-fp-section > .r2-fp-visual:first-child,
+  .r2-fp-section[data-layout] > .r2-fp-visual:first-child {
+    margin-top: 0;
+  }
+  .r2-fp-head + .r2-fp-section > .r2-fp-visual:first-child {
+    margin-bottom: 24px;
   }
   .r2-fp-aside {
-    margin-top: 20px;
+    margin-top: 18px;
   }
   .r2-fp-aside-link {
     padding: 8px 0;
   }
   .r2-fp-principle {
-    padding: 40px 0 8px;
+    margin: 32px 0;
   }
-  .r2-fp-quote p {
-    font-size: clamp(25px, 7.4vw, 30px);
+  .r2-fp-principle p {
+    font-size: clamp(23px, 6.6vw, 27px);
   }
-  .r2-fp main > .r2-fp-section:nth-last-child(2),
-  .r2-fp main > .r2-fp-principle:nth-last-child(2) {
-    padding-bottom: 48px;
+  .r2-fp-close {
+    margin-top: 44px;
+    padding-top: 28px;
+  }
+  .r2-fp-close .r2-button--lg {
+    height: 48px;
+  }
+  .r2-fp-foot {
+    gap: var(--r2-space-7);
+    padding-bottom: 32px;
+  }
+  .r2-fp-foot a {
+    padding: 10px 0;
   }
 
   /* Frames: the plane closer in, the material the same. */
@@ -1038,12 +1140,12 @@
   .r2-fp-shell--nav .r2-lp-shot-content {
     display: none;
   }
-  .r2-fp-nav {
+  .r2-fp-nav-shot {
     padding: 6px 6px 10px;
     border-right: 0;
     font-size: 14px;
   }
-  .r2-fp-nav .r2-row {
+  .r2-fp-nav-shot .r2-row {
     height: 32px;
   }
 
@@ -1163,6 +1265,9 @@
 
 /* ── The narrowest phones ──────────────────────────────────────────────── */
 @media (max-width: 380px) {
+  .r2-fp {
+    --fp-gutter: 20px;
+  }
   .r2-fp-visual-in {
     --lp-doc-gutter: 20px;
   }

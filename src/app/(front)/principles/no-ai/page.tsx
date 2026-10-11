@@ -1,19 +1,19 @@
 import type { Metadata } from "next";
-import { Aside, FeatureHero, FeaturePage, FeatureSection, Principle, Prose } from "@/components/front/feature/FeaturePage";
+import { Aside, FeatureHead, FeaturePage, FeatureSection, Principle, Prose } from "@/components/front/feature/FeaturePage";
 import { NO_AI_PATH, TRUST_PROMISES } from "@/components/front/FrontTrust";
 import "../../front.css";
 import "../../feature.css";
 
-// The authorship principle: the editorial page the landing page's No AI
-// writing card (FrontTrust) leads to. The same system as the feature pages
-// (components/front/feature), set as an essay: the boundary, why Sutura
-// draws it, a statement, what Sutura does instead, what the promise means
-// concretely, the closing line. No picture: there is no product surface
-// that shows an absence, and the page is strongest as type — the prose at
-// the full measure, the headings standing at the left of the paragraphs
-// they introduce, and two statements centred on their own. The copy keeps
-// to the product's own promise (CLAUDE.md §2): it is about the writer's
-// manuscript and creative work in Sutura, and claims nothing beyond that.
+// The authorship principle: the page the landing page's No AI writing card
+// (FrontTrust) leads to. The same shell as the feature pages
+// (components/front/feature), read as an essay written in a Page: the
+// boundary, why Sutura draws it, a statement, what Sutura does instead,
+// what the promise means concretely, the closing line. No picture: there
+// is no product surface that shows an absence, and the page is strongest
+// as type — the prose at the Page's full measure, and two statements set
+// on their own. The copy keeps to the product's own promise (CLAUDE.md
+// §2): it is about the writer's manuscript and creative work in Sutura,
+// and claims nothing beyond that.
 
 const PROMISE = TRUST_PROMISES.find((p) => p.id === "no-ai")!;
 
@@ -25,11 +25,11 @@ export const metadata: Metadata = {
 
 export default function NoAiPrinciplePage() {
   return (
-    <FeaturePage kind="principle">
-      <FeatureHero eyebrow="Authorship" title={PROMISE.title} lede={PROMISE.line} />
+    <FeaturePage current="no-ai">
+      <FeatureHead eyebrow="Authorship" title={PROMISE.title} lede={PROMISE.line} />
 
-      <FeatureSection layout="column" labelledBy="fp-ai-boundary">
-        <Prose lead>
+      <FeatureSection labelledBy="fp-ai-boundary">
+        <Prose>
           <h2 id="fp-ai-boundary">The boundary</h2>
           <p>
             The words in a novel should come from the person whose name is on it. That is the whole of the principle. Everything
@@ -43,7 +43,7 @@ export default function NoAiPrinciplePage() {
         </Prose>
       </FeatureSection>
 
-      <FeatureSection layout="editorial" labelledBy="fp-ai-why">
+      <FeatureSection labelledBy="fp-ai-why">
         <Prose>
           <h2 id="fp-ai-why">Why we draw it</h2>
           <p>
@@ -66,7 +66,7 @@ export default function NoAiPrinciplePage() {
 
       <Principle>The choosing is the work.</Principle>
 
-      <FeatureSection layout="editorial" labelledBy="fp-ai-instead">
+      <FeatureSection labelledBy="fp-ai-instead">
         <Prose>
           <h2 id="fp-ai-instead">What Sutura does instead</h2>
           <p>
@@ -84,7 +84,7 @@ export default function NoAiPrinciplePage() {
         </Prose>
       </FeatureSection>
 
-      <FeatureSection layout="editorial" labelledBy="fp-ai-means">
+      <FeatureSection labelledBy="fp-ai-means">
         <Prose>
           <h2 id="fp-ai-means">What &ldquo;no AI writing&rdquo; means, concretely</h2>
           <p>We want the promise to be specific rather than comfortable. Sutura will not:</p>
@@ -105,7 +105,7 @@ export default function NoAiPrinciplePage() {
 
       <Principle>The story is yours to write.</Principle>
 
-      <FeatureSection layout="column" labelledBy="fp-ai-close">
+      <FeatureSection labelledBy="fp-ai-close">
         <Prose>
           <h2 id="fp-ai-close" className="sr-only">
             In closing

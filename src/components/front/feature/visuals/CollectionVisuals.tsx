@@ -29,6 +29,8 @@ const CHARACTERS: Row[] = [
   { name: "Agnes Doyle", role: "Postmistress", affiliation: "The village", status: "Drafted", first: "1.2 The ferryman", year: 1972 },
   { name: "Peter Marsh", role: "The brother", affiliation: "The mainland", status: "Sketched", first: "3.2 The call", year: 1985 },
   { name: "Father Lyle", role: "Priest", affiliation: "The village", status: "Revised", first: "2.3 High Water", year: 1979 },
+  { name: "Nell Carrow", role: "Ferry clerk", affiliation: "The harbour", status: "Sketched", first: "1.2 The ferryman", year: 1996 },
+  { name: "Dr. Osei", role: "Island doctor", affiliation: "The village", status: "Drafted", first: "3.1 The reading", year: 2001 },
 ];
 
 type ViewKind = "table" | "board" | "timeline";
@@ -68,7 +70,7 @@ function CollectionHead({ active }: { active: ViewKind }) {
         <p className="r2-doc-eyebrow">Collection</p>
         <p className="r2-page-title r2-fp-page-title">Characters</p>
         <p className="r2-collection-context">
-          <span>8 entries</span>
+          <span>10 entries</span>
           <span>5 properties</span>
           <span>3 views</span>
         </p>
