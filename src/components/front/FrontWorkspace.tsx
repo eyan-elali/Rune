@@ -1,4 +1,4 @@
-import type { ComponentType } from "react";
+import type { ComponentType, CSSProperties } from "react";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { ICON_SM_BOLD } from "@/components/rune2/icons";
@@ -103,6 +103,16 @@ function CollectionsPreview() {
 // the plane's own paper, and the fine lines between them, one carrying a
 // label. Positions are percentages of the stage, each card centred on its
 // point; the lines are one SVG beneath, joining the cards' centres.
+//
+// A phone gets a second, smaller arrangement of the same plane (front.css:
+// Section 3, "Phones"): the three cards only — the chosen scene, the two
+// pages it leads to — and the two lines between them. A card carries both
+// positions as custom properties (--lp-x/y/w for the wide stage, --lp-mx/
+// my/mw for the narrow one) and the stylesheet reads the pair for the
+// width; a piece with no narrow position is the wide stage's alone. The
+// lines are two SVG layers, one per arrangement, and the stylesheet shows
+// one.
+type CanvasPoint = { x: number; y: number; w: number };
 const CANVAS_ITEMS = [
   {
     id: "scene",
@@ -114,9 +124,10 @@ const CANVAS_ITEMS = [
     x: 22,
     y: 58,
     w: 192,
+    narrow: { x: 46, y: 24, w: 134 },
   },
-  { id: "ada", kind: "card", eyebrow: "Page · Characters", title: "Ada Marsh", x: 58, y: 24, w: 150 },
-  { id: "house", kind: "card", eyebrow: "Page · Places", title: "The house", x: 58, y: 76, w: 140 },
+  { id: "ada", kind: "card", eyebrow: "Page · Characters", title: "Ada Marsh", x: 58, y: 24, w: 150, narrow: { x: 68, y: 58, w: 92 } },
+  { id: "house", kind: "card", eyebrow: "Page · Places", title: "The house", x: 58, y: 76, w: 140, narrow: { x: 36, y: 82, w: 92 } },
   { id: "note", kind: "note", text: "Why does she wait a whole day to open them?", x: 84, y: 48, w: 168 },
 ] as const;
 const CANVAS_LINES: ReadonlyArray<{ from: string; to: string; label?: string }> = [
@@ -124,6 +135,47 @@ const CANVAS_LINES: ReadonlyArray<{ from: string; to: string; label?: string }> 
   { from: "scene", to: "house" },
   { from: "ada", to: "note" },
 ];
+/** The narrow stage's lines: the chosen scene to each page. */
+const CANVAS_LINES_NARROW: ReadonlyArray<{ from: string; to: string }> = [
+  { from: "scene", to: "ada" },
+  { from: "scene", to: "house" },
+];
+
+function canvasPosition(wide: CanvasPoint, narrow?: CanvasPoint): CSSProperties {
+  return {
+    "--lp-x": `${wide.x}%`,
+    "--lp-y": `${wide.y}%`,
+    "--lp-w": `${wide.w}px`,
+    ...(narrow ? { "--lp-mx": `${narrow.x}%`, "--lp-my": `${narrow.y}%`, "--lp-mw": `${narrow.w}px` } : {}),
+  } as CSSProperties;
+}
+
+function CanvasLines({ layout, lines }: { layout: "wide" | "narrow"; lines: ReadonlyArray<{ from: string; to: string }> }) {
+  const at = (id: string) => CANVAS_ITEMS.find((n) => n.id === id)!;
+  const point = (n: (typeof CANVAS_ITEMS)[number]) => (layout === "narrow" && "narrow" in n ? n.narrow : n);
+  return (
+    <svg className="r2-lp-ws-canvas-lines" data-layout={layout} viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden>
+      {lines.map((l) => {
+        const a = at(l.from);
+        const b = at(l.to);
+        const pa = point(a);
+        const pb = point(b);
+        const selected = ("selected" in a && a.selected) || ("selected" in b && b.selected);
+        return (
+          <line
+            key={`${l.from}-${l.to}`}
+            x1={pa.x}
+            y1={pa.y}
+            x2={pb.x}
+            y2={pb.y}
+            data-selected={selected || undefined}
+            vectorEffect="non-scaling-stroke"
+          />
+        );
+      })}
+    </svg>
+  );
+}
 
 function CanvasPreview() {
   const at = (id: string) => CANVAS_ITEMS.find((n) => n.id === id)!;
@@ -133,24 +185,8 @@ function CanvasPreview() {
         <span className="r2-lp-ws-canvas-section-title">Part One</span>
         <span className="r2-lp-ws-canvas-section-count">3</span>
       </div>
-      <svg className="r2-lp-ws-canvas-lines" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden>
-        {CANVAS_LINES.map((l) => {
-          const a = at(l.from);
-          const b = at(l.to);
-          const selected = ("selected" in a && a.selected) || ("selected" in b && b.selected);
-          return (
-            <line
-              key={`${l.from}-${l.to}`}
-              x1={a.x}
-              y1={a.y}
-              x2={b.x}
-              y2={b.y}
-              data-selected={selected || undefined}
-              vectorEffect="non-scaling-stroke"
-            />
-          );
-        })}
-      </svg>
+      <CanvasLines layout="wide" lines={CANVAS_LINES} />
+      <CanvasLines layout="narrow" lines={CANVAS_LINES_NARROW} />
       {CANVAS_LINES.filter((l) => l.label).map((l) => {
         const a = at(l.from);
         const b = at(l.to);
@@ -162,7 +198,7 @@ function CanvasPreview() {
       })}
       {CANVAS_ITEMS.map((n) =>
         n.kind === "note" ? (
-          <span key={n.id} className="r2-lp-ws-canvas-note" style={{ left: `${n.x}%`, top: `${n.y}%`, width: n.w }}>
+          <span key={n.id} className="r2-lp-ws-canvas-note" style={canvasPosition(n)}>
             {n.text}
           </span>
         ) : (
@@ -170,7 +206,7 @@ function CanvasPreview() {
             key={n.id}
             className="r2-lp-ws-canvas-card"
             data-selected={"selected" in n && n.selected ? "" : undefined}
-            style={{ left: `${n.x}%`, top: `${n.y}%`, width: n.w }}
+            style={canvasPosition(n, n.narrow)}
           >
             <span className="r2-lp-ws-canvas-eyebrow">{n.eyebrow}</span>
             <span className="r2-lp-ws-canvas-title">{n.title}</span>
@@ -184,12 +220,14 @@ function CanvasPreview() {
 
 // Scene properties: the inspector's property list for one scene — a label
 // and its value, row by row, with the few that are a choice set as tags.
-const SCENE_PROPERTIES: ReadonlyArray<{ label: string; value: string; tag?: boolean; dot?: string }> = [
-  { label: "Point of view", value: "Ada", dot: "sage" },
-  { label: "Status", value: "Draft", tag: true },
-  { label: "Location", value: "The house", dot: "terracotta" },
-  { label: "Timeline", value: "March, year two" },
-  { label: "Words", value: "1,412" },
+// A phone shows the first three (front.css: Section 3, "Phones"); each row
+// is named (data-prop) so the stylesheet can leave the rest out.
+const SCENE_PROPERTIES: ReadonlyArray<{ id: string; label: string; value: string; tag?: boolean; dot?: string }> = [
+  { id: "pov", label: "Point of view", value: "Ada", dot: "sage" },
+  { id: "status", label: "Status", value: "Draft", tag: true },
+  { id: "location", label: "Location", value: "The house", dot: "terracotta" },
+  { id: "timeline", label: "Timeline", value: "March, year two" },
+  { id: "words", label: "Words", value: "1,412" },
 ];
 
 function ScenePropertiesPreview() {
@@ -201,7 +239,7 @@ function ScenePropertiesPreview() {
       </div>
       <dl className="r2-lp-ws-props-list">
         {SCENE_PROPERTIES.map((p) => (
-          <div key={p.label} className="r2-lp-ws-props-row">
+          <div key={p.id} className="r2-lp-ws-props-row" data-prop={p.id}>
             <dt>{p.label}</dt>
             <dd data-numeric={p.label === "Words" || undefined}>
               {p.tag ? (
