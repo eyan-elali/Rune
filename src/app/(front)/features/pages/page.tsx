@@ -1,0 +1,105 @@
+import type { Metadata } from "next";
+import { Aside, FeatureHero, FeaturePage, FeatureSection, Principle, Prose, Visual } from "@/components/front/feature/FeaturePage";
+import { PageDocument, WorkspaceNavigator } from "@/components/front/feature/visuals/PageVisuals";
+import "../../front.css";
+import "../../feature.css";
+
+// Pages: the closer look the landing page's first workspace card leads to.
+// The one idea — a Page is a flexible supporting document around the
+// manuscript, never part of it — in three movements: why Pages exist (the
+// boundary with Scenes), when a Page is the right amount of structure, and
+// how Pages stay inside the project. Two drawings: an open Page, and the
+// navigator with the Workspace open beneath the manuscript.
+
+export const metadata: Metadata = {
+  title: "Pages",
+  description:
+    "Pages are flexible supporting documents around your manuscript: research, character notes, worldbuilding, ideas. Sutura keeps them in the project and never in the prose.",
+  alternates: { canonical: "/features/pages" },
+};
+
+export default function PagesFeature() {
+  return (
+    <FeaturePage kind="feature">
+      <FeatureHero
+        eyebrow="Pages"
+        title="A place for everything that belongs around the book."
+        lede="Research, character notes, worldbuilding, the ending you are not sure of yet. A Page is a plain document that lives in the project without being part of the manuscript."
+      />
+
+      <FeatureSection layout="visual-right" labelledBy="fp-pages-why">
+        <Prose id="fp-pages-why-prose" lead>
+          <h2 id="fp-pages-why">Why Pages exist</h2>
+          <p>
+            A novel generates more writing than the novel. Notes on a character&rsquo;s past that will never appear on the page.
+            A description of a house that three scenes draw on. Questions you are still answering. Most of this thinking belongs
+            near the manuscript, and none of it belongs in it.
+          </p>
+          <p>
+            Sutura keeps that boundary firm. Prose lives in Scenes, placed in Chapters or kept aside as Unplaced Scenes, and the
+            ordered manuscript is made only of those. Everything else that helps you write it has somewhere to go: a Page.
+          </p>
+          <p>
+            A Page is a document in the plain sense. Headings, lists, paragraphs, a line you want to keep. It is set in the
+            interface&rsquo;s type rather than the manuscript&rsquo;s, so you can always tell at a glance which kind of writing you
+            are looking at.
+          </p>
+        </Prose>
+        <Visual
+          size="page"
+          label="A Page open in Sutura, titled Ada Marsh, under the Workspace folder Characters. It holds two paragraphs of character notes, a heading What she knows, and when, with three bullet points, a heading Voice with a paragraph, and a quotation about keeping the house physical."
+        >
+          <PageDocument />
+        </Visual>
+      </FeatureSection>
+
+      <FeatureSection layout="column" labelledBy="fp-pages-when">
+        <Prose>
+          <h2 id="fp-pages-when">Use a Page when structure would be overkill</h2>
+          <p>
+            Sutura does not decide what a Page is for. There is no character template, no location form, no fields waiting to be
+            filled. A Page called <em>Ada Marsh</em> and a Page called <em>Ending ideas</em> are the same kind of object; only you
+            know that one is a person and the other a worry.
+          </p>
+          <p>
+            That is deliberate. Early in a book, most of what you know is provisional, and a system that asks you to classify a
+            thought before you have understood it gets in the way of having it. Write the note. Give it a title. Move on.
+          </p>
+          <p>
+            If the same kind of information starts to repeat, a character after a character, a place after a place, that is the
+            moment structure begins to earn its place.
+          </p>
+          <Aside href="/features/collections" cue="Collections">
+            If this information repeats, a Collection may fit better.
+          </Aside>
+        </Prose>
+      </FeatureSection>
+
+      <Principle>Not every thought needs a schema.</Principle>
+
+      <FeatureSection layout="visual-left" labelledBy="fp-pages-project">
+        <Prose>
+          <h2 id="fp-pages-project">Pages stay part of the project</h2>
+          <p>
+            Pages live in the Workspace, beneath the manuscript in the same navigator, so the thinking stays beside the book rather
+            than in another app, another folder, or a document you will not find again. Arrange them however you think: loose, in
+            Folders, or nested under one another. The arrangement is navigation only; moving a Page never changes what it is.
+          </p>
+          <p>
+            A Page can refer to a Scene, an Entry or another Page, and the thing referred to knows it. The note about the house is
+            one step from the scene set in the house, in either direction.
+          </p>
+          <Aside href="/features/inspector" cue="The Inspector">
+            Those references appear beside the writing.
+          </Aside>
+        </Prose>
+        <Visual
+          size="navigator"
+          label="Sutura's navigator for the project The Lantern Road. Manuscript and Unplaced Scenes are collapsed, with their word counts. Workspace is open: a folder Characters holding the Pages Ada Marsh, selected, Tomas Reyes and Mrs. Hale; a folder Places; the Pages Why the letters wait and Ending ideas; a Collection, Threads; and a Canvas, The crossing."
+        >
+          <WorkspaceNavigator />
+        </Visual>
+      </FeatureSection>
+    </FeaturePage>
+  );
+}

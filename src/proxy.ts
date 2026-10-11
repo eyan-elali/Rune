@@ -17,18 +17,16 @@ const PUBLIC_ROUTES = [
   "/auth/callback",
   "/terms",
   "/privacy",
-  // The landing page's workspace cards (components/front/FrontWorkspace)
-  // lead here: placeholder pages for the closer looks, public like the
-  // front door they are part of.
-  "/workspace/pages",
-  "/workspace/collections",
-  "/workspace/canvas",
-  "/workspace/scene-properties",
-  // The landing page's Inspector section (components/front/FrontDetails)
-  // leads here: the same kind of placeholder, public for the same reason.
+  // The feature pages the landing page leads to (components/front/FrontWorkspace,
+  // FrontDetails) — editorial closer looks, public like the front door they
+  // are part of (app/(front)/features).
+  "/features/pages",
+  "/features/collections",
+  "/features/scene-properties",
+  "/features/canvas",
   "/features/inspector",
-  // The landing page's No AI writing card (components/front/FrontTrust)
-  // leads here: the editorial page's placeholder, public for the same reason.
+  // The authorship principle the landing page's No AI writing card
+  // (components/front/FrontTrust) leads to, public for the same reason.
   "/principles/no-ai",
   // Entry point for the landing page's "Continue with Scribe" CTA — must be
   // reachable signed-out (it records purchase intent and sends the visitor

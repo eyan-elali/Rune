@@ -29,7 +29,7 @@ import { advanceHeaderScrollState, initialHeaderScrollState, type HeaderScrollSt
 // One action, one wording — "Start writing free" — on the public page. A
 // signed-in writer is sent to their Projects by the same action.
 
-const LINKS = [{ href: "#features", label: "Features" }] as const;
+const LINKS = [{ href: "/#features", label: "Features" }] as const;
 
 export function FrontHeader({ member }: { member: boolean }) {
   const ref = useRef<HTMLElement>(null);

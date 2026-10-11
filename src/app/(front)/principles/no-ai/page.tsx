@@ -1,41 +1,128 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { PublicFrame } from "@/components/front/PublicFrame";
+import { Aside, FeatureHero, FeaturePage, FeatureSection, Principle, Prose, Visual } from "@/components/front/feature/FeaturePage";
+import { ManuscriptSurface } from "@/components/front/feature/visuals/ManuscriptSurface";
 import { NO_AI_PATH, TRUST_PROMISES } from "@/components/front/FrontTrust";
 import "../../front.css";
+import "../../feature.css";
 
-// A placeholder for the editorial page the landing page's No AI writing
-// card (FrontTrust) leads to: /principles/no-ai. One page in the public
-// frame — the promise, a note that the piece is on its way, and the way
-// into Sutura — until the article replaces it. The route exists so the
-// card leads somewhere true, and so the article has its address. It is one
-// page, not an article system.
+// The authorship principle: the editorial page the landing page's No AI
+// writing card (FrontTrust) leads to. The same system as the feature pages
+// (components/front/feature), set more as an essay: the boundary, why
+// Sutura draws it, what Sutura does instead, what the promise means
+// concretely, and the closing line. One quiet picture — the writing
+// surface with nothing on it but the writing. No feature grid, no
+// illustration. The copy keeps to the product's own promise (CLAUDE.md
+// §2): it is about the writer's manuscript and creative work in Sutura,
+// and claims nothing beyond that.
 
 const PROMISE = TRUST_PROMISES.find((p) => p.id === "no-ai")!;
 
 export const metadata: Metadata = {
-  title: PROMISE.label,
-  description: PROMISE.line,
+  title: PROMISE.title,
+  description: `${PROMISE.line} Why Sutura draws that line, and what it means in practice.`,
   alternates: { canonical: NO_AI_PATH },
 };
 
 export default function NoAiPrinciplePage() {
   return (
-    <PublicFrame variant="front" theme="light">
-      <div className="r2-lp-ws-stub">
-        <p className="r2-lp-eyebrow">Our principles</p>
-        <h1 className="r2-lp-h2">{PROMISE.title}</h1>
-        <p className="r2-lp-lede">{PROMISE.line}</p>
-        <p className="r2-lp-ws-stub-note">Our approach to AI, written out in full, is on its way.</p>
-        <div className="r2-lp-ws-stub-actions">
-          <Link href="/signup" className="r2-button r2-button--primary r2-button--lg">
-            Start writing free
-          </Link>
-          <Link href="/#trust" className="r2-lp-ws-stub-back">
-            Back to the front door
-          </Link>
-        </div>
-      </div>
-    </PublicFrame>
+    <FeaturePage kind="principle">
+      <FeatureHero eyebrow="Authorship" title={PROMISE.title} lede={PROMISE.line} />
+
+      <FeatureSection layout="column" labelledBy="fp-ai-boundary">
+        <Prose lead>
+          <h2 id="fp-ai-boundary">The boundary</h2>
+          <p>
+            The words in a novel should come from the person whose name is on it. That is the whole of the principle. Everything
+            else on this page explains why we hold it and what it means in practice.
+          </p>
+          <p>
+            Sutura is a place to write a book. It is not a tool that writes one with you, for you, or around you. There is no
+            button in the editor that produces prose, no suggestion that appears as you type, no option to have a paragraph
+            tightened or a scene finished. There will not be one.
+          </p>
+        </Prose>
+      </FeatureSection>
+
+      <FeatureSection layout="column" labelledBy="fp-ai-why">
+        <Prose>
+          <h2 id="fp-ai-why">Why we draw it</h2>
+          <p>
+            Writing a novel is not the production of text. It is a long sequence of choices, most of them small and many of them
+            uncertain: this word rather than that one, a sentence cut, a rhythm kept, a scene that does not work left in place for
+            a month because you are not yet sure why. The choosing is the work, and it is also how a writer comes to know what the
+            book is.
+          </p>
+          <p>
+            Software that offers to make those choices for you does not save the work; it removes it, and with it the slow
+            understanding that only the work produces. A sentence you did not write tells you nothing about your book. A voice that
+            is not yours, however fluent, is not a voice you can develop.
+          </p>
+          <p>
+            We also think readers deserve to know that a novel was written by its author. Sutura is built so that a book made in
+            it carries that assurance by default.
+          </p>
+        </Prose>
+      </FeatureSection>
+
+      <FeatureSection layout="wide" labelledBy="fp-ai-instead">
+        <Visual
+          size="surface"
+          label="The writing surface in Sutura with a scene open: the chapter's name, The Letters; the scene's title, The Thursday Boat; and three paragraphs of prose. Nothing else is on the page."
+        >
+          <ManuscriptSurface />
+        </Visual>
+        <Prose>
+          <h2 id="fp-ai-instead">What Sutura does instead</h2>
+          <p>
+            The environment around the writing is where software can genuinely help, and it is where all of Sutura&rsquo;s effort
+            goes.
+          </p>
+          <ul>
+            <li>An ordered manuscript of Groups, Chapters and Scenes, so you always know where the book is.</li>
+            <li>A Workspace of Pages, Collections and Canvases for the thinking around it.</li>
+            <li>Properties and an Inspector that keep a scene&rsquo;s context beside the writing and out of the text.</li>
+            <li>Reliable saving, offline resilience and Scene History, so nothing you write is lost.</li>
+            <li>Export to the formats you need, and a project backup you can take anywhere.</li>
+          </ul>
+          <p>None of this touches your sentences. Each makes it easier to write the next one.</p>
+        </Prose>
+      </FeatureSection>
+
+      <FeatureSection layout="column" labelledBy="fp-ai-means">
+        <Prose>
+          <h2 id="fp-ai-means">What &ldquo;no AI writing&rdquo; means, concretely</h2>
+          <p>We want the promise to be specific rather than comfortable. Sutura will not:</p>
+          <ul>
+            <li>generate story prose, at any length, from any prompt;</li>
+            <li>rewrite, tighten, expand or &ldquo;improve&rdquo; a passage you wrote;</li>
+            <li>complete a scene, a paragraph or a sentence you left unfinished;</li>
+            <li>imitate your voice;</li>
+            <li>propose replacement text as though it were yours.</li>
+          </ul>
+          <p>
+            The promise concerns your manuscript and your creative work in Sutura: your prose, your notes and your revision notes
+            are not sent to an AI service to be written or rewritten. It is a rule of the product, not a setting. The editor has no
+            path by which text arrives that you did not type or paste yourself.
+          </p>
+        </Prose>
+      </FeatureSection>
+
+      <Principle>The story is yours to write.</Principle>
+
+      <FeatureSection layout="column" labelledBy="fp-ai-close">
+        <Prose>
+          <h2 id="fp-ai-close" className="sr-only">
+            In closing
+          </h2>
+          <p>
+            Sutura&rsquo;s job is to make the writing possible, orderly and safe, and then to get out of the way. Software can
+            support the work without doing the work for you. The book remains the thing only you can make.
+          </p>
+          <Aside href="/#features" cue="See how Sutura works">
+            The product, from the manuscript out.
+          </Aside>
+        </Prose>
+      </FeatureSection>
+    </FeaturePage>
   );
 }

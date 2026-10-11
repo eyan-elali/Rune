@@ -1,0 +1,1033 @@
+/* ══ The feature pages ════════════════════════════════════════════════════
+   The closer looks the landing page leads to (app/(front)/features,
+   /principles/no-ai; components/front/feature). One system over front.css:
+   the same tokens, the same header, the same close, the same reveal, and
+   the same material language for the product's surfaces. What is new is
+   the editorial page: a left-set hero, bands of prose on a twelve-column
+   grid with the product's surfaces set into the writing — beside it, under
+   it, across it — a principle that breaks the rhythm, and nothing else.
+
+   Each page composes the bands in its own order (FeatureSection's layout):
+   the system keeps six pages one site; the composition keeps them six
+   pages. On a phone every band reads heading, picture, text, in one column.
+
+   The drawings are the product's own classes (rune2.css) laid out by the
+   rules under "The drawings" below; nothing in them is a control. */
+
+.r2-fp {
+  --fp-measure: 37rem; /* a reader's column of prose */
+  --fp-h1: clamp(40px, 4.8vw, 66px);
+  --fp-h2: clamp(26px, 2.3vw, 33px);
+  --fp-body: 17px;
+  --fp-gap-x: clamp(28px, 3.4vw, 56px);
+  --fp-band: clamp(36px, 5.5vh, 72px); /* the room between bands */
+}
+.r2-fp-in {
+  width: min(100%, var(--lp-max));
+  margin: 0 auto;
+  padding: 0 var(--lp-gutter);
+}
+
+/* ── Hero ───────────────────────────────────────────────────────────────
+   Set left on the page's container, under the header: the eyebrow, the
+   statement in the serif — large, but a page's heading, not the front
+   door's poster — and one line of support. It settles once on first
+   paint, as the landing's hero does. */
+.r2-fp-hero {
+  padding: clamp(36px, 7vh, 84px) 0 clamp(16px, 3vh, 36px);
+}
+.r2-fp-hero-in {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+.r2-fp-eyebrow {
+  margin: 0 0 var(--lp-eyebrow-gap);
+  font-size: var(--r2-fs-label);
+  font-weight: var(--r2-weight-medium);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--r2-ink-3);
+}
+.r2-fp-title {
+  max-width: 17ch;
+  font-family: var(--r2-prose-font);
+  font-size: var(--fp-h1);
+  font-weight: var(--r2-weight-regular);
+  line-height: 1.04;
+  letter-spacing: -0.026em;
+  text-wrap: balance;
+  color: var(--r2-ink-1);
+}
+.r2-fp-lede {
+  max-width: 38rem;
+  margin: clamp(18px, 2.4vh, 26px) 0 0;
+  font-size: 19px;
+  line-height: 1.5;
+  text-wrap: pretty;
+  color: var(--r2-ink-2);
+}
+.r2-fp-hero-in > * {
+  animation: r2-lp-settle 640ms var(--r2-ease) both;
+}
+.r2-fp-lede {
+  animation-delay: 120ms;
+}
+
+/* ── Bands ──────────────────────────────────────────────────────────────
+   A band is a section of the page on the twelve-column grid. The last
+   band before the close is given the room the close wants above it. */
+.r2-fp-section {
+  padding: var(--fp-band) 0 0;
+}
+.r2-fp main > .r2-fp-section:nth-last-child(2),
+.r2-fp main > .r2-fp-principle:nth-last-child(2) {
+  padding-bottom: clamp(56px, 8vh, 104px);
+}
+.r2-fp-grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  column-gap: var(--fp-gap-x);
+  row-gap: clamp(28px, 4vh, 44px);
+  align-items: start;
+}
+
+/* ── Compositions ───────────────────────────────────────────────────────
+   Where the prose and the visual stand (FeaturePage: SectionLayout). The
+   children come in reading order; the grid places them.
+     column        the prose alone, on the reader's column at the left
+     visual-right  prose in five columns, the surface in seven
+     visual-left   the surface in seven, prose in five; the prose comes
+                   first in the markup, so a phone keeps reading order
+     wide          the surface across the page, the prose beneath it
+     wide-aside    the surface across the page, the prose beneath its
+                   right half — under the sheet it describes */
+.r2-fp-section[data-layout="column"] .r2-fp-prose {
+  grid-column: 1 / span 7;
+}
+.r2-fp-section[data-layout="visual-right"] .r2-fp-prose {
+  grid-column: 1 / span 5;
+}
+.r2-fp-section[data-layout="visual-right"] .r2-fp-visual {
+  grid-column: 6 / -1;
+}
+.r2-fp-section[data-layout="visual-left"] .r2-fp-visual {
+  grid-column: 1 / span 7;
+  grid-row: 1;
+}
+.r2-fp-section[data-layout="visual-left"] .r2-fp-prose {
+  grid-column: 8 / -1;
+  grid-row: 1;
+}
+.r2-fp-section[data-layout="wide"] .r2-fp-visual,
+.r2-fp-section[data-layout="wide-aside"] .r2-fp-visual {
+  grid-column: 1 / -1;
+}
+.r2-fp-section[data-layout="wide"] .r2-fp-prose {
+  grid-column: 1 / span 7;
+}
+.r2-fp-section[data-layout="wide-aside"] .r2-fp-prose {
+  grid-column: 6 / -1;
+}
+/* A split's prose stands a little down from the surface's top edge, so the
+   heading's cap height meets the surface's first line of chrome rather
+   than its rim. */
+.r2-fp-section[data-layout="visual-right"] .r2-fp-prose,
+.r2-fp-section[data-layout="visual-left"] .r2-fp-prose {
+  padding-top: 6px;
+}
+
+/* ── Prose ──────────────────────────────────────────────────────────────
+   A reader's column: the heading in the serif, the paragraphs in the UI
+   sans at a reading size, in the second ink; a band's lead paragraph in
+   the first. Lists are prose with a mark, not a feature grid. */
+.r2-fp-prose {
+  max-width: var(--fp-measure);
+  min-width: 0;
+}
+.r2-fp-prose h2 {
+  margin: 0 0 18px;
+  font-family: var(--r2-prose-font);
+  font-size: var(--fp-h2);
+  font-weight: var(--r2-weight-regular);
+  line-height: 1.15;
+  letter-spacing: -0.018em;
+  text-wrap: balance;
+  color: var(--r2-ink-1);
+}
+.r2-fp-prose p,
+.r2-fp-prose li {
+  font-size: var(--fp-body);
+  line-height: 1.6;
+  text-wrap: pretty;
+  color: var(--r2-ink-2);
+}
+.r2-fp-prose p {
+  margin: 0 0 1em;
+}
+.r2-fp-prose p:last-child {
+  margin-bottom: 0;
+}
+.r2-fp-prose[data-lead] > p:first-of-type {
+  color: var(--r2-ink-1);
+}
+.r2-fp-prose em {
+  font-style: italic;
+}
+.r2-fp-prose ul {
+  margin: 0 0 1em;
+  padding-left: 1.25em;
+  list-style: disc;
+}
+.r2-fp-prose li {
+  margin: 0 0 0.45em;
+  padding-left: 0.2em;
+}
+.r2-fp-prose li::marker {
+  color: var(--r2-ink-3);
+}
+
+/* The cross-link: one sentence at the foot of a band, over a hairline, and
+   the way to the page it names — the landing's quiet link voice, with the
+   arrow that moves on hover. Not a button, not a card. */
+.r2-fp-aside {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 14px;
+  margin: 26px 0 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--r2-border);
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--r2-ink-3);
+}
+.r2-fp-aside-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0;
+  color: var(--r2-ink-2);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: color var(--r2-medium) var(--r2-ease);
+}
+.r2-fp-aside-link svg {
+  transition: transform var(--r2-medium) var(--r2-ease);
+}
+.r2-fp-aside-link:hover {
+  color: var(--r2-ink-1);
+}
+.r2-fp-aside-link:hover svg {
+  transform: translateX(3px);
+}
+.r2-fp-aside-link:focus-visible {
+  outline: 2px solid var(--r2-focus);
+  outline-offset: 4px;
+  border-radius: var(--r2-radius-sm);
+}
+
+/* ── The principle ──────────────────────────────────────────────────────
+   One line in the serif, italic, centred, with a short rule above it: the
+   page's rhythm broken once by a statement, as the landing's hero is one
+   statement. Nothing beside it. */
+.r2-fp-principle {
+  padding: clamp(44px, 8vh, 96px) 0 clamp(8px, 2vh, 24px);
+}
+.r2-fp-quote {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 30ch;
+  margin: 0 auto;
+  text-align: center;
+}
+.r2-fp-quote::before {
+  content: "";
+  width: 36px;
+  height: 1px;
+  margin-bottom: clamp(22px, 3vh, 32px);
+  background: var(--r2-ink-3);
+}
+.r2-fp-quote p {
+  margin: 0;
+  font-family: var(--r2-prose-font);
+  font-size: clamp(28px, 3.1vw, 42px);
+  font-style: italic;
+  font-weight: var(--r2-weight-regular);
+  line-height: 1.18;
+  letter-spacing: -0.016em;
+  text-wrap: balance;
+  color: var(--r2-ink-1);
+}
+.r2-fp-quote footer {
+  margin-top: 14px;
+  font-size: var(--r2-fs-meta);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--r2-ink-3);
+}
+
+/* ── The visual: the product's surface as one object ────────────────────
+   A figure that is a picture: named for assistive technology on the
+   figure itself, the drawing inside it hidden from it. Three frames:
+     material  the landing's object (.r2-lp-shot): the shell's own
+               surface on the page, a fine edge, a soft fall of shadow,
+               cut clean at its foot
+     plane     the landing's Section 4: a rounded slab of Sutura blue is
+               the window; the shell is set inside it and runs off its
+               left edge, so the slab's corner cuts it — a crop of a
+               larger room, not a card
+     none      the drawing stands on the page
+   Every drawing is inert: no pointer, no selection. */
+.r2-fp-visual {
+  position: relative;
+  min-width: 0;
+  margin: 0;
+}
+.r2-fp-visual-in {
+  position: relative;
+  /* The real shell's measures (rune2.css: .r2-shell), as the landing sets them. */
+  --r2-bar: 44px;
+  --r2-context-bar: 38px;
+  --r2-nav-full: 252px;
+  --r2-tab-width: 272px;
+  --r2-gutter: var(--r2-space-7);
+  --r2-panel-width: 352px;
+  --r2-status-zone: 40px;
+  --lp-doc-gutter: 44px;
+  --lp-doc-top: 52px;
+  --fp-over: 0px; /* how far a shell runs past a plane's left edge */
+  pointer-events: none;
+  user-select: none;
+  font-size: var(--r2-fs-ui);
+  line-height: var(--r2-lh-ui);
+  color: var(--r2-ink-2);
+}
+.r2-fp-visual[data-frame="material"] .r2-fp-visual-in {
+  overflow: hidden;
+  border-radius: var(--r2-radius-material);
+  background: var(--r2-bg);
+  box-shadow: inset 0 1px 0 var(--r2-material-highlight), 0 0 0 1px var(--r2-material-border), var(--r2-shadow-material),
+    0 32px 72px -40px rgba(var(--r2-palette-shadow) / 0.2);
+}
+.r2-fp-visual[data-frame="plane"] .r2-fp-visual-in {
+  --lp-dt-blue: color-mix(in srgb, var(--r2-accent) 92%, var(--r2-page-bg));
+  --fp-over: 48px;
+  --fp-inset-r: clamp(32px, 4.2vw, 60px);
+  --fp-inset-y: clamp(26px, 2.8vw, 40px);
+  overflow: hidden;
+  padding: var(--fp-inset-y) var(--fp-inset-r) 0 0;
+  border-radius: 18px;
+  background: var(--lp-dt-blue);
+}
+.r2-fp-visual[data-frame="plane"] .r2-fp-shell {
+  margin-left: calc(-1 * var(--fp-over));
+  border-radius: var(--r2-radius-material) var(--r2-radius-material) 0 0;
+  box-shadow: inset 0 1px 0 var(--r2-material-highlight), 0 0 0 1px rgba(var(--r2-palette-shadow) / 0.14),
+    0 20px 48px -24px rgba(var(--r2-palette-shadow) / 0.35);
+}
+/* What the slab cuts at the left is made up on the chrome and the writing,
+   so the first letters stand inside the window. */
+.r2-fp-visual[data-frame="plane"] .r2-fp-shell > .r2-tabs {
+  padding-left: calc(var(--fp-over) + var(--r2-space-5));
+}
+.r2-fp-visual[data-frame="plane"] .r2-fp-shell > .r2-contextbar {
+  padding-left: calc(var(--fp-over) + var(--r2-gutter));
+}
+.r2-fp-visual[data-frame="plane"] .r2-lp-shot-doc {
+  padding-left: calc(var(--fp-over) + var(--lp-doc-gutter));
+}
+
+/* ── The drawings ───────────────────────────────────────────────────────
+   The shell, as the pages crop it (visuals/shell.tsx): the tab band and
+   the context bar are rune2.css's own, drawn by the same classes; what
+   follows lays out the columns beneath them. */
+.r2-fp-shell {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: var(--r2-bg);
+}
+.r2-fp-shell .r2-tab-context {
+  max-width: none;
+}
+.r2-fp-shell .r2-tab-main,
+.r2-fp-shell .r2-contextbar span,
+.r2-fp-visual .r2-icon-button,
+.r2-fp-visual .r2-prop-link,
+.r2-fp-visual .r2-prop-button,
+.r2-fp-visual .r2-prop-input,
+.r2-fp-visual .r2-link,
+.r2-fp-visual .r2-version,
+.r2-fp-visual .r2-view-tab,
+.r2-fp-visual .r2-card,
+.r2-fp-visual .r2-canvas-card,
+.r2-fp-visual .r2-canvas-section-head,
+.r2-fp-visual .r2-insp-place-link,
+.r2-fp-visual .r2-insp-aside-link,
+.r2-fp-visual .r2-nav-project,
+.r2-fp-visual .r2-page-title,
+.r2-fp-visual .r2-entry-collection,
+.r2-fp-visual .r2-props-toggle,
+.r2-fp-visual .r2-props-edit {
+  cursor: default;
+}
+.r2-fp-visual .r2-insp-aside-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--r2-space-2);
+}
+.r2-fp-visual .r2-prop-button {
+  display: inline-block;
+  width: auto;
+}
+/* A text value at rest: the field's row, no field. */
+.r2-fp-prop-plain {
+  display: block;
+  width: auto;
+  margin: 0;
+  padding-left: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The split: the writing column and the sheet beside it (rune2.css:
+   .r2-body). The sheet is open and as tall as what it holds; the column
+   stretches to it and is cut where the frame ends. */
+.r2-fp-shell--split {
+  height: 540px;
+}
+.r2-fp-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: stretch;
+  flex: 1;
+  min-height: 0;
+}
+.r2-fp-visual .r2-lp-shot-content {
+  overflow: hidden;
+}
+.r2-fp-visual .r2-panel {
+  margin: 0 0 var(--r2-status-zone);
+  border-radius: var(--r2-radius-lg) 0 0 var(--r2-radius-lg);
+  transition: none;
+}
+.r2-fp-visual .r2-panel-inner {
+  height: auto;
+  transition: none;
+}
+.r2-fp-visual .r2-panel-body {
+  flex: none;
+  overflow: visible;
+  padding-right: var(--r2-space-5);
+}
+.r2-fp-visual .r2-inspector {
+  padding-top: var(--r2-space-5);
+}
+.r2-fp-visual .r2-insp-section {
+  margin-top: 24px;
+  padding-top: 16px;
+}
+.r2-fp-visual .r2-insp-section-head {
+  margin-bottom: 8px;
+}
+.r2-fp-visual .r2-scene-props .r2-prop {
+  grid-template-columns: minmax(96px, 116px) minmax(0, 1fr);
+  min-height: 32px;
+}
+.r2-fp-visual .r2-lp-shot-status {
+  right: var(--r2-space-7);
+  bottom: 11px;
+}
+/* The prose ends above the status zone, as the product's column does. */
+.r2-fp-visual .r2-lp-shot-content .r2-lp-shot-doc {
+  padding-bottom: 56px;
+}
+.r2-fp-visual .r2-doc-head {
+  margin-bottom: 32px;
+}
+/* The Inspector page's main picture: the sheet a little wider, as a writer
+   may drag it, and the frame a little taller for its History. */
+.r2-fp-shell--inspector {
+  --r2-panel-width: 384px;
+  height: 660px;
+}
+
+/* The sheet alone, closer in (InspectorConnections): on the plane, flush
+   with its right and foot, the blue above it and to its left. */
+.r2-fp-visual[data-size="connections"] .r2-fp-visual-in {
+  --fp-over: 0px;
+  padding: var(--fp-inset-y) 0 0 clamp(36px, 5vw, 64px);
+}
+.r2-fp-sheet {
+  --r2-panel-width: 100%;
+  min-height: 300px;
+}
+.r2-fp-sheet .r2-panel {
+  width: 100%;
+  margin: 0;
+  border-radius: var(--r2-radius-lg) 0 0 0;
+  box-shadow: var(--r2-shadow-sheet);
+}
+.r2-fp-sheet .r2-panel-body {
+  padding-bottom: 28px;
+}
+.r2-fp-visual[data-size="connections"] {
+  width: min(100%, 440px);
+}
+
+/* The navigator beside the content column (WorkspaceNavigator). */
+.r2-fp-shell--nav {
+  display: grid;
+  grid-template-columns: var(--r2-nav-full) minmax(0, 1fr);
+  height: 500px;
+}
+.r2-fp-shell--nav .r2-lp-shot-content {
+  display: flex;
+  flex-direction: column;
+}
+.r2-fp-nav .r2-row {
+  cursor: default;
+}
+
+/* A Workspace Page (PageDocument; rune2.css: "Workspace Page"): the
+   writing column in the interface sans — the title semibold, the body a
+   little smaller and denser than the manuscript, with paragraph spacing
+   rather than book indents. The real editor's rules are scoped to the
+   ProseMirror node; these are the same measures. */
+.r2-fp-shell--column {
+  height: 560px;
+}
+.r2-fp-page {
+  width: min(100%, var(--r2-doc-measure-width, 808px));
+  margin: 0 auto;
+  padding: var(--lp-doc-top) var(--lp-doc-gutter) 0;
+  font-family: var(--r2-font-ui);
+}
+.r2-fp-page--peek {
+  padding-top: 40px;
+}
+.r2-fp-page .r2-page-head {
+  margin-bottom: 22px;
+}
+.r2-fp-page-title {
+  margin: 0;
+  font-size: var(--r2-fs-title);
+  font-weight: var(--r2-weight-semibold);
+  line-height: var(--r2-lh-tight);
+  letter-spacing: var(--r2-tracking-title);
+  color: var(--r2-ink-1);
+}
+.r2-fp-page-body {
+  font-size: var(--r2-page-size);
+  line-height: var(--r2-page-leading);
+  color: var(--r2-ink-1);
+}
+.r2-fp-page-body p {
+  margin: 0 0 0.7em;
+}
+.r2-fp-page-body h2 {
+  margin: 1.4em 0 0.45em;
+  font-size: 1.2em;
+  font-weight: var(--r2-weight-semibold);
+  line-height: 1.35;
+  letter-spacing: var(--r2-tracking-heading);
+  color: var(--r2-ink-1);
+}
+.r2-fp-page-body ul {
+  margin: 0 0 0.7em;
+  padding-left: 1.4em;
+  list-style: disc;
+}
+.r2-fp-page-body li {
+  margin: 0.15em 0;
+}
+.r2-fp-page-body blockquote {
+  margin: 0 0 0.7em;
+  padding-left: 1em;
+  border-left: 2px solid var(--r2-border-strong);
+  color: var(--r2-muted);
+}
+/* An Entry (EntryDocument): the properties block under the title, parted
+   from the body by the hairline rune2.css gives it (.r2-page .r2-props). */
+.r2-fp-entry {
+  padding-top: 48px;
+}
+.r2-fp-entry .r2-page-head {
+  margin-bottom: 20px;
+}
+.r2-fp-visual[data-size="entry"] .r2-fp-visual-in {
+  height: 440px;
+}
+
+/* A broad surface (CollectionTable, CollectionBoard, SceneTable; rune2.css:
+   "Two geometries"): a structured set starts a short breath from the
+   navigator and runs most of the way across — title, bar and View
+   together. */
+.r2-fp-shell--broad {
+  height: 500px;
+}
+.r2-fp-broad {
+  padding: 44px 36px 0;
+  cursor: default;
+}
+.r2-fp-broad .r2-page-head {
+  margin-bottom: 14px;
+}
+.r2-fp-broad .r2-collection-bar {
+  margin-top: 6px;
+}
+.r2-fp-table {
+  width: auto;
+}
+.r2-fp-table th[style] {
+  width: var(--fp-col);
+}
+.r2-fp-table-name {
+  display: block;
+  padding: 5px 0;
+  font-size: var(--r2-fs-row);
+  line-height: 1.3;
+  color: var(--r2-ink-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.r2-fp-num {
+  text-align: right;
+}
+.r2-fp-table .r2-table-row[data-scene="open"] > * {
+  background: var(--r2-hover-faint);
+}
+/* The Scenes under the Manuscript (SceneTable): the overview's hairline
+   and heading above the bar, as the product sets them. */
+.r2-fp-scenes {
+  padding-top: 36px;
+}
+.r2-fp-scenes .r2-scenes-head {
+  border-top: 0;
+  padding-top: 0;
+}
+.r2-fp-visual[data-size="scene-table"] .r2-fp-visual-in {
+  height: 440px;
+}
+/* The Board (CollectionBoard): the lanes, cut at the frame's foot. */
+.r2-fp-visual[data-size="board"] .r2-fp-visual-in {
+  height: 380px;
+}
+.r2-fp-board-crop .r2-board {
+  overflow: hidden;
+}
+.r2-fp-board-crop .r2-card {
+  cursor: default;
+}
+
+/* The Canvas (CanvasPlane; rune2.css: "Canvas"): the product's plane, with
+   the dot grid at the product's spacing. The cards are the product's
+   own; their places on the stage are this drawing's. */
+.r2-fp-canvas {
+  height: 560px;
+  min-height: 0;
+  background-size: 22px 22px;
+  background-position: 11px 11px;
+}
+.r2-fp-canvas-card {
+  left: var(--lp-x);
+  top: var(--lp-y);
+  width: var(--lp-w);
+  transform: translate(-50%, -50%);
+}
+.r2-fp-canvas-section {
+  left: 4%;
+  top: 17%;
+  width: 34%;
+  height: 76%;
+}
+.r2-fp-canvas-lines {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.r2-fp-canvas-lines[data-layout="narrow"] {
+  display: none;
+}
+.r2-fp-canvas-lines line[data-selected] {
+  stroke: color-mix(in srgb, var(--r2-accent) 55%, transparent);
+}
+.r2-fp-canvas-label {
+  position: absolute;
+  z-index: 1;
+  padding: 1px 5px;
+  font-size: 11px;
+  line-height: 1.3;
+  white-space: nowrap;
+  color: var(--r2-ink-2);
+  background: var(--r2-bg);
+  transform: translate(-50%, -50%);
+}
+.r2-fp-canvas .r2-canvas-card {
+  z-index: 1;
+}
+.r2-fp-canvas .r2-canvas-head .r2-page-title {
+  margin: 0;
+}
+
+/* The writing surface alone (ManuscriptSurface): the chapter's eyebrow,
+   the scene's title and its prose, nothing else, cut clean at the foot. */
+.r2-fp-section[data-layout="wide"] .r2-fp-visual[data-size="surface"] {
+  grid-column: 3 / span 8;
+}
+.r2-fp-surface {
+  height: 340px;
+  padding-top: 8px;
+}
+.r2-fp-surface .r2-lp-shot-doc {
+  padding-top: 44px;
+}
+
+/* ── Motion off ─────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .r2-fp-hero-in > * {
+    animation: none;
+  }
+  .r2-fp-aside-link,
+  .r2-fp-aside-link svg {
+    transition: none;
+  }
+  .r2-fp-aside-link:hover svg {
+    transform: none;
+  }
+}
+
+/* ── A laptop, or a desktop zoomed ──────────────────────────────────────
+   The splits hold; the sheet gives up its extra width, and the Scenes
+   table beside its prose gives up its Location column, so its Status
+   stays inside the frame. */
+@media (max-width: 1180px) {
+  .r2-fp-shell--inspector {
+    --r2-panel-width: 352px;
+  }
+  .r2-fp-section[data-layout="visual-left"] .r2-fp-scenes :is(th, td)[data-type="relationship"]:nth-child(3) {
+    display: none;
+  }
+  .r2-fp-section[data-layout="visual-left"] .r2-fp-broad {
+    padding-left: 28px;
+    padding-right: 28px;
+  }
+  .r2-fp-section[data-layout="visual-right"] .r2-fp-prose {
+    grid-column: 1 / span 5;
+  }
+}
+
+/* ── A tablet ───────────────────────────────────────────────────────────
+   One column. Every band reads the same way — the heading, the surface,
+   the text — whatever its desktop composition: the prose's box opens
+   (display: contents) so its heading can stand before the picture and its
+   paragraphs after, and the surface takes the page's width. */
+@media (max-width: 940px) {
+  .r2-fp {
+    --fp-band: clamp(32px, 5vh, 56px);
+  }
+  .r2-fp-grid {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    row-gap: 0;
+  }
+  .r2-fp-section .r2-fp-prose {
+    display: contents;
+  }
+  .r2-fp-section .r2-fp-prose > h2 {
+    order: 0;
+    max-width: 24ch;
+    margin-bottom: 20px;
+  }
+  .r2-fp-section .r2-fp-visual {
+    order: 1;
+    width: auto;
+    margin-bottom: 26px;
+  }
+  .r2-fp-section .r2-fp-prose > :not(h2) {
+    order: 2;
+    max-width: var(--fp-measure);
+  }
+  .r2-fp-section .r2-fp-prose > .r2-fp-aside {
+    order: 3;
+  }
+  .r2-fp-visual[data-size="connections"] {
+    width: min(100%, 480px);
+  }
+  .r2-fp-shell--split,
+  .r2-fp-shell--inspector {
+    height: 520px;
+  }
+  .r2-fp-shell--column {
+    height: 500px;
+  }
+  .r2-fp-canvas {
+    height: 480px;
+  }
+  .r2-fp-canvas-section {
+    width: 36%;
+  }
+}
+
+/* ── Phones ─────────────────────────────────────────────────────────────
+   The same one column, closer set, and each surface cut down to the one
+   idea it carries, as the landing's cards are: the sheet alone where the
+   writing would be too small beside it; a table of names and two
+   columns; three cards on the plane and the lines between them; the
+   navigator alone. Type a step smaller; the links a thumb's height. */
+@media (max-width: 640px) {
+  .r2-fp {
+    --fp-h1: clamp(34px, 9.6vw, 44px);
+    --fp-h2: clamp(24px, 6.8vw, 28px);
+    --fp-body: 16px;
+    --fp-band: 40px;
+  }
+  .r2-fp-hero {
+    padding: 28px 0 8px;
+  }
+  .r2-fp-title {
+    max-width: none;
+  }
+  .r2-fp-lede {
+    margin-top: 16px;
+    font-size: 17px;
+  }
+  .r2-fp-prose h2 {
+    margin-bottom: 16px;
+  }
+  .r2-fp-section .r2-fp-visual {
+    margin-bottom: 22px;
+  }
+  .r2-fp-aside {
+    margin-top: 20px;
+  }
+  .r2-fp-aside-link {
+    padding: 8px 0;
+  }
+  .r2-fp-principle {
+    padding: 40px 0 8px;
+  }
+  .r2-fp-quote p {
+    font-size: clamp(25px, 7.4vw, 30px);
+  }
+  .r2-fp main > .r2-fp-section:nth-last-child(2),
+  .r2-fp main > .r2-fp-principle:nth-last-child(2) {
+    padding-bottom: 48px;
+  }
+
+  /* Frames: the plane closer in, the material the same. */
+  .r2-fp-visual[data-frame="plane"] .r2-fp-visual-in {
+    --fp-over: 20px;
+    --fp-inset-r: 24px;
+    --fp-inset-y: 20px;
+    border-radius: 14px;
+  }
+  .r2-fp-visual-in {
+    --lp-doc-gutter: 24px;
+    --lp-doc-top: 36px;
+    --r2-tab-width: 232px;
+  }
+  .r2-fp-visual .r2-doc-head {
+    margin-bottom: 22px;
+  }
+
+  /* A split: the sheet alone — the panel's head, the scene and its
+     properties — the writing's column, the tab band, the breadcrumb and
+     the status left out. */
+  .r2-fp-shell--split,
+  .r2-fp-shell--inspector {
+    --r2-panel-width: 100%;
+    height: auto;
+  }
+  .r2-fp-shell--split > .r2-tabs,
+  .r2-fp-shell--split > .r2-contextbar,
+  .r2-fp-shell--split .r2-lp-shot-content {
+    display: none;
+  }
+  .r2-fp-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .r2-fp-shell--split .r2-panel {
+    width: 100%;
+    margin: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+  .r2-fp-shell--split .r2-panel-inner {
+    width: 100%;
+  }
+  .r2-fp-visual[data-frame="plane"] .r2-fp-shell--split .r2-panel-head {
+    padding-left: calc(var(--fp-over) + var(--r2-gutter));
+  }
+  .r2-fp-visual[data-frame="plane"] .r2-fp-shell--split .r2-panel-body {
+    padding: 0 var(--r2-space-6) 20px calc(var(--fp-over) + var(--r2-gutter));
+  }
+  .r2-fp-shell--split .r2-insp-place,
+  .r2-fp-shell--split .r2-insp-aside,
+  .r2-fp-shell--inspector .r2-versions li:nth-child(n + 3) {
+    display: none;
+  }
+  .r2-fp-visual .r2-inspector {
+    padding-top: var(--r2-space-2);
+  }
+  .r2-fp-visual .r2-insp-section {
+    margin-top: 16px;
+    padding-top: 12px;
+  }
+  .r2-fp-visual .r2-scene-props .r2-prop {
+    grid-template-columns: minmax(92px, 104px) minmax(0, 1fr);
+    min-height: 30px;
+  }
+  .r2-fp-visual[data-size="connections"] .r2-fp-visual-in {
+    padding-left: 28px;
+  }
+  .r2-fp-sheet {
+    min-height: 0;
+  }
+
+  /* The navigator alone: the Workspace open, the content column gone. */
+  .r2-fp-shell--nav {
+    grid-template-columns: minmax(0, 1fr);
+    height: auto;
+  }
+  .r2-fp-shell--nav .r2-lp-shot-content {
+    display: none;
+  }
+  .r2-fp-nav {
+    padding: 6px 6px 10px;
+    border-right: 0;
+    font-size: 14px;
+  }
+  .r2-fp-nav .r2-row {
+    height: 32px;
+  }
+
+  /* The Page: its tab band and breadcrumb gone, the document closer in. */
+  .r2-fp-shell--column {
+    height: 440px;
+  }
+  .r2-fp-shell--column > .r2-tabs,
+  .r2-fp-shell--column > .r2-contextbar,
+  .r2-fp-shell--broad > .r2-tabs,
+  .r2-fp-shell--broad > .r2-contextbar {
+    display: none;
+  }
+  .r2-fp-page-body {
+    font-size: 15px;
+  }
+  .r2-fp-visual[data-size="entry"] .r2-fp-visual-in {
+    height: 400px;
+  }
+  .r2-fp-entry {
+    padding-top: 36px;
+  }
+
+  /* Tables: names and two columns, each column its own width no more. */
+  .r2-fp-shell--broad {
+    height: 420px;
+  }
+  .r2-fp-broad {
+    padding: 28px 20px 0;
+  }
+  .r2-fp-table {
+    table-layout: auto;
+    width: 100%;
+  }
+  .r2-fp-table th[style] {
+    width: auto;
+  }
+  .r2-fp-table td .r2-prop-button {
+    width: auto;
+  }
+  .r2-fp-table .r2-prop-links {
+    white-space: nowrap;
+  }
+  .r2-fp-table .r2-table-title {
+    max-width: 140px;
+  }
+  .r2-fp-table th[data-type="text"],
+  .r2-fp-table td[data-type="text"],
+  .r2-fp-table th[data-type="number"],
+  .r2-fp-table td[data-type="number"],
+  .r2-fp-scenes th[data-type="relationship"]:nth-child(3),
+  .r2-fp-scenes td[data-type="relationship"]:nth-child(3) {
+    display: none;
+  }
+  .r2-fp-visual[data-size="scene-table"] .r2-fp-visual-in {
+    height: 420px;
+  }
+  .r2-fp-scenes {
+    padding-top: 28px;
+  }
+
+  /* The Board: two lanes, side by side. */
+  .r2-fp-visual[data-size="board"] .r2-fp-visual-in {
+    height: 360px;
+  }
+  .r2-fp-board-crop .r2-lane {
+    flex: 0 0 calc(50% - 5px);
+  }
+  .r2-fp-board-crop .r2-lane:nth-child(3) {
+    display: none;
+  }
+
+  /* The Canvas: the narrow arrangement (CanvasVisual: narrow) — the chosen
+     scene and the two it leads to, and the two lines; the Section, the
+     note, the rest of the pieces and the label are the wide stage's. */
+  .r2-fp-canvas {
+    height: 360px;
+    background-size: 18px 18px;
+    background-position: 9px 9px;
+  }
+  .r2-fp-canvas-section,
+  .r2-fp-canvas-label,
+  .r2-fp-canvas-card:not([data-narrow]),
+  .r2-fp-canvas-lines[data-layout="wide"],
+  .r2-fp-canvas .r2-canvas-tools,
+  .r2-fp-canvas .r2-canvas-card-preview {
+    display: none;
+  }
+  .r2-fp-canvas-lines[data-layout="narrow"] {
+    display: block;
+  }
+  .r2-fp-canvas-card[data-narrow] {
+    left: var(--lp-mx);
+    top: var(--lp-my);
+    width: var(--lp-mw);
+  }
+  .r2-fp-canvas .r2-canvas-head {
+    left: 18px;
+    top: 14px;
+    width: auto;
+    right: 18px;
+  }
+
+  /* The writing surface: the page's width, a little shorter. */
+  .r2-fp-surface {
+    height: 300px;
+  }
+  .r2-fp-surface .r2-lp-shot-doc {
+    padding-top: 28px;
+  }
+}
+
+/* ── The narrowest phones ──────────────────────────────────────────────── */
+@media (max-width: 380px) {
+  .r2-fp-visual-in {
+    --lp-doc-gutter: 20px;
+  }
+  .r2-fp-broad {
+    padding: 24px 16px 0;
+  }
+  .r2-fp-visual .r2-scene-props .r2-prop {
+    grid-template-columns: minmax(84px, 96px) minmax(0, 1fr);
+  }
+}

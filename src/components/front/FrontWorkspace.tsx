@@ -19,10 +19,9 @@ import { Reveal } from "./Reveal";
 // a whole is the one link.
 //
 // It is not a list of features. Four, not forty: the few places the
-// workspace can grow, and only when the writing asks. The destinations
-// (WORKSPACE_FEATURES: /workspace/<slug>) are placeholders for the closer
-// looks to come; the cards are built to lead deeper, and today they lead
-// to a page that says so.
+// workspace can grow, and only when the writing asks. Each card leads to
+// its closer look (WORKSPACE_FEATURES: /features/<slug>), one of the
+// editorial feature pages (app/(front)/features, components/front/feature).
 
 export type WorkspaceFeatureSlug = "pages" | "collections" | "canvas" | "scene-properties";
 
@@ -38,7 +37,7 @@ export const WORKSPACE_FEATURES: ReadonlyArray<{
 ];
 
 export function workspaceFeaturePath(slug: WorkspaceFeatureSlug) {
-  return `/workspace/${slug}`;
+  return `/features/${slug}`;
 }
 
 // ── The previews ───────────────────────────────────────────────────────

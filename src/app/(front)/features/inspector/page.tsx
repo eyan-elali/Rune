@@ -1,41 +1,106 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { PublicFrame } from "@/components/front/PublicFrame";
+import { Aside, FeatureHero, FeaturePage, FeatureSection, Principle, Prose, Visual } from "@/components/front/feature/FeaturePage";
+import { InspectorBesideWriting, InspectorConnections } from "@/components/front/feature/visuals/InspectorVisuals";
 import "../../front.css";
+import "../../feature.css";
 
-// A placeholder for the closer look the landing page's Inspector section
-// (FrontDetails) leads to: /features/inspector. One page in the public
-// frame — the section's line, a note that the closer look is on its way,
-// and the way into Sutura — until the real page replaces it. The route
-// exists so the link leads somewhere true, and so the real page has its
-// address. It is one page, not a feature-page system.
+// The Inspector: the closer look the landing page's Section 4 leads to. The
+// idea — a scene's context close to the writing, without taking the
+// writing's room — in four movements: why the Inspector exists, the details
+// it shows, the Connections that lead into the Workspace, and its quiet
+// when not needed. Two drawings: the shell with the scene open and the
+// sheet beside it, larger than the landing's and with the writing in it;
+// and the sheet alone, closer in, on its Connections.
 
 const TITLE = "The Inspector";
-const LINE = "See what a scene needs without leaving the writing.";
+const LINE = "A scene's properties, its place in the manuscript, its earlier versions and its connections, in one sheet beside the writing.";
 
 export const metadata: Metadata = {
   title: TITLE,
-  description: LINE,
+  description: `${LINE} There when you need context, gone when you do not.`,
   alternates: { canonical: "/features/inspector" },
 };
 
-export default function InspectorFeaturePage() {
+export default function InspectorFeature() {
   return (
-    <PublicFrame variant="front" theme="light">
-      <div className="r2-lp-ws-stub">
-        <p className="r2-lp-eyebrow">The manuscript</p>
-        <h1 className="r2-lp-h2">{TITLE}</h1>
-        <p className="r2-lp-lede">{LINE}</p>
-        <p className="r2-lp-ws-stub-note">A closer look at the Inspector is on its way.</p>
-        <div className="r2-lp-ws-stub-actions">
-          <Link href="/signup" className="r2-button r2-button--primary r2-button--lg">
-            Start writing free
-          </Link>
-          <Link href="/#inspector" className="r2-lp-ws-stub-back">
-            Back to the front door
-          </Link>
-        </div>
-      </div>
-    </PublicFrame>
+    <FeaturePage kind="feature">
+      <FeatureHero eyebrow="The Inspector" title="The details stay close." lede={`${LINE} There when you need context, gone when you do not.`} />
+
+      <FeatureSection layout="wide-aside" labelledBy="fp-in-why">
+        <Visual
+          frame="plane"
+          size="inspector"
+          label="Sutura with the scene The Thursday Boat open: the chapter's name, the scene's title and its prose in the writing column. Beside it, the Inspector: Scene, The Thursday Boat, in Part One, The Letters, scene 2 of 3, 1,412 words. Its Properties: Point of view, Ada Marsh; Location, The house; Timeline, March, year two; Status, Draft. Its History: three versions, today at 09:41, the same as now; yesterday at 22:10, 1,388 words; Tuesday at 17:52, 1,102 words."
+        >
+          <InspectorBesideWriting />
+        </Visual>
+        <Prose lead>
+          <h2 id="fp-in-why">Why the Inspector exists</h2>
+          <p>
+            A manuscript is full of things that are true about a scene but are not the scene. Whose point of view it is. Where in
+            the book it falls. How many words it has grown to since Tuesday. Which page of notes it leans on. Sutura keeps all of
+            that out of the writing surface, and the Inspector is where it goes instead.
+          </p>
+          <p>
+            It opens as a sheet inset beside the writing, in the body of the shell, under the tab band and above the status line.
+            The writing column keeps its measure as long as there is room. Close the sheet and the column is alone again.
+          </p>
+        </Prose>
+      </FeatureSection>
+
+      <FeatureSection layout="column" labelledBy="fp-in-details">
+        <Prose>
+          <h2 id="fp-in-details">Details without leaving the writing</h2>
+          <p>
+            Select a scene and the Inspector describes it: its kind and title, the Group and Chapter above it, its position among
+            its siblings, its length. Below that, the scene&rsquo;s properties, each edited in place. Below that, its History: the
+            versions Sutura keeps automatically as you write, each a time and a word count, any of which you can open and read.
+          </p>
+          <p>
+            Nothing here has to be filled in. A scene with no properties shows a few plain suggestions and otherwise leaves the
+            sheet quiet.
+          </p>
+        </Prose>
+      </FeatureSection>
+
+      <Principle>Context should be available, not unavoidable.</Principle>
+
+      <FeatureSection layout="visual-left" labelledBy="fp-in-links">
+        <Prose>
+          <h2 id="fp-in-links">Connections that lead into the workspace</h2>
+          <p>
+            The last section is where the manuscript meets the Workspace. Under Connections, the Inspector lists what a scene is
+            linked to, a Page of research, an Entry in a Collection, and under Referenced by, everything that mentions the scene in
+            turn. Each is one step away. The note about the house is beside the scene set in the house, and the scene is beside the
+            note.
+          </p>
+          <p>
+            The Inspector is not only for scenes. Select a Chapter and it lists the Chapter&rsquo;s scenes; a Page, an Entry or a
+            Canvas, and it says where in the Workspace they stand and what they connect to.
+          </p>
+          <Aside href="/features/pages" cue="Pages">
+            What the Inspector points to lives in Pages and Collections.
+          </Aside>
+        </Prose>
+        <Visual
+          frame="plane"
+          size="connections"
+          label="The Inspector's sheet alone, for the scene The Thursday Boat. Under Connections, with a Link to… action: Related lists the Page Why the letters wait and the Threads entry The grey string; Referenced by lists the Page Ending ideas."
+        >
+          <InspectorConnections />
+        </Visual>
+      </FeatureSection>
+
+      <FeatureSection layout="column" labelledBy="fp-in-quiet">
+        <Prose>
+          <h2 id="fp-in-quiet">Quiet when not needed</h2>
+          <p>
+            The Inspector is a panel you open, not one that opens itself. It shares one region with Revision Notes, so there is
+            never more than one sheet beside the writing. And while you are typing in the manuscript, the shell&rsquo;s chrome
+            recedes until you pause, so the page is the writing and little else.
+          </p>
+        </Prose>
+      </FeatureSection>
+    </FeaturePage>
   );
 }
