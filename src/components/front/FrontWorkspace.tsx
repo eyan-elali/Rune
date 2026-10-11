@@ -285,7 +285,7 @@ export function FrontWorkspace() {
               const Preview = PREVIEWS[f.slug];
               return (
                 <li key={f.slug} className="r2-lp-ws-cell" data-feature={f.slug}>
-                  <Link href={workspaceFeaturePath(f.slug)} className="r2-lp-ws-card r2-material r2-material--interactive">
+                  <Link href={workspaceFeaturePath(f.slug)} scroll={false} className="r2-lp-ws-card r2-material r2-material--interactive">
                     <div className="r2-lp-ws-card-text">
                       <h3 className="r2-lp-ws-card-title">{f.title}</h3>
                       <p className="r2-lp-ws-card-line">{f.line}</p>

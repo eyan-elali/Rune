@@ -107,6 +107,7 @@ export function FrontTrust() {
                       described by its line, so the whole surface reads as one link. */}
                   <Link
                     href={NO_AI_PATH}
+                    scroll={false}
                     className="r2-lp-tr-card r2-lp-tr-card--link r2-material"
                     aria-labelledby={`lp-tr-${p.id}-label lp-tr-${p.id}-title`}
                     aria-describedby={`lp-tr-${p.id}-line`}

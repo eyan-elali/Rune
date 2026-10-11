@@ -95,19 +95,19 @@ export function SceneTable() {
         <table className="r2-table r2-fp-table">
           <thead>
             <tr>
-              <th scope="col" className="r2-table-title-col" style={col(196)}>
+              <th scope="col" className="r2-table-title-col" style={col(250)}>
                 <span className="r2-table-head">Scene</span>
               </th>
-              <th scope="col" data-type="relationship" style={col(124)}>
+              <th scope="col" data-type="relationship" style={col(136)}>
                 <span className="r2-table-head">Point of view</span>
               </th>
-              <th scope="col" data-type="relationship" style={col(124)}>
+              <th scope="col" data-type="relationship" style={col(136)}>
                 <span className="r2-table-head">Location</span>
               </th>
-              <th scope="col" data-type="status" style={col(100)}>
+              <th scope="col" data-type="status" style={col(108)}>
                 <span className="r2-table-head">Status</span>
               </th>
-              <th scope="col" data-type="number" data-native="" style={col(72)}>
+              <th scope="col" data-type="number" data-native="" style={col(84)}>
                 <span className="r2-table-head">Words</span>
               </th>
             </tr>

@@ -7,14 +7,17 @@ import { CHAPTER, SCENE } from "./shell";
 // the book's pieces as compact cards raised a hair off the plane (Scenes
 // with their prose preview in the manuscript's type, Pages, Entries, a note
 // on the plane's paper), the fine lines between them, two carrying a label,
-// and the quiet title at the corner. Wide, and mostly empty: a canvas is
-// room to think in, and the room is the point. The cards are the product's
+// and the quiet title at the corner. Tall rather than wide — the Page's
+// width, and the height a canvas wants — and mostly empty: a canvas is
+// room to think in, and the room is the point. Every piece stands whole on
+// the plane; nothing runs off its foot. The cards are the product's
 // classes; only their placement is this drawing's: percentages of the
-// stage, each card centred on its point; a tablet keeps the same places
-// and leaves out the pieces marked for the wide stage alone (wideOnly), so
-// the plane stays open; a phone has a narrower arrangement of three, read
-// by the stylesheet from the same custom properties the landing uses
-// (--lp-x/y/w, --lp-mx/my/mw).
+// stage, each card centred on its point, chosen so no line passes behind
+// a card it does not join; a tablet keeps the same places and leaves out
+// the pieces marked for the wide stage alone (wideOnly), so the plane
+// stays open; a phone has a narrower arrangement of three, read by the
+// stylesheet from the same custom properties the landing uses (--lp-x/y/w,
+// --lp-mx/my/mw).
 
 type Point = { x: number; y: number; w: number };
 type Item = {
@@ -32,7 +35,7 @@ type Item = {
 };
 
 const ITEMS: Item[] = [
-  { id: "ferry", kind: "scene", eyebrow: `Scene · ${CHAPTER}`, title: "The Ferry", meta: "1,934 words", wide: { x: 17, y: 29, w: 184 } },
+  { id: "ferry", kind: "scene", eyebrow: `Scene · ${CHAPTER}`, title: "The Ferry", meta: "1,934 words", wide: { x: 18, y: 22, w: 184 } },
   {
     id: "boat",
     kind: "scene",
@@ -41,22 +44,22 @@ const ITEMS: Item[] = [
     meta: "1,412 words",
     text: "The letters came on the Thursday boat, three of them, tied with the grey string her mother had always used.",
     selected: true,
-    wide: { x: 17, y: 55, w: 212 },
+    wide: { x: 17, y: 50, w: 200 },
     narrow: { x: 34, y: 26, w: 168 },
   },
-  { id: "high", kind: "scene", eyebrow: `Scene · ${CHAPTER}`, title: "High Water", meta: "318 words", wide: { x: 17, y: 81, w: 168 } },
-  { id: "ada", kind: "entry", eyebrow: "Characters", title: "Ada Marsh", wide: { x: 46, y: 54, w: 156 }, narrow: { x: 72, y: 60, w: 112 } },
-  { id: "tomas", kind: "entry", eyebrow: "Characters", title: "Tomas Reyes", wideOnly: true, wide: { x: 46, y: 25, w: 156 } },
-  { id: "house", kind: "page", eyebrow: "Page · Places", title: "The house", wide: { x: 60, y: 78, w: 156 }, narrow: { x: 30, y: 78, w: 112 } },
-  { id: "letters", kind: "page", eyebrow: "Page", title: "Why the letters wait", wide: { x: 70, y: 28, w: 180 } },
-  { id: "note", kind: "note", text: "Why does she wait a whole day to open them? What is she afraid the second letter says?", wideOnly: true, wide: { x: 88, y: 42, w: 200 } },
-  { id: "ferries", kind: "page", eyebrow: "Page · Research", title: "The island ferries", wideOnly: true, wide: { x: 77, y: 85, w: 156 } },
-  { id: "fifties", kind: "page", eyebrow: "Page · Research", title: "Letters, 1950s", wideOnly: true, wide: { x: 91, y: 85, w: 150 } },
+  { id: "high", kind: "scene", eyebrow: `Scene · ${CHAPTER}`, title: "High Water", meta: "318 words", wide: { x: 18, y: 80, w: 168 } },
+  { id: "ada", kind: "entry", eyebrow: "Characters", title: "Ada Marsh", wide: { x: 50, y: 48, w: 156 }, narrow: { x: 72, y: 60, w: 112 } },
+  { id: "tomas", kind: "entry", eyebrow: "Characters", title: "Tomas Reyes", wideOnly: true, wide: { x: 50, y: 20, w: 156 } },
+  { id: "house", kind: "page", eyebrow: "Page · Places", title: "The house", wide: { x: 64, y: 62, w: 150 }, narrow: { x: 30, y: 78, w: 112 } },
+  { id: "letters", kind: "page", eyebrow: "Page", title: "Why the letters wait", wide: { x: 76, y: 17, w: 180 } },
+  { id: "note", kind: "note", text: "Why does she wait a whole day to open them? What is she afraid the second letter says?", wideOnly: true, wide: { x: 87, y: 36, w: 170 } },
+  { id: "ferries", kind: "page", eyebrow: "Page · Research", title: "The island ferries", wideOnly: true, wide: { x: 69, y: 85, w: 144 } },
+  { id: "fifties", kind: "page", eyebrow: "Page · Research", title: "Letters, 1950s", wideOnly: true, wide: { x: 88, y: 85, w: 140 } },
 ];
 
 const SECTIONS: ReadonlyArray<{ title: string; count: number; x: number; y: number; w: number; h: number; wideOnly?: boolean }> = [
-  { title: CHAPTER, count: 3, x: 4, y: 14, w: 26, h: 80 },
-  { title: "Research", count: 2, x: 70, y: 74, w: 28, h: 22, wideOnly: true },
+  { title: CHAPTER, count: 3, x: 4, y: 8, w: 29, h: 86 },
+  { title: "Research", count: 2, x: 59, y: 70, w: 38, h: 26, wideOnly: true },
 ];
 
 const LINES: ReadonlyArray<{ from: string; to: string; label?: string; narrow?: boolean }> = [
@@ -66,7 +69,7 @@ const LINES: ReadonlyArray<{ from: string; to: string; label?: string; narrow?: 
   { from: "ferry", to: "tomas", label: "point of view" },
   { from: "ada", to: "letters" },
   { from: "letters", to: "note" },
-  { from: "letters", to: "fifties" },
+  { from: "ferries", to: "boat" },
 ];
 
 function at(id: string) {

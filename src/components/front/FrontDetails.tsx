@@ -203,7 +203,7 @@ export function FrontDetails() {
             The details stay close.
           </h2>
           <p className="r2-lp-lede">See what a scene needs without leaving the writing.</p>
-          <Link href={INSPECTOR_PATH} className="r2-lp-dt-more">
+          <Link href={INSPECTOR_PATH} scroll={false} className="r2-lp-dt-more">
             Learn about the Inspector
             <ArrowRight {...ICON_SM_BOLD} aria-hidden />
           </Link>

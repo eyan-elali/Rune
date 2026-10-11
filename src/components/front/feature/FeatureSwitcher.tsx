@@ -1,25 +1,30 @@
 "use client";
 
 import { useRef, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, ChevronDown } from "lucide-react";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { ICON_SM_BOLD } from "@/components/rune2/icons";
 import { NavigatorMenu, type NavigatorMenuItem } from "@/components/rune2/NavigatorMenu";
-import { FEATURE_NAV, featureNavItem, type FeatureSlug } from "./featureNav";
+import { FeatureLink } from "./FeatureLink";
+import { useFeatureShell } from "./FeatureShell";
+import { FEATURE_NAV, featureNavItem } from "./featureNav";
 
-// The feature shell on a phone (feature.css: "A phone"): no navigator at the
-// left, but one compact row at the top of the content — the wordmark, home,
-// and the current page's name as a control, "Pages ▾" — which opens the
-// product's own menu (NavigatorMenu: the same surface the navigator's rows
-// open, with its keyboard: arrows, Enter, Escape) listing the same places
-// the navigator does: Features, Principles, and Back to home. Choosing one
-// goes there like any link would. The row is the same on the server and
-// the client; the menu exists only while it is open.
+// The feature shell where the navigator does not fit (feature.css: "The
+// switcher"): one compact row at the top of the content — the wordmark,
+// home, and the current page's name as a control, "Pages ▾" — which opens
+// the product's own menu (NavigatorMenu: the same surface the navigator's
+// rows open, with its keyboard: arrows, Enter, Escape) listing the same
+// places the navigator does: Features, Principles, and the way home.
+// Choosing one goes there as the navigator's links do: a soft navigation
+// that replaces the peek's entry inside the peek, a full one on a page of
+// its own; home closes the peek.
+// The row is the same on the server and the client; the menu exists only
+// while it is open.
 
-export function FeatureSwitcher({ current }: { current: FeatureSlug }) {
+export function FeatureSwitcher() {
   const router = useRouter();
+  const { current, mode, close } = useFeatureShell();
   const button = useRef<HTMLButtonElement>(null);
   const [at, setAt] = useState<{ x: number; y: number } | null>(null);
   const page = featureNavItem(current);
@@ -29,6 +34,11 @@ export function FeatureSwitcher({ current }: { current: FeatureSlug }) {
     if (r) setAt({ x: r.left, y: r.bottom + 4 });
   }
 
+  function go(href: string) {
+    if (mode === "peek") router.replace(href, { scroll: false });
+    else window.location.assign(href);
+  }
+
   const items: NavigatorMenuItem[] = [
     ...FEATURE_NAV.flatMap((group) =>
       group.items.map((item, i): NavigatorMenuItem => ({
@@ -36,17 +46,22 @@ export function FeatureSwitcher({ current }: { current: FeatureSlug }) {
         icon: item.icon,
         section: i === 0 ? group.label : undefined,
         checked: item.slug === current,
-        onSelect: () => router.push(item.href),
+        onSelect: () => go(item.href),
       }))
     ),
-    { label: "Back to home", icon: ArrowLeft, separator: true, onSelect: () => router.push("/") },
+    {
+      label: mode === "peek" ? "Back to the front door" : "Back to home",
+      icon: ArrowLeft,
+      separator: true,
+      onSelect: () => (mode === "peek" ? close?.() : go("/")),
+    },
   ];
 
   return (
     <div className="r2-fp-switch">
-      <Link href="/" className="r2-wordmark" aria-label="Sutura — home">
+      <FeatureLink href="/" className="r2-wordmark" aria-label="Sutura — home">
         <Wordmark label={false} />
-      </Link>
+      </FeatureLink>
       <button
         ref={button}
         type="button"

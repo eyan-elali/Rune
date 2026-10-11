@@ -9,9 +9,11 @@ import { CHAPTER, Choice, ContextBar, GROUP, PROSE, PropRow, Relation, SCENE, Sc
 // History, kept automatically as the writer writes (SceneHistory); its
 // Connections (ObjectLinks): what it links to, and what refers to it. The
 // landing's Section 4 shows the sheet beside a quiet column; here the
-// writing is in it, since the page is about the two together: the sheet
-// runs to the frame's foot, and the column shows no status line, so the
-// picture is only the writing and what stands beside it.
+// writing is in it, since the page is about the two together: two
+// paragraphs of the scene, the sheet whole beside them and running to the
+// frame's foot, and no status line, so the picture is only the writing
+// and what stands beside it. The sheet alone, on its Connections, is the
+// figure itself: it fills its frame.
 
 function Head() {
   return (
@@ -172,7 +174,7 @@ export function InspectorBesideWriting() {
       <ContextBar crumbs={["Manuscript", GROUP, CHAPTER, SCENE]} />
       <div className="r2-fp-body">
         <div className="r2-lp-shot-content">
-          <SceneProse paragraphs={PROSE} />
+          <SceneProse paragraphs={PROSE.slice(0, 2)} />
         </div>
         <Panel sections={["properties", "history"]} />
       </div>

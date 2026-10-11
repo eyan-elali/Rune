@@ -40,3 +40,9 @@ export const FEATURE_NAV: ReadonlyArray<FeatureNavGroup> = [
 export function featureNavItem(slug: FeatureSlug): FeatureNavItem {
   return FEATURE_NAV.flatMap((g) => g.items).find((i) => i.slug === slug)!;
 }
+
+/** The page a route belongs to, by its path (the peek reads the pathname), or null. */
+export function featureSlugForPath(pathname: string): FeatureSlug | null {
+  const path = pathname.replace(/\/+$/, "") || "/";
+  return FEATURE_NAV.flatMap((g) => g.items).find((i) => i.href === path)?.slug ?? null;
+}

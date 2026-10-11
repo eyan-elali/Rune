@@ -1,0 +1,100 @@
+import { Aside, FeatureHead, FeatureSection, Principle, Prose, Visual } from "../FeaturePage";
+import { ScenePropertySheet, SceneTable } from "../visuals/ScenePropertyVisuals";
+
+// Scene properties: the closer look the landing page's third workspace card
+// leads to, and the most philosophical of the feature pages. The idea —
+// structure around the scene, never inside the prose — in four passages:
+// the prose kept clean, properties the writer defines, the same facts read
+// as Views, and complexity as a choice. Two figures, each one job: a
+// scene's properties alone, as the writer defined them, beside the first
+// passage (what one scene can carry); and the Manuscript's Scenes as a
+// Table (what those properties enable across scenes). Neither is the
+// Inspector: the scene beside its sheet is the Inspector page's picture.
+
+export function ScenePropertiesArticle() {
+  return (
+    <>
+      <FeatureHead
+        eyebrow="Scene properties"
+        title="Structure around the scene. Never inside the prose."
+        lede="Point of view, place, time, status, the threads a scene carries. Track what matters to this book beside the writing, and keep the manuscript looking like a manuscript."
+      />
+
+      <FeatureSection layout="visual-right" labelledBy="fp-sp-clean">
+        <Prose>
+          <h2 id="fp-sp-clean">Keep prose clean</h2>
+          <p>
+            Writers have always tracked things about scenes: whose eyes we see through, where we are, what day it is, whether
+            the scene is finished. The usual places for those notes are the worst ones. A bracketed line at the top of the scene, a
+            colour in the margin, a spreadsheet in another window.
+          </p>
+          <p>
+            In Sutura the manuscript is protected territory. The editor shows the writing and nothing else. A scene&rsquo;s
+            properties live outside the writing surface, one glance away and never a word of the text.
+          </p>
+          <p>They are not part of the text: they do not export with it, and they are never counted as words.</p>
+        </Prose>
+        <Visual
+          size="properties"
+          label="The scene The Thursday Boat, in the chapter The Letters, with its five properties listed beneath the title: Point of view, Ada Marsh; Location, The house; Timeline, March, year two; Threads, The letters and The house; Status, Draft."
+        >
+          <ScenePropertySheet />
+        </Visual>
+      </FeatureSection>
+
+      <FeatureSection labelledBy="fp-sp-matters">
+        <Prose>
+          <h2 id="fp-sp-matters">Track what matters to this book</h2>
+          <p>
+            There are no built-in scene fields. Point of view, Location, Timeline and Status are examples of properties a writer
+            might define, not a form Sutura hands you. A thriller may want a clock on every scene. A braided novel may want to know
+            which strand each scene belongs to. A first draft may want nothing at all.
+          </p>
+          <p>
+            Scene properties use the same types as a Collection&rsquo;s, relationships included: set a scene&rsquo;s point of view
+            to the character&rsquo;s Entry and the link runs both ways.
+          </p>
+        </Prose>
+      </FeatureSection>
+
+      <FeatureSection labelledBy="fp-sp-views">
+        <Prose>
+          <h2 id="fp-sp-views">Use the same scene information in useful views</h2>
+          <p>
+            Once scenes carry properties, the manuscript can be read another way. Under the Manuscript, and under any Group,
+            Sutura shows its scenes as a List, a Table, a Board or a Timeline: every scene with its point of view and place, or the
+            draft laid out by status. The manuscript&rsquo;s own order stays the order; a View only arranges what is already there.
+          </p>
+        </Prose>
+        <Visual
+          size="scene-table"
+          label="The Manuscript's Scenes in Sutura as a Table, By chapter. Under The Harbour: 1.1 Arrival and 1.2 The ferryman. Under The Letters: 2.1 The Ferry, 2.2 The Thursday Boat and 2.3 High Water. Each row shows the scene's Point of view and Location as links, its Status, and its word count."
+        >
+          <SceneTable />
+        </Visual>
+        <Prose>
+          <p>
+            Moving a scene between the lanes of a status Board changes its status. It never changes where the scene sits in the
+            book. Only the navigator does that.
+          </p>
+        </Prose>
+      </FeatureSection>
+
+      <FeatureSection labelledBy="fp-sp-optin">
+        <Prose>
+          <h2 id="fp-sp-optin">Complexity remains opt-in</h2>
+          <p>
+            A new project has no scene properties. The Inspector offers a few plain suggestions and otherwise stays quiet; nothing
+            asks to be filled in before you write. Add one property when you find yourself wanting to see it across scenes, and
+            stop there.
+          </p>
+          <Aside href="/features/inspector" cue="The Inspector">
+            Those details stay beside the writing, in the Inspector.
+          </Aside>
+        </Prose>
+      </FeatureSection>
+
+      <Principle>The manuscript should still look like a manuscript.</Principle>
+    </>
+  );
+}

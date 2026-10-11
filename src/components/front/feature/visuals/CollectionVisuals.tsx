@@ -101,7 +101,7 @@ export function CollectionTable() {
                 <th scope="col" data-type="relationship" style={col(136)}>
                   <span className="r2-table-head">Affiliation</span>
                 </th>
-                <th scope="col" data-type="relationship" data-wide="" style={col(196)}>
+                <th scope="col" data-type="relationship" data-wide="" style={col(180)}>
                   <span className="r2-table-head">First appears</span>
                 </th>
                 <th scope="col" data-type="status" style={col(112)}>
@@ -146,7 +146,7 @@ export function CollectionBoard() {
     rows: CHARACTERS.filter((r) => r.status === status),
   }));
   return (
-    <div className="r2-fp-broad r2-collection r2-fp-board-crop">
+    <div className="r2-fp-broad r2-collection r2-fp-board">
       <CollectionHead active="board" />
       <div className="r2-board">
         {lanes.map((lane) => (
@@ -177,45 +177,65 @@ export function CollectionBoard() {
 // ── The Timeline ────────────────────────────────────────────────────────
 // The same Entries along a date property, "Came to the island", in lanes by
 // Affiliation (TimelineView: a property axis with group_by). The product
-// works these measures out from the values; here they are the drawing's:
-// a rail for the lane names, a year's width along the axis, a tick each
-// five years and a major one each decade, each Entry a mark at its year
-// with its name and its role beneath, stacking into a second row where two
-// would overlap, as the product packs them.
+// works these measures out from the values; here they are the drawing's.
+// The axis runs the width the Page gives the figure — each year a share of
+// it, a tick each five years and a major one each decade — so every Entry
+// stands on it whatever that width is; the rail, the marks' width and the
+// row height are fixed measures the stylesheet sets (--fp-rail, --fp-item,
+// --fp-row) for the wide figure and again for a phone. An Entry that would
+// overlap another drops to the next row, as the product packs them; the
+// packing is worked out twice, for the wide figure and for the phone's
+// (two lanes, the names alone), and both results travel to the stylesheet.
 
-const RAIL = 168;
-const AXIS_PAD = 20;
-const YEAR = 17;
 const FIRST_YEAR = 1958;
 const LAST_YEAR = 2008;
-const ITEM_WIDTH = 176;
 const MARK = 9;
-const ROW = 42;
-const LANE_PAD = 8;
-const HEADER = 34;
-const LANES = ["The house", "The village", "The harbour", "The mainland"];
 
-function yearX(year: number) {
-  return RAIL + AXIS_PAD + (year - FIRST_YEAR) * YEAR;
+/** The measures the stylesheet gives the figure (feature.css: "The Timeline"), repeated here to pack the rows. */
+type Measures = { track: number; rail: number; pad: number; tail: number; item: number };
+const WIDE: Measures = { track: 744, rail: 168, pad: 20, tail: 104, item: 150 };
+const NARROW: Measures = { track: 326, rail: 96, pad: 10, tail: 112, item: 118 };
+const LANES = ["The house", "The village", "The harbour", "The mainland"];
+/** The lanes a phone keeps: two, whose Entries read whole at its width. */
+const NARROW_LANES = new Set(["The house", "The mainland"]);
+
+function share(year: number) {
+  return (year - FIRST_YEAR) / (LAST_YEAR - FIRST_YEAR);
+}
+
+/** Where a year stands along the track, by the stylesheet's measures. */
+function along(year: number) {
+  return `calc(var(--fp-rail) + var(--fp-pad) + ${share(year).toFixed(4)} * (100% - var(--fp-rail) - 2 * var(--fp-pad) - var(--fp-tail)))`;
+}
+
+/** Each Entry's row: the first row whose last mark ends before this one starts. */
+function pack(rows: Row[], m: Measures): number[] {
+  const axis = m.track - m.rail - 2 * m.pad - m.tail;
+  const ends: number[] = [];
+  return rows.map((r) => {
+    const x = m.rail + m.pad + share(r.year) * axis - MARK;
+    let row = ends.findIndex((end) => end <= x);
+    if (row === -1) row = ends.length;
+    ends[row] = x + m.item;
+    return row;
+  });
 }
 
 /** The same Entries, read as a Timeline by the year each came to the island, in lanes by Affiliation. */
 export function CollectionTimeline() {
   const ticks: number[] = [];
-  for (let y = 1960; y <= LAST_YEAR; y += 5) ticks.push(y);
-  const width = yearX(LAST_YEAR) + AXIS_PAD + 120;
+  for (let y = 1960; y <= 2005; y += 5) ticks.push(y);
   const lanes = LANES.map((name) => {
     const rows = CHARACTERS.filter((r) => r.affiliation === name).sort((a, b) => a.year - b.year);
-    // Pack into rows: a marker goes on the first row whose last marker ends before it starts.
-    const ends: number[] = [];
-    const placed = rows.map((r) => {
-      const x = yearX(r.year) - MARK;
-      let row = ends.findIndex((end) => end <= x);
-      if (row === -1) row = ends.length;
-      ends[row] = x + ITEM_WIDTH;
-      return { ...r, x, row };
-    });
-    return { name, placed, rows: Math.max(1, ends.length) };
+    const wide = pack(rows, WIDE);
+    const narrow = pack(rows, NARROW);
+    return {
+      name,
+      narrow: NARROW_LANES.has(name),
+      rows: Math.max(1, ...wide.map((r) => r + 1)),
+      rowsNarrow: Math.max(1, ...narrow.map((r) => r + 1)),
+      placed: rows.map((r, i) => ({ ...r, row: wide[i], rowNarrow: narrow[i] })),
+    };
   });
   return (
     <div className="r2-fp-shell r2-fp-shell--broad r2-fp-shell--timeline">
@@ -223,35 +243,45 @@ export function CollectionTimeline() {
       <ContextBar crumbs={["Workspace", "Characters"]} actions="workspace" />
       <div className="r2-fp-broad r2-collection">
         <CollectionHead active="timeline" />
-        <div className="r2-timeline r2-fp-timeline" data-rail="" style={{ "--r2-timeline-rail": `${RAIL}px` } as CSSProperties}>
+        <div className="r2-timeline r2-fp-timeline" data-rail="">
           <div className="r2-timeline-scroll">
-            <div className="r2-timeline-track" style={{ width }}>
-              <div className="r2-timeline-rules" style={{ top: HEADER }}>
+            <div className="r2-timeline-track">
+              <div className="r2-timeline-rules r2-fp-timeline-rules">
                 {ticks.map((y) => (
-                  <span key={y} className="r2-timeline-rule" data-major={y % 10 === 0 || undefined} style={{ left: yearX(y) }} />
+                  <span key={y} className="r2-timeline-rule" data-major={y % 10 === 0 || undefined} style={{ left: along(y) }} />
                 ))}
               </div>
-              <div className="r2-timeline-axis" style={{ height: HEADER }}>
-                <div className="r2-timeline-corner" style={{ width: RAIL, height: HEADER }}>
+              <div className="r2-timeline-axis r2-fp-timeline-axis">
+                <div className="r2-timeline-corner r2-fp-timeline-corner">
                   <span className="r2-timeline-axis-name">
                     Came to the island <span className="r2-timeline-axis-kind">date</span>
                   </span>
                 </div>
                 {ticks.map((y) => (
-                  <span key={y} className="r2-timeline-tick" data-major={y % 10 === 0 || undefined} style={{ left: yearX(y) }}>
+                  <span key={y} className="r2-timeline-tick" data-major={y % 10 === 0 || undefined} data-far={y % 20 === 0 || undefined} data-end={y % 40 === 0 || undefined} style={{ left: along(y) }}>
                     {y}
                   </span>
                 ))}
               </div>
               {lanes.map((lane) => (
-                <section key={lane.name} className="r2-timeline-lane" style={{ height: lane.rows * ROW + LANE_PAD * 2 }}>
-                  <header className="r2-timeline-rail" style={{ width: RAIL }}>
+                <section
+                  key={lane.name}
+                  className="r2-timeline-lane r2-fp-timeline-lane"
+                  data-narrow={lane.narrow || undefined}
+                  style={{ "--fp-rows": lane.rows, "--fp-rows-m": lane.rowsNarrow } as CSSProperties}
+                >
+                  <header className="r2-timeline-rail r2-fp-timeline-rail">
                     <span className="r2-timeline-lane-name">{lane.name}</span>
                     <span className="r2-timeline-lane-count">{lane.placed.length}</span>
                   </header>
-                  <div className="r2-timeline-rows" style={{ top: LANE_PAD }}>
+                  <div className="r2-timeline-rows r2-fp-timeline-rows">
                     {lane.placed.map((r) => (
-                      <span key={r.name} className="r2-timeline-item" data-meta="" style={{ left: r.x, top: r.row * ROW, width: ITEM_WIDTH }}>
+                      <span
+                        key={r.name}
+                        className="r2-timeline-item r2-fp-timeline-item"
+                        data-meta=""
+                        style={{ left: `calc(${along(r.year)} - ${MARK}px)`, "--fp-row-i": r.row, "--fp-row-im": r.rowNarrow } as CSSProperties}
+                      >
                         <span className="r2-timeline-mark" />
                         <span className="r2-timeline-item-title">{r.name}</span>
                         <span className="r2-timeline-item-meta">
