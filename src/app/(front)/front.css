@@ -538,8 +538,180 @@
      prose passes under it the way it does in the product, without colliding. */
   background: linear-gradient(to right, transparent, var(--r2-bg) 28px);
 }
-.r2-lp-shot-status span {
+.r2-lp-shot-status span:not([data-type]) {
   margin: 0 0.3em;
+}
+
+/* ── The demonstration ──────────────────────────────────────────────────
+   The shell demonstrating itself (ManuscriptDemo): one short, muted loop —
+   a line written, a Scene set aside, a Chapter made and the Scene placed in
+   it, the writing resumed. Everything below is the little the actions need:
+   the editor receding while the navigator is the point, the caret, the
+   rows making room, the carried row, the rename field, and the seam where
+   the loop closes. The states themselves — the dimmed dragged row, the
+   accent hairline, the Chapter's wash, the rename field — are rune2.css's
+   own, drawn by the same classes. */
+.r2-lp-shot-body,
+.r2-lp-demo,
+.r2-lp-demo-frame {
+  height: 100%;
+}
+.r2-lp-demo,
+.r2-lp-demo-frame,
+.r2-lp-shot-tree {
+  position: relative;
+}
+
+/* Whose moment it is. While the navigator is the point, what the editor
+   says recedes by a shade — the band's tone and the surface stay as they
+   are — and the caret leaves it: focus has moved. */
+.r2-lp-demo-frame :is(.r2-tabs ul, .r2-tabs-nav-toggle, .r2-lp-shot-crumbs, .r2-lp-shot-doc, .r2-lp-shot-status) {
+  transition: opacity 640ms var(--r2-ease);
+}
+.r2-lp-demo-frame[data-focus="nav"] :is(.r2-tabs ul, .r2-tabs-nav-toggle, .r2-lp-shot-crumbs, .r2-lp-shot-doc, .r2-lp-shot-status) {
+  opacity: 0.58;
+}
+
+/* The caret: the manuscript's, where the writing goes on; the field's, in
+   the Chapter's name. Steady while typing, blinking at rest, gone from the
+   prose while the navigator has the focus. */
+.r2-lp-caret {
+  display: inline-block;
+  width: 2px;
+  height: 1.05em;
+  margin-left: 1px;
+  vertical-align: -0.18em;
+  background: var(--r2-ms-caret);
+  animation: r2-lp-blink 1.1s step-end infinite;
+  transition: opacity 320ms var(--r2-ease);
+}
+.r2-lp-caret--field {
+  width: 1px;
+  height: 1.1em;
+  margin-left: 0;
+  vertical-align: -0.2em;
+  background: currentColor;
+}
+.r2-lp-demo-frame[data-typing] .r2-lp-caret {
+  animation: none;
+  opacity: 1;
+}
+.r2-lp-demo-frame[data-focus="nav"] .r2-lp-caret:not(.r2-lp-caret--field) {
+  animation: none;
+  opacity: 0;
+}
+@keyframes r2-lp-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+
+/* The rows: a row that must make room, or close a gap, slides (a FLIP
+   transform set by the component); a new row fades in; the dragged row's
+   dimming eases. The product's own transitions stay. */
+.r2-lp-demo-frame .r2-row {
+  transition: background-color var(--r2-fast) var(--r2-ease), color var(--r2-fast) var(--r2-ease),
+    box-shadow var(--r2-fast) var(--r2-ease), opacity 280ms var(--r2-ease), transform 380ms var(--r2-ease-frame);
+}
+.r2-lp-demo-frame .r2-row[data-enter] {
+  opacity: 0;
+  transition: none;
+}
+
+/* The carried row: the selected row's own look, lifted a hair off the
+   navigator — a fine edge, the product's small shadow, the faintest scale —
+   carried to where it will land, and let go there as the real row takes
+   its place beneath. */
+.r2-lp-ghost {
+  position: absolute;
+  left: var(--r2-space-4);
+  right: var(--r2-space-4);
+  z-index: 2;
+  margin: 0;
+  color: var(--r2-selected-ink);
+  background: var(--r2-selected);
+  box-shadow: 0 0 0 1px transparent;
+  transform: translateY(var(--lp-ghost-dy, 0px)) scale(1);
+  transition: transform 220ms var(--r2-ease), box-shadow 220ms var(--r2-ease), background-color 220ms var(--r2-ease),
+    opacity 200ms var(--r2-ease);
+  will-change: transform;
+}
+.r2-lp-ghost .r2-row-label {
+  font-weight: var(--r2-weight-medium);
+}
+.r2-lp-ghost[data-ghost="lift"],
+.r2-lp-ghost[data-ghost="travel"] {
+  background: color-mix(in srgb, var(--r2-accent) 6%, var(--r2-bg));
+  box-shadow: 0 0 0 1px var(--r2-border), var(--r2-shadow-pop);
+  transform: translateY(var(--lp-ghost-dy, 0px)) scale(1.012);
+}
+.r2-lp-ghost[data-ghost="travel"] {
+  transition-property: transform;
+  transition-duration: var(--lp-ghost-ms, 800ms);
+  transition-timing-function: var(--r2-ease-frame);
+}
+/* Let go: it fades where it is. Its transform is left as it was, so a fade
+   begun on the way does not restart the journey. */
+.r2-lp-ghost[data-ghost="drop"] {
+  opacity: 0;
+  background: color-mix(in srgb, var(--r2-accent) 6%, var(--r2-bg));
+  box-shadow: 0 0 0 1px var(--r2-border), var(--r2-shadow-pop);
+  transform: translateY(var(--lp-ghost-dy, 0px)) scale(1.012);
+  transition-property: transform, opacity;
+  transition-duration: var(--lp-ghost-ms, 800ms), 200ms;
+  transition-timing-function: var(--r2-ease-frame), var(--r2-ease);
+}
+
+/* The rename field, as the product draws it (rune2.css: .r2-row-input):
+   "Chapter 4" selected, so the first keystroke replaces it. */
+.r2-lp-demo-input {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  overflow: hidden;
+  line-height: 20px;
+}
+.r2-lp-demo-sel {
+  background: var(--r2-selection);
+  border-radius: 2px;
+}
+
+/* The Chapter's name in the tab, the breadcrumb and the title: out and in,
+   as the Scene finds its new Chapter. */
+.r2-lp-demo-chapter {
+  transition: opacity 220ms var(--r2-ease);
+}
+.r2-lp-demo-chapter[data-fading] {
+  opacity: 0;
+}
+
+/* The seam: the opening frame, kept still, comes up over the playing one;
+   under it the playing frame resets, unseen, and the still one is gone the
+   same instant. No row goes back; the manuscript is simply open again. */
+.r2-lp-demo-seam {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  opacity: 0;
+  visibility: hidden;
+}
+.r2-lp-demo-seam[data-seam] {
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 700ms var(--r2-ease);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .r2-lp-caret {
+    animation: none;
+  }
+  .r2-lp-demo-seam {
+    display: none;
+  }
 }
 
 /* ── The reveal ─────────────────────────────────────────────────────────
@@ -570,7 +742,19 @@
 
 /* ── Narrower rooms ─────────────────────────────────────────────────────
    A smaller laptop, a tablet, or a desktop zoomed: the navigator keeps
-   its width and the writing column gives up its gutters first. */
+   its width and the writing column gives up its gutters first. Where the
+   shell is short or the column narrow, the sample gives up its middle
+   paragraphs, so the line being written stays inside the frame. */
+@media (max-width: 1100px), (max-height: 780px) {
+  .r2-lp-shot-prose p:nth-child(2) {
+    display: none;
+  }
+}
+@media (max-width: 900px), (max-height: 640px) {
+  .r2-lp-shot-prose p:nth-child(3) {
+    display: none;
+  }
+}
 @media (max-width: 1100px) {
   .r2-lp-shot {
     --lp-doc-gutter: 36px;
@@ -623,7 +807,8 @@
   }
   .r2-lp-shot .r2-tabs,
   .r2-lp-shot-crumbs,
-  .r2-lp-shot-status {
+  .r2-lp-shot-status,
+  .r2-lp-demo-seam {
     display: none;
   }
   .r2-lp-shot-doc {
