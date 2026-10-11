@@ -1,6 +1,6 @@
 import { Link2, X } from "lucide-react";
 import { ICON, ICON_SM } from "@/components/rune2/icons";
-import { CHAPTER, Choice, ContextBar, DocStatus, GROUP, PROSE, PropRow, Relation, SCENE, SceneProse, Tabs } from "./shell";
+import { CHAPTER, Choice, ContextBar, GROUP, PROSE, PropRow, Relation, SCENE, SceneProse, Tabs } from "./shell";
 
 // The Inspector page's drawings: the real panel (Rune2Panel.tsx; rune2.css:
 // ".r2-panel", ".r2-inspector"), open as the inset side sheet beside the
@@ -9,7 +9,9 @@ import { CHAPTER, Choice, ContextBar, DocStatus, GROUP, PROSE, PropRow, Relation
 // History, kept automatically as the writer writes (SceneHistory); its
 // Connections (ObjectLinks): what it links to, and what refers to it. The
 // landing's Section 4 shows the sheet beside a quiet column; here the
-// writing is in it, since the page is about the two together.
+// writing is in it, since the page is about the two together: the sheet
+// runs to the frame's foot, and the column shows no status line, so the
+// picture is only the writing and what stands beside it.
 
 function Head() {
   return (
@@ -171,7 +173,6 @@ export function InspectorBesideWriting() {
       <div className="r2-fp-body">
         <div className="r2-lp-shot-content">
           <SceneProse paragraphs={PROSE} />
-          <DocStatus />
         </div>
         <Panel sections={["properties", "history"]} />
       </div>

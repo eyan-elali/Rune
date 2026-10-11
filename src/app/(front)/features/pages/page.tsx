@@ -8,13 +8,16 @@ import "../../feature.css";
 // The one idea — a Page is a flexible supporting document around the
 // manuscript, never part of it — in three movements: why Pages exist (the
 // boundary with Scenes), when a Page is the right amount of structure, and
-// how Pages stay inside the project. Two drawings: an open Page, and the
-// navigator with the Workspace open beneath the manuscript.
+// how Pages stay inside the project. Two drawings: an open Page of thinking
+// about the book, and the navigator with the Workspace open beneath the
+// manuscript and the same Page's empty head beside it — where Pages live,
+// rather than another note. Characters are the Collections page's example,
+// so the two kinds of object never blur here.
 
 export const metadata: Metadata = {
   title: "Pages",
   description:
-    "Pages are flexible supporting documents around your manuscript: research, character notes, worldbuilding, ideas. Sutura keeps them in the project and never in the prose.",
+    "Pages are flexible supporting documents around your manuscript: research, questions, worldbuilding, ideas. Sutura keeps them in the project and never in the prose.",
   alternates: { canonical: "/features/pages" },
 };
 
@@ -24,16 +27,16 @@ export default function PagesFeature() {
       <FeatureHero
         eyebrow="Pages"
         title="A place for everything that belongs around the book."
-        lede="Research, character notes, worldbuilding, the ending you are not sure of yet. A Page is a plain document that lives in the project without being part of the manuscript."
+        lede="Research, the history of a house, a question you are still answering, the ending you are not sure of yet. A Page is a plain document that lives in the project without being part of the manuscript."
       />
 
       <FeatureSection layout="visual-right" labelledBy="fp-pages-why">
         <Prose id="fp-pages-why-prose" lead>
           <h2 id="fp-pages-why">Why Pages exist</h2>
           <p>
-            A novel generates more writing than the novel. Notes on a character&rsquo;s past that will never appear on the page.
-            A description of a house that three scenes draw on. Questions you are still answering. Most of this thinking belongs
-            near the manuscript, and none of it belongs in it.
+            A novel generates more writing than the novel. A question about a character&rsquo;s choice that will never appear on
+            the page. A description of a house that three scenes draw on. Reasons you are still weighing. Most of this thinking
+            belongs near the manuscript, and none of it belongs in it.
           </p>
           <p>
             Sutura keeps that boundary firm. Prose lives in Scenes, placed in Chapters or kept aside as Unplaced Scenes, and the
@@ -47,19 +50,19 @@ export default function PagesFeature() {
         </Prose>
         <Visual
           size="page"
-          label="A Page open in Sutura, titled Ada Marsh, under the Workspace folder Characters. It holds two paragraphs of character notes, a heading What she knows, and when, with three bullet points, a heading Voice with a paragraph, and a quotation about keeping the house physical."
+          label="A Page open in Sutura, titled Why the letters wait, in the Workspace. It holds a paragraph asking why Ada waits a day to open the letters, a heading Possible reasons with three bullet points, a heading What the delay buys the book with a paragraph, and a quoted rule for the chapter: the letters are weather, not a plot device."
         >
           <PageDocument />
         </Visual>
       </FeatureSection>
 
-      <FeatureSection layout="column" labelledBy="fp-pages-when">
+      <FeatureSection layout="editorial" labelledBy="fp-pages-when">
         <Prose>
           <h2 id="fp-pages-when">Use a Page when structure would be overkill</h2>
           <p>
-            Sutura does not decide what a Page is for. There is no character template, no location form, no fields waiting to be
-            filled. A Page called <em>Ada Marsh</em> and a Page called <em>Ending ideas</em> are the same kind of object; only you
-            know that one is a person and the other a worry.
+            Sutura does not decide what a Page is for. There is no research template, no location form, no fields waiting to be
+            filled. A Page called <em>The house</em> and a Page called <em>Ending ideas</em> are the same kind of object; only you
+            know that one is a place and the other a worry.
           </p>
           <p>
             That is deliberate. Early in a book, most of what you know is provisional, and a system that asks you to classify a
@@ -95,7 +98,7 @@ export default function PagesFeature() {
         </Prose>
         <Visual
           size="navigator"
-          label="Sutura's navigator for the project The Lantern Road. Manuscript and Unplaced Scenes are collapsed, with their word counts. Workspace is open: a folder Characters holding the Pages Ada Marsh, selected, Tomas Reyes and Mrs. Hale; a folder Places; the Pages Why the letters wait and Ending ideas; a Collection, Threads; and a Canvas, The crossing."
+          label="Sutura's navigator for the project The Lantern Road. Manuscript and Unplaced Scenes are collapsed, with their word counts. Workspace is open: a folder Research holding the Pages The island ferries, Letters, 1950s and Tide tables; a folder Places; the Pages Why the letters wait, selected, and Ending ideas; two Collections, Characters and Threads; and a Canvas, The crossing. Beside the navigator, the Page Why the letters wait is open with nothing written under its title."
         >
           <WorkspaceNavigator />
         </Visual>

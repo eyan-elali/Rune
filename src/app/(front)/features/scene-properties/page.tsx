@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Aside, FeatureHero, FeaturePage, FeatureSection, Principle, Prose, Visual } from "@/components/front/feature/FeaturePage";
-import { SceneTable, SceneWithProperties } from "@/components/front/feature/visuals/ScenePropertyVisuals";
+import { ScenePropertySheet, SceneTable } from "@/components/front/feature/visuals/ScenePropertyVisuals";
 import "../../front.css";
 import "../../feature.css";
 
@@ -8,9 +8,9 @@ import "../../feature.css";
 // leads to, and the most philosophical of the feature pages. The idea —
 // structure around the scene, never inside the prose — in four movements:
 // the prose kept clean, properties the writer defines, the same facts read
-// as Views, and complexity as a choice. Two drawings: the scene open with
-// its properties in the Inspector beside it, and the Manuscript's Scenes
-// as a Table.
+// as Views, and complexity as a choice. Two drawings: a scene's properties
+// alone, as the writer defined them, and the Manuscript's Scenes as a
+// Table. (The scene beside its Inspector is the Inspector page's picture.)
 
 export const metadata: Metadata = {
   title: "Scene properties",
@@ -28,14 +28,7 @@ export default function ScenePropertiesFeature() {
         lede="Point of view, place, time, status, the threads a scene carries. Track what matters to this book beside the writing, and keep the manuscript looking like a manuscript."
       />
 
-      <FeatureSection layout="wide" labelledBy="fp-sp-clean">
-        <Visual
-          frame="plane"
-          size="scene-inspector"
-          label="Sutura with the scene The Thursday Boat open: the chapter's name, the scene's title and three paragraphs of prose in the writing column, with nothing else on it. Beside it, the Inspector shows the scene's properties: Point of view, Ada Marsh; Location, The house; Timeline, March, year two; Threads, The letters and The house; Status, Draft."
-        >
-          <SceneWithProperties />
-        </Visual>
+      <FeatureSection layout="visual-right" labelledBy="fp-sp-clean">
         <Prose lead>
           <h2 id="fp-sp-clean">Keep prose clean</h2>
           <p>
@@ -45,14 +38,19 @@ export default function ScenePropertiesFeature() {
           </p>
           <p>
             In Sutura the manuscript is protected territory. The editor shows the writing and nothing else. A scene&rsquo;s
-            properties live outside the writing surface, in the Inspector beside it, where they are one glance away and never a
-            word of the text.
+            properties live outside the writing surface, one glance away and never a word of the text.
           </p>
           <p>They are not part of the text. They do not export with it, and they are never counted as words.</p>
         </Prose>
+        <Visual
+          size="properties"
+          label="The scene The Thursday Boat, in the chapter The Letters, with its five properties listed beneath the title: Point of view, Ada Marsh; Location, The house; Timeline, March, year two; Threads, The letters and The house; Status, Draft."
+        >
+          <ScenePropertySheet />
+        </Visual>
       </FeatureSection>
 
-      <FeatureSection layout="column" labelledBy="fp-sp-matters">
+      <FeatureSection layout="editorial" labelledBy="fp-sp-matters">
         <Prose>
           <h2 id="fp-sp-matters">Track what matters to this book</h2>
           <p>
@@ -99,7 +97,7 @@ export default function ScenePropertiesFeature() {
             stop there.
           </p>
           <Aside href="/features/inspector" cue="The Inspector">
-            Those details can stay close through the Inspector.
+            Those details stay beside the writing, in the Inspector.
           </Aside>
         </Prose>
       </FeatureSection>

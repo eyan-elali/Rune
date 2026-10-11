@@ -6,7 +6,7 @@ import { ICON, ICON_SM_BOLD } from "@/components/rune2/icons";
 // landing page's (ManuscriptDemo, FrontDetails) — and the shell's own
 // chrome, drawn by rune2.css's classes exactly as the landing draws it:
 // the tab band (Rune2Tabs), the context bar (Rune2Content), the document
-// head, the document status, and a property row as the Inspector and an
+// head, and a property row as the Inspector and an
 // Entry set it (PropertyFields.tsx). Nothing here is a control: the
 // product's buttons are plain spans with the same classes, and the
 // drawings are set inert by the stylesheet (pointer-events: none).
@@ -15,7 +15,6 @@ export const PROJECT = "The Lantern Road";
 export const GROUP = "Part One";
 export const CHAPTER = "The Letters";
 export const SCENE = "The Thursday Boat";
-export const SCENE_WORDS = "1,412";
 
 /** The scene's opening, as the landing shows it. */
 export const PROSE = [
@@ -164,15 +163,6 @@ export function ContextBar({ crumbs, actions = "scene" }: { crumbs: string[]; ac
         </div>
       )}
     </header>
-  );
-}
-
-/** The document status at the foot of the content column: "1,412 words · Saved". */
-export function DocStatus({ words = SCENE_WORDS }: { words?: string }) {
-  return (
-    <div className="r2-lp-shot-status">
-      {words} words <span>·</span> Saved
-    </div>
   );
 }
 

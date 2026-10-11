@@ -9,8 +9,9 @@ import "../../feature.css";
 // writing's room — in four movements: why the Inspector exists, the details
 // it shows, the Connections that lead into the Workspace, and its quiet
 // when not needed. Two drawings: the shell with the scene open and the
-// sheet beside it, larger than the landing's and with the writing in it;
-// and the sheet alone, closer in, on its Connections.
+// sheet beside it, running to the frame's foot — the one picture of the
+// writing and its side panel together, which this page owns — and the
+// sheet alone, closer in, on its Connections.
 
 const TITLE = "The Inspector";
 const LINE = "A scene's properties, its place in the manuscript, its earlier versions and its connections, in one sheet beside the writing.";
@@ -30,7 +31,7 @@ export default function InspectorFeature() {
         <Visual
           frame="plane"
           size="inspector"
-          label="Sutura with the scene The Thursday Boat open: the chapter's name, the scene's title and its prose in the writing column. Beside it, the Inspector: Scene, The Thursday Boat, in Part One, The Letters, scene 2 of 3, 1,412 words. Its Properties: Point of view, Ada Marsh; Location, The house; Timeline, March, year two; Status, Draft. Its History: three versions, today at 09:41, the same as now; yesterday at 22:10, 1,388 words; Tuesday at 17:52, 1,102 words."
+          label="Sutura with the scene The Thursday Boat open: the chapter's name, the scene's title and its prose in the writing column. Beside it, running the full height of the window, the Inspector: Scene, The Thursday Boat, in Part One, The Letters, scene 2 of 3, 1,412 words. Its Properties: Point of view, Ada Marsh; Location, The house; Timeline, March, year two; Status, Draft. Its History: three versions, today at 09:41, the same as now; yesterday at 22:10, 1,388 words; Tuesday at 17:52, 1,102 words."
         >
           <InspectorBesideWriting />
         </Visual>
@@ -42,13 +43,13 @@ export default function InspectorFeature() {
             that out of the writing surface, and the Inspector is where it goes instead.
           </p>
           <p>
-            It opens as a sheet inset beside the writing, in the body of the shell, under the tab band and above the status line.
-            The writing column keeps its measure as long as there is room. Close the sheet and the column is alone again.
+            It opens as a sheet inset beside the writing, in the body of the shell, under the tab band. The writing column keeps
+            its measure as long as there is room. Close the sheet and the column is alone again.
           </p>
         </Prose>
       </FeatureSection>
 
-      <FeatureSection layout="column" labelledBy="fp-in-details">
+      <FeatureSection layout="editorial" labelledBy="fp-in-details">
         <Prose>
           <h2 id="fp-in-details">Details without leaving the writing</h2>
           <p>
@@ -60,6 +61,9 @@ export default function InspectorFeature() {
             Nothing here has to be filled in. A scene with no properties shows a few plain suggestions and otherwise leaves the
             sheet quiet.
           </p>
+          <Aside href="/features/scene-properties" cue="Scene properties">
+            The properties themselves are the writer&rsquo;s to define.
+          </Aside>
         </Prose>
       </FeatureSection>
 

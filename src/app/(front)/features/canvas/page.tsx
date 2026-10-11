@@ -9,7 +9,8 @@ import "../../feature.css";
 // for when lists and pages are not enough — in four movements: when linear
 // notes stop being enough, arranging things in space, the Canvas as part
 // of the same project, and a surface used only when the book asks. One
-// drawing, given the width a plane wants, and the prose beneath it.
+// drawing, the largest on any feature page: the plane past the container's
+// edges, with the room a canvas wants, and the prose beneath it.
 
 export const metadata: Metadata = {
   title: "Canvas",
@@ -27,11 +28,11 @@ export default function CanvasFeature() {
         lede="For the parts of a book that will not sit in a list: who is tied to whom, which scene answers which, where a cluster of research belongs. A quiet surface for arranging things in space."
       />
 
-      <FeatureSection layout="wide" labelledBy="fp-cv-when">
+      <FeatureSection layout="bleed" labelledBy="fp-cv-when">
         <Visual
           frame="material"
           size="canvas"
-          label="A Canvas in Sutura titled The crossing. On a faint dot grid, a tinted Section named The Letters holds two scene cards, The Thursday Boat, selected, with its opening line and word count, and High Water. Around it: an Entry card, Ada Marsh, from the Characters Collection; a Page card, The house; a Page card, Why the letters wait; and a note asking why she waits a whole day to open the letters. Fine lines connect the scene to Ada Marsh, labelled point of view, and to The house; Ada Marsh to the research page; and the page to the note."
+          label="A Canvas in Sutura titled The crossing. On a faint dot grid, a tinted Section named The Letters holds three scene cards: The Ferry; The Thursday Boat, selected, with its opening line and word count; and High Water. Across the plane: Entry cards for Ada Marsh and Tomas Reyes from the Characters Collection; Page cards for The house and Why the letters wait; a note asking why she waits a whole day to open the letters; and at the lower right a Section named Research holding the Pages The island ferries and Letters, 1950s. Fine lines connect The Thursday Boat to Ada Marsh, labelled point of view, and to The house; High Water to The house; The Ferry to Tomas Reyes, labelled point of view; Ada Marsh to Why the letters wait; and that page to the note and to Letters, 1950s. Most of the plane is empty."
         >
           <CanvasPlane />
         </Visual>
@@ -50,7 +51,7 @@ export default function CanvasFeature() {
         </Prose>
       </FeatureSection>
 
-      <FeatureSection layout="column" labelledBy="fp-cv-arrange">
+      <FeatureSection layout="editorial" labelledBy="fp-cv-arrange">
         <Prose>
           <h2 id="fp-cv-arrange">Arrange ideas spatially</h2>
           <p>
@@ -64,7 +65,7 @@ export default function CanvasFeature() {
 
       <Principle>Some ideas are easier to see than to list.</Principle>
 
-      <FeatureSection layout="column" labelledBy="fp-cv-project">
+      <FeatureSection layout="editorial" labelledBy="fp-cv-project">
         <Prose>
           <h2 id="fp-cv-project">Keep the Canvas part of the same project</h2>
           <p>

@@ -9,13 +9,23 @@
 
    Each page composes the bands in its own order (FeatureSection's layout):
    the system keeps six pages one site; the composition keeps them six
-   pages. On a phone every band reads heading, picture, text, in one column.
+   pages. The one rule under every composition: the prose takes the width
+   the band gives it. Nothing beside it, and it reads at the full measure,
+   or its heading stands at the left with the paragraphs across from it;
+   a surface beside it, and it narrows to a column by the surface. On a
+   phone every band reads heading, picture, text, in one column.
 
    The drawings are the product's own classes (rune2.css) laid out by the
    rules under "The drawings" below; nothing in them is a control. */
 
 .r2-fp {
-  --fp-measure: 37rem; /* a reader's column of prose */
+  --fp-measure: 37rem; /* a reader's column beside a surface */
+  --fp-measure-wide: 42rem; /* the reader's column when nothing stands beside it */
+  --fp-p: 17px; /* a band's paragraph size; a wide band sets it a step larger */
+  /* How far a surface may run past the page's container, when the page is
+     wider than it: the room between the container and the viewport, less a
+     margin for the scrollbar — nothing where there is none. */
+  --fp-bleed: clamp(0px, calc((100vw - var(--lp-max)) / 2 + var(--lp-gutter) - 28px), 112px);
   --fp-h1: clamp(40px, 4.8vw, 66px);
   --fp-h2: clamp(26px, 2.3vw, 33px);
   --fp-body: 17px;
@@ -95,15 +105,58 @@
 /* ── Compositions ───────────────────────────────────────────────────────
    Where the prose and the visual stand (FeaturePage: SectionLayout). The
    children come in reading order; the grid places them.
-     column        the prose alone, on the reader's column at the left
+     column        the prose alone, at the full reading measure
+     editorial     the prose alone, the article's way: the heading in the
+                   left third, the paragraphs across from it
      visual-right  prose in five columns, the surface in seven
      visual-left   the surface in seven, prose in five; the prose comes
                    first in the markup, so a phone keeps reading order
-     wide          the surface across the page, the prose beneath it
-     wide-aside    the surface across the page, the prose beneath its
-                   right half — under the sheet it describes */
+     wide          the surface across the container, the prose beneath it
+                   at the full measure
+     bleed         the surface past the container's edges, as far as the
+                   page allows; the prose beneath it, on the container
+     wide-aside    the surface across the container, the prose beneath its
+                   right half — under the sheet it describes
+   A band with nothing beside its prose reads a step larger. */
+.r2-fp-section[data-layout="column"] .r2-fp-prose,
+.r2-fp-section[data-layout="editorial"] .r2-fp-prose,
+.r2-fp-section[data-layout="wide"] .r2-fp-prose,
+.r2-fp-section[data-layout="bleed"] .r2-fp-prose,
+.r2-fp-section[data-layout="wide-aside"] .r2-fp-prose {
+  --fp-measure: var(--fp-measure-wide);
+  --fp-p: 18px;
+}
 .r2-fp-section[data-layout="column"] .r2-fp-prose {
-  grid-column: 1 / span 7;
+  grid-column: 1 / span 9;
+}
+/* The editorial band: the prose's box opens onto the band's own columns
+   (subgrid), its heading in the first four, everything after it in the
+   remaining eight, each paragraph a row of its own with no gap between —
+   the paragraphs' margins keep their rhythm. */
+.r2-fp-section[data-layout="editorial"] .r2-fp-prose {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  row-gap: 0;
+  max-width: none;
+}
+.r2-fp-section[data-layout="editorial"] .r2-fp-prose > h2 {
+  grid-column: 1 / span 4;
+  grid-row: 1 / span 40;
+  align-self: start;
+  margin-bottom: 0;
+  padding-right: var(--fp-gap-x);
+}
+.r2-fp-section[data-layout="editorial"] .r2-fp-prose > :not(h2) {
+  grid-column: 5 / -1;
+  max-width: var(--fp-measure);
+}
+@supports not (grid-template-columns: subgrid) {
+  .r2-fp-section[data-layout="editorial"] .r2-fp-prose {
+    display: block;
+    grid-column: 1 / span 9;
+    max-width: var(--fp-measure);
+  }
 }
 .r2-fp-section[data-layout="visual-right"] .r2-fp-prose {
   grid-column: 1 / span 5;
@@ -120,11 +173,16 @@
   grid-row: 1;
 }
 .r2-fp-section[data-layout="wide"] .r2-fp-visual,
+.r2-fp-section[data-layout="bleed"] .r2-fp-visual,
 .r2-fp-section[data-layout="wide-aside"] .r2-fp-visual {
   grid-column: 1 / -1;
 }
-.r2-fp-section[data-layout="wide"] .r2-fp-prose {
-  grid-column: 1 / span 7;
+.r2-fp-section[data-layout="bleed"] .r2-fp-visual {
+  margin: 0 calc(-1 * var(--fp-bleed));
+}
+.r2-fp-section[data-layout="wide"] .r2-fp-prose,
+.r2-fp-section[data-layout="bleed"] .r2-fp-prose {
+  grid-column: 1 / span 9;
 }
 .r2-fp-section[data-layout="wide-aside"] .r2-fp-prose {
   grid-column: 6 / -1;
@@ -157,7 +215,7 @@
 }
 .r2-fp-prose p,
 .r2-fp-prose li {
-  font-size: var(--fp-body);
+  font-size: var(--fp-p, var(--fp-body));
   line-height: 1.6;
   text-wrap: pretty;
   color: var(--r2-ink-2);
@@ -449,10 +507,55 @@
   margin-bottom: 32px;
 }
 /* The Inspector page's main picture: the sheet a little wider, as a writer
-   may drag it, and the frame a little taller for its History. */
+   may drag it, and the frame a little taller for its History. The sheet
+   runs to the frame's foot — the picture is of the two columns together,
+   so neither ends before the other — and the column shows no status line. */
 .r2-fp-shell--inspector {
   --r2-panel-width: 384px;
   height: 660px;
+}
+.r2-fp-shell--inspector .r2-panel {
+  margin-bottom: 0;
+  border-radius: var(--r2-radius-lg) 0 0 0;
+}
+
+/* The Scene properties page's first picture (ScenePropertySheet): a scene's
+   facts as the writer defined them, alone on the material — the chapter's
+   eyebrow and the scene's title as the editor sets them, then the rows of
+   the Inspector's block (rune2.css: .r2-props), set a size up and given
+   room, so the idea reads before the interface does. */
+.r2-fp-propsheet {
+  padding: 40px 44px 44px;
+  background: var(--r2-bg);
+}
+.r2-fp-propsheet .r2-doc-head {
+  margin-bottom: 28px;
+}
+.r2-fp-propsheet .r2-doc-title {
+  font-size: 24px;
+}
+.r2-fp-propsheet .r2-props {
+  margin: 0;
+  font-size: var(--r2-fs-ui);
+}
+.r2-fp-propsheet .r2-prop {
+  grid-template-columns: minmax(120px, 136px) minmax(0, 1fr);
+  min-height: 40px;
+  padding: 2px 0;
+}
+.r2-fp-propsheet .r2-prop + .r2-prop {
+  border-top: 1px solid var(--r2-border);
+}
+.r2-fp-propsheet .r2-prop-label {
+  padding: 9px 0;
+  font-size: var(--r2-fs-ui);
+}
+.r2-fp-propsheet .r2-prop-value {
+  padding: 4px 0;
+}
+.r2-fp-propsheet .r2-prop-button,
+.r2-fp-propsheet .r2-prop-links {
+  font-size: var(--r2-fs-ui);
 }
 
 /* The sheet alone, closer in (InspectorConnections): on the plane, flush
@@ -550,6 +653,11 @@
   border-left: 2px solid var(--r2-border-strong);
   color: var(--r2-muted);
 }
+/* The navigator picture's open Page shows its head and nothing under it:
+   the picture is of where Pages stand, not of another note. */
+.r2-fp-page--blank .r2-page-head {
+  margin-bottom: 0;
+}
 /* An Entry (EntryDocument): the properties block under the title, parted
    from the body by the hairline rune2.css gives it (.r2-page .r2-props). */
 .r2-fp-entry {
@@ -559,7 +667,7 @@
   margin-bottom: 20px;
 }
 .r2-fp-visual[data-size="entry"] .r2-fp-visual-in {
-  height: 440px;
+  height: 500px;
 }
 
 /* A broad surface (CollectionTable, CollectionBoard, SceneTable; rune2.css:
@@ -568,6 +676,14 @@
    together. */
 .r2-fp-shell--broad {
   height: 500px;
+}
+/* The Collections page's Table, given the width of the container, shows the
+   whole cast; its Timeline, past the container, every lane. */
+.r2-fp-shell--table {
+  height: 600px;
+}
+.r2-fp-shell--timeline {
+  height: 620px;
 }
 .r2-fp-broad {
   padding: 44px 36px 0;
@@ -615,7 +731,7 @@
 }
 /* The Board (CollectionBoard): the lanes, cut at the frame's foot. */
 .r2-fp-visual[data-size="board"] .r2-fp-visual-in {
-  height: 380px;
+  height: 440px;
 }
 .r2-fp-board-crop .r2-board {
   overflow: hidden;
@@ -624,11 +740,25 @@
   cursor: default;
 }
 
+/* The Timeline (CollectionTimeline; rune2.css: "Timeline"): the product's
+   axis, rail and lanes, laid out by this drawing's own measures — a year
+   along the axis, a lane per place — in the same classes. Long, as a
+   timeline is; cut at the frame's right where the track would scroll. */
+.r2-fp-timeline .r2-timeline-scroll {
+  overflow: hidden;
+}
+.r2-fp-timeline .r2-timeline-item {
+  cursor: default;
+}
+.r2-fp-timeline .r2-timeline-mark {
+  transition: none;
+}
+
 /* The Canvas (CanvasPlane; rune2.css: "Canvas"): the product's plane, with
    the dot grid at the product's spacing. The cards are the product's
    own; their places on the stage are this drawing's. */
 .r2-fp-canvas {
-  height: 560px;
+  height: clamp(560px, 52vw, 720px);
   min-height: 0;
   background-size: 22px 22px;
   background-position: 11px 11px;
@@ -640,10 +770,10 @@
   transform: translate(-50%, -50%);
 }
 .r2-fp-canvas-section {
-  left: 4%;
-  top: 17%;
-  width: 34%;
-  height: 76%;
+  left: var(--lp-x);
+  top: var(--lp-y);
+  width: var(--lp-w);
+  height: var(--lp-h);
 }
 .r2-fp-canvas-lines {
   position: absolute;
@@ -675,19 +805,6 @@
 }
 .r2-fp-canvas .r2-canvas-head .r2-page-title {
   margin: 0;
-}
-
-/* The writing surface alone (ManuscriptSurface): the chapter's eyebrow,
-   the scene's title and its prose, nothing else, cut clean at the foot. */
-.r2-fp-section[data-layout="wide"] .r2-fp-visual[data-size="surface"] {
-  grid-column: 3 / span 8;
-}
-.r2-fp-surface {
-  height: 340px;
-  padding-top: 8px;
-}
-.r2-fp-surface .r2-lp-shot-doc {
-  padding-top: 44px;
 }
 
 /* ── Motion off ─────────────────────────────────────────────────────── */
@@ -739,22 +856,39 @@
     align-items: stretch;
     row-gap: 0;
   }
-  .r2-fp-section .r2-fp-prose {
+  .r2-fp-section .r2-fp-prose,
+  .r2-fp-section[data-layout="editorial"] .r2-fp-prose {
     display: contents;
   }
-  .r2-fp-section .r2-fp-prose > h2 {
+  .r2-fp-section .r2-fp-prose > h2,
+  .r2-fp-section[data-layout="editorial"] .r2-fp-prose > h2 {
     order: 0;
     max-width: 24ch;
     margin-bottom: 20px;
+    padding-right: 0;
+  }
+  .r2-fp-section[data-layout="bleed"] .r2-fp-visual {
+    margin-left: 0;
+    margin-right: 0;
   }
   .r2-fp-section .r2-fp-visual {
     order: 1;
     width: auto;
     margin-bottom: 26px;
   }
-  .r2-fp-section .r2-fp-prose > :not(h2) {
+  .r2-fp-section .r2-fp-prose > :not(h2),
+  .r2-fp-section[data-layout="editorial"] .r2-fp-prose > :not(h2) {
     order: 2;
     max-width: var(--fp-measure);
+  }
+  .r2-fp-section[data-layout] .r2-fp-prose {
+    --fp-p: 17px;
+  }
+  .r2-fp-shell--timeline {
+    height: 560px;
+  }
+  .r2-fp-propsheet {
+    padding: 32px 36px 36px;
   }
   .r2-fp-section .r2-fp-prose > .r2-fp-aside {
     order: 3;
@@ -769,11 +903,14 @@
   .r2-fp-shell--column {
     height: 500px;
   }
+  /* The Canvas: the pieces marked for the wide stage alone leave, with
+     their lines and labels, and the plane keeps its room. */
   .r2-fp-canvas {
-    height: 480px;
+    height: 520px;
   }
-  .r2-fp-canvas-section {
-    width: 36%;
+  .r2-fp-canvas [data-wide-only],
+  .r2-fp-canvas-label {
+    display: none;
   }
 }
 
@@ -979,9 +1116,22 @@
     display: none;
   }
 
+  /* The properties sheet: closer set. */
+  .r2-fp-propsheet {
+    padding: 26px 22px 28px;
+  }
+  .r2-fp-propsheet .r2-prop {
+    grid-template-columns: minmax(96px, 108px) minmax(0, 1fr);
+  }
+
+  /* The Timeline: the rail and the first years, the rest cut at the frame. */
+  .r2-fp-shell--timeline {
+    height: 480px;
+  }
+
   /* The Canvas: the narrow arrangement (CanvasVisual: narrow) — the chosen
-     scene and the two it leads to, and the two lines; the Section, the
-     note, the rest of the pieces and the label are the wide stage's. */
+     scene and the two it leads to, and the two lines; the Sections, the
+     note, the rest of the pieces and the labels are the wide stage's. */
   .r2-fp-canvas {
     height: 360px;
     background-size: 18px 18px;
@@ -1008,14 +1158,6 @@
     top: 14px;
     width: auto;
     right: 18px;
-  }
-
-  /* The writing surface: the page's width, a little shorter. */
-  .r2-fp-surface {
-    height: 300px;
-  }
-  .r2-fp-surface .r2-lp-shot-doc {
-    padding-top: 28px;
   }
 }
 

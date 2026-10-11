@@ -24,6 +24,9 @@ import { Reveal } from "@/components/front/Reveal";
 //   FeatureHero     the eyebrow, the statement, one line of support.
 //   FeatureSection  a band of the page; `layout` says how its prose and
 //                   visual share the width (feature.css: "Compositions").
+//                   The rule under every layout: prose with nothing beside
+//                   it takes the full reading measure; prose beside a
+//                   surface narrows to a column by it.
 //   Prose           a measured column of editorial text: a heading, then
 //                   paragraphs, in reading order.
 //   Visual          the product's surface as one object on the page —
@@ -68,15 +71,19 @@ export function FeatureHero({ eyebrow, title, lede }: { eyebrow: string; title: 
 }
 
 export type SectionLayout =
-  /** A measured column of prose, nothing beside it. */
+  /** Prose alone, at the full reading measure. */
   | "column"
+  /** Prose alone, the article's way: the heading at the left, the paragraphs across from it. */
+  | "editorial"
   /** Prose at the left, the visual at the right; both from the top. */
   | "visual-right"
   /** The visual at the left, prose at the right. */
   | "visual-left"
   /** The visual across the container, the prose beneath it. */
   | "wide"
-  /** The visual across the container, the prose beside it in a narrow column. */
+  /** The visual past the container's edges, as far as the page allows; the prose beneath it. */
+  | "bleed"
+  /** The visual across the container, the prose beneath its right half. */
   | "wide-aside";
 
 /**

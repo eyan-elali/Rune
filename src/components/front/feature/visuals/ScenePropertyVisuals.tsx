@@ -1,80 +1,47 @@
-import { Columns3, Plus, Table2, X } from "lucide-react";
-import { ICON, ICON_SM } from "@/components/rune2/icons";
+import { Columns3, Plus, Table2 } from "lucide-react";
+import { ICON_SM } from "@/components/rune2/icons";
 import { col } from "./CollectionVisuals";
-import { CHAPTER, Choice, ContextBar, DocStatus, GROUP, Options, PropRow, Relation, SCENE, SceneProse, Tabs } from "./shell";
+import { CHAPTER, Choice, Options, PropRow, Relation, SCENE } from "./shell";
 
-// The Scene properties page's drawings. First, where the properties live:
-// beside the writing, in the Inspector (Rune2Panel: SceneInspectorProperties;
-// rune2.css: ".r2-scene-props") — the prose column clean, the sheet inset
-// beside it with the scene's few facts. Then the same facts seen another
-// way: the Manuscript's Scenes as a Table (ManuscriptScenes; rune2.css:
-// "Scene properties and Scene Views") — the scene's derived number quiet
-// before its name, the writer's properties as columns, and the native
-// word count in the second ink. The prose editor never shows any of this.
+// The Scene properties page's drawings. First, the idea itself: a scene's
+// facts as the writer defined them — point of view, place, time, thread,
+// status — in the rows the Inspector gives them (SceneInspectorProperties;
+// rune2.css: ".r2-props"), alone on the material with the scene's own head
+// above them and nothing of the shell around them. The picture of those
+// rows beside the writing belongs to the Inspector page. Then the same
+// facts seen another way: the Manuscript's Scenes as a Table
+// (ManuscriptScenes; rune2.css: "Scene properties and Scene Views") — the
+// scene's derived number quiet before its name, the writer's properties as
+// columns, and the native word count in the second ink. The prose editor
+// never shows any of this.
 
-/** The scene open, with the Inspector's Properties beside it. */
-export function SceneWithProperties() {
+/** The scene's properties, as the writer defined them, with nothing else. */
+export function ScenePropertySheet() {
   return (
-    <div className="r2-fp-shell r2-fp-shell--split">
-      <Tabs context={CHAPTER} label={SCENE} />
-      <ContextBar crumbs={["Manuscript", GROUP, CHAPTER, SCENE]} />
-      <div className="r2-fp-body">
-        <div className="r2-lp-shot-content">
-          <SceneProse />
-          <DocStatus />
-        </div>
-        <aside className="r2-panel" data-open="">
-          <div className="r2-panel-inner">
-            <div className="r2-panel-head">
-              <h2>Inspector</h2>
-              <span className="r2-icon-button">
-                <X {...ICON} />
-              </span>
-            </div>
-            <div className="r2-panel-body">
-              <div className="r2-inspector">
-                <header className="r2-insp-head">
-                  <p className="r2-insp-kind">Scene</p>
-                  <p className="r2-insp-title">{SCENE}</p>
-                  <p className="r2-insp-facts">
-                    <span>Scene 2 of 3</span>
-                    <span>1,412 words</span>
-                  </p>
-                </header>
-                <section className="r2-insp-section">
-                  <header className="r2-insp-section-head">
-                    <h3 className="r2-insp-label">Properties</h3>
-                    <span className="r2-insp-aside">
-                      <span className="r2-insp-aside-link">Edit</span>
-                    </span>
-                  </header>
-                  <div className="r2-scene-props">
-                    <section className="r2-props">
-                      <dl className="r2-props-list">
-                        <PropRow label="Point of view">
-                          <Relation names={["Ada Marsh"]} />
-                        </PropRow>
-                        <PropRow label="Location">
-                          <Relation names={["The house"]} />
-                        </PropRow>
-                        <PropRow label="Timeline">
-                          <Choice type="select" options={["March, year two"]} />
-                        </PropRow>
-                        <PropRow label="Threads">
-                          <Choice type="multi_select" options={["The letters", "The house"]} />
-                        </PropRow>
-                        <PropRow label="Status">
-                          <Choice type="status" options={["Draft"]} />
-                        </PropRow>
-                      </dl>
-                    </section>
-                  </div>
-                </section>
-              </div>
-            </div>
-          </div>
-        </aside>
+    <div className="r2-fp-propsheet">
+      <div className="r2-doc-head">
+        <p className="r2-doc-eyebrow">Scene · {CHAPTER}</p>
+        <p className="r2-doc-title">{SCENE}</p>
       </div>
+      <section className="r2-props">
+        <dl className="r2-props-list">
+          <PropRow label="Point of view">
+            <Relation names={["Ada Marsh"]} />
+          </PropRow>
+          <PropRow label="Location">
+            <Relation names={["The house"]} />
+          </PropRow>
+          <PropRow label="Timeline">
+            <Choice type="select" options={["March, year two"]} />
+          </PropRow>
+          <PropRow label="Threads">
+            <Choice type="multi_select" options={["The letters", "The house"]} />
+          </PropRow>
+          <PropRow label="Status">
+            <Choice type="status" options={["Draft"]} />
+          </PropRow>
+        </dl>
+      </section>
     </div>
   );
 }
