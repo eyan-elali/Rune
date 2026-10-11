@@ -152,6 +152,11 @@
   color: var(--r2-ink-1);
   background: var(--r2-hover);
 }
+.r2-lp-nav-link:focus-visible,
+.r2-lp-head .r2-wordmark:focus-visible {
+  outline: 2px solid var(--r2-focus);
+  outline-offset: 2px;
+}
 .r2-lp-head .r2-lp-cta {
   grid-column: 3;
   justify-self: end;
@@ -544,6 +549,20 @@
 }
 .r2-lp-shot-crumbs .r2-crumb-project {
   margin-right: var(--r2-space-6);
+}
+/* The Inspector section's trace keeps the bar's panel actions at its right
+   end (Revision Notes, and the Inspector's toggle, pressed), as the product
+   lays them out; plain spans, nothing to press. */
+.r2-lp-dt-crumb-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--r2-space-1);
+  flex-shrink: 0;
+  margin-left: auto;
+  padding-left: var(--r2-space-5);
+}
+.r2-lp-dt-crumb-actions .r2-action {
+  cursor: default;
 }
 
 /* The writing column: Sutura's measure, centred in the room it has, the
@@ -1675,13 +1694,20 @@
   max-width: 24rem;
   margin: var(--lp-lede-gap) 0 0;
 }
-/* The link: the workspace cards' cue, standing on its own — quiet, a
-   step up from metadata, and the arrow moves on hover. Not a button. */
+/* The links: the workspace cards' cue, one per closer look, in a short
+   stack — quiet, a step up from metadata, and the arrow moves on hover.
+   Not buttons. */
+.r2-lp-dt-links {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 28px;
+}
 .r2-lp-dt-more {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  margin-top: 28px;
   padding: 2px 0;
   font-size: 14.5px;
   color: var(--r2-ink-2);
@@ -1763,6 +1789,12 @@
 }
 .r2-lp-dt-shot .r2-lp-shot-crumbs {
   padding-left: calc(var(--lp-dt-over) + var(--r2-space-8));
+}
+/* The trace's bar carries the panel actions at its right, so the breadcrumb
+   gives up the project's name — it is cut by the slab's edge anyway — and
+   the scene's name stays whole. */
+.r2-lp-dt-shot .r2-lp-shot-crumbs .r2-crumb-project {
+  display: none;
 }
 .r2-lp-dt-body {
   display: grid;
@@ -1875,8 +1907,11 @@
   .r2-lp-dt-in {
     row-gap: 22px;
   }
-  .r2-lp-dt-more {
+  .r2-lp-dt-links {
+    gap: 0;
     margin-top: 12px;
+  }
+  .r2-lp-dt-more {
     padding: 10px 0;
   }
   .r2-lp-dt-plane {

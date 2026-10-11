@@ -1,12 +1,12 @@
-import { Feather, File, Frame, Library, PanelRight, SlidersHorizontal, type LucideIcon } from "lucide-react";
+import { Feather, File, Frame, Library, PanelRight, SlidersHorizontal, StickyNote, type LucideIcon } from "lucide-react";
 
 // What the feature shell's navigator lists (FeatureNavigator, FeatureSwitcher):
-// the five closer looks and the authorship principle, in two groups, as the
+// the six closer looks and the authorship principle, in two groups, as the
 // Project navigator lists the Manuscript and the Workspace. The routes are
 // the ones the landing page links to (FrontWorkspace, FrontDetails,
 // FrontTrust) and proxy.ts keeps public; a page names itself by its slug.
 
-export type FeatureSlug = "pages" | "collections" | "scene-properties" | "canvas" | "inspector" | "no-ai";
+export type FeatureSlug = "pages" | "collections" | "scene-properties" | "canvas" | "inspector" | "revision-notes" | "no-ai";
 
 export type FeatureNavItem = {
   slug: FeatureSlug;
@@ -29,6 +29,7 @@ export const FEATURE_NAV: ReadonlyArray<FeatureNavGroup> = [
       { slug: "scene-properties", title: "Scene properties", href: "/features/scene-properties", icon: SlidersHorizontal },
       { slug: "canvas", title: "Canvas", href: "/features/canvas", icon: Frame },
       { slug: "inspector", title: "Inspector", href: "/features/inspector", icon: PanelRight },
+      { slug: "revision-notes", title: "Revision notes", href: "/features/revision-notes", icon: StickyNote },
     ],
   },
   {

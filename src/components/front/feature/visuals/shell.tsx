@@ -125,7 +125,16 @@ export function Tabs({ context, label, toggle = true }: { context?: string; labe
 }
 
 /** The context bar: the breadcrumb and the selection's actions. */
-export function ContextBar({ crumbs, actions = "scene" }: { crumbs: string[]; actions?: "scene" | "workspace" | "none" }) {
+export function ContextBar({
+  crumbs,
+  actions = "scene",
+  notesOpen = false,
+}: {
+  crumbs: string[];
+  actions?: "scene" | "workspace" | "none";
+  /** Revision Notes open beside the writing: its action drawn pressed, as the product draws it. */
+  notesOpen?: boolean;
+}) {
   return (
     <header className="r2-contextbar">
       <nav>
@@ -151,7 +160,7 @@ export function ContextBar({ crumbs, actions = "scene" }: { crumbs: string[]; ac
           </span>
           <span className="r2-contextbar-panel">
             {actions === "scene" && (
-              <span className="r2-action">
+              <span className="r2-action" aria-pressed={notesOpen ? "true" : undefined}>
                 <StickyNote {...ICON} />
                 Revision Notes
               </span>

@@ -25,6 +25,7 @@ const PUBLIC_ROUTES = [
   "/features/scene-properties",
   "/features/canvas",
   "/features/inspector",
+  "/features/revision-notes",
   // The authorship principle the landing page's No AI writing card
   // (components/front/FrontTrust) leads to, public for the same reason.
   "/principles/no-ai",

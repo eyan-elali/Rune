@@ -11,7 +11,8 @@ import { InspectorBesideWriting, InspectorConnections } from "../visuals/Inspect
 // of the writing and its side panel together, which this page owns — and
 // the sheet alone, on its Connections, beside its passage (how the
 // Inspector joins manuscript and workspace). The properties themselves are
-// the Scene properties page's subject.
+// the Scene properties page's subject, and the revision thinking that shares
+// the sheet's region is the Revision Notes page's.
 
 export const INSPECTOR_LINE =
   "A scene's properties, its place in the manuscript, its earlier versions and its connections, in one sheet beside the writing.";
@@ -94,6 +95,9 @@ export function InspectorArticle() {
             never more than one sheet beside the writing, and while you are typing the shell&rsquo;s chrome recedes until you
             pause, so the page is the writing and little else.
           </p>
+          <Aside href="/features/revision-notes" cue="Revision Notes">
+            The other thing that sheet can hold is your revision thinking.
+          </Aside>
         </Prose>
       </FeatureSection>
     </>

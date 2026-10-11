@@ -3,7 +3,7 @@ import Link from "next/link";
 import { buildThemeCss } from "@/lib/rune2/themes";
 import "@/app/(rune2)/rune2.css";
 import { Wordmark } from "@/components/brand/Wordmark";
-import { SUPPORT_EMAIL } from "@/lib/brand";
+import { PUBLIC_ROUTES } from "./publicRoutes";
 
 // The frame of Sutura's public pages (Beta Completion E): the front door, sign
 // in, sign up and the pen name. Rune 2.0's own tokens and themes, following
@@ -41,7 +41,7 @@ export function PublicFrame({
   theme?: "light" | "system";
 }) {
   const home = (
-    <Link href="/" className="r2-wordmark" aria-label="Sutura — home">
+    <Link href={PUBLIC_ROUTES.home} className="r2-wordmark" aria-label="Sutura — home">
       <Wordmark label={false} />
     </Link>
   );
@@ -71,13 +71,13 @@ export function PublicFrame({
   );
 }
 
-/** The quiet trust links at the foot of every public page. */
+/** The quiet trust links at the foot of every public page (publicRoutes.ts): Privacy, Terms, and Support by mail. */
 export function PublicFootLinks() {
   return (
     <>
-      <Link href="/privacy">Privacy</Link>
-      <Link href="/terms">Terms</Link>
-      <a href={`mailto:${SUPPORT_EMAIL}`}>Support</a>
+      <Link href={PUBLIC_ROUTES.privacy}>Privacy</Link>
+      <Link href={PUBLIC_ROUTES.terms}>Terms</Link>
+      <a href={PUBLIC_ROUTES.support}>Support</a>
     </>
   );
 }

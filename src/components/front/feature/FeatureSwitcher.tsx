@@ -11,8 +11,10 @@ import { useFeatureShell } from "./FeatureShell";
 import { FEATURE_NAV, featureNavItem } from "./featureNav";
 
 // The feature shell where the navigator does not fit (feature.css: "The
-// switcher"): one compact row at the top of the content — the wordmark,
-// home, and the current page's name as a control, "Pages ▾" — which opens
+// switcher"): one row at the top of the content in three zones — the
+// wordmark, home, at the left; the current page's name on the row's centre
+// as a control, "Pages ▾"; and in the peek the close at the right (drawn
+// by FeatureShell, placed by the stylesheet) — the name opening
 // the product's own menu (NavigatorMenu: the same surface the navigator's
 // rows open, with its keyboard: arrows, Enter, Escape) listing the same
 // places the navigator does: Features, Principles, and the way home.
@@ -22,6 +24,8 @@ import { FEATURE_NAV, featureNavItem } from "./featureNav";
 // The row is the same on the server and the client; the menu exists only
 // while it is open.
 
+const MENU_MIN_WIDTH = 196;
+
 export function FeatureSwitcher() {
   const router = useRouter();
   const { current, mode, close } = useFeatureShell();
@@ -29,9 +33,11 @@ export function FeatureSwitcher() {
   const [at, setAt] = useState<{ x: number; y: number } | null>(null);
   const page = featureNavItem(current);
 
+  // The menu opens centred under the name (its narrowest width, rune2.css:
+  // .r2-menu; NavigatorMenu keeps it on screen).
   function open() {
     const r = button.current?.getBoundingClientRect();
-    if (r) setAt({ x: r.left, y: r.bottom + 4 });
+    if (r) setAt({ x: r.left + r.width / 2 - MENU_MIN_WIDTH / 2, y: r.bottom + 4 });
   }
 
   function go(href: string) {

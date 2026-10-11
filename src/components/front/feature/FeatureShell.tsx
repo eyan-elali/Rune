@@ -5,6 +5,7 @@ import Link from "next/link";
 import { X } from "lucide-react";
 import { ICON } from "@/components/rune2/icons";
 import { PublicFootLinks } from "@/components/front/PublicFrame";
+import { startPath } from "@/components/front/publicRoutes";
 import { FeatureNavigator } from "./FeatureNavigator";
 import { FeatureSwitcher } from "./FeatureSwitcher";
 import type { FeatureSlug } from "./featureNav";
@@ -96,7 +97,7 @@ function FeatureEnd({ member }: { member: boolean }) {
     <footer className="r2-fp-end">
       <div className="r2-fp-end-row">
         <p className="r2-fp-end-line">Sutura is open to anyone, and free during the public beta.</p>
-        <Link href={member ? "/projects" : "/signup"} className="r2-button r2-button--primary r2-fp-end-action">
+        <Link href={startPath(member)} className="r2-button r2-button--primary r2-fp-end-action">
           Start writing free
         </Link>
       </div>

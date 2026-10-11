@@ -5,6 +5,7 @@ import { CollectionsArticle } from "./CollectionsArticle";
 import { ScenePropertiesArticle } from "./ScenePropertiesArticle";
 import { CanvasArticle } from "./CanvasArticle";
 import { InspectorArticle } from "./InspectorArticle";
+import { RevisionNotesArticle } from "./RevisionNotesArticle";
 import { NoAiArticle } from "./NoAiArticle";
 
 // The feature articles, one per page, by slug: what features/<slug>/page.tsx
@@ -17,6 +18,7 @@ export const FEATURE_ARTICLES: Record<FeatureSlug, ComponentType> = {
   "scene-properties": ScenePropertiesArticle,
   canvas: CanvasArticle,
   inspector: InspectorArticle,
+  "revision-notes": RevisionNotesArticle,
   "no-ai": NoAiArticle,
 };
 

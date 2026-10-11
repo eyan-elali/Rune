@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { Wordmark } from "@/components/brand/Wordmark";
+import { PUBLIC_ROUTES, startPath } from "./publicRoutes";
 import { advanceHeaderScrollState, initialHeaderScrollState, type HeaderScrollState } from "./headerScrollIntent";
 
 // The landing page's header (front.css: "Header"): three zones — the
@@ -29,7 +30,11 @@ import { advanceHeaderScrollState, initialHeaderScrollState, type HeaderScrollSt
 // One action, one wording — "Start writing free" — on the public page. A
 // signed-in writer is sent to their Projects by the same action.
 
-const LINKS = [{ href: "/#features", label: "Features" }] as const;
+// Where each control leads is publicRoutes.ts's, shared with the hero, the
+// close and the feature shell. "Features" is an in-page anchor: the
+// manuscript section (FrontManuscript, id="features"), where the product
+// first shows itself and the tour of its parts begins.
+const LINKS = [{ href: PUBLIC_ROUTES.features, label: "Features" }] as const;
 
 export function FrontHeader({ member }: { member: boolean }) {
   const ref = useRef<HTMLElement>(null);
@@ -57,7 +62,7 @@ export function FrontHeader({ member }: { member: boolean }) {
   return (
     <header ref={ref} className="r2-lp-head">
       <div className="r2-lp-head-in">
-        <Link href="/" className="r2-wordmark" aria-label="Sutura — home">
+        <Link href={PUBLIC_ROUTES.home} className="r2-wordmark" aria-label="Sutura — home">
           <Wordmark label={false} />
         </Link>
         <nav className="r2-lp-nav" aria-label="Site">
@@ -67,12 +72,12 @@ export function FrontHeader({ member }: { member: boolean }) {
             </a>
           ))}
           {!member && (
-            <Link href="/login" className="r2-lp-nav-link">
+            <Link href={PUBLIC_ROUTES.signIn} className="r2-lp-nav-link">
               Sign in
             </Link>
           )}
         </nav>
-        <Link href={member ? "/projects" : "/signup"} className="r2-button r2-button--primary r2-lp-cta">
+        <Link href={startPath(member)} className="r2-button r2-button--primary r2-lp-cta">
           Start writing free
         </Link>
       </div>

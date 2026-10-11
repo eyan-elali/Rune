@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { startPath } from "./publicRoutes";
 
 // The hero (front.css: "Hero"): one statement, one action, nothing else.
 //
@@ -25,7 +26,7 @@ export function FrontHero({ member }: { member: boolean }) {
           <span className="r2-lp-title-2">Build only what it asks for.</span>
         </h1>
         <div className="r2-lp-actions">
-          <Link href={member ? "/projects" : "/signup"} className="r2-button r2-button--primary r2-button--lg">
+          <Link href={startPath(member)} className="r2-button r2-button--primary r2-button--lg">
             Start writing free
           </Link>
           <p className="r2-lp-note">

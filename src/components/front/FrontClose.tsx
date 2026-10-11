@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Reveal } from "./Reveal";
+import { startPath } from "./publicRoutes";
 
 // The close of the landing page (front.css: "The close"): where the page
 // resolves. Five sections have said what Sutura is, what it does and what
@@ -29,7 +30,7 @@ export function FrontClose({ member }: { member: boolean }) {
         </h2>
         <p className="r2-lp-lede">Sutura is open to anyone and free to use during beta while we keep improving it.</p>
         <div className="r2-lp-cl-actions">
-          <Link href={member ? "/projects" : "/signup"} className="r2-button r2-button--primary r2-button--lg">
+          <Link href={startPath(member)} className="r2-button r2-button--primary r2-button--lg">
             Start writing free
           </Link>
           <p className="r2-lp-note">

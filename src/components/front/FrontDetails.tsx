@@ -1,13 +1,19 @@
 import Link from "next/link";
-import { ArrowRight, Link2, X } from "lucide-react";
+import { ArrowRight, Link2, PanelRight, StickyNote, X } from "lucide-react";
 import { ICON, ICON_SM, ICON_SM_BOLD } from "@/components/rune2/icons";
 import { Reveal } from "./Reveal";
 
 // Section 4 of the landing page (front.css: "The Inspector"): one idea —
-// the supporting details of a scene stay close to the writing. A split: the
-// statement at the left, with one quiet link to the closer look; at the
+// what a scene needs stays close to the writing, and out of the prose. Two
+// things live there, in the one sheet beside the manuscript: the Inspector
+// (a scene's details, properties, history and connections) and Revision
+// Notes (the temporary thinking of a draft being revised). A split: the
+// statement at the left, with a quiet link to each closer look; at the
 // right, one focused product visual — the Inspector, large, on a trace of
-// the shell, on a flat plane of Sutura blue.
+// the shell, on a flat plane of Sutura blue. The Inspector stays the one
+// picture: the section is not a grid, and the Revision Notes page has its
+// own. The context bar in the trace names the Revision Notes action, as
+// the product's does.
 //
 // The visual is the product's own: the Inspector is the real panel
 // (rune2.css: .r2-panel, .r2-inspector, Rune2Panel.tsx), open as the
@@ -24,6 +30,7 @@ import { Reveal } from "./Reveal";
 // image. The one link is the section's, beneath the copy.
 
 export const INSPECTOR_PATH = "/features/inspector";
+export const REVISION_NOTES_PATH = "/features/revision-notes";
 
 const PROJECT = "The Lantern Road";
 const CHAPTER = "The Letters";
@@ -176,6 +183,15 @@ function Shell() {
         <span>{CHAPTER}</span>
         <span className="r2-crumb-sep">/</span>
         <span className="r2-crumb-current">{SCENE}</span>
+        <span className="r2-lp-dt-crumb-actions">
+          <span className="r2-action">
+            <StickyNote {...ICON} />
+            Revision Notes
+          </span>
+          <span className="r2-action r2-action--icon" aria-pressed="true">
+            <PanelRight {...ICON} />
+          </span>
+        </span>
       </div>
       <div className="r2-lp-dt-body">
         <div className="r2-lp-shot-content" />
@@ -189,24 +205,30 @@ function Shell() {
 }
 
 const SHOT_LABEL =
-  "The Inspector, open beside the scene The Thursday Boat in Sutura. It shows the scene's place in the manuscript — Part One, The Letters, scene 2 of 3, 1,412 words — then its properties: Point of view, Ada Marsh, a linked character; Location, The house, a linked place; Timeline, March, year two; Status, Draft. Under Connections, the research page Why the letters wait.";
+  "The Inspector, open from the context bar's panel actions beside Revision Notes, beside the scene The Thursday Boat in Sutura. It shows the scene's place in the manuscript — Part One, The Letters, scene 2 of 3, 1,412 words — then its properties: Point of view, Ada Marsh, a linked character; Location, The house, a linked place; Timeline, March, year two; Status, Draft. Under Connections, the research page Why the letters wait.";
 
 export function FrontDetails() {
   return (
     <section id="inspector" className="r2-lp-dt" aria-labelledby="lp-dt-title">
       <div className="r2-lp-dt-in">
         <Reveal className="r2-lp-dt-copy">
-          <p className="r2-lp-eyebrow">The Inspector</p>
+          <p className="r2-lp-eyebrow">Inspector &amp; Revision Notes</p>
           <h2 id="lp-dt-title" className="r2-lp-h2">
             The book stays open.
             <br />
             The details stay close.
           </h2>
-          <p className="r2-lp-lede">See what a scene needs without leaving the writing.</p>
-          <Link href={INSPECTOR_PATH} scroll={false} className="r2-lp-dt-more">
-            Learn about the Inspector
-            <ArrowRight {...ICON_SM_BOLD} aria-hidden />
-          </Link>
+          <p className="r2-lp-lede">Scene details, history and revision thinking stay beside the writing, never in it.</p>
+          <div className="r2-lp-dt-links">
+            <Link href={INSPECTOR_PATH} scroll={false} className="r2-lp-dt-more">
+              Learn about the Inspector
+              <ArrowRight {...ICON_SM_BOLD} aria-hidden />
+            </Link>
+            <Link href={REVISION_NOTES_PATH} scroll={false} className="r2-lp-dt-more">
+              Learn about Revision Notes
+              <ArrowRight {...ICON_SM_BOLD} aria-hidden />
+            </Link>
+          </div>
         </Reveal>
         <Reveal className="r2-lp-dt-visual" delay>
           <div className="r2-lp-dt-plane" role="img" aria-label={SHOT_LABEL}>

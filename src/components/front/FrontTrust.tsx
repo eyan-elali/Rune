@@ -21,8 +21,8 @@ import { Reveal } from "./Reveal";
 //
 // The first promise is the one that most sets Sutura apart, and the only
 // one that leads deeper today: the whole card is the link to the
-// editorial page (NO_AI_PATH), a placeholder until the article is
-// written. The other three are statements, not controls.
+// editorial page (NO_AI_PATH: the authorship principle, read in the
+// Center Peek from here). The other three are statements, not controls.
 
 export const NO_AI_PATH = "/principles/no-ai";
 
