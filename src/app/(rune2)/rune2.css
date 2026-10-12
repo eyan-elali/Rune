@@ -183,14 +183,15 @@
   scrollbar-color: var(--r2-scrollbar-hover) transparent;
 }
 
-/* Focus: one language, everywhere. The keyboard's ring is a fine line of
-   ink blue just outside the control, with a faint halo so it reads on any
-   tone — clear, never a box. Pointer focus shows nothing on a control and a
-   soft edge on a field (.r2-field below: a hairline of accent and the same
-   halo, never a saturated border). A surface that draws its own focus (a
-   row, a cell) sets outline: none and shows it the same way, inside. */
+/* Focus: one language, everywhere. The keyboard's ring is one hairline of
+   ink blue just outside the control — a precise edge, never a thick box.
+   Pointer focus shows nothing on a control and a soft edge on a field
+   (.r2-field below: a hairline of accent-line inside a low-opacity halo,
+   never a saturated border — and the same whichever way the field was
+   reached). A surface that draws its own focus (a row, a cell) sets
+   outline: none and shows it the same way, inside. */
 .r2 :focus-visible {
-  outline: 1.5px solid var(--r2-focus);
+  outline: 1px solid var(--r2-focus);
   outline-offset: 2px;
   border-radius: var(--r2-radius-sm);
 }
@@ -350,11 +351,12 @@
   border-color: var(--r2-accent-line);
   box-shadow: 0 0 0 3px var(--r2-accent-soft);
 }
-/* Reached by the keyboard: the edge takes the focus colour (legible on any
-   surface), still one hairline inside the same halo. */
+/* A text field matches :focus-visible however it was reached, so the
+   keyboard gets the same soft edge as the pointer: the caret, the hairline
+   and the halo are the editing state — never a saturated border. */
 .r2-field:focus-visible {
   outline: none;
-  border-color: var(--r2-focus);
+  border-color: var(--r2-accent-line);
   box-shadow: 0 0 0 3px var(--r2-accent-soft);
 }
 .r2-field[aria-invalid="true"] {
@@ -400,7 +402,7 @@ textarea.r2-field {
     var(--r2-shadow-material-lift);
 }
 .r2-material--interactive:is([aria-checked="true"], [aria-pressed="true"], [data-selected]) {
-  box-shadow: inset 0 1px 0 var(--r2-material-highlight), 0 0 0 1px var(--r2-accent), 0 0 0 4px var(--r2-accent-soft),
+  box-shadow: inset 0 1px 0 var(--r2-material-highlight), 0 0 0 1px var(--r2-accent-line), 0 0 0 4px var(--r2-accent-soft),
     var(--r2-shadow-material-lift);
 }
 .r2-material--interactive:focus-visible {
@@ -425,7 +427,7 @@ textarea.r2-field {
   background: var(--r2-material-bg);
 }
 .r2-field--lg:focus-visible {
-  border-color: var(--r2-focus);
+  border-color: var(--r2-accent-line);
   box-shadow: 0 0 0 3px var(--r2-accent-soft);
   background: var(--r2-material-bg);
 }
@@ -604,7 +606,7 @@ button.r2-chip:focus-visible {
 }
 /* The keyboard's item also carries the focus ring (a tint alone reads at 1.1:1). */
 .r2-menu-item:focus-visible {
-  box-shadow: inset 0 0 0 1.5px var(--r2-focus);
+  box-shadow: inset 0 0 0 1px var(--r2-focus);
 }
 .r2-menu-item:disabled,
 .r2-menu-item[aria-disabled="true"] {
@@ -1112,7 +1114,7 @@ button.r2-chip:focus-visible {
   outline: none;
 }
 .r2-row-main:focus-visible::after {
-  box-shadow: inset 0 0 0 1.5px var(--r2-accent);
+  box-shadow: inset 0 0 0 1px var(--r2-focus);
 }
 
 .r2-row-label {
@@ -1606,7 +1608,7 @@ button.r2-disclosure:hover {
   background: var(--r2-press);
 }
 .r2-action:focus-visible {
-  outline: 1.5px solid var(--r2-focus);
+  outline: 1px solid var(--r2-focus);
   outline-offset: 1px;
 }
 .r2-action:disabled {
@@ -1917,7 +1919,7 @@ button.r2-disclosure:hover {
   background: var(--r2-hover);
 }
 .r2-composer-tool:focus-visible {
-  outline: 1.5px solid var(--r2-focus);
+  outline: 1px solid var(--r2-focus);
   outline-offset: 1px;
 }
 /* The optional details: a second, quieter field under the first, parted by a hairline. */
@@ -3101,7 +3103,7 @@ button.r2-disclosure:hover {
   box-shadow: inset 0 0 0 1px var(--r2-accent-line), 0 0 0 3px var(--r2-accent-soft);
 }
 .r2-prop-menu-name:focus-visible {
-  box-shadow: inset 0 0 0 1px var(--r2-focus), 0 0 0 3px var(--r2-accent-soft);
+  box-shadow: inset 0 0 0 1px var(--r2-accent-line), 0 0 0 3px var(--r2-accent-soft);
 }
 .r2-prop-menu-list {
   display: flex;
@@ -3567,7 +3569,7 @@ span.r2-schema-type {
   outline: none;
 }
 .r2-view-menu-item:focus-visible {
-  box-shadow: inset 0 0 0 1.5px var(--r2-focus);
+  box-shadow: inset 0 0 0 1px var(--r2-focus);
 }
 .r2-view-menu-icon {
   flex: none;
@@ -3971,7 +3973,7 @@ span.r2-schema-type {
 .r2-entry-row:focus-visible {
   outline: none;
   background: var(--r2-hover);
-  box-shadow: inset 0 0 0 1.5px var(--r2-focus);
+  box-shadow: inset 0 0 0 1px var(--r2-focus);
 }
 @container (max-width: 640px) {
   .r2-entry-row {
@@ -4240,7 +4242,7 @@ span.r2-schema-type {
 .r2-table-title button:focus-visible {
   outline: none;
   background: var(--r2-hover);
-  box-shadow: inset 0 0 0 1.5px var(--r2-focus);
+  box-shadow: inset 0 0 0 1px var(--r2-focus);
 }
 .r2-table-row:hover > *,
 .r2-table-row:focus-within > * {
@@ -4626,7 +4628,7 @@ span.r2-schema-type {
 .r2-timeline-item:focus-visible {
   outline: none;
   background: var(--r2-hover);
-  box-shadow: inset 0 0 0 1.5px var(--r2-focus);
+  box-shadow: inset 0 0 0 1px var(--r2-focus);
 }
 .r2-timeline-item[data-unnamed] .r2-timeline-item-title {
   color: var(--r2-ink-3);
@@ -6232,7 +6234,7 @@ span.r2-schema-type {
   color: var(--r2-selected-ink);
 }
 .r2-milestone-nav-item:focus-visible {
-  outline: 1.5px solid var(--r2-focus);
+  outline: 1px solid var(--r2-focus);
   outline-offset: -2px;
 }
 .r2-milestone-nav-label {
@@ -6536,7 +6538,7 @@ span.r2-schema-type {
   color: var(--r2-selected-ink);
 }
 .r2-reading-rail-item:focus-visible {
-  outline: 1.5px solid var(--r2-focus);
+  outline: 1px solid var(--r2-focus);
   outline-offset: -2px;
 }
 .r2-reading-rail-label {
@@ -6564,7 +6566,7 @@ span.r2-schema-type {
 }
 .r2-reader-body:focus-visible {
   outline: none;
-  box-shadow: inset 0 0 0 1.5px var(--r2-focus);
+  box-shadow: inset 0 0 0 1px var(--r2-focus);
   border-radius: 0;
 }
 .r2-reader-inner {
@@ -6764,7 +6766,7 @@ span.r2-schema-type {
   font-weight: var(--r2-weight-medium);
 }
 .r2-rnotes-trail-link:focus-visible {
-  outline: 1.5px solid var(--r2-focus);
+  outline: 1px solid var(--r2-focus);
   outline-offset: 2px;
 }
 /* The composer: at rest one quiet line of placeholder, nothing drawn around
@@ -6970,7 +6972,7 @@ span.r2-schema-type {
   color: var(--r2-ink-2);
 }
 .r2-rnote-body:focus-visible {
-  outline: 1.5px solid var(--r2-focus);
+  outline: 1px solid var(--r2-focus);
   outline-offset: 2px;
 }
 .r2-rnote-details {
@@ -7192,7 +7194,7 @@ span.r2-schema-type {
   color: var(--r2-ink-2);
 }
 .r2-comment-mark:focus-visible {
-  outline: 1.5px solid var(--r2-focus);
+  outline: 1px solid var(--r2-focus);
   outline-offset: 1px;
 }
 /* The offer beside a selection. */
@@ -7297,7 +7299,7 @@ span.r2-schema-type {
   cursor: pointer;
 }
 .r2-comment-body--button:focus-visible {
-  outline: 1.5px solid var(--r2-focus);
+  outline: 1px solid var(--r2-focus);
   outline-offset: 2px;
 }
 .r2-comment-text {
@@ -7501,11 +7503,11 @@ span.r2-schema-type {
 .r2-canvas-card:hover {
   box-shadow: 0 0 0 1px var(--r2-border-strong), var(--r2-shadow-sm);
 }
-/* Chosen: a hairline of accent and a soft halo around it — it is lifted and
-   marked, never boxed in blue. */
+/* Chosen: a faint accent hairline inside a soft halo, and lifted — it is
+   marked by light and wash, never boxed in blue. */
 .r2-canvas-card[data-selected],
 .r2-canvas-card[data-selected]:hover {
-  box-shadow: 0 0 0 1px var(--r2-accent), 0 0 0 4px var(--r2-accent-soft), var(--r2-shadow-pop);
+  box-shadow: 0 0 0 1px var(--r2-accent-line), 0 0 0 4px var(--r2-accent-soft), var(--r2-shadow-pop);
 }
 .r2-canvas-card[data-unavailable] {
   color: var(--r2-ink-3);
@@ -7514,7 +7516,7 @@ span.r2-schema-type {
   cursor: default;
 }
 .r2-canvas-card[data-unavailable][data-selected] {
-  box-shadow: 0 0 0 1px var(--r2-accent), 0 0 0 4px var(--r2-accent-soft);
+  box-shadow: 0 0 0 1px var(--r2-accent-line), 0 0 0 4px var(--r2-accent-soft);
 }
 .r2-canvas-card-eyebrow {
   font-size: var(--r2-fs-label);
@@ -7681,7 +7683,8 @@ span.r2-schema-type {
   transition: box-shadow var(--r2-fast) var(--r2-ease);
 }
 .r2-canvas-section[data-selected] {
-  box-shadow: inset 0 0 0 1px var(--r2-accent), 0 0 0 4px var(--r2-accent-soft);
+  background: color-mix(in srgb, rgb(var(--r2-palette-blue)) 5%, transparent);
+  box-shadow: inset 0 0 0 1px var(--r2-accent-line), 0 0 0 4px var(--r2-accent-soft);
 }
 /* Two Sections over each other read as two: the upper one's fill stays translucent, its edge a little firmer. */
 .r2-canvas-section:hover {
@@ -7689,7 +7692,7 @@ span.r2-schema-type {
 }
 /* The board itself, focused by the keyboard: a quiet inner ring. */
 .r2-canvas:focus-visible {
-  box-shadow: inset 0 0 0 1.5px var(--r2-focus);
+  box-shadow: inset 0 0 0 1px var(--r2-focus);
 }
 .r2-canvas-section-head {
   display: flex;
@@ -7818,7 +7821,7 @@ span.r2-schema-type {
   height: 8px;
   border-radius: 2px;
   background: var(--r2-surface-raised);
-  box-shadow: 0 0 0 1.25px var(--r2-accent);
+  box-shadow: 0 0 0 1px var(--r2-accent), var(--r2-shadow-sm);
   pointer-events: auto;
 }
 .r2-canvas-handle[data-handle="nw"] { left: 0; top: 0; cursor: nwse-resize; }
@@ -8664,7 +8667,7 @@ a.r2-home-row-main:focus-visible {
 }
 .r2-surface-option[aria-checked="true"] .r2-surface-swatch,
 .r2-surface-option:focus-visible .r2-surface-swatch {
-  box-shadow: 0 0 0 2px var(--r2-group-bg), 0 0 0 4px var(--r2-accent);
+  box-shadow: 0 0 0 2px var(--r2-group-bg), 0 0 0 3px var(--r2-accent);
 }
 .r2-surface-label {
   font-size: var(--r2-fs-meta);
@@ -9355,8 +9358,8 @@ a.r2-home-row-main:focus-visible {
 .r2-onb-title-input:focus,
 .r2-onb-title-input:focus-visible {
   outline: none;
-  border-bottom-color: var(--r2-accent);
-  box-shadow: 0 1px 0 0 var(--r2-accent);
+  border-bottom-color: var(--r2-accent-line);
+  box-shadow: 0 6px 12px -8px var(--r2-accent-soft);
 }
 
 /* The mental model: the one wide screen. Two columns of equal weight — the
