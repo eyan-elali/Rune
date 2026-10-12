@@ -35,6 +35,30 @@ export async function getProjects(): Promise<ActionResult<Project[]>> {
   return { data: data ?? [], error: null };
 }
 
+/**
+ * The project switcher's list (the project title menu): the writer's active
+ * Projects, most recently worked in first — ids and titles only, `limit` of
+ * them, and whether there are more.
+ */
+export async function getProjectSwitchList(
+  limit = 6
+): Promise<ActionResult<{ projects: { id: string; title: string }[]; more: boolean }>> {
+  const { supabase, user } = await getUser();
+  if (!user) return { data: null, error: "Not authenticated" };
+
+  const { data, error } = await supabase
+    .from("projects")
+    .select("id, title")
+    .eq("user_id", user.id)
+    .is("trashed_at", null)
+    .order("updated_at", { ascending: false })
+    .limit(limit + 1);
+
+  if (error) return { data: null, error: error.message };
+  const rows = (data ?? []) as { id: string; title: string }[];
+  return { data: { projects: rows.slice(0, limit), more: rows.length > limit }, error: null };
+}
+
 /** The writer's Projects in Trash, most recently trashed first. */
 export async function getTrashedProjects(): Promise<ActionResult<Project[]>> {
   const { supabase, user } = await getUser();

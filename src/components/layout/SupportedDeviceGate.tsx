@@ -2,7 +2,6 @@
 
 import { useEffect, useLayoutEffect, useState, type ReactNode } from "react";
 import { PhoneWaitingRoom, type WaitingRoomVariant } from "./PhoneWaitingRoom";
-import { Wordmark } from "@/components/brand/Wordmark";
 
 // useLayoutEffect is a no-op (with a console warning) during SSR, so this
 // falls back to useEffect on the server render pass and only switches to
@@ -10,7 +9,7 @@ import { Wordmark } from "@/components/brand/Wordmark";
 const useIsomorphicLayoutEffect =
   typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
-// Matches Tailwind's default `md` breakpoint — the smallest width Rune's
+// Matches Tailwind's default `md` breakpoint — the smallest width Sutura's
 // existing responsive code already treats as tablet-and-up supported.
 const SUPPORTED_DEVICE_QUERY = "(min-width: 768px)";
 
@@ -18,7 +17,7 @@ interface SupportedDeviceGateProps {
   children: ReactNode;
   variant: WaitingRoomVariant;
   preferences?: Record<string, unknown> | null;
-  /** What paints before the device is known (the server render); the legacy splash if omitted. */
+  /** What paints before the device is known (the server render); a plain Sutura Light page tone if omitted. */
   placeholder?: ReactNode;
 }
 
@@ -45,17 +44,8 @@ export function SupportedDeviceGate({ children, variant, preferences, placeholde
 
   if (isSupported === null) {
     if (placeholder !== undefined) return <>{placeholder}</>;
-    return (
-      <div
-        className="flex min-h-screen items-center justify-center"
-        style={{ background: "var(--bg-primary)" }}
-        aria-hidden="true"
-      >
-        <span className="select-none opacity-60">
-          <Wordmark label={false} />
-        </span>
-      </div>
-    );
+    // A quiet Sutura Light page tone (rune2.css .r2-gate) — never a legacy palette.
+    return <div className="r2 r2-gate" data-theme="light" aria-hidden="true" />;
   }
 
   if (!isSupported) {

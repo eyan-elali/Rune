@@ -42,11 +42,10 @@ import { useProfileStore } from "@/store/profileStore";
 // writing anything back: the stored choice stays "system").
 //
 // An account that has never chosen an appearance reads as the default
-// (Light). Through onboarding the layout passes `unchosenAppearance="system"`,
-// so until the writer chooses, every root here — the device gate's
-// placeholder, the onboarding page, its dialogs — carries the front door's
-// System theme and nothing flashes Light (Beta Completion E). The stored
-// preferences are untouched: `appearance` is what is PAINTED; the first
+// (Light) — the appearance of the public pages and sign-in, so sign-up flows
+// into onboarding without a change. `unchosenAppearance` can paint another
+// appearance until the writer chooses (none is passed today); the stored
+// preferences are untouched: `appearance` is what is PAINTED, and the first
 // appearance the writer saves (any value) ends it.
 
 type Api = RunePreferences & {

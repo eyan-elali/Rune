@@ -16,6 +16,7 @@ import {
   ArrowUp,
   Archive,
   ChevronDown,
+  LibraryBig,
   ChevronRight,
   File as PageIcon,
   FilePlus,
@@ -41,6 +42,7 @@ import {
 import { ICON, ICON_SM_BOLD } from "./icons";
 import { Tooltip } from "./Tooltip";
 import { createChapter, removeChapterKeepScenes, updateChapter } from "@/lib/actions/chapters";
+import { getProjectSwitchList } from "@/lib/actions/projects";
 import { createScene, createUnplacedScene, moveSceneToUnplaced, placeScene, renameScene } from "@/lib/actions/scenes";
 import { createGroup, deleteGroup, moveChapter, moveGroup, renameGroup } from "@/lib/actions/structure";
 import { createWorkspacePage, renameWorkspacePage } from "@/lib/actions/workspacePages";
@@ -77,7 +79,7 @@ import { useDragAutoScroll } from "./useDragAutoScroll";
 import { useTrash } from "./WorkspaceTrash";
 import { AccountControl } from "./AccountMenu";
 import { useProjectExport } from "./ProjectExport";
-import { RenameProjectDialog } from "./ProjectDialogs";
+import { NewProjectDialog, RenameProjectDialog } from "./ProjectDialogs";
 import { trashProject } from "@/lib/actions/projects";
 
 // The Rune 2.0 project navigator: the Manuscript (Groups → Chapters → Scenes)
@@ -174,6 +176,17 @@ export function ProjectNavigator() {
   const [menu, setMenu] = useState<MenuState | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [renamingProject, setRenamingProject] = useState(false);
+  const [creatingProject, setCreatingProject] = useState(false);
+  // The project switcher's list (the title menu), read once the navigator is
+  // up so the menu opens at once, and again each time it opens.
+  const [switchList, setSwitchList] = useState<{ projects: { id: string; title: string }[]; more: boolean } | null>(null);
+  const readSwitchList = () =>
+    void getProjectSwitchList()
+      .then((r) => {
+        if (r.error === null) setSwitchList(r.data);
+      })
+      .catch(() => {});
+  useEffect(readSwitchList, []);
   const [dragging, setDragging] = useState<WorkspaceTreeNode | null>(null);
   const [mdrag, setMdrag] = useState<ManuscriptDrag | null>(null);
   const [drop, setDrop] = useState<{ id: string; side: DropSide } | null>(null);
@@ -401,13 +414,31 @@ export function ProjectNavigator() {
   const openMenu = (label: string, at: { x: number; y: number }, items: NavigatorMenuItem[]) =>
     setMenu((prev) => ({ key: (prev?.key ?? 0) + 1, label, at, items }));
 
-  // The Project's own actions, from its title: what the Project is called,
-  // reading it out whole, putting it away. This book only — Rune's own
-  // places (All projects, Settings, Log out) are the account control's, at
-  // the foot of the navigator.
+  // The project title is the project switcher: the writer's recent Projects
+  // (this one checked), a way to all of them when there are more, and a new
+  // one (the Projects home's own dialog and creation path). Under them, this
+  // Project's own actions: what it is called, reading it out whole, putting
+  // it away. Switching leaves through the router; each Project reopens where
+  // it was left (its remembered tabs, Rune2Shell).
   function projectItems(): NavigatorMenuItem[] {
+    const others = (switchList?.projects ?? []).filter((p) => p.id !== projectId).slice(0, 5);
     return [
-      { label: "Rename project", icon: Pencil, onSelect: () => setRenamingProject(true) },
+      {
+        label: manuscript.project.title,
+        key: `project:${projectId}`,
+        section: "Projects",
+        checked: true,
+        onSelect: () => {},
+      },
+      ...others.map((p) => ({
+        label: p.title || "Untitled project",
+        key: `project:${p.id}`,
+        checked: false,
+        onSelect: () => router.push(`/projects/${p.id}`),
+      })),
+      ...(switchList?.more ? [{ label: "All projects…", icon: LibraryBig, onSelect: () => router.push("/projects") }] : []),
+      { label: "New project…", icon: Plus, separator: true, onSelect: () => setCreatingProject(true) },
+      { label: "Rename project", icon: Pencil, section: "This project", onSelect: () => setRenamingProject(true) },
       ...(exporter
         ? [
             { label: "Export manuscript…", icon: FileDown, onSelect: () => exporter.openExport({ kind: "manuscript" }) },
@@ -524,15 +555,12 @@ export function ProjectNavigator() {
                   label: "Delete group",
                   icon: Trash2,
                   tone: "danger" as const,
-                  // An empty Group's own Revision Notes go with it: asked first.
-                  ...(groupNotes(entry.id) > 0
-                    ? {
-                        confirm: {
-                          message: `Delete this empty group?${notesWarning(groupNotes(entry.id), "group")}`,
-                          action: "Delete group",
-                        },
-                      }
-                    : {}),
+                  // Permanent (a Group has no Trash), so asked in place — and
+                  // its own Revision Notes, which go with it, are named.
+                  confirm: {
+                    message: `Delete this empty group? This can’t be undone.${notesWarning(groupNotes(entry.id), "group")}`,
+                    action: "Delete group",
+                  },
                   onSelect: () => removeGroup(entry.id),
                 },
               ]
@@ -599,6 +627,7 @@ export function ProjectNavigator() {
                   label: "Delete collection",
                   icon: Trash2,
                   tone: "danger" as const,
+                  confirm: { message: "Delete this empty collection? This can’t be undone.", action: "Delete collection" },
                   onSelect: () => removeCollection(entry.id),
                 },
               ]
@@ -623,7 +652,15 @@ export function ProjectNavigator() {
           ...trashItems(entry),
           // Without Trash (before 030), only an empty Folder.
           ...(!trash.available && entry.childCount === 0
-            ? [{ label: "Delete folder", icon: Trash2, tone: "danger" as const, onSelect: () => removeFolder(entry.id) }]
+            ? [
+                {
+                  label: "Delete folder",
+                  icon: Trash2,
+                  tone: "danger" as const,
+                  confirm: { message: "Delete this empty folder? This can’t be undone.", action: "Delete folder" },
+                  onSelect: () => removeFolder(entry.id),
+                },
+              ]
             : []),
         ];
       }
@@ -1211,7 +1248,7 @@ export function ProjectNavigator() {
                   // Where a child's icon would sit: row margin, indent, disclosure.
                   style={{ paddingLeft: 8 + BASE_PAD + (depth + 1) * INDENT + 22 }}
                 >
-                  Empty
+                  Empty. Drag items here, or add one with +.
                 </p>
               ))}
           </li>
@@ -1275,6 +1312,7 @@ export function ProjectNavigator() {
           onClick={(e) => {
             const r = e.currentTarget.getBoundingClientRect();
             openMenu(`${manuscript.project.title} actions`, { x: r.left, y: r.bottom + 4 }, projectItems());
+            readSwitchList();
           }}
         >
           <span className="r2-nav-project-title">{manuscript.project.title}</span>
@@ -1453,6 +1491,9 @@ export function ProjectNavigator() {
           items={menu.items}
           onClose={() => setMenu(null)}
         />
+      )}
+      {creatingProject && (
+        <NewProjectDialog onClose={() => setCreatingProject(false)} onCreated={(id) => router.push(`/projects/${id}`)} />
       )}
       {renamingProject && (
         <RenameProjectDialog

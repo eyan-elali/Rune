@@ -123,19 +123,20 @@ test('view tabs: saved order, the active View only, `+` appends, and reorder / d
   ok(await refs.setEntryRelationship(t.nerai.id, t.affiliation.id, [t.drelareth.id]));
   ok(await refs.addObjectReference('page', t.notes.id, 'entry', t.nerai.id));
   const cid = t.characters.id;
-  const list = (await all(db, `select * from public.workspace_collection_views where collection_id = $1`, [cid]))[0];
+  // A new Collection's first View is a Table (createWorkspaceCollection).
+  const first = (await all(db, `select * from public.workspace_collection_views where collection_id = $1`, [cid]))[0];
 
   // `+` → a View at the end of the row.
-  const table = ok(await views.createCollectionView(cid, 'Table', 'table'));
+  const list = ok(await views.createCollectionView(cid, 'List', 'list'));
   const board = ok(await views.createCollectionView(cid, 'Cast board', 'board'));
   const order = async () => viewModel.viewsOf((await workspace.loadProjectWorkspace(HOLLOW)).views, cid).map((v) => v.name);
-  assert.deepEqual(await order(), ['List', 'Table', 'Cast board']);
+  assert.deepEqual(await order(), ['Table', 'List', 'Cast board']);
 
   // Switching tabs: only which View is active. The first View is active until one is chosen.
   const saved = viewModel.viewsOf((await workspace.loadProjectWorkspace(HOLLOW)).views, cid);
-  assert.equal(viewModel.activeView(saved, undefined).id, list.id);
+  assert.equal(viewModel.activeView(saved, undefined).id, first.id);
   assert.equal(viewModel.activeView(saved, board.id).id, board.id);
-  assert.equal(viewModel.activeView(saved, 'deleted-view').id, list.id, 'a chosen View that is gone falls back to the first');
+  assert.equal(viewModel.activeView(saved, 'deleted-view').id, first.id, 'a chosen View that is gone falls back to the first');
 
   const content = async () => ({
     entries: await all(db, `select * from public.workspace_collection_entries order by id`),
@@ -147,11 +148,11 @@ test('view tabs: saved order, the active View only, `+` appends, and reorder / d
 
   // Reordering tabs is the Views' saved order (drag / Alt+arrow → move).
   ok(await views.moveCollectionView(board.id, 0));
-  assert.deepEqual(await order(), ['Cast board', 'List', 'Table']);
-  ok(await views.moveCollectionView(list.id, 2));
   assert.deepEqual(await order(), ['Cast board', 'Table', 'List']);
-  ok(await views.deleteCollectionView(table.id));
-  assert.deepEqual(await order(), ['Cast board', 'List']);
+  ok(await views.moveCollectionView(first.id, 2));
+  assert.deepEqual(await order(), ['Cast board', 'List', 'Table']);
+  ok(await views.deleteCollectionView(list.id));
+  assert.deepEqual(await order(), ['Cast board', 'Table']);
   assert.deepEqual(await content(), before, 'no Entry, value, property or reference changed');
 });
 

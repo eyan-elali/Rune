@@ -1,8 +1,11 @@
 import type { Metadata } from "next";
+import Link from "next/link";
+import { PUBLIC_ROUTES } from "@/components/front/publicRoutes";
 import { PRIVACY_EMAIL, SUPPORT_EMAIL } from "@/lib/brand";
+import { LegalBody, LegalHead, MailLink, Section } from "../LegalDocument";
 
 export const metadata: Metadata = {
-  title: "Terms of Service — Sutura",
+  title: "Terms of Service",
   description: "The terms on which Sutura, a writing companion for novelists, is offered during Early Access.",
 };
 
@@ -21,45 +24,13 @@ const LAST_UPDATED = "October 9, 2026";
 export default function TermsPage() {
   return (
     <article>
-      {/* Page header */}
-      <header className="mb-14">
-        <div
-          className="mb-6 h-px w-10"
-          style={{
-            background: "linear-gradient(90deg, var(--color-gold), transparent)",
-            opacity: 0.55,
-          }}
-          aria-hidden
-        />
-        <h1
-          className="font-rune-serif leading-tight"
-          style={{
-            fontSize: "clamp(2rem, 5vw, 2.8rem)",
-            color: "var(--color-gold)",
-            letterSpacing: "0.02em",
-          }}
-        >
-          Terms of Service
-        </h1>
-        <p
-          className="mt-3 text-xs uppercase tracking-widest"
-          style={{ color: "var(--color-mist)", opacity: 0.5, letterSpacing: "0.18em" }}
-        >
-          Last updated: {LAST_UPDATED}
-        </p>
-      </header>
+      <LegalHead title="Terms of Service" updated={LAST_UPDATED} />
 
-      {/* Body */}
-      <div
-        className="space-y-12 font-rune-serif leading-[1.9]"
-        style={{ fontSize: "1rem", color: "var(--color-mist)" }}
-      >
+      <LegalBody>
         <p>
           These terms govern your use of Sutura (the “Service”), a writing companion for novelists operated from
           Québec, Canada. By creating an account or using the Service you agree to them and to the{" "}
-          <a href="/privacy" style={{ color: "var(--color-gold)" }}>
-            Privacy Policy
-          </a>
+          <Link href={PUBLIC_ROUTES.privacy}>Privacy Policy</Link>
           . If you do not agree, please do not use Sutura.
         </p>
 
@@ -229,64 +200,7 @@ export default function TermsPage() {
             Questions about your personal information: <MailLink address={PRIVACY_EMAIL} />.
           </p>
         </Section>
-
-        {/* Closing ornament */}
-        <div
-          className="mt-16 flex items-center gap-4"
-          aria-hidden
-        >
-          <div
-            className="h-px flex-1"
-            style={{ background: "var(--color-border)" }}
-          />
-          <span
-            className="font-rune-serif text-lg"
-            style={{ color: "var(--color-gold)", opacity: 0.25 }}
-          >
-            ✦
-          </span>
-          <div
-            className="h-px flex-1"
-            style={{ background: "var(--color-border)" }}
-          />
-        </div>
-      </div>
+      </LegalBody>
     </article>
-  );
-}
-
-function MailLink({ address }: { address: string }) {
-  return (
-    <a
-      href={`mailto:${address}`}
-      className="transition-colors duration-150"
-      style={{ color: "var(--color-gold)" }}
-    >
-      {address}
-    </a>
-  );
-}
-
-function Section({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <section>
-      <h2
-        className="mb-5 font-rune-serif leading-snug"
-        style={{
-          fontSize: "1.15rem",
-          color: "var(--color-parchment)",
-          letterSpacing: "0.01em",
-        }}
-      >
-        {title}
-      </h2>
-      <div className="space-y-4">{children}</div>
-    </section>
   );
 }

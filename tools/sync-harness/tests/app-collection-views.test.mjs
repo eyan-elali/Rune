@@ -86,8 +86,17 @@ const viewsOfDb = async (db, collectionId) =>
  * Kind (select: Natural).
  */
 async function hollow(db) {
-  signIn(db, ALICE);
-  const characters = ok(await collections.createWorkspaceCollection(HOLLOW, 'Characters'));
+  const sb = signIn(db, ALICE);
+  // Straight through the database function: these tests are its contract (027's
+  // default List). The writer's own action then turns that List into a Table
+  // (createWorkspaceCollection) — tested on its own below.
+  const createCollection = async (title) => {
+    const { data, error } = await sb.rpc('create_workspace_collection', { p_project_id: HOLLOW, p_parent_node_id: null, p_title: title });
+    assert.equal(error, null);
+    assert.equal(data.status, 'ok');
+    return { collection: data.collection, nodeId: data.node_id };
+  };
+  const characters = await createCollection('Characters');
   const cid = characters.collection.id;
   const nerai = ok(await collections.createCollectionEntry(cid, 'Nerai'));
   const alaric = ok(await collections.createCollectionEntry(cid, 'Alaric'));
@@ -100,7 +109,7 @@ async function hollow(db) {
   const age = ok(await props.createCollectionProperty(cid, 'Age', 'number'));
   let tags = ok(await props.createCollectionProperty(cid, 'Tags', 'multi_select'));
   tags = ok(await props.updateCollectionProperty(tags.id, { options: [{ name: 'Mage' }, { name: 'Exile' }] })).property;
-  const places = ok(await collections.createWorkspaceCollection(HOLLOW, 'Places'));
+  const places = await createCollection('Places');
   const cave = ok(await collections.createCollectionEntry(places.collection.id, 'Cave'));
   let kind = ok(await props.createCollectionProperty(places.collection.id, 'Kind', 'select'));
   kind = ok(await props.updateCollectionProperty(kind.id, { options: [{ name: 'Natural' }] })).property;
@@ -566,6 +575,43 @@ test('view helpers: shown/hidden properties, config edits, names, the pre-027 Li
   const fallback = model.fallbackListView('c', properties);
   assert.deepEqual([fallback.id, fallback.type, fallback.config.properties], ['list:c', 'list', ['a', 'c']]);
   assert.deepEqual(propModel.valueLine([], new Map(), 'e'), []);
+});
+
+test('a Collection made by the writer opens as a Table; a dragged column takes the same place in the Collection', async () => {
+  const db = await seededDb();
+  signIn(db, ALICE);
+  const made = ok(await collections.createWorkspaceCollection(HOLLOW, 'Cast')).collection;
+  assert.deepEqual(await viewList(db, made.id), [['Table', 'table', 1]], 'its one View, a Table');
+
+  // Column order: placed before another column, or at the end; nothing else moves.
+  const c = config({ properties: ['a', 'b', 'c', 'd'] });
+  assert.deepEqual(model.withPropertyPlaced(c, 'd', 'b').properties, ['a', 'd', 'b', 'c']);
+  assert.deepEqual(model.withPropertyPlaced(c, 'a', null).properties, ['b', 'c', 'd', 'a']);
+  assert.equal(model.withPropertyPlaced(c, 'a', 'b'), c, 'already there: unchanged');
+  assert.equal(model.withPropertyPlaced(c, 'x', 'b'), c, 'not shown: unchanged');
+
+  // Its place in the Collection's own order: after the column now before it,
+  // else before the one after it; a hidden property keeps its place.
+  const owned = ['a', 'h', 'b', 'c', 'd'];
+  assert.equal(model.ownerIndexAfterColumnMove(['a', 'd', 'b', 'c'], owned, 'd'), 1);
+  assert.equal(model.ownerIndexAfterColumnMove(['d', 'a', 'b', 'c'], owned, 'd'), 0);
+  assert.equal(model.ownerIndexAfterColumnMove(['b', 'c', 'd', 'a'], owned, 'a'), 4);
+  assert.equal(model.ownerIndexAfterColumnMove(['a', 'b', 'c', 'd'], owned, 'd'), null, 'already in place');
+  assert.equal(model.ownerIndexAfterColumnMove(['words', 'd'], owned, 'words'), null, 'a read-only field has no place to take');
+
+  // End to end: the column's move, then the property's.
+  const p1 = ok(await props.createCollectionProperty(made.id, 'Role', 'text'));
+  const p2 = ok(await props.createCollectionProperty(made.id, 'Age', 'number'));
+  const p3 = ok(await props.createCollectionProperty(made.id, 'Home', 'text'));
+  const table = (await all(db, `select * from public.workspace_collection_views where collection_id = $1`, [made.id]))[0];
+  assert.deepEqual(table.config.properties, [p1.id, p2.id, p3.id], 'a new property joins the Table');
+  const moved = model.withPropertyPlaced(table.config, p3.id, p1.id);
+  ok(await views.updateCollectionView(table.id, { config: moved }));
+  const to = model.ownerIndexAfterColumnMove(moved.properties, [p1.id, p2.id, p3.id], p3.id);
+  ok(await props.moveCollectionProperty(p3.id, to));
+  assert.deepEqual((await all(db, `select id from public.workspace_collection_properties where collection_id = $1 order by position`, [made.id])).map((r) => r.id),
+    [p3.id, p1.id, p2.id]);
+  assert.deepEqual((await one(db, `select config from public.workspace_collection_views where id = $1`, [table.id])).config.properties, [p3.id, p1.id, p2.id]);
 });
 
 // ── 7. Everything else is unchanged ────────────────────────────────────────────

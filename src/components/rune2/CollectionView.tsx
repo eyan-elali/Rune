@@ -20,7 +20,7 @@ import { WorkspaceTitle } from "./WorkspaceTitle";
 
 // A Collection in the content area: its title, edited in place, and its one
 // set of Entries shown through its active saved View (migration 027) — a
-// List (a writer's list of names, the default), a Table, a Board or a
+// Table (a new Collection's first View), a List, a Board or a
 // Timeline (042: along a Date or Number property). Every
 // View reads the same Entries and values, so an edit anywhere is everywhere.
 //
@@ -34,9 +34,10 @@ import { WorkspaceTitle } from "./WorkspaceTitle";
 // nothing about the View lives anywhere else on the page. The Collection's
 // property settings (what properties exist) open inline under the row.
 //
-// A click opens an Entry in the active tab (the Entry's own line back to its
-// Collection returns here); ⌘/Ctrl-click or a middle click opens it in a tab
-// of its own. Views never join the working-set tabs: the Collection is the
+// "New entry" makes an Entry in place: the writer names it in its row and
+// stays in the View. A click opens an Entry in the active tab (the Entry's own
+// line back to its Collection returns here); ⌘/Ctrl-click or a middle click
+// opens it in a tab of its own. Views never join the working-set tabs: the Collection is the
 // object that is open, and its View is remembered for the session.
 //
 // Geometry: a Collection is a structured set, not a document, so the whole
@@ -51,7 +52,8 @@ function plural(n: number, one: string, many = `${one}s`) {
 export function CollectionView({ entry }: { entry: NavEntry }) {
   const { available: propertied } = usePropertyStore();
   const { available: viewable, viewsOf, activeViewOf } = useViewStore();
-  const { add, busy, notice } = useNewEntry(entry.id);
+  // Made here, an Entry is named in its row and the writer stays in the View.
+  const { add, busy, notice } = useNewEntry(entry.id, { inPlace: true });
   const bodyRef = useRef<HTMLDivElement>(null);
   const [schemaOpen, setSchemaOpen] = useState(false);
   const [request, setRequest] = useState<ToolRequest | undefined>(undefined);

@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { PRIVACY_EMAIL, SUPPORT_EMAIL } from "@/lib/brand";
+import { Em, LegalBody, LegalHead, MailLink, Section } from "../LegalDocument";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy — Sutura",
+  title: "Privacy Policy",
   description: "How Sutura, a writing companion for novelists, collects, uses, stores and deletes your information.",
 };
 
@@ -25,39 +26,9 @@ const LAST_UPDATED = "October 9, 2026";
 export default function PrivacyPage() {
   return (
     <article>
-      {/* Page header */}
-      <header className="mb-14">
-        <div
-          className="mb-6 h-px w-10"
-          style={{
-            background: "linear-gradient(90deg, var(--color-gold), transparent)",
-            opacity: 0.55,
-          }}
-          aria-hidden
-        />
-        <h1
-          className="font-rune-serif leading-tight"
-          style={{
-            fontSize: "clamp(2rem, 5vw, 2.8rem)",
-            color: "var(--color-gold)",
-            letterSpacing: "0.02em",
-          }}
-        >
-          Privacy Policy
-        </h1>
-        <p
-          className="mt-3 text-xs uppercase tracking-widest"
-          style={{ color: "var(--color-mist)", opacity: 0.5, letterSpacing: "0.18em" }}
-        >
-          Last updated: {LAST_UPDATED}
-        </p>
-      </header>
+      <LegalHead title="Privacy Policy" updated={LAST_UPDATED} />
 
-      {/* Body */}
-      <div
-        className="space-y-12 font-rune-serif leading-[1.9]"
-        style={{ fontSize: "1rem", color: "var(--color-mist)" }}
-      >
+      <LegalBody>
         <p>
           Sutura is a writing companion for novelists, operated from Québec, Canada. This policy explains what
           information Sutura collects while you use it, why, where it is kept, who processes it on our behalf, and how
@@ -175,8 +146,8 @@ export default function PrivacyPage() {
             programme, so this script has no effect on your account during the beta.
           </p>
           <p>
-            <Em>Stripe</Em> — Sutura’s code contains payment integration for a future paid plan. During the closed
-            beta no payment is requested, no card details are collected, and nothing is sent to Stripe.
+            <Em>Stripe</Em> — Sutura’s code contains payment integration for a future paid plan. During the beta
+            no payment is requested, no card details are collected, and nothing is sent to Stripe.
           </p>
           <p>
             Sutura does not use AI or machine-learning services on your data.
@@ -296,68 +267,7 @@ export default function PrivacyPage() {
             writing, write to <MailLink address={SUPPORT_EMAIL} />.
           </p>
         </Section>
-
-        {/* Closing ornament */}
-        <div
-          className="mt-16 flex items-center gap-4"
-          aria-hidden
-        >
-          <div
-            className="h-px flex-1"
-            style={{ background: "var(--color-border)" }}
-          />
-          <span
-            className="font-rune-serif text-lg"
-            style={{ color: "var(--color-gold)", opacity: 0.25 }}
-          >
-            ✦
-          </span>
-          <div
-            className="h-px flex-1"
-            style={{ background: "var(--color-border)" }}
-          />
-        </div>
-      </div>
+      </LegalBody>
     </article>
-  );
-}
-
-function Em({ children }: { children: React.ReactNode }) {
-  return <strong style={{ color: "var(--color-parchment)" }}>{children}</strong>;
-}
-
-function MailLink({ address }: { address: string }) {
-  return (
-    <a
-      href={`mailto:${address}`}
-      className="transition-colors duration-150"
-      style={{ color: "var(--color-gold)" }}
-    >
-      {address}
-    </a>
-  );
-}
-
-function Section({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <section>
-      <h2
-        className="mb-5 font-rune-serif leading-snug"
-        style={{
-          fontSize: "1.15rem",
-          color: "var(--color-parchment)",
-          letterSpacing: "0.01em",
-        }}
-      >
-        {title}
-      </h2>
-      <div className="space-y-4">{children}</div>
-    </section>
   );
 }

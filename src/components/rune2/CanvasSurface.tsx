@@ -669,6 +669,17 @@ export default function CanvasSurface({ entry, session }: { entry: NavEntry; ses
     setEditing(id);
   };
 
+  /** "Add → New note": at the centre of the view, stepping off a note already there (as "Add" does). */
+  const newNoteInView = () => {
+    const size = DEFAULT_SIZE.note;
+    const c = viewCenter();
+    let spot = { x: c.x - size.width / 2, y: c.y - size.height / 2 };
+    while (items.some((i) => Math.abs(i.x - spot.x) < PASTE_OFFSET && Math.abs(i.y - spot.y) < PASTE_OFFSET)) {
+      spot = { x: spot.x + PASTE_OFFSET, y: spot.y + PASTE_OFFSET };
+    }
+    newNote(spot);
+  };
+
   /** A Section around the selection (with a margin), or one of the default size at the centre of the view. */
   const newSection = () => {
     const bounds = boundsOf(rectsOf(selected));
@@ -1454,6 +1465,10 @@ export default function CanvasSurface({ entry, session }: { entry: NavEntry; ses
           <CanvasInsert
             canvasId={entry.id}
             onChoose={chooseInsert}
+            onNewNote={() => {
+              setInsert(null);
+              newNoteInView();
+            }}
             onClose={() => {
               setInsert(null);
               root.current?.focus({ preventScroll: true });

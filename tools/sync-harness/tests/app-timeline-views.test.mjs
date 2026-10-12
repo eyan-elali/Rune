@@ -236,7 +236,8 @@ test('Collection Timeline: along the first date property, else the first number,
   const ages = ok(await colViews.createCollectionView(cid, null, 'timeline'));
   assert.equal(ages.config.axis, age.id, 'else the first number property');
 
-  // The List, Table and Board of this Collection are exactly as before.
+  // The List, Table and Board of this Collection are exactly as before (a new
+  // Collection's first View is a Table: createWorkspaceCollection).
   const list = (await all(db, `select * from public.workspace_collection_views where collection_id = $1 order by position`, [cid]))[0];
   assert.deepEqual(list.config, config({ properties: [age.id, role.id] }));
   const table = ok(await colViews.createCollectionView(cid, null, 'table'));
@@ -245,7 +246,7 @@ test('Collection Timeline: along the first date property, else the first number,
   assert.deepEqual(board.config, config());
   assert.deepEqual((await all(db, `select name, type, position from public.workspace_collection_views where collection_id = $1 order by position`, [cid]))
     .map((v) => [v.name, v.type, v.position]),
-    [['List', 'list', 1], ['Timeline', 'timeline', 2], ['Lives', 'timeline', 3], ['Timeline', 'timeline', 4], ['Table', 'table', 5], ['Board', 'board', 6]]);
+    [['Table', 'table', 1], ['Timeline', 'timeline', 2], ['Lives', 'timeline', 3], ['Timeline', 'timeline', 4], ['Table', 'table', 5], ['Board', 'board', 6]]);
   ok(await colViews.deleteCollectionView(byDate.id));
   assert.equal((await one(db, `select count(*)::int as n from public.workspace_collection_views where collection_id = $1`, [cid])).n, 5);
 });

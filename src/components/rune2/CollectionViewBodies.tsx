@@ -6,12 +6,15 @@ import {
   useId,
   useRef,
   useState,
+  useTransition,
   type DragEvent,
   type KeyboardEvent,
   type MouseEvent,
   type PointerEvent,
 } from "react";
+import { useRouter } from "next/navigation";
 import { ArrowDown, ArrowUp, Plus } from "lucide-react";
+import { renameCollectionEntry } from "@/lib/actions/workspaceCollections";
 import { ICON, ICON_SM } from "./icons";
 import { formatValue, isChoiceType, valueKey, valueLine } from "@/lib/rune2/collectionProperties";
 import {
@@ -23,18 +26,20 @@ import {
   COLUMN_MIN_WIDTH,
   groupableProperties,
   isNative,
+  ownerIndexAfterColumnMove,
   shownProperties,
   type BoardLane,
   type LaneTargets,
   TITLE_COLUMN,
   withColumnWidth,
+  withPropertyPlaced,
 } from "@/lib/rune2/collectionViews";
 import { describeObject } from "@/lib/rune2/references";
 import type { PropertyDefinition, PropertyValue, SavedView } from "@/lib/types";
 import { OptionNames, PropertyValueEditor } from "./PropertyFields";
 import { usePropertyStore } from "./PropertyStore";
 import { useRune2Selection } from "./Rune2Selection";
-import { useNewEntry } from "./useNewEntry";
+import { finishNaming, useNamingEntry, useNewEntry } from "./useNewEntry";
 import { useViewStore } from "./ViewStore";
 
 // The ways a saved View shows its items (a Timeline is in TimelineView.tsx) — a Collection's Entries
@@ -164,11 +169,64 @@ export function ItemNumber({ number }: { number?: string | null }) {
   return <span className="r2-item-number">{number}</span>;
 }
 
+/**
+ * A new Entry's name, typed where it was made (useNewEntry, inPlace): in its
+ * row, card or timeline item, so the writer stays in the View. Enter keeps the
+ * name and returns to the "New entry" that made it (Enter again: the next
+ * one); leaving the field keeps it too; Escape leaves it untitled. Blank stays
+ * untitled. The Entry's page opens only when the writer opens it.
+ */
+export function EntryNameField({ id, className, onError }: { id: string; className?: string; onError?: (message: string) => void }) {
+  const { setRenamedTitle } = useRune2Selection();
+  const router = useRouter();
+  const [, startRefresh] = useTransition();
+  const [value, setValue] = useState("");
+  const done = useRef(false);
+
+  async function finish(keep: boolean, returnFocus: boolean) {
+    if (done.current) return;
+    done.current = true;
+    const title = value.trim();
+    finishNaming(id, returnFocus);
+    if (!keep || !title) return;
+    setRenamedTitle(id, title);
+    const r = await renameCollectionEntry(id, title).catch(() => ({ error: "Network error" }));
+    if (r.error) onError?.(`The name “${title}” couldn’t be saved.`);
+    startRefresh(() => router.refresh());
+  }
+
+  return (
+    <input
+      autoFocus
+      className={`r2-entry-name${className ? ` ${className}` : ""}`}
+      aria-label="New entry name"
+      placeholder="Untitled"
+      maxLength={200}
+      spellCheck
+      value={value}
+      onChange={(e) => setValue(e.target.value)}
+      onBlur={() => void finish(true, false)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          void finish(true, true);
+        } else if (e.key === "Escape") {
+          e.preventDefault();
+          e.stopPropagation();
+          void finish(false, true);
+        }
+      }}
+    />
+  );
+}
+
 // ── List ────────────────────────────────────────────────────────────────────
 
 export function ListView({ ownerTitle, view, properties, entryIds, total, presenter }: BodyProps & { ownerTitle: string }) {
   const open = useOpenItem(presenter);
   const titleOf = useTitleOf();
+  const naming = useNamingEntry();
+  const [notice, setNotice] = useState<string | null>(null);
   const shown = shownProperties(view, properties);
   if (entryIds.length === 0) return <ViewEmpty total={total} noun={presenter.noun} filtered={`No ${presenter.noun.toLowerCase()} match this view`} />;
   return (
@@ -188,39 +246,56 @@ export function ListView({ ownerTitle, view, properties, entryIds, total, presen
               </li>
             )}
             <li>
-              <button
-                type="button"
-                className="r2-entry-row"
-                data-entry-open=""
-                data-unnamed={!item.named || undefined}
-                {...open(id)}
-                onKeyDown={(ev) => moveBetweenRows(ev, "li")}
-              >
-                <span className="r2-entry-row-title">
-                  <ItemNumber number={item.number} />
-                  {item.title}
-                </span>
-                {line.length > 0 && <span className="r2-entry-row-meta">{line.join("  ·  ")}</span>}
-              </button>
+              {naming === id ? (
+                <div className="r2-entry-row" data-naming="">
+                  <EntryNameField id={id} onError={setNotice} />
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className="r2-entry-row"
+                  data-entry-open=""
+                  data-unnamed={!item.named || undefined}
+                  {...open(id)}
+                  onKeyDown={(ev) => moveBetweenRows(ev, "li")}
+                >
+                  <span className="r2-entry-row-title">
+                    <ItemNumber number={item.number} />
+                    {item.title}
+                  </span>
+                  {line.length > 0 && <span className="r2-entry-row-meta">{line.join("  ·  ")}</span>}
+                </button>
+              )}
             </li>
           </Fragment>
         );
       })}
+      {notice && (
+        <li role="status" className="r2-doc-note">
+          {notice}
+        </li>
+      )}
     </ul>
   );
 }
 
 // ── Table ───────────────────────────────────────────────────────────────────
 
+const COLUMN_DRAG_TYPE = "application/x-rune-column";
+
 export function TableView({ ownerTitle, view, properties, entryIds, total, presenter }: BodyProps & { ownerTitle: string }) {
-  const { setValue } = usePropertyStore();
+  const { setValue, moveProperty } = usePropertyStore();
   const { updateView } = useViewStore();
   const open = useOpenItem(presenter);
   const titleOf = useTitleOf();
+  const naming = useNamingEntry();
   const tableId = useId();
   const [notice, setNotice] = useState<string | null>(null);
   // A column being resized: its live width, until the View saves it.
   const [resizing, setResizing] = useState<{ key: string; width: number } | null>(null);
+  // A column header being dragged, and where it would land: before `before` (null: at the end).
+  const [draggingColumn, setDraggingColumn] = useState<string | null>(null);
+  const [dropBefore, setDropBefore] = useState<{ before: string | null } | null>(null);
   const shown = shownProperties(view, properties);
   const sort = view.config.sort;
   const widthOf = (key: string, field: PropertyDefinition | typeof TITLE_COLUMN) =>
@@ -239,6 +314,64 @@ export function TableView({ ownerTitle, view, properties, entryIds, total, prese
     done();
     if (error) setNotice("The column width couldn’t be saved.");
   }
+
+  /**
+   * A column dragged to a new place: this Table's columns change at once, and
+   * the property takes the same place in its owner's own order — the order an
+   * Entry's page and the property settings show — so the Collection reads in
+   * one order. Other Views keep the order they were given ("Properties shown").
+   */
+  async function placeColumn(propertyId: string, before: string | null) {
+    const config = withPropertyPlaced(view.config, propertyId, before);
+    if (config === view.config) return;
+    if (await updateView(view, { config })) {
+      setNotice("The column couldn’t be moved.");
+      return;
+    }
+    const property = properties.find((p) => p.id === propertyId);
+    if (!property || isNative(property)) return;
+    const owned = properties.filter((p) => !isNative(p)).map((p) => p.id);
+    const to = ownerIndexAfterColumnMove(config.properties, owned, propertyId);
+    if (to !== null && (await moveProperty(property, to))) setNotice(`“${property.name}” moved here, but not on its entries’ pages.`);
+  }
+
+  const endColumnDrag = () => {
+    setDraggingColumn(null);
+    setDropBefore(null);
+  };
+
+  /** Over a header: land before it, or after it on its right half (the Name column: before the first). */
+  const onColumnDragOver = (e: DragEvent<HTMLElement>, at: number) => {
+    if (!e.dataTransfer.types.includes(COLUMN_DRAG_TYPE)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    const box = e.currentTarget.getBoundingClientRect();
+    const after = at >= 0 && e.clientX > box.left + box.width / 2;
+    const index = at < 0 ? 0 : after ? at + 1 : at;
+    const before = shown[index]?.id ?? null;
+    if (dropBefore?.before !== before) setDropBefore({ before });
+  };
+
+  const onColumnDrop = (e: DragEvent<HTMLElement>) => {
+    const id = e.dataTransfer.getData(COLUMN_DRAG_TYPE);
+    const target = dropBefore;
+    endColumnDrag();
+    if (!id || !target) return;
+    e.preventDefault();
+    void placeColumn(id, target.before);
+  };
+
+  /** Which edge of a header shows where a dragged column would land. */
+  const dropEdge = (at: number): "start" | "end" | undefined => {
+    if (!draggingColumn || !dropBefore) return undefined;
+    const index = dropBefore.before === null ? shown.length : shown.findIndex((p) => p.id === dropBefore.before);
+    // A drop that changes nothing shows nothing.
+    const from = shown.findIndex((p) => p.id === draggingColumn);
+    if (index === from || index === from + 1) return undefined;
+    if (index === at) return "start";
+    if (index === shown.length && at === shown.length - 1) return "end";
+    return undefined;
+  };
 
   useEffect(() => {
     if (!notice) return;
@@ -268,7 +401,14 @@ export function TableView({ ownerTitle, view, properties, entryIds, total, prese
           </colgroup>
           <thead>
             <tr>
-              <th scope="col" id={colId("title")} className="r2-table-title-col" aria-sort={ariaSort("title")}>
+              <th
+                scope="col"
+                id={colId("title")}
+                className="r2-table-title-col"
+                aria-sort={ariaSort("title")}
+                onDragOver={(e) => onColumnDragOver(e, -1)}
+                onDrop={onColumnDrop}
+              >
                 <span className="r2-table-head">
                   {presenter.titleHeader}
                   {sortMark("title")}
@@ -281,7 +421,35 @@ export function TableView({ ownerTitle, view, properties, entryIds, total, prese
                 />
               </th>
               {shown.map((p, i) => (
-                <th key={p.id} scope="col" id={colId(p.id)} data-type={p.type} data-native={isNative(p) || undefined} aria-sort={ariaSort(p.id)}>
+                <th
+                  key={p.id}
+                  scope="col"
+                  id={colId(p.id)}
+                  data-type={p.type}
+                  data-native={isNative(p) || undefined}
+                  data-dragging={draggingColumn === p.id || undefined}
+                  data-drop={dropEdge(i)}
+                  aria-sort={ariaSort(p.id)}
+                  // Drag a header to move its column; the View's "Properties
+                  // shown" moves them by keyboard. Never while resizing.
+                  draggable={!resizing}
+                  title={`Drag to move the ${p.name} column`}
+                  onDragStart={(e) => {
+                    if ((e.target as HTMLElement).closest(".r2-col-resize")) {
+                      e.preventDefault();
+                      return;
+                    }
+                    e.dataTransfer.setData(COLUMN_DRAG_TYPE, p.id);
+                    e.dataTransfer.effectAllowed = "move";
+                    setDraggingColumn(p.id);
+                  }}
+                  onDragEnd={endColumnDrag}
+                  onDragOver={(e) => onColumnDragOver(e, i)}
+                  onDragLeave={(e) => {
+                    if (!e.currentTarget.closest("tr")?.contains(e.relatedTarget as Node)) setDropBefore(null);
+                  }}
+                  onDrop={onColumnDrop}
+                >
                   <span className="r2-table-head">
                     {p.name}
                     {sortMark(p.id)}
@@ -309,17 +477,21 @@ export function TableView({ ownerTitle, view, properties, entryIds, total, prese
                   )}
                   <tr className="r2-table-row">
                     <th scope="row" id={rowId(id)} className="r2-table-title">
-                      <button
-                        type="button"
-                        data-entry-open=""
-                        data-unnamed={!item.named || undefined}
-                        title={item.context ?? undefined}
-                        {...open(id)}
-                        onKeyDown={(ev) => moveBetweenRows(ev, "tr")}
-                      >
-                        <ItemNumber number={item.number} />
-                        {item.title}
-                      </button>
+                      {naming === id ? (
+                        <EntryNameField id={id} onError={setNotice} />
+                      ) : (
+                        <button
+                          type="button"
+                          data-entry-open=""
+                          data-unnamed={!item.named || undefined}
+                          title={item.context ?? undefined}
+                          {...open(id)}
+                          onKeyDown={(ev) => moveBetweenRows(ev, "tr")}
+                        >
+                          <ItemNumber number={item.number} />
+                          {item.title}
+                        </button>
+                      )}
                     </th>
                     {shown.map((p) =>
                       isNative(p) ? (
@@ -470,7 +642,8 @@ export function BoardView({
   const open = useOpenItem(presenter);
   const titleOf = useTitleOf();
   const hintId = useId();
-  const { add, busy, notice: addNotice } = useNewEntry(addToCollection ?? "");
+  const { add, busy, notice: addNotice } = useNewEntry(addToCollection ?? "", { inPlace: true });
+  const naming = useNamingEntry();
   const [notice, setNotice] = useState<string | null>(null);
   const [over, setOver] = useState<string | null>(null);
   const [dragging, setDragging] = useState<string | null>(null);
@@ -614,6 +787,14 @@ export function BoardView({
                   ...(item.context ? [item.context] : []),
                   ...valueLine(cardProperties, values, id, titleOf),
                 ];
+                if (naming === id)
+                  return (
+                    <li key={id}>
+                      <div className="r2-card" data-naming="">
+                        <EntryNameField id={id} onError={setNotice} />
+                      </div>
+                    </li>
+                  );
                 return (
                   <li key={id}>
                     <button

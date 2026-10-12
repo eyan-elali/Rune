@@ -9,9 +9,7 @@ import { HintsProvider } from "@/components/rune2/Hint";
 import { RunePreferencesProvider, RuneRoot } from "@/components/rune2/RunePreferences";
 import { Rune2Session } from "@/components/rune2/Rune2Session";
 import { COMPLETE_PROFILE_PATH, needsProfileCompletion, readProfileState } from "@/lib/accountGate";
-import { needsOnboarding, readOnboardingRow } from "@/lib/onboarding";
 import { accountOf } from "@/lib/rune2/account";
-import { hasChosenAppearance } from "@/lib/rune2/preferences";
 import { buildThemeCss } from "@/lib/rune2/themes";
 import type { PricingCohort } from "@/lib/pricing";
 import type { Profile } from "@/lib/types";
@@ -32,12 +30,10 @@ import "./rune2.css";
 // The themes and writing surfaces (lib/rune2/themes.ts) arrive as one
 // stylesheet with the page itself, before any Rune root paints.
 //
-// Theme continuity (Beta Completion E): an account still in onboarding that
-// has not chosen an appearance is painted in System — the front door's theme
-// — from this first server paint (the device gate's placeholder included)
-// until the appearance step, so the journey never flashes Light. Only an
-// account without a stored appearance is asked about; every other load costs
-// nothing extra.
+// Theme continuity: the public pages and sign-in are always Sutura Light
+// (PublicFrame), and an account that has not chosen an appearance paints the
+// default, Light — so sign-up flows into onboarding in one appearance, with
+// no flash of the operating system's dark mode, until the writer chooses.
 
 const THEME_CSS = buildThemeCss();
 
@@ -64,13 +60,10 @@ export default async function RuneLayout({ children }: { children: ReactNode }) 
   if (needsProfileCompletion(profileState)) redirect(COMPLETE_PROFILE_PATH);
   const profile = profileState.status === "complete" ? profileState.profile : null;
 
-  const unchosenAppearance = (await inOnboardingWithoutAppearance(supabase, user.id, profile)) ? "system" : undefined;
-
   return (
     <RunePreferencesProvider
       initial={profile?.preferences ?? null}
       account={accountOf(user, profile)}
-      unchosenAppearance={unchosenAppearance}
     >
       <style id="r2-themes" dangerouslySetInnerHTML={{ __html: THEME_CSS }} />
       <NetworkProvider />
@@ -92,21 +85,4 @@ export default async function RuneLayout({ children }: { children: ReactNode }) 
       </SupportedDeviceGate>
     </RunePreferencesProvider>
   );
-}
-
-/** Whether the writer is still in onboarding and has never chosen an appearance (lib/onboarding.ts decides the first). */
-async function inOnboardingWithoutAppearance(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  userId: string,
-  profile: Profile | null
-): Promise<boolean> {
-  if (hasChosenAppearance(profile?.preferences)) return false;
-  const [{ data: row }, { count }] = await Promise.all([
-    supabase.from("account_onboarding").select("path, project_id, completed_at").eq("user_id", userId).maybeSingle(),
-    supabase.from("projects").select("id", { count: "exact", head: true }).eq("user_id", userId),
-  ]);
-  return needsOnboarding(readOnboardingRow(row), {
-    projectsEver: count ?? 0,
-    hasWritten: Boolean(profile?.has_written_first_words),
-  });
 }

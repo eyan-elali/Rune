@@ -114,20 +114,28 @@ export async function markHintSeen(id: string): Promise<{ error: string | null }
   const { supabase, user } = await getAuthUser();
   if (!user) return { error: "Not authenticated" };
 
-  const { data: profile, error: readError } = await supabase
-    .from("profiles")
-    .select("preferences")
-    .eq("id", user.id)
-    .single();
-  if (readError || !profile) return { error: "Couldn’t be saved." };
-  const prefs = (profile.preferences as Record<string, unknown> | null) ?? {};
-  const seen = readSeenHints(prefs);
-  if (seen.includes(id)) return { error: null };
-  const { error } = await supabase
-    .from("profiles")
-    .update({ preferences: { ...prefs, [HINTS_KEY]: [...seen, id] } })
-    .eq("id", user.id);
-  return { error: error ? "Couldn’t be saved." : null };
+  // Preferences are one JSON value, merged by read-then-write: another save of
+  // them landing in between (an appearance change) can carry the old list
+  // back over this one. So the write is checked, and made again if lost.
+  // Up to three writes, each checked by the read that follows it.
+  for (let attempt = 0; attempt <= 3; attempt++) {
+    const { data: profile, error: readError } = await supabase
+      .from("profiles")
+      .select("preferences")
+      .eq("id", user.id)
+      .single();
+    if (readError || !profile) return { error: "Couldn’t be saved." };
+    const prefs = (profile.preferences as Record<string, unknown> | null) ?? {};
+    const seen = readSeenHints(prefs);
+    if (seen.includes(id)) return { error: null };
+    if (attempt === 3) break;
+    const { error } = await supabase
+      .from("profiles")
+      .update({ preferences: { ...prefs, [HINTS_KEY]: [...seen, id] } })
+      .eq("id", user.id);
+    if (error) return { error: "Couldn’t be saved." };
+  }
+  return { error: "Couldn’t be saved." };
 }
 
 export async function exportUserData(): Promise<{

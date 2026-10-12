@@ -91,6 +91,8 @@ type Rune2SelectionValue = {
    * falls back in between.
    */
   selectWhenPresent: (id: string) => void;
+  /** As selectWhenPresent, in a tab of its own at the end of the strip ("Open another" → Create). */
+  appendWhenPresent: (id: string) => void;
   /**
    * Reopens the working set this device remembered for the Project
    * (resumedTabs: gone objects dropped, the overview if the active one is
@@ -190,7 +192,7 @@ export function Rune2SelectionProvider({
   children: ReactNode;
 }) {
   const [tabState, setTabState] = useState<TabState>({ tabs: [MANUSCRIPT_TAB], active: MANUSCRIPT_TAB });
-  const [awaitedId, setAwaitedId] = useState<string | null>(null);
+  const [awaited, setAwaited] = useState<{ id: string; append: boolean } | null>(null);
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const [focusSceneId, requestSceneFocus] = useState<string | null>(null);
   const [canvasFocus, requestCanvasFocus] = useState<{ canvasId: string; itemId: string } | null>(null);
@@ -240,10 +242,11 @@ export function Rune2SelectionProvider({
 
   // Adjusted during render (not in an effect) so the awaited object is
   // selected in the same render that first contains it.
-  if (awaitedId && has(awaitedId)) {
-    setAwaitedId(null);
+  if (awaited && has(awaited.id)) {
+    const { id, append } = awaited;
+    setAwaited(null);
     setTrashOpen(false);
-    setTabState((prev) => navigateTab(resolveTabs(prev, has), awaitedId));
+    setTabState((prev) => (append ? appendTab : navigateTab)(resolveTabs(prev, has), id));
   }
 
   const resolved = resolveTabs(tabState, has);
@@ -252,7 +255,7 @@ export function Rune2SelectionProvider({
   const select = useCallback(
     (id: string | null) => {
       if (id !== null && !has(id)) return;
-      setAwaitedId(null);
+      setAwaited(null);
       requestSceneFocus(null);
       setTrashOpen(false);
       setTabState((prev) => navigateTab(resolveTabs(prev, has), id ?? MANUSCRIPT_TAB));
@@ -262,7 +265,7 @@ export function Rune2SelectionProvider({
   const openInNewTab = useCallback(
     (id: string | null) => {
       if (id !== null && !has(id)) return;
-      setAwaitedId(null);
+      setAwaited(null);
       requestSceneFocus(null);
       setTrashOpen(false);
       setTabState((prev) => openTab(resolveTabs(prev, has), id ?? MANUSCRIPT_TAB));
@@ -272,7 +275,7 @@ export function Rune2SelectionProvider({
   const appendToWorkingSet = useCallback(
     (id: string | null) => {
       if (id !== null && !has(id)) return;
-      setAwaitedId(null);
+      setAwaited(null);
       requestSceneFocus(null);
       setTrashOpen(false);
       setTabState((prev) => appendTab(resolveTabs(prev, has), id ?? MANUSCRIPT_TAB));
@@ -292,7 +295,8 @@ export function Rune2SelectionProvider({
     [has]
   );
   const dropTabs = useCallback((ids: readonly string[]) => setTabState((prev) => forgetTabs(prev, ids)), []);
-  const selectWhenPresent = useCallback((id: string) => setAwaitedId(id), []);
+  const selectWhenPresent = useCallback((id: string) => setAwaited({ id, append: false }), []);
+  const appendWhenPresent = useCallback((id: string) => setAwaited({ id, append: true }), []);
   const resumeTabs = useCallback(
     (saved: unknown) => {
       const state = resumedTabs(saved, has);
@@ -343,6 +347,7 @@ export function Rune2SelectionProvider({
       select,
       openInNewTab,
       selectWhenPresent,
+      appendWhenPresent,
       resumeTabs,
       tabs,
       activeTab: resolved.active,
@@ -393,6 +398,7 @@ export function Rune2SelectionProvider({
       select,
       openInNewTab,
       selectWhenPresent,
+      appendWhenPresent,
       resumeTabs,
       tabs,
       resolved.active,

@@ -414,6 +414,43 @@ export function withPropertyMoved(config: CollectionViewConfig, propertyId: stri
   return { ...config, properties: next };
 }
 
+/**
+ * The config with a shown property placed just before `beforeId` (null: at
+ * the end) — a Table column dragged to a new place.
+ */
+export function withPropertyPlaced(config: CollectionViewConfig, propertyId: string, beforeId: string | null): CollectionViewConfig {
+  if (!config.properties.includes(propertyId) || propertyId === beforeId) return config;
+  const next = config.properties.filter((id) => id !== propertyId);
+  const at = beforeId === null ? -1 : next.indexOf(beforeId);
+  next.splice(at === -1 ? next.length : at, 0, propertyId);
+  return next.every((id, i) => id === config.properties[i]) ? config : { ...config, properties: next };
+}
+
+/**
+ * Where a property moved among a View's columns goes in its owner's own order
+ * (the order an Entry's page and the property settings show): just after the
+ * nearest column now before it that the owner orders, else just before the
+ * nearest one after it. `shown`: the View's columns after the move; `owned`:
+ * the owner's properties in order (read-only fields are in neither's way).
+ * null: nowhere to anchor it, or already there.
+ */
+export function ownerIndexAfterColumnMove(shown: readonly string[], owned: readonly string[], propertyId: string): number | null {
+  const from = owned.indexOf(propertyId);
+  const at = shown.indexOf(propertyId);
+  if (from === -1 || at === -1) return null;
+  const rest = owned.filter((id) => id !== propertyId);
+  let to: number | null = null;
+  for (let i = at - 1; i >= 0 && to === null; i--) {
+    const k = rest.indexOf(shown[i]);
+    if (k !== -1) to = k + 1;
+  }
+  for (let i = at + 1; i < shown.length && to === null; i++) {
+    const k = rest.indexOf(shown[i]);
+    if (k !== -1) to = k;
+  }
+  return to === null || to === from ? null : to;
+}
+
 /** A new View's name: List/Table/Timeline by type, a Board by what it groups ("By Status"). */
 export function newViewName(type: CollectionViewType, groupBy: PropertyDefinition | undefined): string {
   if (type === "board" && groupBy) return `By ${groupBy.name}`;

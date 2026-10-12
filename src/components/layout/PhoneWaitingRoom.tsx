@@ -3,9 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { useToastStore } from "@/store/toastStore";
-import { Button } from "@/components/ui/Button";
-import { Wordmark } from "@/components/brand/Wordmark";
+import { PublicFrame } from "@/components/front/PublicFrame";
+import "./waiting-room.css";
 import {
   requestDesktopLinkEmail,
   triggerAutomaticDesktopLinkEmail,
@@ -18,12 +17,15 @@ export type WaitingRoomVariant = "new" | "returning";
 // server remains the authority on whether a resend actually goes through.
 const RESEND_COOLDOWN_MS = 45_000;
 
+// What the onboarding journey on a desktop holds (lib/onboarding.ts).
 const ANTICIPATION_STEPS = [
-  "Name your story",
-  "Write your first line",
-  "Choose your writing space",
-  "Begin your manuscript",
+  "Name your story, or bring in a manuscript",
+  "See how the Manuscript and the Workspace fit together",
+  "Choose how Sutura looks",
+  "Begin writing",
 ];
+
+type CopyState = "idle" | "copied" | "error";
 
 interface PhoneWaitingRoomProps {
   variant: WaitingRoomVariant;
@@ -34,10 +36,10 @@ type SendState = "idle" | "sending" | "sent" | "error";
 
 export function PhoneWaitingRoom({ variant, initialEmailSentAt }: PhoneWaitingRoomProps) {
   const router = useRouter();
-  const showToast = useToastStore((s) => s.showToast);
   const [signingOut, setSigningOut] = useState(false);
   const [sendState, setSendState] = useState<SendState>("idle");
   const [sendError, setSendError] = useState<string | null>(null);
+  const [copyState, setCopyState] = useState<CopyState>("idle");
   const [lastSentAt, setLastSentAt] = useState<string | null>(initialEmailSentAt);
   const [canResend, setCanResend] = useState(() =>
     initialEmailSentAt
@@ -80,6 +82,13 @@ export function PhoneWaitingRoom({ variant, initialEmailSentAt }: PhoneWaitingRo
   // by lastSentAt) elapses. lastSentAt changes always set canResend false
   // synchronously at the call site, so this effect only ever needs to
   // subscribe to the future transition, not assert the current state.
+  // The copy confirmation is the button's own label for a moment, not a toast.
+  useEffect(() => {
+    if (copyState === "idle") return;
+    const timeout = setTimeout(() => setCopyState("idle"), 2400);
+    return () => clearTimeout(timeout);
+  }, [copyState]);
+
   useEffect(() => {
     if (!lastSentAt) return;
     const remaining = RESEND_COOLDOWN_MS - (Date.now() - new Date(lastSentAt).getTime());
@@ -114,153 +123,113 @@ export function PhoneWaitingRoom({ variant, initialEmailSentAt }: PhoneWaitingRo
     const url = process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
     try {
       await navigator.clipboard.writeText(url);
-      showToast("Desktop link copied.", "success");
+      setCopyState("copied");
     } catch {
-      showToast("Couldn't copy the link", "error");
+      setCopyState("error");
     }
   }
 
   const hasSentBefore = Boolean(lastSentAt);
   const showConfirmation = sendState === "sent" && !canResend;
+  const sending = sendState === "sending";
 
+  // Sutura's public frame, locked to Sutura Light: the wordmark leading one
+  // material card, the trust links at the foot. The writer's own theme is a
+  // desk preference; this is a door.
   return (
-    <div
-      className="flex min-h-[100dvh] flex-col items-center justify-center px-6 py-10"
-      style={{
-        background: "var(--bg-primary)",
-        paddingTop: "max(2.5rem, env(safe-area-inset-top))",
-        paddingBottom: "max(2.5rem, env(safe-area-inset-bottom))",
-      }}
-    >
-      <main className="rune-waiting-room w-full max-w-[400px] text-center">
-        <span className="mb-8 inline-block select-none" aria-hidden="true">
-          <Wordmark label={false} />
-        </span>
+    <PublicFrame variant="auth" theme="light">
+      <div className="r2-auth r2-wait">
+        <div className="r2-auth-card r2-wait-card">
+          <h1>{variant === "new" ? "Welcome to Sutura." : "Welcome back."}</h1>
 
-        <h1
-          className="font-rune-serif text-3xl font-semibold leading-tight"
-          style={{ color: "var(--text-primary)" }}
-        >
-          {variant === "new" ? "Welcome to Sutura." : "Welcome back."}
-        </h1>
-
-        <div className="mt-4 flex flex-col gap-3">
           {variant === "new" ? (
-            <>
-              <p
-                className="font-rune-serif text-base leading-relaxed"
-                style={{ color: "var(--text-primary)", opacity: 0.9 }}
-              >
-                Your account is ready.
-              </p>
-              <p
-                className="font-rune-serif text-base leading-relaxed"
-                style={{ color: "var(--text-primary)", opacity: 0.9 }}
-              >
-                Sutura is designed for long-form writing, so your first writing session begins
-                on a desktop or supported tablet.
-              </p>
-            </>
-          ) : (
-            <p
-              className="font-rune-serif text-base leading-relaxed"
-              style={{ color: "var(--text-primary)", opacity: 0.9 }}
-            >
-              Sutura is designed for long-form writing, so your manuscript stays on a desktop
-              or supported tablet — pick up exactly where you left off.
-            </p>
-          )}
-        </div>
-
-        {variant === "new" && (
-          <div className="mt-9">
-            <p
-              className="text-xs uppercase tracking-[0.2em]"
-              style={{ color: "var(--onboarding-muted)" }}
-            >
-              When you open Sutura, you&rsquo;ll
-            </p>
-            <ol className="mt-4 flex flex-col gap-2.5">
-              {ANTICIPATION_STEPS.map((step, i) => (
-                <li key={step} className="flex items-center justify-center gap-3">
-                  <span
-                    className="font-rune-serif text-xs italic"
-                    style={{ color: "var(--color-gold)" }}
-                    aria-hidden="true"
-                  >
-                    {String(i + 1).padStart(2, "0")}
-                  </span>
-                  <span
-                    className="font-rune-serif text-sm"
-                    style={{ color: "var(--text-primary)", opacity: 0.85 }}
-                  >
-                    {step}
-                  </span>
-                </li>
-              ))}
-            </ol>
-          </div>
-        )}
-
-        <p className="mt-8 text-sm italic" style={{ color: "var(--onboarding-muted)" }}>
-          Your writing desk will be waiting.
-        </p>
-
-        <div className="mt-9 flex flex-col items-center gap-3">
-          {showConfirmation ? (
-            <div
-              className="w-full max-w-[280px] rounded-md border px-5 py-4"
-              style={{ borderColor: "var(--color-border-strong)" }}
-            >
-              <p className="font-rune-serif text-base" style={{ color: "var(--text-primary)" }}>
-                Sent.
-              </p>
-              <p
-                className="mt-1.5 text-xs leading-relaxed"
-                style={{ color: "var(--onboarding-muted)" }}
-              >
-                Open the email on your computer when you&rsquo;re ready to begin.
+            <div className="r2-wait-copy">
+              <p>Your account is ready.</p>
+              <p>
+                Sutura is designed for long-form writing, so your first writing session begins on a desktop or
+                supported tablet.
               </p>
             </div>
           ) : (
-            <Button
-              type="button"
-              variant="primary"
-              onClick={handleSendLink}
-              loading={sendState === "sending"}
-              disabled={sendState === "sending" || (hasSentBefore && !canResend)}
-              className="min-h-[44px] w-full max-w-[280px]"
-            >
-              {hasSentBefore ? "Send again" : "Email me my desktop link"}
-            </Button>
+            <div className="r2-wait-copy">
+              <p>
+                Sutura is designed for long-form writing, so your manuscript stays on a desktop or supported
+                tablet — pick up exactly where you left off.
+              </p>
+            </div>
           )}
 
-          {sendState === "error" && sendError && (
-            <p role="alert" aria-live="polite" className="text-xs" style={{ color: "var(--color-crimson)" }}>
-              {sendError}
+          {variant === "new" && (
+            <section className="r2-wait-steps" aria-labelledby="r2-wait-steps-label">
+              <p id="r2-wait-steps-label" className="r2-wait-eyebrow">
+                When you open Sutura, you&rsquo;ll
+              </p>
+              <ol>
+                {ANTICIPATION_STEPS.map((step, i) => (
+                  <li key={step}>
+                    <span className="r2-wait-step-n" aria-hidden="true">
+                      {i + 1}
+                    </span>
+                    <span>{step}</span>
+                  </li>
+                ))}
+              </ol>
+            </section>
+          )}
+
+          <p className="r2-wait-desk">Your writing desk will be waiting.</p>
+
+          <div className="r2-wait-actions">
+            {showConfirmation ? (
+              <div className="r2-notice r2-wait-sent" data-tone="success" role="status">
+                <strong>Sent.</strong> Open the email on your computer when you&rsquo;re ready to begin.
+              </div>
+            ) : (
+              <button
+                type="button"
+                className="r2-button r2-button--primary r2-button--lg r2-wait-button"
+                onClick={handleSendLink}
+                disabled={sending || (hasSentBefore && !canResend)}
+                aria-busy={sending || undefined}
+              >
+                {sending ? "Sending…" : hasSentBefore ? "Send again" : "Email me my desktop link"}
+              </button>
+            )}
+
+            {sendState === "error" && sendError && (
+              <p role="alert" className="r2-notice r2-wait-error" data-tone="danger">
+                {sendError}
+              </p>
+            )}
+
+            <button type="button" className="r2-button r2-button--lg r2-wait-button" onClick={handleCopyLink}>
+              {copyState === "copied"
+                ? "Desktop link copied"
+                : copyState === "error"
+                  ? "Couldn\u2019t copy the link"
+                  : "Copy desktop link"}
+            </button>
+            <p className="r2-wait-live" role="status" aria-live="polite">
+              {copyState === "copied"
+                ? "Desktop link copied."
+                : copyState === "error"
+                  ? "Couldn’t copy the link."
+                  : ""}
             </p>
-          )}
+          </div>
 
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={handleCopyLink}
-            className="min-h-[44px] w-full max-w-[280px]"
-          >
-            Copy desktop link
-          </Button>
+          <div className="r2-auth-card-foot r2-wait-foot">
+            <button
+              type="button"
+              className="r2-button r2-button--quiet r2-wait-signout"
+              onClick={handleSignOut}
+              disabled={signingOut}
+            >
+              {signingOut ? "Signing out…" : "Sign out"}
+            </button>
+          </div>
         </div>
-
-        <button
-          type="button"
-          onClick={handleSignOut}
-          disabled={signingOut}
-          className="mt-10 min-h-[44px] text-xs transition-opacity hover:opacity-80 disabled:opacity-40"
-          style={{ color: "var(--onboarding-muted)" }}
-        >
-          {signingOut ? "Signing out…" : "Sign out"}
-        </button>
-      </main>
-    </div>
+      </div>
+    </PublicFrame>
   );
 }

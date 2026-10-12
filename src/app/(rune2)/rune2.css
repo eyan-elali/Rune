@@ -1260,10 +1260,12 @@ button.r2-disclosure:hover {
   text-decoration: underline;
 }
 
-/* An open Folder with nothing in it: one faint word where its contents would be. */
+/* An open Folder with nothing in it: one faint line where its contents would
+   be, saying how things get there (drag, or the row's "+"). */
 .r2-nav-folder-empty {
-  height: 24px;
-  line-height: 24px;
+  padding-block: 4px;
+  padding-right: var(--r2-space-4);
+  line-height: 1.4;
   font-size: var(--r2-fs-meta);
   color: var(--r2-faint);
   user-select: none;
@@ -3688,6 +3690,59 @@ span.r2-schema-type {
   color: var(--r2-faint);
 }
 
+/* ── A new Entry, named in place ──────────────────────────────────────── */
+/* "New entry" in a View makes the Entry where the writer is: its row, card or
+   timeline item holds a borderless name field, ringed like a focused row, so
+   it reads as that row being named — not a form dropped into the View. */
+.r2-entry-name {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 28px;
+  padding: 3px 6px;
+  border: 0;
+  border-radius: var(--r2-radius);
+  font: inherit;
+  color: var(--r2-ink-1);
+  background: var(--r2-surface-raised);
+  box-shadow: inset 0 0 0 1.5px var(--r2-focus);
+}
+.r2-entry-name::placeholder {
+  color: var(--r2-ink-3);
+}
+.r2-entry-name:focus {
+  outline: none;
+}
+.r2-entry-row[data-naming] {
+  display: block;
+  padding-block: 2px;
+}
+.r2-entry-row[data-naming]:hover {
+  background: none;
+}
+.r2-table-title .r2-entry-name {
+  width: calc(100% + 12px);
+  min-height: var(--r2-control-md);
+  margin: 1px -6px;
+  font-size: var(--r2-fs-row);
+}
+.r2-card[data-naming] {
+  padding: 4px;
+  cursor: text;
+}
+.r2-card[data-naming] .r2-entry-name {
+  font-weight: var(--r2-weight-medium);
+}
+.r2-timeline-item[data-naming] {
+  padding: 0;
+  cursor: text;
+}
+.r2-timeline-item[data-naming] .r2-entry-name {
+  min-height: 26px;
+  padding-block: 0;
+}
+
 /* ── List ────────────────────────────────────────────────────────────── */
 /* Rune's quietest View: names, one under another, in a clean rhythm; the
    View's details on the same line in the third ink, kept to the right and
@@ -3828,6 +3883,29 @@ span.r2-schema-type {
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+/* A header is the handle that moves its column: it takes the grab cursor and
+   a faint wash on hover; while dragged it dims, and an accent rule marks the
+   edge where it would land. */
+.r2-table thead th[draggable="true"] {
+  cursor: grab;
+  transition: background-color var(--r2-fast) var(--r2-ease), opacity var(--r2-fast) var(--r2-ease);
+}
+.r2-table thead th[draggable="true"]:hover {
+  background: var(--r2-hover);
+  color: var(--r2-ink-2);
+}
+.r2-table thead th[draggable="true"]:active {
+  cursor: grabbing;
+}
+.r2-table thead th[data-dragging] {
+  opacity: 0.45;
+}
+.r2-table thead th[data-drop="start"] {
+  box-shadow: inset 2px 0 0 var(--r2-accent);
+}
+.r2-table thead th[data-drop="end"] {
+  box-shadow: inset -2px 0 0 var(--r2-accent);
 }
 .r2-table-sort {
   display: inline-flex;
@@ -4836,6 +4914,15 @@ span.r2-schema-type {
   white-space: nowrap;
   color: var(--r2-ink-1);
 }
+.r2-canvas-insert-note .r2-object-picker-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.r2-canvas-insert-note svg {
+  flex: none;
+  color: var(--r2-ink-2);
+}
 .r2-object-picker-hint {
   flex: 1 0 auto;
   max-width: 45%;
@@ -5035,6 +5122,40 @@ span.r2-schema-type {
   border-radius: var(--r2-radius-xs);
   background: var(--r2-accent-soft-hover);
   color: inherit;
+}
+/* "+"'s Create choices: under the results, quiet — a small label and plain
+   rows; when nothing was found they lead, straight under the field. */
+.r2-search-create {
+  border-top: 1px solid var(--r2-border);
+}
+.r2-search-create .r2-search-results {
+  border-top: 0;
+  padding-top: 0;
+}
+.r2-search-section {
+  padding: 8px 16px 4px;
+  font-size: var(--r2-fs-label);
+  letter-spacing: var(--r2-tracking-label);
+  color: var(--r2-ink-3);
+}
+.r2-search-results li.r2-search-create-option {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+}
+.r2-search-create-icon {
+  flex: none;
+  color: var(--r2-ink-3);
+}
+.r2-search-create[data-lead] .r2-search-create-icon {
+  color: var(--r2-ink-2);
+}
+.r2-search-create-name {
+  color: var(--r2-ink-3);
+}
+.r2-search-results li[aria-disabled] {
+  opacity: 0.6;
+  cursor: progress;
 }
 .r2-search-empty,
 .r2-search-note {

@@ -93,7 +93,7 @@ export function RevisionNotesView() {
     bump((n) => n + 1);
   };
 
-  if (!scope || !base || !manuscriptId) return <p className="r2-panel-empty">Revision notes aren’t available here yet.</p>;
+  if (!scope || !base || !manuscriptId) return <p className="r2-panel-empty">Revision Notes aren’t available here yet.</p>;
   const trail = scopeTrail(base, index, manuscriptId);
   // Done notes are kept and listed on request; by default the view is what is still open.
   const resolvedHere = items ? notesInScope(notes, scope, index).filter((n) => n.resolved).length : 0;
@@ -106,7 +106,7 @@ export function RevisionNotesView() {
 
   return (
     <div className="r2-rnotes" data-revision-notes={scopeKey(scope)}>
-      <nav className="r2-rnotes-trail" aria-label="Revision notes for">
+      <nav className="r2-rnotes-trail" aria-label="Revision Notes for">
         {trail.map((step, i) => (
           <span key={scopeKey(step.scope)} className="r2-rnotes-trail-step">
             {i > 0 && (

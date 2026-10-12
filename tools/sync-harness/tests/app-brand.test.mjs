@@ -53,8 +53,12 @@ test('brand: the approved wordmark and icons are the ones served', () => {
   ]) assert.ok(fs.existsSync(path.join(REPO_DIR, f)), `${f} exists`);
   assert.ok(!fs.existsSync(path.join(REPO_DIR, 'src/app/icon.png')), 'the old Rune icon no longer overrides metadata.icons');
   // Each surface that shows the product mark uses the image, not a typed name.
-  for (const f of ['src/components/front/PublicFrame.tsx', 'src/components/rune2/AccountMenu.tsx', 'src/components/rune2/Onboarding.tsx', 'src/app/(legal)/layout.tsx']) {
+  for (const f of ['src/components/front/PublicFrame.tsx', 'src/components/rune2/AccountMenu.tsx', 'src/components/rune2/Onboarding.tsx']) {
     assert.match(readRepoFile(f), /<Wordmark\b/, `${f} shows the wordmark`);
+  }
+  // The legal pages and the phone waiting room stand in the public frame, which shows it.
+  for (const f of ['src/app/(legal)/layout.tsx', 'src/components/layout/PhoneWaitingRoom.tsx']) {
+    assert.match(readRepoFile(f), /<PublicFrame\b/, `${f} is framed by PublicFrame (its wordmark)`);
   }
 });
 

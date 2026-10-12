@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import { Search } from "lucide-react";
+import { Search, StickyNote } from "lucide-react";
 import { ICON } from "./icons";
 import type { CanvasTargetType } from "@/lib/types";
 import { PLACEABLE_SEARCH_KINDS, PLACEMENT_BY_SEARCH_KIND } from "@/lib/rune2/canvas";
@@ -9,12 +9,12 @@ import { SEARCH_KIND_LABEL, searchObjects, searchProject, type SearchObject } fr
 import { useRune2Selection } from "./Rune2Selection";
 import { useFloating } from "./useFloating";
 
-// "Add to canvas": find an existing Scene, Chapter, Page, Entry or Canvas of
-// this Project and place it. Project Search's own matching and ranking
+// "Add to canvas": a new note (the same as a double-click on the board — said
+// here so it can be found once the empty Canvas's hint is gone), or find an
+// existing Scene, Chapter, Page, Entry or Canvas of this Project and place it. Project Search's own matching and ranking
 // (lib/rune2/projectSearch.ts) narrowed to what a Canvas can show, by current
 // titles, with a quiet word on where each lives — never a form, never a
-// second index. It only chooses among canonical objects; placing one never
-// creates, renames or copies anything.
+// second index. Placing one never creates, renames or copies anything.
 
 // What can be placed is one rule (lib/rune2/canvas.ts), shared with the navigator's drags and the surface's drop.
 const KINDS = PLACEABLE_SEARCH_KINDS;
@@ -26,11 +26,14 @@ export type InsertChoice = { type: CanvasTargetType; id: string; title: string }
 export function CanvasInsert({
   canvasId,
   onChoose,
+  onNewNote,
   onClose,
 }: {
   /** The Canvas itself is never offered (a Canvas never links to itself). */
   canvasId: string;
   onChoose: (choice: InsertChoice) => void;
+  /** A new note in view, ready to type. */
+  onNewNote: () => void;
   onClose: () => void;
 }) {
   const { index } = useRune2Selection();
@@ -58,7 +61,11 @@ export function CanvasInsert({
     ? searchProject(objects, query, { kinds: KINDS, exclude: new Set([canvasId]) })
     : objects;
   const shown = matches.slice(0, SHOWN);
-  const at = Math.min(active, Math.max(shown.length - 1, 0));
+  // "New note" leads the list until the writer starts to search.
+  const offerNote = query.trim() === "";
+  const first = offerNote ? 1 : 0;
+  const count = shown.length + first;
+  const at = Math.min(active, Math.max(count - 1, 0));
 
   // The keyboard's row stays in sight as the arrows move past the list's edge.
   useEffect(() => {
@@ -77,10 +84,10 @@ export function CanvasInsert({
         <input
           autoFocus
           className="r2-field r2-prop-picker-input"
-          placeholder="Add a scene, chapter, page, entry or canvas…"
+          placeholder="Find a scene, chapter, page, entry or canvas…"
           aria-label="Find something to add to this canvas"
           aria-controls={listId}
-          aria-activedescendant={shown.length ? `${listId}-${at}` : undefined}
+          aria-activedescendant={count ? `${listId}-${at}` : undefined}
           maxLength={200}
           value={query}
           onChange={(e) => {
@@ -90,13 +97,14 @@ export function CanvasInsert({
           onKeyDown={(e) => {
             if (e.key === "ArrowDown") {
               e.preventDefault();
-              setActive((a) => Math.min(a + 1, Math.max(shown.length - 1, 0)));
+              setActive((a) => Math.min(a + 1, Math.max(count - 1, 0)));
             } else if (e.key === "ArrowUp") {
               e.preventDefault();
               setActive((a) => Math.max(a - 1, 0));
             } else if (e.key === "Enter") {
               e.preventDefault();
-              if (shown[at]) choose(shown[at]);
+              if (offerNote && at === 0) onNewNote();
+              else if (shown[at - first]) choose(shown[at - first]);
             } else if (e.key === "Escape") {
               e.preventDefault();
               e.stopPropagation();
@@ -109,7 +117,27 @@ export function CanvasInsert({
         />
       </div>
       <ul id={listId} role="listbox" className="r2-prop-picker-list r2-canvas-insert-list">
-        {shown.map((o, i) => (
+        {offerNote && (
+          <li
+            id={`${listId}-0`}
+            role="option"
+            aria-selected={at === 0}
+            data-active={at === 0 || undefined}
+            className="r2-canvas-insert-note"
+            onPointerDown={(e) => e.preventDefault()}
+            onClick={onNewNote}
+            onPointerEnter={() => setActive(0)}
+          >
+            <span className="r2-object-picker-title">
+              <StickyNote {...ICON} aria-hidden />
+              New note
+            </span>
+            <span className="r2-object-picker-hint">Or double-click the canvas</span>
+          </li>
+        )}
+        {shown.map((o, k) => {
+          const i = k + first;
+          return (
           <li
             key={o.id}
             id={`${listId}-${i}`}
@@ -125,10 +153,11 @@ export function CanvasInsert({
               {SEARCH_KIND_LABEL[o.kind]} · {o.context}
             </span>
           </li>
-        ))}
+          );
+        })}
       </ul>
       {shown.length === 0 && (
-        <p className="r2-prop-picker-empty">{objects.length === 0 ? "Nothing to add yet." : "Nothing matches."}</p>
+        <p className="r2-prop-picker-empty">{objects.length === 0 ? "Nothing else to add yet." : "Nothing matches."}</p>
       )}
     </div>
   );

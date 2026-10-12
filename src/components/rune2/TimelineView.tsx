@@ -17,10 +17,11 @@ import {
   type TimelineAxis,
 } from "@/lib/rune2/timelineViews";
 import type { PropertyDefinition, SavedView } from "@/lib/types";
-import { ItemNumber, useOpenItem, useTitleOf, ViewEmpty, type ItemPresenter } from "./CollectionViewBodies";
+import { EntryNameField, ItemNumber, useOpenItem, useTitleOf, ViewEmpty, type ItemPresenter } from "./CollectionViewBodies";
 import { OptionNames } from "./PropertyFields";
 import { usePropertyStore } from "./PropertyStore";
 import { useRune2Selection } from "./Rune2Selection";
+import { useNamingEntry } from "./useNewEntry";
 
 // A Timeline View (migration 042): the View's items — a Collection's Entries
 // or the Manuscript's Scenes, already arranged (filtered) — along one axis:
@@ -119,6 +120,8 @@ export function TimelineView({
   const { createProperty } = usePropertyStore();
   const open = useOpenItem(presenter);
   const titleOf = useTitleOf();
+  // A new Entry has no place on the axis yet: it is named among those apart.
+  const naming = useNamingEntry();
   const hintId = useId();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [available, setAvailable] = useState(0);
@@ -240,6 +243,12 @@ export function TimelineView({
     if (!item) return null;
     const line = [...(contextOnCard && item.context ? [item.context] : []), ...valueLine(shown, values, id, titleOf)];
     const full = [item.number, item.title].filter(Boolean).join(" ") + (line.length ? ` — ${line.join(" · ")}` : "");
+    if (placed === null && naming === id)
+      return (
+        <div key={id} className="r2-timeline-item" data-apart="" data-naming="" style={{ maxWidth: ITEM_WIDTH }}>
+          <EntryNameField id={id} />
+        </div>
+      );
     return (
       <button
         key={id}

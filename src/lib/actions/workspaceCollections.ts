@@ -66,8 +66,29 @@ export async function createWorkspaceCollection(
     logCreateFailure("createWorkspaceCollection", { message: result.error }, { projectId, parentNodeId });
     return { data: null, error: result.error };
   }
+  await openAsTable(supabase, result.collection.id);
   await recordWorkspaceActivation(user.id, projectId, "collection");
   return { data: { collection: result.collection, nodeId: result.node_id }, error: null };
+}
+
+/**
+ * A new Collection opens as a Table: its Entries as rows, its properties as
+ * columns, which explains a Collection at a glance. The database still gives
+ * every new Collection one List (027's trigger); this turns that View into a
+ * Table straight after creation. Only here — a Collection that already exists
+ * keeps the Views the writer has. If it fails, the Collection is still made
+ * and simply opens as a List.
+ */
+async function openAsTable(supabase: Awaited<ReturnType<typeof createClient>>, collectionId: string) {
+  const { data: views } = await supabase
+    .from("workspace_collection_views")
+    .select("id, type")
+    .eq("collection_id", collectionId);
+  if (!views || views.length !== 1 || views[0].type !== "list") return;
+  await supabase.rpc("update_workspace_collection_view", {
+    p_view_id: views[0].id,
+    p_changes: { name: "Table", type: "table" },
+  });
 }
 
 /** Renames a Collection; blank makes it untitled. Its Entries are untouched. */

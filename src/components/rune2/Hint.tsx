@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from "react";
 import { X } from "lucide-react";
 import { markHintSeen } from "@/lib/actions/settings";
 import { HINTS, readSeenHints, type HintId } from "@/lib/rune2/hints";
@@ -11,8 +11,11 @@ import { ICON_SM_BOLD } from "./icons";
 // hint already seen never paints even for a moment. Dismissing it hides it
 // at once and records it on the account; if that save fails it stays hidden
 // for this visit and may show once more later — never a blocking prompt.
+// Doing what a hint teaches (completeHint: a Collection's first Entry made)
+// records it too, without taking it away mid-read: it is simply not there
+// next time.
 
-type Api = { seen: ReadonlySet<HintId>; dismiss: (id: HintId) => void };
+type Api = { seen: ReadonlySet<HintId>; dismiss: (id: HintId) => void; complete: (id: HintId) => void };
 
 const Ctx = createContext<Api | null>(null);
 
@@ -22,9 +25,26 @@ export function HintsProvider({ initial, children }: { initial: unknown; childre
     setSeen((prev) => new Set([...prev, id]));
     void markHintSeen(id).catch(() => {});
   }, []);
-  const api = useMemo(() => ({ seen, dismiss }), [seen, dismiss]);
+  // Recorded once per visit at most; still shown until this visit ends or it is dismissed.
+  const completed = useRef(new Set<HintId>());
+  const complete = useCallback(
+    (id: HintId) => {
+      if (seen.has(id) || completed.current.has(id)) return;
+      completed.current.add(id);
+      void markHintSeen(id).catch(() => completed.current.delete(id));
+    },
+    [seen]
+  );
+  const api = useMemo(() => ({ seen, dismiss, complete }), [seen, dismiss, complete]);
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
 }
+
+/** Records that the writer has done what hint `id` teaches (a no-op outside the provider). */
+export function useCompleteHint(): (id: HintId) => void {
+  const api = useContext(Ctx);
+  return api?.complete ?? noop;
+}
+const noop = () => {};
 
 /**
  * A hint, once: its two lines and a way to put it away. Given several, the

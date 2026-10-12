@@ -164,14 +164,15 @@ async function hollow(db) {
   status = ok(await props.updateCollectionProperty(status.id, { options: [{ name: 'Alive' }, { name: 'Dead' }] })).property;
   const affiliation = ok(await refs.createRelationshipProperty(characters.id, 'Affiliation', 'entry', factions.id, false));
   const notes = ok(await refs.createRelationshipProperty(characters.id, 'Notes', 'page', null, true));
-  const table = ok(await views.createCollectionView(characters.id, 'Table', 'table'));
+  // A new Collection opens as a Table (createWorkspaceCollection); a List joins it.
+  const list = ok(await views.createCollectionView(characters.id, 'List', 'list'));
   const board = ok(await views.createCollectionView(characters.id, 'Board', 'board', {
     properties: [], sort: null, filters: [], group_by: status.id,
   }));
   const opt = (name) => status.options.find((o) => o.name === name).id;
   return {
     intro, research, characters, ending, magic, maps, oldMap, factions,
-    nerai, alaric, djal, drelareth, role, status, affiliation, notes, table, board, opt,
+    nerai, alaric, djal, drelareth, role, status, affiliation, notes, list, board, opt,
   };
 }
 

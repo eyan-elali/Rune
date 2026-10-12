@@ -95,7 +95,7 @@ type TrashValue = {
 const TrashContext = createContext<TrashValue | null>(null);
 
 export function TrashProvider({ children }: { children: ReactNode }) {
-  const { workspace, selectWhenPresent, dropTabs } = useRune2Selection();
+  const { workspace, selected, select, selectWhenPresent, dropTabs } = useRune2Selection();
   const router = useRouter();
   const [, startRefresh] = useTransition();
   const [notice, setNotice] = useState<Notice | null>(null);
@@ -134,6 +134,10 @@ export function TrashProvider({ children }: { children: ReactNode }) {
       }
       const r = await trashWorkspaceObject(type, entry.id);
       if (r.error !== null) return "Couldn’t move that to Trash. Nothing was changed.";
+      // An Entry open where the writer is: its tab goes back to its Collection
+      // (in the View it was showing), not to the Manuscript overview.
+      const collection = type === "entry" ? entry.path.findLast((p) => p.kind === "workspaceCollection") : undefined;
+      if (collection && selected?.id === entry.id) select(collection.id);
       dropTabs(type === "chapter" ? [entry.id, ...unsaved] : unsaved);
       const scenes = entry.sceneIds?.length ?? 0;
       setNotice({
@@ -148,7 +152,7 @@ export function TrashProvider({ children }: { children: ReactNode }) {
       refresh();
       return null;
     },
-    [refresh, dropTabs]
+    [refresh, dropTabs, selected, select]
   );
 
   // Undo is the writer taking back what they just did, so the object opens again.

@@ -72,10 +72,8 @@ export function resolveAppearance(v: unknown): AppearanceId {
 
 /**
  * Whether the account has ever chosen an appearance (a stored value the
- * registry knows). An account that has not is shown the default — except
- * through onboarding, where the layout shows System until the writer
- * chooses, so the journey continues the front door's theme instead of
- * flashing Light (RunePreferencesProvider's `unchosenAppearance`).
+ * registry knows). An account that has not is shown the default, Light —
+ * the public pages' own appearance.
  */
 export function hasChosenAppearance(stored: unknown): boolean {
   const p = stored && typeof stored === "object" && !Array.isArray(stored) ? (stored as Record<string, unknown>) : {};

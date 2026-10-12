@@ -1,9 +1,13 @@
 "use client";
 
-import { useEffect, useId, useMemo, useState, type KeyboardEvent, type MouseEvent } from "react";
-import { Search } from "lucide-react";
+import { useEffect, useId, useMemo, useState, useTransition, type KeyboardEvent, type MouseEvent } from "react";
+import { useRouter } from "next/navigation";
+import { FilePlus, Frame, Library, Search, type LucideIcon } from "lucide-react";
 import { ICON } from "./icons";
 import { searchProjectContent } from "@/lib/actions/projectSearch";
+import { createWorkspacePage } from "@/lib/actions/workspacePages";
+import { createWorkspaceCollection } from "@/lib/actions/workspaceCollections";
+import { createWorkspaceCanvas } from "@/lib/actions/workspaceCanvas";
 import {
   CONTENT_QUERY_MIN,
   highlight,
@@ -33,8 +37,22 @@ import { useRune2Selection } from "./Rune2Selection";
 // click in the active tab (or goes to the object's tab), ⌘/Ctrl-Enter,
 // ⌘/Ctrl-click or a middle click in a tab of its own. A Folder, which is
 // navigation only, is revealed and focused in the navigator instead.
+//
+// From the tab strip's "+" ("Open another"), what isn't found can be made:
+// a Page, a Collection or a Canvas named by the query — Workspace objects
+// that open as tabs. Never a Scene, Chapter or Group (the Manuscript's own
+// paths make those) and never a Folder (it doesn't open as a tab). Results
+// come first; the Create choices follow them quietly, or lead when nothing
+// was found. The new object opens in a tab of its own, its title ready.
 
 const SHOWN = 50;
+
+type CreateKind = "page" | "collection" | "canvas";
+const CREATE: { kind: CreateKind; label: string; icon: LucideIcon }[] = [
+  { kind: "page", label: "Page", icon: FilePlus },
+  { kind: "collection", label: "Collection", icon: Library },
+  { kind: "canvas", label: "Canvas", icon: Frame },
+];
 const PAUSE_MS = 160;
 
 export function ProjectSearch() {
@@ -73,7 +91,14 @@ function SearchDialog({ onClose }: { onClose: () => void }) {
     navCollapsed,
     toggleNav,
     requestCanvasFocus,
+    workspace,
+    appendWhenPresent,
+    requestSceneFocus,
   } = useRune2Selection();
+  const router = useRouter();
+  const [, startRefresh] = useTransition();
+  const [creating, setCreating] = useState(false);
+  const [createFailed, setCreateFailed] = useState(false);
   // Opened from the tab strip's "+": whatever is chosen joins the working set
   // in a tab of its own at the end (or goes to its tab), the others kept.
   const adding = searchIntent === "add";
@@ -114,11 +139,47 @@ function SearchDialog({ onClose }: { onClose: () => void }) {
     [objects, query, known]
   );
   const pending = searchesText && known === undefined;
-  const at = Math.min(active, Math.max(results.length - 1, 0));
+  const title = query.trim().replace(/\s+/g, " ");
+  // What "+" can make here: only the kinds this Project's Workspace has.
+  const creatable =
+    adding && title !== "" && !pending
+      ? CREATE.filter(
+          (c) =>
+            c.kind === "page" ||
+            (c.kind === "collection" && workspace.organizable && workspace.collectable) ||
+            (c.kind === "canvas" && workspace.organizable && workspace.canvasable)
+        )
+      : [];
+  // One list for the keyboard: the results, then the Create choices.
+  const count = results.length + creatable.length;
+  const at = Math.min(active, Math.max(count - 1, 0));
 
   useEffect(() => {
     document.getElementById(`${listId}-${at}`)?.scrollIntoView({ block: "nearest" });
-  }, [listId, at, results]);
+  }, [listId, at, results, creatable.length]);
+
+  /** Makes a Page, Collection or Canvas named `title` and opens it in a tab of its own, its title ready. */
+  async function create(kind: CreateKind) {
+    if (creating) return;
+    setCreating(true);
+    setCreateFailed(false);
+    try {
+      const r =
+        kind === "page"
+          ? await createWorkspacePage(projectId, title, null).then((x) => (x.error === null ? x.data.id : null))
+          : kind === "collection"
+            ? await createWorkspaceCollection(projectId, title, null).then((x) => (x.error === null ? x.data.collection.id : null))
+            : await createWorkspaceCanvas(projectId, title, null).then((x) => (x.error === null ? x.data.canvas.id : null));
+      if (r === null) throw new Error("not created");
+      onClose();
+      appendWhenPresent(r);
+      requestSceneFocus(r);
+      startRefresh(() => router.refresh());
+    } catch {
+      setCreateFailed(true);
+      setCreating(false);
+    }
+  }
 
   const dismiss = () => {
     const el = returnFocus;
@@ -152,13 +213,14 @@ function SearchDialog({ onClose }: { onClose: () => void }) {
   const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "ArrowDown") {
       e.preventDefault();
-      setActive(Math.min(at + 1, Math.max(results.length - 1, 0)));
+      setActive(Math.min(at + 1, Math.max(count - 1, 0)));
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       setActive(Math.max(at - 1, 0));
     } else if (e.key === "Enter") {
       e.preventDefault();
       if (results[at]) open(results[at], e.metaKey || e.ctrlKey);
+      else if (creatable[at - results.length]) void create(creatable[at - results.length].kind);
     } else if (e.key === "Escape") {
       e.preventDefault();
       e.stopPropagation();
@@ -172,6 +234,39 @@ function SearchDialog({ onClose }: { onClose: () => void }) {
   const onResultClick = (r: SearchResult, e: MouseEvent) => open(r, e.metaKey || e.ctrlKey);
   const trimmed = query.trim();
   const noResults = normalizeQuery(query) !== "" && results.length === 0 && !pending;
+  const createSection = creatable.length > 0 && (
+    <div className="r2-search-create" data-lead={results.length === 0 || undefined}>
+      <p className="r2-search-section" id={`${listId}-create`}>
+        Create
+      </p>
+      <ul role="listbox" aria-labelledby={`${listId}-create`} aria-busy={creating || undefined} className="r2-search-results">
+        {creatable.map((c, k) => {
+          const i = results.length + k;
+          const Icon = c.icon;
+          return (
+            <li
+              key={c.kind}
+              id={`${listId}-${i}`}
+              role="option"
+              aria-selected={i === at}
+              aria-disabled={creating || undefined}
+              data-active={i === at || undefined}
+              className="r2-search-create-option"
+              onPointerDown={(e) => e.preventDefault()}
+              onPointerMove={() => i !== at && setActive(i)}
+              onClick={() => void create(c.kind)}
+            >
+              <Icon {...ICON} aria-hidden className="r2-search-create-icon" />
+              <span className="r2-search-title">
+                {c.label}
+                <span className="r2-search-create-name"> — “{title}”</span>
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
 
   return (
     <>
@@ -187,12 +282,12 @@ function SearchDialog({ onClose }: { onClose: () => void }) {
           <input
             autoFocus
             role="combobox"
-            aria-expanded={results.length > 0}
+            aria-expanded={count > 0}
             aria-controls={listId}
             aria-autocomplete="list"
-            aria-activedescendant={results.length ? `${listId}-${at}` : undefined}
-            aria-label={adding ? "Find something to open in a new tab" : "Search this project"}
-            placeholder={adding ? "Open another…" : "Search this project"}
+            aria-activedescendant={count ? `${listId}-${at}` : undefined}
+            aria-label={adding ? "Find something to open in a new tab, or name something to create" : "Search this project"}
+            placeholder={adding ? "Open or create…" : "Search this project"}
             spellCheck={false}
             autoComplete="off"
             maxLength={200}
@@ -239,10 +334,12 @@ function SearchDialog({ onClose }: { onClose: () => void }) {
           </ul>
         )}
         {noResults && <p className="r2-search-empty">No results for “{trimmed}”</p>}
+        {createSection}
+        {createFailed && <p className="r2-search-note">That couldn’t be created. Try again.</p>}
         {/* What the list holds, heard as it changes (the list itself is not read out). */}
         <p role="status" className="sr-only">
           {noResults
-            ? `No results for “${trimmed}”`
+            ? `No results for “${trimmed}”${creatable.length ? ". Create it as a page, collection or canvas." : ""}`
             : results.length > 0 && trimmed
               ? `${results.length} ${results.length === 1 ? "result" : "results"}${known === "failed" ? ", titles only" : ""}`
               : ""}

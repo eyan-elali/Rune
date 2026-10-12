@@ -216,11 +216,13 @@ test('first paint: the layout renders the stylesheet and seeds the preferences; 
   const layout = read('src/app/(rune2)/layout.tsx');
   assert.match(layout, /const THEME_CSS = buildThemeCss\(\);/);
   assert.match(layout, /<style id="r2-themes" dangerouslySetInnerHTML=\{\{ __html: THEME_CSS \}\} \/>/);
-  // Seeded from the profile; the unchosen-appearance presentation (onboarding's theme continuity) is the only other prop.
+  // Seeded from the profile and the account, nothing else: an account that has
+  // not chosen an appearance paints the default, Light — the public pages' own.
   assert.match(
     layout,
-    /<RunePreferencesProvider\s+initial=\{profile\?\.preferences \?\? null\}\s+account=\{accountOf\(user, profile\)\}\s+unchosenAppearance=\{unchosenAppearance\}\s*>/
+    /<RunePreferencesProvider\s+initial=\{profile\?\.preferences \?\? null\}\s+account=\{accountOf\(user, profile\)\}\s*>/
   );
+  assert.doesNotMatch(layout, /unchosenAppearance/);
 
   // Every element that opens a Rune root spreads the root props (or is a RuneRoot); none names a theme itself.
   const files = [];
@@ -258,12 +260,19 @@ test('the writing surface paints the manuscript only while the manuscript is wri
 
 // ── Navigation ────────────────────────────────────────────────────────────────
 
-test('Settings is reachable from inside a Project and comes back to it; the Project menu is the Project’s own', () => {
+test('Settings is reachable from inside a Project and comes back to it; the Project menu switches Projects and holds this one’s actions', () => {
   const nav = read('src/components/rune2/ProjectNavigator.tsx');
   const items = nav.slice(nav.indexOf('function projectItems()'), nav.indexOf('async function moveProjectToTrash'));
   assert.ok(items.length > 0);
   for (const label of ['Rename project', 'Export manuscript…', 'Download project backup…', 'Move project to Trash']) assert.ok(items.includes(`"${label}"`), label);
-  for (const foreign of ['"Settings"', '"All projects"', '"Log out"', 'router.push']) assert.ok(!items.includes(foreign), `the Project menu has no ${foreign}`);
+  // The project switcher: recent Projects (this one checked), all of them when there are more, a new one.
+  assert.match(items, /section: "Projects",\s*checked: true/);
+  assert.match(items, /onSelect: \(\) => router\.push\(`\/projects\/\$\{p\.id\}`\)/);
+  assert.match(items, /\{ label: "New project…", icon: Plus, separator: true, onSelect: \(\) => setCreatingProject\(true\) \}/);
+  assert.match(nav, /<NewProjectDialog onClose=\{\(\) => setCreatingProject\(false\)\} onCreated=\{\(id\) => router\.push\(`\/projects\/\$\{id\}`\)\} \/>/,
+    'one creation path: the Projects home’s own dialog');
+  // Account places stay the account control's.
+  for (const foreign of ['"Settings"', '"Log out"']) assert.ok(!items.includes(foreign), `the Project menu has no ${foreign}`);
   assert.match(nav, /<div className="r2-nav-footer">\s*<AccountControl onOpenSettings=\{\(\) => setSettingsOpen\(true\)\} \/>/,
     'the account sits at the navigator’s foot and opens Settings over the Project');
 
