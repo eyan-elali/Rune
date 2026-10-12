@@ -67,3 +67,25 @@ export function closeTab(state: TabState, key: string): TabState {
 export function forgetTabs(state: TabState, keys: readonly string[]): TabState {
   return keys.reduce((s, key) => (s.tabs.includes(key) ? closeTab(s, key) : s), state);
 }
+
+/** At most this many tabs come back when a Project reopens. */
+export const RESUME_TAB_LIMIT = 12;
+
+/**
+ * The working set a Project reopens with, from what this device remembered
+ * (resumeLocation.ts) — or null when nothing usable was remembered. Tabs
+ * whose object is gone (deleted, in Trash, never this Project's) are
+ * dropped. If the remembered active object is among them, the writer lands
+ * on the Manuscript overview rather than on some other tab they weren't
+ * looking at; the surviving tabs stay open beside it.
+ */
+export function resumedTabs(saved: unknown, has: (key: string) => boolean): TabState | null {
+  if (!saved || typeof saved !== "object") return null;
+  const { tabs, active } = saved as { tabs?: unknown; active?: unknown };
+  if (!Array.isArray(tabs) || typeof active !== "string") return null;
+  const kept = [...new Set(tabs.filter((k): k is string => typeof k === "string" && has(k)))].slice(0, RESUME_TAB_LIMIT);
+  if (has(active) && kept.includes(active)) return { tabs: kept, active };
+  if (has(active)) return { tabs: [...kept.slice(0, RESUME_TAB_LIMIT - 1), active], active };
+  const tabsWithManuscript = kept.includes(MANUSCRIPT_TAB) ? kept : [MANUSCRIPT_TAB, ...kept.slice(0, RESUME_TAB_LIMIT - 1)];
+  return { tabs: tabsWithManuscript, active: MANUSCRIPT_TAB };
+}

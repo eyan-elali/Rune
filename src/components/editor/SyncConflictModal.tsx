@@ -1,9 +1,18 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { getOfflineDB, SCENE_CACHE_STORE } from "@/lib/offline/db";
+import { getOfflineDB, plainTextOfContent, SCENE_CACHE_STORE } from "@/lib/offline/db";
 import { forceWriteLocalContent } from "@/lib/offline/syncEngine";
+import { acceptServerState } from "@/lib/offline/tabBaseline";
+import { useModalFocus } from "@/components/rune2/useModalFocus";
+
+// The Scene conflict: the writer's words on this device and a different
+// version saved elsewhere (another window or device) since the one they were
+// based on. syncEngine decides it is one (never this tab's own save); this
+// dialog only explains it and lets the writer choose. Nothing is lost until
+// they do: their words stay queued on this device, the other version stays
+// on the server.
 
 interface LocalDraftInfo {
   content: Record<string, unknown>;
@@ -21,7 +30,7 @@ interface ServerVersionInfo {
 interface SyncConflictModalProps {
   sceneId: string;
   /** Called only after the server confirmed it now holds the local draft. */
-  onKeepLocal: (keptWordCount: number) => void;
+  onKeepLocal: () => void;
   onKeepServer: (serverContent: Record<string, unknown>, serverWordCount: number) => void;
   onClose: () => void;
 }
@@ -29,21 +38,55 @@ interface SyncConflictModalProps {
 // Accurate failure descriptions per category — a word-limit rejection or an
 // expired session must never be reported as "check your internet."
 const KEEP_LOCAL_ERROR_MESSAGES: Record<string, string> = {
-  auth: "Your session has expired. Your draft is safe on this device — sign in again, then retry.",
+  auth: "You’ve been signed out. Your words are safe on this device — sign in again, then try once more.",
   not_found:
-    "This scene no longer exists on the server. Your draft is safe on this device — copy it into another scene or contact support.",
-  network: "Could not reach the server. Your draft is safe on this device — check your connection and try again.",
-  server:
-    "The server rejected the save. Your draft is safe on this device — please try again.",
+    "This scene no longer exists. Your words are safe on this device — copy them into another scene.",
+  network: "Sutura couldn’t reach the server. Your words are safe on this device — try again when you’re connected.",
+  server: "That didn’t save. Your words are safe on this device — try again in a moment.",
 };
+
+const EXCERPT_CHARS = 180;
+const EXCERPT_LEAD = 60;
+
+function flatText(content: Record<string, unknown> | undefined): string {
+  return plainTextOfContent(content).replace(/\s+/g, " ").trim();
+}
+
+/**
+ * A passage of each version, enough to tell them apart: two versions of a
+ * Scene usually share their opening, so both passages start a little before
+ * the first place they differ. Shown, never logged.
+ */
+function excerpts(a: Record<string, unknown> | undefined, b: Record<string, unknown> | undefined): [string, string] {
+  const ta = flatText(a);
+  const tb = flatText(b);
+  let at = 0;
+  while (at < ta.length && at < tb.length && ta[at] === tb[at]) at += 1;
+  // Back to a word boundary a little before the difference.
+  let start = Math.max(0, at - EXCERPT_LEAD);
+  if (start > 0) {
+    const space = ta.lastIndexOf(" ", start);
+    start = space > 0 ? space + 1 : 0;
+  }
+  const cut = (t: string) => {
+    if (!t) return "Empty";
+    const body = t.slice(start, start + EXCERPT_CHARS).trimEnd();
+    if (!body) return "…(ends here)";
+    return `${start > 0 ? "…" : ""}${body}${start + EXCERPT_CHARS < t.length ? "…" : ""}`;
+  };
+  return [cut(ta), cut(tb)];
+}
 
 function pluralWords(n: number) {
   return n === 1 ? "word" : "words";
 }
 
 function formatTime(ts: number | string) {
-  const d = typeof ts === "number" ? new Date(ts) : new Date(ts);
-  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const d = new Date(ts);
+  const sameDay = d.toDateString() === new Date().toDateString();
+  return sameDay
+    ? d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
+    : d.toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 }
 
 export function SyncConflictModal({
@@ -58,7 +101,10 @@ export function SyncConflictModal({
   const [loadError, setLoadError] = useState<string | null>(null);
   const [resolving, setResolving] = useState<"local" | "server" | null>(null);
   const [resolveError, setResolveError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const titleId = useId();
+  useModalFocus(containerRef);
 
   useEffect(() => {
     async function loadVersions() {
@@ -83,13 +129,11 @@ export function SyncConflictModal({
           .eq("id", sceneId);
 
         if (error) {
-          setLoadError("Could not load the server version.");
+          setLoadError("Sutura couldn’t load the other version just now. Your words are safe on this device.");
           return;
         }
         if (!rows || rows.length === 0) {
-          setLoadError(
-            "This scene no longer exists on the server. Your local draft is safe on this device."
-          );
+          setLoadError("This scene no longer exists. Your words are safe on this device.");
           return;
         }
         const data = rows[0];
@@ -101,7 +145,7 @@ export function SyncConflictModal({
           version: data.version as number | undefined,
         });
       } catch {
-        setLoadError("Failed to load conflict data.");
+        setLoadError("Sutura couldn’t load the other version just now. Your words are safe on this device.");
       } finally {
         setLoading(false);
       }
@@ -111,8 +155,15 @@ export function SyncConflictModal({
   }, [sceneId]);
 
   useEffect(() => {
-    containerRef.current?.focus();
-  }, []);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !resolving) {
+        e.stopPropagation();
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose, resolving]);
 
   async function handleKeepLocal() {
     if (resolving) return;
@@ -122,7 +173,7 @@ export function SyncConflictModal({
       const result = await forceWriteLocalContent(sceneId);
       // Only a database from before migration 037 can still answer this.
       if (result.status === "word_limit_blocked") {
-        setResolveError("Your draft is safe on this device, but it couldn’t be saved just now. Try again in a moment.");
+        setResolveError(KEEP_LOCAL_ERROR_MESSAGES.server);
         setResolving(null);
         return;
       }
@@ -133,9 +184,9 @@ export function SyncConflictModal({
         setResolving(null);
         return;
       }
-      onKeepLocal(result.wordCount);
+      onKeepLocal();
     } catch {
-      setResolveError("An unexpected error occurred. Please try again.");
+      setResolveError(KEEP_LOCAL_ERROR_MESSAGES.server);
       setResolving(null);
     }
   }
@@ -162,211 +213,119 @@ export function SyncConflictModal({
         serverContent: serverVersion.content,
         cachedAt: Date.now(),
       });
+      // This tab now knows (and shows) the server's version.
+      acceptServerState(sceneId, serverVersion.wordCount, serverVersion.version);
 
       onKeepServer(serverVersion.content, serverVersion.wordCount);
     } catch {
-      setResolveError("An unexpected error occurred. Please try again.");
+      setResolveError("That didn’t work. Nothing was changed — try again.");
       setResolving(null);
     }
   }
 
+  async function copyLocal() {
+    if (!localDraft) return;
+    try {
+      await navigator.clipboard.writeText(plainTextOfContent(localDraft.content));
+      setCopied(true);
+    } catch {
+      setResolveError("Couldn’t copy. Select the text in the editor and copy it instead.");
+    }
+  }
+
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label="Sync Conflict"
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: "rgba(10, 8, 6, 0.88)", backdropFilter: "blur(6px)" }}
-      onKeyDown={(e) => { if (e.key === "Escape" && !resolving) onClose(); }}
-    >
+    <div className="r2-dialog-backdrop" onMouseDown={(e) => e.target === e.currentTarget && !resolving && onClose()}>
       <div
         ref={containerRef}
-        tabIndex={-1}
-        className="w-full max-w-lg rounded-2xl px-8 pt-8 pb-7 outline-none"
-        style={{
-          background: "var(--surface-card)",
-          border: "1px solid var(--color-border-strong)",
-          boxShadow: "0 32px 80px rgba(0, 0, 0, 0.65), 0 0 0 1px color-mix(in srgb, var(--color-gold) 8%, transparent)",
-        }}
-        onClick={(e) => e.stopPropagation()}
+        className="r2-dialog r2-conflict"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
       >
-        {/* Badge */}
-        <div className="mb-5 flex items-center gap-2">
-          <div
-            className="flex items-center gap-1.5 rounded-full px-2.5 py-1"
-            style={{
-              background: "color-mix(in srgb, var(--color-crimson) 15%, transparent)",
-              border: "1px solid color-mix(in srgb, var(--color-crimson) 30%, transparent)",
-            }}
-          >
-            <span
-              className="h-1.5 w-1.5 rounded-full"
-              style={{ background: "var(--color-crimson)" }}
-              aria-hidden
-            />
-            <span
-              className="text-[10px] font-semibold uppercase tracking-[0.18em]"
-              style={{ color: "var(--color-crimson)" }}
-            >
-              Sync Conflict
-            </span>
-          </div>
-        </div>
-
-        {/* Heading */}
-        <p
-          className="mb-1.5 font-rune-serif text-[1.15rem] leading-snug"
-          style={{ color: "var(--text-primary)" }}
-        >
-          This scene was changed elsewhere while you had an unsynced local draft.
+        <h2 id={titleId}>This scene was also changed elsewhere</h2>
+        <p>
+          While your latest words here were waiting to save, a different version was saved from
+          another window or device. Both are kept until you choose which one this scene should hold.
         </p>
-        <p className="mb-7 text-sm" style={{ color: "var(--color-mist)" }}>
-          Choose which version to keep.
-        </p>
-
-        {/* Divider */}
-        <div
-          className="mb-6 h-px"
-          style={{ background: "var(--color-border)" }}
-          aria-hidden
-        />
 
         {loading ? (
-          <div className="flex h-28 items-center justify-center">
-            <span className="text-sm" style={{ color: "var(--color-mist)" }}>
-              Loading versions…
-            </span>
-          </div>
+          <p className="r2-conflict-loading" role="status">
+            Loading both versions…
+          </p>
         ) : loadError ? (
-          <div className="flex h-28 flex-col items-center justify-center gap-3">
-            <span className="text-sm" style={{ color: "var(--color-crimson)" }}>
-              {loadError}
-            </span>
-            <button
-              type="button"
-              onClick={onClose}
-              className="text-xs"
-              style={{ color: "var(--color-mist)" }}
-            >
-              Dismiss
-            </button>
-          </div>
+          <>
+            <p role="alert">{loadError}</p>
+            <div className="r2-dialog-actions">
+              <button type="button" className="r2-button" onClick={onClose}>
+                Close
+              </button>
+            </div>
+          </>
         ) : (
           <>
-            {/* Version cards */}
-            <div className="mb-5 grid grid-cols-2 gap-3">
-              {/* Local Draft */}
-              <div
-                className="rounded-xl p-4"
-                style={{
-                  background: "color-mix(in srgb, var(--color-gold) 7%, transparent)",
-                  border: "1px solid var(--color-border-strong)",
-                }}
-              >
-                <p
-                  className="mb-3 text-[10px] font-semibold uppercase tracking-[0.18em]"
-                  style={{ color: "var(--color-gold)" }}
-                >
-                  Local Draft
-                </p>
-                <p
-                  className="font-rune-serif text-3xl font-bold leading-none"
-                  style={{ color: "var(--text-primary)" }}
-                >
-                  {localDraft?.wordCount ?? 0}
-                </p>
-                <p className="mt-1 text-xs" style={{ color: "var(--color-mist)" }}>
-                  {pluralWords(localDraft?.wordCount ?? 0)}
-                </p>
-                <p
-                  className="mt-4 text-[11px]"
-                  style={{ color: "var(--color-mist)", opacity: 0.65 }}
-                >
-                  Edited at{" "}
-                  {localDraft ? formatTime(localDraft.localUpdatedAt) : "—"}
-                </p>
-              </div>
+            <ConflictVersions local={localDraft} server={serverVersion} />
 
-              {/* Server Version */}
-              <div
-                className="rounded-xl p-4"
-                style={{
-                  background: "rgba(0, 0, 0, 0.12)",
-                  border: "1px solid var(--color-border)",
-                }}
-              >
-                <p
-                  className="mb-3 text-[10px] font-semibold uppercase tracking-[0.18em]"
-                  style={{ color: "var(--color-mist)" }}
-                >
-                  Server Version
-                </p>
-                <p
-                  className="font-rune-serif text-3xl font-bold leading-none"
-                  style={{ color: "var(--text-primary)" }}
-                >
-                  {serverVersion?.wordCount ?? 0}
-                </p>
-                <p className="mt-1 text-xs" style={{ color: "var(--color-mist)" }}>
-                  {pluralWords(serverVersion?.wordCount ?? 0)}
-                </p>
-                <p
-                  className="mt-4 text-[11px]"
-                  style={{ color: "var(--color-mist)", opacity: 0.65 }}
-                >
-                  Saved at{" "}
-                  {serverVersion ? formatTime(serverVersion.updatedAt) : "—"}
-                </p>
-              </div>
-            </div>
+            <p className="r2-conflict-note">
+              Using the other version replaces yours here.{" "}
+              <button type="button" className="r2-conflict-copy" onClick={() => void copyLocal()} disabled={!localDraft}>
+                {copied ? "Your version is copied" : "Copy your version first"}
+              </button>
+            </p>
 
-            {/* Error feedback */}
             {resolveError && (
-              <p
-                className="mb-4 rounded-lg px-3 py-2 text-xs"
-                style={{
-                  color: "var(--color-crimson)",
-                  background: "color-mix(in srgb, var(--color-crimson) 10%, transparent)",
-                  border: "1px solid color-mix(in srgb, var(--color-crimson) 20%, transparent)",
-                }}
-              >
+              <p role="alert" className="r2-conflict-error">
                 {resolveError}
               </p>
             )}
 
-            {/* Actions */}
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => void handleKeepLocal()}
-                disabled={resolving !== null}
-                className="rounded-xl py-2.5 text-sm font-semibold transition-opacity disabled:opacity-40"
-                style={{
-                  background: "var(--color-gold)",
-                  color: "var(--color-ink)",
-                }}
-                aria-label="Keep local draft and upload to server"
-              >
-                {resolving === "local" ? "Saving…" : "Keep Local"}
+            <div className="r2-dialog-actions">
+              <button type="button" className="r2-button r2-button--quiet" disabled={resolving !== null} onClick={onClose}>
+                Decide later
               </button>
               <button
                 type="button"
+                className="r2-button"
                 onClick={() => void handleKeepServer()}
                 disabled={resolving !== null || !serverVersion}
-                className="rounded-xl py-2.5 text-sm font-medium transition-opacity disabled:opacity-40"
-                style={{
-                  background: "transparent",
-                  color: "var(--color-mist)",
-                  border: "1px solid var(--color-border-strong)",
-                }}
-                aria-label="Discard local draft and load server version"
               >
-                {resolving === "server" ? "Applying…" : "Keep Server"}
+                {resolving === "server" ? "Switching…" : "Use the other version"}
+              </button>
+              <button
+                type="button"
+                className="r2-button r2-button--primary"
+                onClick={() => void handleKeepLocal()}
+                disabled={resolving !== null}
+              >
+                {resolving === "local" ? "Saving…" : "Keep yours"}
               </button>
             </div>
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+function ConflictVersions({ local, server }: { local: LocalDraftInfo | null; server: ServerVersionInfo | null }) {
+  const [mine, theirs] = excerpts(local?.content, server?.content);
+  return (
+    <div className="r2-conflict-versions">
+      <section className="r2-conflict-version" aria-label="Your version on this device">
+        <h3 className="r2-label">Yours, on this device</h3>
+        <p className="r2-conflict-meta">
+          {(local?.wordCount ?? 0).toLocaleString()} {pluralWords(local?.wordCount ?? 0)}
+          {local && <> · edited {formatTime(local.localUpdatedAt)}</>}
+        </p>
+        <p className="r2-conflict-excerpt">{mine}</p>
+      </section>
+      <section className="r2-conflict-version" aria-label="The version saved elsewhere">
+        <h3 className="r2-label">Saved elsewhere</h3>
+        <p className="r2-conflict-meta">
+          {(server?.wordCount ?? 0).toLocaleString()} {pluralWords(server?.wordCount ?? 0)}
+          {server && <> · saved {formatTime(server.updatedAt)}</>}
+        </p>
+        <p className="r2-conflict-excerpt">{theirs}</p>
+      </section>
     </div>
   );
 }

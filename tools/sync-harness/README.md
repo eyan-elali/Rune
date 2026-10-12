@@ -73,6 +73,7 @@ bundle), backed by `fake-indexeddb`. Only the network boundary is mocked
 - `klserver` Keep Server resets the baseline; later edits sync with no false conflict
 - `mig` the Rune 2.0 canonical cutover makes a page with a queued offline write (and a queued writing credit) Unplaced → replay lands on the same Page ID, no conflict, no remapping, no new row
 - `migbump` the same, when the data step fails to suppress the version trigger
+- `fc1`–`fc12` (2026-10-12 reliability pass, the editor's `'tab'` baseline): typing through an in-flight save, a save requested during another (one follow-up), the background flush uploading the editor's row, a sibling tab uploading this tab's words (no conflict) vs. another tab's words (conflict), genuine remote edits (different and identical word counts), a remote edit read before typing, a rename after a save, late older observations, strictly increasing queue revisions, offline → flapping → reconnect replay with one save, stale rows (deleted / in Trash) never blocking a live save, and the background flush leaving another live tab's recent row to that tab
 
 **`tests/schema-equivalence.test.mjs`** proves the Rune 1.x baseline
 (`src/lib/supabase/baseline/production-2026-09-24.sql`) reproduces the committed production catalog snapshot exactly. It loads the

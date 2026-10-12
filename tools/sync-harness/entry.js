@@ -13,10 +13,11 @@ import {
 import { getOfflineDB, cacheScene, storeOfflineWritingCredit } from '@/lib/offline/db';
 import {
   server, resetServer, createServerPage, metadataUpdate, remoteContentSave, releaseHang, releaseFetchHang,
-  applyPlacementMigration, trashServerScene, restoreServerScene, deleteServerScene,
+  applyPlacementMigration, trashServerScene, restoreServerScene, deleteServerScene, tick, nowIso,
 } from './mocks/serverState.js';
 import { getOfflineStorageSummary, getRetiredDrafts, getRetiredDraftText, discardRetiredDraft } from '@/lib/offline/db';
 import { recordWordsWrittenCalls } from './mocks/actionsMisc.js';
+import { TAB_ID, getTabBaseline, noteServerState, acceptServerState } from '@/lib/offline/tabBaseline';
 
 const PAGE = 'page-1';
 const USER = 'user-1';
@@ -668,6 +669,8 @@ async function klserver() {
     serverUpdatedAt: srv.updated_at, serverVersion: srv.version,
     serverWordCount: srv.word_count, serverContent: srv.content, cachedAt: Date.now(),
   });
+  // …and moves this tab's baseline to the kept version (2026-10-12).
+  acceptServerState(PAGE, srv.word_count, srv.version);
 
   // Edit the kept server content and sync — must not false-conflict.
   await writeToPendingQueue(PAGE, USER, doc(56, 'remote'), 56);
@@ -807,10 +810,310 @@ async function migration(tag, bumpVersion) {
   check(`${tag}: confirmed baseline advanced on the same cache key`, cache?.serverWordCount === 395, cache?.serverWordCount);
 }
 
+
+// ── Reliability pass (2026-10-12): the false "Changed elsewhere" ─────────────
+// The open editor syncs with the 'tab' baseline (tabBaseline.ts). Each case
+// below is a way this tab's OWN save used to be read as a change made
+// elsewhere, or a genuine one that must still be caught.
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const saves = () => server.log.filter((l) => l.op === 'save_scene_checked');
+
+// Opens the Scene as the writing surface does: a fresh server read, cached.
+async function openFresh(id = PAGE) {
+  const row = server.scenes.get(id);
+  await cacheScene({
+    id, chapter_id: 'ch-1', title: 'Page 1', content: row.content,
+    word_count: row.word_count, position: 0, manuscript_id: 'ms-1', version: row.version,
+    created_at: row.updated_at, updated_at: row.updated_at,
+  }, 'proj-1');
+}
+
+// FC1 — the reported bug: typing continues while save A is in flight; A is
+// acknowledged with newer typing still queued; save B must not conflict.
+async function fc1() {
+  resetServer();
+  createServerPage(PAGE, { wordCount: 100, content: doc(100) });
+  await openFresh();
+  await writeToPendingQueue(PAGE, USER, doc(150), 150);
+  server.rpcMode = 'hang';
+  const a = syncPendingWrite(PAGE, 'online', 'tab');
+  await sleep(20);
+  await writeToPendingQueue(PAGE, USER, doc(170), 170); // typing continues
+  server.rpcMode = 'ok';
+  releaseHang();
+  await a;
+  // Coalescing is not involved: B is a separate, later debounce.
+  check('FC1: A acknowledged, newer typing still queued', server.scenes.get(PAGE).word_count === 150 && (await getPending())?.wordCount === 170, '');
+  check('FC1: tab baseline moved to the acknowledged save', getTabBaseline(PAGE)?.wordCount === 150, JSON.stringify(getTabBaseline(PAGE)));
+  await syncPendingWrite(PAGE, 'online', 'tab'); // save B
+  const p = await getPending();
+  check('FC1: save B is not a conflict', p === null, JSON.stringify({ st: p?.syncStatus }));
+  check('FC1: server holds the newest text', server.scenes.get(PAGE).word_count === 170, server.scenes.get(PAGE).word_count);
+  check('FC1: exactly two saves', saves().length === 2, saves().length);
+}
+
+// FC2 — save B is requested while save A is still in flight: B is not
+// dropped onto A's promise; a follow-up sends it as soon as A lands.
+async function fc2() {
+  resetServer();
+  createServerPage(PAGE, { wordCount: 100, content: doc(100) });
+  await openFresh();
+  await writeToPendingQueue(PAGE, USER, doc(150), 150);
+  server.rpcMode = 'hang';
+  const a = syncPendingWrite(PAGE, 'online', 'tab');
+  await sleep(20);
+  await writeToPendingQueue(PAGE, USER, doc(170), 170);
+  const b = syncPendingWrite(PAGE, 'online', 'tab'); // arrives during A
+  const c = syncPendingWrite(PAGE, 'offline_sync');  // the background flush too
+  check('FC2: later callers share one follow-up', b === c, '');
+  server.rpcMode = 'ok';
+  releaseHang();
+  await Promise.all([a, b, c]);
+  const p = await getPending();
+  check('FC2: follow-up saved the newer text without another keystroke', p === null && server.scenes.get(PAGE).word_count === 170, JSON.stringify({ st: p?.syncStatus, server: server.scenes.get(PAGE).word_count }));
+  check('FC2: two saves, in order, no conflict', JSON.stringify(saves().map((l) => l.words)) === '[150,170]', JSON.stringify(saves().map((l) => l.words)));
+}
+
+// FC3 — the 30-second background flush uploads the open editor's queued row;
+// the editor's next save must not read that upload as someone else's.
+async function fc3() {
+  resetServer();
+  createServerPage(PAGE, { wordCount: 100, content: doc(100) });
+  await openFresh();
+  await writeToPendingQueue(PAGE, USER, doc(120), 120);
+  const flushed = await flushPendingQueue();
+  check('FC3: flush uploaded the editor row', flushed.synced === 1, JSON.stringify(flushed));
+  await writeToPendingQueue(PAGE, USER, doc(130), 130);
+  await syncPendingWrite(PAGE, 'online', 'tab');
+  check('FC3: editor save after a flush upload is not a conflict', (await getPending()) === null && server.scenes.get(PAGE).word_count === 130, (await getPending())?.syncStatus);
+}
+
+// FC4 — a sibling tab of this browser uploaded THIS tab's queued words (its
+// flush picked up the shared row). This tab's baseline is stale, but the
+// server holds its own words: no conflict. The same upload of words typed in
+// the OTHER tab is a genuine two-tab divergence and must still conflict.
+const fc4 = () => siblingUpload(TAB_ID);
+const fc11 = () => siblingUpload('another-tab');
+async function siblingUpload(writer) {
+  {
+    resetServer();
+    createServerPage(PAGE, { wordCount: 100, content: doc(100) });
+    await openFresh();
+    const db = await getOfflineDB();
+    await db.delete('pending_writes', PAGE);
+    // The sibling tab's flush: server save + the shared cache it confirms.
+    const r = await saveSceneCheckedDirect(doc(140, writer === TAB_ID ? 'w' : 'x'), 140);
+    const cache = await getCache();
+    await db.put('page_cache', { ...cache, serverWordCount: 140, serverVersion: r.version, serverContent: doc(140), serverWriterTab: writer });
+    await writeToPendingQueue(PAGE, USER, doc(145), 145);
+    await syncPendingWrite(PAGE, 'online', 'tab');
+    const p = await getPending();
+    if (writer === TAB_ID) {
+      check('FC4: own words uploaded by a sibling tab are not a conflict', p === null && server.scenes.get(PAGE).word_count === 145, p?.syncStatus);
+    } else {
+      check('FC4: another tab\'s words still conflict', p?.syncStatus === 'conflict' && server.scenes.get(PAGE).word_count === 140, p?.syncStatus);
+    }
+  }
+}
+async function saveSceneCheckedDirect(content, words) {
+  const row = server.scenes.get(PAGE);
+  tick(500);
+  row.content = content; row.word_count = words; row.version += 1; row.updated_at = nowIso();
+  return { version: row.version };
+}
+
+// FC5 — genuine remote edits through the 'tab' path.
+async function fc5() {
+  // (a) another device changed the Scene while local words are queued → conflict, nothing overwritten.
+  resetServer();
+  createServerPage(PAGE, { wordCount: 100, content: doc(100) });
+  await openFresh();
+  await writeToPendingQueue(PAGE, USER, doc(110), 110);
+  remoteContentSave(PAGE, doc(300, 'remote'), 300);
+  await syncPendingWrite(PAGE, 'online', 'tab');
+  let p = await getPending();
+  check('FC5a: remote edit + local queued words → conflict', p?.syncStatus === 'conflict', p?.syncStatus);
+  check('FC5a: remote text not overwritten, local text kept', server.scenes.get(PAGE).word_count === 300 && p?.wordCount === 110, '');
+  // Typing on while conflicted keeps the conflict and the newest words.
+  await writeToPendingQueue(PAGE, USER, doc(112), 112);
+  await syncPendingWrite(PAGE, 'online', 'tab');
+  p = await getPending();
+  check('FC5a: still a conflict after more typing, newest words kept', p?.syncStatus === 'conflict' && p?.wordCount === 112, JSON.stringify({ st: p?.syncStatus, wc: p?.wordCount }));
+}
+
+// (Each case runs in its own process: server versions restart per reset, but
+// a tab's knowledge of a Scene's version, like the real server's, never goes back.)
+async function fc8() {
+  let p;
+  // (b) remote edit with identical word count, local words queued → conflict (content check).
+  resetServer();
+  createServerPage(PAGE, { wordCount: 100, content: doc(100) });
+  await openFresh();
+  await writeToPendingQueue(PAGE, USER, doc(105), 105);
+  await syncPendingWrite(PAGE, 'online', 'tab');
+  remoteContentSave(PAGE, doc(105, 'other'), 105);
+  await writeToPendingQueue(PAGE, USER, doc(106), 106);
+  await syncPendingWrite(PAGE, 'online', 'tab');
+  p = await getPending();
+  check('FC5b: same-count remote edit → conflict', p?.syncStatus === 'conflict', p?.syncStatus);
+}
+
+async function fc9() {
+  // (c) remote edit, then this tab re-reads the Scene before typing (no local
+  //     divergence): the fresh read becomes the baseline → no conflict.
+  resetServer();
+  createServerPage(PAGE, { wordCount: 100, content: doc(100) });
+  await openFresh();
+  remoteContentSave(PAGE, doc(200, 'remote'), 200);
+  await openFresh();
+  await writeToPendingQueue(PAGE, USER, doc(201, 'remote'), 201);
+  await syncPendingWrite(PAGE, 'online', 'tab');
+  check('FC5c: remote edit read before typing → saves, no conflict', (await getPending()) === null && server.scenes.get(PAGE).word_count === 201, '');
+}
+
+async function fc10() {
+  // (d) a rename (metadata-only version bump) after this tab's save → no conflict.
+  resetServer();
+  createServerPage(PAGE, { wordCount: 100, content: doc(100) });
+  await openFresh();
+  await writeToPendingQueue(PAGE, USER, doc(101), 101);
+  await syncPendingWrite(PAGE, 'online', 'tab');
+  metadataUpdate(PAGE);
+  await writeToPendingQueue(PAGE, USER, doc(102), 102);
+  await syncPendingWrite(PAGE, 'online', 'tab');
+  check('FC5d: rename after own save → no conflict', (await getPending()) === null && server.scenes.get(PAGE).word_count === 102, '');
+}
+
+// FC6 — ordering of what this tab knows: an older observation arriving late
+// never replaces a newer one; queue revisions strictly increase.
+async function fc6() {
+  resetServer();
+  noteServerState('x', 500, 7);
+  noteServerState('x', 400, 5); // a slow read from before save 7
+  check('FC6: older server state arriving late is ignored', getTabBaseline('x')?.wordCount === 500, JSON.stringify(getTabBaseline('x')));
+  createServerPage(PAGE);
+  const stamps = [];
+  for (let k = 0; k < 5; k++) {
+    await writeToPendingQueue(PAGE, USER, doc(k + 1), k + 1);
+    stamps.push((await getPending()).localUpdatedAt);
+  }
+  check('FC6: queue revisions strictly increase within a millisecond', stamps.every((t, k) => k === 0 || t > stamps[k - 1]), JSON.stringify(stamps));
+  check('FC6: rows carry the writing tab', (await getPending()).writerTab === TAB_ID, '');
+}
+
+// FC7 — offline writing, then reconnect replay, then connection flapping.
+async function fc7() {
+  resetServer();
+  createServerPage(PAGE, { wordCount: 100, content: doc(100) });
+  await openFresh();
+  // Offline: keystrokes are queued; nothing reaches the server.
+  for (let k = 1; k <= 20; k++) await writeToPendingQueue(PAGE, USER, doc(100 + k), 100 + k);
+  check('FC7: offline words queued, server untouched', (await getPending())?.wordCount === 120 && saves().length === 0, '');
+  // Flapping: the first reconnect attempts fail in transit.
+  server.fetchMode = 'network_error';
+  const errs = []; const orig = console.error; console.error = (...a) => errs.push(a.join(' '));
+  await syncPendingWrite(PAGE, 'online', 'tab');
+  await writeToPendingQueue(PAGE, USER, doc(125), 125);
+  await syncPendingWrite(PAGE, 'online', 'tab');
+  console.error = orig;
+  let p = await getPending();
+  check('FC7: a failed attempt keeps the newest words queued, not conflicted', p?.wordCount === 125 && p?.syncStatus !== 'conflict', JSON.stringify({ st: p?.syncStatus, wc: p?.wordCount }));
+  // Back online: the editor (reconnect) and the flush both replay.
+  server.fetchMode = 'ok';
+  const [r1] = await Promise.all([flushPendingQueue(), syncPendingWrite(PAGE, 'online', 'tab')]);
+  p = await getPending();
+  check('FC7: replay saved everything, no conflict', p === null && server.scenes.get(PAGE).word_count === 125 && r1.conflicts === 0, JSON.stringify({ st: p?.syncStatus, r1 }));
+  check('FC7: replay sent one save (no duplicate)', saves().length === 1, saves().length);
+  check('FC7: one Scene row, never a copy', server.scenes.size === 1, server.scenes.size);
+  // Flap again mid-writing.
+  await writeToPendingQueue(PAGE, USER, doc(126), 126);
+  server.fetchMode = 'network_error';
+  console.error = () => {};
+  await flushPendingQueue();
+  console.error = orig;
+  server.fetchMode = 'ok';
+  await writeToPendingQueue(PAGE, USER, doc(127), 127);
+  await syncPendingWrite(PAGE, 'online', 'tab');
+  check('FC7: after a second flap, newest words saved, no conflict', (await getPending()) === null && server.scenes.get(PAGE).word_count === 127, '');
+}
+
+// FC12 — a stale queue row (its Scene permanently deleted) and a Scene in
+// Trash never block an unrelated current save in the same flush.
+async function fc12() {
+  resetServer();
+  createServerPage('gone', { wordCount: 10, content: doc(10) });
+  createServerPage('trashed', { wordCount: 10, content: doc(10) });
+  createServerPage(PAGE, { wordCount: 100, content: doc(100) });
+  for (const id of ['gone', 'trashed', PAGE]) await openFresh(id);
+  await writeToPendingQueue('gone', USER, doc(12), 12);
+  await writeToPendingQueue('trashed', USER, doc(14), 14);
+  await writeToPendingQueue(PAGE, USER, doc(120), 120);
+  deleteServerScene('gone');
+  trashServerScene('trashed');
+  const warn = console.warn; const err = console.error; console.warn = () => {}; console.error = () => {};
+  const r = await flushPendingQueue();
+  console.warn = warn; console.error = err;
+  const db = await getOfflineDB();
+  const gone = await db.get('pending_writes', 'gone');
+  const trashed = await db.get('pending_writes', 'trashed');
+  check('FC12: the live Scene saved despite stale rows ahead of it', (await getPending()) === null && server.scenes.get(PAGE).word_count === 120, JSON.stringify(r));
+  check('FC12: the deleted Scene\'s unsent words kept as retired, never dropped', gone?.syncStatus === 'retired' && gone?.wordCount === 12, gone?.syncStatus);
+  check('FC12: the trashed Scene\'s words wait (failed, retried after restore)', trashed?.syncStatus === 'failed' && trashed?.wordCount === 14, trashed?.syncStatus);
+  restoreServerScene('trashed');
+  console.error = () => {};
+  await flushPendingQueue();
+  console.error = err;
+  check('FC12: restored Scene receives its queued words', server.scenes.get('trashed').word_count === 14 && !(await db.get('pending_writes', 'trashed')), '');
+}
+
+// FC13 — the background flush leaves a recent row typed in ANOTHER tab to
+// that tab's editor (it could be words over an older version than this tab's
+// baseline knows); a stale one (tab closed) and a writer-initiated flush send it.
+async function fc13() {
+  resetServer();
+  createServerPage(PAGE, { wordCount: 100, content: doc(100) });
+  await openFresh();
+  await writeToPendingQueue(PAGE, USER, doc(90, 'x'), 90);
+  const db = await getOfflineDB();
+  const row = await db.get('pending_writes', PAGE);
+  await db.put('pending_writes', { ...row, writerTab: 'another-tab' });
+  let r = await flushPendingQueue();
+  check('FC13: a recent row of another tab is not sent by this tab\'s flush', saves().length === 0 && (await getPending())?.syncStatus === 'pending', JSON.stringify(r));
+  r = await flushPendingQueue({ includeUnsupported: true });
+  check('FC13: a writer-initiated flush (Send now / logout) sends it', saves().length === 1 && (await getPending()) === null, JSON.stringify(r));
+  await writeToPendingQueue(PAGE, USER, doc(95, 'x'), 95);
+  const row2 = await db.get('pending_writes', PAGE);
+  await db.put('pending_writes', { ...row2, writerTab: 'closed-tab', localUpdatedAt: Date.now() - 3 * 60 * 1000 });
+  r = await flushPendingQueue();
+  check('FC13: a row left by a closed tab (older than the grace) is sent', saves().length === 2 && (await getPending()) === null, JSON.stringify(r));
+}
+
+// FC14 — this tab's own row, picked up by this tab's background flush after
+// ANOTHER tab saved a newer version: judged against this tab's baseline, it
+// is a conflict (the shared cache already holds the other tab's save, and
+// against it these words would look unchanged and overwrite it).
+async function fc14() {
+  resetServer();
+  createServerPage(PAGE, { wordCount: 100, content: doc(100) });
+  await openFresh();
+  const r = await saveSceneCheckedDirect(doc(140, 'x'), 140);
+  const db = await getOfflineDB();
+  const cache = await getCache();
+  await db.put('page_cache', { ...cache, serverWordCount: 140, serverVersion: r.version, serverContent: doc(140, 'x'), serverWriterTab: 'another-tab' });
+  await writeToPendingQueue(PAGE, USER, doc(103), 103); // typed here, on the 100-word version
+  const warn = console.warn; console.warn = () => {};
+  const res = await flushPendingQueue();
+  console.warn = warn;
+  const p = await getPending();
+  check('FC14: own row over another tab\'s newer save → conflict from the flush too', p?.syncStatus === 'conflict' && res.conflicts === 1, JSON.stringify(res));
+  check('FC14: the other tab\'s save is not overwritten', server.scenes.get(PAGE).word_count === 140, server.scenes.get(PAGE).word_count);
+}
+
 const mig = () => migration('MIG', false);
 const migbump = () => migration('MIGBUMP', true);
 
-const scenarios = { r1, r2, r3, r6, r7, g1, g2, g3, w, f, i, m, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11, s12, kl, klrace, klext, klrepeat, klmeta, klserver, mig, migbump };
+const scenarios = { r1, r2, r3, r6, r7, g1, g2, g3, w, f, i, m, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11, s12, kl, klrace, klext, klrepeat, klmeta, klserver, mig, migbump, fc1, fc2, fc3, fc4, fc5, fc6, fc7, fc8, fc9, fc10, fc11, fc12, fc13, fc14 };
 const name = process.env.SCENARIO;
 if (!scenarios[name]) { console.error('unknown scenario', name); process.exit(2); }
 await scenarios[name]();

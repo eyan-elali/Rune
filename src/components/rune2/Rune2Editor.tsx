@@ -265,7 +265,7 @@ export default function Rune2Editor({
                 if (conflicted) handles.current.get(conflicted.id)?.openConflict();
               }}
             >
-              Changed elsewhere — review
+              Changed elsewhere · Choose a version
             </button>
           ) : syncStatus === "unsupported" ? (
             // This server can't take this client's saves: the writing is kept

@@ -5,8 +5,20 @@ import { awardProjectXp } from '@/lib/actions/xp'
 import { afterSceneSync, syncSceneWithLimitCheck } from '@/lib/actions/scenes'
 import { recordWordsWritten } from '@/lib/actions/writingStats'
 import { isMissingServerFunction } from '@/lib/offline/serverCompat'
+import { TAB_ID, getTabBaseline, noteServerState } from '@/lib/offline/tabBaseline'
 
 // ── Write queue ───────────────────────────────────────────────────────────────
+
+// localUpdatedAt identifies a queued revision: a save clears the queue row
+// only if the row still carries the revision it sent. Two keystrokes in the
+// same millisecond would share a Date.now() stamp, and a save that sent the
+// first would then clear the second from the queue — so this tab's stamps
+// strictly increase.
+let lastLocalStamp = 0
+function nextLocalStamp(): number {
+  lastLocalStamp = Math.max(Date.now(), lastLocalStamp + 1)
+  return lastLocalStamp
+}
 
 export async function writeToPendingQueue(
   sceneId: string,
@@ -16,7 +28,7 @@ export async function writeToPendingQueue(
 ): Promise<void> {
   try {
     const db = await getOfflineDB()
-    const now = Date.now()
+    const now = nextLocalStamp()
 
     // Preserve 'conflict' status — a conflicted scene must not be silently reset to
     // 'pending' by keystrokes. The user must resolve the conflict explicitly via the modal.
@@ -31,6 +43,7 @@ export async function writeToPendingQueue(
       localUpdatedAt: now,
       syncStatus: statusToWrite,
       retryCount: 0,
+      writerTab: TAB_ID,
     })
 
     const existingCache = await db.get(SCENE_CACHE_STORE, sceneId)
@@ -167,22 +180,45 @@ function runExclusive<T>(sceneId: string, op: () => Promise<T>): Promise<T> {
 // avoids that; runExclusive above additionally serializes syncs against the
 // Keep Local force-write.
 const inFlightSyncs = new Map<string, Promise<void>>()
+// A caller that arrives while a sync is in flight may be holding newer content
+// than that sync sent (the writer typed during it). Returning the in-flight
+// promise alone left that content queued until the next keystroke or the
+// 30-second flush — "Saving…" for no reason. One follow-up sync per Scene is
+// chained behind the in-flight one instead; it reads whatever is queued then,
+// so any number of callers arriving meanwhile share it.
+const followUpSyncs = new Map<string, Promise<void>>()
+
+/**
+ * The conflict baseline a sync compares the server against:
+ *   'tab'      this tab's own record of the server (tabBaseline) — the open
+ *              editor's saves. Read when the sync runs, never captured early,
+ *              so a save acknowledged in between is already in it.
+ *   a number   an explicit confirmed word count (tests, legacy callers).
+ *   undefined  the browser-wide confirmed copy in the Scene cache — the
+ *              background flush, which has no editor of its own.
+ */
+export type SyncBaseline = number | 'tab' | undefined
 
 export function syncPendingWrite(
   sceneId: string,
   savePath: 'online' | 'offline_sync' = 'online',
-  // The word count this caller last confirmed the server holds for this scene —
-  // passed only by the actively-open editor tab, which tracks it privately in
-  // memory (never in IndexedDB, which every tab of the origin shares): the
-  // shared page_cache baseline is overwritten by whichever tab syncs first,
-  // erasing the evidence a sibling tab had diverged, so only a private
-  // in-memory baseline can detect a second tab's save.
-  expectedWordCount?: number
+  baseline?: SyncBaseline
 ): Promise<void> {
   const existing = inFlightSyncs.get(sceneId)
-  if (existing) return existing
+  if (existing) {
+    let followUp = followUpSyncs.get(sceneId)
+    if (!followUp) {
+      const next = () => {
+        followUpSyncs.delete(sceneId)
+        return syncPendingWrite(sceneId, savePath, baseline)
+      }
+      followUp = existing.then(next, next)
+      followUpSyncs.set(sceneId, followUp)
+    }
+    return followUp
+  }
 
-  const run = runExclusive(sceneId, () => doSyncPendingWrite(sceneId, savePath, expectedWordCount))
+  const run = runExclusive(sceneId, () => doSyncPendingWrite(sceneId, savePath, baseline))
     .finally(() => { inFlightSyncs.delete(sceneId) })
   inFlightSyncs.set(sceneId, run)
   return run
@@ -191,11 +227,13 @@ export function syncPendingWrite(
 async function doSyncPendingWrite(
   sceneId: string,
   savePath: 'online' | 'offline_sync',
-  expectedWordCount?: number
+  baseline: SyncBaseline
 ): Promise<void> {
   const db = await getOfflineDB()
   const pending = await db.get('pending_writes', sceneId)
   if (!pending) return
+  const tabBaseline = baseline === 'tab' ? getTabBaseline(sceneId) : undefined
+  const expectedWordCount = baseline === 'tab' ? tabBaseline?.wordCount : baseline
   // Terminal: the Scene is gone from the server and this prose is held for
   // the writer (Settings → Sync). Never retried — a new keystroke on a Scene
   // that exists again re-queues the row as 'pending' via writeToPendingQueue.
@@ -350,17 +388,81 @@ async function doSyncPendingWrite(
     const serverWordCountNow = serverScene.word_count as number
     const cachedScene = await db.get(SCENE_CACHE_STORE, sceneId)
 
+    // The server row is exactly the version this browser last confirmed, and
+    // the content confirmed then was typed in THIS tab — whichever tab
+    // uploaded it (any tab's flush may send a queued row). The server holds
+    // this tab's own words: never a change made elsewhere.
+    const serverIsOwnWrite =
+      cachedScene?.serverVersion !== undefined &&
+      cachedScene.serverVersion === (serverScene.version as number) &&
+      cachedScene.serverWriterTab === TAB_ID
+
+    // Word count equal to the baseline is not proof the content is unchanged
+    // — a remote edit can land on the identical count — so when the row's
+    // version moved past the baseline, read the server content and compare
+    // it structurally with the confirmed copy. null: the read failed and the
+    // attempt was recorded for retry.
+    async function contentDiffersFromConfirmed(): Promise<boolean | null> {
+      const { data: contentRows, error: contentError } = await supabase
+        .from('scenes')
+        .select('content')
+        .eq('id', sceneId)
+      if (contentError) {
+        await failAttempt(
+          'pending',
+          `Could not read server content for deep check: ${contentError.code ? contentError.code + ': ' : ''}${contentError.message}`
+        )
+        return null
+      }
+      if (!contentRows || contentRows.length !== 1) {
+        // The row vanished (or duplicated) between the state read above and
+        // this read — retry the whole evaluation next cycle.
+        await failAttempt(
+          'pending',
+          `Server scene row count changed mid-sync during deep check (${contentRows?.length ?? 0} rows)`
+        )
+        return null
+      }
+      return stableStringify(contentRows[0].content ?? {}) !== stableStringify(cachedScene?.serverContent ?? {})
+    }
+
     let serverHasChanged: boolean
+    let conflictReason = ''
     if (serverWordCountNow === 0 && pending.wordCount > 0) {
       serverHasChanged = false
     } else if (expectedWordCount !== undefined) {
-      // Actively-open editor tab: private, in-memory confirmed baseline.
-      serverHasChanged = serverWordCountNow !== expectedWordCount
+      // Actively-open editor tab: this tab's private, in-memory baseline.
+      const serverVersionNow = serverScene.version as number
+      if (tabBaseline?.version !== undefined && tabBaseline.version === serverVersionNow) {
+        // The row has not changed at all since this tab last saw it.
+        serverHasChanged = false
+      } else if (serverIsOwnWrite) {
+        // Moved past this tab's baseline only by this tab's own words.
+        serverHasChanged = false
+        noteServerState(sceneId, serverWordCountNow, serverVersionNow)
+      } else if (serverWordCountNow !== expectedWordCount) {
+        serverHasChanged = true
+        conflictReason = 'server word count differs from this tab\'s baseline'
+      } else if (
+        tabBaseline?.version !== undefined &&
+        cachedScene?.serverContent !== undefined &&
+        cachedScene.serverVersion === tabBaseline.version
+      ) {
+        // Same count, newer version, and the cache holds the very copy this
+        // tab's baseline describes: compare content.
+        const differs = await contentDiffersFromConfirmed()
+        if (differs === null) return
+        serverHasChanged = differs
+        conflictReason = 'server content differs from the confirmed copy (same word count)'
+      } else {
+        serverHasChanged = false
+      }
     } else if (cachedScene?.serverWordCount !== undefined) {
       // Confirmed content baseline from this device's last successful sync (or
       // the server fetch that first cached the scene).
       if (serverWordCountNow !== cachedScene.serverWordCount) {
         serverHasChanged = true
+        conflictReason = 'server word count differs from the confirmed cache baseline'
       } else if (
         cachedScene.serverVersion !== undefined &&
         (serverScene.version as number) > cachedScene.serverVersion &&
@@ -368,33 +470,11 @@ async function doSyncPendingWrite(
       ) {
         // Word count matches the confirmed baseline but the row's version
         // advanced past it. Usually that is a metadata-only bump (rename /
-        // reorder / placement change). But word-count equality alone is not
-        // proof the content is unchanged — a remote edit can land on the
-        // identical count — so fetch the server content and compare it
-        // structurally against the confirmed baseline copy.
-        const { data: contentRows, error: contentError } = await supabase
-          .from('scenes')
-          .select('content')
-          .eq('id', sceneId)
-        if (contentError) {
-          await failAttempt(
-            'pending',
-            `Could not read server content for deep check: ${contentError.code ? contentError.code + ': ' : ''}${contentError.message}`
-          )
-          return
-        }
-        if (!contentRows || contentRows.length !== 1) {
-          // The row vanished (or duplicated) between the state read above and
-          // this read — retry the whole evaluation next cycle.
-          await failAttempt(
-            'pending',
-            `Server scene row count changed mid-sync during deep check (${contentRows?.length ?? 0} rows)`
-          )
-          return
-        }
-        serverHasChanged =
-          stableStringify(contentRows[0].content ?? {}) !==
-          stableStringify(cachedScene.serverContent ?? {})
+        // reorder / placement change); the content comparison tells.
+        const differs = await contentDiffersFromConfirmed()
+        if (differs === null) return
+        serverHasChanged = differs
+        conflictReason = 'server content differs from the confirmed copy (same word count)'
       } else {
         serverHasChanged = false
       }
@@ -410,14 +490,26 @@ async function doSyncPendingWrite(
         serverMs > cachedMs ||
         (cachedScene.serverVersion !== undefined &&
           (serverScene.version as number) > cachedScene.serverVersion)
+      conflictReason = 'legacy baseline: server row newer than the cached timestamp'
     } else {
       // No baseline at all. Server has real content we have never seen —
       // conservative conflict to avoid a silent overwrite. (The 0-word case
       // was already handled by the first-upload rule.)
       serverHasChanged = serverWordCountNow > 0
+      conflictReason = 'no confirmed baseline and the server holds words'
     }
 
     if (serverHasChanged) {
+      // Diagnostics only: ids, counts and versions — never prose.
+      console.warn(`[sync] scene ${sceneId} conflict: ${conflictReason}`, {
+        baseline: baseline === 'tab' ? 'tab' : baseline === undefined ? 'cache' : 'explicit',
+        expectedWordCount: expectedWordCount ?? cachedScene?.serverWordCount,
+        expectedVersion: tabBaseline?.version ?? cachedScene?.serverVersion,
+        serverWordCount: serverWordCountNow,
+        serverVersion: serverScene.version,
+        queuedWordCount: pending.wordCount,
+        queuedRevision: pending.localUpdatedAt,
+      })
       await putStatus('conflict')
       return
     }
@@ -471,7 +563,8 @@ async function doSyncPendingWrite(
         syncStatus: 'pending',
         retryCount: latest.retryCount + 1,
       })
-      setTimeout(() => void syncPendingWrite(sceneId, savePath, expectedWordCount), 2000)
+      // A 'tab' baseline is re-read when the retry runs.
+      setTimeout(() => void syncPendingWrite(sceneId, savePath, baseline), 2000)
       return
     }
 
@@ -502,22 +595,50 @@ async function doSyncPendingWrite(
       serverVersion: syncResult.version,
       serverWordCount: pending.wordCount,
       serverContent: pending.content,
+      serverWriterTab: pending.writerTab,
       cachedAt: Date.now(),
     })
+    // Every save this tab gets confirmed moves this tab's baseline, whoever
+    // asked for it (the editor, the flush, a follow-up or a retry).
+    noteServerState(sceneId, pending.wordCount, syncResult.version)
+    signalServerReachable()
 
-    // Server-side maintenance: touch the Chapter's updated_at and recalculate
-    // the project's ordered manuscript total.
-    try {
-      await afterSceneSync(sceneId)
-    } catch {
-      // Non-fatal — scene content is saved; totals will correct on next full navigation.
-    }
+    // Server-side maintenance: touch the Chapter's updated_at and revalidate
+    // the project's totals. Not awaited: the prose is confirmed above, and
+    // "Saved" should not wait on a second server action (actions run one at a
+    // time, so on a slow connection it added seconds). Non-fatal — totals
+    // correct on the next full navigation.
+    void afterSceneSync(sceneId).catch(() => {})
   } catch (err) {
     // A thrown failure (e.g. the server action fetch itself rejecting) must
     // never strand the row in 'syncing' — that status is excluded from every
     // retry path.
     await failAttempt('pending', err instanceof Error ? err.message : String(err))
   }
+}
+
+// A save the server just confirmed is better evidence of connectivity than
+// any ping: the connectivity provider listens for it (NetworkProvider).
+export const SERVER_REACHABLE_EVENT = 'rune-server-reachable'
+function signalServerReachable(): void {
+  if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+    window.dispatchEvent(new CustomEvent(SERVER_REACHABLE_EVENT))
+  }
+}
+
+// A queued row typed recently in ANOTHER tab of this browser belongs to that
+// tab's open editor, which sends it with its own baseline within seconds. The
+// background flush leaves it alone: judged against this tab's (or the shared
+// cache's) baseline, words typed over an older version in that tab could be
+// uploaded over a newer save without a conflict ever being raised. A row that
+// has sat longer than this (its tab closed mid-writing), a row from an older
+// client (no writerTab), and a writer-initiated flush (Send now, logging out)
+// are sent as before.
+const OTHER_TAB_GRACE_MS = 2 * 60 * 1000
+
+function heldByAnotherTab(w: PendingWrite, now: number, writerInitiated: boolean): boolean {
+  if (writerInitiated || !w.writerTab || w.writerTab === TAB_ID) return false
+  return now - w.localUpdatedAt < OTHER_TAB_GRACE_MS
 }
 
 // ── Flush entire queue ─────────────────────────────────────────────────────────
@@ -562,17 +683,23 @@ export async function flushPendingQueue(options: {
     const now = Date.now()
     const retryable = all.filter(
       (w) =>
+        !heldByAnotherTab(w, now, options.includeUnsupported === true) && (
         w.syncStatus === 'pending' ||
         (w.syncStatus === 'failed' && (options.includeUnsupported || !isUnsupportedSaveFailure(w))) ||
         w.syncStatus === 'conflict' ||
         (w.syncStatus === 'syncing' &&
           !inFlightSyncs.has(w.id) &&
-          (w.syncingSince === undefined || now - w.syncingSince > STRANDED_SYNCING_MS))
+          (w.syncingSince === undefined || now - w.syncingSince > STRANDED_SYNCING_MS)))
     )
 
     for (const write of retryable) {
       const wasConflict = write.syncStatus === 'conflict'
-      await syncPendingWrite(write.id, 'offline_sync')
+      // A row typed in THIS tab is judged against this tab's own baseline, as
+      // its editor would: the shared cache baseline may already hold another
+      // tab's newer save, against which these words would look unchanged and
+      // be uploaded over it.
+      const baseline: SyncBaseline = write.writerTab === TAB_ID && getTabBaseline(write.id) ? 'tab' : undefined
+      await syncPendingWrite(write.id, 'offline_sync', baseline)
       const after = await db.get('pending_writes', write.id)
       if (!after) {
         synced++
@@ -841,14 +968,13 @@ async function doForceWriteLocalContent(sceneId: string): Promise<ForceWriteResu
     serverVersion: result.version,
     serverWordCount: pending.wordCount,
     serverContent: pending.content,
+    serverWriterTab: pending.writerTab,
     cachedAt: Date.now(),
   })
+  noteServerState(sceneId, pending.wordCount, result.version)
 
-  try {
-    await afterSceneSync(sceneId)
-  } catch {
-    // Non-fatal
-  }
+  // Maintenance only, not awaited (see doSyncPendingWrite).
+  void afterSceneSync(sceneId).catch(() => {})
 
   return { status: 'ok', wordCount: pending.wordCount }
 }

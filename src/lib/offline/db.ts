@@ -1,6 +1,7 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb'
 import type { Chapter, PlacedScene, Project, Scene, UnplacedScene } from '@/lib/types'
 import { getLocalDateString } from '@/lib/utils'
+import { noteServerState, seedTabBaseline } from '@/lib/offline/tabBaseline'
 
 // ── Legacy storage names (compatibility only) ──────────────────────────────────
 //
@@ -50,6 +51,11 @@ interface RuneOfflineDB extends DBSchema {
       // Set with 'retired': when, and why (a diagnostic sentence, never prose).
       retiredAt?: number
       retiredReason?: string
+      // The tab (tabBaseline.TAB_ID) whose keystroke wrote this content. Any
+      // tab may upload a queued row; the writing tab then recognises the
+      // server copy as its own words rather than a change made elsewhere.
+      // Absent on rows written by earlier clients.
+      writerTab?: string
     }
   }
   // Writing credits accumulated while offline — flushed to writing_sessions on reconnect.
@@ -90,6 +96,9 @@ interface RuneOfflineDB extends DBSchema {
       // advanced but word count identical" (a real remote edit with the same
       // word count vs. a metadata-only bump). Never displayed directly.
       serverContent?: Record<string, unknown>
+      // writerTab of the queued row the server confirmed at serverVersion
+      // (set only by this browser's own confirmed saves).
+      serverWriterTab?: string
       cachedAt: number
       // Rich view-cache fields — populated by cacheScene(); absent in minimal sync entries.
       // chapter_id: a Chapter id (placed), null (an Unplaced Scene), or absent
@@ -274,6 +283,7 @@ export async function cacheScene(scene: Scene, projectId: string): Promise<void>
         // scene prop may already reflect optimistic local word counts.
         serverWordCount: existing.serverWordCount ?? scene.word_count,
         serverContent: existing.serverContent ?? scene.content ?? {},
+        serverVersion: existing.serverVersion ?? (existing.serverWordCount === undefined ? scene.version : undefined),
         chapter_id: scene.chapter_id,
         project_id: projectId,
         manuscript_id: scene.manuscript_id,
@@ -293,6 +303,7 @@ export async function cacheScene(scene: Scene, projectId: string): Promise<void>
         serverUpdatedAt: scene.updated_at,
         serverWordCount: scene.word_count,
         serverContent: scene.content ?? {},
+        serverVersion: scene.version,
         cachedAt: Date.now(),
         chapter_id: scene.chapter_id,
         project_id: projectId,
@@ -303,6 +314,16 @@ export async function cacheScene(scene: Scene, projectId: string): Promise<void>
         updated_at: scene.updated_at,
       })
       void evictOldCacheEntries()
+    }
+    // This tab's own baseline for the editor's conflict check (tabBaseline).
+    // With no local edits the fresh read IS what the server holds; with local
+    // edits the baseline stays the one those edits are based on, so a change
+    // made elsewhere since is still caught.
+    if (pending && existing) {
+      if (existing.serverWordCount !== undefined) seedTabBaseline(scene.id, existing.serverWordCount, existing.serverVersion)
+      else seedTabBaseline(scene.id, scene.word_count, scene.version)
+    } else {
+      noteServerState(scene.id, scene.word_count, scene.version)
     }
   } catch {
     // best-effort

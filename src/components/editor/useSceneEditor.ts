@@ -12,6 +12,7 @@ import { recordWordsWritten } from "@/lib/actions/writingStats";
 import { writeToPendingQueue, syncPendingWrite } from "@/lib/offline/syncEngine";
 import { getOfflineDB, getPendingWrite, storeOfflineWritingCredit, SCENE_CACHE_STORE, type PendingWrite } from "@/lib/offline/db";
 import { isMissingServerFunction } from "@/lib/offline/serverCompat";
+import { acceptServerState, seedTabBaseline } from "@/lib/offline/tabBaseline";
 import { useNetworkStore } from "@/store/networkStore";
 import { awardProjectXp } from "@/lib/actions/xp";
 import { xpRewardForWords } from "@/lib/xp";
@@ -148,15 +149,13 @@ export function useSceneEditor({
   const isLoadingRef = useRef(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const lastSavedWordCountRef = useRef<number>(currentScene?.word_count ?? 0);
-  // The word count this tab last confirmed the server actually holds for the
-  // current scene — set on scene load/switch and advanced only after this
-  // tab's own sync is confirmed successful (never optimistically, and never
-  // via IndexedDB, which every tab of the browser shares). Passed to
-  // syncPendingWrite as the private conflict-detection baseline so a sibling
-  // tab's save can't silently erase evidence of divergence the way the
-  // shared IndexedDB cache does. See syncEngine.ts for why word_count
-  // specifically (not version/updated_at, which unrelated updates also bump).
-  const expectedServerWordCountRef = useRef<number>(currentScene?.word_count ?? 0);
+  // The conflict baseline — what this tab knows the server holds — is not
+  // kept here but in tabBaseline.ts, and every sync below passes 'tab' so the
+  // engine reads it when the sync runs. Each of this tab's confirmed saves
+  // moves it, whichever path sent it: an editor that advanced a private copy
+  // only when the queue was empty afterwards never advanced it while the
+  // writer typed through a save, and read its own save as "changed
+  // elsewhere" on the next one.
   // Net word-count delta contributed by transactions classified as directly typed
   // (see onTransaction below). Paste, drop, and undo/redo never add to this — so
   // it can't retroactively "absorb" pasted words on a later save or keystroke.
@@ -200,14 +199,10 @@ export function useSceneEditor({
       void (async () => {
         const dbStatus = await readDbSyncStatus(sceneId);
         if (dbStatus?.syncStatus === 'pending' || dbStatus?.syncStatus === 'failed') {
-          const pendingBefore = await getPendingWrite(sceneId);
           setSyncStatusAndRef('syncing');
-          await syncPendingWrite(sceneId, 'online', expectedServerWordCountRef.current);
+          await syncPendingWrite(sceneId, 'online', 'tab');
           const afterStatus = await readDbSyncStatus(sceneId);
           setSyncStatusAndRef(mapDisplayStatus(afterStatus, true));
-          if (!afterStatus && pendingBefore) {
-            expectedServerWordCountRef.current = pendingBefore.wordCount;
-          }
         } else if (dbStatus?.syncStatus === 'syncing') {
           setSyncStatusAndRef('syncing');
         } else {
@@ -273,19 +268,13 @@ export function useSceneEditor({
       // status read below. Skipping the sync on a latched status was what let
       // a single false positive permanently block every future upload.
       setSyncStatusAndRef('syncing');
-      await syncPendingWrite(scene.id, 'online', expectedServerWordCountRef.current);
+      await syncPendingWrite(scene.id, 'online', 'tab');
       setLastSaved(new Date());
     }
 
     setIsSaving(false);
     void readDbSyncStatus(scene.id).then((dbStatus) => {
       setSyncStatusAndRef(mapDisplayStatus(dbStatus, isOnlineRef.current));
-      if (!dbStatus) {
-        // Confirmed synced — advance this tab's private baseline to what the
-        // server now actually holds, so the next save's conflict check
-        // compares against reality instead of the pre-edit word count.
-        expectedServerWordCountRef.current = wordCount;
-      }
     });
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -367,6 +356,10 @@ export function useSceneEditor({
 
       clearTimeout(saveTimerRef.current);
       saveTimerRef.current = setTimeout(async () => {
+        // Fired: no debounced save is pending any more, so the unmount flush
+        // below must not re-queue (and, after logging out, later re-send)
+        // text this save is already sending.
+        saveTimerRef.current = undefined;
         if (isLoadingRef.current) return;
         const scene = currentSceneRef.current;
         if (!scene) return;
@@ -454,10 +447,6 @@ export function useSceneEditor({
       const wordCount =
         (editor.storage.characterCount?.words?.() as number | undefined) ?? 0;
       const uid = userIdRef.current;
-      // Captured synchronously, before the refs are reassigned below for the
-      // new scene — reading them lazily inside the async block below would
-      // race the synchronous reset that happens later in this same effect.
-      const prevExpectedWordCount = expectedServerWordCountRef.current;
       // Writing credit for typed words whose debounce cycle never fired —
       // without this, switching scenes before the debounce silently dropped
       // the tail of the session from Today's Words. Same ledger math as the
@@ -482,7 +471,7 @@ export function useSceneEditor({
             }
           }
           if (isOnlineRef.current) {
-            void syncPendingWrite(prevSceneId, 'online', prevExpectedWordCount);
+            void syncPendingWrite(prevSceneId, 'online', 'tab');
           }
         })();
       }
@@ -491,7 +480,6 @@ export function useSceneEditor({
     prevSceneIdRef.current = newSceneId;
     currentSceneRef.current = currentScene ?? null;
     lastSavedWordCountRef.current = currentScene?.word_count ?? 0;
-    expectedServerWordCountRef.current = currentScene?.word_count ?? 0;
     pendingEligibleWordsRef.current = 0;
 
     isLoadingRef.current = true;
@@ -502,31 +490,30 @@ export function useSceneEditor({
       0;
 
     const sceneIdForDraftCheck = newSceneId;
-    // Captured synchronously alongside the reset above — safe to read later
-    // inside the async block even if another scene switch reassigns the ref
-    // in the meantime.
-    let expectedWordCountForDraftCheck = expectedServerWordCountRef.current;
+    const loadedScene = currentScene ?? null;
 
     if (sceneIdForDraftCheck) {
       void (async () => {
         try {
-          // Prefer the last CONFIRMED server word count from the offline cache
-          // over currentScene.word_count: the scene prop is updated optimistically
-          // by every save attempt (onSceneUpdated fires before the server
-          // confirms), so after a failed save it can claim words the server
-          // never received — and a baseline seeded from it would misread the
-          // still-empty server scene as a conflict on the next sync.
+          // This tab's baseline for the Scene, if it has none yet (a fresh
+          // server read in cacheScene, or this tab's own earlier saves, set
+          // it first and are left alone). Prefer the last CONFIRMED server
+          // word count from the offline cache over currentScene.word_count:
+          // the scene prop is updated optimistically by every save attempt
+          // (onSceneUpdated fires before the server confirms), so after a
+          // failed save it can claim words the server never received — and a
+          // baseline seeded from it would misread the still-empty server
+          // scene as a conflict on the next sync.
           try {
             const idb = await getOfflineDB();
             const cacheEntry = await idb.get(SCENE_CACHE_STORE, sceneIdForDraftCheck);
             if (typeof cacheEntry?.serverWordCount === 'number') {
-              expectedWordCountForDraftCheck = cacheEntry.serverWordCount;
-              if (currentSceneRef.current?.id === sceneIdForDraftCheck) {
-                expectedServerWordCountRef.current = cacheEntry.serverWordCount;
-              }
+              seedTabBaseline(sceneIdForDraftCheck, cacheEntry.serverWordCount, cacheEntry.serverVersion);
+            } else if (loadedScene) {
+              seedTabBaseline(sceneIdForDraftCheck, loadedScene.word_count, loadedScene.version);
             }
           } catch {
-            // best-effort — fall back to the prop-seeded baseline
+            if (loadedScene) seedTabBaseline(sceneIdForDraftCheck, loadedScene.word_count, loadedScene.version);
           }
 
           const pending = await getPendingWrite(sceneIdForDraftCheck);
@@ -549,15 +536,12 @@ export function useSceneEditor({
             // in the single-tab-online case, just autosave finishing its job.
             if (pending.syncStatus !== 'conflict' && pending.syncStatus !== 'retired' && isOnlineRef.current) {
               setSyncStatusAndRef('syncing');
-              await syncPendingWrite(sceneIdForDraftCheck, 'online', expectedWordCountForDraftCheck);
+              await syncPendingWrite(sceneIdForDraftCheck, 'online', 'tab');
             }
 
             if (currentSceneRef.current?.id === sceneIdForDraftCheck) {
               const afterStatus = await readDbSyncStatus(sceneIdForDraftCheck);
               setSyncStatusAndRef(mapDisplayStatus(afterStatus, isOnlineRef.current));
-              if (!afterStatus) {
-                expectedServerWordCountRef.current = pending.wordCount;
-              }
             }
           }
         } catch {
@@ -595,7 +579,6 @@ export function useSceneEditor({
           const content = editor.getJSON() as Record<string, unknown>;
           const wordCount =
             (editor.storage.characterCount?.words?.() as number | undefined) ?? 0;
-          const expectedWordCountAtUnmount = expectedServerWordCountRef.current;
           // Same tail-of-session credit as the scene-switch flush above:
           // navigating away (e.g. to the dashboard) before the debounce fired
           // must not drop the typed words from Today's Words. rawDelta is 0
@@ -614,7 +597,7 @@ export function useSceneEditor({
             pendingEligibleWordsRef.current = Math.max(0, pendingEligibleWordsRef.current - creditableWords);
           }
           void writeToPendingQueue(scene.id, uid, content, wordCount).then(() => {
-            if (isOnlineRef.current) void syncPendingWrite(scene.id, 'online', expectedWordCountAtUnmount);
+            if (isOnlineRef.current) void syncPendingWrite(scene.id, 'online', 'tab');
           });
         }
       }
@@ -625,16 +608,14 @@ export function useSceneEditor({
   const wordCount =
     (editor?.storage.characterCount?.words?.() as number | undefined) ?? 0;
 
-  /** SyncConflictModal "Keep Local" succeeded: the server now holds keptWordCount. */
-  const resolveConflictKeptLocal = useCallback((keptWordCount: number) => {
+  /** SyncConflictModal "Keep Local" succeeded: the server now holds the local draft. */
+  const resolveConflictKeptLocal = useCallback(() => {
     setConflictModalOpen(false);
     setLastSaved(new Date());
     setSyncStatusAndRef('synced');
-    // forceWriteLocalContent persisted and VERIFIED exactly this word
-    // count on the server — advance the private baseline to what the
-    // server now actually holds.
-    expectedServerWordCountRef.current = keptWordCount;
-    showToast("Local draft kept", "success");
+    // forceWriteLocalContent persisted and verified the draft on the
+    // server, and moved this tab's baseline to it.
+    showToast("Your version kept", "success");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -650,7 +631,6 @@ export function useSceneEditor({
       clearTimeout(saveTimerRef.current);
       isLoadingRef.current = false;
       lastSavedWordCountRef.current = serverWordCount;
-      expectedServerWordCountRef.current = serverWordCount;
       // Discard any pending eligible words from the local edits being
       // replaced — they no longer exist in the kept (server) content.
       pendingEligibleWordsRef.current = 0;
@@ -660,7 +640,7 @@ export function useSceneEditor({
           word_count: serverWordCount,
         });
       }
-      showToast("Server version kept", "info");
+      showToast("Other version kept", "info");
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [editor]
@@ -684,7 +664,7 @@ export function useSceneEditor({
         editor.commands.setContent(restored.content ?? null);
         isLoadingRef.current = false;
         lastSavedWordCountRef.current = restored.word_count;
-        expectedServerWordCountRef.current = restored.word_count;
+        acceptServerState(restored.id, restored.word_count, restored.version);
         pendingEligibleWordsRef.current = 0;
         setSyncStatusAndRef('synced');
         onSceneUpdatedRef.current(restored.id, restored);

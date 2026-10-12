@@ -24,6 +24,8 @@ import { useRunePreferences, useRuneRootProps } from "./RunePreferences";
 import { writingTargetFor } from "@/lib/rune2/writingTarget";
 import { recordProjectOpened } from "@/lib/actions/onboarding";
 import { useWritingChrome } from "./useWritingChrome";
+import { useProfileStore } from "@/store/profileStore";
+import { readResumeLocation, writeResumeLocation } from "@/lib/rune2/resumeLocation";
 
 // The Rune 2.0 application shell:
 //   navigator | (working-set tabs, context bar, [content | panel], status)
@@ -128,7 +130,53 @@ function OpenFromAddress() {
     openedReported = true;
     void recordProjectOpened(manuscript.project.id).catch(() => {});
   }, [manuscript.project.id]);
-  return <OpenFromParams />;
+  return (
+    <>
+      <OpenFromParams />
+      <ResumeWhereLeftOff />
+    </>
+  );
+}
+
+/**
+ * Reopens the Project where the writer left off on this device — its tabs
+ * and the one they were in (resumeLocation.ts) — and keeps that record
+ * current as they move. Once per mount of the Project, i.e. on a refresh, a
+ * new visit, signing in again, or returning from another Project. An address
+ * that names what to open (`?open=`) wins. Only navigation comes back: no
+ * menus, dialogs, Reading Mode or panels.
+ */
+function ResumeWhereLeftOff() {
+  const params = useSearchParams();
+  const userId = useProfileStore((s) => s.profile?.id);
+  const { manuscript, index, tabs, activeTab, resumeTabs, setOpenFor } = useRune2Selection();
+  const projectId = manuscript.project.id;
+  const resumed = useRef(false);
+  // Set in the same update as the restored tabs, so the record is first
+  // written from a render that already shows them — never from the overview
+  // the Project opened on (which a second tab opening at that moment would
+  // read back).
+  const [remembering, setRemembering] = useState(false);
+
+  useEffect(() => {
+    if (resumed.current || !userId) return;
+    resumed.current = true;
+    if (!params.get("open")) {
+      const state = resumeTabs(readResumeLocation(userId, projectId));
+      const entry = state ? index.get(state.active) : undefined;
+      // Its place in the navigator, unfolded — as an address-opened object's is.
+      if (entry) setOpenFor(entry.path.map((p) => p.id), true);
+    }
+    setRemembering(true);
+  }, [userId, projectId, params, resumeTabs, index, setOpenFor]);
+
+  const tabKeys = tabs.map((t) => t.key).join("\n");
+  useEffect(() => {
+    if (!remembering || !userId) return;
+    writeResumeLocation(userId, projectId, { tabs: tabKeys.split("\n"), active: activeTab });
+  }, [remembering, userId, projectId, tabKeys, activeTab]);
+
+  return null;
 }
 
 function OpenFromParams() {

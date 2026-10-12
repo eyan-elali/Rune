@@ -2540,10 +2540,15 @@ button.r2-disclosure:hover {
 }
 .r2-doc-status-alert {
   pointer-events: auto;
-  color: var(--r2-danger);
+  /* Asks for a choice; nothing is lost, so not the danger colour. */
+  color: var(--r2-ink-1);
+  font-weight: var(--r2-weight-medium);
+  text-decoration: underline;
+  text-decoration-color: var(--r2-accent-line);
+  text-underline-offset: 3px;
 }
 .r2-doc-status-alert:hover {
-  text-decoration: underline;
+  text-decoration-color: currentColor;
 }
 
 /* ── Workspace Page ─────────────────────────────────────────────────────── */
@@ -9949,5 +9954,56 @@ li:hover .r2-pulse-remove,
   .r2-pulse-sheet,
   .r2-pulse-scrim {
     transition: none !important;
+  }
+}
+
+/* ── Scene conflict (SyncConflictModal) ───────────────────────────────────
+   Two versions side by side, as text rather than cards: a label, the count
+   and time, and the opening lines in the manuscript face — enough to tell
+   them apart. Calm by design: nothing is lost until the writer chooses. */
+.r2-dialog.r2-conflict {
+  max-width: 560px;
+}
+.r2-conflict-versions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--r2-space-6);
+  margin-top: var(--r2-space-7);
+  padding-top: var(--r2-space-6);
+  border-top: 1px solid var(--r2-border);
+}
+.r2-dialog .r2-conflict-version p.r2-conflict-meta {
+  margin-top: var(--r2-space-2);
+  font-size: var(--r2-fs-ui-sm);
+  color: var(--r2-ink-2);
+  font-variant-numeric: tabular-nums;
+}
+.r2-dialog .r2-conflict-version p.r2-conflict-excerpt {
+  margin-top: var(--r2-space-3);
+  font-family: var(--r2-prose-font);
+  font-size: var(--r2-fs-ui);
+  line-height: 1.55;
+  color: var(--r2-ink-2);
+  overflow-wrap: anywhere;
+}
+.r2-dialog p.r2-conflict-note {
+  margin-top: var(--r2-space-6);
+  font-size: var(--r2-fs-ui-sm);
+}
+.r2-conflict-copy {
+  color: var(--r2-ink-1);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.r2-conflict-copy:disabled {
+  opacity: var(--r2-disabled-opacity);
+}
+.r2-dialog p.r2-conflict-error {
+  font-size: var(--r2-fs-ui-sm);
+  color: var(--r2-danger);
+}
+@media (max-width: 520px) {
+  .r2-conflict-versions {
+    grid-template-columns: 1fr;
   }
 }

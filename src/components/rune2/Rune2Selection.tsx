@@ -13,12 +13,15 @@ import {
   navigateTab,
   openTab,
   resolveTabs,
+  resumedTabs,
   type TabState,
 } from "@/lib/rune2/workingSet";
 
 // The Rune 2.0 shell's client state, shared by the navigator, the tabs, the
-// context bar, the content area and the right-hand panel. Session-local: none
-// of it is persisted, and none of it copies manuscript state.
+// context bar, the content area and the right-hand panel. Session-local and
+// never a copy of manuscript state; only the working set (tabs and the active
+// one) is remembered on this device, for reopening the Project where the
+// writer left off (resumeTabs; Rune2Shell's ResumeWhereLeftOff).
 //
 // The working set: a few open tabs, each naming one canonical object by id (or
 // the Manuscript itself). The selection *is* the active tab — there is no
@@ -88,6 +91,12 @@ type Rune2SelectionValue = {
    * falls back in between.
    */
   selectWhenPresent: (id: string) => void;
+  /**
+   * Reopens the working set this device remembered for the Project
+   * (resumedTabs: gone objects dropped, the overview if the active one is
+   * gone). Returns what was applied, or null if nothing usable was saved.
+   */
+  resumeTabs: (saved: unknown) => TabState | null;
   tabs: WorkingTab[];
   activeTab: string;
   activateTab: (key: string) => void;
@@ -284,6 +293,15 @@ export function Rune2SelectionProvider({
   );
   const dropTabs = useCallback((ids: readonly string[]) => setTabState((prev) => forgetTabs(prev, ids)), []);
   const selectWhenPresent = useCallback((id: string) => setAwaitedId(id), []);
+  const resumeTabs = useCallback(
+    (saved: unknown) => {
+      const state = resumedTabs(saved, has);
+      if (!state) return null;
+      setTabState(state);
+      return state;
+    },
+    [has]
+  );
   const setOpenFor = useCallback(
     (ids: string[], value: boolean) =>
       setOpen((prev) => ({ ...prev, ...Object.fromEntries(ids.map((id) => [id, value])) })),
@@ -325,6 +343,7 @@ export function Rune2SelectionProvider({
       select,
       openInNewTab,
       selectWhenPresent,
+      resumeTabs,
       tabs,
       activeTab: resolved.active,
       activateTab,
@@ -374,6 +393,7 @@ export function Rune2SelectionProvider({
       select,
       openInNewTab,
       selectWhenPresent,
+      resumeTabs,
       tabs,
       resolved.active,
       activateTab,

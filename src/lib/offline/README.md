@@ -62,21 +62,29 @@ Outcomes:
 
 A repeating failure is logged (`console.error`) only when its reason first appears on the row, not on every retry; the row's `lastError` carries it meanwhile.
 
-Concurrency: `syncPendingWrite` calls for the same Scene are coalesced (`inFlightSyncs`), and syncs and Keep Local force-writes are serialized per Scene (`runExclusive`).
+Concurrency: syncs and Keep Local force-writes are serialized per Scene (`runExclusive`). A `syncPendingWrite` call that arrives while a sync of the same Scene is in flight does not just share it — the writer may have typed since it started — it gets one follow-up sync chained behind it (`followUpSyncs`), shared by every caller that arrives meanwhile. A `version_mismatch` retry re-reads a `'tab'` baseline when it runs.
+
+Which baseline the 30-second flush uses: a row typed in **this** tab is judged against this tab's own baseline (`'tab'`), as its editor would — against the shared cache baseline, which another tab's newer save may already have moved, its words would look unchanged and be uploaded over that save (reproduced live, 2026-10-12; harness `fc14`). A row typed in **another** tab within the last 2 minutes is left to that tab's editor (`heldByAnotherTab`); an older one (its tab closed), a row from an earlier client (no `writerTab`), and a writer-initiated flush (Send now, logging out) are sent as before (`fc13`). `afterSceneSync` (Chapter `updated_at`, totals revalidation) is not awaited: "Saved" follows the prose's confirmation, not a second server action.
+
+Queue revisions: `localUpdatedAt` strictly increases within a tab (`nextLocalStamp`), so two keystrokes in one millisecond can never share the revision a save clears. Each row carries `writerTab` (`tabBaseline.TAB_ID`); a confirmed save records it in the cache as `serverWriterTab`.
 
 ## Conflict detection (in order)
 
 1. **First-upload rule** — server `word_count === 0` and local > 0 → not a conflict; upload.
-2. Editor path — server `word_count !== expectedWordCount` → conflict.
+2. Editor path (`baseline: 'tab'`) — against this tab's own record of the server (`tabBaseline.ts`, in memory, never IndexedDB). Every save this tab gets confirmed moves it — the editor's, the flush's, a follow-up, a retry, Keep Local — and a fresh server read with no local edits (`cacheScene`) moves it too; older observations never replace newer ones (versions only increase). Then: same `version` as the baseline → not a conflict; the server row is exactly the version this browser confirmed for words typed **in this tab** (uploaded by any tab) → not a conflict; `word_count` differs → conflict; equal count but a newer version → deep content comparison against the confirmed copy.
+
+   *Fixed 2026-10-12:* the editor used to keep this baseline itself and advanced it only when the queue was empty after a save. Typing through a save left newer words queued, so the baseline stayed behind the editor's own acknowledged save, and the next save read that save as "Changed elsewhere" (harness `fc1`–`fc3`).
 3. Cached `serverWordCount` — differs → conflict; equal but `version` advanced → deep structural comparison of server content vs `serverContent`.
 4. Legacy cache entry with only `serverUpdatedAt` → timestamp/version heuristic.
 5. No baseline at all → conflict only if the server has words.
 
 ## Reconnect / background sync
 
-`NetworkProvider` calls `flushPendingQueue()` on the browser `online` event and every 30 seconds. The flush retries `pending` and `failed` rows (except a `failed` row this server refused as unsupported — see the table above), **re-evaluates** `conflict` rows (false conflicts self-heal; genuine ones stay `conflict`), skips `retired` rows, and revives a `syncing` row that no caller in this tab owns and that was marked more than two minutes ago (or by an earlier client, with no `syncingSince`) — a sync a closed tab never finished. A module-level `_flushing` flag prevents overlapping flushes. It then applies `pending_writing_credits` via `recordWordsWritten`, and `rune-sync-queue-updated` is dispatched so the editor refreshes its status.
+`NetworkProvider` decides whether the server is reachable — which matters, because the editor stops sending saves while offline. The browser's `offline` event is believed at once; a confirmed save (`SERVER_REACHABLE_EVENT`) proves reachability at once; the `/api/ping` check needs **two failures in a row** (the second a quick re-check 5 s later) before the writer sees "Offline", so one slow cold start no longer stops saving for 30 s. Offline, it re-checks every 5 s; online, every 30 s, and each successful check calls `flushPendingQueue()`; a return from offline also announces the outcome. The flush retries `pending` and `failed` rows (except a `failed` row this server refused as unsupported — see the table above), **re-evaluates** `conflict` rows (false conflicts self-heal; genuine ones stay `conflict`), skips `retired` rows, and revives a `syncing` row that no caller in this tab owns and that was marked more than two minutes ago (or by an earlier client, with no `syncingSince`) — a sync a closed tab never finished. A module-level `_flushing` flag prevents overlapping flushes. It then applies `pending_writing_credits` via `recordWordsWritten`, and `rune-sync-queue-updated` is dispatched so the editor refreshes its status.
 
 ## Conflict resolution (`SyncConflictModal`)
+
+The dialog explains the two versions in plain words (count, time, the opening lines of each), offers "Copy your version first" before the writer replaces it, and can be left with "Decide later": nothing is lost until the writer chooses.
 
 - **Keep Local** → `forceWriteLocalContent(sceneId)`: calls `save_scene_checked` **directly from the browser** with `p_expected_version: null`, verifies the server row, then clears only the acknowledged revision and adopts the returned version as the baseline. Any non-`ok` status is reported as an error and the draft is kept.
 - **Keep Server** → deletes the pending row and writes the fetched server content into `page_cache` as the new baseline.
