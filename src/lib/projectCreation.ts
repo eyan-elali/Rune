@@ -36,7 +36,12 @@ export type CreateProjectResult =
       chapter: Chapter | null;
       scene_id: string | null;
     }
-  | { status: "error"; error: string };
+  | {
+      status: "error";
+      error: string;
+      /** The database's SQLSTATE when the RPC itself failed (for example 42501: refused by a trigger or policy); absent for a status the function returned. */
+      code?: string | null;
+    };
 
 /** The longest Project title the app accepts (a rename; creation trims, as the database does). */
 export const PROJECT_TITLE_MAX = 200;
@@ -56,6 +61,18 @@ export async function createProjectChecked(
     // Client-supplied: anything that is not a UUID just means "no deduplication".
     p_request_id: input.requestId && UUID_RE.test(input.requestId) ? input.requestId : null,
   });
-  if (error) return { status: "error", error: error.message };
+  if (error) {
+    // Server-side diagnostics only: the RPC's own error, with its SQLSTATE,
+    // so a refusal by a trigger (42501), a constraint, a missing migration
+    // or the network can be told apart in the logs. Never the title or any
+    // writing; the caller shows the writer its own plain message.
+    console.error("[projectCreation] create_project_checked failed", {
+      code: error.code ?? null,
+      message: error.message,
+      details: error.details ?? null,
+      hint: error.hint ?? null,
+    });
+    return { status: "error", error: error.message, code: error.code ?? null };
+  }
   return data as CreateProjectResult;
 }

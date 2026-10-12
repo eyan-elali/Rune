@@ -581,12 +581,14 @@ function SceneInspectorProperties({ sceneId }: { sceneId: string }) {
   const count = propertiesOf(manuscriptId).length;
   return (
     <InspectorSection
-      title="Properties"
+      title="Scene properties"
       aside={
         count > 0 ? (
           <button
             type="button"
             className="r2-insp-aside-link"
+            title="Add, rename or remove properties for every scene"
+            aria-label="Edit scene properties for every scene"
             onClick={() => {
               select(null);
               openScenes("properties");

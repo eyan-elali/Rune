@@ -1,5 +1,6 @@
 "use server";
 
+import { logCreateFailure } from "@/lib/actionLog";
 import { createClient } from "@/lib/supabase/server";
 import type { WorkspaceFolder } from "@/lib/types";
 
@@ -50,9 +51,15 @@ export async function createWorkspaceFolder(
     p_parent_node_id: parentNodeId,
     p_title: folderTitle(title),
   });
-  if (error) return { data: null, error: error.message };
+  if (error) {
+    logCreateFailure("createWorkspaceFolder", error, { projectId, parentNodeId });
+    return { data: null, error: error.message };
+  }
   const result = data as RpcResult<{ folder: WorkspaceFolder; node_id: string }>;
-  if (result.status !== "ok") return { data: null, error: result.error };
+  if (result.status !== "ok") {
+    logCreateFailure("createWorkspaceFolder", { message: result.error }, { projectId, parentNodeId });
+    return { data: null, error: result.error };
+  }
   return { data: { folder: result.folder, nodeId: result.node_id }, error: null };
 }
 

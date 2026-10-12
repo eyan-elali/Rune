@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { Plus } from "lucide-react";
 import { ICON } from "./icons";
 import { renameWorkspaceCollection } from "@/lib/actions/workspaceCollections";
-import { arrangeEntries, type LaneTargets } from "@/lib/rune2/collectionViews";
+import { arrangeEntries, groupableProperties, type LaneTargets } from "@/lib/rune2/collectionViews";
 import type { NavEntry } from "@/lib/rune2/navigatorModel";
 import type { SavedView } from "@/lib/types";
 import { CollectionSchema } from "./CollectionSchema";
@@ -65,7 +65,6 @@ export function CollectionView({ entry }: { entry: NavEntry }) {
   const hiddenCount = entryIds.length - found.length;
   const context = [
     plural(entryIds.length, "entry", "entries"),
-    ...(propertied && properties.length > 0 ? [plural(properties.length, "property", "properties")] : []),
     ...(viewable && views.length > 1 ? [plural(views.length, "view")] : []),
   ];
 
@@ -82,7 +81,23 @@ export function CollectionView({ entry }: { entry: NavEntry }) {
           onLeave={() => bodyRef.current?.querySelector<HTMLElement>("button, input, textarea")?.focus()}
         >
           <p className="r2-collection-context">
-            {context.map((fact) => (
+            <span>{context[0]}</span>
+            {/* The way to the Collection's properties, where they are counted:
+                they belong to every entry, so they are set here, not per entry. */}
+            {propertied && (
+              <span>
+                <button
+                  type="button"
+                  className="r2-collection-context-link"
+                  aria-expanded={schemaOpen}
+                  title="Add, rename or remove the properties every entry has"
+                  onClick={() => setSchemaOpen((o) => !o)}
+                >
+                  {properties.length > 0 ? plural(properties.length, "property", "properties") : "Add properties"}
+                </button>
+              </span>
+            )}
+            {context.slice(1).map((fact) => (
               <span key={fact}>{fact}</span>
             ))}
           </p>
@@ -157,8 +172,11 @@ export function CollectionView({ entry }: { entry: NavEntry }) {
             <ListView ownerTitle={entry.title} view={view} properties={properties} entryIds={found} total={entryIds.length} presenter={presenter} />
           )}
 
-          {/* "New entry" is the whole invitation; a Board's lanes each have their own. */}
-          {(view.type !== "board" || found.length === 0) && (
+          {/* "New entry" is the whole invitation; a Board's lanes each have their
+              own. A Board still waiting for its grouping has no lanes yet. */}
+          {(view.type !== "board" ||
+            found.length === 0 ||
+            !groupableProperties(properties).some((p) => p.id === view.config.group_by)) && (
             <button type="button" className="r2-entry-add" disabled={busy} onClick={() => void add()}>
               <Plus {...ICON} aria-hidden />
               New entry

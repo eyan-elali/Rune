@@ -1,5 +1,6 @@
 "use server";
 
+import { logCreateFailure } from "@/lib/actionLog";
 import { createClient } from "@/lib/supabase/server";
 import type { CollectionProperty, CollectionPropertyType, PropertyOption, PropertyValue } from "@/lib/types";
 
@@ -39,7 +40,10 @@ export async function createCollectionProperty(
     p_name: name,
     p_type: type,
   });
-  if (error) return { data: null, error: error.message };
+  if (error) {
+    logCreateFailure("createCollectionProperty", error, { collectionId, type });
+    return { data: null, error: error.message };
+  }
   const result = data as RpcResult<{ property: CollectionProperty }>;
   if (result.status !== "ok") return { data: null, error: result.error };
   return { data: result.property, error: null };

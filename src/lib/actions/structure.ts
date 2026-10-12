@@ -1,5 +1,6 @@
 "use server";
 
+import { logCreateFailure } from "@/lib/actionLog";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getManuscriptIdForProject } from "@/lib/manuscriptQueries";
@@ -49,9 +50,15 @@ export async function createGroup(
     p_parent_group_id: parentGroupId,
     p_title: groupTitle(title),
   });
-  if (error) return { data: null, error: error.message };
+  if (error) {
+    logCreateFailure("createGroup", error, { projectId, manuscriptId, parentGroupId });
+    return { data: null, error: error.message };
+  }
   const result = data as RpcResult<{ group: ManuscriptGroup }>;
-  if (result.status !== "ok") return { data: null, error: result.error };
+  if (result.status !== "ok") {
+    logCreateFailure("createGroup", { message: result.error }, { projectId, manuscriptId, parentGroupId });
+    return { data: null, error: result.error };
+  }
 
   revalidatePath(`/projects/${projectId}`);
   return { data: result.group, error: null };

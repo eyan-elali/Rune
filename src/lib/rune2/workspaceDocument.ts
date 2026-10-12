@@ -85,6 +85,20 @@ export function toPlainDocument<T>(doc: T): T {
   return JSON.parse(JSON.stringify(doc)) as T;
 }
 
+/**
+ * The document an editor opens with. A new Page or Entry is stored as an empty
+ * document (`{ type: "doc", content: [] }`), which gives the editor no line to
+ * show its placeholder on, so the writing area reads as blank space. It opens
+ * with one empty paragraph instead. Nothing is saved until the writer types.
+ */
+export function editorStartContent<T extends Record<string, unknown>>(doc: T): T {
+  const content = (doc as { content?: unknown }).content;
+  if (doc.type === "doc" && (content === undefined || (Array.isArray(content) && content.length === 0))) {
+    return { ...doc, content: [{ type: "paragraph" }] };
+  }
+  return doc;
+}
+
 /** Whether two ordered target lists are the same. */
 export function sameTargets(a: readonly InlineTarget[], b: readonly InlineTarget[]): boolean {
   return a.length === b.length && a.every((t, i) => t.type === b[i].type && t.id === b[i].id);

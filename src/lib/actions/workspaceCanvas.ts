@@ -1,5 +1,6 @@
 "use server";
 
+import { logCreateFailure } from "@/lib/actionLog";
 import { createClient } from "@/lib/supabase/server";
 import { recordWorkspaceActivation } from "@/lib/workspaceActivation";
 import type { CanvasConnection, CanvasItem, WorkspaceAttachment, WorkspaceCanvas } from "@/lib/types";
@@ -54,9 +55,15 @@ export async function createWorkspaceCanvas(
     p_parent_node_id: parentNodeId,
     p_title: normalizeTitle(title),
   });
-  if (error) return { data: null, error: error.message };
+  if (error) {
+    logCreateFailure("createWorkspaceCanvas", error, { projectId, parentNodeId });
+    return { data: null, error: error.message };
+  }
   const result = data as RpcResult<{ canvas: WorkspaceCanvas; node_id: string }>;
-  if (result.status !== "ok") return { data: null, error: result.error };
+  if (result.status !== "ok") {
+    logCreateFailure("createWorkspaceCanvas", { message: result.error }, { projectId, parentNodeId });
+    return { data: null, error: result.error };
+  }
   await recordWorkspaceActivation(user.id, projectId, "canvas");
   return { data: { canvas: result.canvas, nodeId: result.node_id }, error: null };
 }

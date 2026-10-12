@@ -3088,6 +3088,19 @@ button.r2-disclosure:hover {
   content: "·";
   margin: 0 7px;
 }
+.r2-collection-context-link {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 3px;
+  cursor: pointer;
+  transition: color var(--r2-fast) var(--r2-ease), text-decoration-color var(--r2-fast) var(--r2-ease);
+}
+.r2-collection-context-link:hover,
+.r2-collection-context-link[aria-expanded="true"] {
+  color: var(--r2-ink-1);
+  text-decoration-color: currentColor;
+}
 .r2-schema {
   margin: 0 0 22px;
   padding: 10px 0 12px;
@@ -6707,6 +6720,22 @@ span.r2-schema-type {
   .r2-rnote-actions {
     opacity: 1;
   }
+}
+/* The second step of deleting a note: the bin, become a word. */
+.r2-rnote-confirm {
+  padding: 1px 6px;
+  border-radius: var(--r2-radius-sm);
+  background: var(--r2-surface-raised);
+  color: var(--r2-danger);
+  font-size: var(--r2-fs-caption);
+  font-weight: var(--r2-weight-medium);
+}
+.r2-rnote-confirm:hover,
+.r2-rnote-confirm:focus-visible {
+  background: color-mix(in srgb, var(--r2-danger) 10%, transparent);
+}
+.r2-rnote:has(.r2-rnote-confirm) .r2-rnote-actions {
+  opacity: 1;
 }
 .r2-rnotes-resolved-toggle {
   margin-top: 16px;

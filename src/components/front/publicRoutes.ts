@@ -10,8 +10,13 @@ import { SUPPORT_EMAIL } from "@/lib/brand";
 export const PUBLIC_ROUTES = {
   /** The front door. */
   home: "/",
-  /** The "Features" link: the landing's manuscript section, where the product first shows itself. */
-  features: "/#features",
+  /** The header's "Manuscript": the landing's manuscript section (FrontManuscript). Its id
+   *  stays "features", which the No AI article's aside also links to. */
+  manuscript: "/#features",
+  /** The header's "Workspace": the landing's workspace section (FrontWorkspace). */
+  workspace: "/#workspace",
+  /** The header's "Principles": the landing's trust and authorship section (FrontTrust). */
+  principles: "/#trust",
   /** Sign in (app/(auth)/login). */
   signIn: "/login",
   /** Create account (app/(auth)/signup). */

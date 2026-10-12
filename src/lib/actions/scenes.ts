@@ -1,5 +1,6 @@
 "use server";
 
+import { logCreateFailure } from "@/lib/actionLog";
 import { createClient } from "@/lib/supabase/server";
 import { revalidateProjectTotals } from "@/lib/projectWordCount";
 import {
@@ -61,11 +62,19 @@ type InsertSceneCheckedResult = { status: "ok"; id: string } | { status: "error"
 async function readInsertedScene<T extends Scene>(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
-  rpc: { data: unknown; error: { message: string } | null }
+  rpc: { data: unknown; error: { message: string; code?: string } | null },
+  operation: string,
+  context: Record<string, string | null>
 ): Promise<CreateSceneResult<T>> {
-  if (rpc.error) return { data: null, error: rpc.error.message };
+  if (rpc.error) {
+    logCreateFailure(operation, rpc.error, context);
+    return { data: null, error: rpc.error.message };
+  }
   const result = rpc.data as InsertSceneCheckedResult;
-  if (result.status !== "ok") return { data: null, error: result.error ?? "Couldn’t create the scene" };
+  if (result.status !== "ok") {
+    logCreateFailure(operation, { message: result.error ?? "status " + result.status }, context);
+    return { data: null, error: result.error ?? "Couldn’t create the scene" };
+  }
 
   const { data, error } = await supabase.from("scenes").select("*").eq("id", result.id).single();
   if (error) return { data: null, error: error.message };
@@ -105,7 +114,7 @@ export async function createScene(
     // pre-018 function it fails the NOT NULL check instead of risking a tie.
     p_position: null,
   });
-  return readInsertedScene<PlacedScene>(supabase, rpc);
+  return readInsertedScene<PlacedScene>(supabase, rpc, "createScene", { chapterId });
 }
 
 /**
@@ -130,7 +139,7 @@ export async function createUnplacedScene(
     p_content: null,
     p_word_count: 0,
   });
-  return readInsertedScene<UnplacedScene>(supabase, rpc);
+  return readInsertedScene<UnplacedScene>(supabase, rpc, "createUnplacedScene", { projectId, manuscriptId });
 }
 
 /**

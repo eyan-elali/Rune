@@ -652,7 +652,14 @@ export default function CanvasSurface({ entry, session }: { entry: NavEntry; ses
     const at = insert?.at ?? viewCenter();
     const size = DEFAULT_SIZE[choice.type];
     setInsert(null);
-    place(choice.type, choice.id, choice.title, { x: at.x - size.width / 2, y: at.y - size.height / 2 });
+    // Several things added from "Add" without moving the view would all land
+    // on the same spot, each hiding the one before: a taken spot steps down
+    // and right, as a paste does.
+    let spot = { x: at.x - size.width / 2, y: at.y - size.height / 2 };
+    while (items.some((i) => Math.abs(i.x - spot.x) < PASTE_OFFSET && Math.abs(i.y - spot.y) < PASTE_OFFSET)) {
+      spot = { x: spot.x + PASTE_OFFSET, y: spot.y + PASTE_OFFSET };
+    }
+    place(choice.type, choice.id, choice.title, spot);
     root.current?.focus({ preventScroll: true });
   };
 

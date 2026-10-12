@@ -1,5 +1,6 @@
 "use server";
 
+import { logCreateFailure } from "@/lib/actionLog";
 import { createClient } from "@/lib/supabase/server";
 import { recordWorkspaceActivation } from "@/lib/workspaceActivation";
 import type { CollectionEntry, WorkspaceCollection } from "@/lib/types";
@@ -56,9 +57,15 @@ export async function createWorkspaceCollection(
     p_parent_node_id: parentNodeId,
     p_title: normalizeTitle(title),
   });
-  if (error) return { data: null, error: error.message };
+  if (error) {
+    logCreateFailure("createWorkspaceCollection", error, { projectId, parentNodeId });
+    return { data: null, error: error.message };
+  }
   const result = data as RpcResult<{ collection: WorkspaceCollection; node_id: string }>;
-  if (result.status !== "ok") return { data: null, error: result.error };
+  if (result.status !== "ok") {
+    logCreateFailure("createWorkspaceCollection", { message: result.error }, { projectId, parentNodeId });
+    return { data: null, error: result.error };
+  }
   await recordWorkspaceActivation(user.id, projectId, "collection");
   return { data: { collection: result.collection, nodeId: result.node_id }, error: null };
 }
@@ -119,7 +126,10 @@ export async function createCollectionEntry(
     .insert({ collection_id: collection.id, project_id: collection.project_id, title: normalizeTitle(title) })
     .select("*")
     .single();
-  if (error) return { data: null, error: error.message };
+  if (error) {
+    logCreateFailure("createCollectionEntry", error, { collectionId });
+    return { data: null, error: error.message };
+  }
   return { data: data as CollectionEntry, error: null };
 }
 

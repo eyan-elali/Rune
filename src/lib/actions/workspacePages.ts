@@ -1,5 +1,6 @@
 "use server";
 
+import { logCreateFailure } from "@/lib/actionLog";
 import { createClient } from "@/lib/supabase/server";
 import { recordWorkspaceActivation } from "@/lib/workspaceActivation";
 import type { WorkspacePage } from "@/lib/types";
@@ -49,10 +50,16 @@ export async function createWorkspacePage(
     p_parent_node_id: parentNodeId,
     p_title: normalizeTitle(title),
   });
-  if (error) return { data: null, error: error.message };
+  if (error) {
+    logCreateFailure("createWorkspacePage", error, { projectId, parentNodeId });
+    return { data: null, error: error.message };
+  }
   const result = data as { status: "ok"; page: WorkspacePage } | { status: "error"; error: string };
   // Another writer's (or a missing) Project, or a Folder not in this Project.
-  if (result.status !== "ok") return { data: null, error: result.error };
+  if (result.status !== "ok") {
+    logCreateFailure("createWorkspacePage", { message: result.error }, { projectId, parentNodeId });
+    return { data: null, error: result.error };
+  }
   await recordWorkspaceActivation(user.id, projectId, "page");
   return { data: result.page, error: null };
 }

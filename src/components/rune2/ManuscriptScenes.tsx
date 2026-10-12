@@ -66,8 +66,8 @@ import { useViewStore } from "./ViewStore";
 
 export function ManuscriptScenes({ scope }: { scope: SceneScope }) {
   const { sceneAvailable, manuscriptId } = usePropertyStore();
-  const { viewsOf, activeViewOf, scenePanel, setScenePanel } = useViewStore();
-  const { openReading, index } = useRune2Selection();
+  const { viewsOf, activeViewOf, scenePanel, setScenePanel, openScenes } = useViewStore();
+  const { openReading, index, select } = useRune2Selection();
   const [request, setRequest] = useState<ToolRequest | undefined>(undefined);
   const ask = (tool: ToolRequest["tool"]) => setRequest((r) => ({ tool, n: (r?.n ?? 0) + 1 }));
   const [search, setSearch] = useState("");
@@ -108,7 +108,14 @@ export function ManuscriptScenes({ scope }: { scope: SceneScope }) {
             search={search}
             onSearch={setSearch}
             schemaOpen={schemaOpen}
-            onToggleSchema={() => setScenePanel((current) => (current === "properties" ? null : "properties"))}
+            onToggleSchema={() => {
+              // Scene properties belong to the whole manuscript: a Group's page
+              // opens them where they live, on the Manuscript's page.
+              if (scope.kind === "group") {
+                select(null);
+                openScenes("properties");
+              } else setScenePanel((current) => (current === "properties" ? null : "properties"));
+            }}
             schemaLabel="Edit scene properties"
             request={request}
           >
@@ -133,7 +140,13 @@ export function ManuscriptScenes({ scope }: { scope: SceneScope }) {
               Showing {found.length.toLocaleString()} of {sceneIds.length.toLocaleString()} scenes
             </p>
           )}
-          {view.type === "table" ? (
+          {scope.kind === "group" && sceneIds.length === 0 ? (
+            // An empty Group says what fills it: chapters, not scenes directly.
+            <p className="r2-view-empty">
+              A group gathers chapters — a part, an act. Add one with the + beside {ownerTitle} in the navigator, or
+              move a chapter here with its “Move to”.
+            </p>
+          ) : view.type === "table" ? (
             <TableView ownerTitle={ownerTitle} view={view} properties={properties} entryIds={found} total={sceneIds.length} presenter={presenter} />
           ) : view.type === "board" ? (
             <BoardView

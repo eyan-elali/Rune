@@ -1,5 +1,6 @@
 "use server";
 
+import { logCreateFailure } from "@/lib/actionLog";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { revalidateProjectTotals } from "@/lib/projectWordCount";
@@ -59,10 +60,16 @@ export async function createChapter(
     p_scene_content: null,
     p_scene_word_count: 0,
   });
-  if (error) return { data: null, error: error.message };
+  if (error) {
+    logCreateFailure("createChapter", error, { projectId, manuscriptId });
+    return { data: null, error: error.message };
+  }
 
   const result = data as CreateChapterCheckedResult;
-  if (result.status !== "ok") return { data: null, error: result.error ?? "Couldn’t create the chapter" };
+  if (result.status !== "ok") {
+    logCreateFailure("createChapter", { message: result.error ?? "Couldn’t create the chapter" }, { projectId, manuscriptId });
+    return { data: null, error: result.error ?? "Couldn’t create the chapter" };
+  }
 
   revalidatePath(`/projects/${projectId}`);
   return { data: result.chapter, error: null };

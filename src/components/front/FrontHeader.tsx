@@ -7,8 +7,8 @@ import { PUBLIC_ROUTES, startPath } from "./publicRoutes";
 import { advanceHeaderScrollState, initialHeaderScrollState, type HeaderScrollState } from "./headerScrollIntent";
 
 // The landing page's header (front.css: "Header"): three zones — the
-// wordmark at the left, the links (Features, Sign in) centred, the one
-// action at the right. One sticky element that keeps the same
+// wordmark at the left, the product's structure centred (Manuscript,
+// Workspace, Principles), Sign in and the one action at the right. One sticky element that keeps the same
 // in-flow box whatever it shows (the hero's height is measured against
 // it), so nothing below ever reflows; the visible object is the row inside
 // it, which has two forms on one DOM node, following the Opius landing
@@ -31,10 +31,15 @@ import { advanceHeaderScrollState, initialHeaderScrollState, type HeaderScrollSt
 // signed-in writer is sent to their Projects by the same action.
 
 // Where each control leads is publicRoutes.ts's, shared with the hero, the
-// close and the feature shell. "Features" is an in-page anchor: the
-// manuscript section (FrontManuscript, id="features"), where the product
-// first shows itself and the tour of its parts begins.
-const LINKS = [{ href: PUBLIC_ROUTES.features, label: "Features" }] as const;
+// close and the feature shell. The centred links are in-page anchors to the
+// sections that show those parts: the manuscript (FrontManuscript), the
+// workspace (FrontWorkspace) and trust & authorship (FrontTrust). A narrow
+// screen keeps only the wordmark and the action.
+const LINKS = [
+  { href: PUBLIC_ROUTES.manuscript, label: "Manuscript" },
+  { href: PUBLIC_ROUTES.workspace, label: "Workspace" },
+  { href: PUBLIC_ROUTES.principles, label: "Principles" },
+] as const;
 
 export function FrontHeader({ member }: { member: boolean }) {
   const ref = useRef<HTMLElement>(null);
@@ -71,15 +76,17 @@ export function FrontHeader({ member }: { member: boolean }) {
               {link.label}
             </a>
           ))}
+        </nav>
+        <div className="r2-lp-head-end">
           {!member && (
-            <Link href={PUBLIC_ROUTES.signIn} className="r2-lp-nav-link">
+            <Link href={PUBLIC_ROUTES.signIn} className="r2-lp-nav-link r2-lp-signin">
               Sign in
             </Link>
           )}
-        </nav>
-        <Link href={startPath(member)} className="r2-button r2-button--primary r2-lp-cta">
-          Start writing free
-        </Link>
+          <Link href={startPath(member)} className="r2-button r2-button--primary r2-lp-cta">
+            Start writing free
+          </Link>
+        </div>
       </div>
     </header>
   );

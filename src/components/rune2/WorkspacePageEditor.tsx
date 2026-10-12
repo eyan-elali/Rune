@@ -7,7 +7,7 @@ import { getCollectionEntry, renameCollectionEntry } from "@/lib/actions/workspa
 import { restoreWorkspaceObject } from "@/lib/actions/workspaceTrash";
 import type { NavEntry } from "@/lib/rune2/navigatorModel";
 import { openableId, type ObjectRef } from "@/lib/rune2/references";
-import { holdsUnknownContent, inlineReferences, sameTargets, type InlineTarget } from "@/lib/rune2/workspaceDocument";
+import { editorStartContent, holdsUnknownContent, inlineReferences, sameTargets, type InlineTarget } from "@/lib/rune2/workspaceDocument";
 import type { PageSaveStatus } from "@/lib/rune2/workspacePageSaver";
 import { useNetworkStore } from "@/store/networkStore";
 import { DocStatus } from "./DocStatus";
@@ -121,7 +121,7 @@ export default function WorkspacePageEditor({ entry, session }: { entry: NavEntr
     // One quiet line, as an empty Chapter shows: the "/" and "@" menus are
     // found by use, not announced.
     extensions: workspaceEditorExtensions(handlers, "Start writing, or type / for headings, lists and references…"),
-    content: saver.content,
+    content: editorStartContent(saver.content),
     immediatelyRender: false,
     autofocus: false,
     // Content this schema can't hold (a node or mark from a newer Rune) is
@@ -180,7 +180,7 @@ export default function WorkspacePageEditor({ entry, session }: { entry: NavEntr
       const r = await doc.read(pageId);
       if (r.data) {
         saver.acceptServer({ content: r.data.content, version: r.data.version });
-        editor?.commands.setContent(r.data.content, { emitUpdate: false });
+        editor?.commands.setContent(editorStartContent(r.data.content), { emitUpdate: false });
         trackMentions(r.data.content as JSONContent);
       }
     } finally {

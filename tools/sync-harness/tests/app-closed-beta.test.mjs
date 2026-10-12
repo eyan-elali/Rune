@@ -570,3 +570,69 @@ test('no closed-beta feature gating: an accepted writer creates every kind of ob
   }
   assert.equal((await sb.rpc('free_word_limit_for_caller')).data, null, 'no word limit (037)');
 });
+
+// ── 7. The production failure of 2026-10-12: the app ahead of the database ──
+
+test('a database still at 055 refuses a brand-new account\'s first onboarding Project (closed-beta trigger), creates nothing, logs the cause, and the same request succeeds once 056 is applied', async () => {
+  const db = await createTestDb();
+  await db.exec(readRepoFile(LEGACY_BASELINE));
+  for (const f of migrationsAfterBaseline().filter((f) => f < '056')) await db.exec(readMigration(f));
+  assert.equal((await one(db, `select max(version) as v from public.schema_migrations`)).v, '055');
+
+  // An external sign-up: auth user → profile (handle_new_user) → no beta_access row.
+  await createAuthUser(db, W(70), { display_name: 'A Stranger' }, { beta: false, email: 'stranger@example.com' });
+  assert.equal((await one(db, `select count(*)::int as n from public.profiles where id = $1`, [W(70)])).n, 1, 'the profile exists');
+  assert.equal((await one(db, `select count(*)::int as n from public.beta_access where user_id = $1`, [W(70)])).n, 0, 'no beta access');
+  signIn(W(70), db);
+  ok(await onboarding.beginOnboarding());
+  ok(await onboarding.chooseOnboardingPath('new'));
+
+  const logged = [];
+  const realError = console.error;
+  console.error = (...args) => { logged.push(args); };
+  let refused;
+  try {
+    refused = await onboarding.createOnboardingProject('My Secret Title');
+  } finally {
+    console.error = realError;
+  }
+  assert.equal(refused.data, null);
+  assert.equal(refused.error, 'Your project couldn’t be created. Please try again.', 'the writer sees the plain message');
+
+  // The server log says what refused it — the SQLSTATE and the database's message — and never the title.
+  const entries = logged.map((a) => JSON.stringify(a));
+  assert.ok(entries.some((e) => e.includes('[projectCreation] create_project_checked failed') && e.includes('"code":"42501"') && /closed beta/.test(e)),
+    `create_project_checked's refusal is logged with its SQLSTATE: ${entries.join('\n')}`);
+  assert.ok(entries.some((e) => e.includes('[onboarding] project creation refused') && e.includes(W(70))), 'onboarding names the account');
+  assert.ok(!entries.some((e) => e.includes('My Secret Title')), 'the title is never logged');
+
+  // Nothing partial: no Project, Manuscript, Chapter or Scene; the journey resumes at the title.
+  assert.equal(await projectCount(db, W(70)), 0);
+  assert.equal((await one(db, `select count(*)::int as n from public.manuscripts`)).n, 0);
+  assert.equal((await one(db, `select count(*)::int as n from public.chapters`)).n, 0);
+  assert.equal((await one(db, `select count(*)::int as n from public.scenes`)).n, 0);
+  const row = await one(db, `select path, project_id, request_id, completed_at from public.account_onboarding where user_id = $1`, [W(70)]);
+  assert.equal(row.path, 'new');
+  assert.equal(row.project_id, null);
+  assert.equal(onboardingLib.onboardingStep(onboardingLib.readOnboardingRow(row), false), 'title');
+
+  // A closed-beta writer on the same database is unaffected.
+  await createAuthUser(db, W(71), {}, { email: 'member@example.com' });
+  signIn(W(71), db);
+  ok(await onboarding.beginOnboarding());
+  ok(await onboarding.chooseOnboardingPath('new'));
+  assert.ok(ok(await onboarding.createOnboardingProject('A member\'s book')).projectId);
+
+  // The fix is the migration: the stranger retries (same request_id) and gets exactly one Project.
+  await db.exec(readMigration('056_open_early_access.sql'));
+  signIn(W(70), db);
+  const made = ok(await onboarding.createOnboardingProject('My Secret Title'));
+  assert.ok(made.projectId);
+  const again = ok(await onboarding.createOnboardingProject('My Secret Title'));
+  assert.equal(again.projectId, made.projectId, 'a second submit is the same Project');
+  assert.equal(await projectCount(db, W(70)), 1);
+  assert.equal((await one(db, `select creation_request_id as r from public.projects where id = $1`, [made.projectId])).r, row.request_id);
+  assert.equal((await one(db, `select count(*)::int as n from public.scenes s join public.manuscripts m on m.id = s.manuscript_id where m.project_id = $1`, [made.projectId])).n, 1, 'Chapter 1, Scene 1');
+  const done = ok(await onboarding.completeOnboarding());
+  assert.match(done.href, new RegExp(`^/projects/${made.projectId}\\?open=`));
+});

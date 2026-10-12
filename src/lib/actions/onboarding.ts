@@ -97,6 +97,10 @@ export async function createOnboardingProject(rawTitle: string): Promise<Result<
 
   const created = await createProjectChecked(supabase, { title, requestId: stateRow.request_id as string });
   if (created.status !== "ok") {
+    // The writer sees a plain message; the server log keeps what actually
+    // refused the Project (status, SQLSTATE, the database's message) so that
+    // a trigger refusal, a constraint and a lost connection are distinguishable.
+    console.error("[onboarding] project creation refused", { userId: user.id, code: created.code ?? null, message: created.error });
     return { data: null, error: /pen name/i.test(created.error) ? created.error : "Your project couldn’t be created. Please try again." };
   }
   const attached = await supabase.rpc("onboarding_attach_project", { p_project: created.project.id });

@@ -157,9 +157,15 @@
   outline: 2px solid var(--r2-focus);
   outline-offset: 2px;
 }
-.r2-lp-head .r2-lp-cta {
+/* The right zone: Sign in, understated, then the one action. */
+.r2-lp-head-end {
   grid-column: 3;
   justify-self: end;
+  display: flex;
+  align-items: center;
+  gap: var(--r2-space-4);
+}
+.r2-lp-head .r2-lp-cta {
   height: 32px;
   padding: 0 var(--r2-space-6);
   border-radius: var(--r2-radius);
@@ -312,6 +318,16 @@
   }
 }
 
+/* ── Between a phone and a laptop ───────────────────────────────────────
+   Below this the right zone (Sign in and the action) outgrows its track,
+   and the centred links would drift off the true centre; they fold away
+   here, Sign in stays. A laptop at 150% zoom (853px) keeps them. */
+@media (max-width: 840px) {
+  .r2-lp-nav {
+    display: none;
+  }
+}
+
 /* ── Narrow widths ──────────────────────────────────────────────────────
    The same composition, redrawn for a narrow screen: the header keeps only
    the wordmark and the action, both with a thumb's room; the hero gives up
@@ -322,7 +338,8 @@
   .r2-lp {
     --lp-gutter: var(--r2-space-6);
   }
-  .r2-lp-nav {
+  .r2-lp-nav,
+  .r2-lp-signin {
     display: none;
   }
   .r2-lp-head {

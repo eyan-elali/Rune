@@ -85,6 +85,13 @@ export function CollectionSchema({
           <span className="r2-schema-scope-note">Changes here apply to every entry, not only this one.</span>
         </p>
       )}
+      {scope !== "entry" && properties.length > 0 && (
+        <p className="r2-schema-scope">
+          <span className="r2-schema-scope-note">
+            {forScenes ? "Every scene has these properties." : "Every entry in this collection has these properties."}
+          </span>
+        </p>
+      )}
       {properties.length === 0 ? (
         forScenes ? (
           <>
@@ -337,8 +344,11 @@ function SchemaRow({
             type="button"
             className="r2-icon-button"
             aria-label={`Move ${property.name} up`}
+            title="Move up"
             disabled={index === 0}
-            onClick={() => void moveProperty(property, index - 1)}
+            onClick={async () => {
+              if (await moveProperty(property, index - 1)) onNotice("Couldn’t move the property.");
+            }}
           >
             <ArrowUp {...ICON} aria-hidden />
           </button>
@@ -346,8 +356,11 @@ function SchemaRow({
             type="button"
             className="r2-icon-button"
             aria-label={`Move ${property.name} down`}
+            title="Move down"
             disabled={index === count - 1}
-            onClick={() => void moveProperty(property, index + 1)}
+            onClick={async () => {
+              if (await moveProperty(property, index + 1)) onNotice("Couldn’t move the property.");
+            }}
           >
             <ArrowDown {...ICON} aria-hidden />
           </button>
@@ -356,6 +369,7 @@ function SchemaRow({
             type="button"
             className="r2-icon-button"
             aria-label={`Remove ${property.name}`}
+            title="Remove property"
             onClick={() => setConfirming(valueCount)}
           >
             <Trash2 {...ICON} aria-hidden />

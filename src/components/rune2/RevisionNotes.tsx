@@ -412,6 +412,14 @@ function NoteItem({ note, label }: { note: ShownNote; label: string }) {
   const [text, setText] = useState(note.body);
   const [details, setDetails] = useState(note.details ?? "");
   const [expanded, setExpanded] = useState(false);
+  // Delete asks once, in place: the first click turns the bin into "Delete?",
+  // which settles back on its own if the writer moves on.
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  useEffect(() => {
+    if (!confirmingDelete) return;
+    const timer = setTimeout(() => setConfirmingDelete(false), 6000);
+    return () => clearTimeout(timer);
+  }, [confirmingDelete]);
   const draft = useRef({ body: note.body, details: note.details ?? "" });
   const editingRef = useRef(false);
   const rootRef = useRef<HTMLLIElement>(null);
@@ -566,16 +574,35 @@ function NoteItem({ note, label }: { note: ShownNote; label: string }) {
               </button>
             </Tooltip>
           )}
-          <Tooltip label="Delete note">
+          {confirmingDelete ? (
             <button
               type="button"
-              className="r2-icon-button r2-icon-button--xs"
-              aria-label={`Delete note (${label})`}
+              className="r2-rnote-confirm"
+              aria-label={`Confirm: delete note (${label})`}
+              autoFocus
+              onBlur={() => setConfirmingDelete(false)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  e.stopPropagation();
+                  setConfirmingDelete(false);
+                }
+              }}
               onClick={() => sync?.remove(note.id)}
             >
-              <Trash2 {...ICON} aria-hidden />
+              Delete?
             </button>
-          </Tooltip>
+          ) : (
+            <Tooltip label="Delete note">
+              <button
+                type="button"
+                className="r2-icon-button r2-icon-button--xs"
+                aria-label={`Delete note (${label})`}
+                onClick={() => setConfirmingDelete(true)}
+              >
+                <Trash2 {...ICON} aria-hidden />
+              </button>
+            </Tooltip>
+          )}
         </span>
       )}
       {waiting && <NoteChoice note={note} />}

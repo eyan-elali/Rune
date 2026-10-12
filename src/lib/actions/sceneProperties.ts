@@ -1,5 +1,6 @@
 "use server";
 
+import { logCreateFailure } from "@/lib/actionLog";
 import { createClient } from "@/lib/supabase/server";
 import type { PropertyOption, PropertyValue, ReferenceObjectType, SceneProperty, CollectionPropertyType } from "@/lib/types";
 
@@ -45,7 +46,10 @@ export async function createSceneProperty(
     p_name: name,
     p_type: type,
   });
-  if (error) return { data: null, error: error.message };
+  if (error) {
+    logCreateFailure("createSceneProperty", error, { projectId, type });
+    return { data: null, error: error.message };
+  }
   const result = data as RpcResult<{ property: SceneProperty }>;
   if (result.status !== "ok") return { data: null, error: result.error };
   return { data: result.property, error: null };
