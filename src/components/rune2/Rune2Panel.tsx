@@ -26,7 +26,6 @@ import { SceneHistorySection } from "./SceneHistory";
 import { RevisionNotesView } from "./RevisionNotes";
 import { useRevisionNotes } from "./RevisionNoteStore";
 import { useRune2Selection, type PanelView } from "./Rune2Selection";
-import { useViewStore } from "./ViewStore";
 
 // The one contextual panel: a single shell for both contextual side surfaces.
 // Revision Notes and Inspector are separate actions in the context bar, but
@@ -562,13 +561,11 @@ function InspectorView() {
 /**
  * A Scene's properties in the Inspector: the Manuscript's Scene properties,
  * each value edited in place. With none defined, a faint way to start —
- * never a form the writer must fill. "Edit scene properties" opens the
- * Manuscript's property settings (rename, reorder, options, remove).
+ * never a form the writer must fill. Each row's pencil opens that property's
+ * menu (rename, type, options, remove) — for every scene.
  */
 function SceneInspectorProperties({ sceneId }: { sceneId: string }) {
   const { sceneAvailable, manuscriptId, propertiesOf } = usePropertyStore();
-  const { select } = useRune2Selection();
-  const { openScenes } = useViewStore();
   const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
@@ -580,25 +577,7 @@ function SceneInspectorProperties({ sceneId }: { sceneId: string }) {
   if (!sceneAvailable || !manuscriptId) return null;
   const count = propertiesOf(manuscriptId).length;
   return (
-    <InspectorSection
-      title="Scene properties"
-      aside={
-        count > 0 ? (
-          <button
-            type="button"
-            className="r2-insp-aside-link"
-            title="Add, rename or remove properties for every scene"
-            aria-label="Edit scene properties for every scene"
-            onClick={() => {
-              select(null);
-              openScenes("properties");
-            }}
-          >
-            Edit
-          </button>
-        ) : undefined
-      }
-    >
+    <InspectorSection title="Scene properties" aside={count > 0 ? <span className="r2-insp-aside-note">For every scene</span> : undefined}>
       <div className="r2-scene-props">
       <ItemProperties
         itemId={sceneId}

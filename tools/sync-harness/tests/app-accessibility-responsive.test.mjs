@@ -178,8 +178,13 @@ test('the log-out question: Escape answers it, it is described, and "Stay" puts 
 });
 
 test('Escape answers the nearest layer only: a schema confirmation inside the Inspector never closes the panel', () => {
+  // The property settings ask before removing a property; the shared options
+  // editor (PropertyMenus, used by the settings and by a property's menu)
+  // asks before removing an option that is in use. Each answers Escape itself.
   const s = code(read('src/components/rune2/CollectionSchema.tsx'));
-  const confirms = s.match(/role="alertdialog"[\s\S]*?onKeyDown=\{\(e\) => \{[\s\S]*?\}\}/g) ?? [];
+  const m = code(read('src/components/rune2/PropertyMenus.tsx'));
+  const confirmsIn = (src) => src.match(/role="alertdialog"[\s\S]*?onKeyDown=\{\(e\) => \{[\s\S]*?\}\}/g) ?? [];
+  const confirms = [...confirmsIn(s), ...confirmsIn(m.slice(m.indexOf('function OptionsEditor(')))];
   assert.equal(confirms.length, 2);
   for (const c of confirms) {
     assert.match(c, /e\.stopPropagation\(\)/);
@@ -187,6 +192,9 @@ test('Escape answers the nearest layer only: a schema confirmation inside the In
     assert.match(c, /aria-describedby=\{confirmId\}/);
   }
   assert.match(s, /removeButton\.current\?\.focus\(\)/, 'focus back on the control that asked');
+  // A property's own menu: its remove question is a layer of the popover, and Escape there steps back to the menu — never past it.
+  assert.match(m, /if \(e\.key === "Escape"\) \{\s*e\.preventDefault\(\);\s*e\.stopPropagation\(\);\s*onClose\(\);/);
+  assert.match(m, /onClose=\{\(\) => setConfirming\(null\)\}/);
   // Scene History: leaving the confirm step keeps the keyboard in the dialog.
   assert.match(code(read('src/components/rune2/SceneHistory.tsx')), /function endConfirm\(\) \{\s*setConfirming\(false\);\s*dialogRef\.current\?\.focus\(\);/);
 });

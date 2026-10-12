@@ -16,6 +16,7 @@ import {
   type Role,
 } from "@/lib/import/structure";
 import type { ImportNotice, ParsedFile } from "@/lib/import/types";
+import { MenuSelect } from "./PropertyMenus";
 import { useModalFocus } from "./useModalFocus";
 
 // Manuscript Import (Rune 2.0, Milestone 15): choose a file → Rune reads it
@@ -421,17 +422,15 @@ function RoleSelect({ line, overrides, onRole }: RowProps & { line: Line }) {
   const role = roleOf(line, overrides);
   const options = line.options.length ? line.options : [role];
   return (
-    <select
-      className="r2-field r2-field--sm r2-import-role"
-      aria-label={`What “${line.text.slice(0, 40)}” is`}
+    <MenuSelect
+      className="r2-select--sm r2-import-role"
+      label={`What “${line.text.slice(0, 40)}” is`}
       value={role}
-      onChange={(e) => onRole(line.index, e.target.value as Role)}
-    >
-      {options.map((r) => (
-        <option key={r} value={r}>
-          {r === "text" && line.detected === "break" ? "Not a scene break (keep as text)" : ROLE_LABEL[r]}
-        </option>
-      ))}
-    </select>
+      options={options.map((r) => ({
+        value: r,
+        label: r === "text" && line.detected === "break" ? "Not a scene break (keep as text)" : ROLE_LABEL[r],
+      }))}
+      onChange={(r) => onRole(line.index, r)}
+    />
   );
 }

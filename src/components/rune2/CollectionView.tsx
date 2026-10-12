@@ -32,7 +32,9 @@ import { WorkspaceTitle } from "./WorkspaceTitle";
 // Filter, Sort, a Board's columns or a Timeline's axis and lanes, Search,
 // what the View shows, and the View's settings — each a small popover, so
 // nothing about the View lives anywhere else on the page. The Collection's
-// property settings (what properties exist) open inline under the row.
+// properties are made and configured on the Table itself (its header's
+// "+ Add property" and each column's menu); a List, Board or Timeline, which
+// has no header, opens the property settings inline on request.
 //
 // "New entry" makes an Entry in place: the writer names it in its row and
 // stays in the View. A click opens an Entry in the active tab (the Entry's own
@@ -59,6 +61,13 @@ export function CollectionView({ entry }: { entry: NavEntry }) {
   const [request, setRequest] = useState<ToolRequest | undefined>(undefined);
   const ask = (tool: ToolRequest["tool"]) => setRequest((r) => ({ tool, n: (r?.n ?? 0) + 1 }));
   const [search, setSearch] = useState("");
+  // "Edit properties" from the toolbar: on a Table, the header's own control;
+  // elsewhere (no header), the property settings inline under the bar.
+  const toggleSchema = () => {
+    const header = bodyRef.current?.querySelector<HTMLElement>("[data-add-property]");
+    if (header && !schemaOpen) header.click();
+    else setSchemaOpen((o) => !o);
+  };
 
   const views = viewsOf(entry.id);
   const view = activeViewOf(entry.id);
@@ -84,21 +93,7 @@ export function CollectionView({ entry }: { entry: NavEntry }) {
         >
           <p className="r2-collection-context">
             <span>{context[0]}</span>
-            {/* The way to the Collection's properties, where they are counted:
-                they belong to every entry, so they are set here, not per entry. */}
-            {propertied && (
-              <span>
-                <button
-                  type="button"
-                  className="r2-collection-context-link"
-                  aria-expanded={schemaOpen}
-                  title="Add, rename or remove the properties every entry has"
-                  onClick={() => setSchemaOpen((o) => !o)}
-                >
-                  {properties.length > 0 ? plural(properties.length, "property", "properties") : "Add properties"}
-                </button>
-              </span>
-            )}
+            {propertied && properties.length > 0 && <span>{plural(properties.length, "property", "properties")}</span>}
             {context.slice(1).map((fact) => (
               <span key={fact}>{fact}</span>
             ))}
@@ -125,12 +120,15 @@ export function CollectionView({ entry }: { entry: NavEntry }) {
                 search={search}
                 onSearch={setSearch}
                 schemaOpen={schemaOpen}
-                onToggleSchema={() => setSchemaOpen((o) => !o)}
+                onToggleSchema={toggleSchema}
+                // On a Table the word opens the header's own "+ Add property" (each
+                // column's menu does the rest); elsewhere, the settings inline.
+                schemaLabel={view.type === "table" ? "Add a property" : "Edit properties"}
                 request={request}
               />
             ) : (
               <div className="r2-toolbar">
-                <button type="button" className="r2-tool" aria-expanded={schemaOpen} onClick={() => setSchemaOpen((o) => !o)}>
+                <button type="button" className="r2-tool" aria-expanded={schemaOpen} onClick={toggleSchema}>
                   {properties.length === 0 ? "Properties" : `${properties.length} ${properties.length === 1 ? "property" : "properties"}`}
                 </button>
               </div>
@@ -147,7 +145,7 @@ export function CollectionView({ entry }: { entry: NavEntry }) {
             </p>
           )}
           {view.type === "table" ? (
-            <TableView ownerTitle={entry.title} view={view} properties={properties} entryIds={found} total={entryIds.length} presenter={presenter} />
+            <TableView ownerTitle={entry.title} addProperty={entry.id} view={view} properties={properties} entryIds={found} total={entryIds.length} presenter={presenter} />
           ) : view.type === "board" ? (
             <BoardView
               ownerId={entry.id}

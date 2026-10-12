@@ -76,7 +76,8 @@ type PropertyStore = {
   values: ReadonlyMap<string, PropertyValue>;
   /** Sets an Entry's or a Scene's value. Resolves to an error message, or null once saved. */
   setValue: (itemId: string, propertyId: string, value: PropertyValue | null) => Promise<string | null>;
-  createProperty: (ownerId: string, name: string, type: CollectionPropertyType) => Promise<string | null>;
+  /** `options`: a choice property's first options, made with it (a new Status's stages). */
+  createProperty: (ownerId: string, name: string, type: CollectionPropertyType, options?: string[]) => Promise<string | null>;
   /** Whether Relationship properties can be made (migration 028 applied). */
   relatable: boolean;
   createRelationship: (
@@ -204,12 +205,23 @@ export function PropertyStoreProvider({ workspace, children }: { workspace: Proj
   );
 
   const createProperty = useCallback<PropertyStore["createProperty"]>(
-    async (ownerId, name, type) => {
+    async (ownerId, name, type, options) => {
       const r = await (isManuscript(ownerId)
         ? createSceneProperty(projectId, name, type)
         : createCollectionProperty(ownerId, name, type)
       ).catch(() => networkError);
-      if (r.error === null) setPropertyOverlay((o) => settle(put(o, [[r.data.id, r.data]]), [r.data.id]));
+      if (r.error === null) {
+        let made: PropertyDefinition = r.data;
+        if (options && options.length > 0) {
+          // The first options arrive with the property; failing that, it is simply made without them.
+          const u = await (isSceneProperty(made)
+            ? updateSceneProperty(made.id, { options: options.map((name) => ({ name })) })
+            : updateCollectionProperty(made.id, { options: options.map((name) => ({ name })) })
+          ).catch(() => networkError);
+          if (u.error === null) made = u.data.property;
+        }
+        setPropertyOverlay((o) => settle(put(o, [[made.id, made]]), [made.id]));
+      }
       refresh();
       return r.error;
     },

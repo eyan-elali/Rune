@@ -37,6 +37,7 @@ import {
 import { describeObject } from "@/lib/rune2/references";
 import type { PropertyDefinition, PropertyValue, SavedView } from "@/lib/types";
 import { OptionNames, PropertyValueEditor } from "./PropertyFields";
+import { AddPropertyButton, PropertyMenu } from "./PropertyMenus";
 import { usePropertyStore } from "./PropertyStore";
 import { useRune2Selection } from "./Rune2Selection";
 import { finishNaming, useNamingEntry, useNewEntry } from "./useNewEntry";
@@ -56,7 +57,11 @@ import { useViewStore } from "./ViewStore";
 //           read-only field — a Scene's words or placement — is only shown).
 //           Every column has a width (saved with the View, else its type's
 //           default) and can be dragged wider or narrower; long values
-//           wrap or truncate inside it.
+//           wrap or truncate inside it. The Table owns the width it is
+//           given: past its last column an open column runs to the edge,
+//           and its header holds "+ Add property" — the Collection's
+//           properties are made and configured (a header's menu) on the
+//           Table itself, never from a form above it.
 //   Board — a lane per option of a select or status property, or per Entry a
 //           Relationship points to (and one for none); moving a card between
 //           lanes sets that value — only that value.
@@ -282,8 +287,21 @@ export function ListView({ ownerTitle, view, properties, entryIds, total, presen
 // ── Table ───────────────────────────────────────────────────────────────────
 
 const COLUMN_DRAG_TYPE = "application/x-rune-column";
+const ADD_COLUMN_WIDTH = 150;
 
-export function TableView({ ownerTitle, view, properties, entryIds, total, presenter }: BodyProps & { ownerTitle: string }) {
+export function TableView({
+  ownerTitle,
+  addProperty,
+  view,
+  properties,
+  entryIds,
+  total,
+  presenter,
+}: BodyProps & {
+  ownerTitle: string;
+  /** The owner whose properties the header's "+ Add property" adds to (none: no such control). */
+  addProperty?: string;
+}) {
   const { setValue, moveProperty } = usePropertyStore();
   const { updateView } = useViewStore();
   const open = useOpenItem(presenter);
@@ -296,6 +314,8 @@ export function TableView({ ownerTitle, view, properties, entryIds, total, prese
   // A column header being dragged, and where it would land: before `before` (null: at the end).
   const [draggingColumn, setDraggingColumn] = useState<string | null>(null);
   const [dropBefore, setDropBefore] = useState<{ before: string | null } | null>(null);
+  // A column header's menu, hung from that header.
+  const [menu, setMenu] = useState<{ id: string; anchor: HTMLElement } | null>(null);
   const shown = shownProperties(view, properties);
   const sort = view.config.sort;
   const widthOf = (key: string, field: PropertyDefinition | typeof TITLE_COLUMN) =>
@@ -304,7 +324,9 @@ export function TableView({ ownerTitle, view, properties, entryIds, total, prese
     { key: TITLE_COLUMN, width: widthOf(TITLE_COLUMN, TITLE_COLUMN), name: presenter.titleHeader },
     ...shown.map((p) => ({ key: p.id, width: widthOf(p.id, p), name: p.name })),
   ];
-  const tableWidth = columns.reduce((sum, c) => sum + c.width, 0);
+  // The open column after the last: at least room for "+ Add property"; it
+  // takes whatever is left of the surface (min-width: 100% on the table).
+  const tableWidth = columns.reduce((sum, c) => sum + c.width, 0) + ADD_COLUMN_WIDTH;
 
   async function saveWidth(key: string, width: number | null) {
     const current = view.config.widths?.[key];
@@ -379,7 +401,7 @@ export function TableView({ ownerTitle, view, properties, entryIds, total, prese
     return () => clearTimeout(timer);
   }, [notice]);
 
-  if (entryIds.length === 0) return <ViewEmpty total={total} noun={presenter.noun} filtered={`No ${presenter.noun.toLowerCase()} match this view`} />;
+  const empty = entryIds.length === 0;
   const colId = (propertyId: string) => `${tableId}-c-${propertyId}`;
   const rowId = (entryId: string) => `${tableId}-r-${entryId}`;
   const sortMark = (by: string) =>
@@ -398,6 +420,7 @@ export function TableView({ ownerTitle, view, properties, entryIds, total, prese
             {columns.map((c) => (
               <col key={c.key} style={{ width: c.width }} />
             ))}
+            <col />
           </colgroup>
           <thead>
             <tr>
@@ -433,7 +456,6 @@ export function TableView({ ownerTitle, view, properties, entryIds, total, prese
                   // Drag a header to move its column; the View's "Properties
                   // shown" moves them by keyboard. Never while resizing.
                   draggable={!resizing}
-                  title={`Drag to move the ${p.name} column`}
                   onDragStart={(e) => {
                     if ((e.target as HTMLElement).closest(".r2-col-resize")) {
                       e.preventDefault();
@@ -450,10 +472,27 @@ export function TableView({ ownerTitle, view, properties, entryIds, total, prese
                   }}
                   onDrop={onColumnDrop}
                 >
-                  <span className="r2-table-head">
-                    {p.name}
-                    {sortMark(p.id)}
-                  </span>
+                  {isNative(p) ? (
+                    <span className="r2-table-head">
+                      {p.name}
+                      {sortMark(p.id)}
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      className="r2-table-head r2-table-head--button"
+                      aria-haspopup="dialog"
+                      aria-expanded={menu?.id === p.id}
+                      title={`${p.name} — rename, type, options. Drag to move the column`}
+                      onClick={(e) => {
+                        const anchor = e.currentTarget.closest("th") as HTMLElement;
+                        setMenu((m) => (m?.id === p.id ? null : { id: p.id, anchor }));
+                      }}
+                    >
+                      {p.name}
+                      {sortMark(p.id)}
+                    </button>
+                  )}
                   <ColumnResizer
                     name={p.name}
                     width={columns[i + 1].width}
@@ -462,9 +501,19 @@ export function TableView({ ownerTitle, view, properties, entryIds, total, prese
                   />
                 </th>
               ))}
+              <th scope="col" className="r2-table-add" onDragOver={(e) => onColumnDragOver(e, shown.length - 1)} onDrop={onColumnDrop}>
+                {addProperty && <AddPropertyButton ownerId={addProperty} compact label="Add property" />}
+              </th>
             </tr>
           </thead>
           <tbody>
+            {empty && (
+              <tr className="r2-table-empty">
+                <td colSpan={shown.length + 2}>
+                  <ViewEmpty total={total} noun={presenter.noun} filtered={`No ${presenter.noun.toLowerCase()} match this view`} />
+                </td>
+              </tr>
+            )}
             {entryIds.map((id, at) => {
               const item = presenter.label(id);
               if (!item) return null;
@@ -472,7 +521,7 @@ export function TableView({ ownerTitle, view, properties, entryIds, total, prese
                 <Fragment key={id}>
                   {at === presenter.sectionStart && at >= 0 && (
                     <tr className="r2-table-section" aria-hidden>
-                      <td colSpan={shown.length + 1}>{presenter.sectionTitle}</td>
+                      <td colSpan={shown.length + 2}>{presenter.sectionTitle}</td>
                     </tr>
                   )}
                   <tr className="r2-table-row">
@@ -513,6 +562,7 @@ export function TableView({ ownerTitle, view, properties, entryIds, total, prese
                         </td>
                       )
                     )}
+                    <td className="r2-table-filler" aria-hidden />
                   </tr>
                 </Fragment>
               );
@@ -520,6 +570,25 @@ export function TableView({ ownerTitle, view, properties, entryIds, total, prese
           </tbody>
         </table>
       </div>
+      {menu &&
+        (() => {
+          const property = shown.find((p) => p.id === menu.id);
+          if (!property) return null;
+          const i = shown.indexOf(property);
+          const anchor = menu.anchor;
+          return (
+            <PropertyMenu
+              property={property}
+              anchor={() => anchor}
+              onClose={() => setMenu(null)}
+              move={{
+                left: i > 0 ? () => void placeColumn(property.id, shown[i - 1].id) : undefined,
+                right: i < shown.length - 1 ? () => void placeColumn(property.id, shown[i + 2]?.id ?? null) : undefined,
+              }}
+              onNotice={setNotice}
+            />
+          );
+        })()}
       {notice && (
         <p role="status" className="r2-doc-note">
           {notice}

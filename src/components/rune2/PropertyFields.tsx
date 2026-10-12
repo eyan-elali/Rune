@@ -7,10 +7,9 @@ import {
   chosenOptions,
   formatDateValue,
   formatValue,
-  isChoiceType,
+  isSceneProperty,
   parseNumberInput,
   PROPERTY_TYPE_LABEL,
-  PROPERTY_TYPES,
   valueKey,
 } from "@/lib/rune2/collectionProperties";
 import {
@@ -21,9 +20,9 @@ import {
   type CollapsedCollections,
 } from "@/lib/rune2/entryPropertyPrefs";
 import { describeObject, targetSpecOf } from "@/lib/rune2/references";
-import type { CollectionPropertyType, PropertyDefinition, PropertyValue, ReferenceObjectType } from "@/lib/types";
+import type { PropertyDefinition, PropertyValue } from "@/lib/types";
 import { useProfileStore } from "@/store/profileStore";
-import { CollectionSchema } from "./CollectionSchema";
+import { AddPropertyButton, PROPERTY_TYPE_ICON, PropertyMenu } from "./PropertyMenus";
 import { ObjectPicker } from "./ObjectPicker";
 import { useFloating } from "./useFloating";
 import { usePropertyStore } from "./PropertyStore";
@@ -58,10 +57,9 @@ import { useOpenObject } from "./useOpenObject";
 // is ever hidden for good: a click brings the rows back.
 //
 // The Collection's properties can also be edited from here — renamed,
-// retyped, reordered, their options changed, removed — through the one
-// property settings (CollectionSchema), opened in place of the rows by
-// "Edit" or by a row's own pencil. It is the Collection's schema that
-// changes, for every Entry, and the settings say so; nothing is ever an
+// retyped, their options changed, removed — through a row's own pencil, which
+// opens that property's menu (PropertyMenu) beside its label. It is the
+// Collection's schema that changes, for every Entry; nothing is ever an
 // Entry's own property.
 
 export function EntryProperties({ entryId, collectionId }: { entryId: string; collectionId: string }) {
@@ -69,34 +67,23 @@ export function EntryProperties({ entryId, collectionId }: { entryId: string; co
   const { index } = useRune2Selection();
   const userId = useProfileStore((s) => s.profile?.id);
   const [collapsed, setCollapsed] = useCollapsedProperties(userId, collectionId);
-  // false: the rows; null: the settings; a property id: the settings, on that property.
-  const [editing, setEditing] = useState<false | null | string>(false);
   const titleOf = (id: string) => describeObject(index, id)?.title;
   if (!available) return null;
 
   const properties = propertiesOf(collectionId);
-  const collectionTitle = index.get(collectionId)?.title ?? "this collection";
   // No properties: only the faint "Add a property", as before — no heading to fold.
   if (properties.length === 0) return <ItemProperties itemId={entryId} ownerId={collectionId} />;
 
   const filled = properties.filter((p) => formatValue(p, values.get(valueKey(entryId, p.id)), titleOf) !== null).length;
   const open = !collapsed;
   return (
-    <section
-      className="r2-props r2-props--entry"
-      aria-label="Properties"
-      data-collapsed={collapsed || undefined}
-      data-editing={(open && editing !== false) || undefined}
-    >
+    <section className="r2-props r2-props--entry" aria-label="Properties" data-collapsed={collapsed || undefined}>
       <div className="r2-props-head">
         <button
           type="button"
           className="r2-props-toggle"
           aria-expanded={open}
-          onClick={() => {
-            setCollapsed(open);
-            if (open) setEditing(false);
-          }}
+          onClick={() => setCollapsed(open)}
           title={open ? "Hide properties" : "Show properties"}
         >
           {open ? <ChevronDown {...ICON_SM} aria-hidden /> : <ChevronRight {...ICON_SM} aria-hidden />}
@@ -108,29 +95,8 @@ export function EntryProperties({ entryId, collectionId }: { entryId: string; co
             </span>
           )}
         </button>
-        {open && (
-          <button
-            type="button"
-            className="r2-props-edit"
-            aria-pressed={editing !== false}
-            onClick={() => setEditing((e) => (e === false ? null : false))}
-            title={editing === false ? `Edit the properties of ${collectionTitle} — they belong to every entry` : "Back to this entry's values"}
-          >
-            {editing === false ? "Edit" : "Done"}
-          </button>
-        )}
       </div>
-      {open &&
-        (editing !== false ? (
-          <CollectionSchema
-            ownerId={collectionId}
-            ownerTitle={collectionTitle}
-            scope="entry"
-            focusId={typeof editing === "string" ? editing : undefined}
-          />
-        ) : (
-          <PropertyRows itemId={entryId} ownerId={collectionId} onEditProperty={(id) => setEditing(id)} />
-        ))}
+      {open && <PropertyRows itemId={entryId} ownerId={collectionId} />}
     </section>
   );
 }
@@ -195,20 +161,10 @@ export function ItemProperties({ itemId, ownerId, empty }: { itemId: string; own
 /**
  * The rows of one item's properties (label, value; each edited in place),
  * the fold of its empty ones, and "Add a property" — what ItemProperties
- * and an Entry's foldable block both show. `onEditProperty`: each row
- * offers its own pencil, which opens the owner's property settings on it.
+ * and an Entry's foldable block both show. Each row offers its own pencil,
+ * which opens that property's menu (name, type, options, removal).
  */
-function PropertyRows({
-  itemId,
-  ownerId,
-  empty,
-  onEditProperty,
-}: {
-  itemId: string;
-  ownerId: string;
-  empty?: ReactNode;
-  onEditProperty?: (propertyId: string) => void;
-}) {
+function PropertyRows({ itemId, ownerId, empty }: { itemId: string; ownerId: string; empty?: ReactNode }) {
   const { propertiesOf, values } = usePropertyStore();
   const [notice, setNotice] = useState<string | null>(null);
   const [unfolded, setUnfolded] = useState(false);
@@ -239,7 +195,6 @@ function PropertyRows({
               itemId={itemId}
               value={values.get(valueKey(itemId, p.id))}
               onError={setNotice}
-              onEdit={onEditProperty}
             />
           ))}
         </dl>
@@ -271,38 +226,41 @@ function PropertyRow({
   itemId,
   value,
   onError,
-  onEdit,
 }: {
   property: PropertyDefinition;
   itemId: string;
   value: PropertyValue | undefined;
   onError: (message: string) => void;
-  /** Offered on the row: edit this property's definition (the owner's, for every item). */
-  onEdit?: (propertyId: string) => void;
 }) {
   const { setValue } = usePropertyStore();
   const labelId = useId();
+  const [menu, setMenu] = useState(false);
+  const pencil = useRef<HTMLButtonElement>(null);
   const save = async (next: PropertyValue | null) => {
     const error = await setValue(itemId, property.id, next);
     if (error) onError(`“${property.name}” couldn’t be saved.`);
   };
+  const Icon = PROPERTY_TYPE_ICON[property.type];
   return (
-    <div className="r2-prop">
+    <div className="r2-prop" data-menu-open={menu || undefined}>
       <dt className="r2-prop-label" title={PROPERTY_TYPE_LABEL[property.type]}>
+        <Icon {...ICON_SM} aria-hidden className="r2-prop-label-icon" />
         <span id={labelId} className="r2-prop-label-text">
           {property.name}
         </span>
-        {onEdit && (
-          <button
-            type="button"
-            className="r2-prop-edit"
-            aria-label={`Edit the property ${property.name}`}
-            title={`Edit “${property.name}” — for every entry`}
-            onClick={() => onEdit(property.id)}
-          >
-            <Pencil {...ICON_SM} aria-hidden />
-          </button>
-        )}
+        <button
+          ref={pencil}
+          type="button"
+          className="r2-prop-edit"
+          aria-label={`Edit the property ${property.name}`}
+          aria-haspopup="dialog"
+          aria-expanded={menu}
+          title={`Edit “${property.name}” — for every ${isSceneProperty(property) ? "scene" : "entry"}`}
+          onClick={() => setMenu((m) => !m)}
+        >
+          <Pencil {...ICON_SM} aria-hidden />
+        </button>
+        {menu && <PropertyMenu property={property} anchor={() => pencil.current} onClose={() => setMenu(false)} />}
       </dt>
       <dd className="r2-prop-value">
         <PropertyValueEditor property={property} value={value} labelId={labelId} onSave={save} ownerId={itemId} />
@@ -865,10 +823,10 @@ function OptionPicker({
 }
 
 /**
- * "Add a property": a name and a type, added at the end of the owner's
- * properties — a Collection's, or (given the Manuscript's id) its Scene
- * properties. `quiet`: the faint form in an Entry or the Inspector;
- * otherwise the property settings.
+ * "Add a property": opens the small popover (PropertyMenus) that makes one —
+ * a name, then the type — at the end of the owner's properties: a
+ * Collection's, or (given the Manuscript's id) its Scene properties.
+ * `quiet`: the faint form in an Entry or the Inspector.
  */
 export function AddProperty({
   ownerId,
@@ -880,130 +838,5 @@ export function AddProperty({
   /** After a property is added (ItemProperties unfolds, so the new one shows). */
   onCreated?: () => void;
 }) {
-  const { createProperty, createRelationship, relatable, manuscriptId } = usePropertyStore();
-  const { workspace, index } = useRune2Selection();
-  const forScenes = ownerId === manuscriptId;
-  // A Scene's Relationship points, by default, to the first Collection (Characters, say).
-  const defaultTarget = forScenes ? (workspace.collections[0] ? `entry:${workspace.collections[0].id}` : "page") : `entry:${ownerId}`;
-  const [open, setOpen] = useState(false);
-  const [name, setName] = useState("");
-  const [type, setType] = useState<CollectionPropertyType>("text");
-  // A Relationship's target: "entry:<collection id>", "page" or "scene".
-  const [target, setTarget] = useState(defaultTarget);
-  const [many, setMany] = useState(true);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const nameId = useId();
-
-  if (!open) {
-    return (
-      <button type="button" className="r2-prop-add" data-quiet={quiet || undefined} onClick={() => setOpen(true)}>
-        <Plus {...ICON} aria-hidden />
-        Add a property
-      </button>
-    );
-  }
-
-  const submit = async () => {
-    if (!name.trim() || busy) return;
-    setBusy(true);
-    setError(null);
-    const [targetType, targetCollection] = target.split(":") as [ReferenceObjectType, string | undefined];
-    const e =
-      type === "relationship"
-        ? await createRelationship(ownerId, name.trim(), targetType, targetCollection ?? null, many)
-        : await createProperty(ownerId, name.trim(), type);
-    setBusy(false);
-    if (e) {
-      setError(e === "A property with this name already exists" ? "There’s already a property with that name." : "Couldn’t add the property.");
-      return;
-    }
-    setName("");
-    setType("text");
-    setTarget(defaultTarget);
-    setMany(true);
-    setOpen(false);
-    onCreated?.();
-  };
-  const collectionTitle = (id: string) => index.get(id)?.title ?? "Untitled collection";
-
-  return (
-    <form
-      className="r2-prop-new"
-      onSubmit={(e) => {
-        e.preventDefault();
-        void submit();
-      }}
-      onKeyDown={(e) => {
-        if (e.key === "Escape") {
-          e.preventDefault();
-          e.stopPropagation();
-          setOpen(false);
-        }
-      }}
-    >
-      <label htmlFor={nameId} className="sr-only">
-        Property name
-      </label>
-      <input
-        id={nameId}
-        autoFocus
-        className="r2-field r2-prop-new-name"
-        placeholder="Property name"
-        maxLength={100}
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-      />
-      <select
-        className="r2-field r2-prop-new-type"
-        aria-label="Property type"
-        value={type}
-        onChange={(e) => setType(e.target.value as CollectionPropertyType)}
-      >
-        {PROPERTY_TYPES.filter((t) => t !== "relationship" || relatable).map((t) => (
-          <option key={t} value={t}>
-            {PROPERTY_TYPE_LABEL[t]}
-          </option>
-        ))}
-      </select>
-      {type === "relationship" && (
-        <>
-          <select
-            className="r2-field r2-prop-new-type"
-            aria-label="Points to"
-            title="What this property points to"
-            value={target}
-            onChange={(e) => setTarget(e.target.value)}
-          >
-            {workspace.collections.map((c) => (
-              <option key={c.id} value={`entry:${c.id}`}>
-                {c.id === ownerId ? `${collectionTitle(c.id)} (this collection)` : collectionTitle(c.id)}
-              </option>
-            ))}
-            <option value="page">Pages</option>
-            <option value="scene">Scenes</option>
-          </select>
-          <label className="r2-prop-new-many">
-            <input type="checkbox" checked={many} onChange={(e) => setMany(e.target.checked)} />
-            Several
-          </label>
-        </>
-      )}
-      <button type="submit" className="r2-button r2-button--primary" disabled={busy || !name.trim()}>
-        Add
-      </button>
-      <button type="button" className="r2-button" onClick={() => setOpen(false)}>
-        Cancel
-      </button>
-      {error && (
-        <p role="status" className="r2-doc-note r2-prop-new-error">
-          {error}
-        </p>
-      )}
-      {isChoiceType(type) && <p className="r2-prop-new-hint">Options are added as you use it.</p>}
-      {type === "relationship" && (
-        <p className="r2-prop-new-hint">Points to things you already have — renaming them never breaks the link.</p>
-      )}
-    </form>
-  );
+  return <AddPropertyButton ownerId={ownerId} quiet={quiet} onCreated={onCreated} />;
 }

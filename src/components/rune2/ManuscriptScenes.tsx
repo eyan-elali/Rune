@@ -147,7 +147,7 @@ export function ManuscriptScenes({ scope }: { scope: SceneScope }) {
               move a chapter here with its “Move to”.
             </p>
           ) : view.type === "table" ? (
-            <TableView ownerTitle={ownerTitle} view={view} properties={properties} entryIds={found} total={sceneIds.length} presenter={presenter} />
+            <TableView ownerTitle={ownerTitle} addProperty={manuscriptId} view={view} properties={properties} entryIds={found} total={sceneIds.length} presenter={presenter} />
           ) : view.type === "board" ? (
             <BoardView
               ownerId={manuscriptId}

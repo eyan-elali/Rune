@@ -31,6 +31,7 @@ import {
   X,
 } from "lucide-react";
 import { useFloating } from "./useFloating";
+import { MenuSelect } from "./PropertyMenus";
 import { ICON, ICON_SM } from "./icons";
 import {
   filterOpLabel,
@@ -456,21 +457,16 @@ function FilterValue({
   if (!("value" in filter)) return null;
   if (filter.op === "is" || filter.op === "is_not") {
     return (
-      <select
-        className="r2-field r2-field--sm"
-        aria-label={property.type === "relationship" ? "Item" : "Option"}
+      <MenuSelect
+        className="r2-select--sm"
+        label={property.type === "relationship" ? "Item" : "Option"}
         value={filter.value}
-        onChange={(e) => onChange({ ...filter, value: e.target.value })}
-      >
-        {!choices.some((c) => c.id === filter.value) && (
-          <option value={filter.value}>An item in Trash</option>
-        )}
-        {choices.map((o) => (
-          <option key={o.id} value={o.id}>
-            {o.name}
-          </option>
-        ))}
-      </select>
+        options={[
+          ...(choices.some((c) => c.id === filter.value) ? [] : [{ value: filter.value, label: "An item in Trash" }]),
+          ...choices.map((o) => ({ value: o.id, label: o.name })),
+        ]}
+        onChange={(value) => onChange({ ...filter, value })}
+      />
     );
   }
   const commit = () => {
@@ -746,49 +742,30 @@ export function ViewToolbar({
                 });
               return (
                 <li key={i} className="r2-view-inline">
-                  <select
-                    className="r2-field r2-field--sm"
-                    aria-label="Property"
+                  <MenuSelect
+                    className="r2-select--sm"
+                    label="Property"
                     value={property.id}
-                    onChange={(e) => {
-                      const p = byId.get(e.target.value);
+                    options={properties.map((p) => ({ value: p.id, label: p.name }))}
+                    onChange={(id) => {
+                      const p = byId.get(id);
                       if (p) replace(newFilter(p, choicesOf(p)));
                     }}
-                  >
-                    {properties.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name}
-                      </option>
-                    ))}
-                  </select>
-                  <select
-                    className="r2-field r2-field--sm"
-                    aria-label="Condition"
+                  />
+                  <MenuSelect
+                    className="r2-select--sm"
+                    label="Condition"
                     value={f.op}
-                    onChange={(e) =>
-                      replace(
-                        withOp(
-                          f,
-                          property,
-                          e.target.value as ViewFilterOp,
-                          choices,
-                        ),
-                      )
-                    }
-                  >
-                    {filterOpsFor(property)
+                    options={filterOpsFor(property)
                       .filter(
                         (op) =>
                           (op !== "is" && op !== "is_not") ||
                           choices.length > 0 ||
                           f.op === op,
                       )
-                      .map((op) => (
-                        <option key={op} value={op}>
-                          {filterOpLabel(property, op)}
-                        </option>
-                      ))}
-                  </select>
+                      .map((op) => ({ value: op, label: filterOpLabel(property, op) }))}
+                    onChange={(op: ViewFilterOp) => replace(withOp(f, property, op, choices))}
+                  />
                   {/* A fresh field per filter kind, so a draft never carries over. */}
                   <FilterValue
                     key={`${f.property}-${f.op}`}
@@ -852,30 +829,22 @@ export function ViewToolbar({
         >
           <p className="r2-tool-pop-title">Sort by</p>
           <div className="r2-view-inline">
-            <select
-              className="r2-field r2-field--sm"
-              aria-label="Sort by"
+            <MenuSelect
+              className="r2-select--sm"
+              label="Sort by"
               value={config.sort?.by ?? ""}
-              onChange={(e) =>
+              options={[
+                { value: "", label: naturalOrder },
+                { value: "title", label: "Name" },
+                ...sortable.map((p) => ({ value: p.id, label: p.name })),
+              ]}
+              onChange={(by) =>
                 void save({
                   ...config,
-                  sort: e.target.value
-                    ? {
-                        by: e.target.value,
-                        direction: config.sort?.direction ?? "asc",
-                      }
-                    : null,
+                  sort: by ? { by, direction: config.sort?.direction ?? "asc" } : null,
                 })
               }
-            >
-              <option value="">{naturalOrder}</option>
-              <option value="title">Name</option>
-              {sortable.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
+            />
             {config.sort && (
               <span className="r2-tool-seg" role="group" aria-label="Direction">
                 <button
@@ -924,24 +893,17 @@ export function ViewToolbar({
         >
           <p className="r2-tool-pop-title">Along</p>
           {manuscript || axes.length > 0 ? (
-            <select
-              className="r2-field r2-field--sm"
-              aria-label="Along"
+            <MenuSelect
+              className="r2-select--sm"
+              label="Along"
               value={config.axis ?? ""}
-              onChange={(e) =>
-                void save({ ...config, axis: e.target.value || null })
-              }
-            >
-              {!config.axis && <option value="">Choose an axis</option>}
-              {manuscript && (
-                <option value={MANUSCRIPT_AXIS}>Manuscript position</option>
-              )}
-              {axes.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name} ({p.type === "date" ? "date" : "number"})
-                </option>
-              ))}
-            </select>
+              options={[
+                ...(config.axis ? [] : [{ value: "", label: "Choose an axis" }]),
+                ...(manuscript ? [{ value: MANUSCRIPT_AXIS, label: "Manuscript position" }] : []),
+                ...axes.map((p) => ({ value: p.id, label: `${p.name} (${p.type === "date" ? "date" : "number"})` })),
+              ]}
+              onChange={(axis) => void save({ ...config, axis: axis || null })}
+            />
           ) : (
             <p className="r2-view-muted">
               Add a Date or Number property to place{" "}
@@ -975,27 +937,20 @@ export function ViewToolbar({
             {view.type === "board" ? "Columns by" : "Lanes by"}
           </p>
           {groupable.length > 0 ? (
-            <select
-              className="r2-field r2-field--sm"
-              aria-label={view.type === "board" ? "Columns by" : "Lanes by"}
+            <MenuSelect
+              className="r2-select--sm"
+              label={view.type === "board" ? "Columns by" : "Lanes by"}
               value={config.group_by ?? ""}
-              onChange={(e) =>
-                void save({ ...config, group_by: e.target.value || null })
-              }
-            >
-              {view.type === "board" ? (
-                config.group_by === null && (
-                  <option value="">Choose a property</option>
-                )
-              ) : (
-                <option value="">No lanes</option>
-              )}
-              {groupable.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
+              options={[
+                ...(view.type === "board"
+                  ? config.group_by === null
+                    ? [{ value: "", label: "Choose a property" }]
+                    : []
+                  : [{ value: "", label: "No lanes" }]),
+                ...groupable.map((p) => ({ value: p.id, label: p.name })),
+              ]}
+              onChange={(by) => void save({ ...config, group_by: by || null })}
+            />
           ) : (
             <p className="r2-view-muted">
               Add a Status, Select or Relationship property to{" "}
@@ -1243,18 +1198,14 @@ function ViewSettings({
       <label htmlFor={`${ids}-type`} className="r2-tool-pop-title">
         Show as
       </label>
-      <select
+      <MenuSelect
         id={`${ids}-type`}
-        className="r2-field r2-field--sm"
+        className="r2-select--sm"
+        label="Show as"
         value={view.type}
-        onChange={(e) => void onRetype(e.target.value as CollectionViewType)}
-      >
-        {VIEW_TYPES.map((t) => (
-          <option key={t} value={t}>
-            {VIEW_TYPE_LABEL[t]}
-          </option>
-        ))}
-      </select>
+        options={VIEW_TYPES.map((t) => ({ value: t, label: VIEW_TYPE_LABEL[t] }))}
+        onChange={(t) => void onRetype(t)}
+      />
       {views.length > 1 && (
         <div className="r2-view-settings-row">
           <span className="r2-schema-actions">

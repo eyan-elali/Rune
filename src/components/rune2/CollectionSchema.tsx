@@ -1,19 +1,13 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import { ArrowDown, ArrowUp, Eye, EyeOff, Trash2, X } from "lucide-react";
-import { ICON, ICON_SM_BOLD } from "./icons";
-import {
-  convertibleTypes,
-  countOptionUses,
-  countValues,
-  isChoiceType,
-  isSceneProperty,
-  PROPERTY_TYPE_LABEL,
-} from "@/lib/rune2/collectionProperties";
+import { ArrowDown, ArrowUp, Eye, EyeOff, Trash2 } from "lucide-react";
+import { ICON } from "./icons";
+import { convertibleTypes, countValues, isChoiceType, isSceneProperty, PROPERTY_TYPE_LABEL } from "@/lib/rune2/collectionProperties";
 import { targetPhrase } from "@/lib/rune2/references";
 import type { CollectionPropertyType, PropertyDefinition } from "@/lib/types";
 import { AddProperty } from "./PropertyFields";
+import { MenuSelect, OptionsEditor, STATUS_DEFAULTS } from "./PropertyMenus";
 import { usePropertyStore } from "./PropertyStore";
 import { useRune2Selection } from "./Rune2Selection";
 import { useViewStore } from "./ViewStore";
@@ -151,7 +145,7 @@ export function SceneSuggestions({ ownerId, onNotice }: { ownerId: string; onNot
           title={`Add a ${PROPERTY_TYPE_LABEL[s.type]} property called ${s.name}`}
           onClick={async () => {
             setBusy(true);
-            const error = await createProperty(ownerId, s.name, s.type);
+            const error = await createProperty(ownerId, s.name, s.type, s.type === "status" ? STATUS_DEFAULTS : undefined);
             setBusy(false);
             if (error) onNotice("Couldn’t add the property.");
           }}
@@ -282,12 +276,16 @@ function SchemaRow({
             <span className="r2-field r2-schema-type" title="Relationship">
               → {targetPhrase(property, (id) => objects.get(id)?.title ?? "a collection in Trash")}
             </span>
-            <select
-              className="r2-field r2-schema-type"
-              aria-label={`How many ${property.name} ${scene ? "a scene" : "an entry"} holds`}
+            <MenuSelect
+              className="r2-schema-type"
+              label={`How many ${property.name} ${scene ? "a scene" : "an entry"} holds`}
               value={property.relation_many ? "many" : "one"}
-              onChange={(e) =>
-                void updateRelationship(property, { many: e.target.value === "many" }).then((error) => {
+              options={[
+                { value: "one", label: "One" },
+                { value: "many", label: "Several" },
+              ]}
+              onChange={(v) =>
+                void updateRelationship(property, { many: v === "many" }).then((error) => {
                   if (error)
                     onNotice(
                       error === "Some entries hold more than one" || error === "Some scenes hold more than one"
@@ -296,28 +294,20 @@ function SchemaRow({
                     );
                 })
               }
-            >
-              <option value="one">One</option>
-              <option value="many">Several</option>
-            </select>
+            />
           </>
         ) : types.length > 1 ? (
-          <select
-            className="r2-field r2-schema-type"
-            aria-label={`Type of ${property.name}`}
+          <MenuSelect
+            className="r2-schema-type"
+            label={`Type of ${property.name}`}
             value={property.type}
-            onChange={(e) => {
-              void updateProperty(property, { type: e.target.value as CollectionPropertyType }).then((r) => {
+            options={types.map((t) => ({ value: t, label: PROPERTY_TYPE_LABEL[t] }))}
+            onChange={(type) => {
+              void updateProperty(property, { type }).then((r) => {
                 if (r.error !== null) onNotice("The type couldn’t be changed.");
               });
             }}
-          >
-            {types.map((t) => (
-              <option key={t} value={t}>
-                {PROPERTY_TYPE_LABEL[t]}
-              </option>
-            ))}
-          </select>
+          />
         ) : (
           <span className="r2-field r2-schema-type" title="This type can’t be changed without losing values">
             {PROPERTY_TYPE_LABEL[property.type]}
@@ -416,142 +406,5 @@ function SchemaRow({
 
       {isChoiceType(property.type) && <OptionsEditor property={property} onNotice={onNotice} />}
     </li>
-  );
-}
-
-/** A choice property's options: rename in place, remove (asking first when used), add. */
-function OptionsEditor({ property, onNotice }: { property: PropertyDefinition; onNotice: (message: string) => void }) {
-  const { values, updateProperty } = usePropertyStore();
-  const [adding, setAdding] = useState("");
-  const [confirm, setConfirm] = useState<{ id: string; uses: number } | null>(null);
-  const confirmId = useId();
-  const addInput = useRef<HTMLInputElement>(null);
-  const cancelRemove = () => {
-    setConfirm(null);
-    addInput.current?.focus();
-  };
-
-  const save = async (options: { id?: string; name: string }[], failure: string) => {
-    const r = await updateProperty(property, { options });
-    if (r.error !== null) onNotice(r.error === "Each option needs a different name" ? "Each option needs a different name." : failure);
-    return r.error === null;
-  };
-
-  const removeOption = (id: string) =>
-    save(
-      property.options.filter((o) => o.id !== id),
-      "The option couldn’t be removed."
-    ).then(() => setConfirm(null));
-
-  return (
-    <div className="r2-schema-options" aria-label={`Options of ${property.name}`} role="group">
-      {property.options.map((o) => (
-        <OptionChip
-          key={o.id}
-          name={o.name}
-          label={`Option ${o.name}`}
-          onRename={(name) =>
-            save(
-              property.options.map((x) => (x.id === o.id ? { ...x, name } : x)),
-              "The option couldn’t be renamed."
-            )
-          }
-          onRemove={() => {
-            const uses = countOptionUses(values, property.id, o.id);
-            if (uses === 0) void removeOption(o.id);
-            else setConfirm({ id: o.id, uses });
-          }}
-        />
-      ))}
-      <input
-        ref={addInput}
-        className="r2-field r2-field--sm r2-schema-option-add"
-        placeholder="Add an option"
-        aria-label={`Add an option to ${property.name}`}
-        maxLength={100}
-        value={adding}
-        onChange={(e) => setAdding(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") {
-            e.preventDefault();
-            const name = adding.trim();
-            if (!name) return;
-            void save([...property.options, { name }], "The option couldn’t be added.").then((ok) => ok && setAdding(""));
-          }
-        }}
-      />
-      {confirm && (
-        <div
-          className="r2-schema-confirm"
-          role="alertdialog"
-          aria-label="Remove option?"
-          aria-describedby={confirmId}
-          onKeyDown={(e) => {
-            if (e.key === "Escape") {
-              e.preventDefault();
-              e.stopPropagation();
-              cancelRemove();
-            }
-          }}
-        >
-          <p id={confirmId}>
-            Remove “{property.options.find((o) => o.id === confirm.id)?.name}”? It will be cleared from{" "}
-            {isSceneProperty(property) ? plural(confirm.uses, "scene") : plural(confirm.uses, "entry", "entries")}.
-          </p>
-          <button type="button" className="r2-button r2-button--danger" autoFocus onClick={() => void removeOption(confirm.id)}>
-            Remove
-          </button>
-          <button type="button" className="r2-button" onClick={cancelRemove}>
-            Cancel
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function OptionChip({
-  name,
-  label,
-  onRename,
-  onRemove,
-}: {
-  name: string;
-  label: string;
-  onRename: (name: string) => Promise<boolean>;
-  onRemove: () => void;
-}) {
-  const [draft, setDraft] = useState(name);
-  const [seen, setSeen] = useState(name);
-  if (name !== seen) {
-    setSeen(name);
-    setDraft(name);
-  }
-  return (
-    <span className="r2-schema-option">
-      <input
-        aria-label={label}
-        maxLength={100}
-        size={Math.max(draft.length, 2)}
-        value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-        onBlur={() => {
-          const next = draft.trim();
-          if (!next || next === name) setDraft(name);
-          else void onRename(next).then((ok) => !ok && setDraft(name));
-        }}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") e.currentTarget.blur();
-          else if (e.key === "Escape") {
-            e.preventDefault();
-            e.stopPropagation();
-            setDraft(name);
-          }
-        }}
-      />
-      <button type="button" aria-label={`Remove ${label}`} onClick={onRemove}>
-        <X {...ICON_SM_BOLD} aria-hidden />
-      </button>
-    </span>
   );
 }
