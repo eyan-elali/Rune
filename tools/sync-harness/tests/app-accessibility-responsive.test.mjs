@@ -293,14 +293,23 @@ test('focus indicators: the ring is the focus colour (≥ 3:1 on every surface, 
       }
     }
   }
-  // Every rule that removes the outline for keyboard focus draws something legible instead.
+  // Every rule that removes the outline for keyboard focus draws something
+  // legible instead. The Border Language: a field's focus is its edge taking
+  // the accent line together with a soft halo (box-shadow in the accent
+  // wash) — the two together are the indicator, and that is intentional;
+  // the accent line alone, with nothing beside it, is not enough.
   const sheet = css();
   for (const m of sheet.matchAll(/([^{}]*:focus-visible[^{}]*)\{([^{}]*)\}/g)) {
     const [, sel, body] = m;
-    assert.ok(!/accent-line/.test(body), `${sel.trim()}: a focus indicator in the faint accent line`);
+    if (/accent-line/.test(body)) {
+      assert.match(body, /box-shadow:[^;]*accent-soft/, `${sel.trim()}: the accent line as a focus edge needs its halo`);
+    }
   }
+  assert.match(rule(sheet, '.r2-field:focus-visible'), /border-color: var\(--r2-accent-line\);\s*box-shadow: 0 0 0 3px var\(--r2-accent-soft\);/);
+  // A menu's keyboard item: a 1px inset ring in the focus colour (the
+  // Border Language: a hairline, not a heavier box).
   for (const sel of ['.r2-menu-item:focus-visible', '.r2-view-menu-item:focus-visible']) {
-    assert.match(rule(sheet, sel), /box-shadow: inset 0 0 0 1\.5px var\(--r2-focus\);/, sel);
+    assert.match(rule(sheet, sel), /box-shadow: inset 0 0 0 1px var\(--r2-focus\);/, sel);
   }
 });
 

@@ -1644,6 +1644,7 @@ button.r2-disclosure:hover {
 .r2-tabs ul,
 .r2-tabs-nav-toggle,
 .r2-tabs-add,
+.r2-tabs-widgets,
 .r2-contextbar > * {
   transition: opacity var(--r2-fade-in) var(--r2-ease-frame);
 }
@@ -1664,6 +1665,7 @@ button.r2-disclosure:hover {
 .r2-shell[data-writing] .r2-tabs ul,
 .r2-shell[data-writing] .r2-tabs-nav-toggle,
 .r2-shell[data-writing] .r2-tabs-add,
+.r2-shell[data-writing] .r2-tabs-widgets,
 .r2-shell[data-writing] .r2-contextbar > * {
   opacity: 0;
   transition-duration: var(--r2-fade-out);
@@ -10362,4 +10364,834 @@ li:hover .r2-pulse-remove,
   .r2-conflict-versions {
     grid-template-columns: 1fr;
   }
+}
+
+/* ══ Widgets (the global glance surface) ═══════════════════════════════════
+   "How is my writing going?" — opened from the tab band's far right
+   (Widgets.tsx), floating over the content from the top-right. Not a third
+   right-hand drawer, not a page: a personal control surface the writer
+   glances at and closes, everything beneath left exactly as it was.
+
+   Borders define structure, the accent communicates state: the panel and
+   its cards are told by tone and a neutral hairline; the accent appears only
+   in the progress line and a chosen size — never as a frame. */
+
+/* The control: at the band's far right, apart from the tabs (a utility of
+   the application, not of the working set). Open, it holds the quiet tone a
+   reached-for icon button has. */
+.r2-tabs-widgets {
+  align-self: center;
+  margin-left: auto;
+}
+.r2-tabs-widgets[data-open] {
+  color: var(--r2-ink-1);
+  background: var(--r2-hover);
+}
+
+/* The panel: one material surface — the overlay tone, a ring (never a
+   border), a faint light along the top, the pop shadow — hung under the tab
+   band at the right. It is as tall as its board needs, up to the window,
+   and the board scrolls inside it. */
+.r2-widgets {
+  position: fixed;
+  top: calc(var(--r2-bar) + 6px);
+  right: 10px;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  width: 480px;
+  max-width: calc(100vw - 20px);
+  max-height: calc(100dvh - var(--r2-bar) - 20px);
+  border-radius: var(--r2-radius-material);
+  background: var(--r2-overlay-bg);
+  box-shadow: inset 0 1px 0 var(--r2-material-highlight), var(--r2-ring), var(--r2-shadow-pop), var(--r2-shadow-lg);
+  color: var(--r2-text);
+  font-size: var(--r2-fs-ui);
+  transform-origin: top right;
+  animation: r2-pop-in var(--r2-medium) var(--r2-ease-frame);
+}
+.r2-widgets:focus-visible {
+  outline: none;
+}
+.r2-widgets-scrim {
+  display: none;
+}
+.r2-widgets-head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--r2-space-4);
+  padding: var(--r2-space-6) var(--r2-space-6) var(--r2-space-4) var(--r2-space-7);
+}
+.r2-widgets-heading {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--r2-space-1);
+}
+.r2-widgets-head h2 {
+  font-size: var(--r2-fs-heading);
+  font-weight: var(--r2-weight-semibold);
+  letter-spacing: var(--r2-tracking-heading);
+  line-height: var(--r2-lh-tight);
+  color: var(--r2-ink-1);
+}
+.r2-widgets-project {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--r2-fs-meta);
+  color: var(--r2-ink-3);
+}
+.r2-widgets-head .r2-icon-button {
+  margin-top: -2px;
+  margin-right: -6px;
+}
+.r2-widgets-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--r2-space-2) var(--r2-space-7) var(--r2-space-6);
+}
+.r2-widgets-hint,
+.r2-widgets-empty {
+  font-size: var(--r2-fs-meta);
+  line-height: var(--r2-lh-ui);
+  color: var(--r2-ink-3);
+}
+.r2-widgets-hint {
+  margin-bottom: var(--r2-space-5);
+}
+.r2-widgets-empty {
+  padding: var(--r2-space-5) 0;
+}
+.r2-widgets-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--r2-space-4);
+  padding: var(--r2-space-4) var(--r2-space-6) var(--r2-space-5) var(--r2-space-7);
+  border-top: 1px solid var(--r2-border);
+}
+.r2-widgets-foot > :only-child {
+  margin-left: auto;
+}
+/* A quiet text action ("Edit widgets", "Restore default board"). */
+.r2-widgets-link {
+  display: inline-flex;
+  align-items: center;
+  height: var(--r2-control-sm);
+  padding: 0 var(--r2-space-3);
+  margin: 0 calc(-1 * var(--r2-space-3));
+  border-radius: var(--r2-radius-sm);
+  font-size: var(--r2-fs-ui-sm);
+  color: var(--r2-ink-2);
+  transition: color var(--r2-fast) var(--r2-ease), background-color var(--r2-fast) var(--r2-ease);
+}
+.r2-widgets-link:hover:not(:disabled) {
+  color: var(--r2-ink-1);
+  background: var(--r2-hover);
+}
+.r2-widgets-link:disabled {
+  opacity: var(--r2-disabled-opacity);
+}
+
+/* ── The grid: two columns, two sizes ─────────────────────────────────────
+   Small is one cell; Wide spans both. Rows take the tallest card in them.
+   Nothing is placed by hand or sized by hand: order is the whole of it. */
+.r2-widget-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--r2-space-5);
+}
+.r2-widget {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 104px;
+  border-radius: var(--r2-radius-md);
+  background: var(--r2-group-bg);
+  box-shadow: inset 0 1px 0 var(--r2-material-highlight), 0 0 0 1px var(--r2-border);
+  transition: box-shadow var(--r2-medium) var(--r2-ease), opacity var(--r2-medium) var(--r2-ease);
+}
+.r2-widget[data-size="wide"] {
+  grid-column: span 2;
+}
+.r2-widget-content {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+}
+
+/* A widget's face: an eyebrow, the value, a quiet line at the foot. A face
+   that opens something is a button of the card's whole size. */
+.r2-widget-face {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--r2-space-2);
+  width: 100%;
+  min-width: 0;
+  padding: var(--r2-space-5) 14px;
+  border-radius: var(--r2-radius-md);
+  text-align: left;
+  color: inherit;
+}
+.r2-widget-face--action {
+  cursor: default;
+  transition: background-color var(--r2-fast) var(--r2-ease);
+}
+.r2-widget-face--action:hover {
+  background: var(--r2-hover-faint);
+}
+.r2-widget-face--action:active {
+  background: var(--r2-hover);
+}
+.r2-widget-face--action:focus-visible {
+  outline-offset: -2px;
+  border-radius: var(--r2-radius-md);
+}
+.r2-widget-eyebrow {
+  display: block;
+  font-size: var(--r2-fs-label);
+  font-weight: var(--r2-weight-medium);
+  letter-spacing: var(--r2-tracking-caps);
+  text-transform: uppercase;
+  color: var(--r2-ink-3);
+}
+.r2-widget-eyebrow-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--r2-space-4);
+  width: 100%;
+}
+.r2-widget-aside {
+  flex-shrink: 0;
+  margin: -3px -4px;
+  padding: 3px 4px;
+  border-radius: var(--r2-radius-xs);
+  font-size: var(--r2-fs-caption);
+  color: var(--r2-ink-3);
+  transition: color var(--r2-fast) var(--r2-ease);
+}
+.r2-widget-aside:hover {
+  color: var(--r2-ink-1);
+}
+.r2-widget-value {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  margin-top: var(--r2-space-1);
+  font-size: 22px;
+  font-weight: var(--r2-weight-semibold);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: var(--r2-tracking-title);
+  line-height: var(--r2-lh-tight);
+  color: var(--r2-ink-1);
+}
+.r2-widget-unit {
+  font-size: var(--r2-fs-ui);
+  font-weight: var(--r2-weight-regular);
+  letter-spacing: 0;
+  color: var(--r2-ink-3);
+}
+/* A name as the value (a Scene, a Milestone): a heading, cut after two lines. */
+.r2-widget-title {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  font-size: var(--r2-fs-heading);
+  font-weight: var(--r2-weight-semibold);
+  letter-spacing: var(--r2-tracking-heading);
+  line-height: var(--r2-lh-tight);
+  overflow-wrap: anywhere;
+}
+/* An empty or waiting state, said in a quieter voice than a number. */
+.r2-widget-quiet {
+  font-size: var(--r2-fs-row);
+  font-weight: var(--r2-weight-medium);
+  letter-spacing: var(--r2-tracking-heading);
+  color: var(--r2-ink-2);
+}
+.r2-widget-meta {
+  display: block;
+  width: 100%;
+  margin-top: auto;
+  padding-top: var(--r2-space-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--r2-fs-meta);
+  line-height: var(--r2-lh-ui);
+  color: var(--r2-ink-3);
+}
+.r2-widget-skeleton {
+  display: block;
+  width: 44%;
+  height: 22px;
+  margin-top: var(--r2-space-1);
+  border-radius: var(--r2-radius-xs);
+  background: var(--r2-surface-sunken);
+  animation: r2-widget-wait 1.4s var(--r2-ease) infinite alternate;
+}
+@keyframes r2-widget-wait {
+  from { opacity: 0.55; }
+  to { opacity: 1; }
+}
+
+/* Progress: a quiet line, its fill the accent, the number beside it. Reached,
+   the line takes the success tone. Never a ring, never a gauge. */
+.r2-widget-progress {
+  display: block;
+  width: 100%;
+  height: 3px;
+  margin-top: var(--r2-space-3);
+  border-radius: var(--r2-radius-pill);
+  background: var(--r2-surface-sunken);
+  overflow: hidden;
+}
+.r2-widget-progress-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--r2-accent);
+  transition: width var(--r2-frame) var(--r2-ease-frame);
+}
+.r2-widget-progress[data-reached] .r2-widget-progress-fill {
+  background: var(--r2-success);
+}
+.r2-widget-face--goal .r2-widget-meta {
+  margin-top: 0;
+}
+
+/* The goal's small form, in the card's own place. */
+.r2-widget-goal-form {
+  gap: var(--r2-space-3);
+}
+.r2-widget-goal-row {
+  display: flex;
+  align-items: center;
+  gap: var(--r2-space-4);
+  width: 100%;
+}
+.r2-widget-goal-row .r2-field {
+  width: 132px;
+  font-variant-numeric: tabular-nums;
+}
+.r2-widget-goal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--r2-space-3);
+  width: 100%;
+  margin-top: var(--r2-space-2);
+}
+.r2-widget-goal-remove {
+  margin-left: auto;
+  color: var(--r2-ink-3);
+}
+.r2-widget-error {
+  font-size: var(--r2-fs-meta);
+  line-height: var(--r2-lh-ui);
+  color: var(--r2-danger);
+}
+
+/* Recent: a short list of places, each a row that opens. */
+.r2-widget-face--list {
+  gap: var(--r2-space-3);
+  padding-bottom: var(--r2-space-4);
+}
+.r2-widget-list {
+  display: flex;
+  flex-direction: column;
+  width: calc(100% + 12px);
+  margin: 0 -6px;
+}
+.r2-widget-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) fit-content(40%);
+  align-items: baseline;
+  gap: var(--r2-space-4);
+  width: 100%;
+  min-height: var(--r2-control-md);
+  padding: 4px 6px;
+  border-radius: var(--r2-radius-sm);
+  text-align: left;
+  transition: background-color var(--r2-fast) var(--r2-ease);
+}
+.r2-widget-row:hover {
+  background: var(--r2-hover);
+}
+.r2-widget-row-kind {
+  min-width: 44px;
+  font-size: var(--r2-fs-caption);
+  color: var(--r2-ink-3);
+}
+.r2-widget-row-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--r2-fs-ui);
+  color: var(--r2-ink-1);
+}
+.r2-widget-row-context {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--r2-fs-meta);
+  color: var(--r2-ink-3);
+}
+
+/* ── Edit mode ────────────────────────────────────────────────────────────
+   Each card grows a quiet row of its own: the handle, its name, Small/Wide
+   where it allows both, and Remove. The face beneath is shown but inert.
+   The card itself drags (its controls keep their work); dragging, it lifts
+   and softens while the others shift under it. No outlines, no drop zones. */
+.r2-widget-edit {
+  display: flex;
+  align-items: center;
+  gap: var(--r2-space-2);
+  padding: var(--r2-space-3) var(--r2-space-3) 0 var(--r2-space-2);
+}
+.r2-widgets[data-editing] .r2-widget {
+  touch-action: none;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.r2-widgets[data-editing] .r2-widget-content {
+  opacity: 0.8;
+}
+.r2-widget-handle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: var(--r2-control-sm);
+  height: var(--r2-control-sm);
+  border-radius: var(--r2-radius-sm);
+  color: var(--r2-ink-3);
+  cursor: grab;
+  touch-action: none;
+  transition: color var(--r2-fast) var(--r2-ease), background-color var(--r2-fast) var(--r2-ease);
+}
+.r2-widget-handle:hover {
+  color: var(--r2-ink-1);
+  background: var(--r2-hover);
+}
+.r2-widget-edit-space {
+  flex: 1;
+}
+.r2-widget-sizes {
+  display: inline-flex;
+  flex-shrink: 0;
+  gap: var(--r2-space-1);
+  padding: 2px;
+  border-radius: var(--r2-radius);
+  background: var(--r2-surface-sunken);
+}
+.r2-widget-size {
+  height: 20px;
+  padding: 0 7px;
+  border-radius: var(--r2-radius-sm);
+  font-size: var(--r2-fs-caption);
+  color: var(--r2-ink-3);
+  transition: color var(--r2-fast) var(--r2-ease), background-color var(--r2-fast) var(--r2-ease);
+}
+.r2-widget-size:hover {
+  color: var(--r2-ink-1);
+}
+/* The chosen size: the accent says so (state), on a raised chip. */
+.r2-widget-size[aria-pressed="true"] {
+  color: var(--r2-accent-ink);
+  background: var(--r2-surface-raised);
+  box-shadow: var(--r2-shadow-sm);
+}
+.r2-widget-remove {
+  flex-shrink: 0;
+}
+.r2-widget[data-dragging] {
+  z-index: 1;
+  opacity: 0.72;
+  cursor: grabbing;
+  box-shadow: inset 0 1px 0 var(--r2-material-highlight), 0 0 0 1px var(--r2-border-strong), var(--r2-shadow-pop);
+}
+.r2-widgets[data-dragging] .r2-widget,
+.r2-widgets[data-dragging] .r2-widget * {
+  cursor: grabbing;
+}
+
+/* The catalog: what can be added, by group — a name, a tiny description,
+   the sizes it comes in (small marks, not words), and "Add". */
+.r2-widgets-catalog {
+  margin-top: var(--r2-space-8);
+}
+.r2-widgets-catalog > .r2-label {
+  display: block;
+  margin-bottom: var(--r2-space-3);
+}
+.r2-widgets-catalog-group + .r2-widgets-catalog-group {
+  margin-top: var(--r2-space-4);
+}
+.r2-widgets-catalog-section {
+  display: block;
+  padding: var(--r2-space-2) var(--r2-space-4) var(--r2-space-1);
+  font-size: var(--r2-fs-label);
+  letter-spacing: var(--r2-tracking-label);
+  color: var(--r2-ink-3);
+}
+.r2-widgets-catalog-item {
+  display: flex;
+  align-items: center;
+  gap: var(--r2-space-5);
+  width: 100%;
+  padding: var(--r2-space-3) var(--r2-space-4);
+  border-radius: var(--r2-radius);
+  text-align: left;
+  transition: background-color var(--r2-fast) var(--r2-ease);
+}
+.r2-widgets-catalog-item:hover {
+  background: var(--r2-hover);
+}
+.r2-widgets-catalog-text {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 1px;
+}
+.r2-widgets-catalog-name {
+  font-size: var(--r2-fs-ui);
+  color: var(--r2-ink-1);
+}
+.r2-widgets-catalog-desc {
+  font-size: var(--r2-fs-meta);
+  line-height: var(--r2-lh-ui);
+  color: var(--r2-ink-3);
+}
+.r2-widgets-catalog-sizes {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 3px;
+}
+.r2-widgets-size-mark {
+  display: inline-block;
+  height: 7px;
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px var(--r2-border-strong);
+  background: var(--r2-surface-raised);
+}
+.r2-widgets-size-mark[data-size="small"] {
+  width: 9px;
+}
+.r2-widgets-size-mark[data-size="wide"] {
+  width: 19px;
+}
+.r2-widgets-catalog-add {
+  flex-shrink: 0;
+  font-size: var(--r2-fs-ui-sm);
+  color: var(--r2-ink-2);
+}
+.r2-widgets-catalog-item:hover .r2-widgets-catalog-add {
+  color: var(--r2-ink-1);
+}
+
+/* ── Narrow: a sheet ──────────────────────────────────────────────────────
+   Where the navigator already lies over the content (data-narrow, under
+   900px), the board is a full sheet over the window rather than a floating
+   panel squeezed into it: the same grid, the same header, a clear Close. */
+.r2-shell[data-narrow] .r2-widgets {
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  width: auto;
+  max-width: none;
+  max-height: none;
+  border-radius: 0;
+  box-shadow: none;
+  transform-origin: top center;
+  animation: r2-fade-in var(--r2-medium) var(--r2-ease);
+}
+.r2-shell[data-narrow] .r2-widgets-scrim {
+  display: block;
+  position: fixed;
+  inset: 0;
+  z-index: 39;
+  background: var(--r2-scrim);
+}
+.r2-shell[data-narrow] .r2-widgets-head {
+  padding-top: var(--r2-space-7);
+}
+.r2-shell[data-narrow] .r2-widgets-body,
+.r2-shell[data-narrow] .r2-widgets-head,
+.r2-shell[data-narrow] .r2-widgets-foot {
+  padding-left: var(--r2-space-8);
+  padding-right: var(--r2-space-8);
+}
+.r2-shell[data-narrow] .r2-widget-grid {
+  max-width: 640px;
+}
+@media (max-width: 560px) {
+  .r2-widget-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .r2-widget[data-size="wide"] {
+    grid-column: auto;
+  }
+}
+
+/* ── Writing activity ─────────────────────────────────────────────────────
+   Today's Words and the Streak take the plain face. The calendar is a row
+   of weeks, a cell a day, Monday at the top: a quiet neutral cell for a day
+   without writing, the accent in four restrained washes for a writing day
+   (its exact words in the tooltip and the accessible name — never only a
+   shade). No axes, no legend: a small record of showing up. */
+.r2-widget-face--activity {
+  gap: var(--r2-space-4);
+}
+.r2-activity {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+  margin-top: var(--r2-space-1);
+}
+.r2-activity-months {
+  display: grid;
+  grid-template-columns: repeat(16, minmax(0, 1fr));
+  gap: 3px;
+  height: 14px;
+  font-size: var(--r2-fs-label);
+  line-height: 14px;
+  letter-spacing: var(--r2-tracking-label);
+  color: var(--r2-ink-3);
+}
+.r2-activity-month {
+  overflow: visible;
+  white-space: nowrap;
+}
+.r2-activity-weeks {
+  display: grid;
+  grid-template-columns: repeat(16, minmax(0, 1fr));
+  gap: 3px;
+}
+.r2-activity-week {
+  display: grid;
+  grid-template-rows: repeat(7, 1fr);
+  gap: 3px;
+}
+.r2-activity-day {
+  display: block;
+  aspect-ratio: 1;
+  width: 100%;
+  border-radius: 3px;
+  background: var(--r2-surface-sunken);
+  box-shadow: inset 0 0 0 1px var(--r2-hover-faint);
+  transition: transform var(--r2-fast) var(--r2-ease);
+}
+.r2-activity-day[data-level="1"] {
+  background: color-mix(in srgb, var(--r2-accent) 28%, var(--r2-group-bg));
+  box-shadow: none;
+}
+.r2-activity-day[data-level="2"] {
+  background: color-mix(in srgb, var(--r2-accent) 50%, var(--r2-group-bg));
+  box-shadow: none;
+}
+.r2-activity-day[data-level="3"] {
+  background: color-mix(in srgb, var(--r2-accent) 74%, var(--r2-group-bg));
+  box-shadow: none;
+}
+.r2-activity-day[data-level="4"] {
+  background: var(--r2-accent);
+  box-shadow: none;
+}
+.r2-activity-day:hover,
+.r2-activity-day:focus-visible {
+  transform: scale(1.18);
+}
+.r2-activity-day:focus-visible {
+  outline-offset: 1px;
+  border-radius: 3px;
+}
+
+/* ── Catalog previews ─────────────────────────────────────────────────────
+   A miniature of each face beside its name: the eyebrow and a sample value,
+   or a sample calendar. */
+.r2-widgets-catalog-preview {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  width: 108px;
+  min-height: 44px;
+  padding: 7px 9px;
+  border-radius: var(--r2-radius);
+  background: var(--r2-group-bg);
+  box-shadow: inset 0 1px 0 var(--r2-material-highlight), 0 0 0 1px var(--r2-border);
+}
+.r2-widget-mini {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  width: 100%;
+}
+.r2-widget-mini-eyebrow {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 8px;
+  font-weight: var(--r2-weight-medium);
+  letter-spacing: var(--r2-tracking-caps);
+  text-transform: uppercase;
+  color: var(--r2-ink-3);
+}
+.r2-widget-mini-value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12.5px;
+  font-weight: var(--r2-weight-semibold);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: var(--r2-tracking-heading);
+  line-height: 1.2;
+  color: var(--r2-ink-1);
+}
+.r2-widget-mini-unit {
+  font-size: 9.5px;
+  font-weight: var(--r2-weight-regular);
+  letter-spacing: 0;
+  color: var(--r2-ink-3);
+}
+.r2-widget-progress--mini {
+  height: 2px;
+  margin-top: 3px;
+}
+.r2-activity-mini {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 2px;
+  width: 56px;
+  margin-top: 2px;
+}
+.r2-activity-mini .r2-activity-week {
+  gap: 2px;
+}
+.r2-activity-mini .r2-activity-day {
+  border-radius: 1.5px;
+}
+
+/* The Widgets control's reach: an invisible 34px hit area around the 26px
+   control, so it is found as easily as the band's edge suggests. */
+.r2-tabs-widgets {
+  position: relative;
+}
+.r2-tabs-widgets::before {
+  content: "";
+  position: absolute;
+  inset: -4px;
+}
+
+/* ── Daily goal ───────────────────────────────────────────────────────────
+   A ring beside the number (the Project goal's grammar is a line; this one's
+   a ring): a thin track in the sunken tone, the progress in the accent, the
+   success tone once the day's words reach the target — with a small check
+   inside, so the state is never only a colour. The number stays first. */
+.r2-daily {
+  display: flex;
+  align-items: center;
+  gap: var(--r2-space-5);
+  width: 100%;
+  margin-top: var(--r2-space-2);
+}
+.r2-daily-text {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--r2-space-1);
+}
+.r2-daily-text .r2-widget-value {
+  margin-top: 0;
+}
+.r2-daily-text .r2-widget-meta {
+  margin-top: 0;
+  padding-top: 0;
+}
+.r2-widget-face--daily[data-size="small"] .r2-daily {
+  gap: var(--r2-space-4);
+}
+.r2-widget-face--daily[data-size="small"] .r2-widget-value {
+  font-size: 18px;
+}
+.r2-ring {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+}
+.r2-ring-svg {
+  display: block;
+}
+.r2-ring-track {
+  stroke: var(--r2-surface-sunken);
+}
+.r2-ring-fill {
+  stroke: var(--r2-accent);
+  transition: stroke-dashoffset var(--r2-frame) var(--r2-ease-frame), stroke var(--r2-medium) var(--r2-ease);
+}
+.r2-ring[data-reached] .r2-ring-fill {
+  stroke: var(--r2-success);
+}
+.r2-ring-check {
+  position: absolute;
+  color: var(--r2-success);
+}
+.r2-ring--mini {
+  margin-top: 3px;
+}
+.r2-ring--mini .r2-ring-track {
+  stroke: var(--r2-border);
+}
+.r2-daily-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--r2-space-2);
+  width: 100%;
+}
+.r2-daily-preset[aria-pressed="true"] {
+  color: var(--r2-accent-ink);
+  background: var(--r2-accent-soft);
+  border-color: var(--r2-accent-line);
+}
+
+/* ── The calendar against the goal ────────────────────────────────────────
+   Goal completion: a reached day takes a soft success tone with a tiny
+   check (the one place the success colour appears in the grid, and sparingly
+   — a wash, never a filled green block); a day under its goal keeps a quiet
+   accent; a day with no goal reads as words. Nothing is red, nothing is
+   marked missed. */
+.r2-activity-day {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.r2-activity-day[data-goal="hit"] {
+  background: color-mix(in srgb, var(--r2-success) 34%, var(--r2-group-bg));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--r2-success) 26%, transparent);
+}
+.r2-activity-check {
+  color: var(--r2-success);
+}
+.r2-activity-day[data-goal="hit"][data-level="4"] {
+  background: color-mix(in srgb, var(--r2-success) 34%, var(--r2-group-bg));
 }

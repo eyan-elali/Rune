@@ -134,12 +134,12 @@ test('the authenticated product shows no pricing, plan, upgrade, XP or unlock su
 // ── Preferences ───────────────────────────────────────────────────────────────
 
 test('preferences: stored values are read leniently; a change is checked key by key', () => {
-  assert.deepEqual(prefs.readRunePreferences(null), { editorFont: 'serif', spellcheck: true, appearance: 'light', writingSurface: 'theme', accent: 'blue' });
+  assert.deepEqual(prefs.readRunePreferences(null), { editorFont: 'serif', spellcheck: true, appearance: 'light', writingSurface: 'theme', accent: 'blue', dailyGoal: [] });
   assert.deepEqual(prefs.readRunePreferences({ rune2EditorFont: 'sans', rune2Spellcheck: false, rune2Appearance: 'light', activeTheme: 'candlelight' }),
-    { editorFont: 'sans', spellcheck: false, appearance: 'light', writingSurface: 'theme', accent: 'blue' },
+    { editorFont: 'sans', spellcheck: false, appearance: 'light', writingSurface: 'theme', accent: 'blue', dailyGoal: [] },
     'the legacy activeTheme (onboarding’s) is not the Rune theme');
   assert.deepEqual(prefs.readRunePreferences({ rune2EditorFont: 'comic', rune2Spellcheck: 'no', rune2Appearance: 'neon', rune2WritingSurface: '#ff0000' }),
-    { editorFont: 'serif', spellcheck: true, appearance: 'light', writingSurface: 'theme', accent: 'blue' }, 'unknown values read as the defaults');
+    { editorFont: 'serif', spellcheck: true, appearance: 'light', writingSurface: 'theme', accent: 'blue', dailyGoal: [] }, 'unknown values read as the defaults');
   assert.deepEqual(prefs.readRunePreferences(['x']), prefs.readRunePreferences(null));
 
   assert.deepEqual(prefs.validatePreferenceChange({ editorFont: 'sans', spellcheck: false }),
@@ -161,7 +161,7 @@ test('updateRunePreferences: saves only valid Rune preferences, merged into the 
 
   settings.setServerClient(createSupabaseAdapter(db, { userId: ALICE }));
   const saved = await settings.updateRunePreferences({ editorFont: 'sans', spellcheck: false });
-  assert.deepEqual(saved, { data: { editorFont: 'sans', spellcheck: false, appearance: 'light', writingSurface: 'theme', accent: 'blue' }, error: null });
+  assert.deepEqual(saved, { data: { editorFont: 'sans', spellcheck: false, appearance: 'light', writingSurface: 'theme', accent: 'blue', dailyGoal: [] }, error: null });
   assert.deepEqual((await one(db, `select preferences from public.profiles where id = $1`, [ALICE])).preferences,
     { activeTheme: 'candlelight', fontSize: 18, rune2EditorFont: 'sans', rune2Spellcheck: false }, 'merged; legacy keys untouched');
 

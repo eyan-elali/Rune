@@ -6,6 +6,7 @@ import { ICON } from "./icons";
 import { Tooltip } from "./Tooltip";
 import { isWorkspaceKind } from "@/lib/rune2/navigatorModel";
 import { MANUSCRIPT_TAB, useRune2Selection, type WorkingTab } from "./Rune2Selection";
+import { WidgetsControl } from "./Widgets";
 
 // The working set: a quiet row of the objects the writer has open in tabs of
 // their own (⌘/Ctrl-click or "Open in new tab" in the navigator). The row is
@@ -21,7 +22,9 @@ import { MANUSCRIPT_TAB, useRune2Selection, type WorkingTab } from "./Rune2Selec
 // hides and shows the navigator — always there, in the same place whether the
 // navigator is open or not; after the last tab, "+" (Open another), which
 // opens Project Search to add an object to the working set in a tab of its
-// own. Both fade with the rest of the chrome while the writer types.
+// own. Both fade with the rest of the chrome while the writer types. At the
+// band's far right, apart from the tabs, the Widgets control (Widgets.tsx)
+// opens the global glance surface over the content; it fades the same way.
 
 function tabLabel(tab: WorkingTab): string {
   return tab.entry?.title ?? "Manuscript";
@@ -96,6 +99,9 @@ export function Rune2Tabs() {
           <Plus {...ICON} aria-hidden />
         </button>
       </Tooltip>
+      {/* Widgets (Widgets.tsx): the shell's global glance surface, at the band's
+          far right — a utility of the application, apart from the tabs. */}
+      <WidgetsControl />
     </nav>
   );
 }

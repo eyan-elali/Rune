@@ -17,6 +17,9 @@ import { ACCENTS, THEMES, WRITING_SURFACES, type AccentId, type ThemeId, type Wr
 //   * rune2WritingSurface the manuscript's page — see WRITING_SURFACES
 //                       (one for all manuscript writing and reading; never
 //                       per Scene or per Project)
+//   * rune2DailyGoal    the Daily Writing Goal — see DAILY GOAL below: the
+//                       target and the days it changed on, so a past day is
+//                       judged by the goal that applied then
 //
 // PROJECT-SPECIFIC, synced (the projects row): the Project's title. No
 // writer preference genuinely varies by Project today, so none is stored per
@@ -45,7 +48,94 @@ export type RunePreferences = {
   appearance: AppearanceId;
   writingSurface: WritingSurfaceId;
   accent: AccentId;
+  dailyGoal: DailyGoalHistory;
 };
+
+// ── Daily Writing Goal ──────────────────────────────────────────────────────
+// An optional, account-wide target of credited writing words per LOCAL
+// calendar day (the words the writer typed, by the rules in
+// lib/rune2/writingActivity.ts — across every Project). Stored as its
+// history: one entry per day it was set, changed or turned off, in the
+// writer's local date (the device supplies it; the server never substitutes
+// its own clock), so a past day is judged by the goal that applied then —
+// raising the goal later never turns an earlier success into a failure, and
+// turning it off leaves later days with no goal. A second change on one day
+// replaces that day's entry: today's progress is against the goal as it now
+// stands. Days before the first entry have no goal. Never a per-Project
+// goal, never a schedule. Kept apart from the Project goal (writing_goals,
+// a manuscript total): different question, different storage.
+
+export type DailyGoalEntry = {
+  /** The local calendar day this goal applies from (YYYY-MM-DD). */
+  from: string;
+  /** Words per day, or null: the goal was turned off that day. */
+  target: number | null;
+};
+
+/** Ascending by day, one entry per day. Empty: never set. */
+export type DailyGoalHistory = DailyGoalEntry[];
+
+export const DAILY_GOAL_MIN = 1;
+export const DAILY_GOAL_MAX = 100_000;
+/**
+ * At most this many entries are kept: the latest ones. Entries are one per
+ * day, so the kept list always holds every change inside the activity
+ * calendar's window (112 days) AND the last change before it — a day in the
+ * window could only lose its governing entry if all 400 kept entries fell
+ * after it, i.e. 400 distinct change-days inside 112 days, which cannot be.
+ * Only days older than the 400th most recent change read as "no goal", and
+ * no surface judges those. (Proven by app-writing-activity.test.mjs.)
+ */
+export const DAILY_GOAL_HISTORY_MAX = 400;
+export const DAILY_GOAL_PRESETS = [250, 500, 750, 1000] as const;
+
+const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+export function isDailyGoalTarget(v: unknown): v is number {
+  return typeof v === "number" && Number.isInteger(v) && v >= DAILY_GOAL_MIN && v <= DAILY_GOAL_MAX;
+}
+
+/**
+ * A stored history (any shape) as the history to use: well-formed entries
+ * only, sorted by day, the last entry for a day standing, the latest
+ * DAILY_GOAL_HISTORY_MAX kept. Anything else reads as never set.
+ */
+export function resolveDailyGoal(v: unknown): DailyGoalHistory {
+  if (!Array.isArray(v)) return [];
+  const byDay = new Map<string, number | null>();
+  for (const item of v) {
+    if (!item || typeof item !== "object") continue;
+    const { from, target } = item as { from?: unknown; target?: unknown };
+    if (typeof from !== "string" || !DAY_RE.test(from)) continue;
+    if (target !== null && !isDailyGoalTarget(target)) continue;
+    byDay.set(from, target as number | null);
+  }
+  return [...byDay.entries()]
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+    .slice(-DAILY_GOAL_HISTORY_MAX)
+    .map(([from, target]) => ({ from, target }));
+}
+
+/** The goal that applied on `date` (the last entry on or before it), or null: none, or off. */
+export function dailyGoalOn(history: DailyGoalHistory, date: string): number | null {
+  let target: number | null = null;
+  for (const e of history) {
+    if (e.from > date) break;
+    target = e.target;
+  }
+  return target;
+}
+
+/** Whether a goal has ever been set: the "goal completion" view has something to show. */
+export function hasDailyGoalHistory(history: DailyGoalHistory): boolean {
+  return history.some((e) => e.target !== null);
+}
+
+/** The history with `target` (or off, null) applying from `today` on. */
+export function setDailyGoal(history: DailyGoalHistory, today: string, target: number | null): DailyGoalHistory {
+  return resolveDailyGoal([...history, { from: today, target }]);
+}
+
 
 // ── Appearance ──────────────────────────────────────────────────────────────
 // The theme (Beta Completion C; the palettes are lib/rune2/themes.ts). Every
@@ -133,6 +223,7 @@ export function readRunePreferences(stored: unknown): RunePreferences {
     appearance: resolveAppearance(p.rune2Appearance),
     writingSurface: resolveWritingSurface(p.rune2WritingSurface),
     accent: resolveAccent(p.rune2Accent),
+    dailyGoal: resolveDailyGoal(p.rune2DailyGoal),
   };
 }
 
@@ -143,6 +234,7 @@ export const PREFERENCE_KEYS = {
   appearance: "rune2Appearance",
   writingSurface: "rune2WritingSurface",
   accent: "rune2Accent",
+  dailyGoal: "rune2DailyGoal",
 } as const satisfies Record<keyof RunePreferences, string>;
 
 /**
@@ -177,6 +269,22 @@ export function validatePreferenceChange(
         if (!isAccentId(value)) return { patch: null, error: "Unknown accent colour." };
         patch[PREFERENCE_KEYS.accent] = value;
         break;
+      case "dailyGoal": {
+        // The whole history, well-formed: every entry a local day with a
+        // target in range or off; what is stored is the normalised list.
+        if (!Array.isArray(value)) return { patch: null, error: "A daily goal is its history." };
+        const ok = value.every(
+          (e) =>
+            e &&
+            typeof e === "object" &&
+            typeof (e as { from?: unknown }).from === "string" &&
+            DAY_RE.test((e as { from: string }).from) &&
+            ((e as { target?: unknown }).target === null || isDailyGoalTarget((e as { target?: unknown }).target))
+        );
+        if (!ok) return { patch: null, error: "A daily goal is a whole number of words per day." };
+        patch[PREFERENCE_KEYS.dailyGoal] = resolveDailyGoal(value);
+        break;
+      }
       default:
         return { patch: null, error: "Unknown preference." };
     }

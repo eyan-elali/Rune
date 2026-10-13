@@ -12,6 +12,11 @@ import {
 
 type ActionResult<T> = { data: T; error: null } | { data: null; error: string };
 
+/** PostgREST's or Postgres's "no such function": the database predates migration 057. */
+function isMissingFunction(error: { code?: string; message?: string }): boolean {
+  return error.code === "42883" || error.code === "PGRST202" || /could not find the function|does not exist/i.test(error.message ?? "");
+}
+
 async function getUser() {
   const supabase = await createClient();
   const {
@@ -58,7 +63,11 @@ export async function recordWordsWritten(
   sceneId: string | null = null,
   // sessionDate must be a YYYY-MM-DD local-calendar date supplied by the client.
   // Falls back to UTC date only when called outside a browser context.
-  sessionDate?: string
+  sessionDate?: string,
+  // The credit's id, chosen by the device (one per save cycle). With it the
+  // credit is atomic and idempotent (migration 057): sent twice — a retried
+  // action, a replayed offline queue — it lands once.
+  creditId?: string
 ): Promise<void> {
   if (wordsAdded <= 0) return;
 
@@ -67,12 +76,12 @@ export async function recordWordsWritten(
 
   const date = sessionDate ?? new Date().toISOString().slice(0, 10);
 
-  // When a sceneId is specified, skip the RPC and go straight to a Scene-keyed upsert.
-  // The RPC doesn't know about scene_id, so letting it run would update the wrong row.
-  if (sceneId === null) {
-    const { error } = await supabase.rpc("increment_writing_session", {
-      p_user_id: user.id,
+  // The one write: receipt + insert … on conflict do update, in the database.
+  if (creditId) {
+    const { error } = await supabase.rpc("credit_writing_words", {
+      p_credit_id: creditId,
       p_project_id: projectId,
+      p_scene_id: sceneId,
       p_session_date: date,
       p_words: wordsAdded,
     });
@@ -80,6 +89,10 @@ export async function recordWordsWritten(
       await checkWritingDayMilestones(supabase, user.id);
       return;
     }
+    // Only a database without 057 falls through to the previous path; any
+    // other refusal (a bad argument, not signed in) is final — never
+    // credited twice by a second route.
+    if (!isMissingFunction(error)) return;
   }
 
   // Manual upsert — match by scene_id when provided, otherwise by project_id

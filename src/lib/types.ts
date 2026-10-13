@@ -20,6 +20,8 @@ export interface UserPreferences {
   rune2Spellcheck?: boolean;
   /** Rune 2.0 appearance id (lib/rune2/preferences.ts APPEARANCES). */
   rune2Appearance?: string;
+  /** The Daily Writing Goal's history (lib/rune2/preferences.ts DailyGoalHistory). */
+  rune2DailyGoal?: unknown;
 }
 
 export type Rune2EditorFont = "serif" | "sans";

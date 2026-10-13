@@ -729,11 +729,12 @@ export async function flushPendingQueue(options: {
 /**
  * Applies pending_writing_credits to the writing_sessions table.
  *
- * Entries are grouped by (projectId, sceneId, sessionDate) so a full offline
- * session collapses into one server call per group rather than one per save event.
- * Each entry is deleted after a successful server write, preventing double-counting
- * on retries. Entries created during this flush (new UUID keys) are untouched and
- * will be processed on the next flush.
+ * One server call per entry, sent with the entry's own id as the credit id:
+ * the database records a receipt with the words (migration 057), so an entry
+ * replayed again — because its deletion below never ran, or another tab
+ * replays the same store — lands once. Each entry is deleted after a
+ * successful server write. Entries created during this flush (new UUID keys)
+ * are untouched and will be processed on the next flush.
  */
 export async function flushOfflineWritingCredits(): Promise<void> {
   try {
@@ -741,38 +742,17 @@ export async function flushOfflineWritingCredits(): Promise<void> {
     const all = await db.getAll('pending_writing_credits')
     if (all.length === 0) return
 
-    // Snapshot the IDs present at flush start — only these will be deleted.
-    // Any entries written after this point (new UUID keys) are left for next flush.
-    const snapshotIds = new Set(all.map((e) => e.id))
-
-    // Group by (projectId, sceneId, sessionDate) → one server call per group
-    type GroupKey = string
-    const groups = new Map<GroupKey, typeof all>()
     for (const entry of all) {
-      const key = `${entry.projectId ?? ''}:${entry.pageId}:${entry.sessionDate}`
-      const group = groups.get(key) ?? []
-      group.push(entry)
-      groups.set(key, group)
-    }
-
-    for (const entries of groups.values()) {
-      const { projectId, pageId: sceneId, sessionDate } = entries[0]
-      const totalWords = entries.reduce((sum, e) => sum + e.wordsAdded, 0)
-      if (totalWords <= 0) {
-        for (const e of entries) await db.delete('pending_writing_credits', e.id)
+      const { id, projectId, pageId: sceneId, sessionDate, wordsAdded } = entry
+      if (wordsAdded <= 0) {
+        await db.delete('pending_writing_credits', id)
         continue
       }
-
       try {
-        await recordWordsWritten(projectId, totalWords, sceneId, sessionDate)
-        // Only delete entries that were part of this flush's snapshot
-        for (const e of entries) {
-          if (snapshotIds.has(e.id)) {
-            await db.delete('pending_writing_credits', e.id)
-          }
-        }
+        await recordWordsWritten(projectId, wordsAdded, sceneId, sessionDate, id)
+        await db.delete('pending_writing_credits', id)
       } catch {
-        // Leave entries in IDB — will be retried on the next flush
+        // Leave the entry in IDB — it will be retried on the next flush
       }
     }
   } catch {

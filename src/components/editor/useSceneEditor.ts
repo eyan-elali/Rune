@@ -9,6 +9,7 @@ import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getLocalDateString } from "@/lib/utils";
 import { recordWordsWritten } from "@/lib/actions/writingStats";
+import { logWritingCredit } from "./writingCreditLog";
 import { writeToPendingQueue, syncPendingWrite } from "@/lib/offline/syncEngine";
 import { getOfflineDB, getPendingWrite, storeOfflineWritingCredit, SCENE_CACHE_STORE, type PendingWrite } from "@/lib/offline/db";
 import { isMissingServerFunction } from "@/lib/offline/serverCompat";
@@ -229,6 +230,29 @@ export function useSceneEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // One writing credit for typed words — online to the server, offline into
+  // the queue — under one id, so a retry or a replay lands once (migration
+  // 057), and logged for the Widgets board (writingCreditLog.ts). Never
+  // awaited by a save: statistics may fail or wait; the prose never does. A
+  // credit the server could not be reached for joins the offline queue with
+  // the same id, so it is neither lost nor counted twice.
+  const creditTypedWords = useCallback((projectId: string | null, sceneId: string, words: number) => {
+    if (words <= 0) return;
+    const id = crypto.randomUUID();
+    const date = getLocalDateString();
+    const online = isOnlineRef.current;
+    logWritingCredit({ id, projectId, date, words, pending: !online });
+    if (online) {
+      void recordWordsWritten(projectId, words, sceneId, date, id).catch((err) => {
+        console.error('[offline] recordWordsWritten failed; queued:', err);
+        return storeOfflineWritingCredit(projectId, sceneId, words, id);
+      });
+    } else {
+      void storeOfflineWritingCredit(projectId, sceneId, words, id)
+        .catch(err => console.error('[offline] storeOfflineWritingCredit failed:', err));
+    }
+  }, []);
+
   const handleSave = useCallback(async (content: Record<string, unknown>, wordCount: number, creditableWords: number) => {
     const scene = currentSceneRef.current;
     const uid = userIdRef.current;
@@ -250,14 +274,7 @@ export function useSceneEditor({
     lastSavedWordCountRef.current = wordCount;
 
     if (creditableWords > 0) {
-      if (isOnlineRef.current) {
-        void recordWordsWritten(projectIdRef.current, creditableWords, scene.id, getLocalDateString())
-          .catch(err => console.error('[offline] recordWordsWritten failed:', err));
-      } else {
-        // Queue a writing credit to be applied once we reconnect.
-        void storeOfflineWritingCredit(projectIdRef.current, scene.id, creditableWords)
-          .catch(err => console.error('[offline] storeOfflineWritingCredit failed:', err));
-      }
+      creditTypedWords(projectIdRef.current, scene.id, creditableWords);
     }
 
     if (isOnlineRef.current) {
@@ -462,13 +479,7 @@ export function useSceneEditor({
           await writeToPendingQueue(prevSceneId, uid, content, wordCount);
           onSceneUpdatedRef.current(prevSceneId, { content, word_count: wordCount });
           if (creditableWords > 0) {
-            if (isOnlineRef.current) {
-              void recordWordsWritten(prevProjectId, creditableWords, prevSceneId, getLocalDateString())
-                .catch(err => console.error('[offline] recordWordsWritten (scene switch) failed:', err));
-            } else {
-              void storeOfflineWritingCredit(prevProjectId, prevSceneId, creditableWords)
-                .catch(err => console.error('[offline] storeOfflineWritingCredit (scene switch) failed:', err));
-            }
+            creditTypedWords(prevProjectId, prevSceneId, creditableWords);
           }
           if (isOnlineRef.current) {
             void syncPendingWrite(prevSceneId, 'online', 'tab');
@@ -557,7 +568,7 @@ export function useSceneEditor({
         isLoadingRef.current = false;
       }, 0);
     }
-  }, [editor, currentScene?.id]);
+  }, [editor, currentScene?.id, creditTypedWords]);
 
   useEffect(() => {
     return () => {
@@ -587,13 +598,7 @@ export function useSceneEditor({
           const creditableWords =
             rawDelta > 0 ? Math.min(pendingEligibleWordsRef.current, rawDelta) : 0;
           if (creditableWords > 0) {
-            if (isOnlineRef.current) {
-              void recordWordsWritten(projectIdRef.current, creditableWords, scene.id, getLocalDateString())
-                .catch(err => console.error('[offline] recordWordsWritten (unmount) failed:', err));
-            } else {
-              void storeOfflineWritingCredit(projectIdRef.current, scene.id, creditableWords)
-                .catch(err => console.error('[offline] storeOfflineWritingCredit (unmount) failed:', err));
-            }
+            creditTypedWords(projectIdRef.current, scene.id, creditableWords);
             pendingEligibleWordsRef.current = Math.max(0, pendingEligibleWordsRef.current - creditableWords);
           }
           void writeToPendingQueue(scene.id, uid, content, wordCount).then(() => {

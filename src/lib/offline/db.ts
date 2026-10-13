@@ -618,13 +618,16 @@ export async function discardRetiredDraft(sceneId: string): Promise<boolean> {
 export async function storeOfflineWritingCredit(
   projectId: string | null,
   sceneId: string,
-  wordsAdded: number
+  wordsAdded: number,
+  // The credit's id (one per save cycle); the replay sends it as the credit
+  // id, so a credit replayed twice lands once (migration 057).
+  creditId: string = crypto.randomUUID()
 ): Promise<void> {
   if (wordsAdded <= 0) return
   try {
     const db = await getOfflineDB()
     await db.put('pending_writing_credits', {
-      id: crypto.randomUUID(),
+      id: creditId,
       pageId: sceneId, // legacy serialized field name
       projectId,
       wordsAdded,

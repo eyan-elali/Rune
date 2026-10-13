@@ -14,6 +14,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSceneEditor, type DisplaySyncStatus } from "@/components/editor/useSceneEditor";
 import { DocStatus } from "./DocStatus";
+import { reportLiveWords } from "./liveWords";
 import { SyncConflictModal } from "@/components/editor/SyncConflictModal";
 import { useNetworkStore } from "@/store/networkStore";
 import type { Scene } from "@/lib/types";
@@ -130,6 +131,8 @@ export default function Rune2Editor({
   const [blocks, setBlocks] = useState<Record<string, BlockState>>({});
 
   const report = useCallback((sceneId: string, state: BlockState | null) => {
+    // The same number, mirrored for surfaces outside this subtree (Widgets).
+    reportLiveWords(sceneId, state?.words ?? null);
     setBlocks((prev) => {
       const current = prev[sceneId];
       if (state === null) {

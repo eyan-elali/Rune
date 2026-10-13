@@ -46,7 +46,7 @@ against this snapshot. Column-order-only differences are omitted.
 | `writing_sessions` unique `(user_id, project_id, session_date)` | migration 002 |
 | `subscription_events.payload` | migration 004 (and the Stripe webhook inserts it) |
 | `user_unlockables` composite primary key `(user_id, unlockable_id)` and policy "user_unlockables: select own" | old `schema.sql` |
-| `increment_writing_session(…)` RPC | called by `recordWordsWritten` (`src/lib/actions/writingStats.ts`) for Arena credits; no tracked file ever created it and production doesn't have it, so the call always errors and falls back to a direct upsert |
+| `increment_writing_session(…)` RPC | once called by `recordWordsWritten` (`src/lib/actions/writingStats.ts`); no tracked file ever created it and production doesn't have it. The call is gone: a credit with an id goes through `credit_writing_words` (migration 057) and a database without 057 takes the direct-upsert path |
 
 **Matches:** every function body except the comment above, including
 `handle_new_user` (the 009 version) and the migration-011 RPCs; all 7 triggers

@@ -61,7 +61,7 @@ test('preferences: the four themes and the curated writing surfaces are the only
   }
   // Read leniently: a withdrawn or unknown value is the default, never an error.
   assert.deepEqual(prefs.readRunePreferences({ rune2Appearance: 'midnight', rune2WritingSurface: 'parchment' }),
-    { editorFont: 'serif', spellcheck: true, appearance: 'light', writingSurface: 'theme', accent: 'blue' });
+    { editorFont: 'serif', spellcheck: true, appearance: 'light', writingSurface: 'theme', accent: 'blue', dailyGoal: [] });
 });
 
 test('updateRunePreferences: theme and writing surface are saved and kept independently', async () => {
@@ -78,7 +78,7 @@ test('updateRunePreferences: theme and writing surface are saved and kept indepe
   assert.equal(r.data.writingSurface, 'theme', 'the surface is untouched by a theme change');
 
   r = await settings.updateRunePreferences({ writingSurface: 'paper' });
-  assert.deepEqual(r.data, { editorFont: 'sans', spellcheck: true, appearance: 'dark', writingSurface: 'paper', accent: 'blue' }, 'the theme is untouched by a surface change');
+  assert.deepEqual(r.data, { editorFont: 'sans', spellcheck: true, appearance: 'dark', writingSurface: 'paper', accent: 'blue', dailyGoal: [] }, 'the theme is untouched by a surface change');
 
   r = await settings.updateRunePreferences({ appearance: 'system' });
   assert.deepEqual(await stored(), { activeTheme: 'candlelight', rune2EditorFont: 'sans', rune2Appearance: 'system', rune2WritingSurface: 'paper' },
