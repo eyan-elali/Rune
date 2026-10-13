@@ -47,21 +47,48 @@ export function FrontHeader({ member }: { member: boolean }) {
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
+    // The page scrolls on the window (nothing in the landing's frame sets an
+    // overflow on html, body or a wrapper). A phone's rubber-band overscroll
+    // reports positions past either end — below 0, beyond the last screen —
+    // and the bounce back would read as a scroll up, so the position is held
+    // to the real range. The browser's bars collapsing or returning changes
+    // the viewport's height, never scrollY, so no threshold depends on it.
+    const position = () => {
+      const max = document.documentElement.scrollHeight - window.innerHeight;
+      return Math.min(Math.max(window.scrollY, 0), Math.max(max, 0));
+    };
     // A reload can restore a scroll position, so the form is settled up front.
-    let state: HeaderScrollState = initialHeaderScrollState(window.scrollY);
+    let state: HeaderScrollState = initialHeaderScrollState(position());
     const draw = () => {
       el.toggleAttribute("data-hidden", state.hidden);
       el.toggleAttribute("data-floating", state.floating);
     };
     draw();
-    const onScroll = () => {
-      const next = advanceHeaderScrollState(state, window.scrollY);
+    // One step per frame, however many scroll events a touch fling delivers.
+    let frame = 0;
+    const step = () => {
+      frame = 0;
+      const next = advanceHeaderScrollState(state, position());
       const changed = next.hidden !== state.hidden || next.floating !== state.floating;
       state = next;
       if (changed) draw();
     };
+    const onScroll = () => {
+      if (!frame) frame = requestAnimationFrame(step);
+    };
+    // Back/forward cache: the page returns where it was left, shown.
+    const onPageShow = (e: PageTransitionEvent) => {
+      if (!e.persisted) return;
+      state = initialHeaderScrollState(position());
+      draw();
+    };
     window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
+    window.addEventListener("pageshow", onPageShow);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("pageshow", onPageShow);
+      cancelAnimationFrame(frame);
+    };
   }, []);
 
   return (

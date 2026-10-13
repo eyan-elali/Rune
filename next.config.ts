@@ -85,7 +85,22 @@ const securityHeaders = [
   { key: "Content-Security-Policy-Report-Only", value: contentSecurityPolicy },
 ];
 
+// A phone on the same network opens the dev server by the Mac's LAN address
+// (http://192.168.x.y:3001), not localhost. Next 16 blocks the dev server's
+// endpoints for any origin it was not told about, so without this the page
+// arrives as server HTML that never hydrates: no client component runs (the
+// landing header never leaves its flat form, for one), which is not what a
+// real visitor gets. Private ranges and mDNS names only; dev only — the
+// option does nothing in a production build.
+const LAN_DEV_ORIGINS = [
+  "192.168.*.*",
+  "10.*.*.*",
+  ...Array.from({ length: 16 }, (_, i) => `172.${16 + i}.*.*`),
+  "*.local",
+];
+
 const nextConfig: NextConfig = {
+  allowedDevOrigins: LAN_DEV_ORIGINS,
   // The retired Rune 1.x addresses (and /rune2) lead into Rune 2.0.
   async redirects() {
     return [

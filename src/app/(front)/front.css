@@ -361,15 +361,22 @@
     height: 36px;
     padding: 0 var(--r2-space-6);
   }
-  /* One true screen: the small viewport height (the browser's bars shown),
-     less the header, so nothing jumps as the bars come and go, and the
-     action is on the first screen whatever the phone's height. The block
-     sits at the optical centre — a touch above the middle — with air
-     above and below it. */
+  /* One true screen, measured twice. The block is placed against the small
+     viewport (the browser's bars shown — what a phone shows on arrival), so
+     the action is on the first screen whatever the phone's height, at the
+     optical centre, a touch above the middle. The hero itself reaches the
+     large viewport (the bars collapsed): the extra height is added below
+     the block, where the bars cover it on arrival, so once a phone scrolls
+     and its address bar slides away the page tone still fills the screen
+     rather than the next section showing under a short hero. Both are
+     static units, so nothing resizes or jumps as the bars come and go
+     (dvh would). Where the large unit is unknown the small one stands. */
   .r2-lp-hero {
     min-height: calc(100svh - var(--lp-head));
+    min-height: calc(100lvh - var(--lp-head));
     align-content: center;
     padding: 24px 0 calc(24px + 7svh);
+    padding: 24px 0 calc(24px + 7svh + (100lvh - 100svh));
   }
   .r2-lp-hero-in {
     padding-top: 0;
