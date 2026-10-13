@@ -1,16 +1,18 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Check, File, FileUp, Frame, GitCommitHorizontal, Library, PenLine, Plus, type LucideIcon } from "lucide-react";
 import { beginOnboarding, chooseOnboardingPath, completeOnboarding, createOnboardingProject } from "@/lib/actions/onboarding";
-import type { OnboardingStep } from "@/lib/onboarding";
+import type { OnboardingPath, OnboardingStep } from "@/lib/onboarding";
 import { PROJECT_TITLE_MAX } from "@/lib/projectCreation";
 import { APPEARANCES, type AppearanceId } from "@/lib/rune2/preferences";
 import { ICON, ICON_SM, ICON_SM_BOLD } from "./icons";
 import { ManuscriptImportDialog } from "./ManuscriptImport";
 import { useRunePreferences, useRuneRootProps } from "./RunePreferences";
 import { Wordmark } from "@/components/brand/Wordmark";
+import { useSupportedDevice } from "@/components/layout/SupportedDeviceGate";
+import { DesktopHandoff } from "@/components/layout/PhoneWaitingRoom";
 
 // Onboarding (Beta Completion E): a short transition into Rune — not a
 // feature tour, not a motivational sequence. One idea per screen:
@@ -36,6 +38,14 @@ import { Wordmark } from "@/components/brand/Wordmark";
 // three small desks. The theme is the writer's own throughout: until they
 // choose one, the layout paints System, the front door's theme
 // (RunePreferences).
+//
+// On a phone (Early Access: the workspace is desktop and supported tablet)
+// the journey is the same until two screens. Import explains that the
+// manuscript comes in on the computer — the path stays "import" on the
+// server, so the desktop resumes at the importer — and the journey goes on.
+// Arrival is the desktop handoff: a new Project's journey is completed (the
+// desktop then opens Projects with it there); an import's is left open, so
+// the desktop resumes at the import. Nothing about the Project changes.
 
 type Step = OnboardingStep | "appearance" | "arrival";
 
@@ -44,14 +54,21 @@ const DESK_THEMES: AppearanceId[] = ["light", "candlelight", "dark"];
 
 export function Onboarding({
   initialStep,
+  initialPath,
   project: initialProject,
+  emailSentAt,
 }: {
   initialStep: OnboardingStep;
+  initialPath: OnboardingPath | null;
   project: { id: string; title: string } | null;
+  /** When a desktop link was last emailed (the phone handoff's cooldown). */
+  emailSentAt: string | null;
 }) {
   const router = useRouter();
   const rootProps = useRuneRootProps();
+  const supported = useSupportedDevice();
   const [step, setStep] = useState<Step>(initialStep);
+  const [path, setPath] = useState(initialPath);
   const [project, setProject] = useState(initialProject);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -79,6 +96,7 @@ export function Onboarding({
     run(async () => {
       const r = await chooseOnboardingPath(path);
       if (r.error !== null) return r.error;
+      setPath(r.data);
       go(path === "new" ? "title" : "import");
       return null;
     });
@@ -167,6 +185,8 @@ export function Onboarding({
 
         {step === "import" && (
           <ImportStep
+            supported={supported}
+            onContinue={() => go("model")}
             onBack={() => go("path")}
             onImported={(p) => {
               setProject({ id: p.projectId, title: p.title });
@@ -190,7 +210,11 @@ export function Onboarding({
 
         {step === "appearance" && <AppearanceStep onDone={() => go("arrival")} />}
 
-        {step === "arrival" && (
+        {step === "arrival" && supported === false && (
+          <PhoneArrival key="arrival" importPending={!project && path === "import"} emailSentAt={emailSentAt} />
+        )}
+
+        {step === "arrival" && supported !== false && (
           <Screen key="arrival" mode="moment" title="Your desk is ready.">
             <Actions>
               <button
@@ -316,13 +340,35 @@ function TitleStep({
 }
 
 function ImportStep({
+  supported,
   onBack,
+  onContinue,
   onImported,
 }: {
+  supported: boolean | null;
   onBack: () => void;
+  onContinue: () => void;
   onImported: (project: { projectId: string; title: string }) => void;
 }) {
   const [open, setOpen] = useState(true);
+  // Until the device is known (the server's paint), the heading alone: neither the importer nor the phone's note.
+  if (supported === null) return <Screen key="import" title="Bring in your manuscript." />;
+  if (!supported) {
+    return (
+      <Screen key="import-phone" title="Bring in your manuscript." back={onBack}>
+        <p className="r2-onb-lede">
+          You&rsquo;ll bring it in on your computer, where Sutura shows you the chapters and scenes it finds — you can
+          correct them before anything is created.
+        </p>
+        <p className="r2-onb-hint">Sutura reads Word (.docx), Markdown and plain text files.</p>
+        <Actions>
+          <button type="button" className="r2-button r2-button--primary r2-button--lg r2-onb-primary" onClick={onContinue}>
+            Continue
+          </button>
+        </Actions>
+      </Screen>
+    );
+  }
   return (
     <Screen key="import" title="Bring in your manuscript." back={onBack}>
       <p className="r2-onb-lede">
@@ -338,6 +384,52 @@ function ImportStep({
       </Actions>
       {open && <ManuscriptImportDialog onboarding onClose={() => setOpen(false)} onImported={onImported} />}
     </Screen>
+  );
+}
+
+/**
+ * Arrival on a phone: the desktop handoff, in onboarding's frame and the
+ * theme the writer just chose. A new Project's journey is completed here,
+ * once (the server's onboarding_complete is idempotent); a failure is said
+ * and can be retried, and the handoff stands either way — an unfinished
+ * journey only means the desktop shows the last steps again. An import
+ * still to come is not completed: the desktop resumes at the importer.
+ */
+function PhoneArrival({ importPending, emailSentAt }: { importPending: boolean; emailSentAt: string | null }) {
+  const [failed, setFailed] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const started = useRef(false);
+
+  const complete = useCallback(async () => {
+    setBusy(true);
+    try {
+      const r = await completeOnboarding();
+      setFailed(r.error !== null);
+    } catch {
+      setFailed(true);
+    } finally {
+      setBusy(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (importPending || started.current) return;
+    started.current = true;
+    void complete();
+  }, [importPending, complete]);
+
+  return (
+    <>
+      <DesktopHandoff variant={importPending ? "ready-import" : "ready"} initialEmailSentAt={emailSentAt} focusHeading />
+      {failed && (
+        <div role="alert" className="r2-notice r2-onb-error" data-tone="danger">
+          Your setup didn&rsquo;t finish saving.{" "}
+          <button type="button" className="r2-button r2-button--quiet r2-button--sm" disabled={busy} onClick={() => void complete()}>
+            {busy ? "Trying…" : "Try again"}
+          </button>
+        </div>
+      )}
+    </>
   );
 }
 

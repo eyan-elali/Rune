@@ -17,6 +17,9 @@ export const metadata: Metadata = { title: "Welcome" };
 // refresh resumes where the journey was, a completed journey (or an account
 // from before onboarding existed) goes to Projects, and once a Project is
 // made the journey resumes after it — never a second Project.
+//
+// Phones reach this page (components/layout/SupportedDeviceGate): the journey
+// is the same, and arrival on a phone is the desktop handoff.
 
 export default async function OnboardingPage() {
   const supabase = await createClient();
@@ -28,7 +31,7 @@ export default async function OnboardingPage() {
   const [{ data: rowData }, { count: projectsEver }, { data: profile }] = await Promise.all([
     supabase.from("account_onboarding").select("path, project_id, completed_at").eq("user_id", user.id).maybeSingle(),
     supabase.from("projects").select("id", { count: "exact", head: true }).eq("user_id", user.id),
-    supabase.from("profiles").select("has_written_first_words").eq("id", user.id).maybeSingle(),
+    supabase.from("profiles").select("has_written_first_words, preferences").eq("id", user.id).maybeSingle(),
   ]);
   const row = readOnboardingRow(rowData);
   if (!needsOnboarding(row, { projectsEver: projectsEver ?? 0, hasWritten: Boolean(profile?.has_written_first_words) })) {
@@ -50,5 +53,15 @@ export default async function OnboardingPage() {
     }
   }
 
-  return <Onboarding initialStep={onboardingStep(row, project !== null)} project={project} />;
+  const preferences = (profile?.preferences ?? null) as Record<string, unknown> | null;
+  const emailSentAt = typeof preferences?.mobile_desktop_email_sent_at === "string" ? preferences.mobile_desktop_email_sent_at : null;
+
+  return (
+    <Onboarding
+      initialStep={onboardingStep(row, project !== null)}
+      initialPath={row?.path ?? null}
+      project={project}
+      emailSentAt={emailSentAt}
+    />
+  );
 }

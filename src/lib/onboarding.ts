@@ -49,3 +49,19 @@ export function readOnboardingRow(v: unknown): OnboardingRow | null {
       typeof completed === "string" ? completed : completed instanceof Date ? completed.toISOString() : null,
   };
 }
+
+/**
+ * Where an account stands for the device gate (components/layout/SupportedDeviceGate):
+ * "onboarding" — it belongs in onboarding (needsOnboarding); "returning" — its
+ * journey is complete, or it predates onboarding; "unknown" — a read failed,
+ * so nothing is claimed about it (a phone then sees the neutral handoff).
+ */
+export type AccountStage = "onboarding" | "returning" | "unknown";
+
+export function accountStage(
+  row: OnboardingRow | null,
+  account: { projectsEver: number; hasWritten: boolean } | null
+): AccountStage {
+  if (!account) return "unknown";
+  return needsOnboarding(row, account) ? "onboarding" : "returning";
+}

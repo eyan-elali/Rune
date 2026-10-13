@@ -501,7 +501,7 @@ Implemented in `src/app/(rune2)/onboarding/page.tsx`, `src/components/rune2/Onbo
 5. Appearance (optional)
 6. Arrival
 
-It runs once per account. The (rune2) layout has already required sign-in and a pen name before it.
+It runs once per account, on desktop, supported tablet or phone (a phone's arrival is the desktop handoff). The (rune2) layout has already required sign-in and a pen name before it.
 
 ### Principles that still apply
 
@@ -519,7 +519,7 @@ The Rune 1.x journey (title, optional first sentence, Parchment/Candlelight choi
 ### Phones and device handoff
 
 - Authentication and required profile completion remain accessible on phones.
-- The application, onboarding included, sits behind the supported-device gate (`src/components/layout/SupportedDeviceGate.tsx`); a phone sees the waiting room.
+- Onboarding is open to phones; the rest of the application sits behind the supported-device gate (`src/components/layout/SupportedDeviceGate.tsx`, `PHONE_ROUTES`). On a phone, onboarding's import step explains that the import happens on a computer (the path stays `import`, so the desktop resumes at the importer), and arrival is the desktop handoff ("Your desk is ready."). A gated route on a phone resolves by server state (`accountStage` in `src/lib/onboarding.ts`): unfinished onboarding → `/onboarding`; finished → "Your writing is waiting."; unreadable → the neutral "Sutura is ready on desktop."
 - The full app remains a desktop/supported-tablet experience.
 - Cross-device state must be durable and server-backed. Do not rely on browser storage as the source of truth.
 

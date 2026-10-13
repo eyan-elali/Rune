@@ -1,98 +1,98 @@
-/* The phone waiting room (PhoneWaitingRoom.tsx), in Sutura's public frame
-   (PublicFrame variant="auth", locked to Sutura Light): the auth card's
-   language (rune2.css: .r2-auth-card) — the serif title, the lede in the UI
-   sans, the one blue action — composed for a phone. Only --r2-* tokens. */
+/* The desktop handoff on a phone (PhoneWaitingRoom.tsx): one editorial
+   column, no card — the serif headline, the open-beta note in the UI sans,
+   a short centred rule, the instruction in the serif, then the actions.
+   It stands in two frames: the public frame (a gated route, Sutura Light)
+   and onboarding's own (the arrival, the writer's chosen theme). Only
+   --r2-* tokens, so it reads in every theme. */
 
 .r2-wait {
   padding-top: env(safe-area-inset-top);
   padding-bottom: env(safe-area-inset-bottom);
 }
 
-.r2-wait-copy {
-  display: grid;
-  gap: var(--r2-space-4);
-  max-width: 22rem;
-  margin: var(--r2-space-5) auto 0;
-  font-size: 15px;
-  line-height: var(--r2-lh-body);
+.r2-handoff {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: min(100%, 26rem);
+  margin: 0 auto;
   text-align: center;
+  animation: r2-onb-in 420ms var(--r2-ease) both;
+}
+.r2-handoff h1 {
+  max-width: 14ch;
+  font-family: var(--r2-prose-font);
+  font-size: clamp(36px, 10vw, 48px);
+  font-weight: var(--r2-weight-regular);
+  line-height: 1.06;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+  color: var(--r2-ink-1);
+}
+.r2-handoff h1:focus {
+  outline: none;
+}
+.r2-handoff-note {
+  max-width: 22rem;
+  margin-top: var(--r2-space-7);
+  font-size: 15.5px;
+  line-height: var(--r2-lh-body);
   text-wrap: pretty;
   color: var(--r2-ink-2);
 }
-
-/* What the first session holds: a short numbered list under a quiet label. */
-.r2-wait-steps {
-  margin-top: var(--r2-space-9);
-  padding-top: var(--r2-space-7);
-  border-top: 1px solid var(--r2-material-border);
-}
-.r2-wait-eyebrow {
-  font-size: var(--r2-fs-label);
-  font-weight: var(--r2-weight-semibold);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--r2-ink-3);
-}
-.r2-wait-steps ol {
-  display: grid;
-  gap: var(--r2-space-5);
-  margin-top: var(--r2-space-6);
-}
-.r2-wait-steps li {
-  display: grid;
-  grid-template-columns: 22px minmax(0, 1fr);
-  align-items: baseline;
-  gap: var(--r2-space-4);
-  font-size: var(--r2-fs-row);
-  line-height: var(--r2-lh-ui);
+/* The instruction: anchored by the same short rule as onboarding's promise. */
+.r2-handoff-next {
+  max-width: 20rem;
+  margin-top: 30px;
+  font-family: var(--r2-prose-font);
+  font-size: 19px;
+  line-height: 1.4;
+  text-wrap: balance;
   color: var(--r2-ink-1);
 }
-.r2-wait-step-n {
-  font-family: var(--r2-prose-font);
-  font-size: 16px;
-  font-variant-numeric: lining-nums tabular-nums;
-  color: var(--r2-ink-3);
+.r2-handoff-next::before {
+  content: "";
+  display: block;
+  width: 36px;
+  height: 1px;
+  margin: 0 auto 26px;
+  background: var(--r2-border-strong);
+}
+.r2-handoff-host {
+  font-weight: var(--r2-weight-medium);
+  white-space: nowrap;
 }
 
-.r2-wait-desk {
-  margin-top: var(--r2-space-9);
-  font-family: var(--r2-prose-font);
-  font-size: 18px;
-  font-style: italic;
-  line-height: 1.4;
-  text-align: center;
-  color: var(--r2-ink-2);
-}
-
-.r2-wait-actions {
+.r2-handoff-actions {
   display: grid;
-  gap: var(--r2-space-5);
-  margin-top: var(--r2-space-8);
+  gap: var(--r2-space-4);
+  width: min(100%, 20rem);
+  margin-top: 36px;
 }
 /* Phone touch targets: at least 44px. */
-.r2-wait-button {
+.r2-handoff-button {
   width: 100%;
   height: auto;
-  min-height: 44px;
+  min-height: 48px;
   padding-top: 10px;
   padding-bottom: 10px;
   line-height: 1.3;
   white-space: normal;
   text-align: center;
 }
-.r2-wait-sent,
-.r2-wait-error {
+.r2-handoff-sent,
+.r2-handoff-error {
   padding: var(--r2-space-5) var(--r2-space-6);
   font-size: var(--r2-fs-body);
   line-height: var(--r2-lh-body);
   text-align: center;
 }
-.r2-wait-sent strong {
+.r2-handoff-sent strong {
   font-weight: var(--r2-weight-semibold);
 }
 
 /* Announced, not shown: the button's own label says it. */
-.r2-wait-live {
+.r2-handoff-live {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -101,22 +101,15 @@
   white-space: nowrap;
 }
 
-.r2-wait-foot {
-  padding-top: var(--r2-space-4);
-  padding-bottom: var(--r2-space-4);
-}
-.r2-wait-signout {
+.r2-handoff-signout {
   min-height: 44px;
-  margin: 0 auto;
+  margin-top: var(--r2-space-6);
   padding: 0 var(--r2-space-8);
   color: var(--r2-ink-3);
 }
 
-@media (max-width: 640px) {
-  .r2-wait-card {
-    padding-top: 28px;
-  }
-  .r2-wait-card h1 {
-    font-size: 28px;
+@media (prefers-reduced-motion: reduce) {
+  .r2-handoff {
+    animation: none;
   }
 }

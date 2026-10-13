@@ -9,6 +9,7 @@ import { HintsProvider } from "@/components/rune2/Hint";
 import { RunePreferencesProvider, RuneRoot } from "@/components/rune2/RunePreferences";
 import { Rune2Session } from "@/components/rune2/Rune2Session";
 import { COMPLETE_PROFILE_PATH, needsProfileCompletion, readProfileState } from "@/lib/accountGate";
+import { accountStage, readOnboardingRow } from "@/lib/onboarding";
 import { accountOf } from "@/lib/rune2/account";
 import { buildThemeCss } from "@/lib/rune2/themes";
 import type { PricingCohort } from "@/lib/pricing";
@@ -20,7 +21,11 @@ import "./rune2.css";
 // route group, so nothing of the Rune 1.x frame renders here. Entry rules:
 // signed in (the proxy also enforces this), a profile with a pen name (an
 // account without one — even with no profile row at all — goes to
-// /complete-profile), and a supported (non-phone) device. There is no access
+// /complete-profile), and a supported (non-phone) device — except onboarding,
+// which a phone may complete, ending in the desktop handoff. On a phone every
+// other route resolves by the account's stage (account_onboarding, the same
+// rule onboarding and Projects use): an unfinished journey goes to
+// onboarding, a finished one sees the returning handoff. There is no access
 // list: since Early Access (migration 056) every account with a profile may
 // use Sutura. It
 // runs the editor infrastructure every page may need: the profile/cohort
@@ -48,17 +53,28 @@ export default async function RuneLayout({ children }: { children: ReactNode }) 
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [profileState, { data: entitlement }] = await Promise.all([
+  const [profileState, { data: entitlement }, onboarding, projectsEver] = await Promise.all([
     readProfileState<Profile>(supabase, user.id),
     supabase
       .from("user_pricing_entitlements")
       .select("pricing_cohort")
       .eq("user_id", user.id)
       .maybeSingle(),
+    supabase.from("account_onboarding").select("path, project_id, completed_at").eq("user_id", user.id).maybeSingle(),
+    supabase.from("projects").select("id", { count: "exact", head: true }).eq("user_id", user.id),
   ]);
   // The profile comes first (lib/accountGate.ts): no profile, or no pen name, is never let in.
   if (needsProfileCompletion(profileState)) redirect(COMPLETE_PROFILE_PATH);
   const profile = profileState.status === "complete" ? profileState.profile : null;
+  // Counted as onboarding counts it (app/(rune2)/onboarding/page.tsx), so the
+  // two always agree and a phone is never bounced between them. Only definite
+  // answers: a failed read is "unknown", never a guess.
+  const stage = accountStage(
+    readOnboardingRow(onboarding.data),
+    profile && !onboarding.error && !projectsEver.error && projectsEver.count !== null
+      ? { projectsEver: projectsEver.count, hasWritten: Boolean(profile.has_written_first_words) }
+      : null
+  );
 
   return (
     <RunePreferencesProvider
@@ -75,7 +91,7 @@ export default async function RuneLayout({ children }: { children: ReactNode }) 
         pricingCohort={(entitlement?.pricing_cohort as PricingCohort | undefined) ?? null}
       />
       <SupportedDeviceGate
-        variant="returning"
+        stage={stage}
         preferences={profile?.preferences as Record<string, unknown> | null}
         // Until the device is known (the server's paint), the writer's own
         // theme — never the Rune 1.x splash, which would flash another palette.

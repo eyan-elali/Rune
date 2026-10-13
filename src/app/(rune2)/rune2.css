@@ -9783,6 +9783,17 @@ a.r2-home-row-main:focus-visible {
     align-self: flex-start;
     margin-bottom: var(--r2-space-7);
   }
+  /* A phone completes onboarding (SupportedDeviceGate): touch targets of at
+     least 44px, and the moments sized for the narrow column. */
+  .r2-onb-back,
+  .r2-onb-system,
+  .r2-onb-error .r2-button,
+  .r2-onb-actions .r2-button {
+    min-height: 44px;
+  }
+  .r2-onb-screen--moment h1 {
+    font-size: clamp(38px, 11vw, 44px);
+  }
   .r2-auth-card {
     padding: 32px 24px 0;
   }
