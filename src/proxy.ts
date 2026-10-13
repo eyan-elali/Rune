@@ -26,6 +26,11 @@ const PUBLIC_ROUTES = [
   "/features/canvas",
   "/features/inspector",
   "/features/revision-notes",
+  // The four smaller things for the writing itself (components/front/FrontMore).
+  "/features/widgets",
+  "/features/milestones",
+  "/features/reading-mode",
+  "/features/focus-and-themes",
   // The authorship principle the landing page's No AI writing card
   // (components/front/FrontTrust) leads to, public for the same reason.
   "/principles/no-ai",

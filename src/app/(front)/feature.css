@@ -932,6 +932,246 @@
   margin: 0;
 }
 
+/* The Widgets page's board (WidgetsBoard; rune2.css: "Widgets"): the panel
+   as the product hangs it under the tab band — its head, the board, the
+   foot — standing as the figure itself, at the panel's own width, centred
+   on the material. The faces are the real ones: the Daily goal's ring, the
+   activity calendar, the Project goal's line. */
+.r2-fp-widgets {
+  display: flex;
+  flex-direction: column;
+  width: min(100%, 520px);
+  margin: 0 auto;
+  background: var(--r2-overlay-bg);
+  color: var(--r2-text);
+}
+.r2-fp-visual[data-size="widgets"] .r2-fp-visual-in {
+  background: var(--r2-shell-bg);
+  padding: 36px 24px;
+}
+.r2-fp-widgets {
+  border-radius: var(--r2-radius-material);
+  box-shadow: inset 0 1px 0 var(--r2-material-highlight), var(--r2-ring), var(--r2-shadow-pop), var(--r2-shadow-lg);
+}
+.r2-fp-widgets .r2-widgets-body {
+  overflow: visible;
+}
+.r2-fp-widgets .r2-widget-aside,
+.r2-fp-widgets .r2-widgets-link,
+.r2-fp-widgets .r2-widget-face {
+  cursor: default;
+}
+.r2-fp-widgets .r2-widget-progress-fill,
+.r2-fp-widgets .r2-ring-fill,
+.r2-fp-widgets .r2-activity-day {
+  transition: none;
+}
+
+/* A widget alone (MilestoneWidget): the one card on the shell's tone, at a
+   wide widget's measure. */
+.r2-fp-widget-alone {
+  padding: 28px 24px;
+  background: var(--r2-shell-bg);
+}
+.r2-fp-widget-alone .r2-widget {
+  width: min(100%, 440px);
+  margin: 0 auto;
+}
+.r2-fp-widget-alone .r2-widget-face {
+  cursor: default;
+}
+
+/* The Milestones page's sheet (MilestonesSheet): the Inspector alone, as
+   the Connections figure is, on the Manuscript's Milestones; the list's
+   rows are the product's (".r2-milestone-item"), nothing hovers. */
+.r2-fp-visual .r2-milestone-item {
+  cursor: default;
+}
+.r2-fp-visual .r2-milestone-item:hover {
+  background: none;
+}
+.r2-fp-visual .r2-milestone-list {
+  margin-top: 6px;
+}
+.r2-fp-visual .r2-insp-caption {
+  margin-bottom: 4px;
+}
+
+/* The Reading Mode page's picture (ReadingPeek; rune2.css: ".r2-reader",
+   "The reading surface"): the shell drawn whole beneath — the navigator
+   and the chapter open — and over it, under the scrim, the Reading Peek's
+   surface at the product's reading width, standing a little down from
+   the frame's top and running past its foot, so the picture is of a layer
+   over the workspace, not a second window. The prose inside is set as
+   the reader sets it: the manuscript's serif at the reading size. */
+.r2-fp-reading {
+  position: relative;
+  height: 600px;
+  overflow: hidden;
+  background: var(--r2-bg);
+}
+.r2-fp-reading-shell {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: var(--r2-nav-full) minmax(0, 1fr);
+}
+.r2-fp-reading-shell .r2-lp-shot-content {
+  display: flex;
+  flex-direction: column;
+}
+.r2-fp-reading-scrim {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  background: var(--r2-scrim);
+}
+.r2-fp-reader {
+  position: absolute;
+  z-index: 3;
+  top: 40px;
+  right: 0;
+  bottom: -24px;
+  left: 0;
+  width: min(640px, calc(100% - 200px));
+  margin: 0 auto;
+  overflow: hidden;
+  border-radius: var(--r2-radius-lg);
+  box-shadow: 0 0 0 1px rgba(var(--r2-palette-ink) / 0.06), var(--r2-shadow-lg);
+  animation: none;
+}
+.r2-fp-reader .r2-reader-body {
+  overflow: hidden;
+}
+.r2-fp-reader .r2-action {
+  cursor: default;
+}
+.r2-fp-reader-inner {
+  padding: 36px 52px 0;
+}
+.r2-fp-reader .r2-reading-group h2 {
+  margin-top: 0;
+}
+.r2-fp-reader .r2-reading-chapter h3 {
+  margin-top: 36px;
+}
+.r2-fp-reading-prose {
+  font-family: var(--r2-prose-font);
+  font-size: var(--r2-reading-size, 19px);
+  line-height: var(--r2-reading-leading, 1.65);
+  color: var(--r2-prose-ink);
+  font-kerning: normal;
+  font-variant-ligatures: common-ligatures;
+}
+.r2-fp-reading-prose p {
+  margin: 0;
+  text-indent: var(--r2-prose-indent);
+}
+.r2-fp-reading-prose p:first-child {
+  text-indent: 0;
+}
+
+/* The Focus page's pair (ChromeRecedes): the same writing column twice,
+   side by side on the shell's tone, each in its own frame with a caption
+   beneath — at rest, and while writing, where the chrome has gone to
+   nothing in place (the product's rule, rune2.css: "Chrome that recedes
+   while writing"; the landing's demo plays it, this holds the two ends). */
+.r2-fp-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+  padding: 28px 24px 22px;
+  background: var(--r2-shell-bg);
+}
+.r2-fp-pair-frame {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  margin: 0;
+}
+.r2-fp-pair-frame .r2-fp-shell {
+  --r2-tab-width: 200px;
+  --lp-doc-gutter: 28px;
+  --lp-doc-top: 36px;
+  height: 332px;
+  overflow: hidden;
+  border-radius: var(--r2-radius-md);
+  box-shadow: inset 0 1px 0 var(--r2-material-highlight), 0 0 0 1px var(--r2-material-border), var(--r2-shadow-material);
+}
+.r2-fp-pair-frame .r2-lp-shot-doc {
+  width: auto;
+  padding-bottom: 0;
+}
+.r2-fp-pair-frame .r2-lp-shot .r2-doc-head,
+.r2-fp-pair-frame .r2-doc-head {
+  margin-bottom: 22px;
+}
+.r2-fp-pair-frame .r2-doc-title {
+  font-size: 21px;
+}
+.r2-fp-pair-frame .r2-lp-shot-prose {
+  font-size: 15.5px;
+}
+.r2-fp-pair-caption {
+  font-size: var(--r2-fs-meta);
+  text-align: center;
+  color: var(--r2-ink-3);
+}
+/* The receded end: the band on the page's tone without its hairline; the
+   tabs, the toggle, "+", the breadcrumb and the actions gone, their room
+   kept; the prose exactly where it was. */
+.r2-fp-shell[data-writing] .r2-tabs {
+  background: var(--r2-ms-bg, var(--r2-bg));
+  border-bottom-color: transparent;
+}
+.r2-fp-shell[data-writing] :is(.r2-tabs ul, .r2-tabs-nav-toggle, .r2-tabs-add, .r2-contextbar > *) {
+  opacity: 0;
+}
+
+/* The Focus page's Settings rows (AppearanceRows; rune2.css: "Settings"):
+   the two Appearance rows as the product lays them out — the grouped
+   surface on the page tone — with the Theme's segmented control and the
+   Writing surface's small pages, as drawings. */
+.r2-fp-appearance {
+  padding: 24px;
+  background: var(--r2-page-bg);
+}
+.r2-fp-appearance .r2-settings-rows {
+  margin-top: 0;
+}
+.r2-fp-appearance .r2-segmented span {
+  display: inline-flex;
+  align-items: center;
+  height: var(--r2-control-sm);
+  padding: 0 var(--r2-space-4);
+  border-radius: var(--r2-radius-sm);
+  font-size: var(--r2-fs-ui-sm);
+  color: var(--r2-ink-2);
+}
+.r2-fp-appearance .r2-segmented span {
+  padding: 0 var(--r2-space-5);
+}
+.r2-fp-appearance .r2-segmented span[aria-pressed="true"] {
+  color: var(--r2-ink-1);
+  background: var(--r2-surface-raised);
+  box-shadow: var(--r2-shadow-sm), var(--r2-ring);
+}
+.r2-fp-appearance .r2-surfaces {
+  justify-content: flex-start;
+  margin-bottom: 4px;
+}
+.r2-fp-appearance .r2-surfaces {
+  gap: var(--r2-space-4) 10px;
+}
+.r2-fp-appearance .r2-surface-option {
+  width: 56px;
+}
+.r2-fp-appearance .r2-surface-swatch {
+  height: 44px;
+  padding: 7px 8px;
+}
+
 /* ══ The Center Peek ═══════════════════════════════════════════════════
    A feature opened from the landing page (FeaturePeek): the shell inside
    a native dialog, shown modal — a large Sutura document over the landing,
@@ -1096,8 +1336,28 @@
   }
   .r2-fp-visual[data-size="properties"],
   .r2-fp-visual[data-size="connections"],
-  .r2-fp-visual[data-size="notes-sheet"] {
+  .r2-fp-visual[data-size="notes-sheet"],
+  .r2-fp-visual[data-size="milestones"] {
     width: min(100%, 520px);
+  }
+  .r2-fp-visual[data-size="appearance"] {
+    width: min(100%, 560px);
+  }
+  /* The pair stacks: one column of the two frames, shorter. */
+  .r2-fp-pair {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .r2-fp-pair-frame .r2-fp-shell {
+    height: 300px;
+  }
+  .r2-fp-reading {
+    height: 520px;
+  }
+  .r2-fp-reader {
+    width: min(640px, calc(100% - 96px));
+  }
+  .r2-fp-reader-inner {
+    padding: 32px 44px 0;
   }
   .r2-fp-propsheet {
     padding: 32px 32px 32px;
@@ -1177,6 +1437,72 @@
   }
   .r2-fp-aside-link {
     padding: 8px 0;
+  }
+  /* Reading Mode: the reader nearly the frame's width, the navigator
+     beneath gone, the bar down to its name and the close, the prose a
+     step smaller. */
+  .r2-fp-reading {
+    height: 460px;
+  }
+  .r2-fp-reading-shell {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .r2-fp-reading-shell .r2-lp-shot-nav {
+    display: none;
+  }
+  .r2-fp-reader {
+    top: 28px;
+    width: calc(100% - 32px);
+  }
+  .r2-fp-reader .r2-reader-bar {
+    padding-left: 16px;
+  }
+  .r2-fp-reader .r2-reader-actions .r2-action:not(:last-child) {
+    display: none;
+  }
+  .r2-fp-reader-inner {
+    padding: 24px 22px 0;
+  }
+  .r2-fp-reader .r2-reading-chapter h3 {
+    margin-top: 24px;
+    font-size: 22px;
+  }
+  .r2-fp-reading-prose {
+    font-size: 16.5px;
+    line-height: 1.6;
+  }
+  /* The chrome pair: shorter frames, closer set. */
+  .r2-fp-pair {
+    gap: 16px;
+    padding: 16px 14px 14px;
+  }
+  .r2-fp-pair-frame .r2-fp-shell {
+    --lp-doc-gutter: 20px;
+    --lp-doc-top: 28px;
+    height: 250px;
+  }
+  .r2-fp-pair-frame .r2-lp-shot-prose {
+    font-size: 14.5px;
+  }
+  /* The board and the Settings rows: the frame's own padding closes up. */
+  .r2-fp-visual[data-size="widgets"] .r2-fp-visual-in {
+    padding: 16px 12px;
+  }
+  .r2-fp-widgets .r2-widgets-head {
+    padding-left: var(--r2-space-5);
+  }
+  .r2-fp-widgets .r2-widgets-body {
+    padding-left: var(--r2-space-5);
+    padding-right: var(--r2-space-5);
+  }
+  .r2-fp-appearance {
+    padding: 12px;
+  }
+  .r2-fp-appearance .r2-settings-rows {
+    padding: 0 var(--r2-space-5);
+  }
+  .r2-fp-widget-alone {
+    padding: 16px 12px;
   }
   .r2-fp-principle {
     margin: 32px 0;

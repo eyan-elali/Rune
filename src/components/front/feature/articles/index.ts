@@ -6,6 +6,10 @@ import { ScenePropertiesArticle } from "./ScenePropertiesArticle";
 import { CanvasArticle } from "./CanvasArticle";
 import { InspectorArticle } from "./InspectorArticle";
 import { RevisionNotesArticle } from "./RevisionNotesArticle";
+import { WidgetsArticle } from "./WidgetsArticle";
+import { MilestonesArticle } from "./MilestonesArticle";
+import { ReadingModeArticle } from "./ReadingModeArticle";
+import { FocusThemesArticle } from "./FocusThemesArticle";
 import { NoAiArticle } from "./NoAiArticle";
 
 // The feature articles, one per page, by slug: what features/<slug>/page.tsx
@@ -19,6 +23,10 @@ export const FEATURE_ARTICLES: Record<FeatureSlug, ComponentType> = {
   canvas: CanvasArticle,
   inspector: InspectorArticle,
   "revision-notes": RevisionNotesArticle,
+  widgets: WidgetsArticle,
+  milestones: MilestonesArticle,
+  "reading-mode": ReadingModeArticle,
+  "focus-and-themes": FocusThemesArticle,
   "no-ai": NoAiArticle,
 };
 

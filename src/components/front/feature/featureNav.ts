@@ -1,12 +1,38 @@
-import { Feather, File, Frame, Library, PanelRight, SlidersHorizontal, StickyNote, type LucideIcon } from "lucide-react";
+import {
+  BookOpen,
+  Feather,
+  File,
+  Flag,
+  Frame,
+  LayoutGrid,
+  Library,
+  PanelRight,
+  SlidersHorizontal,
+  StickyNote,
+  SunMedium,
+  type LucideIcon,
+} from "lucide-react";
 
 // What the feature shell's navigator lists (FeatureNavigator, FeatureSwitcher):
-// the six closer looks and the authorship principle, in two groups, as the
-// Project navigator lists the Manuscript and the Workspace. The routes are
-// the ones the landing page links to (FrontWorkspace, FrontDetails,
-// FrontTrust) and proxy.ts keeps public; a page names itself by its slug.
+// the closer looks and the authorship principle, in three groups, as the
+// Project navigator lists the Manuscript and the Workspace: the six features
+// the landing's major sections lead to; the four smaller things for the
+// writing itself (FrontMore); and the principle. The routes are the ones the
+// landing page links to (FrontWorkspace, FrontDetails, FrontMore, FrontTrust)
+// and proxy.ts keeps public; a page names itself by its slug.
 
-export type FeatureSlug = "pages" | "collections" | "scene-properties" | "canvas" | "inspector" | "revision-notes" | "no-ai";
+export type FeatureSlug =
+  | "pages"
+  | "collections"
+  | "scene-properties"
+  | "canvas"
+  | "inspector"
+  | "revision-notes"
+  | "widgets"
+  | "milestones"
+  | "reading-mode"
+  | "focus-and-themes"
+  | "no-ai";
 
 export type FeatureNavItem = {
   slug: FeatureSlug;
@@ -30,6 +56,15 @@ export const FEATURE_NAV: ReadonlyArray<FeatureNavGroup> = [
       { slug: "canvas", title: "Canvas", href: "/features/canvas", icon: Frame },
       { slug: "inspector", title: "Inspector", href: "/features/inspector", icon: PanelRight },
       { slug: "revision-notes", title: "Revision notes", href: "/features/revision-notes", icon: StickyNote },
+    ],
+  },
+  {
+    label: "The writing",
+    items: [
+      { slug: "widgets", title: "Widgets & goals", href: "/features/widgets", icon: LayoutGrid },
+      { slug: "milestones", title: "Milestones", href: "/features/milestones", icon: Flag },
+      { slug: "reading-mode", title: "Reading Mode", href: "/features/reading-mode", icon: BookOpen },
+      { slug: "focus-and-themes", title: "Focus & themes", href: "/features/focus-and-themes", icon: SunMedium },
     ],
   },
   {

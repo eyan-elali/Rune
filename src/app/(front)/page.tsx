@@ -7,6 +7,7 @@ import { FrontHero } from "@/components/front/FrontHero";
 import { FrontManuscript } from "@/components/front/FrontManuscript";
 import { FrontWorkspace } from "@/components/front/FrontWorkspace";
 import { FrontDetails } from "@/components/front/FrontDetails";
+import { FrontMore } from "@/components/front/FrontMore";
 import { FrontTrust } from "@/components/front/FrontTrust";
 import { FrontClose } from "@/components/front/FrontClose";
 import { MarketingTrackers } from "@/components/MarketingTrackers";
@@ -27,7 +28,11 @@ export const metadata: Metadata = {
 // workspace section (FrontWorkspace): the four ways it grows around the book
 // — then the Inspector section (FrontDetails): one idea, the supporting
 // details of a scene stay close to the writing, with a link to the closer
-// look (/features/inspector) — then the trust section (FrontTrust): the four
+// look (/features/inspector) — then the strip (FrontMore): four smaller
+// things for the writing itself, quieter and shorter than the sections
+// above, each leading to its own short closer look (/features/widgets,
+// /features/milestones, /features/reading-mode, /features/focus-and-themes)
+// — then the trust section (FrontTrust): the four
 // promises underneath the product, the No AI card leading to /principles/no-ai
 // — then the close (FrontClose): the public beta said plainly, free during
 // beta, and the one action once more, before the frame's footer.
@@ -59,6 +64,7 @@ export default async function FrontDoor() {
           <FrontManuscript />
           <FrontWorkspace />
           <FrontDetails />
+          <FrontMore />
           <FrontTrust />
           <FrontClose member={member} />
         </main>

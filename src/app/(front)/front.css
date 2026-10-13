@@ -1987,7 +1987,574 @@
   }
 }
 
-/* ══ Section 5: Trust and authorship ══════════════════════════════════════
+/* ══ Section 5: More for the writing ═════════════════════════════════════
+   After the sections that say what Sutura fundamentally is, a short strip
+   of the smaller things for the writing itself (FrontMore): Widgets and
+   goals, Milestones, Reading Mode, the writing environment. It is a step
+   down from everything above it, on purpose: the heading smaller and set
+   left, no lede, less room at the top and foot, and four compact cards in
+   one row — none of which asks for the viewport. The section says "there
+   is more here" without interrupting the story to explain it.
+
+   A card is the workspace section's material surface at a smaller scale,
+   the other way up: the product's surface first, in a well at the head
+   (this section's own small drawings, inert), then the eyebrow, a short
+   line in the serif, one sentence, and the cue at the foot. Reached for,
+   it firms and lifts a touch and the cue's arrow moves — enough to say it
+   opens, and no more. Borders define structure; the accent appears only
+   where the product shows state (a ring's progress, a writing day, the
+   chosen surface). */
+.r2-lp-mo {
+  --lp-h2: clamp(28px, 2.5vw, 36px);
+  padding: clamp(40px, 5vh, 64px) 0 clamp(56px, 7vh, 88px);
+  background: var(--lp-ms-bg);
+}
+.r2-lp-mo-in {
+  width: min(100%, var(--lp-max));
+  margin: 0 auto;
+  padding: 0 var(--lp-gutter);
+}
+/* The statement, set left and understated: the eyebrow and the heading,
+   nothing beneath. */
+.r2-lp-mo-head {
+  max-width: 36rem;
+}
+.r2-lp-mo-head .r2-lp-h2 {
+  text-wrap: pretty;
+}
+
+/* ── The row ────────────────────────────────────────────────────────────
+   Four across, one gap. */
+.r2-lp-mo-grid {
+  --lp-mo-gap: 16px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--lp-mo-gap);
+  margin: 24px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* ── The card ───────────────────────────────────────────────────────────
+   A column: the well, the text, the cue. Equal heights come from the row. */
+.r2-lp-mo-card {
+  --lp-mo-pad: 16px;
+  --lp-mo-well: 156px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: var(--lp-mo-pad);
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  box-shadow: inset 0 1px 0 var(--r2-material-highlight), 0 0 0 1px var(--r2-material-border), var(--r2-shadow-material),
+    0 14px 28px -24px rgba(var(--r2-palette-shadow) / 0.16);
+  transition: box-shadow var(--r2-medium) var(--r2-ease), background-color var(--r2-medium) var(--r2-ease),
+    transform var(--r2-medium) var(--r2-ease);
+}
+.r2-lp-mo-card:hover {
+  transform: translateY(-2px);
+  box-shadow: inset 0 1px 0 var(--r2-material-highlight), 0 0 0 1px var(--r2-material-border-strong),
+    var(--r2-shadow-material-lift), 0 20px 36px -24px rgba(var(--r2-palette-shadow) / 0.22);
+}
+.r2-lp-mo-card:active {
+  transform: none;
+}
+.r2-lp-mo-card:focus-visible {
+  outline: 2px solid var(--r2-focus);
+  outline-offset: 3px;
+}
+.r2-lp-mo-card-text {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-top: 16px;
+}
+.r2-lp-mo-card-eyebrow {
+  margin: 0 0 2px;
+  font-size: var(--r2-fs-label);
+  font-weight: var(--r2-weight-medium);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--r2-ink-3);
+}
+.r2-lp-mo-card-title {
+  margin: 0;
+  font-family: var(--r2-prose-font);
+  font-size: 19px;
+  font-weight: var(--r2-weight-regular);
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+  color: var(--r2-ink-1);
+}
+.r2-lp-mo-card-line {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.45;
+  text-wrap: pretty;
+  color: var(--r2-ink-2);
+}
+/* The cue: the workspace cards', at the foot. */
+.r2-lp-mo-card-cue {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: auto;
+  padding-top: 14px;
+  font-size: var(--r2-fs-meta);
+  color: var(--r2-ink-3);
+  transition: color var(--r2-medium) var(--r2-ease);
+}
+.r2-lp-mo-card-cue svg {
+  transition: transform var(--r2-medium) var(--r2-ease);
+}
+.r2-lp-mo-card:hover .r2-lp-mo-card-cue {
+  color: var(--r2-ink-2);
+}
+.r2-lp-mo-card:hover .r2-lp-mo-card-cue svg {
+  transform: translateX(3px);
+}
+
+/* ── The well ───────────────────────────────────────────────────────────
+   The product's surface, set a shade into the card at its head: the
+   shell's tone, a hairline, the card's smaller radius; one height across
+   the row, cropping what stands past its foot. */
+.r2-lp-mo-card-preview {
+  position: relative;
+  flex: none;
+  height: var(--lp-mo-well);
+  border-radius: var(--r2-radius-md);
+  background: var(--r2-shell-bg);
+  box-shadow: inset 0 0 0 1px var(--r2-border);
+  overflow: hidden;
+  pointer-events: none;
+  user-select: none;
+  font-size: var(--r2-fs-ui);
+  line-height: var(--r2-lh-ui);
+  color: var(--r2-ink-2);
+}
+
+/* Widgets: the board's faces at the well's scale (rune2.css: ".r2-widget",
+   ".r2-ring", ".r2-activity") — the Daily goal with its ring, wide; Today
+   and the Writing activity calendar beneath. */
+.r2-lp-mo-board {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+  width: min(100%, 300px);
+  margin: 0 auto;
+  padding: 10px;
+}
+.r2-lp-mo-widget {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 0;
+  padding: 7px 9px 8px;
+  border-radius: var(--r2-radius);
+  background: var(--r2-group-bg);
+  box-shadow: inset 0 1px 0 var(--r2-material-highlight), 0 0 0 1px var(--r2-border);
+}
+.r2-lp-mo-widget--wide {
+  grid-column: span 2;
+}
+.r2-lp-mo-widget-eyebrow {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 9px;
+  font-weight: var(--r2-weight-medium);
+  letter-spacing: var(--r2-tracking-caps);
+  text-transform: uppercase;
+  color: var(--r2-ink-3);
+}
+.r2-lp-mo-widget-value {
+  margin-top: 1px;
+  font-size: 16px;
+  font-weight: var(--r2-weight-semibold);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: var(--r2-tracking-title);
+  line-height: 1.15;
+  color: var(--r2-ink-1);
+}
+.r2-lp-mo-widget-unit {
+  font-size: 10.5px;
+  font-weight: var(--r2-weight-regular);
+  letter-spacing: 0;
+  color: var(--r2-ink-3);
+}
+.r2-lp-mo-widget-meta {
+  font-size: 10.5px;
+  line-height: 1.3;
+  color: var(--r2-ink-3);
+}
+.r2-lp-mo-daily {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 2px;
+}
+.r2-lp-mo-daily-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.r2-lp-mo-ring {
+  display: block;
+  flex-shrink: 0;
+}
+.r2-lp-mo-ring-track {
+  stroke: var(--r2-surface-sunken);
+}
+.r2-lp-mo-ring-fill {
+  stroke: var(--r2-accent);
+}
+.r2-lp-mo-activity {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 2px;
+  width: 100%;
+  margin-top: 3px;
+}
+.r2-lp-mo-week {
+  display: grid;
+  grid-template-rows: repeat(7, 1fr);
+  gap: 2px;
+}
+.r2-lp-mo-day {
+  display: block;
+  aspect-ratio: 1;
+  width: 100%;
+  border-radius: 1.5px;
+  background: var(--r2-surface-sunken);
+}
+.r2-lp-mo-day[data-level="1"] {
+  background: color-mix(in srgb, var(--r2-accent) 28%, var(--r2-group-bg));
+}
+.r2-lp-mo-day[data-level="2"] {
+  background: color-mix(in srgb, var(--r2-accent) 50%, var(--r2-group-bg));
+}
+.r2-lp-mo-day[data-level="3"] {
+  background: color-mix(in srgb, var(--r2-accent) 74%, var(--r2-group-bg));
+}
+.r2-lp-mo-day[data-level="4"] {
+  background: var(--r2-accent);
+}
+
+/* Milestones: the Inspector's list (rune2.css: ".r2-milestone-item") — a
+   flag, the name, when and how many words — and under it where the
+   manuscript stands now against the latest. */
+.r2-lp-mo-milestones {
+  display: flex;
+  flex-direction: column;
+  width: min(100%, 300px);
+  height: 100%;
+  margin: 0 auto;
+  padding: 12px 14px 10px;
+}
+.r2-lp-mo-insp-label {
+  margin: 0 0 5px;
+  font-size: 9.5px;
+  font-weight: var(--r2-weight-medium);
+  letter-spacing: var(--r2-tracking-caps);
+  text-transform: uppercase;
+  color: var(--r2-ink-3);
+}
+.r2-lp-mo-ms-list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.r2-lp-mo-ms {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 5px 0 6px;
+}
+.r2-lp-mo-ms + .r2-lp-mo-ms {
+  border-top: 1px solid var(--r2-border);
+}
+.r2-lp-mo-ms-flag {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--r2-ink-3);
+}
+.r2-lp-mo-ms-text {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 1px;
+}
+.r2-lp-mo-ms-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12.5px;
+  font-weight: var(--r2-weight-medium);
+  line-height: 1.3;
+  color: var(--r2-ink-1);
+}
+.r2-lp-mo-ms-meta {
+  font-size: 10.5px;
+  line-height: 1.3;
+  color: var(--r2-ink-3);
+}
+.r2-lp-mo-ms-now {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin: auto 0 0;
+  padding-top: 7px;
+  border-top: 1px solid var(--r2-border);
+}
+.r2-lp-mo-ms-now-words {
+  font-size: 12.5px;
+  font-weight: var(--r2-weight-medium);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.3;
+  color: var(--r2-ink-1);
+}
+.r2-lp-mo-ms-now-since {
+  font-size: 10.5px;
+  line-height: 1.3;
+  color: var(--r2-ink-3);
+}
+
+/* Reading Mode: the Reading Peek (rune2.css: ".r2-reader[data-mode=peek]")
+   — the shell's trace dimmed under the scrim, the reading surface centred
+   over it, running past the well's foot. */
+.r2-lp-mo-reading {
+  position: relative;
+  height: 100%;
+}
+.r2-lp-mo-reading-shell {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr);
+}
+.r2-lp-mo-reading-nav {
+  background: var(--r2-nav-bg);
+  border-right: 1px solid var(--r2-border);
+}
+.r2-lp-mo-reading-content {
+  background: var(--r2-bg);
+}
+.r2-lp-mo-reading-band {
+  height: 22px;
+  border-bottom: 1px solid var(--r2-border);
+}
+.r2-lp-mo-reading-scrim {
+  position: absolute;
+  inset: 0;
+  background: var(--r2-scrim);
+}
+.r2-lp-mo-reader {
+  position: absolute;
+  top: 18px;
+  right: 0;
+  bottom: -24px;
+  left: 0;
+  width: min(calc(100% - 60px), 280px);
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--r2-radius-md);
+  background: var(--r2-prose-bg, var(--r2-bg));
+  box-shadow: 0 0 0 1px rgba(var(--r2-palette-ink) / 0.08), 0 12px 28px -14px rgba(var(--r2-palette-shadow) / 0.34);
+  overflow: hidden;
+}
+.r2-lp-mo-reader-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 7px 12px 6px;
+  border-bottom: 1px solid var(--r2-border);
+}
+.r2-lp-mo-reader-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 9px;
+  font-weight: var(--r2-weight-medium);
+  letter-spacing: var(--r2-tracking-label);
+  color: var(--r2-ink-3);
+}
+.r2-lp-mo-reader-eyebrow svg {
+  width: 10px;
+  height: 10px;
+}
+.r2-lp-mo-reader-where {
+  font-size: 10.5px;
+  font-weight: var(--r2-weight-medium);
+  color: var(--r2-ink-1);
+}
+.r2-lp-mo-reader-body {
+  padding: 14px 18px 0;
+  font-family: var(--r2-prose-font);
+}
+.r2-lp-mo-reader-chapter {
+  margin: 0 0 9px;
+  font-size: 13.5px;
+  font-weight: var(--r2-weight-medium);
+  line-height: 1.2;
+  text-align: center;
+  color: var(--r2-ink-1);
+}
+.r2-lp-mo-reader-prose {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: color-mix(in srgb, var(--r2-prose-ink) 72%, var(--r2-prose-bg, var(--r2-bg)));
+}
+
+/* The environment: the writer writing — the band's tone and its tab gone
+   to almost nothing (rune2.css: "Chrome that recedes while writing"), the
+   prose alone on the Paper surface — and the writing surfaces as Settings
+   draws them (".r2-surfaces"), the chosen one ringed. */
+.r2-lp-mo-env {
+  position: relative;
+  height: 100%;
+}
+.r2-lp-mo-env-page {
+  position: absolute;
+  inset: 0;
+  background: #f6f3ec; /* the Paper surface (themes.ts: WRITING_SURFACES) */
+  color: #25221d;
+}
+.r2-lp-mo-env-band {
+  position: relative;
+  height: 22px;
+}
+/* The one tab, almost gone: the chrome mid-recede. */
+.r2-lp-mo-env-band::before {
+  content: "";
+  position: absolute;
+  top: 6px;
+  left: 12px;
+  width: 64px;
+  height: 10px;
+  border-radius: 2px;
+  background: currentColor;
+  opacity: 0.07;
+}
+.r2-lp-mo-env-prose {
+  max-width: 250px;
+  margin: 10px auto 0;
+  padding: 0 24px;
+  font-family: var(--r2-prose-font);
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: color-mix(in srgb, #25221d 76%, #f6f3ec);
+}
+.r2-lp-mo-env-caret {
+  display: inline-block;
+  width: 1px;
+  height: 0.95em;
+  margin-left: 1px;
+  vertical-align: -0.15em;
+  background: var(--r2-accent);
+}
+.r2-lp-mo-surfaces {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  padding: 8px 12px 10px;
+  background: linear-gradient(to top, var(--r2-shell-bg) 78%, transparent);
+}
+.r2-lp-mo-surface {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  width: 42px;
+  text-align: center;
+}
+.r2-lp-mo-swatch {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  height: 28px;
+  padding: 5px 6px;
+  border-radius: var(--r2-radius);
+  box-shadow: 0 0 0 1px rgba(var(--r2-palette-ink) / 0.1);
+}
+.r2-lp-mo-surface[data-chosen] .r2-lp-mo-swatch {
+  box-shadow: 0 0 0 1.5px var(--r2-shell-bg), 0 0 0 3px var(--r2-accent);
+}
+.r2-lp-mo-swatch-text {
+  font-family: var(--r2-prose-font);
+  font-size: 10px;
+  line-height: 1;
+}
+.r2-lp-mo-swatch-line {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  left: 6px;
+  height: 1.5px;
+  border-radius: 1px;
+  opacity: 0.55;
+}
+.r2-lp-mo-surface-label {
+  font-size: 9px;
+  line-height: 1.2;
+  color: var(--r2-ink-3);
+}
+.r2-lp-mo-surface[data-chosen] .r2-lp-mo-surface-label {
+  font-weight: var(--r2-weight-medium);
+  color: var(--r2-ink-1);
+}
+
+/* ── A laptop, a tablet, or a desktop zoomed ────────────────────────────
+   Below the width that gives four cards their measure, two and two: the
+   cards keep their shape and get room rather than being squeezed. */
+@media (max-width: 1100px) {
+  .r2-lp-mo-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .r2-lp-mo-card {
+    --lp-mo-well: 168px;
+  }
+}
+
+/* ── Phones ─────────────────────────────────────────────────────────────
+   One column of the same cards, stacked, each closed up a little; the
+   well keeps its drawing whole. No carousel. */
+@media (max-width: 640px) {
+  .r2-lp-mo-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+    margin-top: 20px;
+  }
+  .r2-lp-mo-card {
+    --lp-mo-well: 160px;
+  }
+  .r2-lp-mo-card-text {
+    margin-top: 14px;
+  }
+  .r2-lp-mo-card-title {
+    font-size: 18px;
+  }
+  .r2-lp-mo-card-line {
+    font-size: 13px;
+  }
+  .r2-lp-mo-card-cue {
+    padding-top: 12px;
+  }
+}
+
+/* ══ Section 6: Trust and authorship ══════════════════════════════════════
    The promises underneath the product. After four sections that show what
    Sutura does, four that say what stays the writer's — and the one thing
    it will not do. A split, the other way round from the Inspector
@@ -2390,6 +2957,9 @@
   .r2-lp-tr {
     --lp-h2: clamp(31px, 8.8vw, 38px);
   }
+  .r2-lp-mo {
+    --lp-h2: clamp(26px, 7.4vw, 32px);
+  }
   .r2-lp-cl {
     --lp-h2: clamp(34px, 9.8vw, 42px);
   }
@@ -2404,6 +2974,9 @@
   .r2-lp-dt,
   .r2-lp-tr {
     padding: 48px 0 56px;
+  }
+  .r2-lp-mo {
+    padding: 40px 0 48px;
   }
   .r2-lp-cl {
     padding: 52px 0 28px;
