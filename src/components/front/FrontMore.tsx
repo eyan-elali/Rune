@@ -3,15 +3,20 @@ import { ArrowRight, BookOpen, Flag } from "lucide-react";
 import { ICON_SM, ICON_SM_BOLD } from "@/components/rune2/icons";
 import { Reveal } from "./Reveal";
 
-// Section 5 of the landing page (front.css: "More for the writing"): after
+// Section 6 of the landing page (front.css: "More for the writing"): after
 // the sections that say what Sutura fundamentally is — the manuscript, the
-// workspace around it, the details beside it — a short, quiet strip of four
-// smaller things that make the writing itself more complete: Widgets and
-// goals, Milestones, Reading Mode, and the writing environment (the chrome
-// that recedes, the themes, the writing surface). It is deliberately a step
-// down from the sections above it: one understated line, four compact
-// cards in a row, and no picture that asks for the viewport. "There is more
-// here, but it does not interrupt the story to say so."
+// workspace around it, the details beside it — and after the promises
+// underneath it (FrontTrust), a short, quiet strip of four smaller things
+// that make the writing itself more complete: Widgets and goals,
+// Milestones, Reading Mode, and the writing environment (the chrome that
+// recedes, the themes, the writing surface). It is deliberately a step
+// down from everything above it, a last "also included" before the close:
+// one understated line, four compact cards in a row, and no picture that
+// asks for the viewport. "There is more here, but it does not interrupt
+// the story to say so." On a phone the row becomes a strip the thumb
+// scrolls sideways, one card at a time (front.css: "Phones"), rather than
+// four cards stacked; the list is the one scroll region, labelled for a
+// screen reader, and every card is still a link the keyboard reaches.
 //
 // A card is the workspace section's material surface at a smaller scale:
 // a small preview of the product's surface in a well at its head, drawn
@@ -268,7 +273,7 @@ export function FrontMore() {
           </h2>
         </Reveal>
         <Reveal delay>
-          <ul className="r2-lp-mo-grid">
+          <ul className="r2-lp-mo-grid" aria-label="More for the writing itself">
             {MORE_FEATURES.map((f) => {
               const Preview = PREVIEWS[f.slug];
               return (

@@ -28,14 +28,15 @@ export const metadata: Metadata = {
 // workspace section (FrontWorkspace): the four ways it grows around the book
 // — then the Inspector section (FrontDetails): one idea, the supporting
 // details of a scene stay close to the writing, with a link to the closer
-// look (/features/inspector) — then the strip (FrontMore): four smaller
-// things for the writing itself, quieter and shorter than the sections
-// above, each leading to its own short closer look (/features/widgets,
-// /features/milestones, /features/reading-mode, /features/focus-and-themes)
-// — then the trust section (FrontTrust): the four
-// promises underneath the product, the No AI card leading to /principles/no-ai
-// — then the close (FrontClose): the public beta said plainly, free during
-// beta, and the one action once more, before the frame's footer.
+// look (/features/inspector) — then the trust section (FrontTrust): the
+// four promises underneath the product, the No AI card leading to
+// /principles/no-ai, the emotional conclusion of the story — then the
+// strip (FrontMore): four smaller things for the writing itself, a final
+// quiet reveal after the story has been told, each leading to its own
+// short closer look (/features/widgets, /features/milestones,
+// /features/reading-mode, /features/focus-and-themes) — then the close
+// (FrontClose): the public beta said plainly, free during beta, and the
+// one action once more, before the frame's footer.
 // One wording for the one action, "Start writing free":
 //   * a visitor is sent to Create account, and may Sign in
 //   * a signed-in writer is sent to their Projects
@@ -64,8 +65,8 @@ export default async function FrontDoor() {
           <FrontManuscript />
           <FrontWorkspace />
           <FrontDetails />
-          <FrontMore />
           <FrontTrust />
+          <FrontMore />
           <FrontClose member={member} />
         </main>
       </div>
