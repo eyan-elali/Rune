@@ -1295,6 +1295,36 @@ button.r2-disclosure:hover {
   line-height: var(--r2-lh-ui);
 }
 
+/* The navigator's quiet utility row (Early Access): Send feedback, directly
+   above the account. The account control's own geometry — the icon in the
+   initial's 20px column, the label where the name begins — in a lighter
+   ink; neutral until hovered, no fill, no badge. */
+.r2-nav-utility {
+  display: flex;
+  align-items: center;
+  gap: var(--r2-space-3);
+  flex-shrink: 0;
+  height: var(--r2-control-md);
+  margin: var(--r2-space-2) var(--r2-space-4) 0 calc(var(--r2-space-4) - var(--r2-space-1));
+  padding: 0 var(--r2-space-3);
+  border-radius: var(--r2-radius);
+  font-size: var(--r2-fs-ui-sm);
+  color: var(--r2-ink-3);
+  text-align: left;
+  transition: background-color var(--r2-fast) var(--r2-ease), color var(--r2-fast) var(--r2-ease);
+}
+.r2-nav-utility:hover {
+  color: var(--r2-ink-1);
+  background: var(--r2-hover);
+}
+.r2-nav-utility-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 20px;
+}
+
 /* The foot of the navigator: Rune's account control, and the Project's
    Trash as one quiet icon — two controls on the shell tone, not a toolbar.
    The account opens upwards (All projects, Settings, Log out). */

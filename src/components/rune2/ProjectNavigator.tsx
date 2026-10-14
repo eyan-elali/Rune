@@ -77,7 +77,7 @@ import { useRevisionNotes } from "./RevisionNoteStore";
 import { useRune2Selection } from "./Rune2Selection";
 import { useDragAutoScroll } from "./useDragAutoScroll";
 import { useTrash } from "./WorkspaceTrash";
-import { AccountControl } from "./AccountMenu";
+import { AccountControl, SendFeedbackAction } from "./AccountMenu";
 import { useProjectExport } from "./ProjectExport";
 import { NewProjectDialog, RenameProjectDialog } from "./ProjectDialogs";
 import { trashProject } from "@/lib/actions/projects";
@@ -1462,6 +1462,10 @@ export function ProjectNavigator() {
           )}
         </p>
       )}
+
+      {/* The quiet utility area: Send feedback (Early Access), directly above
+          the account — a utility, never among the book's objects. */}
+      <SendFeedbackAction />
 
       {/* The foot: Rune's account (All projects, Settings, Log out) and the
           Project's Trash — two quiet controls, not a toolbar. */}

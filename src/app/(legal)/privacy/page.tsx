@@ -21,7 +21,7 @@ export const metadata: Metadata = {
 // This is not legal advice. It needs review by a professional familiar with
 // Québec's Law 25 and PIPEDA before the beta opens widely.
 
-const LAST_UPDATED = "October 13, 2026";
+const LAST_UPDATED = "October 14, 2026";
 
 export default function PrivacyPage() {
   return (
@@ -32,8 +32,9 @@ export default function PrivacyPage() {
         <p>
           Sutura is a writing companion for novelists, operated from Québec, Canada. This policy explains what
           information Sutura collects while you use it, why, where it is kept, who processes it on our behalf, and how
-          to see, export or delete it. Sutura is currently in free Early Access (its beta), open to anyone; this
-          policy describes the beta as it works today and will be updated before anything changes.
+          to see, export or delete it. Sutura is currently offered in Early Access and is free to use during this
+          period; anyone may create an account. This policy describes Sutura as it works today and will be updated
+          before anything changes.
         </p>
 
         <Section title="1. The short version">
@@ -91,13 +92,14 @@ export default function PrivacyPage() {
             <Em>Feedback.</Em> What you write in the feedback form, the category you pick, and context about where
             you were: the page path (identifiers only, never anything you typed), the surface (for example
             “scene” or “canvas”), your device class, browser family, window size and the build of Sutura. Nothing
-            from your manuscript or workspace is read or attached.
+            The project’s identifier is included if you were in one, never its title. Nothing from your manuscript or
+            workspace is read or attached.
           </p>
           <p>
             <Em>Closed-beta waitlist.</Em> If you joined the waitlist while Sutura was invite-only: your email
             address, and if you chose to give them, your name and a line about what you write, with the time you
-            joined. Used only to invite you to the beta and to write to you about it. The waitlist no longer
-            accepts new entries.
+            joined. It was used only to invite you to the closed beta. Sutura is now open to anyone, the waitlist
+            no longer accepts new entries, and it no longer decides anything about your access.
           </p>
           <p>
             <Em>Technical information.</Em> Like any website, our hosting provider and authentication provider
@@ -148,14 +150,14 @@ export default function PrivacyPage() {
             <Em>PromoteKit</Em> — a referral-tracking script is included on Sutura’s public front page for visitors
             who are not signed in, and is not loaded inside the signed-in Sutura application. It records
             whether you arrived through a referral link. Sutura does not currently offer paid plans or a referral
-            programme, so this script has no effect on your account during the beta.
+            programme, so this script has no effect on your account during Early Access.
           </p>
           <p>
-            <Em>Stripe</Em> — Sutura’s code contains payment integration for a future paid plan. During the beta
+            <Em>Stripe</Em> — Sutura’s code contains payment integration for a future paid plan. During Early Access
             no payment is requested, no card details are collected, and nothing is sent to Stripe.
           </p>
           <p>
-            Sutura does not use AI or machine-learning services on your data.
+            Sutura does not send your writing to any AI or machine-learning service.
           </p>
         </Section>
 
@@ -176,7 +178,7 @@ export default function PrivacyPage() {
             encrypted at rest. Sutura never logs manuscript content.
           </p>
           <p>
-            No service can promise absolute security, and Sutura is a small, early product in beta. Use a strong,
+            No service can promise absolute security, and Sutura is a small, early product in Early Access. Use a strong,
             unique password, sign out on shared devices, and keep your own backups (see Section 8). If we learn of
             a breach that presents a risk of serious injury to you, we will notify you and the Commission d’accès
             à l’information du Québec as the law requires.
@@ -188,7 +190,8 @@ export default function PrivacyPage() {
             <Em>Necessary.</Em> Session cookies from our authentication provider keep you signed in. A cookie
             named <code>rune_attribution</code> holds the campaign parameters described in Section 2 for up to
             30 days, only if you arrived through a tagged link or from another website. Sutura also keeps data in your browser’s local
-            storage (preferences, a tutorial flag, the one-time registration marker) and in IndexedDB, where
+            storage (interface preferences and layout, such as how your widgets are arranged or where a canvas was
+            left; a tutorial flag; the one-time registration marker) and in IndexedDB, where
             unsaved writing is held so that it survives an offline moment and is sent when you reconnect.
             Blocking these will stop Sutura from working properly.
           </p>
@@ -220,8 +223,8 @@ export default function PrivacyPage() {
           <p>
             What remains after deletion: a minimal record that the account existed (your email address, pen name,
             and the date of deletion), kept so that we can answer later questions about the deletion and keep
-            account statistics honest; if you had joined the beta waitlist or been invited, your email address on
-            that list; and copies in our providers’ routine backups, which are kept for a limited period for
+            account statistics honest; if you had joined the closed beta’s waitlist or been invited, your email
+            address on that list; and copies in our providers’ routine backups, which are kept for a limited period for
             disaster recovery and then expire. We cannot promise instant erasure from every backup.
           </p>
         </Section>
@@ -229,8 +232,9 @@ export default function PrivacyPage() {
         <Section title="10. How long we keep information">
           <p>
             Your account and writing are kept for as long as your account exists. Scene history checkpoints are
-            thinned automatically as new ones are made, so older checkpoints are not kept forever. The beta
-            waitlist is kept while the beta is invite-only. Product analytics events and the deletion record are
+            thinned automatically as new ones are made, so older checkpoints are not kept forever. The closed beta’s
+            waitlist and invitation list are kept as a record of the closed beta; write to us to have your entry
+            removed. Product analytics events and the deletion record are
             kept in identifiable form until the account is deleted and in the minimal form described in Section 9
             afterwards. We may keep aggregated statistics that identify no one indefinitely.
           </p>
@@ -257,7 +261,7 @@ export default function PrivacyPage() {
 
         <Section title="13. Changes to this policy">
           <p>
-            Sutura is in beta and this policy will change as the product does, in particular before any paid plan
+            Sutura is in Early Access and this policy will change as the product does, in particular before any paid plan
             is introduced. When we make a material change we will update the date at the top of this page and
             tell signed-in writers inside Sutura or by email. Continued use after a change means you accept the
             updated policy; if you do not, you can export your writing and delete your account.

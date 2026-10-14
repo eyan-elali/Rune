@@ -1,4 +1,4 @@
-// The mobile acquisition journey (open beta): a phone may sign up, choose a
+// The mobile acquisition journey (Early Access): a phone may sign up, choose a
 // pen name and complete onboarding, and then gets a desktop handoff; the
 // workspace itself stays desktop and supported tablet.
 //
@@ -8,7 +8,7 @@
 //   * the gate (components/layout/SupportedDeviceGate.tsx) opens only
 //     onboarding to phones; every other route is gated by default, and an
 //     unfinished journey is sent to onboarding by a full navigation
-//   * the handoff (PhoneWaitingRoom.tsx) says the open beta once, never
+//   * the handoff (PhoneWaitingRoom.tsx) says Early Access once, never
 //     "Welcome back", never an apology, never a Project title
 import { test, before } from 'node:test';
 import assert from 'node:assert/strict';
@@ -65,10 +65,11 @@ test('gate: only onboarding is open to phones; an unfinished journey goes to onb
   assert.doesNotMatch(layout, /variant="returning"/, 'no hardcoded returning variant');
 });
 
-test('handoff: the open beta is said once, the copy is completion not rejection, and no Project title reaches it', () => {
+test('handoff: Early Access is said once, the copy is completion not rejection, and no Project title reaches it', () => {
   const room = code('src/components/layout/PhoneWaitingRoom.tsx');
-  assert.equal(room.match(/open beta/g)?.length, 1, 'the open beta, once');
-  assert.match(room, /Sutura is currently in open beta\. The full writing workspace is available on desktop, with mobile support on\s+the way\./);
+  assert.equal(room.match(/Early Access/g)?.length, 1, 'Early Access, once');
+  assert.doesNotMatch(room, /open beta|public beta/i, 'never "open beta"');
+  assert.match(room, /Sutura is currently in Early Access\. The full writing workspace is available on desktop, with mobile support on\s+the way\./);
   for (const h of ['Your desk is ready.', 'Your writing is waiting.', 'Sutura is ready on desktop.']) assert.ok(room.includes(h), h);
   for (const banned of [/Welcome back/i, /unsupported/i, /isn.t supported/i, /sorry/i, /come back later/i, /still building/i]) {
     assert.doesNotMatch(room, banned, String(banned));

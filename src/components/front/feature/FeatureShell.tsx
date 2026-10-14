@@ -100,7 +100,7 @@ function FeatureEnd({ member }: { member: boolean }) {
   return (
     <footer className="r2-fp-end">
       <div className="r2-fp-end-row">
-        <p className="r2-fp-end-line">Sutura is open to anyone, and free during the public beta.</p>
+        <p className="r2-fp-end-line">Sutura is open to anyone, and free during Early Access.</p>
         <Link href={startPath(member)} className="r2-button r2-button--primary r2-fp-end-action" data-cta="feature">
           Start writing free
         </Link>

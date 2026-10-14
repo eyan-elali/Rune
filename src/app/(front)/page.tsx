@@ -18,7 +18,7 @@ import "./front.css";
 export const metadata: Metadata = {
   title: { absolute: "Sutura — A home for writing novels" },
   description:
-    "Sutura keeps your manuscript at the center, with a workspace that grows around it only when you need it. Now in Early Access, and free for now.",
+    "Sutura keeps your manuscript at the center, with a workspace that grows around it only when you need it. Now in Early Access, and free to use.",
   // Resolved against metadataBase: https://writesutura.com/
   alternates: { canonical: "/" },
 };
@@ -36,7 +36,7 @@ export const metadata: Metadata = {
 // quiet reveal after the story has been told, each leading to its own
 // short closer look (/features/widgets, /features/milestones,
 // /features/reading-mode, /features/focus-and-themes) — then the close
-// (FrontClose): the public beta said plainly, free during beta, and the
+// (FrontClose): Early Access said plainly, free during it, and the
 // one action once more, before the frame's footer.
 // One wording for the one action, "Start writing free":
 //   * a visitor is sent to Create account, and may Sign in

@@ -16,6 +16,18 @@ import { PEN_NAME_MAX_LENGTH, getPenNameValidationError, normalizePenName } from
 // later visit. The field is labelled "Name"; it is still the pen name
 // (profiles.display_name), with the same rules.
 
+/** Supabase's own wording, in Sutura's; anything unrecognised is shown as it comes. */
+function friendlyError(message: string): string {
+  if (/rate limit|too many requests/i.test(message)) {
+    return "Too many attempts just now. Wait a minute, then try again.";
+  }
+  if (/invalid.*email|email.*invalid/i.test(message)) return "That email address doesn’t look right.";
+  if (/already registered|already exists/i.test(message)) {
+    return "There’s already a Sutura account for that email. Sign in instead.";
+  }
+  return message;
+}
+
 interface FieldErrors {
   displayName?: string;
   password?: string;
@@ -61,7 +73,7 @@ export default function SignupClient() {
     });
 
     if (error) {
-      setError(error.message);
+      setError(friendlyError(error.message));
     } else {
       // Best-effort, fire-and-forget — analytics must never block or fail signup.
       // No server-side hook exists for this event: signUp() talks directly to
@@ -103,7 +115,7 @@ export default function SignupClient() {
   return (
     <section className="r2-auth-card" aria-labelledby="auth-title">
       <h1 id="auth-title">Create your account</h1>
-      <p className="r2-auth-lede">Sutura is in Early Access, and free for now.</p>
+      <p className="r2-auth-lede">Sutura is in Early Access and free to use.</p>
 
       <form onSubmit={handleSubmit} noValidate className="r2-auth-form">
         <label className="r2-auth-field">

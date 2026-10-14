@@ -6,7 +6,7 @@ import { startPath } from "./publicRoutes";
 //   Write the book.                 — the statement, Sutura's serif, large
 //   Build only what it asks for.    — the second line, italic, quieter
 //   [ Start writing free ]          — the one action
-//   Public beta · Free during beta  — a small note
+//   Early Access · Free             — a small note
 //
 // It is a static composition: no stage, no scroll, no objects. The only
 // motion is one short settle on first paint (the stylesheet; none under
@@ -30,7 +30,7 @@ export function FrontHero({ member }: { member: boolean }) {
             Start writing free
           </Link>
           <p className="r2-lp-note">
-            Public beta <span aria-hidden="true">·</span> Free during beta
+            Early Access <span aria-hidden="true">·</span> Free
           </p>
         </div>
       </div>

@@ -13,7 +13,7 @@ import { countUnsentWorkspaceWork } from "@/lib/rune2/workspaceDrafts";
 import type { NavKind } from "@/lib/rune2/navigatorModel";
 import { useProfileStore } from "@/store/profileStore";
 import { FeedbackDialog, type FeedbackWhere } from "./Feedback";
-import { ICON_SM_BOLD } from "./icons";
+import { ICON, ICON_SM_BOLD } from "./icons";
 import { NavigatorMenu, type NavigatorMenuItem } from "./NavigatorMenu";
 import { useRuneAccount } from "./RunePreferences";
 import { useRune2Selection } from "./Rune2Selection";
@@ -22,7 +22,8 @@ import { Wordmark } from "@/components/brand/Wordmark";
 
 // The account menu (Beta Completion A): who is signed in, and the places an
 // account goes — Projects, Settings, and out — and, during Early Access
-// (Beta Completion E), Send feedback under a quiet "Early Access" label. Nothing
+// (Beta Completion E), Send feedback under a quiet "Early Access" label (in a
+// Project, the navigator's utility row above the account instead). Nothing
 // else: no plan, no upgrade, no profile.
 //
 // Two places show it (Beta Completion C): the slim bar over the pages outside
@@ -139,22 +140,25 @@ export function useLogOut(
 /**
  * The account's menu items: Projects, Settings, Send feedback, Log out.
  * Inside a Project (`openSettings` given) Settings opens over it; elsewhere
- * it is the page.
+ * it is the page. Inside a Project Send feedback is not in the menu
+ * (`openFeedback` null): it is the navigator's own utility row, just above
+ * the account (SendFeedbackAction).
  */
 function accountItems(
   name: string,
   push: (href: string) => void,
   logOut: () => void,
   openSettings: (() => void) | null,
-  openFeedback: () => void
+  openFeedback: (() => void) | null
 ): NavigatorMenuItem[] {
-  return [
+  const items: NavigatorMenuItem[] = [
     // Who is signed in, as a quiet label over the list.
     { label: openSettings ? "All projects" : "Projects", icon: BookOpen, section: name, onSelect: () => push("/projects") },
     { label: "Settings", icon: Settings, onSelect: openSettings ?? (() => push("/settings")) },
-    { label: "Send feedback", icon: MessageSquare, section: "Early Access", onSelect: openFeedback },
+    ...(openFeedback ? [{ label: "Send feedback", icon: MessageSquare, section: "Early Access", onSelect: openFeedback }] : []),
     { label: "Log out", icon: LogOut, separator: true, onSelect: logOut },
   ];
+  return items;
 }
 
 /** Feedback's surface for an object open in a Project (lib/beta.ts's vocabulary). */
@@ -169,6 +173,46 @@ const SURFACE_OF: Record<NavKind, string> = {
   collectionEntry: "entry",
   workspaceCanvas: "canvas",
 };
+
+/** Where feedback sent from inside a Project says it came from: the surface open, and the Project's id (never its title). */
+function useProjectFeedbackWhere(): FeedbackWhere {
+  const { selected, manuscript, reading } = useRune2Selection();
+  return {
+    surface: reading ? "reading" : selected ? SURFACE_OF[selected.kind] : "manuscript",
+    projectId: manuscript.project.id,
+  };
+}
+
+/**
+ * Send feedback at the foot of a Project's navigator, directly above the
+ * account (Early Access): a quiet utility row in the navigator's own type,
+ * neutral until hovered — not a call to action, never among the
+ * Manuscript's or the Workspace's objects. It opens the one feedback dialog.
+ */
+export function SendFeedbackAction() {
+  const [open, setOpen] = useState(false);
+  const button = useRef<HTMLButtonElement>(null);
+  const where = useProjectFeedbackWhere();
+  return (
+    <>
+      <button ref={button} type="button" className="r2-nav-utility" aria-haspopup="dialog" onClick={() => setOpen(true)}>
+        <span className="r2-nav-utility-mark" aria-hidden>
+          <MessageSquare {...ICON} />
+        </span>
+        Send feedback
+      </button>
+      {open && (
+        <FeedbackDialog
+          where={where}
+          onClose={() => {
+            setOpen(false);
+            button.current?.focus();
+          }}
+        />
+      )}
+    </>
+  );
+}
 
 /** The writer's initial, for the account control. */
 function initialOf(name: string): string {
@@ -237,13 +281,7 @@ export function AccountControl({ onOpenSettings }: { onOpenSettings: () => void 
   const button = useRef<HTMLButtonElement>(null);
   const [at, setAt] = useState<{ x: number; y: number } | null>(null);
   const { logOut, busy, error, dialog } = useLogOut(button);
-  const [feedback, setFeedback] = useState(false);
-  const { selected, manuscript, reading } = useRune2Selection();
   const name = account ? account.penName || account.email : "Account";
-  const where: FeedbackWhere = {
-    surface: reading ? "reading" : selected ? SURFACE_OF[selected.kind] : "manuscript",
-    projectId: manuscript.project.id,
-  };
 
   function open() {
     const r = button.current?.getBoundingClientRect();
@@ -273,7 +311,7 @@ export function AccountControl({ onOpenSettings }: { onOpenSettings: () => void 
           label="Account"
           at={at}
           above
-          items={accountItems(account?.email ?? name, (href) => router.push(href), logOut, onOpenSettings, () => setFeedback(true))}
+          items={accountItems(account?.email ?? name, (href) => router.push(href), logOut, onOpenSettings, null)}
           onClose={() => setAt(null)}
         />
       )}
@@ -283,7 +321,6 @@ export function AccountControl({ onOpenSettings }: { onOpenSettings: () => void 
         </p>
       )}
       {dialog}
-      {feedback && <FeedbackDialog where={where} onClose={() => setFeedback(false)} />}
     </>
   );
 }

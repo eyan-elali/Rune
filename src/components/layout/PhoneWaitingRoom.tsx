@@ -18,7 +18,7 @@ import { requestDesktopLinkEmail, recordDesktopLinkCopied, recordPhoneWaitingRoo
 //                 before onboarding existed)
 //   neutral       the account's stage could not be read       Sutura is ready on desktop.
 //
-// The open beta is said once, here. The arrival renders <DesktopHandoff> in
+// Early Access is said once, here. The arrival renders <DesktopHandoff> in
 // onboarding's own frame and theme (components/rune2/Onboarding.tsx); a gated
 // route renders <PhoneWaitingRoom>, the same body in the public frame.
 
@@ -148,7 +148,7 @@ export function DesktopHandoff({ variant, initialEmailSentAt, focusHeading = fal
         {HEADLINES[variant]}
       </h1>
       <p className="r2-handoff-note">
-        Sutura is currently in open beta. The full writing workspace is available on desktop, with mobile support on
+        Sutura is currently in Early Access. The full writing workspace is available on desktop, with mobile support on
         the way.
       </p>
       <p className="r2-handoff-next">

@@ -307,8 +307,8 @@ function AboutSection() {
         About Sutura <span className="r2-beta-tag">Early Access</span>
       </h2>
       <p className="r2-settings-scope">
-        Sutura is in Early Access: free for now, with everything in it open to you. Some things will change as we learn from the
-        writers using it — your feedback is how we decide what.
+        Sutura is currently in Early Access and free to use, with everything in it open to you. Some things will change as we
+        learn from the writers using it — your feedback is how we decide what.
       </p>
       <div className="r2-settings-rows">
         <Row label="Feedback" help="Something confusing, something broken, or an idea.">

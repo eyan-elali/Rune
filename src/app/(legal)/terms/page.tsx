@@ -10,7 +10,8 @@ export const metadata: Metadata = {
 };
 
 // Early Access Terms (pre-beta audit, sections W–Y; closed-beta wording
-// corrected for open Early Access, migration 056, and nothing else changed). The Rune 1.x commercial
+// corrected for open Early Access, migration 056; "the beta" standardized to
+// Early Access, launch-consistency pass). The Rune 1.x commercial
 // language (Scribe/Arcane plans, word limits, refunds, 30-day retention after
 // termination) is gone: billing is switched off in code (lib/beta.ts
 // BILLING_OPEN) and account deletion is immediate (lib/actions/settings.ts).
@@ -19,7 +20,7 @@ export const metadata: Metadata = {
 // are listed in the audit report for the founder and professional review.
 // This is not legal advice.
 
-const LAST_UPDATED = "October 9, 2026";
+const LAST_UPDATED = "October 14, 2026";
 
 export default function TermsPage() {
   return (
@@ -36,13 +37,13 @@ export default function TermsPage() {
 
         <Section title="1. Sutura is in Early Access">
           <p>
-            Sutura is currently offered free, in Early Access: anyone may create an account. Early Access is
-            Sutura’s beta, and in these terms “the beta” means it. There is no paid plan, no trial and no charge
-            of any kind during the beta.
+            Sutura is currently offered in Early Access and is free to use during this period: anyone may create
+            an account. In these terms, “Early Access” means this period. There is no paid plan, no trial and no
+            charge of any kind during Early Access.
           </p>
           <p>
-            A beta is unfinished by definition. Features will change, be added, be removed or behave
-            unexpectedly as we learn from the writers using it. We may change, pause or end the beta, or move
+            Early Access software is unfinished by definition. Features will change, be added, be removed or
+            behave unexpectedly as we learn from the writers using it. We may change, pause or end Early Access, or move
             the Service to a different model (including paid plans) in the future. Before any paid plan applies
             to you, we will tell you and ask you to accept new terms; nothing in these terms commits you to
             paying anything.
@@ -89,12 +90,12 @@ export default function TermsPage() {
         <Section title="4. Export, backups and your own copies">
           <p>
             You can export your manuscript, download a complete backup of a project and download your projects’
-            manuscripts from Settings at any time, including after the beta ends and whatever your account’s
+            manuscripts from Settings at any time, including after Early Access ends and whatever your account’s
             standing. We will never hold your writing hostage: reading and exporting your Content stay available
             even if other parts of the Service are withdrawn.
           </p>
           <p>
-            Sutura saves your work automatically and keeps copies to recover from failures, but it is beta software
+            Sutura saves your work automatically and keeps copies to recover from failures, but it is Early Access software
             run by a very small team. Keep your own backups. Sutura is not a substitute for them, and you should not
             rely on Sutura as the only copy of your manuscript.
           </p>
@@ -119,7 +120,7 @@ export default function TermsPage() {
 
         <Section title="7. Feedback">
           <p>
-            The beta exists to be improved by your feedback. Suggestions, bug reports and ideas you send us may
+            Early Access exists to be improved by your feedback. Suggestions, bug reports and ideas you send us may
             be used freely to improve Sutura without any obligation to you. This never extends to your Content,
             which Section 3 governs.
           </p>
@@ -142,9 +143,9 @@ export default function TermsPage() {
           </p>
           <p>
             We may suspend or close your account if you break these terms, if we must for legal or security
-            reasons, or when the beta ends. Except where immediate action is needed, we will tell you and give
-            you a reasonable chance to export your Content. Closing the beta or an account never makes you owe
-            us anything.
+            reasons, or when Early Access ends. Except where immediate action is needed, we will tell you and give
+            you a reasonable chance to export your Content. Ending Early Access or closing an account never
+            makes you owe us anything.
           </p>
         </Section>
 
@@ -163,7 +164,7 @@ export default function TermsPage() {
             To the fullest extent the law allows, Sutura and the people who run it are not liable for indirect,
             incidental, special, consequential or punitive damages, or for loss of data, profits or goodwill,
             arising from your use of or inability to use the Service, even if we were told such loss was
-            possible. Because the beta is free, Sutura’s total liability to you for all claims relating to the
+            possible. Because Sutura is free during Early Access, Sutura’s total liability to you for all claims relating to the
             Service is limited to the greater of the amount you paid Sutura in the twelve months before the claim
             and one hundred dollars. This section does not limit liability that the law does not allow to be
             limited.
@@ -187,7 +188,7 @@ export default function TermsPage() {
 
         <Section title="13. Changes to these terms">
           <p>
-            We will update these terms as Sutura moves out of beta, and in particular before introducing any paid
+            We will update these terms as Sutura moves out of Early Access, and in particular before introducing any paid
             plan. When we make a material change we will update the date at the top of this page and tell
             signed-in writers inside Sutura or by email. Continued use after a change means you accept the updated
             terms; if you do not, export your writing and delete your account.

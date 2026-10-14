@@ -11,22 +11,25 @@ type Mode = "password" | "magic-link";
 // sign-in link never creates an account (shouldCreateUser: false): accounts
 // are made on Create account, open to anyone during Early Access.
 
-/** Supabase's own wording, in Rune's. */
+/** Supabase's own wording, in Sutura's. */
 function friendlyError(message: string): string {
   if (/signups not allowed/i.test(message)) {
     return "There’s no Sutura account for that email yet. Create your account first.";
   }
   if (/invalid login credentials/i.test(message)) return "That email and password don’t match.";
   if (/email not confirmed/i.test(message)) return "Confirm your email first — the link is in the message we sent you.";
+  if (/rate limit|too many requests/i.test(message)) return "Too many attempts just now. Wait a minute, then try again.";
   return message;
 }
 
-export default function LoginClient() {
+export default function LoginClient({ linkFailed = false }: { linkFailed?: boolean }) {
   const router = useRouter();
   const [mode, setMode] = useState<Mode>("password");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(
+    linkFailed ? "That link has expired or was already used. Sign in below, or ask for a new link." : null,
+  );
   const [loading, setLoading] = useState(false);
   const [magicSent, setMagicSent] = useState(false);
 
