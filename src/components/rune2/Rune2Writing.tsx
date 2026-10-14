@@ -31,6 +31,8 @@ export function Rune2Writing({ projectId, target }: { projectId: string; target:
   const loading = useRef(new Set<string>());
   const [creating, startCreating] = useTransition();
   const [createFailed, setCreateFailed] = useState(false);
+  // One first Scene per reach, even for clicks that land before `creating` renders.
+  const starting = useRef(false);
 
   const fetchScene = useCallback(
     async (id: string) => {
@@ -108,14 +110,18 @@ export function Rune2Writing({ projectId, target }: { projectId: string; target:
   const clearFocusRequest = useCallback(() => requestSceneFocus(null), [requestSceneFocus]);
 
   // An empty Chapter's first Scene is made the moment the writer reaches for
-  // the page (a click or a keystroke on the invitation), and takes focus once
+  // the page (a click, or Enter/Space on the invitation), and takes focus once
   // its editor appears — so beginning a Chapter is simply beginning to write.
+  // A typed letter does not start it: that letter (and the next ones, until
+  // the editor exists) would have nowhere to go and be lost.
   function startChapter(chapterId: string) {
-    if (creating) return;
+    if (creating || starting.current) return;
+    starting.current = true;
     setCreateFailed(false);
     startCreating(async () => {
-      const result = await createScene(chapterId, null);
-      if (result.error !== null) {
+      const result = await createScene(chapterId, null).catch(() => null);
+      starting.current = false;
+      if (!result || result.error !== null) {
         setCreateFailed(true);
         return;
       }
@@ -158,10 +164,6 @@ export function Rune2Writing({ projectId, target }: { projectId: string; target:
           aria-label="Start writing this chapter"
           aria-busy={creating || undefined}
           onClick={() => startChapter(target.chapterId)}
-          onKeyDown={(e) => {
-            // A first keystroke begins the Chapter too; the Scene takes focus as it appears.
-            if (e.key.length === 1 && !e.metaKey && !e.ctrlKey && !e.altKey) startChapter(target.chapterId);
-          }}
         >
           {creating ? "Starting…" : "Start writing"}
         </button>

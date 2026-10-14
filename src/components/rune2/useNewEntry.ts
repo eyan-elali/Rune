@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState, useSyncExternalStore, useTransition } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createCollectionEntry } from "@/lib/actions/workspaceCollections";
 import type { PropertyValue } from "@/lib/types";
 import { useCompleteHint } from "./Hint";
+import { releaseTextEntry } from "./pendingCreation";
 import { usePropertyStore } from "./PropertyStore";
 import { useRune2Selection } from "./Rune2Selection";
 
@@ -61,6 +62,8 @@ export function useNewEntry(collectionId: string, { inPlace = false }: { inPlace
   const router = useRouter();
   const [, startRefresh] = useTransition();
   const [busy, setBusy] = useState(false);
+  // One creation at a time, even for clicks that land before `busy` renders.
+  const creating = useRef(false);
   const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
@@ -69,9 +72,13 @@ export function useNewEntry(collectionId: string, { inPlace = false }: { inPlace
     return () => clearTimeout(timer);
   }, [notice]);
 
+  // Until the Entry exists there is no name field or body to type into, and
+  // no other text surface keeps focus meanwhile (pendingCreation).
   async function add(initial?: { propertyId: string; value: PropertyValue }) {
-    if (busy) return;
+    if (creating.current) return;
+    creating.current = true;
     const from = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    releaseTextEntry(from);
     setBusy(true);
     setNotice(null);
     try {
@@ -92,6 +99,7 @@ export function useNewEntry(collectionId: string, { inPlace = false }: { inPlace
     } catch {
       setNotice("Couldn’t create the entry.");
     } finally {
+      creating.current = false;
       setBusy(false);
       startRefresh(() => router.refresh());
     }

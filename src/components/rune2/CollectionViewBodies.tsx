@@ -903,6 +903,7 @@ export function BoardView({
                 type="button"
                 className="r2-lane-add"
                 disabled={busy}
+                aria-busy={busy || undefined}
                 aria-label={`New entry in ${lane.name}`}
                 onClick={() =>
                   void add(
@@ -948,9 +949,9 @@ export function BoardView({
           </div>
         )}
       </div>
-      {(notice || addNotice) && (
+      {(notice || addNotice || busy) && (
         <p role="status" className="r2-doc-note">
-          {notice ?? addNotice}
+          {notice ?? (busy ? "Adding entry…" : addNotice)}
         </p>
       )}
     </>

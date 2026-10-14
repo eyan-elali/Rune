@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState, useTransition, type ReactNode } from "react";
+import { useEffect, useRef, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { BookOpen, FileDown, MoreHorizontal, PanelRight, Plus, StickyNote, Trash2 } from "lucide-react";
 import { EDITOR_FONTS, useEditorFont } from "./useEditorFont";
 import { ICON } from "./icons";
 import { Tooltip } from "./Tooltip";
+import { releaseTextEntry } from "./pendingCreation";
 import { createScene } from "@/lib/actions/scenes";
 import { cacheScene } from "@/lib/offline/db";
 import { isWorkspaceKind, type NavEntry, type NavKind } from "@/lib/rune2/navigatorModel";
@@ -272,6 +273,9 @@ function AddSceneAction({ chapterId }: { chapterId: string }) {
     useRune2Selection();
   const router = useRouter();
   const [busy, setBusy] = useState(false);
+  // One creation at a time, even for clicks that land before `busy` renders.
+  const creating = useRef(false);
+  const button = useRef<HTMLButtonElement>(null);
   const [, startRefresh] = useTransition();
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -281,17 +285,24 @@ function AddSceneAction({ chapterId }: { chapterId: string }) {
     return () => clearTimeout(timer);
   }, [notice]);
 
+  // Until the Scene exists there is no editor to type into, and no other
+  // text surface keeps focus (pendingCreation): "Adding a scene…" shows, and
+  // the new Scene's editor takes focus the moment it appears.
   async function add() {
-    if (busy) return;
+    if (creating.current) return;
+    creating.current = true;
     const chapter = index.get(chapterId);
     const fromChapter = selected?.id === chapterId;
+    releaseTextEntry();
     setBusy(true);
     setNotice(null);
+    let failed = false;
     try {
       // Unnamed: it shows as "Scene N" from where it stands, never stored.
       const r = await createScene(chapterId, null);
       if (r.error !== null) {
-        setNotice("Couldn’t add a scene.");
+        failed = true;
+        setNotice("Couldn’t add a scene. Nothing was changed — try again.");
         return;
       }
       try {
@@ -303,22 +314,33 @@ function AddSceneAction({ chapterId }: { chapterId: string }) {
       if (!fromChapter) selectWhenPresent(r.data.id);
       requestSceneFocus(r.data.id);
     } catch {
-      setNotice("Couldn’t add a scene.");
+      failed = true;
+      setNotice("Couldn’t add a scene. Nothing was changed — try again.");
     } finally {
+      creating.current = false;
       setBusy(false);
       startRefresh(() => router.refresh());
+      // Back to the control, for another try from the keyboard.
+      if (failed) requestAnimationFrame(() => button.current?.focus());
     }
   }
 
   return (
     <>
-      {notice && (
+      {(busy || notice) && (
         <span role="status" className="r2-contextbar-notice">
-          {notice}
+          {busy ? "Adding a scene…" : notice}
         </span>
       )}
       <Tooltip label={`Add a scene to the end of ${index.get(chapterId)?.title ?? "this chapter"}`} describes>
-        <button type="button" className="r2-action" disabled={busy} onClick={() => void add()}>
+        <button
+          ref={button}
+          type="button"
+          className="r2-action"
+          disabled={busy}
+          aria-busy={busy || undefined}
+          onClick={() => void add()}
+        >
           <Plus {...ICON} aria-hidden />
           Scene
         </button>

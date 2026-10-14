@@ -177,9 +177,9 @@ export function CollectionView({ entry }: { entry: NavEntry }) {
           {(view.type !== "board" ||
             found.length === 0 ||
             !groupableProperties(properties).some((p) => p.id === view.config.group_by)) && (
-            <button type="button" className="r2-entry-add" disabled={busy} onClick={() => void add()}>
+            <button type="button" className="r2-entry-add" disabled={busy} aria-busy={busy || undefined} onClick={() => void add()}>
               <Plus {...ICON} aria-hidden />
-              New entry
+              {busy ? "Adding entry…" : "New entry"}
             </button>
           )}
           {notice && (
@@ -246,15 +246,16 @@ export function NewEntryAction({ collectionId }: { collectionId: string }) {
   const { add, busy, notice } = useNewEntry(collectionId);
   return (
     <>
-      {notice && (
+      {(busy || notice) && (
         <span role="status" className="r2-contextbar-notice">
-          {notice}
+          {busy ? "Adding an entry…" : notice}
         </span>
       )}
       <button
         type="button"
         className="r2-action"
         disabled={busy}
+        aria-busy={busy || undefined}
         onClick={() => void add()}
         title={`Add an entry to ${index.get(collectionId)?.title ?? "this collection"}`}
       >

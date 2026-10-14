@@ -1110,10 +1110,61 @@ async function fc14() {
   check('FC14: the other tab\'s save is not overwritten', server.scenes.get(PAGE).word_count === 140, server.scenes.get(PAGE).word_count);
 }
 
+// FC15 — a sibling tab of this browser saved words typed THERE at the same
+// word count as this tab's baseline (two-tab edits that each swap one word;
+// or the other tab's "Keep yours"). The shared cache now holds that save, not
+// this tab's confirmed copy, so no content comparison is possible: this tab's
+// next save is a conflict, never a silent overwrite (reproduced live, 2026-10-14).
+// A rename after this tab's own save (fc10) and this tab's own words uploaded
+// by the sibling (fc4) stay conflict-free.
+async function fc15() {
+  resetServer();
+  createServerPage(PAGE, { wordCount: 100, content: doc(100) });
+  await openFresh();
+  await writeToPendingQueue(PAGE, USER, doc(107, 'mine'), 107);
+  await syncPendingWrite(PAGE, 'online', 'tab');
+  check('FC15: this tab saved first', (await getPending()) === null && server.scenes.get(PAGE).word_count === 107, '');
+  // The sibling tab's save (its editor, flush or Keep Local), same count.
+  const r = await saveSceneCheckedDirect(doc(107, 'theirs'), 107);
+  const db = await getOfflineDB();
+  const cache = await getCache();
+  await db.put('page_cache', { ...cache, serverWordCount: 107, serverVersion: r.version, serverContent: doc(107, 'theirs'), serverWriterTab: 'another-tab' });
+  await writeToPendingQueue(PAGE, USER, doc(108, 'mine'), 108);
+  const warn = console.warn; console.warn = () => {};
+  await syncPendingWrite(PAGE, 'online', 'tab');
+  console.warn = warn;
+  const p = await getPending();
+  check('FC15: same-count save from another tab → conflict', p?.syncStatus === 'conflict', p?.syncStatus);
+  check('FC15: the other tab\'s save is not overwritten', JSON.stringify(server.scenes.get(PAGE).content) === JSON.stringify(doc(107, 'theirs')), '');
+  check('FC15: this tab\'s words are kept', p?.wordCount === 108, p?.wordCount);
+}
+
+// NC1 — a Scene just created by "+ Scene" (or an empty Chapter's "Start
+// writing"): the server returns the empty Scene, the shell caches it, and its
+// editor appears and takes focus. The writer's first words then save through
+// the ordinary path: no conflict against the empty server copy, one Scene row,
+// and a reload (a fresh read) shows them. Typing on after the reload saves too.
+async function nc1() {
+  resetServer();
+  createServerPage(PAGE); // insert_scene_checked: an empty Scene, version 1
+  await openFresh(); // AddSceneAction / startChapter: cacheScene(r.data)
+  await writeToPendingQueue(PAGE, USER, doc(12, 'first'), 12);
+  await syncPendingWrite(PAGE, 'online', 'tab');
+  check('NC1: first words in a new Scene save, no conflict', (await getPending()) === null && server.scenes.get(PAGE).word_count === 12, (await getPending())?.syncStatus);
+  check('NC1: the saved text is the typed text', JSON.stringify(server.scenes.get(PAGE).content) === JSON.stringify(doc(12, 'first')), '');
+  check('NC1: one Scene row, never a copy', server.scenes.size === 1, server.scenes.size);
+  await openFresh(); // reload
+  check('NC1: a reload reads the typed text back', (await getCache())?.serverWordCount === 12 && JSON.stringify((await getCache())?.content) === JSON.stringify(doc(12, 'first')), '');
+  await writeToPendingQueue(PAGE, USER, doc(15, 'first'), 15);
+  await syncPendingWrite(PAGE, 'online', 'tab');
+  check('NC1: writing on after the reload saves, no conflict', (await getPending()) === null && server.scenes.get(PAGE).word_count === 15, '');
+  check('NC1: two saves in all', saves().length === 2, saves().length);
+}
+
 const mig = () => migration('MIG', false);
 const migbump = () => migration('MIGBUMP', true);
 
-const scenarios = { r1, r2, r3, r6, r7, g1, g2, g3, w, f, i, m, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11, s12, kl, klrace, klext, klrepeat, klmeta, klserver, mig, migbump, fc1, fc2, fc3, fc4, fc5, fc6, fc7, fc8, fc9, fc10, fc11, fc12, fc13, fc14 };
+const scenarios = { r1, r2, r3, r6, r7, g1, g2, g3, w, f, i, m, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11, s12, kl, klrace, klext, klrepeat, klmeta, klserver, mig, migbump, fc1, fc2, fc3, fc4, fc5, fc6, fc7, fc8, fc9, fc10, fc11, fc12, fc13, fc14, fc15, nc1 };
 const name = process.env.SCENARIO;
 if (!scenarios[name]) { console.error('unknown scenario', name); process.exit(2); }
 await scenarios[name]();

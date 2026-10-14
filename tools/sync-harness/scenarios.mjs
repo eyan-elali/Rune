@@ -5,5 +5,5 @@ export const SCENARIOS = [
   's1', 's2', 's3', 's4', 's5', 's6', 's7', 's8', 's9', 's10', 's11', 's12',
   'kl', 'klrace', 'klext', 'klrepeat', 'klmeta', 'klserver',
   'mig', 'migbump',
-  'fc1', 'fc2', 'fc3', 'fc4', 'fc5', 'fc6', 'fc7', 'fc8', 'fc9', 'fc10', 'fc11', 'fc12', 'fc13', 'fc14',
+  'fc1', 'fc2', 'fc3', 'fc4', 'fc5', 'fc6', 'fc7', 'fc8', 'fc9', 'fc10', 'fc11', 'fc12', 'fc13', 'fc14', 'fc15', 'nc1',
 ];

@@ -454,6 +454,21 @@ async function doSyncPendingWrite(
         if (differs === null) return
         serverHasChanged = differs
         conflictReason = 'server content differs from the confirmed copy (same word count)'
+      } else if (
+        tabBaseline?.version !== undefined &&
+        cachedScene?.serverVersion !== undefined &&
+        cachedScene.serverVersion > tabBaseline.version &&
+        cachedScene.serverWriterTab !== undefined &&
+        cachedScene.serverWriterTab !== TAB_ID
+      ) {
+        // Same count, but the shared cache records a save of words typed in
+        // ANOTHER tab of this browser, newer than this tab's baseline: a
+        // two-tab divergence that lands on the same word count (reproduced
+        // live, 2026-10-14; harness fc15). The cache no longer holds this
+        // tab's confirmed copy to compare against, and uploading would
+        // overwrite that save.
+        serverHasChanged = true
+        conflictReason = 'another tab of this browser saved newer words (same word count)'
       } else {
         serverHasChanged = false
       }

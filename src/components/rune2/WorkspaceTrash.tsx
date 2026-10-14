@@ -305,7 +305,9 @@ export function TrashView() {
             ? `“${title}” is back, in Unplaced Scenes — its chapter isn’t in the manuscript.`
             : item.type === "scene"
               ? `“${title}” is back in the manuscript.`
-              : `“${title}” is back in the Workspace.`
+              : item.type === "entry"
+                ? `“${title}” is back in “${trashItemTitle({ type: "collection", title: item.collection_title })}”.`
+                : `“${title}” is back in the Workspace.`
     );
     refresh();
     await load();
