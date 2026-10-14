@@ -11,6 +11,7 @@ import { FrontMore } from "@/components/front/FrontMore";
 import { FrontTrust } from "@/components/front/FrontTrust";
 import { FrontClose } from "@/components/front/FrontClose";
 import { MarketingTrackers } from "@/components/MarketingTrackers";
+import { FrontAnalytics } from "@/components/front/FrontAnalytics";
 import { COMPLETE_PROFILE_PATH, needsProfileCompletion, readProfileState } from "@/lib/accountGate";
 import "./front.css";
 
@@ -72,6 +73,8 @@ export default async function FrontDoor() {
       </div>
       {/* Marketing attribution for signed-out visitors only — never for a signed-in account. */}
       {user === null && <MarketingTrackers />}
+      {/* First-party: the landing view and "Start writing free" clicks (api/front-event), signed-out only. */}
+      {user === null && <FrontAnalytics view />}
     </PublicFrame>
   );
 }

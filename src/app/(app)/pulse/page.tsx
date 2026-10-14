@@ -26,6 +26,8 @@ import { OpenQuestions } from "@/components/pulse/sections/OpenQuestions";
 import { InternalAccounts } from "@/components/pulse/sections/InternalAccounts";
 import { ClosedBeta } from "@/components/pulse/sections/ClosedBeta";
 import { getBetaOverview } from "@/lib/actions/beta";
+import { getLaunchReport } from "@/lib/actions/pulseLaunch";
+import { LaunchFunnel } from "@/components/pulse/sections/LaunchFunnel";
 
 // Pulse: the founder's private operational room (admin-only, see the (app)
 // layout). Feedback from writers, with the closed beta's history (who
@@ -60,6 +62,7 @@ export default async function PulsePage({ searchParams }: PulsePageProps) {
     notes,
     excludedUsers,
     beta,
+    launch,
   ] = await Promise.all([
     getDailyBrief(includeInternal),
     getHeartbeat(range, includeInternal),
@@ -72,6 +75,7 @@ export default async function PulsePage({ searchParams }: PulsePageProps) {
     listFounderNotes(),
     listExcludedUsers(),
     getBetaOverview(),
+    getLaunchReport(range, includeInternal),
   ]);
 
   return (
@@ -98,6 +102,11 @@ export default async function PulsePage({ searchParams }: PulsePageProps) {
           </div>
 
           <DailyBrief data={dailyBrief} />
+
+          {/* Paid acquisition's questions: source → signup → onboarding → real writing → return. */}
+          <div className="r2-pulse-section">
+            <LaunchFunnel data={launch} />
+          </div>
 
           <div className="r2-pulse-section">
             <Heartbeat data={heartbeat} />

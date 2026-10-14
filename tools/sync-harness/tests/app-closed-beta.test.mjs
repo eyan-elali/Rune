@@ -147,7 +147,7 @@ test('the app no longer gates on beta access: the (rune2) layout has no access c
   // The front door (page.tsx composes components/front): one action, "Start writing free",
   // that sends a visitor to Create account; Sign in beside it in the header.
   const hero = read('src/components/front/FrontHero.tsx');
-  assert.match(hero, /<Link href=\{startPath\(member\)\} className="r2-button r2-button--primary r2-button--lg">\s*Start writing free\s*<\/Link>/);
+  assert.match(hero, /<Link href=\{startPath\(member\)\} className="r2-button r2-button--primary r2-button--lg" data-cta="hero">\s*Start writing free\s*<\/Link>/);
   // startPath (publicRoutes.ts) is the one rule for where that action goes: Create account, or a member's Projects.
   assert.match(read('src/components/front/publicRoutes.ts'), /export function startPath\(member: boolean\): string \{\s*return member \? PUBLIC_ROUTES\.projects : PUBLIC_ROUTES\.signUp;\s*\}/);
   const header = read('src/components/front/FrontHeader.tsx');
@@ -281,14 +281,15 @@ test('onboarding, new path: Welcome → path → title → one Project (Chapter 
       `no ${t}: no templates, nothing but the manuscript`);
   }
 
-  const done = ok(await onboarding.completeOnboarding());
+  const done = ok(await onboarding.completeOnboarding('desktop'));
   assert.equal(done.href, `/projects/${p.projectId}?open=${structure[0].id}`, 'arrival opens Chapter 1\'s first Scene, ready for writing');
   assert.equal(onboardingLib.needsOnboarding(await row(), { projectsEver: 1, hasWritten: false }), false);
   ok(await onboarding.completeOnboarding());
 
   assert.deepEqual(events().map((e) => e.eventName), ['onboarding_path_new', 'project_created', 'onboarding_completed'],
     'path, Project and completion — each once');
-  assert.deepEqual(events().find((e) => e.eventName === 'onboarding_completed').metadata, { path: 'new' });
+  assert.deepEqual(events().find((e) => e.eventName === 'onboarding_completed').metadata, { path: 'new', device: 'desktop' },
+    'the coarse device class only (lib/launchMetrics.ts)');
   assert.ok(!JSON.stringify(events()).includes('Glass Orchard'), 'no title in analytics');
 });
 

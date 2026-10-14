@@ -23,6 +23,7 @@
 // client records lives in signupAnalytics.ts instead.
 
 import type { AnalyticsEventName } from "@/lib/analyticsEvents";
+import { analyticsEnvironment, sanitizeAnalyticsMetadata } from "@/lib/launchMetrics";
 
 const ONE_TIME_DEDUPE_KEY = "once";
 
@@ -36,6 +37,13 @@ async function getServiceClient() {
     serviceRoleKey,
     { auth: { autoRefreshToken: false, persistSession: false } }
   );
+}
+
+// Every event carries the environment it came from (lib/launchMetrics.ts:
+// local development shares the production database), and only allowlisted,
+// operational metadata keys — never a title, prose, a pen name or an email.
+function eventMetadata(metadata: Record<string, unknown> | null | undefined): Record<string, unknown> {
+  return { ...sanitizeAnalyticsMetadata(metadata), env: analyticsEnvironment() };
 }
 
 export interface RecordAnalyticsEventInput {
@@ -63,7 +71,7 @@ export async function recordAnalyticsEvent(
         event_name: input.eventName,
         project_id: input.projectId ?? null,
         local_date: input.localDate ?? null,
-        metadata: input.metadata ?? null,
+        metadata: eventMetadata(input.metadata),
         dedupe_key: input.dedupeKey ?? ONE_TIME_DEDUPE_KEY,
       },
       { onConflict: "user_id,event_name,dedupe_key", ignoreDuplicates: true }
@@ -71,4 +79,25 @@ export async function recordAnalyticsEvent(
 
   if (error) return { error: error.message, code: error.code };
   return { error: null };
+}
+
+// The signed-out front door's two events (landing_viewed, landing_cta_clicked):
+// no account exists, so user_id is null and every row is its own (a fresh
+// dedupe key). Only the front-door event route calls this, after validating
+// and rate-limiting the request; it never takes a user id.
+export type AnonymousEventName = Extract<AnalyticsEventName, "landing_viewed" | "landing_cta_clicked">;
+
+export async function recordAnonymousEvent(
+  eventName: AnonymousEventName,
+  metadata: Record<string, unknown>
+): Promise<{ error: string | null }> {
+  const admin = await getServiceClient();
+  if (!admin) return { error: "Analytics is not configured (missing SUPABASE_SERVICE_ROLE_KEY)." };
+  const { error } = await admin.from("analytics_events").insert({
+    user_id: null,
+    event_name: eventName,
+    metadata: eventMetadata(metadata),
+    dedupe_key: crypto.randomUUID(),
+  });
+  return { error: error ? error.message : null };
 }

@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { PublicFrame } from "@/components/front/PublicFrame";
 import { SITE_URL } from "@/lib/brand";
 import "./waiting-room.css";
-import { requestDesktopLinkEmail, recordPhoneWaitingRoomViewed } from "@/lib/actions/waitingRoom";
+import { requestDesktopLinkEmail, recordDesktopLinkCopied, recordPhoneWaitingRoomViewed } from "@/lib/actions/waitingRoom";
 
 // The desktop handoff on a phone: the full workspace is a desktop (and
 // supported tablet) experience, so a phone ends here. One surface, four
@@ -78,8 +78,8 @@ export function DesktopHandoff({ variant, initialEmailSentAt, focusHeading = fal
   useEffect(() => {
     if (hasTrackedView.current) return;
     hasTrackedView.current = true;
-    recordPhoneWaitingRoomViewed().catch(() => {});
-  }, []);
+    recordPhoneWaitingRoomViewed(variant).catch(() => {});
+  }, [variant]);
 
   // The copy confirmation is the button's own label for a moment, not a toast.
   useEffect(() => {
@@ -132,6 +132,7 @@ export function DesktopHandoff({ variant, initialEmailSentAt, focusHeading = fal
     try {
       await navigator.clipboard.writeText(url);
       setCopyState("copied");
+      recordDesktopLinkCopied().catch(() => {});
     } catch {
       setCopyState("error");
     }

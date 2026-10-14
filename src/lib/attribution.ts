@@ -4,8 +4,15 @@
 // calls here — see src/lib/actions/attribution.ts for the write path.
 //
 // Only these fields are ever parsed, stored, or persisted. Do not widen this
-// list to arbitrary query params, referrers, or anything else that could
-// carry PII.
+// list to arbitrary query params, full referrer URLs, or anything else that
+// could carry PII. The referrer is kept as a bare host (no path, no query).
+//
+// First touch: a campaign-tagged visit (UTM fields or a Meta click id) is the
+// first touch and is never replaced. An untagged arrival from another site on
+// a marketing page keeps only that site's host, as a fallback touch; a later
+// campaign-tagged visit before signup supersedes that fallback (a paid click
+// outranks an earlier referral), never the other way round. A visit with
+// neither sets nothing, so a direct visitor stays "Direct / Unknown".
 
 export const ATTRIBUTION_COOKIE_NAME = "rune_attribution";
 
@@ -24,6 +31,8 @@ export interface AttributionTouch {
   term: string | null;
   fbclid: string | null;
   landing_path: string | null;
+  /** The referring site's host on the captured visit, or null. */
+  referrer_host: string | null;
   captured_at: string;
 }
 
@@ -71,6 +80,31 @@ export function hasMeaningfulAttribution(fields: AttributionUtmFields): boolean 
   );
 }
 
+/** A touch worth keeping: campaign-tagged, or at least a referring site. */
+export function isUsableTouch(touch: Pick<AttributionTouch, keyof AttributionUtmFields | "referrer_host">): boolean {
+  return hasMeaningfulAttribution(touch) || Boolean(touch.referrer_host);
+}
+
+/**
+ * Whether a visit's touch should be written over the stored one: nothing
+ * stored yet and this visit is usable, or the stored one is a referrer-only
+ * fallback and this visit is campaign-tagged. A tagged first touch is final.
+ */
+export function shouldReplaceTouch(
+  existing: AttributionTouch | null,
+  incoming: Pick<AttributionTouch, keyof AttributionUtmFields | "referrer_host">
+): boolean {
+  if (!existing) return isUsableTouch(incoming);
+  if (hasMeaningfulAttribution(existing)) return false;
+  return hasMeaningfulAttribution(incoming);
+}
+
+function normalizeHost(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const host = value.trim().toLowerCase();
+  return /^[a-z0-9.-]{1,200}$/.test(host) ? host : null;
+}
+
 export function serializeAttributionCookie(touch: AttributionTouch): string {
   return JSON.stringify(touch);
 }
@@ -101,10 +135,11 @@ export function deserializeAttributionCookie(raw: string | undefined | null): At
     term: normalizeField(candidate.term),
     fbclid: normalizeField(candidate.fbclid),
     landing_path: normalizeLandingPath(candidate.landing_path),
+    referrer_host: normalizeHost(candidate.referrer_host),
     captured_at: capturedAt,
   };
 
-  if (!hasMeaningfulAttribution(touch)) return null;
+  if (!isUsableTouch(touch)) return null;
 
   return touch;
 }

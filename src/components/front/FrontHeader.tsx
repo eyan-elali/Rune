@@ -110,7 +110,7 @@ export function FrontHeader({ member }: { member: boolean }) {
               Sign in
             </Link>
           )}
-          <Link href={startPath(member)} className="r2-button r2-button--primary r2-lp-cta">
+          <Link href={startPath(member)} className="r2-button r2-button--primary r2-lp-cta" data-cta="header">
             Start writing free
           </Link>
         </div>

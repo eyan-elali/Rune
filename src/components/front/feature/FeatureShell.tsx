@@ -6,6 +6,7 @@ import { X } from "lucide-react";
 import { ICON } from "@/components/rune2/icons";
 import { PublicFootLinks } from "@/components/front/PublicFrame";
 import { startPath } from "@/components/front/publicRoutes";
+import { FrontAnalytics } from "@/components/front/FrontAnalytics";
 import { FeatureNavigator } from "./FeatureNavigator";
 import { FeatureSwitcher } from "./FeatureSwitcher";
 import type { FeatureSlug } from "./featureNav";
@@ -71,6 +72,9 @@ export function FeatureShell({
             <X {...ICON} aria-hidden />
           </button>
         )}
+        {/* "Start writing free" clicks (data-cta="feature"), signed-out only; a peek is over the
+            front door, whose own FrontAnalytics already listens. */}
+        {!member && mode !== "peek" && <FrontAnalytics />}
         <FeatureNavigator />
         <div className="r2-fp-content" ref={scroller}>
           <FeatureSwitcher />
@@ -97,7 +101,7 @@ function FeatureEnd({ member }: { member: boolean }) {
     <footer className="r2-fp-end">
       <div className="r2-fp-end-row">
         <p className="r2-fp-end-line">Sutura is open to anyone, and free during the public beta.</p>
-        <Link href={startPath(member)} className="r2-button r2-button--primary r2-fp-end-action">
+        <Link href={startPath(member)} className="r2-button r2-button--primary r2-fp-end-action" data-cta="feature">
           Start writing free
         </Link>
       </div>

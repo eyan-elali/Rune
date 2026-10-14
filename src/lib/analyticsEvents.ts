@@ -3,6 +3,11 @@
 // Add new events here first so callers never scatter raw string literals.
 
 export type AnalyticsEventName =
+  // The signed-out front door (anonymous rows, user_id null; metadata is the
+  // visit's campaign fields, referrer host, device class and, for a click,
+  // placement header | hero | final | feature) — lib/launchMetrics.ts
+  | "landing_viewed"
+  | "landing_cta_clicked"
   // Acquisition and account
   | "signup_completed"
   | "email_verified"
@@ -24,6 +29,10 @@ export type AnalyticsEventName =
   | "first_character_typed"
   | "first_save"
   | "first_sync_completed"
+  // ACTIVATION — the canonical "activated writer" (lib/launchMetrics.ts): the
+  // first credited typed manuscript words in the writer's own Project. Once
+  // per account; local_date = the writer's local day of that writing.
+  | "first_words_written"
   // Writing milestones (real words — writing_sessions.words_added, never projects.word_count)
   | "reached_100_words"
   | "reached_500_words"
@@ -31,7 +40,8 @@ export type AnalyticsEventName =
   | "reached_5000_words"
   | "reached_10000_words"
   | "reached_15000_words"
-  // Retention (distinct local calendar days with real writing, not sessions/opens)
+  // Retention (distinct local calendar days with real writing, not sessions/opens;
+  // local_date = that day, from 2026-10-13)
   | "second_writing_day"
   | "third_writing_day"
   // Feature use
@@ -41,6 +51,7 @@ export type AnalyticsEventName =
   // Phone waiting room (mobile -> desktop activation)
   | "phone_waiting_room_viewed"
   | "desktop_link_requested"
+  | "desktop_link_copied"
   // Revenue and lifecycle
   | "subscription_started"
   | "subscription_cancelled"

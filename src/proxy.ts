@@ -8,7 +8,9 @@ import {
   serializeAttributionCookie,
   deserializeAttributionCookie,
   normalizeLandingPath,
+  shouldReplaceTouch,
 } from "@/lib/attribution";
+import { normalizeReferrerHost } from "@/lib/launchMetrics";
 
 const PUBLIC_ROUTES = [
   "/",
@@ -41,22 +43,34 @@ const PUBLIC_ROUTES = [
   // Entry point for the landing page's free-start CTAs — clears any
   // stale purchase intent before continuing to signup.
   "/api/intent/clear",
+  // The signed-out front door's first-party events (landing_viewed,
+  // landing_cta_clicked) — app/api/front-event.
+  "/api/front-event",
 ];
 
-// First-touch capture: only runs on public entry routes, only when no
-// first-touch cookie already exists, and only when this visit actually
-// carries recognized attribution params — an untagged visit never
-// overwrites (or races to set) a cookie.
+// First-touch capture: only runs on public entry routes. A campaign-tagged
+// visit (UTM fields / fbclid) sets the cookie unless a tagged touch already
+// exists; an untagged arrival from another site on a marketing page sets a
+// referrer-only fallback when nothing is stored yet (lib/attribution.ts
+// shouldReplaceTouch). A direct, untagged visit never sets or overwrites it.
+const REFERRER_CAPTURE_PATHS = ["/", "/features/", "/principles/"];
+
 function captureFirstTouchAttribution(request: NextRequest, response: NextResponse) {
   const existing = deserializeAttributionCookie(request.cookies.get(ATTRIBUTION_COOKIE_NAME)?.value);
-  if (existing) return;
+  if (existing && hasMeaningfulAttribution(existing)) return;
 
+  const { pathname } = request.nextUrl;
   const fields = parseAttributionFromSearchParams(request.nextUrl.searchParams);
-  if (!hasMeaningfulAttribution(fields)) return;
+  const onMarketingPage = REFERRER_CAPTURE_PATHS.some((p) => (p === "/" ? pathname === "/" : pathname.startsWith(p)));
+  const referrerHost = onMarketingPage
+    ? normalizeReferrerHost(request.headers.get("referer"), request.nextUrl.hostname)
+    : null;
+  const incoming = { ...fields, referrer_host: referrerHost };
+  if (!shouldReplaceTouch(existing, incoming)) return;
 
   const touch = {
-    ...fields,
-    landing_path: normalizeLandingPath(request.nextUrl.pathname),
+    ...incoming,
+    landing_path: normalizeLandingPath(pathname),
     captured_at: new Date().toISOString(),
   };
 

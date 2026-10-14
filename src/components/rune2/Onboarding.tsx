@@ -13,6 +13,7 @@ import { useRunePreferences, useRuneRootProps } from "./RunePreferences";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { useSupportedDevice } from "@/components/layout/SupportedDeviceGate";
 import { DesktopHandoff } from "@/components/layout/PhoneWaitingRoom";
+import { currentDeviceCategory } from "@/lib/device";
 
 // Onboarding (Beta Completion E): a short transition into Rune — not a
 // feature tour, not a motivational sequence. One idea per screen:
@@ -223,7 +224,7 @@ export function Onboarding({
                 disabled={busy}
                 onClick={() =>
                   run(async () => {
-                    const r = await completeOnboarding();
+                    const r = await completeOnboarding(currentDeviceCategory());
                     if (r.error !== null) return r.error;
                     router.replace(r.data.href);
                     // The page changes; stay busy until it does.
@@ -403,7 +404,7 @@ function PhoneArrival({ importPending, emailSentAt }: { importPending: boolean; 
   const complete = useCallback(async () => {
     setBusy(true);
     try {
-      const r = await completeOnboarding();
+      const r = await completeOnboarding("phone");
       setFailed(r.error !== null);
     } catch {
       setFailed(true);

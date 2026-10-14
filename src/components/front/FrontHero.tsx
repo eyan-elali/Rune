@@ -26,7 +26,7 @@ export function FrontHero({ member }: { member: boolean }) {
           <span className="r2-lp-title-2">Build only what it asks for.</span>
         </h1>
         <div className="r2-lp-actions">
-          <Link href={startPath(member)} className="r2-button r2-button--primary r2-button--lg">
+          <Link href={startPath(member)} className="r2-button r2-button--primary r2-button--lg" data-cta="hero">
             Start writing free
           </Link>
           <p className="r2-lp-note">

@@ -14,6 +14,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { recordAnalyticsEvent } from "@/lib/actions/analytics";
+import { parseHandoffVariant } from "@/lib/launchMetrics";
 
 type ServerSupabaseClient = Awaited<ReturnType<typeof createClient>>;
 
@@ -98,8 +99,12 @@ export async function triggerAutomaticDesktopLinkEmail(): Promise<{ sent: boolea
  * safe to call directly from PhoneWaitingRoom's client component. Dedupe
  * key defaults to a fixed sentinel (see recordAnalyticsEvent), so repeated
  * renders/refreshes only ever produce one row.
+ *
+ * This is "the desktop handoff was shown" (onboarding's phone arrival or the
+ * gate). The first view's variant (ready | ready-import | returning | neutral
+ * — a safe enum, anything else null) is kept as metadata.
  */
-export async function recordPhoneWaitingRoomViewed(): Promise<void> {
+export async function recordPhoneWaitingRoomViewed(variant?: unknown): Promise<void> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -107,7 +112,11 @@ export async function recordPhoneWaitingRoomViewed(): Promise<void> {
   if (!user) return;
 
   try {
-    await recordAnalyticsEvent({ userId: user.id, eventName: "phone_waiting_room_viewed" });
+    await recordAnalyticsEvent({
+      userId: user.id,
+      eventName: "phone_waiting_room_viewed",
+      metadata: { variant: parseHandoffVariant(variant) },
+    });
   } catch (err) {
     console.error("[waitingRoom] phone_waiting_room_viewed analytics threw:", err);
   }
@@ -183,4 +192,23 @@ export async function requestDesktopLinkEmail(): Promise<RequestDesktopLinkResul
   }
 
   return { ok: true };
+}
+
+/**
+ * The handoff's "Copy link" copied the desktop link: once per account (the
+ * fixed dedupe key), for the caller's own session — never a client-supplied
+ * userId, and nothing about the link or the writer.
+ */
+export async function recordDesktopLinkCopied(): Promise<void> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+
+  try {
+    await recordAnalyticsEvent({ userId: user.id, eventName: "desktop_link_copied" });
+  } catch (err) {
+    console.error("[waitingRoom] desktop_link_copied analytics threw:", err);
+  }
 }

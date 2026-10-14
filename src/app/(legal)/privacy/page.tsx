@@ -21,7 +21,7 @@ export const metadata: Metadata = {
 // This is not legal advice. It needs review by a professional familiar with
 // Québec's Law 25 and PIPEDA before the beta opens widely.
 
-const LAST_UPDATED = "October 9, 2026";
+const LAST_UPDATED = "October 13, 2026";
 
 export default function PrivacyPage() {
   return (
@@ -78,9 +78,14 @@ export default function PrivacyPage() {
             account signed up, opened its first project, completed onboarding, reached a word milestone, exported,
             or sent feedback), with the date, the project involved and a few non-identifying details such as a
             feedback category. These events never contain manuscript text, titles, notes, feedback text or email
-            addresses. If you arrive from a link carrying campaign parameters (UTM fields or a Meta click
-            identifier), those parameters and the page you landed on are kept in a cookie for up to 30 days and,
-            if you then sign up, recorded once against your account so we can tell where writers came from.
+            addresses; they may record your device class (phone, tablet or desktop). If you arrive from a link
+            carrying campaign parameters (UTM fields or a Meta click identifier), or from another website, those
+            parameters (or that website’s domain name alone — never the page or search that led you here) and the
+            page you landed on are kept in a cookie for up to 30 days and, if you then sign up, recorded once
+            against your account so we can tell where writers came from. While you are signed out, the public
+            front page also records, without any identifier or cookie, that it was viewed and whether “Start
+            writing free” was clicked, with the campaign parameters of that visit, the referring website’s
+            domain and your device class.
           </p>
           <p>
             <Em>Feedback.</Em> What you write in the feedback form, the category you pick, and context about where
@@ -182,7 +187,7 @@ export default function PrivacyPage() {
           <p>
             <Em>Necessary.</Em> Session cookies from our authentication provider keep you signed in. A cookie
             named <code>rune_attribution</code> holds the campaign parameters described in Section 2 for up to
-            30 days, only if you arrived through a tagged link. Sutura also keeps data in your browser’s local
+            30 days, only if you arrived through a tagged link or from another website. Sutura also keeps data in your browser’s local
             storage (preferences, a tutorial flag, the one-time registration marker) and in IndexedDB, where
             unsaved writing is held so that it survives an offline moment and is sent when you reconnect.
             Blocking these will stop Sutura from working properly.

@@ -1,3 +1,5 @@
+import { deviceCategory, type DeviceCategory } from "@/lib/launchMetrics";
+
 // Phone or not, for the supported-device gate (components/layout/SupportedDeviceGate).
 //
 // Width alone is not enough: a large phone turned to landscape is 900+ CSS px
@@ -16,4 +18,11 @@ export const PHONE_MAX_SHORT_SIDE = 600;
 
 export function isPhoneDevice(d: { coarsePointer: boolean; screenWidth: number; screenHeight: number }): boolean {
   return d.coarsePointer && Math.min(d.screenWidth, d.screenHeight) < PHONE_MAX_SHORT_SIDE;
+}
+
+/** This browser's coarse device class for analytics (phone | tablet | desktop). Browser only. */
+export function currentDeviceCategory(): DeviceCategory {
+  const coarsePointer = window.matchMedia("(pointer: coarse)").matches;
+  const phone = isPhoneDevice({ coarsePointer, screenWidth: window.screen.width, screenHeight: window.screen.height });
+  return deviceCategory({ phone, coarsePointer });
 }

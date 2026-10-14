@@ -16,6 +16,7 @@ import { createClient } from "@/lib/supabase/server";
 import { recordAnalyticsEvent } from "@/lib/actions/analytics";
 import { createProjectChecked, PROJECT_TITLE_MAX } from "@/lib/projectCreation";
 import { readOnboardingRow, type OnboardingPath } from "@/lib/onboarding";
+import { parseDeviceCategory } from "@/lib/launchMetrics";
 
 type Result<T> = { data: T; error: null } | { data: null; error: string };
 
@@ -117,8 +118,12 @@ export async function createOnboardingProject(rawTitle: string): Promise<Result<
  * Arrival's "Open …": the journey is complete (once, for the account) and
  * where its Project opens — for a new Project, Chapter 1's first Scene, ready
  * for writing; for an import, the Manuscript.
+ *
+ * `device` is the browser's coarse class (phone | tablet | desktop), recorded
+ * on onboarding_completed so phone and desktop onboarding can be told apart;
+ * anything else (an older client sends nothing) is recorded as null.
  */
-export async function completeOnboarding(): Promise<Result<{ href: string }>> {
+export async function completeOnboarding(device?: unknown): Promise<Result<{ href: string }>> {
   const { supabase, user } = await session();
   if (!user) return { data: null, error: "You’re signed out. Sign in again to continue." };
 
@@ -136,7 +141,7 @@ export async function completeOnboarding(): Promise<Result<{ href: string }>> {
       userId: user.id,
       eventName: "onboarding_completed",
       projectId: row?.project_id ?? null,
-      metadata: { path: row?.path ?? null },
+      metadata: { path: row?.path ?? null, device: parseDeviceCategory(device) },
     });
   }
 

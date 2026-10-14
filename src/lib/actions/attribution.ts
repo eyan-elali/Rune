@@ -7,9 +7,11 @@
 // uses onConflict + ignoreDuplicates so a retried call (e.g. an auth
 // callback replay) never overwrites an existing row and never errors.
 //
-// This module never accepts a client-supplied userId — the only caller is
-// the verified-session auth callback, which resolves the user server-side
-// via supabase.auth.getUser() before calling in.
+// Callers: the verified-session auth callback (the user from the code
+// exchange), and signupAnalytics.ts at sign-up time — in the browser that
+// signed up, where the cookie is, for a profile it has verified is brand new
+// (so a verification link opened in another browser or the phone's mail app
+// no longer loses the campaign). First touch wins either way.
 //
 // Requires SUPABASE_SERVICE_ROLE_KEY in .env.local (server-only, no
 // NEXT_PUBLIC_ prefix) — matches the existing pattern in
@@ -43,22 +45,29 @@ export async function recordFirstTouchAttribution(
     return { error: "Attribution is not configured (missing SUPABASE_SERVICE_ROLE_KEY)." };
   }
 
-  const { error } = await admin
-    .from("acquisition_attribution")
-    .upsert(
-      {
-        user_id: userId,
-        source: touch.source,
-        medium: touch.medium,
-        campaign: touch.campaign,
-        content: touch.content,
-        term: touch.term,
-        fbclid: touch.fbclid,
-        landing_path: touch.landing_path,
-        captured_at: touch.captured_at,
-      },
-      { onConflict: "user_id", ignoreDuplicates: true }
-    );
+  const row = {
+    user_id: userId,
+    source: touch.source,
+    medium: touch.medium,
+    campaign: touch.campaign,
+    content: touch.content,
+    term: touch.term,
+    fbclid: touch.fbclid,
+    landing_path: touch.landing_path,
+    referrer_host: touch.referrer_host,
+    captured_at: touch.captured_at,
+  };
+  const write = (values: Record<string, unknown>) =>
+    admin.from("acquisition_attribution").upsert(values, { onConflict: "user_id", ignoreDuplicates: true });
+
+  let { error } = await write(row);
+  // A database without migration 058 has no referrer_host column: keep the
+  // campaign fields rather than lose the whole first touch.
+  if (error && (error.code === "PGRST204" || error.code === "42703") && /referrer_host/.test(error.message)) {
+    const { referrer_host: _omit, ...withoutReferrer } = row;
+    void _omit;
+    ({ error } = await write(withoutReferrer));
+  }
 
   if (error) return { error: error.message };
   return { error: null };

@@ -661,6 +661,17 @@ Event names and semantics are contracts. Do not casually rename them.
 
 Rune 2.0 pricing and XP retirement do not change existing events. For example, `reached_2000_words` and `reached_15000_words` stay as milestones. Trial-related events are not defined yet. Add them only through an explicit analytics task.
 
+### Launch funnel (paid acquisition)
+
+Definitions live in `src/lib/launchMetrics.ts`; Pulse's "Launch funnel" section (`src/lib/actions/pulseLaunch.ts`, `src/lib/launchReport.ts`) reports them.
+
+- **Activated writer:** credited typed manuscript words in the writer's own Project (the editor's writing credit: never paste, import, restore or a move). Recorded once per account as `first_words_written` (`local_date` = that day) by `recordWordsWritten`; earlier writers are derived from `writing_sessions`.
+- **Returned writer:** credited writing on a later local day than activation. **D1:** the next local day. **D7:** any later day within 7 days. Visits never count.
+- Front door (signed-out, anonymous rows, no identifier): `landing_viewed`, `landing_cta_clicked` (`placement`: header | hero | final | feature) through `/api/front-event`.
+- Phone handoff: `phone_waiting_room_viewed` (`variant`), `desktop_link_requested`, `desktop_link_copied`; `onboarding_completed` carries `device` (phone | tablet | desktop).
+- Every event carries `metadata.env` (local development shares the production database); Pulse counts only production. Metadata keys are allowlisted in `sanitizeAnalyticsMetadata`.
+- First touch: a campaign-tagged visit is final; a referrer host on a marketing page is a fallback a later campaign supersedes. It is persisted at sign-up (in the browser that signed up) and again at the auth callback, first touch winning (`acquisition_attribution.referrer_host`, migration 058).
+
 ### Funnel rules
 
 Pulse uses cohort-consistent funnel logic anchored to signup events.

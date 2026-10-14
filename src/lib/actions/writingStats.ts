@@ -34,6 +34,8 @@ async function getUser() {
 // makes this safe to re-check on every call; exact equality means it stops
 // querying entirely once a user has passed their third writing day. Never
 // throws — a failure here must not affect the writing-credit write above it.
+// Each event carries that day as its local_date (the launch funnel's D1/D7
+// read it when a deleted Project took its writing history with it).
 async function checkWritingDayMilestones(
   supabase: Awaited<ReturnType<typeof createClient>>,
   userId: string
@@ -45,13 +47,29 @@ async function checkWritingDayMilestones(
       .eq("user_id", userId)
       .gt("words_added", 0);
 
-    const distinctDays = new Set((data ?? []).map((r) => r.session_date as string)).size;
+    const days = Array.from(new Set((data ?? []).map((r) => r.session_date as string))).sort();
+    const distinctDays = days.length;
 
     if (distinctDays === 2) {
-      await recordAnalyticsEvent({ userId, eventName: "second_writing_day" });
+      await recordAnalyticsEvent({ userId, eventName: "second_writing_day", localDate: days[1] });
     } else if (distinctDays === 3) {
-      await recordAnalyticsEvent({ userId, eventName: "third_writing_day" });
+      await recordAnalyticsEvent({ userId, eventName: "third_writing_day", localDate: days[2] });
     }
+  } catch {
+    // Analytics must never interrupt writing.
+  }
+}
+
+// ACTIVATION (lib/launchMetrics.ts): the writer's first credited typed words
+// in a Project — recorded once per account, after the credit has landed. The
+// editor credits typed words only (never paste, import, restore or a move), so
+// this is real writing by construction. The fixed dedupe key makes every
+// retry, offline replay, second tab or reconnect a no-op at the database; the
+// event carries no Project id (a deleted Project must not take the account's
+// activation with it) and no words. Never throws.
+async function recordActivation(userId: string, localDate: string): Promise<void> {
+  try {
+    await recordAnalyticsEvent({ userId, eventName: "first_words_written", localDate });
   } catch {
     // Analytics must never interrupt writing.
   }
@@ -86,6 +104,7 @@ export async function recordWordsWritten(
       p_words: wordsAdded,
     });
     if (!error) {
+      if (projectId) await recordActivation(user.id, date);
       await checkWritingDayMilestones(supabase, user.id);
       return;
     }
@@ -111,11 +130,13 @@ export async function recordWordsWritten(
       : baseQuery.is("project_id", null).is("scene_id", null)
   ).maybeSingle();
 
+  let credited = false;
   if (existing) {
-    await supabase
+    const { error: updateError } = await supabase
       .from("writing_sessions")
       .update({ words_added: existing.words_added + wordsAdded })
       .eq("id", existing.id);
+    credited = !updateError;
   } else {
     const { error: insertError } = await supabase.from("writing_sessions").insert({
       user_id: user.id,
@@ -131,8 +152,10 @@ export async function recordWordsWritten(
       await recordWordsWritten(projectId, wordsAdded, null, date);
       return;
     }
+    credited = !insertError;
   }
 
+  if (credited && projectId) await recordActivation(user.id, date);
   await checkWritingDayMilestones(supabase, user.id);
 }
 
