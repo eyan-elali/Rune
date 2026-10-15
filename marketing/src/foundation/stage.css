@@ -1,0 +1,77 @@
+/* The marketing stage: what the application's root stylesheet would have
+   given the shell, and nothing more — and the switches that make a frame a
+   pure function of time.
+
+   rune2.css is written on top of Tailwind's preflight (the app's
+   globals.css). The stage does not load Tailwind or the Rune 1.x globals;
+   it restores just the preflight rules the shell relies on, at zero
+   specificity (:where), so every rule in rune2.css still wins. */
+
+:where(.mk-stage),
+:where(.mk-stage) *,
+:where(.mk-stage) ::before,
+:where(.mk-stage) ::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  border: 0 solid;
+}
+:where(.mk-stage) ol,
+:where(.mk-stage) ul {
+  list-style: none;
+}
+:where(.mk-stage) img,
+:where(.mk-stage) svg {
+  display: block;
+  vertical-align: middle;
+}
+:where(.mk-stage) button,
+:where(.mk-stage) input,
+:where(.mk-stage) textarea {
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  letter-spacing: inherit;
+}
+:where(.mk-stage) table {
+  border-collapse: collapse;
+  text-indent: 0;
+  border-color: inherit;
+}
+:where(.mk-stage) h1,
+:where(.mk-stage) h2,
+:where(.mk-stage) h3,
+:where(.mk-stage) p {
+  font-size: inherit;
+  font-weight: inherit;
+}
+.mk-stage .sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+.mk-stage .tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Frames are drawn, not played: nothing may move between two of them on its
+   own. Every change on screen comes from the frame number. */
+.mk-stage *,
+.mk-stage ::before,
+.mk-stage ::after {
+  transition: none !important;
+  animation: none !important;
+}
+
+/* The app's next/font variable, set to the bundled face. */
+.mk-stage {
+  --font-inter: "Inter";
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}

@@ -1,0 +1,27 @@
+{
+  "name": "sutura-marketing",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Sutura launch creatives: deterministic Remotion compositions of the real Sutura shell, isolated from the application.",
+  "type": "module",
+  "scripts": {
+    "studio": "remotion studio src/index.ts",
+    "render:a": "remotion render src/index.ts CreativeA-Vertical out/creative-a-1080x1920.mp4",
+    "render:a-feed": "remotion render src/index.ts CreativeA-Feed out/creative-a-1080x1350.mp4",
+    "still:a": "remotion still src/index.ts CreativeA-Vertical out/creative-a-1080x1920.png --frame=359",
+    "still:a-feed": "remotion still src/index.ts CreativeA-Feed out/creative-a-1080x1350.png --frame=420",
+    "audio": "node scripts/synth-audio.mjs",
+    "measure:a": "node scripts/measure.mjs",
+    "stills:a": "node scripts/stills.mjs CreativeA-Vertical out/stills 15 42 69 111 138 174 216 264 309 359",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "film:storyboard": "node scripts/film-storyboard.mjs",
+    "film:studies": "node scripts/film-studies.mjs",
+    "film:cut": "node scripts/film-cut.mjs"
+  },
+  "dependencies": {
+    "@fontsource/eb-garamond": "5.2.7",
+    "@fontsource/inter": "5.2.8",
+    "@remotion/cli": "4.0.527",
+    "remotion": "4.0.527"
+  }
+}
