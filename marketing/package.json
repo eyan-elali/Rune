@@ -16,7 +16,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "film:storyboard": "node scripts/film-storyboard.mjs",
     "film:studies": "node scripts/film-studies.mjs",
-    "film:cut": "node scripts/film-cut.mjs"
+    "film:cut": "node scripts/film-cut.mjs",
+    "carousel": "node scripts/carousel.mjs"
   },
   "dependencies": {
     "@fontsource/eb-garamond": "5.2.7",

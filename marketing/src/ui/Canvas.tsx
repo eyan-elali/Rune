@@ -37,6 +37,7 @@ export function CanvasPage({
   lines,
   vp,
   hover,
+  selected,
 }: {
   title: string;
   sections: CanvasSectionSpec[];
@@ -45,6 +46,8 @@ export function CanvasPage({
   vp: CanvasViewport;
   /** The card the pointer is over (the app's hover ring). */
   hover?: string;
+  /** The card that is selected (the app's accent hairline and halo). */
+  selected?: string;
 }) {
   const rect = new Map(cards.map((c) => [c.id, c]));
   const drawn = lines.flatMap((l) => {
@@ -107,7 +110,7 @@ export function CanvasPage({
               </div>
             );
           return (
-            <div key={c.id} className={`r2-canvas-card r2-canvas-card--${c.kind}`} style={style} role="group">
+            <div key={c.id} className={`r2-canvas-card r2-canvas-card--${c.kind}`} style={style} role="group" data-selected={selected === c.id || undefined}>
               <p className="r2-canvas-card-eyebrow">{c.eyebrow}</p>
               <p className="r2-canvas-card-title">{c.title}</p>
               {c.meta && <p className="r2-canvas-card-meta">{c.meta}</p>}

@@ -8,6 +8,7 @@ import { FILM, KEYFRAMES } from "./creatives/product-film/frames";
 import { ProductFilmContactSheet, ProductFilmStoryboard, SHEET } from "./creatives/product-film/ProductFilmStoryboard";
 import { StudyCompositions } from "./creatives/product-film/studies/compositions";
 import { SuturaProductFilmCompositions } from "./creatives/product-film/film/Film";
+import { CarouselCompositions } from "./creatives/carousel/Carousel";
 
 // Every composition the marketing system renders. Studio (npm run studio)
 // lists them with a scrubbable timeline; `remotion render` / `remotion still`
@@ -68,6 +69,8 @@ export function Root() {
       {/* The product film's motion studies (MOTION_LANGUAGE_EXPLORATION.md): each as itself, annotated, and as a review strip. */}
       <StudyCompositions />
       <SuturaProductFilmCompositions />
+      {/* The Instagram carousel: six 1080×1350 stills, a contact sheet and a swipe strip (marketing/carousel/). */}
+      <CarouselCompositions />
     </>
   );
 }
