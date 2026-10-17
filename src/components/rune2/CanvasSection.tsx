@@ -1,6 +1,7 @@
 "use client";
 
 import { memo, useEffect, useRef, useState, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from "react";
+import { toneOf } from "@/lib/rune2/canvas";
 import type { CanvasItem } from "@/lib/types";
 
 // A Section (Milestone 22B): a quiet region of the Canvas with a title —
@@ -41,6 +42,7 @@ export const CanvasSection = memo(function CanvasSection({
       data-item={item.id}
       data-section
       data-selected={selected || undefined}
+      data-tone={toneOf(item) ?? undefined}
       role="group"
       aria-label={item.label ? `Section: ${item.label}` : "Untitled section"}
     >

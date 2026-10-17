@@ -202,7 +202,7 @@ test('Escape answers the nearest layer only: a schema confirmation inside the In
 test('the Canvas: its toolbar and menus keep their own keys; Add returns focus to the board', () => {
   const c = code(read('src/components/rune2/CanvasSurface.tsx'));
   const handler = c.slice(c.indexOf('const onKeyDown = (e: KeyboardEvent<HTMLDivElement>)'));
-  const guard = handler.indexOf('target.closest(".r2-canvas-ui, .r2-menu")');
+  const guard = handler.indexOf('target.closest(".r2-canvas-ui, .r2-menu, .r2-popover")');
   assert.ok(guard > 0, 'chrome controls are excluded');
   assert.ok(guard < handler.indexOf('if (e.key === " ")'), 'before Space is taken for panning');
   assert.ok(guard < handler.indexOf('e.key === "Delete"'), 'before Delete removes the selection');

@@ -145,7 +145,7 @@ test('addWidget appends at the default size, once, and never an unknown widget',
   assert.equal(w.addWidget(added, 'milestone'), added);
   assert.deepEqual(
     w.availableWidgets(added).map((d) => d.id),
-    ['revisionNotes', 'currentScene', 'todayWords', 'dailyGoal', 'writingStreak', 'writingActivity']
+    ['revisionNotes', 'currentScene', 'timer', 'todayWords', 'dailyGoal', 'writingStreak', 'writingActivity']
   );
 });
 

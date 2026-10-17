@@ -117,6 +117,21 @@ export const PALETTE_TOKENS = [
   "material-field-bg", //      a field set into it
   "shadow-material", //        its fall of shadow: soft, diffuse, layered
   "shadow-material-lift", //   a little more, when reached for or chosen
+  // Canvas tones: the curated tints a note or a Section may take
+  // (lib/rune2/canvas.ts CANVAS_TONES), each tuned for its theme — a dusky,
+  // low-chroma set that stays quiet when several sit together. Mixed into a
+  // surface by rune2.css (color-mix), never painted whole.
+  "tone-ink",
+  "tone-sage",
+  "tone-ochre",
+  "tone-rust",
+  "tone-plum",
+  "tone-slate",
+  "tone-rose",
+  "tone-note-mix", //    how much of a tone a note's surface takes (a percentage)
+  "tone-section-mix", // how much a Section's does: always the quieter of the two
+  // A finished timer (the Widgets control): warm, noticeable, never the danger red.
+  "complete",
   // The manuscript writing surface (the theme's own — "Default")
   "ms-bg",
   "ms-ink",
@@ -218,6 +233,17 @@ const LIGHT: Palette = {
   "shadow-material-lift":
     "0 1px 1px rgba(var(--r2-palette-shadow) / 0.03), 0 4px 12px -4px rgba(var(--r2-palette-shadow) / 0.08), 0 24px 52px -22px rgba(var(--r2-palette-shadow) / 0.22)",
 
+  "tone-ink": "#3a5480",
+  "tone-sage": "#5e7a60",
+  "tone-ochre": "#a07e30",
+  "tone-rust": "#985036",
+  "tone-plum": "#724e78",
+  "tone-slate": "#5c6c82",
+  "tone-rose": "#a25c6a",
+  "tone-note-mix": "16%",
+  "tone-section-mix": "7%",
+  complete: "var(--r2-warning)",
+
   "ms-bg": "var(--r2-bg)",
   "ms-ink": "var(--r2-ink-1)",
   "ms-faint": "var(--r2-ink-3)",
@@ -277,6 +303,16 @@ const CANDLELIGHT: Palette = {
   "material-border": "rgba(var(--r2-palette-ink) / 0.09)",
   "material-border-strong": "rgba(var(--r2-palette-ink) / 0.16)",
   "material-field-bg": "#faf7f1",
+
+  "tone-ink": "#3c547c",
+  "tone-sage": "#627a5a",
+  "tone-ochre": "#9e7a2e",
+  "tone-rust": "#964e32",
+  "tone-plum": "#745072",
+  "tone-slate": "#5e6c7c",
+  "tone-rose": "#a05e66",
+  "tone-note-mix": "15%",
+  "tone-section-mix": "7%",
 
   "ms-ink": "#2b2620",
 };
@@ -363,6 +399,17 @@ const DARK: Palette = {
   "material-field-bg": "#1b1d21",
   "shadow-material": "0 1px 2px rgba(0 0 0 / 0.32), 0 20px 48px -20px rgba(0 0 0 / 0.62)",
   "shadow-material-lift": "0 1px 2px rgba(0 0 0 / 0.36), 0 26px 56px -22px rgba(0 0 0 / 0.75)",
+
+  "tone-ink": "#809acc",
+  "tone-sage": "#86aa8a",
+  "tone-ochre": "#c6a65e",
+  "tone-rust": "#cc8266",
+  "tone-plum": "#b08ebc",
+  "tone-slate": "#8c9eba",
+  "tone-rose": "#cc8a98",
+  "tone-note-mix": "24%",
+  "tone-section-mix": "10%",
+  complete: "var(--r2-warning)",
 
   "ms-bg": "var(--r2-bg)",
   "ms-ink": "#d8dbe0",

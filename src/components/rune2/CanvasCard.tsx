@@ -5,7 +5,7 @@ import { ArrowUpRight, ImageOff } from "lucide-react";
 import { ICON_SM } from "./icons";
 import { getCanvasPreview } from "@/lib/actions/workspaceCanvas";
 import { attachmentUrl, cardVariant } from "@/lib/rune2/attachments";
-import { ITEM_LABEL, noteText, noteTitle, targetIdOf } from "@/lib/rune2/canvas";
+import { ITEM_LABEL, noteText, noteTitle, targetIdOf, toneOf } from "@/lib/rune2/canvas";
 import type { NavEntry } from "@/lib/rune2/navigatorModel";
 import type { CanvasItem, WorkspaceAttachment } from "@/lib/types";
 
@@ -112,6 +112,8 @@ export const CanvasCard = memo(function CanvasCard({
     "data-item": item.id,
     "data-selected": selected || undefined,
     "data-stranded": stranded || undefined,
+    // A note's tone (059): its surface, tinted; the text stays the ink's.
+    "data-tone": toneOf(item) ?? undefined,
     tabIndex: -1,
     onPointerDown: (e: ReactPointerEvent<HTMLDivElement>) => onPointerDown(item, e),
     onDoubleClick: () => onDoubleClick(item),

@@ -7768,6 +7768,102 @@ span.r2-schema-type {
   box-shadow: 0 0 0 1px var(--r2-accent-line);
 }
 
+/* ── Tones: a note's or a Section's surface, tinted (059) ──
+   One rule per tone sets --r2-tone (the theme's tint); the
+   treatment below reads only that. A note takes the theme's note mix of it
+   over its own paper, with its edge warmed to match; a Section takes the
+   quieter section mix over nothing, so a toned Section under toned notes is
+   ground, not a second card. Ink stays the ink's: text, titles and counts
+   are never coloured, and selection keeps its own halo over the tint. */
+[data-tone="ink"] { --r2-tone: var(--r2-tone-ink); }
+[data-tone="sage"] { --r2-tone: var(--r2-tone-sage); }
+[data-tone="ochre"] { --r2-tone: var(--r2-tone-ochre); }
+[data-tone="rust"] { --r2-tone: var(--r2-tone-rust); }
+[data-tone="plum"] { --r2-tone: var(--r2-tone-plum); }
+[data-tone="slate"] { --r2-tone: var(--r2-tone-slate); }
+[data-tone="rose"] { --r2-tone: var(--r2-tone-rose); }
+
+.r2-canvas-card--note[data-tone] {
+  background: color-mix(in srgb, var(--r2-tone) var(--r2-tone-note-mix), var(--r2-field-bg));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--r2-tone) 32%, var(--r2-border)), var(--r2-shadow-sm);
+}
+.r2-canvas-card--note[data-tone]:hover {
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--r2-tone) 48%, var(--r2-border-strong)), var(--r2-shadow-sm);
+}
+.r2-canvas-card--note[data-tone][data-selected],
+.r2-canvas-card--note[data-tone][data-selected]:hover {
+  box-shadow: 0 0 0 1px var(--r2-accent-line), 0 0 0 4px var(--r2-accent-soft), var(--r2-shadow-pop);
+}
+.r2-canvas-section[data-tone] {
+  background: color-mix(in srgb, var(--r2-tone) var(--r2-tone-section-mix), transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--r2-tone) 26%, transparent);
+}
+.r2-canvas-section[data-tone]:hover {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--r2-tone) 40%, transparent);
+}
+.r2-canvas-section[data-tone][data-selected] {
+  background: color-mix(in srgb, var(--r2-tone) var(--r2-tone-section-mix), transparent);
+  box-shadow: inset 0 0 0 1px var(--r2-accent-line), 0 0 0 4px var(--r2-accent-soft);
+}
+
+/* The colour control in the Canvas tools: the selection's tone as a dot —
+   a hollow ring for neutral, a halved ring for a mixed selection. */
+.r2-canvas-tone-dot {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  box-sizing: border-box;
+  border: 1.5px solid var(--r2-ink-3);
+  background: transparent;
+}
+[data-tone] > .r2-canvas-tone-dot {
+  border-color: color-mix(in srgb, var(--r2-tone) 60%, var(--r2-border-strong));
+  background: color-mix(in srgb, var(--r2-tone) 72%, var(--r2-surface-raised));
+}
+.r2-canvas-tone-control[data-mixed] > .r2-canvas-tone-dot {
+  background: linear-gradient(135deg, var(--r2-ink-3) 50%, transparent 50%);
+}
+.r2-canvas-tone-control:disabled > .r2-canvas-tone-dot {
+  border-color: var(--r2-ink-disabled);
+}
+
+/* The picker: a row of swatches. The chosen one carries a check in the ink
+   made for its scheme; focus is the one focus ring. */
+.r2-canvas-tones {
+  display: flex;
+  gap: var(--r2-space-1);
+  padding: var(--r2-space-2);
+}
+.r2-canvas-tone {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--r2-radius-sm);
+  color: var(--r2-ink-1);
+  transition: background-color var(--r2-fast) var(--r2-ease);
+}
+.r2-canvas-tone:hover {
+  background: var(--r2-hover);
+}
+.r2-canvas-tone > .r2-canvas-tone-dot {
+  width: 16px;
+  height: 16px;
+}
+.r2-canvas-tone-check {
+  position: absolute;
+  color: var(--r2-ink-1);
+}
+.r2-canvas-tone[data-tone] .r2-canvas-tone-check {
+  color: var(--r2-ink-inverse);
+}
+.r2-canvas-tone[data-tone] > .r2-canvas-tone-dot {
+  background: color-mix(in srgb, var(--r2-tone) 78%, var(--r2-surface-raised));
+}
+
 /* ── Connections: lines that recede behind the cards ── */
 .r2-canvas-lines,
 .r2-canvas-guides {
@@ -11138,6 +11234,421 @@ li:hover .r2-pulse-remove,
   content: "";
   position: absolute;
   inset: -4px;
+}
+
+/* ── The timer's mark on the Widgets control ──────────────────────────────
+   A 5px dot at the control's top-right: the accent, subdued, while the
+   timer runs; the warm completion tone once it reaches zero, kept until
+   Widgets is opened. Reaching zero also gives the control one gentle
+   attention — two soft pulses, under a second, the icon warming with
+   them — and then stillness; the dot alone says it afterwards. Reduced
+   motion: the dot alone, from the start. */
+.r2-tabs-widgets-mark {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--r2-accent);
+  opacity: 0.8;
+  box-shadow: 0 0 0 1.5px var(--r2-shell-bg);
+  pointer-events: none;
+}
+.r2-tabs-widgets[data-timer="complete"] .r2-tabs-widgets-mark {
+  background: var(--r2-complete);
+  opacity: 1;
+}
+.r2-tabs-widgets[data-timer-finished] {
+  animation: r2-timer-attention 0.9s var(--r2-ease) 1 both;
+}
+@keyframes r2-timer-attention {
+  0% { transform: none; color: inherit; }
+  18% { transform: scale(1.14); color: var(--r2-complete); }
+  40% { transform: scale(1); color: var(--r2-complete); }
+  58% { transform: scale(1.1); color: var(--r2-complete); }
+  80% { transform: scale(1); color: var(--r2-complete); }
+  100% { transform: none; color: inherit; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .r2-tabs-widgets[data-timer-finished] {
+    animation: none;
+  }
+}
+
+/* ── Timer ────────────────────────────────────────────────────────────────
+   A small writing instrument. Its grammar is a countdown over a scale: the
+   time set large in the book's serif (lining, even figures, the colon a
+   shade lighter), and under it one hairline that is both the dial and the
+   progress. Idle, the line is a scale of minutes — ticks every five, a
+   longer tick and a figure every thirty — with a marker at the duration.
+   Running, the ticks fade, the marker goes to the end of the line and
+   travels back toward zero as the time runs (the Daily Goal's ring fills;
+   this one unwinds). Paused, everything rests a shade quieter. Finished,
+   the count and the marker take the warm completion tone. One verb at a
+   time, set as a word, not a button; Reset beside it only when there is
+   something to reset. No accent, no pills, no colour but the ink and,
+   once, the warm tone. */
+.r2-widget-face--timer {
+  --r2-timer-face: "EB Garamond", "Iowan Old Style", Georgia, serif;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "head head"
+    "count count"
+    "scale scale"
+    "actions actions";
+  align-items: end;
+  gap: 0 var(--r2-space-5);
+  padding-bottom: 12px;
+}
+.r2-widget-face--timer[data-size="wide"] {
+  grid-template-areas:
+    "head head"
+    "count actions"
+    "scale scale";
+}
+.r2-timer-head {
+  grid-area: head;
+  align-self: start;
+}
+.r2-timer-aside {
+  font-size: var(--r2-fs-caption);
+  font-variant-numeric: tabular-nums;
+  color: var(--r2-ink-3);
+}
+.r2-timer-count {
+  grid-area: count;
+  display: block;
+  margin-top: 12px;
+  font-family: var(--r2-timer-face);
+  font-size: 42px;
+  font-weight: var(--r2-weight-regular);
+  font-variant-numeric: lining-nums tabular-nums;
+  letter-spacing: -0.01em;
+  line-height: 0.9;
+  color: var(--r2-ink-1);
+  transition: color var(--r2-frame) var(--r2-ease);
+}
+.r2-widget-face--timer[data-size="wide"] .r2-timer-count {
+  font-size: 50px;
+}
+.r2-timer-colon {
+  position: relative;
+  top: -0.06em;
+  margin: 0 0.03em;
+  color: var(--r2-ink-3);
+}
+.r2-widget-face--timer[data-state="paused"] .r2-timer-count {
+  color: var(--r2-ink-2);
+}
+.r2-widget-face--timer[data-state="complete"] .r2-timer-count,
+.r2-widget-face--timer[data-state="complete"] .r2-timer-colon {
+  color: var(--r2-complete);
+}
+
+/* The scale: the rail at 10px, ticks rising to it, figures under it. The
+   whole strip is the press target while idle; the marker is the slider. */
+.r2-timer-scale {
+  grid-area: scale;
+  position: relative;
+  height: 30px;
+  margin-top: 14px;
+  touch-action: none;
+  user-select: none;
+}
+.r2-widget-face--timer[data-state="idle"] .r2-timer-scale {
+  cursor: pointer;
+}
+.r2-widget-face--timer[data-dragging] .r2-timer-scale {
+  cursor: grabbing;
+}
+.r2-timer-rail,
+.r2-timer-fill {
+  position: absolute;
+  left: 0;
+  top: 10px;
+  height: 1px;
+  pointer-events: none;
+}
+.r2-timer-rail {
+  right: 0;
+  background: var(--r2-border-strong);
+}
+.r2-timer-fill {
+  background: var(--r2-ink-2);
+  transition: width var(--r2-frame) var(--r2-ease-frame), background-color var(--r2-frame) var(--r2-ease);
+}
+.r2-timer-ticks,
+.r2-timer-labels {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  transition: opacity var(--r2-frame) var(--r2-ease);
+}
+.r2-timer-tick {
+  position: absolute;
+  top: 6px;
+  width: 1px;
+  height: 4px;
+  margin-left: -0.5px;
+  background: var(--r2-border-strong);
+}
+.r2-timer-tick[data-major] {
+  top: 3px;
+  height: 7px;
+  background: var(--r2-ink-3);
+}
+.r2-timer-label {
+  position: absolute;
+  top: 16px;
+  transform: translateX(-50%);
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  color: var(--r2-ink-3);
+}
+.r2-timer-label:last-child {
+  transform: translateX(-100%);
+}
+.r2-widget-face--timer:not([data-state="idle"]) :is(.r2-timer-ticks, .r2-timer-labels) {
+  opacity: 0;
+}
+.r2-timer-knob {
+  position: absolute;
+  top: 10.5px;
+  width: 11px;
+  height: 11px;
+  margin: -5.5px 0 0 -5.5px;
+  border-radius: 50%;
+  background: var(--r2-group-bg);
+  box-shadow: 0 0 0 1.5px var(--r2-ink-1), var(--r2-shadow-sm);
+  transition: left var(--r2-frame) var(--r2-ease-frame), transform var(--r2-fast) var(--r2-ease),
+    background-color var(--r2-frame) var(--r2-ease), box-shadow var(--r2-frame) var(--r2-ease);
+}
+.r2-widget-face--timer[data-state="idle"] .r2-timer-knob {
+  cursor: grab;
+}
+.r2-widget-face--timer[data-state="idle"] .r2-timer-scale:hover .r2-timer-knob {
+  transform: scale(1.12);
+}
+.r2-timer-knob:focus-visible {
+  outline: 2px solid var(--r2-focus);
+  outline-offset: 3px;
+}
+.r2-widget-face--timer[data-dragging] :is(.r2-timer-knob, .r2-timer-fill) {
+  transition: none;
+}
+/* Running: the marker is a small ink bead travelling home, a second at a time. */
+.r2-widget-face--timer[data-state="running"] .r2-timer-knob {
+  transform: scale(0.64);
+  background: var(--r2-ink-1);
+  box-shadow: none;
+  transition: left 1s linear, transform var(--r2-frame) var(--r2-ease-frame);
+}
+.r2-widget-face--timer[data-state="running"] .r2-timer-fill {
+  transition: width 1s linear;
+}
+.r2-widget-face--timer[data-state="paused"] .r2-timer-knob {
+  transform: scale(0.64);
+  background: var(--r2-ink-3);
+  box-shadow: none;
+}
+.r2-widget-face--timer[data-state="paused"] .r2-timer-fill {
+  background: var(--r2-ink-3);
+}
+.r2-widget-face--timer[data-state="complete"] .r2-timer-knob {
+  transform: scale(0.64);
+  background: var(--r2-complete);
+  box-shadow: none;
+}
+.r2-widget-face--timer[data-state="complete"] .r2-timer-rail {
+  background: color-mix(in srgb, var(--r2-complete) 40%, var(--r2-border));
+}
+
+/* The verbs: words, not buttons. The one that moves the timer is set in the
+   ink on a hairline underline; Reset is quieter beside it. */
+.r2-timer-actions {
+  grid-area: actions;
+  display: flex;
+  align-items: baseline;
+  gap: var(--r2-space-5);
+  margin-top: 8px;
+}
+.r2-widget-face--timer[data-size="wide"] .r2-timer-actions {
+  justify-self: end;
+  margin: 0 0 2px;
+}
+.r2-timer-verb {
+  padding: 2px 0;
+  border-radius: var(--r2-radius-xs);
+  font-size: var(--r2-fs-ui);
+  line-height: var(--r2-lh-ui);
+  color: var(--r2-ink-3);
+  transition: color var(--r2-fast) var(--r2-ease), text-decoration-color var(--r2-fast) var(--r2-ease);
+}
+.r2-timer-verb:hover {
+  color: var(--r2-ink-1);
+}
+.r2-timer-verb[data-primary] {
+  font-weight: var(--r2-weight-medium);
+  color: var(--r2-ink-1);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-decoration-color: var(--r2-border-strong);
+  text-underline-offset: 4px;
+}
+.r2-timer-verb[data-primary]:hover {
+  text-decoration-color: var(--r2-ink-3);
+}
+.r2-timer-verb:focus-visible {
+  outline-offset: 3px;
+}
+
+/* The catalog's miniature: the count and its scale. */
+.r2-timer-mini {
+  display: grid;
+  gap: 5px;
+  width: 100%;
+  margin-top: 2px;
+}
+.r2-timer-mini-count {
+  font-family: "EB Garamond", "Iowan Old Style", Georgia, serif;
+  font-size: 19px;
+  font-variant-numeric: lining-nums tabular-nums;
+  line-height: 1;
+  color: var(--r2-ink-1);
+}
+.r2-timer-mini-scale {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 1px;
+  background: var(--r2-border-strong);
+}
+.r2-timer-mini-knob {
+  position: absolute;
+  left: 21%;
+  top: -3px;
+  width: 7px;
+  height: 7px;
+  margin-left: -3.5px;
+  border-radius: 50%;
+  background: var(--r2-group-bg);
+  box-shadow: 0 0 0 1px var(--r2-ink-2);
+}
+@media (prefers-reduced-motion: reduce) {
+  .r2-timer-count,
+  .r2-timer-fill,
+  .r2-timer-ticks,
+  .r2-timer-labels,
+  .r2-timer-knob,
+  .r2-widget-face--timer[data-state] .r2-timer-knob,
+  .r2-widget-face--timer[data-state] .r2-timer-fill {
+    transition: none;
+  }
+}
+
+/* ── The timer's quiet note ──────────────────────────────────────────────
+   When the timer finishes: a small note settles in at the top right of the
+   window, over whatever is there (the layer is fixed and takes no room, so
+   nothing moves), on every page of the app and whether or not the chrome
+   has receded for writing. The duration written out in the serif, the time
+   it ended under it, a warm bead beside — the completion tone, never
+   danger — and a faint dismiss. It arrives by settling a few pixels, the
+   bead breathes once, and that is all the motion there is. Reduced motion:
+   it is simply there. */
+.r2-timer-notice-layer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  z-index: 85;
+  width: 0;
+  height: 0;
+  overflow: visible;
+  background: none;
+  pointer-events: none;
+}
+.r2-timer-notice {
+  position: fixed;
+  top: 56px;
+  right: 16px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 12px;
+  width: 296px;
+  max-width: calc(100vw - 32px);
+  box-sizing: border-box;
+  padding: 13px 10px 14px 16px;
+  border-radius: var(--r2-radius-material);
+  background: var(--r2-overlay-bg);
+  box-shadow: inset 0 1px 0 var(--r2-material-highlight), var(--r2-ring), var(--r2-shadow-pop);
+  color: var(--r2-text);
+  pointer-events: auto;
+  animation: r2-timer-notice-in 480ms var(--r2-ease-frame) both;
+}
+.r2-timer-notice-mark {
+  width: 7px;
+  height: 7px;
+  margin-top: 8px;
+  border-radius: 50%;
+  background: var(--r2-complete);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--r2-complete) 16%, transparent);
+  animation: r2-timer-notice-breath 1.8s var(--r2-ease) 420ms 1 both;
+}
+.r2-timer-notice-text {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.r2-timer-notice-title {
+  font-family: "EB Garamond", "Iowan Old Style", Georgia, serif;
+  font-size: 17px;
+  font-weight: var(--r2-weight-medium);
+  line-height: 1.25;
+  letter-spacing: var(--r2-tracking-heading);
+  color: var(--r2-ink-1);
+}
+.r2-timer-notice-meta {
+  font-size: var(--r2-fs-meta);
+  line-height: var(--r2-lh-ui);
+  font-variant-numeric: tabular-nums;
+  color: var(--r2-ink-3);
+}
+.r2-timer-notice-dismiss {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--r2-radius-sm);
+  color: var(--r2-ink-3);
+  opacity: 0.65;
+  transition: opacity var(--r2-fast) var(--r2-ease), background-color var(--r2-fast) var(--r2-ease), color var(--r2-fast) var(--r2-ease);
+}
+.r2-timer-notice:hover .r2-timer-notice-dismiss,
+.r2-timer-notice-dismiss:focus-visible {
+  opacity: 1;
+}
+.r2-timer-notice-dismiss:hover {
+  color: var(--r2-ink-1);
+  background: var(--r2-hover);
+}
+@keyframes r2-timer-notice-in {
+  from { opacity: 0; transform: translateY(-6px) scale(0.985); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes r2-timer-notice-breath {
+  0% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--r2-complete) 16%, transparent); }
+  45% { box-shadow: 0 0 0 7px color-mix(in srgb, var(--r2-complete) 10%, transparent); }
+  100% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--r2-complete) 16%, transparent); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .r2-timer-notice,
+  .r2-timer-notice-mark {
+    animation: none;
+  }
 }
 
 /* ── Daily goal ───────────────────────────────────────────────────────────

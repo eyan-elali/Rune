@@ -30,6 +30,7 @@ import {
   Link,
   Maximize,
   Minus,
+  Palette,
   PenLine,
   Pilcrow,
   Plus,
@@ -51,8 +52,10 @@ import { ACCEPTED_IMAGE_ACCEPT, aspectOf } from "@/lib/rune2/attachments";
 import {
   attachmentIdOf,
   boundsOf,
+  canTone,
   CANVAS_CHROME_SELECTOR,
   CANVAS_NO_NOTE_SELECTOR,
+  commonTone,
   DEFAULT_SIZE,
   duplicateNotice,
   fitAll,
@@ -76,6 +79,7 @@ import {
   rectFrom,
   selectOnClick,
   targetIdOf,
+  toneLabel,
   toWorld,
   viewportStorageKey,
   zoomAt,
@@ -96,6 +100,7 @@ import { CanvasConnections, endpoints, type ConnectionLine } from "./CanvasConne
 import { CanvasFind } from "./CanvasFind";
 import { CanvasInsert, type InsertChoice } from "./CanvasInsert";
 import { CanvasSection, SECTION_HEAD } from "./CanvasSection";
+import { CanvasTonePicker } from "./CanvasTonePicker";
 import { DocStatus } from "./DocStatus";
 import { NavigatorMenu, type NavigatorMenuItem } from "./NavigatorMenu";
 import { useRune2Selection } from "./Rune2Selection";
@@ -357,6 +362,8 @@ export default function CanvasSurface({ entry, session }: { entry: NavEntry; ses
   const [insert, setInsert] = useState<{ at: Point | null } | null>(null);
   const [find, setFind] = useState(false);
   const [arrangeAt, setArrangeAt] = useState<Point | null>(null);
+  const [toneAt, setToneAt] = useState<Point | null>(null);
+  const toneButton = useRef<HTMLButtonElement>(null);
   const [cardMenu, setCardMenu] = useState<{ id: string; at: Point; items: NavigatorMenuItem[] } | null>(null);
   const [message, setMessage] = useState<Message | null>(null);
   const [uploads, setUploads] = useState(0);
@@ -374,6 +381,7 @@ export default function CanvasSurface({ entry, session }: { entry: NavEntry; ses
     setInsert(null);
     setFind(false);
     setArrangeAt(null);
+    setToneAt(null);
     setCardMenu(null);
     setMessage(null);
   };
@@ -792,6 +800,8 @@ export default function CanvasSurface({ entry, session }: { entry: NavEntry; ses
   const selectedCards = [...selected].filter((id) => !isSection(session.get(id)!)).length;
   // One rule (lib/rune2/canvasArrange.ts) for the button's enabled state and the menu's items.
   const arrangeable = arrangeActions(selected.size, selectedCards);
+  // The tone the selected notes and Sections share (undefined: none of them can take one).
+  const selectionTone = commonTone([...selected].map((id) => session.get(id)).filter((i): i is CanvasItem => Boolean(i)));
   const runArrange = (a: ArrangeAction) => {
     if (a.kind === "align") doAlign(a.mode);
     else if (a.kind === "distribute") doDistribute(a.mode);
@@ -865,7 +875,7 @@ export default function CanvasSurface({ entry, session }: { entry: NavEntry; ses
     setMessage({ text: target === "page" ? "The note is now a page." : "The note is now an unplaced scene." });
     refresh();
   };
-  const cardMenuItems = (item: CanvasItem): NavigatorMenuItem[] => {
+  const cardMenuItems = (item: CanvasItem, at: Point): NavigatorMenuItem[] => {
     const items: NavigatorMenuItem[] = [];
     if (item.item_type === "note") {
       items.push(
@@ -886,7 +896,12 @@ export default function CanvasSurface({ entry, session }: { entry: NavEntry; ses
       );
     } else if (isSection(item)) {
       items.push({ label: "Rename section", icon: PenLine, hint: "F2", onSelect: () => openItem(item) });
-    } else if (item.item_type !== "image") {
+    }
+    if (canTone(item)) {
+      // The picker opens where the menu was: the swatches apply to the whole selection (this card is in it).
+      items.push({ label: "Colour", icon: Palette, separator: item.item_type === "note", onSelect: () => setToneAt(at) });
+    }
+    if (item.item_type !== "note" && !isSection(item) && item.item_type !== "image") {
       const targetId = targetIdOf(item);
       if (targetId && index.has(targetId)) {
         items.push({ label: "Open", icon: ArrowRight, hint: "↵", onSelect: () => openItem(item) }, { label: "Open in new tab", onSelect: () => openItem(item, true) });
@@ -912,7 +927,7 @@ export default function CanvasSurface({ entry, session }: { entry: NavEntry; ses
     clearTransient();
     if (!selected.has(item.id)) selectItems(new Set([item.id]));
     // Built now, in the event: the menu is a moment's offer for this card.
-    setCardMenu({ id: item.id, at, items: cardMenuItems(item) });
+    setCardMenu({ id: item.id, at, items: cardMenuItems(item, at) });
   };
 
   // ── Clipboard ─────────────────────────────────────────────────────────────
@@ -949,7 +964,7 @@ export default function CanvasSurface({ entry, session }: { entry: NavEntry; ses
     // the Arrange or card menu) keeps its keys: Space and Enter press it, the
     // arrows move through a menu, Delete is not "remove the selection". Escape
     // and the ⌘ shortcuts still reach the Canvas.
-    if (target !== e.currentTarget && target.closest(".r2-canvas-ui, .r2-menu") && e.key !== "Escape" && !mod) return;
+    if (target !== e.currentTarget && target.closest(".r2-canvas-ui, .r2-menu, .r2-popover") && e.key !== "Escape" && !mod) return;
     const key = e.key.toLowerCase();
     if (e.key === " ") {
       spaceHeld.current = true;
@@ -958,7 +973,7 @@ export default function CanvasSurface({ entry, session }: { entry: NavEntry; ses
     }
     if (e.key === "Escape") {
       e.preventDefault();
-      if (insert || notice || find || arrangeAt) clearTransient();
+      if (insert || notice || find || arrangeAt || toneAt) clearTransient();
       else if (editing) setEditing(null);
       else if (renaming) setRenaming(null);
       else if (selectedConnection) setSelectedConnection(null);
@@ -1381,6 +1396,30 @@ export default function CanvasSurface({ entry, session }: { entry: NavEntry; ses
               <SquareDashed {...ICON} aria-hidden />
             </button>
           </Tooltip>
+          <Tooltip label={selectionTone === undefined ? "Colour (select a note or a section)" : "Colour"}>
+            <button
+              ref={toneButton}
+              type="button"
+              className="r2-icon-button r2-canvas-tone-control"
+              aria-label={selectionTone === undefined ? "Colour" : `Colour: ${selectionTone === "mixed" ? "mixed" : toneLabel(selectionTone)}`}
+              aria-haspopup="dialog"
+              aria-expanded={toneAt !== null}
+              disabled={selectionTone === undefined}
+              data-tone={selectionTone && selectionTone !== "mixed" ? selectionTone : undefined}
+              data-mixed={selectionTone === "mixed" || undefined}
+              onClick={() => {
+                if (toneAt) {
+                  setToneAt(null);
+                  return;
+                }
+                const r = toneButton.current?.getBoundingClientRect();
+                setArrangeAt(null);
+                setToneAt(r ? { x: r.left, y: r.bottom + 6 } : { x: 0, y: 0 });
+              }}
+            >
+              <span className="r2-canvas-tone-dot" aria-hidden />
+            </button>
+          </Tooltip>
           <Tooltip label="Arrange the selection">
             <button
               ref={arrangeButton}
@@ -1490,6 +1529,14 @@ export default function CanvasSurface({ entry, session }: { entry: NavEntry; ses
       </div>
       {arrangeAt && <NavigatorMenu label="Arrange the selection" at={arrangeAt} items={arrangeItems()} onClose={() => setArrangeAt(null)} />}
       {cardMenu && session.has(cardMenu.id) && <NavigatorMenu label="Card actions" at={cardMenu.at} items={cardMenu.items} onClose={() => setCardMenu(null)} />}
+      {toneAt && selectionTone !== undefined && (
+        <CanvasTonePicker
+          at={toneAt}
+          value={selectionTone}
+          onChoose={(tone) => session.setColor([...selected], tone)}
+          onClose={() => setToneAt(null)}
+        />
+      )}
 
       {items.length === 0 && !insert && uploads === 0 && (
         <div className="r2-canvas-ui r2-canvas-empty">

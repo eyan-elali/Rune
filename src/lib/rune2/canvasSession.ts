@@ -1,7 +1,8 @@
-import type { CanvasConnection, CanvasItem, CanvasItemType, CanvasTargetType, WorkspaceAttachment } from "@/lib/types";
+import type { CanvasConnection, CanvasItem, CanvasItemType, CanvasTargetType, CanvasTone, WorkspaceAttachment } from "@/lib/types";
 import {
   attachmentIdOf,
   byStacking,
+  canTone,
   clampSize,
   isSection,
   membersOf,
@@ -12,6 +13,7 @@ import {
   roundCoord,
   sectionAt,
   sectionOf,
+  toneOf,
   withMembers,
   type Rect,
 } from "./canvas";
@@ -66,6 +68,8 @@ export type CanvasChange =
       z: number;
       section_id: string | null;
       manual_size: boolean;
+      /** A note's or a Section's tone (059); omitted by older clients. */
+      color?: CanvasTone | null;
     }
   | {
       op: "update";
@@ -80,6 +84,7 @@ export type CanvasChange =
       label?: string | null;
       section_id?: string | null;
       manual_size?: boolean;
+      color?: CanvasTone | null;
     }
   | { op: "delete"; id: string }
   | { kind: "connection"; op: "create"; id: string; source_id: string; target_id: string; directed: boolean; label: string | null }
@@ -118,7 +123,7 @@ export type CanvasSaveStatus =
    */
   | "unsupported";
 
-type ItemField = "x" | "y" | "width" | "height" | "z" | "content" | "label" | "section_id" | "manual_size";
+type ItemField = "x" | "y" | "width" | "height" | "z" | "content" | "label" | "section_id" | "manual_size" | "color";
 type ConnectionField = "directed" | "label";
 type Field = ItemField | ConnectionField;
 type Kind = "item" | "connection";
@@ -490,6 +495,37 @@ export class CanvasSession {
       this.markDirty(id, ["label"]);
     };
     this.run({ ids: [id], redo: () => set(next), undo: () => set(prev) });
+  }
+
+  /**
+   * Gives notes and Sections among `ids` a tone (null: neutral). Anything
+   * else among them is left alone. One undo entry for the lot; nothing
+   * happens when none of them would change.
+   */
+  setColor(ids: readonly string[], tone: CanvasTone | null): void {
+    const before = new Map<string, CanvasTone | null>();
+    for (const id of ids) {
+      const item = this._items.get(id);
+      if (!item || !canTone(item)) continue;
+      const prev = toneOf(item);
+      if (prev !== tone) before.set(id, prev);
+    }
+    if (before.size === 0) return;
+    const set = (id: string, color: CanvasTone | null) => {
+      const it = this._items.get(id);
+      if (!it) return;
+      this._items.set(id, { ...it, color });
+      this.markDirty(id, ["color"]);
+    };
+    this.run({
+      ids: [...before.keys()],
+      redo: () => {
+        for (const id of before.keys()) set(id, tone);
+      },
+      undo: () => {
+        for (const [id, prev] of before) set(id, prev);
+      },
+    });
   }
 
   // ── Moving and sizing ─────────────────────────────────────────────────────
@@ -1039,6 +1075,7 @@ export class CanvasSession {
       z: nextZ(this._items.values()),
       section_id: null,
       manual_size: false,
+      color: null,
       version: 0,
       created_at: now,
       updated_at: now,
@@ -1286,6 +1323,8 @@ export class CanvasSession {
           z: item.z,
           section_id: sectionOf(item),
           manual_size: item.manual_size ?? false,
+          // Only when set: a batch without one reads exactly as a pre-059 client's.
+          ...(toneOf(item) ? { color: toneOf(item) } : {}),
         });
         continue;
       }
@@ -1295,6 +1334,7 @@ export class CanvasSession {
           if (item.content) change.content = item.content;
         } else if (f === "section_id") change.section_id = sectionOf(item);
         else if (f === "manual_size") change.manual_size = item.manual_size ?? false;
+        else if (f === "color") change.color = toneOf(item);
         else if (f === "label") change.label = item.label;
         else if (f === "directed") continue;
         else change[f] = item[f];

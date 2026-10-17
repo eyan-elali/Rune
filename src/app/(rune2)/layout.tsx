@@ -8,6 +8,7 @@ import { RegistrationTracker } from "@/components/RegistrationTracker";
 import { HintsProvider } from "@/components/rune2/Hint";
 import { RunePreferencesProvider, RuneRoot } from "@/components/rune2/RunePreferences";
 import { Rune2Session } from "@/components/rune2/Rune2Session";
+import { TimerNotice } from "@/components/rune2/TimerNotice";
 import { COMPLETE_PROFILE_PATH, needsProfileCompletion, readProfileState } from "@/lib/accountGate";
 import { accountStage, readOnboardingRow } from "@/lib/onboarding";
 import { accountOf } from "@/lib/rune2/account";
@@ -98,6 +99,8 @@ export default async function RuneLayout({ children }: { children: ReactNode }) 
         placeholder={<RuneRoot className="r2-gate" aria-hidden />}
       >
         <HintsProvider initial={profile?.preferences ?? null}>{children}</HintsProvider>
+        {/* The writing timer's quiet completion note, on every page of the app (TimerNotice.tsx). */}
+        <TimerNotice />
       </SupportedDeviceGate>
     </RunePreferencesProvider>
   );

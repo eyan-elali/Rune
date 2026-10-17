@@ -1,4 +1,4 @@
-import type { CanvasItem, CanvasItemType, CanvasTargetType } from "@/lib/types";
+import type { CanvasItem, CanvasItemType, CanvasTargetType, CanvasTone } from "@/lib/types";
 import type { NavEntry, NavKind } from "./navigatorModel";
 import type { SearchKind } from "./projectSearch";
 
@@ -422,6 +422,66 @@ export function nextZ(items: Iterable<Pick<CanvasItem, "z">>): number {
  */
 export function duplicateNotice(type: CanvasTargetType): string {
   return `This ${ITEM_LABEL[type]} is already on this Canvas.`;
+}
+
+// ── Tones ───────────────────────────────────────────────────────────────────
+// A note or a Section may take one of a few curated tones (migration 059):
+// a soft tint of its surface, for grouping by eye — never decoration, never
+// a sticky-note wall. The tints themselves are the theme's (lib/rune2/
+// themes.ts CANVAS_TONE_TINTS, one per theme, read in CSS as --r2-tone-*);
+// this is the registry of what a tone IS. Neutral (null) is the default and
+// restores the plain surface.
+
+export type CanvasToneDef = { id: CanvasTone; label: string };
+
+export const CANVAS_TONES: readonly CanvasToneDef[] = [
+  { id: "ink", label: "Ink" },
+  { id: "sage", label: "Sage" },
+  { id: "ochre", label: "Ochre" },
+  { id: "rust", label: "Rust" },
+  { id: "plum", label: "Plum" },
+  { id: "slate", label: "Slate" },
+  { id: "rose", label: "Rose" },
+];
+
+export const NEUTRAL_TONE_LABEL = "Neutral";
+
+export function isCanvasTone(v: unknown): v is CanvasTone {
+  return typeof v === "string" && CANVAS_TONES.some((t) => t.id === v);
+}
+
+export function toneLabel(tone: CanvasTone | null): string {
+  return tone ? (CANVAS_TONES.find((t) => t.id === tone)?.label ?? NEUTRAL_TONE_LABEL) : NEUTRAL_TONE_LABEL;
+}
+
+/** Whether a placement can take a tone: a note or a Section — never a live card or an image. */
+export function canTone(item: Pick<CanvasItem, "item_type">): boolean {
+  return item.item_type === "note" || item.item_type === "section";
+}
+
+/** A placement's tone as stored, read defensively (absent on a pre-059 read; an unknown value: neutral). */
+export function toneOf(item: Pick<CanvasItem, "item_type" | "color">): CanvasTone | null {
+  if (!canTone(item)) return null;
+  return isCanvasTone(item.color) ? item.color : null;
+}
+
+/**
+ * The tone a selection shares: the one tone every tonable item has (null:
+ * all neutral), or "mixed" when they differ. Undefined when nothing in the
+ * selection can take a tone.
+ */
+export function commonTone(items: Iterable<Pick<CanvasItem, "item_type" | "color">>): CanvasTone | null | "mixed" | undefined {
+  let seen = false;
+  let tone: CanvasTone | null = null;
+  for (const item of items) {
+    if (!canTone(item)) continue;
+    const t = toneOf(item);
+    if (!seen) {
+      seen = true;
+      tone = t;
+    } else if (t !== tone) return "mixed";
+  }
+  return seen ? tone : undefined;
 }
 
 // ── Notes ───────────────────────────────────────────────────────────────────

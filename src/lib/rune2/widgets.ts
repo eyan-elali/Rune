@@ -29,7 +29,8 @@ export type WidgetId =
   | "todayWords"
   | "dailyGoal"
   | "writingStreak"
-  | "writingActivity";
+  | "writingActivity"
+  | "timer";
 
 export type WidgetSize = "small" | "wide";
 
@@ -102,6 +103,16 @@ export const WIDGETS: readonly WidgetDefinition[] = [
     description: "Where you were lately in this Project.",
     group: "writing",
     sizes: ["wide"],
+    available: true,
+  },
+  {
+    // The writing timer (lib/rune2/timer.ts): a quiet countdown, device-local,
+    // the same in every Project. Never writing credit, never a goal.
+    id: "timer",
+    name: "Timer",
+    description: "A quiet countdown for a stretch of writing.",
+    group: "writing",
+    sizes: ["small", "wide"],
     available: true,
   },
   {

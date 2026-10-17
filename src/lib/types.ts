@@ -159,6 +159,8 @@ export type WorkspaceCanvasSummary = Pick<WorkspaceCanvas, "id" | "title">;
 
 /** What a Canvas placement shows: a live Rune object, or a Canvas-local note. */
 export type CanvasItemType = "scene" | "chapter" | "page" | "entry" | "canvas" | "note" | "section" | "image";
+/** The curated tones a note or a Section may take (the registry is lib/rune2/canvas.ts). */
+export type CanvasTone = "ink" | "sage" | "ochre" | "rust" | "plum" | "slate" | "rose";
 
 /** The placement types that show a canonical Rune object (a Section, a note and an image are Canvas-local). */
 export type CanvasTargetType = Exclude<CanvasItemType, "note" | "section" | "image">;
@@ -223,6 +225,12 @@ export interface CanvasItem {
   section_id?: string | null;
   /** Whether the writer chose this size (046). Until then a note grows as it is first typed into. */
   manual_size?: boolean;
+  /**
+   * A note's or a Section's tone (migration 059; lib/rune2/canvas.ts
+   * CANVAS_TONES): Canvas-local presentation. null, or absent on a pre-059
+   * read: neutral. Always null on a live placement and an image.
+   */
+  color?: CanvasTone | null;
   version: number;
   created_at: string;
   updated_at: string;

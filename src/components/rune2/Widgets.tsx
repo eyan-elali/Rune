@@ -76,6 +76,20 @@ import {
   type DailyGoalHistory,
 } from "@/lib/rune2/preferences";
 import { useLiveWords } from "./liveWords";
+import { useWritingTimer } from "./useWritingTimer";
+import {
+  describeRemaining,
+  formatDuration,
+  formatRemaining,
+  MINUTE_MS,
+  minutesAtShare,
+  remainingMs,
+  remainingShare,
+  SCALE_MAX_MINUTES,
+  SCALE_STEP_MINUTES,
+  scaleShare,
+  stepMinutes,
+} from "@/lib/rune2/timer";
 import { useRevisionNotes } from "./RevisionNoteStore";
 import { useRune2Selection } from "./Rune2Selection";
 import { Tooltip } from "./Tooltip";
@@ -147,11 +161,30 @@ export function WidgetsControl() {
     setHost(null);
     if (returnFocus) requestAnimationFrame(() => button.current?.focus({ preventScroll: true }));
   }, []);
-  const show = () => setHost(button.current?.closest<HTMLElement>(".r2-shell") ?? button.current?.parentElement ?? null);
+
+  // The writing timer's mark on the control (lib/rune2/timer.ts; the Timer
+  // widget below): a small dot while it runs; when it reaches zero, one
+  // gentle attention in the warm completion tone and a dot that stays until
+  // Widgets is opened — opening is the acknowledgement, whatever is looked
+  // at inside. The writer is told of the finish itself by a quiet note
+  // (TimerNotice.tsx); this mark is the trace it leaves. Never a sound,
+  // never a dialog, never the editor's focus.
+  const timer = useWritingTimer(userId ?? null);
+  const timerMark = timer.state.status === "running" ? "running" : timer.state.status === "complete" && !timer.state.acknowledged ? "complete" : undefined;
+  const show = () => {
+    timer.acknowledge();
+    setHost(button.current?.closest<HTMLElement>(".r2-shell") ?? button.current?.parentElement ?? null);
+  };
+  // Finished while the board is open: the writer is looking at it — seen (the note stays away).
+  const { acknowledge } = timer;
+  const finishedUnseen = timer.state.status === "complete" && !timer.state.acknowledged;
+  useEffect(() => {
+    if (open && finishedUnseen) acknowledge();
+  }, [open, finishedUnseen, acknowledge]);
 
   return (
     <>
-      <Tooltip label="Widgets">
+      <Tooltip label={timerMark === "complete" ? "Widgets · Timer finished" : timerMark === "running" ? "Widgets · Timer running" : "Widgets"}>
         <button
           ref={button}
           type="button"
@@ -160,12 +193,21 @@ export function WidgetsControl() {
           aria-haspopup="dialog"
           aria-expanded={open}
           aria-controls={open ? panelId : undefined}
+          aria-describedby={timerMark ? `${panelId}-timer` : undefined}
           data-open={open || undefined}
+          data-timer={timerMark}
+          data-timer-finished={(timerMark === "complete" && timer.finishedHere) || undefined}
           onClick={() => (open ? close(false) : show())}
         >
           <LayoutGrid {...ICON} aria-hidden />
+          {timerMark && <span className="r2-tabs-widgets-mark" aria-hidden />}
         </button>
       </Tooltip>
+      {timerMark && (
+        <span id={`${panelId}-timer`} className="sr-only">
+          {timerMark === "complete" ? "Timer finished." : `Timer running, ${describeRemaining(remainingMs(timer.state, timer.now)).toLowerCase()}.`}
+        </span>
+      )}
       {host &&
         createPortal(
           <WidgetsPanel id={panelId} userId={userId ?? null} layout={layout} onLayout={setLayout} onClose={close} />,
@@ -756,6 +798,8 @@ function WidgetBody({
       return <DailyGoalWidget size={size} />;
     case "writingActivity":
       return <ActivityWidget display={activityDisplayOf(placement)} />;
+    case "timer":
+      return <TimerWidget size={size} />;
     default:
       return null;
   }
@@ -1481,6 +1525,17 @@ function WidgetPreview({ id }: { id: WidgetId }) {
       return <Mini eyebrow="Current scene" value="The ferry" />;
     case "recent":
       return <Mini eyebrow="Recent" value="Mara · Locations" />;
+    case "timer":
+      return (
+        <Mini eyebrow="Timer">
+          <span className="r2-timer-mini" aria-hidden>
+            <span className="r2-timer-mini-count">25:00</span>
+            <span className="r2-timer-mini-scale">
+              <span className="r2-timer-mini-knob" />
+            </span>
+          </span>
+        </Mini>
+      );
     case "writingActivity":
       return (
         <Mini eyebrow="Writing activity">
@@ -1512,6 +1567,258 @@ function Mini({ eyebrow, value, unit, children }: { eyebrow: string; value?: str
       )}
       {children}
     </span>
+  );
+}
+
+// ── Timer ────────────────────────────────────────────────────────────────────
+// A small writing instrument (lib/rune2/timer.ts): the countdown, set large
+// in the serif, over a hairline scale of minutes. Idle, the scale is the
+// dial — press or drag its marker to a duration (steps of five; the keyboard
+// steps by five, or one with Shift). Started, its ticks fade and the marker
+// glides to the end of the line, then travels back toward zero as the time
+// runs: one line is both the dial and the progress. One quiet verb at a
+// time (Start, Pause, Resume, Start again) and Reset only when there is
+// something to reset. Finished, the count rests in the warm completion tone;
+// the writer is told by a quiet note wherever they are (TimerNotice.tsx).
+// Device-local and the same in every Project (useWritingTimer.ts). It is a
+// tool: it records nothing and counts nothing toward anything.
+
+/** The scale's ticks: one every five minutes, a longer one every thirty (labelled). */
+const SCALE_TICKS = Array.from(
+  { length: SCALE_MAX_MINUTES / SCALE_STEP_MINUTES + 1 },
+  (_, i) => i * SCALE_STEP_MINUTES,
+);
+const SCALE_LABELS = [30, 60, 90, 120];
+
+const clock = (t: number) =>
+  new Date(t).toLocaleTimeString(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+
+function TimerWidget({ size }: { size: WidgetSize }) {
+  const userId = useProfileStore((s) => s.profile?.id);
+  const timer = useWritingTimer(userId ?? null);
+  const { state, now } = timer;
+  const idle = state.status === "idle";
+  const minutes = Math.round(state.durationMs / MINUTE_MS);
+  // A drag in progress: shown at once, saved when the press ends.
+  const [draft, setDraft] = useState<number | null>(null);
+  const shownMinutes = idle ? (draft ?? minutes) : minutes;
+  const left = idle ? shownMinutes * MINUTE_MS : remainingMs(state, now);
+  const at = idle ? scaleShare(shownMinutes) : remainingShare(state, now);
+  const scale = useRef<HTMLDivElement>(null);
+  const knob = useRef<HTMLSpanElement>(null);
+  const primary = useRef<HTMLButtonElement>(null);
+  const [mm, ss] = formatRemaining(left).split(/:(?=\d\d$)/);
+
+  const aside =
+    state.status === "running"
+      ? `until ${clock(state.endsAt)}`
+      : state.status === "paused"
+        ? "Paused"
+        : state.status === "complete"
+          ? `Ended ${clock(state.completedAt)}`
+          : null;
+
+  const minutesAt = (clientX: number) => {
+    const r = scale.current?.getBoundingClientRect();
+    if (!r || r.width === 0) return shownMinutes;
+    return minutesAtShare((clientX - r.left) / r.width);
+  };
+  const onScaleDown = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (!idle || e.button !== 0) return;
+    e.preventDefault();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    knob.current?.focus({ preventScroll: true });
+    setDraft(minutesAt(e.clientX));
+  };
+  const onScaleMove = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (draft === null || !e.currentTarget.hasPointerCapture(e.pointerId))
+      return;
+    setDraft(minutesAt(e.clientX));
+  };
+  const onScaleUp = () => {
+    if (draft === null) return;
+    timer.setMinutes(draft);
+    setDraft(null);
+  };
+  const onKnobKey = (e: KeyboardEvent<HTMLSpanElement>) => {
+    let next: number | null = null;
+    if (e.key === "ArrowRight" || e.key === "ArrowUp")
+      next = stepMinutes(minutes, 1, e.shiftKey);
+    else if (e.key === "ArrowLeft" || e.key === "ArrowDown")
+      next = stepMinutes(minutes, -1, e.shiftKey);
+    else if (e.key === "Home") next = SCALE_STEP_MINUTES;
+    else if (e.key === "End") next = SCALE_MAX_MINUTES;
+    else if (e.key === "Enter") {
+      e.preventDefault();
+      timer.start();
+      requestAnimationFrame(() =>
+        primary.current?.focus({ preventScroll: true }),
+      );
+      return;
+    }
+    if (next === null) return;
+    e.preventDefault();
+    timer.setMinutes(next);
+  };
+  // A verb that replaces itself under the keyboard keeps the focus on the one that takes its place.
+  const refocus = () =>
+    requestAnimationFrame(() =>
+      (primary.current ?? knob.current)?.focus({ preventScroll: true }),
+    );
+
+  return (
+    <div
+      className="r2-widget-face r2-widget-face--timer"
+      data-size={size}
+      data-state={state.status}
+      data-dragging={draft !== null || undefined}
+    >
+      <span className="r2-widget-eyebrow-row r2-timer-head">
+        <span className="r2-widget-eyebrow">Timer</span>
+        {aside && <span className="r2-timer-aside">{aside}</span>}
+      </span>
+      <span
+        className="r2-timer-count"
+        role="timer"
+        aria-label={
+          idle
+            ? `${formatDuration(shownMinutes * MINUTE_MS)} set`
+            : describeRemaining(left)
+        }
+      >
+        <span aria-hidden>
+          {mm}
+          <span className="r2-timer-colon">:</span>
+          {ss}
+        </span>
+      </span>
+      <div
+        ref={scale}
+        className="r2-timer-scale"
+        onPointerDown={onScaleDown}
+        onPointerMove={onScaleMove}
+        onPointerUp={onScaleUp}
+        onPointerCancel={onScaleUp}
+      >
+        <span className="r2-timer-ticks" aria-hidden>
+          {SCALE_TICKS.map((m) => (
+            <span
+              key={m}
+              className="r2-timer-tick"
+              data-major={m % 30 === 0 || undefined}
+              style={{ left: `${scaleShare(m) * 100}%` }}
+            />
+          ))}
+        </span>
+        <span className="r2-timer-rail" aria-hidden />
+        <span
+          className="r2-timer-fill"
+          style={{ width: `${at * 100}%` }}
+          aria-hidden
+        />
+        <span
+          ref={knob}
+          className="r2-timer-knob"
+          style={{ left: `${at * 100}%` }}
+          {...(idle
+            ? {
+                role: "slider",
+                tabIndex: 0,
+                "aria-label": "Duration",
+                "aria-valuemin": 1,
+                "aria-valuemax": SCALE_MAX_MINUTES,
+                "aria-valuenow": shownMinutes,
+                "aria-valuetext": formatDuration(shownMinutes * MINUTE_MS),
+                onKeyDown: onKnobKey,
+              }
+            : { "aria-hidden": true })}
+        />
+        <span className="r2-timer-labels" aria-hidden>
+          {SCALE_LABELS.map((m) => (
+            <span
+              key={m}
+              className="r2-timer-label"
+              style={{ left: `${scaleShare(m) * 100}%` }}
+            >
+              {m}
+            </span>
+          ))}
+        </span>
+      </div>
+      <span className="r2-timer-actions">
+        {state.status === "idle" && (
+          <button
+            ref={primary}
+            type="button"
+            className="r2-timer-verb"
+            data-primary
+            onClick={() => {
+              timer.start();
+              refocus();
+            }}
+          >
+            Start
+          </button>
+        )}
+        {state.status === "running" && (
+          <button
+            ref={primary}
+            type="button"
+            className="r2-timer-verb"
+            data-primary
+            onClick={() => {
+              timer.pause();
+              refocus();
+            }}
+          >
+            Pause
+          </button>
+        )}
+        {state.status === "paused" && (
+          <button
+            ref={primary}
+            type="button"
+            className="r2-timer-verb"
+            data-primary
+            onClick={() => {
+              timer.resume();
+              refocus();
+            }}
+          >
+            Resume
+          </button>
+        )}
+        {state.status === "complete" && (
+          <button
+            ref={primary}
+            type="button"
+            className="r2-timer-verb"
+            data-primary
+            onClick={() => {
+              timer.start();
+              refocus();
+            }}
+          >
+            Start again
+          </button>
+        )}
+        {state.status !== "idle" && (
+          <button
+            type="button"
+            className="r2-timer-verb"
+            onClick={() => {
+              timer.reset();
+              refocus();
+            }}
+          >
+            Reset
+          </button>
+        )}
+      </span>
+    </div>
   );
 }
 
