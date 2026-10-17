@@ -11297,7 +11297,8 @@ li:hover .r2-pulse-remove,
     "head head"
     "count count"
     "scale scale"
-    "actions actions";
+    "actions actions"
+    "foot foot";
   align-items: end;
   gap: 0 var(--r2-space-5);
   padding-bottom: 12px;
@@ -11306,7 +11307,8 @@ li:hover .r2-pulse-remove,
   grid-template-areas:
     "head head"
     "count actions"
-    "scale scale";
+    "scale scale"
+    "foot foot";
 }
 .r2-timer-head {
   grid-area: head;
@@ -11332,6 +11334,52 @@ li:hover .r2-pulse-remove,
 }
 .r2-widget-face--timer[data-size="wide"] .r2-timer-count {
   font-size: 50px;
+}
+/* Idle, the count is also where a time is typed: a quiet dotted rule
+   under it when reached for says so; clicked, it becomes a field in the
+   same type, on a hairline. */
+.r2-timer-count--set {
+  justify-self: start;
+  padding: 0;
+  border-radius: var(--r2-radius-xs);
+  text-align: left;
+  cursor: text;
+  text-decoration: underline dotted transparent;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 7px;
+  transition: text-decoration-color var(--r2-fast) var(--r2-ease), color var(--r2-frame) var(--r2-ease);
+}
+.r2-timer-count--set:hover {
+  text-decoration-color: var(--r2-ink-3);
+}
+.r2-timer-count--set:focus-visible {
+  outline-offset: 4px;
+}
+.r2-timer-count--input {
+  justify-self: start;
+  width: 5.4ch;
+  max-width: 100%;
+  padding: 0 0 2px;
+  margin-bottom: -3px;
+  border: 0;
+  border-bottom: 1px solid var(--r2-border-strong);
+  border-radius: 0;
+  background: transparent;
+  caret-color: var(--r2-ink-1);
+  outline: none;
+}
+/* The field draws its own focus: the caret and the hairline darkening (the
+   app's outline would box the figures). */
+.r2-timer-count--input:focus,
+.r2-timer-count--input:focus-visible {
+  outline: none;
+  border-bottom-color: var(--r2-ink-3);
+}
+.r2-timer-count--input[aria-invalid="true"] {
+  border-bottom-color: var(--r2-warning);
+}
+.r2-timer-aside[data-error] {
+  color: var(--r2-warning);
 }
 .r2-timer-colon {
   position: relative;
@@ -11505,6 +11553,37 @@ li:hover .r2-pulse-remove,
   outline-offset: 3px;
 }
 
+/* The one setting: whether the running timer stays on screen outside
+   Widgets. A hairline parts it from the instrument above. */
+.r2-timer-foot {
+  grid-area: foot;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--r2-space-4);
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--r2-border);
+  cursor: pointer;
+}
+.r2-timer-foot-label {
+  font-size: var(--r2-fs-caption);
+  color: var(--r2-ink-3);
+}
+.r2-timer-switch {
+  width: 26px;
+  height: 15px;
+}
+.r2-timer-switch::after {
+  top: 2px;
+  left: 2px;
+  width: 11px;
+  height: 11px;
+}
+.r2-timer-switch[aria-checked="true"]::after {
+  transform: translateX(11px);
+}
+
 /* The catalog's miniature: the count and its scale. */
 .r2-timer-mini {
   display: grid;
@@ -11549,6 +11628,127 @@ li:hover .r2-pulse-remove,
   }
 }
 
+/* ── The timer on screen ─────────────────────────────────────────────────
+   The Timer's "Show on screen": while the timer runs or is paused, a small
+   card in the completion note's material and the widget's type, where the
+   writer last put it (the default corner is the note's). At rest, the
+   count and its hairline with the bead travelling home; reached for, Pause
+   or Resume and Reset take the place of the quiet "Paused". While the
+   writer types it fades to a faint presence. Dragged, it lifts a little. */
+.r2-timer-float {
+  --r2-timer-face: "EB Garamond", "Iowan Old Style", Georgia, serif;
+  position: fixed;
+  top: 94px;
+  right: 16px;
+  display: grid;
+  gap: 9px;
+  width: 212px;
+  box-sizing: border-box;
+  padding: 11px 14px 13px;
+  border-radius: var(--r2-radius-material);
+  background: var(--r2-overlay-bg);
+  box-shadow: inset 0 1px 0 var(--r2-material-highlight), var(--r2-ring), var(--r2-shadow-pop);
+  color: var(--r2-text);
+  pointer-events: auto;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  transition: opacity 420ms var(--r2-ease), box-shadow var(--r2-fast) var(--r2-ease);
+  /* backwards, not both: the arrival must not keep holding opacity, or the faint state could never apply. */
+  animation: r2-timer-notice-in 480ms var(--r2-ease-frame) backwards;
+}
+.r2-timer-float[data-placed] {
+  right: auto;
+}
+.r2-timer-float[data-dragging] {
+  cursor: grabbing;
+  box-shadow: inset 0 1px 0 var(--r2-material-highlight), var(--r2-ring), var(--r2-shadow-material-lift);
+}
+.r2-timer-float[data-faint] {
+  opacity: 0.28;
+}
+.r2-timer-float:focus-visible {
+  outline: 2px solid var(--r2-focus);
+  outline-offset: 2px;
+}
+.r2-timer-float-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: baseline;
+  column-gap: var(--r2-space-4);
+}
+.r2-timer-float-count {
+  font-family: var(--r2-timer-face);
+  font-size: 27px;
+  font-variant-numeric: lining-nums tabular-nums;
+  letter-spacing: -0.01em;
+  line-height: 1;
+  color: var(--r2-ink-1);
+}
+.r2-timer-float[data-state="paused"] .r2-timer-float-count {
+  color: var(--r2-ink-2);
+}
+.r2-timer-float-state,
+.r2-timer-float-actions {
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: end;
+  transition: opacity var(--r2-fast) var(--r2-ease);
+}
+.r2-timer-float-state {
+  font-size: var(--r2-fs-caption);
+  color: var(--r2-ink-3);
+}
+.r2-timer-float-actions {
+  display: flex;
+  gap: var(--r2-space-4);
+  opacity: 0;
+}
+.r2-timer-float:is(:hover, :focus-within) .r2-timer-float-actions {
+  opacity: 1;
+}
+.r2-timer-float:is(:hover, :focus-within) .r2-timer-float-state {
+  opacity: 0;
+}
+.r2-timer-float .r2-timer-verb {
+  font-size: var(--r2-fs-ui-sm);
+}
+.r2-timer-float-line {
+  position: relative;
+  height: 1px;
+  background: var(--r2-border-strong);
+}
+.r2-timer-float-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 1px;
+  background: var(--r2-ink-2);
+  transition: width 1s linear;
+}
+.r2-timer-float-bead {
+  position: absolute;
+  top: -2.5px;
+  width: 6px;
+  height: 6px;
+  margin-left: -3px;
+  border-radius: 50%;
+  background: var(--r2-ink-1);
+  transition: left 1s linear;
+}
+.r2-timer-float[data-state="paused"] :is(.r2-timer-float-fill, .r2-timer-float-bead) {
+  background: var(--r2-ink-3);
+  transition: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .r2-timer-float,
+  .r2-timer-float-fill,
+  .r2-timer-float-bead {
+    animation: none;
+    transition: none;
+  }
+}
+
 /* ── The timer's quiet note ──────────────────────────────────────────────
    When the timer finishes: a small note settles in at the top right of the
    window, over whatever is there (the layer is fixed and takes no room, so
@@ -11571,7 +11771,8 @@ li:hover .r2-pulse-remove,
 }
 .r2-timer-notice {
   position: fixed;
-  top: 56px;
+  /* Under the tab band and the context bar, clear of their controls (the on-screen timer's default corner too). */
+  top: 94px;
   right: 16px;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;

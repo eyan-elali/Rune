@@ -208,6 +208,79 @@ export function stepMinutes(minutes: number, direction: 1 | -1, fine = false): n
   return clampMinutes(next);
 }
 
+// ── A typed duration ────────────────────────────────────────────────────────
+// The countdown itself can be typed into while idle: a click on it, then the
+// time. Whole minutes, the way a writer would say them.
+
+export type DurationParse = { minutes: number; error: null } | { minutes: null; error: string };
+
+/**
+ * A typed duration, read the way it would be said: "40" or "40m" (minutes),
+ * "1:30" (an hour and thirty minutes), "1h", "1h 30", "1 h 30 min". Between
+ * one minute and two hours.
+ */
+export function parseDuration(raw: string): DurationParse {
+  const text = raw.trim().toLowerCase().replace(/\s+/g, " ");
+  if (text === "") return { minutes: null, error: "Type a time, like 40 or 1:30." };
+  let minutes: number | null = null;
+  let m: RegExpExecArray | null;
+  if ((m = /^(\d{1,3})\s*(m|min|mins|minute|minutes)?$/.exec(text))) minutes = Number(m[1]);
+  else if ((m = /^(\d{1,2}):(\d{2})$/.exec(text))) {
+    if (Number(m[2]) >= 60) return { minutes: null, error: "Minutes after the colon run to 59." };
+    minutes = Number(m[1]) * 60 + Number(m[2]);
+  } else if ((m = /^(\d{1,2})\s*(h|hr|hrs|hour|hours)(?:\s*(\d{1,2})\s*(m|min|mins|minute|minutes)?)?$/.exec(text))) {
+    minutes = Number(m[1]) * 60 + (m[3] ? Number(m[3]) : 0);
+  }
+  if (minutes === null) return { minutes: null, error: "Type minutes, like 40, or hours like 1:30." };
+  if (minutes < TIMER_MIN_MINUTES) return { minutes: null, error: "At least a minute." };
+  if (minutes > TIMER_MAX_MINUTES) return { minutes: null, error: "Up to two hours." };
+  return { minutes, error: null };
+}
+
+// ── On screen ───────────────────────────────────────────────────────────────
+// The writer may keep the running timer on screen, outside Widgets: a small
+// floating card (components/rune2/TimerFloat.tsx), shown while the timer
+// runs or is paused, wherever they last put it. Its switch and its place are
+// this device's (lib/rune2/timerStorage.ts), never Project data.
+
+/** Whether the timer shows on screen, and where (the card's top-left, in the window; null: the default corner). */
+export type TimerFloat = { on: boolean; x: number | null; y: number | null };
+
+export const DEFAULT_FLOAT: TimerFloat = { on: false, x: null, y: null };
+
+/** The margin the card keeps from the window's edges. */
+export const FLOAT_MARGIN = 12;
+
+export function readFloat(stored: unknown): TimerFloat {
+  if (!stored || typeof stored !== "object") return DEFAULT_FLOAT;
+  const s = stored as Record<string, unknown>;
+  const on = s.on === true;
+  const placed = finite(s.x) && finite(s.y);
+  return { on, x: placed ? (s.x as number) : null, y: placed ? (s.y as number) : null };
+}
+
+/**
+ * A card position kept whole inside the window: never past an edge (a
+ * window made smaller brings the card back in), never under the margin.
+ */
+export function clampFloat(
+  at: { x: number; y: number },
+  size: { width: number; height: number },
+  viewport: { width: number; height: number }
+): { x: number; y: number } {
+  const maxX = Math.max(FLOAT_MARGIN, viewport.width - size.width - FLOAT_MARGIN);
+  const maxY = Math.max(FLOAT_MARGIN, viewport.height - size.height - FLOAT_MARGIN);
+  return {
+    x: Math.round(Math.min(maxX, Math.max(FLOAT_MARGIN, at.x))),
+    y: Math.round(Math.min(maxY, Math.max(FLOAT_MARGIN, at.y))),
+  };
+}
+
+/** Whether the on-screen card shows: switched on, and a timer under way (running or paused). */
+export function floatShows(float: TimerFloat, state: TimerState): boolean {
+  return float.on && (state.status === "running" || state.status === "paused");
+}
+
 /**
  * What a screen reader is told of the remaining time: minutes while there
  * are minutes (the same text for a whole minute, so it is never re-read

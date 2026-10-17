@@ -76,13 +76,14 @@ import {
   type DailyGoalHistory,
 } from "@/lib/rune2/preferences";
 import { useLiveWords } from "./liveWords";
+import { TimerFigures } from "./TimerFloat";
 import { useWritingTimer } from "./useWritingTimer";
 import {
   describeRemaining,
   formatDuration,
-  formatRemaining,
   MINUTE_MS,
   minutesAtShare,
+  parseDuration,
   remainingMs,
   remainingShare,
   SCALE_MAX_MINUTES,
@@ -176,11 +177,16 @@ export function WidgetsControl() {
     setHost(button.current?.closest<HTMLElement>(".r2-shell") ?? button.current?.parentElement ?? null);
   };
   // Finished while the board is open: the writer is looking at it — seen (the note stays away).
-  const { acknowledge } = timer;
+  const { acknowledge, setDrawerOpen } = timer;
   const finishedUnseen = timer.state.status === "complete" && !timer.state.acknowledged;
   useEffect(() => {
     if (open && finishedUnseen) acknowledge();
   }, [open, finishedUnseen, acknowledge]);
+  // The on-screen timer (TimerFloat.tsx) steps aside while the drawer is open: the widget is there.
+  useEffect(() => {
+    setDrawerOpen(open);
+    return () => setDrawerOpen(false);
+  }, [open, setDrawerOpen]);
 
   return (
     <>
@@ -1574,27 +1580,23 @@ function Mini({ eyebrow, value, unit, children }: { eyebrow: string; value?: str
 // A small writing instrument (lib/rune2/timer.ts): the countdown, set large
 // in the serif, over a hairline scale of minutes. Idle, the scale is the
 // dial — press or drag its marker to a duration (steps of five; the keyboard
-// steps by five, or one with Shift). Started, its ticks fade and the marker
-// glides to the end of the line, then travels back toward zero as the time
-// runs: one line is both the dial and the progress. One quiet verb at a
-// time (Start, Pause, Resume, Start again) and Reset only when there is
-// something to reset. Finished, the count rests in the warm completion tone;
-// the writer is told by a quiet note wherever they are (TimerNotice.tsx).
-// Device-local and the same in every Project (useWritingTimer.ts). It is a
-// tool: it records nothing and counts nothing toward anything.
+// steps by five, or one with Shift) — and the count itself can be typed
+// into: a click on it, then "40", "1:30", "1h 15". Started, the scale's
+// ticks fade and the marker glides to the end of the line, then travels back
+// toward zero as the time runs: one line is both the dial and the progress.
+// One quiet verb at a time (Start, Pause, Resume, Start again) and Reset
+// only when there is something to reset. Underneath, one switch keeps the
+// running timer on screen outside Widgets (TimerFloat.tsx). Finished, the
+// count rests in the warm completion tone; the writer is told by a quiet
+// note wherever they are (TimerNotice.tsx). Device-local and the same in
+// every Project (useWritingTimer.ts). It is a tool: it records nothing and
+// counts nothing toward anything.
 
 /** The scale's ticks: one every five minutes, a longer one every thirty (labelled). */
-const SCALE_TICKS = Array.from(
-  { length: SCALE_MAX_MINUTES / SCALE_STEP_MINUTES + 1 },
-  (_, i) => i * SCALE_STEP_MINUTES,
-);
+const SCALE_TICKS = Array.from({ length: SCALE_MAX_MINUTES / SCALE_STEP_MINUTES + 1 }, (_, i) => i * SCALE_STEP_MINUTES);
 const SCALE_LABELS = [30, 60, 90, 120];
 
-const clock = (t: number) =>
-  new Date(t).toLocaleTimeString(undefined, {
-    hour: "numeric",
-    minute: "2-digit",
-  });
+const clock = (t: number) => new Date(t).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
 
 function TimerWidget({ size }: { size: WidgetSize }) {
   const userId = useProfileStore((s) => s.profile?.id);
@@ -1604,16 +1606,22 @@ function TimerWidget({ size }: { size: WidgetSize }) {
   const minutes = Math.round(state.durationMs / MINUTE_MS);
   // A drag in progress: shown at once, saved when the press ends.
   const [draft, setDraft] = useState<number | null>(null);
+  // The count typed into (idle only): the text as typed, and why it was refused.
+  const [typed, setTyped] = useState<string | null>(null);
+  const [typeError, setTypeError] = useState<string | null>(null);
   const shownMinutes = idle ? (draft ?? minutes) : minutes;
   const left = idle ? shownMinutes * MINUTE_MS : remainingMs(state, now);
   const at = idle ? scaleShare(shownMinutes) : remainingShare(state, now);
   const scale = useRef<HTMLDivElement>(null);
   const knob = useRef<HTMLSpanElement>(null);
   const primary = useRef<HTMLButtonElement>(null);
-  const [mm, ss] = formatRemaining(left).split(/:(?=\d\d$)/);
+  const countButton = useRef<HTMLButtonElement>(null);
+  const hintId = useId();
+  const typing = idle && typed !== null;
 
-  const aside =
-    state.status === "running"
+  const aside = typing
+    ? (typeError ?? "minutes, or 1:30")
+    : state.status === "running"
       ? `until ${clock(state.endsAt)}`
       : state.status === "paused"
         ? "Paused"
@@ -1634,8 +1642,7 @@ function TimerWidget({ size }: { size: WidgetSize }) {
     setDraft(minutesAt(e.clientX));
   };
   const onScaleMove = (e: ReactPointerEvent<HTMLDivElement>) => {
-    if (draft === null || !e.currentTarget.hasPointerCapture(e.pointerId))
-      return;
+    if (draft === null || !e.currentTarget.hasPointerCapture(e.pointerId)) return;
     setDraft(minutesAt(e.clientX));
   };
   const onScaleUp = () => {
@@ -1645,18 +1652,14 @@ function TimerWidget({ size }: { size: WidgetSize }) {
   };
   const onKnobKey = (e: KeyboardEvent<HTMLSpanElement>) => {
     let next: number | null = null;
-    if (e.key === "ArrowRight" || e.key === "ArrowUp")
-      next = stepMinutes(minutes, 1, e.shiftKey);
-    else if (e.key === "ArrowLeft" || e.key === "ArrowDown")
-      next = stepMinutes(minutes, -1, e.shiftKey);
+    if (e.key === "ArrowRight" || e.key === "ArrowUp") next = stepMinutes(minutes, 1, e.shiftKey);
+    else if (e.key === "ArrowLeft" || e.key === "ArrowDown") next = stepMinutes(minutes, -1, e.shiftKey);
     else if (e.key === "Home") next = SCALE_STEP_MINUTES;
     else if (e.key === "End") next = SCALE_MAX_MINUTES;
     else if (e.key === "Enter") {
       e.preventDefault();
       timer.start();
-      requestAnimationFrame(() =>
-        primary.current?.focus({ preventScroll: true }),
-      );
+      requestAnimationFrame(() => primary.current?.focus({ preventScroll: true }));
       return;
     }
     if (next === null) return;
@@ -1664,10 +1667,29 @@ function TimerWidget({ size }: { size: WidgetSize }) {
     timer.setMinutes(next);
   };
   // A verb that replaces itself under the keyboard keeps the focus on the one that takes its place.
-  const refocus = () =>
-    requestAnimationFrame(() =>
-      (primary.current ?? knob.current)?.focus({ preventScroll: true }),
-    );
+  const refocus = () => requestAnimationFrame(() => (primary.current ?? knob.current)?.focus({ preventScroll: true }));
+
+  // Typing a time: the count becomes a field in its own type; Enter (or
+  // leaving it) sets the time, Escape keeps the one there was. A time that
+  // can't be read keeps the field open and says why, quietly, at the top.
+  const beginTyping = () => {
+    setTyped(String(minutes));
+    setTypeError(null);
+  };
+  const endTyping = (commit: boolean, refocusCount: boolean) => {
+    if (commit && typed !== null) {
+      const r = parseDuration(typed);
+      if (r.error !== null) {
+        setTypeError(r.error);
+        return false;
+      }
+      timer.setMinutes(r.minutes);
+    }
+    setTyped(null);
+    setTypeError(null);
+    if (refocusCount) requestAnimationFrame(() => countButton.current?.focus({ preventScroll: true }));
+    return true;
+  };
 
   return (
     <div
@@ -1675,26 +1697,63 @@ function TimerWidget({ size }: { size: WidgetSize }) {
       data-size={size}
       data-state={state.status}
       data-dragging={draft !== null || undefined}
+      data-typing={typing || undefined}
     >
       <span className="r2-widget-eyebrow-row r2-timer-head">
         <span className="r2-widget-eyebrow">Timer</span>
-        {aside && <span className="r2-timer-aside">{aside}</span>}
+        {aside && (
+          <span className="r2-timer-aside" id={typing ? hintId : undefined} data-error={(typing && typeError !== null) || undefined}>
+            {aside}
+          </span>
+        )}
       </span>
-      <span
-        className="r2-timer-count"
-        role="timer"
-        aria-label={
-          idle
-            ? `${formatDuration(shownMinutes * MINUTE_MS)} set`
-            : describeRemaining(left)
-        }
-      >
-        <span aria-hidden>
-          {mm}
-          <span className="r2-timer-colon">:</span>
-          {ss}
+      {typing ? (
+        <input
+          className="r2-timer-count r2-timer-count--input"
+          aria-label="Duration"
+          aria-describedby={hintId}
+          aria-invalid={typeError !== null || undefined}
+          inputMode="text"
+          autoComplete="off"
+          spellCheck={false}
+          maxLength={8}
+          autoFocus
+          value={typed ?? ""}
+          onFocus={(e) => e.currentTarget.select()}
+          onChange={(e) => {
+            setTyped(e.target.value);
+            setTypeError(null);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              endTyping(true, true);
+            } else if (e.key === "Escape") {
+              e.preventDefault();
+              e.stopPropagation();
+              endTyping(false, true);
+            }
+          }}
+          onBlur={() => {
+            // Leaving with a time that can't be read keeps the one there was.
+            if (!endTyping(true, false)) endTyping(false, false);
+          }}
+        />
+      ) : idle ? (
+        <button
+          ref={countButton}
+          type="button"
+          className="r2-timer-count r2-timer-count--set"
+          aria-label={`Duration, ${formatDuration(shownMinutes * MINUTE_MS)}. Type a time`}
+          onClick={beginTyping}
+        >
+          <TimerFigures ms={left} />
+        </button>
+      ) : (
+        <span className="r2-timer-count" role="timer" aria-label={describeRemaining(left)}>
+          <TimerFigures ms={left} />
         </span>
-      </span>
+      )}
       <div
         ref={scale}
         className="r2-timer-scale"
@@ -1705,20 +1764,11 @@ function TimerWidget({ size }: { size: WidgetSize }) {
       >
         <span className="r2-timer-ticks" aria-hidden>
           {SCALE_TICKS.map((m) => (
-            <span
-              key={m}
-              className="r2-timer-tick"
-              data-major={m % 30 === 0 || undefined}
-              style={{ left: `${scaleShare(m) * 100}%` }}
-            />
+            <span key={m} className="r2-timer-tick" data-major={m % 30 === 0 || undefined} style={{ left: `${scaleShare(m) * 100}%` }} />
           ))}
         </span>
         <span className="r2-timer-rail" aria-hidden />
-        <span
-          className="r2-timer-fill"
-          style={{ width: `${at * 100}%` }}
-          aria-hidden
-        />
+        <span className="r2-timer-fill" style={{ width: `${at * 100}%` }} aria-hidden />
         <span
           ref={knob}
           className="r2-timer-knob"
@@ -1738,11 +1788,7 @@ function TimerWidget({ size }: { size: WidgetSize }) {
         />
         <span className="r2-timer-labels" aria-hidden>
           {SCALE_LABELS.map((m) => (
-            <span
-              key={m}
-              className="r2-timer-label"
-              style={{ left: `${scaleShare(m) * 100}%` }}
-            >
+            <span key={m} className="r2-timer-label" style={{ left: `${scaleShare(m) * 100}%` }}>
               {m}
             </span>
           ))}
@@ -1750,74 +1796,42 @@ function TimerWidget({ size }: { size: WidgetSize }) {
       </div>
       <span className="r2-timer-actions">
         {state.status === "idle" && (
-          <button
-            ref={primary}
-            type="button"
-            className="r2-timer-verb"
-            data-primary
-            onClick={() => {
-              timer.start();
-              refocus();
-            }}
-          >
+          <button ref={primary} type="button" className="r2-timer-verb" data-primary onClick={() => { timer.start(); refocus(); }}>
             Start
           </button>
         )}
         {state.status === "running" && (
-          <button
-            ref={primary}
-            type="button"
-            className="r2-timer-verb"
-            data-primary
-            onClick={() => {
-              timer.pause();
-              refocus();
-            }}
-          >
+          <button ref={primary} type="button" className="r2-timer-verb" data-primary onClick={() => { timer.pause(); refocus(); }}>
             Pause
           </button>
         )}
         {state.status === "paused" && (
-          <button
-            ref={primary}
-            type="button"
-            className="r2-timer-verb"
-            data-primary
-            onClick={() => {
-              timer.resume();
-              refocus();
-            }}
-          >
+          <button ref={primary} type="button" className="r2-timer-verb" data-primary onClick={() => { timer.resume(); refocus(); }}>
             Resume
           </button>
         )}
         {state.status === "complete" && (
-          <button
-            ref={primary}
-            type="button"
-            className="r2-timer-verb"
-            data-primary
-            onClick={() => {
-              timer.start();
-              refocus();
-            }}
-          >
+          <button ref={primary} type="button" className="r2-timer-verb" data-primary onClick={() => { timer.start(); refocus(); }}>
             Start again
           </button>
         )}
         {state.status !== "idle" && (
-          <button
-            type="button"
-            className="r2-timer-verb"
-            onClick={() => {
-              timer.reset();
-              refocus();
-            }}
-          >
+          <button type="button" className="r2-timer-verb" onClick={() => { timer.reset(); refocus(); }}>
             Reset
           </button>
         )}
       </span>
+      <label className="r2-timer-foot">
+        <span className="r2-timer-foot-label">Show on screen</span>
+        <button
+          type="button"
+          role="switch"
+          className="r2-switch r2-timer-switch"
+          aria-checked={timer.float.on}
+          aria-label="Show the running timer on screen"
+          onClick={() => timer.setFloatOn(!timer.float.on)}
+        />
+      </label>
     </div>
   );
 }

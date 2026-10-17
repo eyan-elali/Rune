@@ -1,4 +1,4 @@
-import { readTimer, serializeTimer, type TimerState } from "./timer";
+import { readFloat, readTimer, serializeTimer, type TimerFloat, type TimerState } from "./timer";
 
 // Where the writing timer is kept: on this device, per writer (lib/rune2/
 // timer.ts decides what it means). A few timestamps and a duration — never
@@ -11,6 +11,7 @@ import { readTimer, serializeTimer, type TimerState } from "./timer";
 // browser without storage still works.
 
 const TIMER_PREFIX = "rune:timer:";
+const FLOAT_PREFIX = "rune:timer-float:";
 
 export function timerKey(userId: string): string {
   return `${TIMER_PREFIX}${userId}`;
@@ -30,5 +31,27 @@ export function writeStoredTimer(userId: string, state: TimerState): void {
     window.localStorage.setItem(timerKey(userId), JSON.stringify(serializeTimer(state)));
   } catch {
     // Storage unavailable: the timer lives for this visit only.
+  }
+}
+
+/** Whether the timer shows on screen, and where: this device's, per writer. */
+export function floatKey(userId: string): string {
+  return `${FLOAT_PREFIX}${userId}`;
+}
+
+export function readStoredFloat(userId: string): TimerFloat {
+  try {
+    const raw = window.localStorage.getItem(floatKey(userId));
+    return readFloat(raw ? (JSON.parse(raw) as unknown) : null);
+  } catch {
+    return readFloat(null);
+  }
+}
+
+export function writeStoredFloat(userId: string, float: TimerFloat): void {
+  try {
+    window.localStorage.setItem(floatKey(userId), JSON.stringify(float));
+  } catch {
+    // Storage unavailable: the choice holds for this visit only.
   }
 }

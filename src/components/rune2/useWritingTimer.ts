@@ -12,10 +12,12 @@ import {
   resume as resumeTimer,
   setDuration as setTimerDuration,
   start as startTimer,
+  DEFAULT_FLOAT,
   DEFAULT_TIMER,
+  type TimerFloat,
   type TimerState,
 } from "@/lib/rune2/timer";
-import { readStoredTimer, timerKey, writeStoredTimer } from "@/lib/rune2/timerStorage";
+import { floatKey, readStoredFloat, readStoredTimer, timerKey, writeStoredFloat, writeStoredTimer } from "@/lib/rune2/timerStorage";
 
 // The one writing timer of this device, for this writer — held outside
 // React, so the Widgets control (its small mark), the Timer widget and any
@@ -41,11 +43,16 @@ type Store = {
    * gate settling, a route change) never loses a note already marked shown.
    */
   notice: TimerNoticeShown | null;
+  /** Whether the timer shows on screen outside Widgets, and where (TimerFloat.tsx). */
+  float: TimerFloat;
+  /** Whether the Widgets drawer is open in this window: the on-screen card steps aside while it is. */
+  drawerOpen: boolean;
 };
 
 export type TimerNoticeShown = { completedAt: number; durationMs: number };
 
-let store: Store = { userId: null, state: DEFAULT_TIMER, now: 0, finishedHere: false, notice: null };
+const EMPTY: Store = { userId: null, state: DEFAULT_TIMER, now: 0, finishedHere: false, notice: null, float: DEFAULT_FLOAT, drawerOpen: false };
+let store: Store = EMPTY;
 const listeners = new Set<() => void>();
 let tick: ReturnType<typeof setTimeout> | null = null;
 let wired = false;
@@ -84,7 +91,12 @@ function wire() {
   if (wired || typeof window === "undefined") return;
   wired = true;
   window.addEventListener("storage", (e) => {
-    if (!store.userId || e.key !== timerKey(store.userId)) return;
+    if (!store.userId) return;
+    if (e.key === floatKey(store.userId)) {
+      set({ float: readStoredFloat(store.userId) });
+      return;
+    }
+    if (e.key !== timerKey(store.userId)) return;
     set({ state: readStoredTimer(store.userId), now: Date.now() });
     schedule();
   });
@@ -98,7 +110,8 @@ function wire() {
 function adopt(userId: string | null) {
   if (userId === store.userId) return;
   const state = userId ? resolve(readStoredTimer(userId), Date.now()) : DEFAULT_TIMER;
-  set({ userId, state, now: Date.now(), finishedHere: false, notice: null });
+  const float = userId ? readStoredFloat(userId) : DEFAULT_FLOAT;
+  set({ userId, state, now: Date.now(), finishedHere: false, notice: null, float });
   schedule();
 }
 
@@ -117,8 +130,13 @@ const subscribe = (fn: () => void) => {
   };
 };
 const snapshot = () => store;
-const SERVER_SNAPSHOT: Store = { userId: null, state: DEFAULT_TIMER, now: 0, finishedHere: false, notice: null };
-const serverSnapshot = (): Store => SERVER_SNAPSHOT;
+const serverSnapshot = (): Store => EMPTY;
+
+function applyFloat(next: TimerFloat) {
+  if (next.on === store.float.on && next.x === store.float.x && next.y === store.float.y) return;
+  if (store.userId) writeStoredFloat(store.userId, next);
+  set({ float: next });
+}
 
 export type WritingTimer = {
   state: TimerState;
@@ -140,6 +158,15 @@ export type WritingTimer = {
   showNotice: () => void;
   /** The note goes (dismissed, or its time is up); the Widgets dot stays. */
   dismissNotice: () => void;
+  /** Whether the timer shows on screen, and where. */
+  float: TimerFloat;
+  drawerOpen: boolean;
+  /** The switch: the running timer shown on screen, outside Widgets, or not. */
+  setFloatOn: (on: boolean) => void;
+  /** Where the on-screen card was put (its top-left in the window). */
+  moveFloat: (x: number, y: number) => void;
+  /** The Widgets drawer opened or closed (WidgetsControl). */
+  setDrawerOpen: (open: boolean) => void;
 };
 
 /** The writer's timer. `userId` adopts the device copy for that writer (null before the profile is known). */
@@ -165,6 +192,30 @@ export function useWritingTimer(userId: string | null | undefined): WritingTimer
   const dismissNotice = useCallback(() => {
     if (store.notice) set({ notice: null });
   }, []);
+  const setFloatOn = useCallback((on: boolean) => applyFloat({ ...store.float, on }), []);
+  const moveFloat = useCallback((x: number, y: number) => applyFloat({ ...store.float, x, y }), []);
+  const setDrawerOpen = useCallback((open: boolean) => {
+    if (store.drawerOpen !== open) set({ drawerOpen: open });
+  }, []);
 
-  return { state: s.state, now: s.now, finishedHere: s.finishedHere, setMinutes, start, pause, resume, reset, acknowledge: ack, markNotified: notified, notice: s.notice, showNotice, dismissNotice };
+  return {
+    state: s.state,
+    now: s.now,
+    finishedHere: s.finishedHere,
+    setMinutes,
+    start,
+    pause,
+    resume,
+    reset,
+    acknowledge: ack,
+    markNotified: notified,
+    notice: s.notice,
+    showNotice,
+    dismissNotice,
+    float: s.float,
+    drawerOpen: s.drawerOpen,
+    setFloatOn,
+    moveFloat,
+    setDrawerOpen,
+  };
 }

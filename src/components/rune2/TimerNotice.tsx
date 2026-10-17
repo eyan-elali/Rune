@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import { X } from "lucide-react";
 import { ICON_SM } from "./icons";
 import { RuneRoot } from "./RunePreferences";
+import { TimerFloat } from "./TimerFloat";
 import { useWritingTimer, type TimerNoticeShown } from "./useWritingTimer";
-import { durationInWords, owesNotice } from "@/lib/rune2/timer";
+import { clampFloat, durationInWords, owesNotice, type TimerFloat as TimerFloatPlace } from "@/lib/rune2/timer";
 import { useProfileStore } from "@/store/profileStore";
 
 // The timer's quiet tap on the shoulder (lib/rune2/timer.ts): when the
@@ -66,13 +67,42 @@ export function TimerNotice() {
       <span role="status" className="sr-only">
         {live ? `Timer finished. ${durationInWords(live.durationMs)}.` : ""}
       </span>
-      {live && <NoticeCard key={live.completedAt} shown={live} visible={visible} onDone={dismissNotice} />}
+      {/* The running timer on screen, when the writer keeps it there (TimerFloat.tsx). */}
+      <TimerFloat timer={timer} />
+      {live && <NoticeCard key={live.completedAt} shown={live} visible={visible} place={timer.float} onDone={dismissNotice} />}
     </RuneRoot>
   );
 }
 
-function NoticeCard({ shown, visible, onDone }: { shown: TimerNoticeShown; visible: boolean; onDone: () => void }) {
+function NoticeCard({
+  shown,
+  visible,
+  place,
+  onDone,
+}: {
+  shown: TimerNoticeShown;
+  visible: boolean;
+  /** Where the on-screen timer was: the note takes its place, so the writer's eye doesn't have to travel. */
+  place: TimerFloatPlace;
+  onDone: () => void;
+}) {
   const [held, setHeld] = useState(false);
+  const ref = useRef<HTMLElement>(null);
+  const [at, setAt] = useState<{ x: number; y: number } | null>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el || !place.on || place.x === null || place.y === null) {
+      setAt(null);
+      return;
+    }
+    setAt(
+      clampFloat(
+        { x: place.x, y: place.y },
+        { width: el.offsetWidth, height: el.offsetHeight },
+        { width: document.documentElement.clientWidth, height: window.innerHeight }
+      )
+    );
+  }, [place.on, place.x, place.y]);
   const left = useRef(NOTICE_MS);
   const since = useRef(0);
 
@@ -92,7 +122,9 @@ function NoticeCard({ shown, visible, onDone }: { shown: TimerNoticeShown; visib
 
   return (
     <aside
+      ref={ref}
       className="r2-timer-notice"
+      style={at ? { left: at.x, top: at.y, right: "auto" } : undefined}
       aria-label="Timer finished"
       onMouseEnter={() => setHeld(true)}
       onMouseLeave={() => setHeld(false)}

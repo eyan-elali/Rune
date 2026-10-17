@@ -218,7 +218,7 @@ test('the widget: the countdown is the anchor (role="timer", minute-level text);
   const block = widgets.slice(widgets.indexOf('function TimerWidget'), widgets.indexOf('function DailyGoalWidget'));
   assert.match(widgets, /case "timer":\s*return <TimerWidget size=\{size\} \/>;/);
   assert.match(block, /className="r2-timer-count"\s+role="timer"/);
-  assert.match(block, /aria-label=\{\s*idle\s*\?\s*`\$\{formatDuration\(shownMinutes \* MINUTE_MS\)\} set`\s*:\s*describeRemaining\(left\)\s*\}/);
+  assert.match(block, /<span className="r2-timer-count" role="timer" aria-label=\{describeRemaining\(left\)\}>/, 'running or paused: the count is the timer');
   assert.match(block, /role: "slider"/);
   assert.match(block, /"aria-label": "Duration"/);
   assert.match(block, /"aria-valuetext": formatDuration\(shownMinutes \* MINUTE_MS\)/);
@@ -230,7 +230,7 @@ test('the widget: the countdown is the anchor (role="timer", minute-level text);
   assert.match(block, /e\.key === "Enter"[\s\S]{0,80}timer\.start\(\)/);
   for (const label of ['Start', 'Pause', 'Resume', 'Reset', 'Start again']) assert.match(block, new RegExp(`>\\s*${label}\\s*<`), label);
   assert.match(block, /state\.status !== "idle" && \(\s*<button[\s\S]{0,240}?timer\.reset\(\)[\s\S]{0,80}?>\s*Reset\s*</, 'Reset only once there is something to reset');
-  assert.doesNotMatch(block, /<input|<form|r2-chip|r2-button|PRESETS|Custom/, 'no keypad, no form, no pills');
+  assert.doesNotMatch(block, /<form|r2-chip|r2-button|PRESETS|Custom/, 'no keypad, no form, no pills');
   // The drag is shown live and saved once, when the press ends.
   assert.match(block, /const onScaleUp = \(\) => \{\s*if \(draft === null\) return;\s*timer\.setMinutes\(draft\);/);
   const hook = code(read('src/components/rune2/useWritingTimer.ts'));
@@ -240,6 +240,113 @@ test('the widget: the countdown is the anchor (role="timer", minute-level text);
   assert.match(hook, /addEventListener\("storage"/, 'another tab\'s change arrives');
   assert.match(hook, /writeStoredTimer\(store\.userId/);
   assert.doesNotMatch(hook, /setInterval/, 'never a decrementing counter');
+});
+
+test('a typed time: "40", "40m", "1:30", "1h", "1h 30", "1 hour 15 min"; between a minute and two hours; anything else is refused with a reason', () => {
+  const ok = (raw, minutes) => assert.deepEqual(t.parseDuration(raw), { minutes, error: null }, raw);
+  const no = (raw) => { const r = t.parseDuration(raw); assert.equal(r.minutes, null, raw); assert.ok(r.error, raw); };
+  ok('40', 40);
+  ok(' 40 ', 40);
+  ok('40m', 40);
+  ok('40 min', 40);
+  ok('7 minutes', 7);
+  ok('1:30', 90);
+  ok('0:45', 45);
+  ok('2:00', 120);
+  ok('1h', 60);
+  ok('1h 30', 90);
+  ok('1h30m', 90);
+  ok('1 hour 15 min', 75);
+  ok('1', 1);
+  ok('120', 120);
+  no('');
+  no('0');
+  no('121');
+  no('2:01');
+  no('1:75');
+  no('ten');
+  no('-5');
+  no('25.5');
+  assert.equal(t.parseDuration('3h').error, 'Up to two hours.');
+  assert.equal(t.parseDuration('0').error, 'At least a minute.');
+});
+
+test('the widget: idle, the count is a button that becomes a field in its own type; Enter or leaving sets the time, Escape keeps the old one, a time that can\'t be read keeps the field and says why', () => {
+  const block = code(read('src/components/rune2/Widgets.tsx'));
+  const timer = block.slice(block.indexOf('function TimerWidget'), block.indexOf('function DailyGoalWidget'));
+  assert.match(timer, /className="r2-timer-count r2-timer-count--set"/);
+  assert.match(timer, /aria-label=\{`Duration, \$\{formatDuration\(shownMinutes \* MINUTE_MS\)\}\. Type a time`\}/);
+  assert.match(timer, /onClick=\{beginTyping\}/);
+  assert.match(timer, /className="r2-timer-count r2-timer-count--input"/);
+  assert.match(timer, /aria-label="Duration"\s+aria-describedby=\{hintId\}/);
+  assert.match(timer, /const r = parseDuration\(typed\);\s*if \(r\.error !== null\) \{\s*setTypeError\(r\.error\);\s*return false;/);
+  assert.match(timer, /e\.key === "Enter"[\s\S]{0,60}endTyping\(true, true\)/);
+  assert.match(timer, /e\.key === "Escape"[\s\S]{0,90}endTyping\(false, true\)/);
+  assert.match(timer, /if \(!endTyping\(true, false\)\) endTyping\(false, false\);/, 'leaving with an unreadable time keeps the old one');
+  assert.match(timer, /"minutes, or 1:30"/, 'the hint while typing');
+});
+
+test('on screen: the switch is stored per writer on this device; read defensively; the card shows only when switched on and the timer runs or is paused; a place is kept whole inside the window', () => {
+  assert.deepEqual(t.DEFAULT_FLOAT, { on: false, x: null, y: null });
+  assert.deepEqual(t.readFloat(null), t.DEFAULT_FLOAT);
+  assert.deepEqual(t.readFloat({ on: true }), { on: true, x: null, y: null });
+  assert.deepEqual(t.readFloat({ on: true, x: 40, y: 80 }), { on: true, x: 40, y: 80 });
+  assert.deepEqual(t.readFloat({ on: 'yes', x: 40, y: 'a' }), { on: false, x: null, y: null });
+  const running = t.start(t.DEFAULT_TIMER, 1000);
+  const on = { on: true, x: null, y: null };
+  assert.equal(t.floatShows(on, t.DEFAULT_TIMER), false, 'idle: nothing on screen');
+  assert.equal(t.floatShows(on, running), true);
+  assert.equal(t.floatShows(on, t.pause(running, 2000)), true);
+  assert.equal(t.floatShows(on, t.resolve(running, 99_999_999)), false, 'finished: the note takes its place');
+  assert.equal(t.floatShows(t.DEFAULT_FLOAT, running), false, 'switched off');
+  const size = { width: 212, height: 70 };
+  const view = { width: 1200, height: 800 };
+  assert.deepEqual(t.clampFloat({ x: 300, y: 200 }, size, view), { x: 300, y: 200 });
+  assert.deepEqual(t.clampFloat({ x: -50, y: -9 }, size, view), { x: t.FLOAT_MARGIN, y: t.FLOAT_MARGIN });
+  assert.deepEqual(t.clampFloat({ x: 5000, y: 5000 }, size, view), { x: 1200 - 212 - t.FLOAT_MARGIN, y: 800 - 70 - t.FLOAT_MARGIN });
+  assert.deepEqual(t.clampFloat({ x: 900, y: 600 }, size, { width: 600, height: 400 }), { x: 600 - 212 - t.FLOAT_MARGIN, y: 400 - 70 - t.FLOAT_MARGIN }, 'a smaller window brings it back in');
+  assert.equal(storage.floatKey('u1'), 'rune:timer-float:u1');
+  const bag = new Map();
+  globalThis.window = { localStorage: { getItem: (k) => bag.get(k) ?? null, setItem: (k, v) => bag.set(k, String(v)) } };
+  try {
+    storage.writeStoredFloat('u1', { on: true, x: 10, y: 20 });
+    assert.deepEqual(storage.readStoredFloat('u1'), { on: true, x: 10, y: 20 });
+    assert.deepEqual(storage.readStoredFloat('u2'), t.DEFAULT_FLOAT);
+  } finally {
+    delete globalThis.window;
+  }
+});
+
+test('on screen: the widget\'s switch; the card in the note\'s layer, steps aside while the drawer is open, draggable and keyboard-movable, controls when reached for, faint while typing, never takes the caret; the note takes its place at the end', () => {
+  const widgets = code(read('src/components/rune2/Widgets.tsx'));
+  assert.match(widgets, /role="switch"[\s\S]{0,120}aria-checked=\{timer\.float\.on\}/);
+  assert.match(widgets, /Show on screen/);
+  assert.match(widgets, /onClick=\{\(\) => timer\.setFloatOn\(!timer\.float\.on\)\}/);
+  assert.match(widgets, /setDrawerOpen\(open\);\s*return \(\) => setDrawerOpen\(false\);/);
+  const float = code(read('src/components/rune2/TimerFloat.tsx'));
+  assert.match(float, /if \(!floatShows\(timer\.float, timer\.state\) \|\| timer\.drawerOpen\) return null;/);
+  assert.match(float, /setPointerCapture/);
+  assert.match(float, /if \(d\.moved && r\) timer\.moveFloat\(r\.x, r\.y\);/, 'the place is kept once the drag ends');
+  assert.match(float, /e\.key === "ArrowLeft"/);
+  assert.match(float, /tabIndex=\{0\}/);
+  assert.match(float, /document\.addEventListener\("keydown", onKey, true\)/);
+  assert.match(float, /timeout = setTimeout\(\(\) => setFaint\(false\), FLOAT_TYPING_MS\)/);
+  assert.match(float, /export const FLOAT_TYPING_MS = 2_500;/);
+  assert.match(float, /onPointerDown[\s\S]{0,200}e\.preventDefault\(\);/, 'a press or drag never moves the caret');
+  assert.equal((float.match(/onMouseDown=\{\(e\) => e\.preventDefault\(\)\}/g) ?? []).length, 3, 'Pause, Resume and Reset never take focus from the writing');
+  assert.doesNotMatch(float, /autoFocus|\.focus\(/);
+  assert.match(float, /role="timer" aria-label=\{describeRemaining\(left\)\}/);
+  const notice = code(read('src/components/rune2/TimerNotice.tsx'));
+  assert.match(notice, /<TimerFloat timer=\{timer\} \/>/);
+  assert.match(notice, /place=\{timer\.float\}/);
+  assert.match(notice, /style=\{at \? \{ left: at\.x, top: at\.y, right: "auto" \} : undefined\}/, 'the note appears where the card was');
+  const css = read('src/app/(rune2)/rune2.css');
+  const block = code(css.slice(css.indexOf('/* ── The timer on screen'), css.indexOf("/* ── The timer's quiet note")));
+  assert.match(block, /\.r2-timer-float \{[^}]*position: fixed;[^}]*top: 94px;[^}]*right: 16px;/);
+  assert.match(block, /\.r2-timer-float\[data-faint\] \{\s*opacity: 0\.28;/);
+  assert.match(block, /\.r2-timer-float:is\(:hover, :focus-within\) \.r2-timer-float-actions \{\s*opacity: 1;/);
+  assert.match(block, /@media \(prefers-reduced-motion: reduce\)[^}]*\.r2-timer-float[^}]*animation: none;\s*transition: none;/);
+  assert.doesNotMatch(block, /--r2-accent|--r2-danger|#[0-9a-fA-F]{3,8}\b|rgba?\(/);
 });
 
 test('the widget styles: the count in the book\'s serif with even figures; the scale is ink and hairline, never the accent; ticks fade when it runs and the marker travels a second at a time; Small and Wide compositions; reduced motion stills it', () => {
@@ -304,7 +411,7 @@ test('the note never interrupts: no focus taken (no autofocus, a press keeps the
   const css = read('src/app/(rune2)/rune2.css');
   const block = code(css.slice(css.indexOf("/* ── The timer's quiet note")));
   assert.match(block, /\.r2-timer-notice-layer \{[^}]*position: fixed;[^}]*width: 0;[^}]*height: 0;[^}]*pointer-events: none;/, 'takes no room: nothing shifts');
-  assert.match(block, /\.r2-timer-notice \{[^}]*position: fixed;[^}]*top: 56px;[^}]*right: 16px;/, 'top right, under the tab band');
+  assert.match(block, /\.r2-timer-notice \{[^}]*position: fixed;[^}]*top: 94px;[^}]*right: 16px;/, 'top right, under the tab band and the context bar');
   assert.match(block, /\.r2-timer-notice-mark \{[^}]*background: var\(--r2-complete\)/);
   assert.match(block, /r2-timer-notice-breath [^;]* 1 both;/, 'the bead breathes once');
   assert.doesNotMatch(block.slice(0, block.indexOf('@media (prefers-reduced-motion')), /--r2-danger|infinite|--r2-accent/);
@@ -312,7 +419,7 @@ test('the note never interrupts: no focus taken (no autofocus, a press keeps the
 });
 
 test('it is a tool: the timer never touches writing credit, sessions, goals, XP, analytics, sounds, notifications or Project data, and needs no migration', () => {
-  for (const f of ['src/lib/rune2/timer.ts', 'src/lib/rune2/timerStorage.ts', 'src/components/rune2/useWritingTimer.ts', 'src/components/rune2/TimerNotice.tsx']) {
+  for (const f of ['src/lib/rune2/timer.ts', 'src/lib/rune2/timerStorage.ts', 'src/components/rune2/useWritingTimer.ts', 'src/components/rune2/TimerNotice.tsx', 'src/components/rune2/TimerFloat.tsx']) {
     const src = code(read(f));
     for (const word of ['writing_sessions', 'writingActivity', 'recordWordsWritten', 'writingCredit', 'dailyGoal', 'writing_goals', 'trackEvent', 'analytics', 'Notification', 'Audio', 'alert(', 'confirm(', 'XP', 'streak', 'projectId', 'project_id']) {
       assert.doesNotMatch(src, new RegExp(word.replace(/[()]/g, '\\$&')), `${f}: ${word}`);
