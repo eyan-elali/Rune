@@ -17,7 +17,9 @@
     "film:storyboard": "node scripts/film-storyboard.mjs",
     "film:studies": "node scripts/film-studies.mjs",
     "film:cut": "node scripts/film-cut.mjs",
-    "carousel": "node scripts/carousel.mjs"
+    "carousel": "node scripts/carousel.mjs",
+    "ad:01": "node scripts/ad01.mjs",
+    "ad:01b": "node scripts/ad01b.mjs"
   },
   "dependencies": {
     "@fontsource/eb-garamond": "5.2.7",

@@ -9,6 +9,8 @@ import { ProductFilmContactSheet, ProductFilmStoryboard, SHEET } from "./creativ
 import { StudyCompositions } from "./creatives/product-film/studies/compositions";
 import { SuturaProductFilmCompositions } from "./creatives/product-film/film/Film";
 import { CarouselCompositions } from "./creatives/carousel/Carousel";
+import { Ad01Compositions } from "./creatives/ad-01-start-simple/review";
+import { Ad01VariantBCompositions } from "./creatives/ad-01-start-simple-variant-b/review";
 
 // Every composition the marketing system renders. Studio (npm run studio)
 // lists them with a scrubbable timeline; `remotion render` / `remotion still`
@@ -71,6 +73,10 @@ export function Root() {
       <SuturaProductFilmCompositions />
       {/* The Instagram carousel: six 1080×1350 stills, a contact sheet and a swipe strip (marketing/carousel/). */}
       <CarouselCompositions />
+      {/* Performance Ad #1, 9:16 (ads/ad-01-start-simple/): the cut and its review sheets. */}
+      <Ad01Compositions />
+      {/* Ad #1, Variant B (ads/ad-01-start-simple-variant-b/): the Control untouched; the experiment beside it. */}
+      <Ad01VariantBCompositions />
     </>
   );
 }
